@@ -73,6 +73,38 @@ WELLNESS files are **sequential time chunks** covering the 24-hour period. The w
 | `sleep_disruption_severity_period_mesgs` | ~6/night | 3 | Disruption periods |
 | `sleep_disruption_overnight_severity_mesgs` | 1 | 2 | Overall severity |
 
+### METRICS Files (Mostly Undocumented)
+
+METRICS files contain **training and fitness metrics** but are almost entirely undocumented even in the official Garmin FIT SDK.
+
+**Named message types (metadata only):**
+- `file_id_mesgs` - File identification
+- `file_creator_mesgs` - Software version
+- `device_info_mesgs` - Device details
+
+**Unknown message types (16 total):**
+
+| ID | Records | Fields | Possible Content (speculative) |
+|----|---------|--------|-------------------------------|
+| 369 | ~11 | 30 | Training status summary (most fields of any message) |
+| 403 | ~7 | 12 | VO2 max data (values like 5686 ≈ 56.86 mL/kg/min) |
+| 339 | ~10 | 6 | Training load (values in thousands) |
+| 281 | ~10 | 9 | Recovery metrics |
+| 241 | ~17 | 3 | Timestamps/sync data |
+| 404 | ~14 | 4 | Goal tracking? (values like 10000 = step goal?) |
+| 357 | ~7 | 4 | Training readiness? (percentage values 95-98) |
+| 378 | ~7 | 7 | HR zones? (values include 42, 220 - VO2max, max HR) |
+| 356 | ~7 | 7 | Performance metrics |
+| 410 | ~7 | 9 | Training effect? |
+| 294 | ~7 | 11 | Large numeric values - cumulative stats |
+| 232 | ~7 | 5 | Status flags |
+| 402 | ~7 | 4 | Binary flags (0/1/2 values) |
+| 284 | ~7 | 6 | HR-related (includes value 2359 ≈ HR zones?) |
+| 330 | ~3 | 4 | Session markers |
+| 384 | ~3 | 26 | Comprehensive session summary |
+
+**Note:** These speculations are based on analyzing sample values. Reverse engineering would require correlating with Garmin Connect data to confirm meanings.
+
 ---
 
 ## Field Details by Message Type
@@ -220,3 +252,5 @@ Still undocumented (numeric IDs):
 | 2026-01-19 | Documented sleep_assessment with 10 quality metrics |
 | 2026-01-19 | Documented skin_temp_overnight with deviation tracking |
 | 2026-01-19 | Reduced unknown message types from ~20 to ~10 |
+| 2026-01-19 | Analyzed METRICS files - 16 undocumented message types for training data |
+| 2026-01-19 | Added speculative field mappings for METRICS based on sample values |
