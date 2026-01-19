@@ -1,3 +1,7 @@
+data/
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/.vite/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
