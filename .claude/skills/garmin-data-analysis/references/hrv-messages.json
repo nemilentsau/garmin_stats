@@ -1,0 +1,85 @@
+{
+  "$description": "FIT message schemas found in HRV_STATUS files. 1 file per day.",
+  "hrv_value_mesgs": {
+    "message_id": 371,
+    "records_per_night": "~58",
+    "description": "Raw 5-minute RMSSD measurements during sleep",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC measurement time",
+        "nullable": false
+      },
+      "value": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "5-minute RMSSD in milliseconds. SDK auto-scales (raw / 128).",
+        "filter": "truthy (0 = no reading)"
+      }
+    },
+    "gotchas": [
+      "All HRV values use scale factor 128 in the raw FIT profile. The SDK auto-scales.",
+      "These are 5-minute interval readings taken ONLY during sleep."
+    ]
+  },
+  "hrv_status_summary_mesgs": {
+    "message_id": 370,
+    "records_per_night": 1,
+    "description": "HRV baseline and status summary — one per night",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC time",
+        "nullable": false
+      },
+      "weekly_average": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "7-day rolling average RMSSD"
+      },
+      "last_night_average": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "Last night's average RMSSD"
+      },
+      "last_night_5_min_high": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "Peak 5-minute RMSSD value from last night"
+      },
+      "baseline_low_upper": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "Upper boundary of the 'low' HRV baseline range"
+      },
+      "baseline_balanced_lower": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "Lower boundary of the 'balanced' HRV baseline range"
+      },
+      "baseline_balanced_upper": {
+        "type": "uint16",
+        "scale": 128,
+        "unit": "ms",
+        "description": "Upper boundary of the 'balanced' HRV baseline range"
+      },
+      "status": {
+        "type": "enum",
+        "values": ["low", "balanced", "high"],
+        "description": "HRV status classification based on baselines"
+      }
+    },
+    "fields_undocumented": ["7 (int, sample=34)", "8 (int, sample=41242)"]
+  },
+  "unknown_22": {
+    "records_per_file": 1,
+    "description": "Unknown message type 22. Metadata.",
+    "status": "not_parsed"
+  }
+}

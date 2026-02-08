@@ -44,11 +44,19 @@
 - **Container needs `position: relative`**: Chart.js with `responsive: true` + `maintainAspectRatio: false` requires the parent container to have `position: relative`.
 - **Create in `onMount`, update in `$effect`**: Create the Chart instance in `onMount` (canvas guaranteed available), use `$effect` only for reactive config updates. Return `chart.destroy()` from `onMount` for cleanup.
 
-## Garmin FIT SDK Gotchas
-- **HR uses `timestamp_16`, not `timestamp`**: Heart rate entries in `monitoring_mesgs` use a compressed 16-bit timestamp field (`timestamp_16`), NOT the standard `timestamp` field. Calling `msg.get("timestamp")` returns `None` for HR entries. To associate HR data with a day, use the file's parent directory name (the date).
-- **Multiple WELLNESS files per day**: The watch splits WELLNESS data into sequential time chunks. Always iterate all WELLNESS files for a given day.
-- **SKIN_TEMP**: 1 reading per night via `skin_temp_overnight_mesgs`. Fields: `timestamp`, `local_timestamp`, `nightly_value`, `average_deviation`, `average_7_day_deviation`, plus unknown field `3`.
-
-## Data Notes
-- Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS
+## Garmin Data Analysis
+- **Full skill docs:** `.claude/skills/garmin-data-analysis/SKILL.md`
+- **Trust existing schemas** for already-documented message types — don't re-decode files for known structures.
+- **Use scripts when things break or change:**
+  - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/verify_schemas.py`
+  - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type <TYPE>`
+- **Explore freely** for new metrics, new file types, or undocumented message types — just update the reference JSONs with what you find.
+- Schema files in `.claude/skills/garmin-data-analysis/references/`:
+  - `wellness-messages.json` — HR, stress, SpO2, respiration, activity
+  - `sleep-messages.json` — sleep stages, assessment scores
+  - `hrv-messages.json` — HRV raw values, summaries, baselines
+  - `skin-temp-messages.json` — skin temperature deviation
+  - `api-contracts.json` — all API endpoint request/response shapes
+- Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS, NAP
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)
+- Data volume: ~1800 HR, ~1400 stress, ~1100 SpO2, ~1400 respiration readings per day

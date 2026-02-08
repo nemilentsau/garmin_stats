@@ -1,0 +1,124 @@
+{
+  "$description": "FIT message schemas found in SLEEP_DATA files. 1 file per day.",
+  "sleep_level_mesgs": {
+    "message_id": 275,
+    "records_per_night": "~15",
+    "description": "Sleep stage classifications over the night",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "Stage start time (UTC)",
+        "nullable": false
+      },
+      "sleep_level": {
+        "type": "enum",
+        "values": ["awake", "light", "deep", "rem"],
+        "description": "Sleep stage classification"
+      }
+    }
+  },
+  "sleep_assessment_mesgs": {
+    "message_id": 271,
+    "records_per_night": 1,
+    "description": "Sleep quality scores — one summary per night",
+    "fields": {
+      "overall_sleep_score": {
+        "type": "uint8",
+        "range": "0-100",
+        "description": "Overall sleep quality score"
+      },
+      "deep_sleep_score": {
+        "type": "uint8",
+        "range": "0-100",
+        "description": "Deep sleep quality score"
+      },
+      "light_sleep_score": {
+        "type": "uint8",
+        "range": "0-100",
+        "description": "Light sleep quality score"
+      },
+      "rem_sleep_score": {
+        "type": "uint8",
+        "range": "0-100",
+        "description": "REM sleep quality score"
+      },
+      "awake_time_score": {
+        "type": "uint8",
+        "range": "0-100",
+        "description": "Score for time spent awake during sleep"
+      },
+      "awakenings_count": {
+        "type": "uint8",
+        "description": "Number of awakenings during the night"
+      },
+      "average_stress_during_sleep": {
+        "type": "uint16",
+        "scale": 100,
+        "description": "Average stress level during sleep. SDK auto-scales (raw / 100)."
+      },
+      "combined_awake_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Combined score for awake periods",
+        "extracted": false
+      },
+      "awakenings_count_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Score for number of awakenings",
+        "extracted": false
+      },
+      "sleep_duration_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Score for total sleep duration",
+        "extracted": false
+      },
+      "sleep_quality_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Overall sleep quality sub-score",
+        "extracted": false
+      },
+      "sleep_recovery_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Recovery quality score",
+        "extracted": false
+      },
+      "sleep_restlessness_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Restlessness during sleep score",
+        "extracted": false
+      },
+      "interruptions_score": {
+        "type": "int",
+        "range": "0-100",
+        "description": "Sleep interruptions quality score",
+        "extracted": false
+      }
+    },
+    "fields_undocumented": ["12 (int)", "13 (int)", "16 (int)"]
+  },
+  "event_mesgs": {
+    "records_per_file": "~2",
+    "description": "Sleep start/stop events. Not currently parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_273": {
+    "records_per_file": 1,
+    "description": "Unknown message type 273. Possibly sleep start/stop metadata.",
+    "status": "not_parsed"
+  },
+  "unknown_382": {
+    "records_per_file": 1,
+    "description": "Unknown message type 382. Not parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_521": {
+    "records_per_file": 1,
+    "description": "Unknown message type 521. Not parsed.",
+    "status": "not_parsed"
+  }
+}

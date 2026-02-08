@@ -1,0 +1,256 @@
+{
+  "$description": "FIT message schemas found in WELLNESS files. 5-7 files per day, sequential time chunks.",
+  "monitoring_mesgs": {
+    "message_id": 55,
+    "records_per_day": "~1800",
+    "description": "Primary activity monitoring — heart rate, steps, activity type, intensity",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC time aligned to logging interval. WARNING: NULL for heart_rate entries (they use timestamp_16 instead)",
+        "nullable": true
+      },
+      "timestamp_16": {
+        "type": "uint16",
+        "description": "Compressed 16-bit timestamp offset in seconds. Used by HR entries instead of timestamp. Cannot be trivially converted to absolute time without base timestamp from monitoring_info_mesgs.",
+        "nullable": true
+      },
+      "heart_rate": {
+        "type": "uint8",
+        "unit": "bpm",
+        "description": "Heart rate in beats per minute",
+        "filter": "> 0 (zero means no reading)",
+        "nullable": true
+      },
+      "activity_type": {
+        "type": "enum",
+        "values": ["sedentary", "walking", "running", "generic", "cycling", "swimming"],
+        "description": "Current activity classification",
+        "nullable": true
+      },
+      "intensity": {
+        "type": "uint8",
+        "scale": 10,
+        "description": "Activity intensity 0-7 (raw value divided by 10)",
+        "nullable": true
+      },
+      "steps": {
+        "type": "uint32",
+        "description": "Step count (sub_field of cycles, depends on activity_type)",
+        "nullable": true
+      },
+      "active_calories": {
+        "type": "uint16",
+        "unit": "kcal",
+        "description": "Active calories burned",
+        "nullable": true
+      },
+      "distance": {
+        "type": "uint32",
+        "scale": 100,
+        "unit": "meters",
+        "description": "Distance in meters (raw value divided by 100)",
+        "nullable": true
+      },
+      "ascent": {
+        "type": "uint32",
+        "scale": 1000,
+        "unit": "meters",
+        "description": "Elevation gain (raw value divided by 1000). NOT present in all files — only during elevation-tracking activities.",
+        "nullable": true,
+        "rare": true
+      },
+      "descent": {
+        "type": "uint32",
+        "scale": 1000,
+        "unit": "meters",
+        "description": "Elevation loss (raw value divided by 1000). NOT present in all files — only during elevation-tracking activities.",
+        "nullable": true,
+        "rare": true
+      },
+      "cycles": {
+        "type": "float",
+        "description": "Raw cycle count (steps are a sub_field of this). SDK auto-scales.",
+        "nullable": true
+      },
+      "active_time": {
+        "type": "float",
+        "unit": "seconds",
+        "description": "Active time in seconds for the monitoring interval",
+        "nullable": true
+      },
+      "current_activity_type_intensity": {
+        "type": "int",
+        "description": "Packed field combining activity type and intensity. Present on most records.",
+        "nullable": true
+      },
+      "duration_min": {
+        "type": "int",
+        "unit": "minutes",
+        "description": "Duration in minutes. Rare — appears on summary-type records.",
+        "nullable": true,
+        "rare": true
+      }
+    },
+    "fields_undocumented": ["35 (int)", "36 (int)", "37 (int)", "38 (int)"],
+    "gotchas": [
+      "Heart rate uses timestamp_16, NOT timestamp. msg.get('timestamp') returns None for HR entries.",
+      "Group HR data by file parent directory date, not by timestamp.",
+      "Multiple WELLNESS files per day — always iterate ALL files for a given day."
+    ]
+  },
+  "stress_level_mesgs": {
+    "message_id": 227,
+    "records_per_day": "~1400",
+    "description": "Periodic stress level measurements",
+    "fields": {
+      "stress_level_time": {
+        "type": "datetime",
+        "description": "Measurement time. NOTE: uses stress_level_time, NOT the standard timestamp field",
+        "nullable": false
+      },
+      "stress_level_value": {
+        "type": "sint16",
+        "unit": "score",
+        "range": "0-100 (valid), -1 (unknown), -2 (calculating)",
+        "description": "Stress score. Higher = more stressed.",
+        "filter": ">= 0 (exclude -1 and -2)"
+      }
+    },
+    "fields_undocumented": ["2 (int, sample=13)", "3 (int, sample=42)", "4 (int, sample=1)"],
+    "gotchas": [
+      "Uses stress_level_time, NOT timestamp.",
+      "Negative values are invalid markers, not actual stress levels."
+    ]
+  },
+  "respiration_rate_mesgs": {
+    "message_id": 297,
+    "records_per_day": "~1400",
+    "description": "Periodic respiration rate measurements",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC measurement time",
+        "nullable": false
+      },
+      "respiration_rate": {
+        "type": "sint16",
+        "scale": 100,
+        "unit": "breaths/min",
+        "description": "Breaths per minute. SDK auto-scales (raw / 100). Normal range: 12-20 br/min at rest.",
+        "filter": "> 0 (negative values are invalid: -300 invalid, -200 large motion, -100 off wrist)"
+      }
+    },
+    "gotchas": [
+      "Negative values encode specific error states, not actual readings."
+    ]
+  },
+  "spo2_data_mesgs": {
+    "message_id": 269,
+    "records_per_day": "~1100",
+    "description": "Periodic blood oxygen saturation measurements",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC measurement time",
+        "nullable": false
+      },
+      "reading_spo2": {
+        "type": "uint8",
+        "unit": "%",
+        "range": "0-100",
+        "description": "Blood oxygen saturation percentage. Normal: 95-100%. Below 90% concerning.",
+        "filter": "truthy (0 = no reading)"
+      },
+      "reading_confidence": {
+        "type": "uint8",
+        "description": "Confidence score of the reading",
+        "nullable": true
+      },
+      "mode": {
+        "type": "enum",
+        "values": ["periodic", "on_demand"],
+        "description": "How the reading was triggered",
+        "nullable": true
+      }
+    }
+  },
+  "monitoring_hr_data_mesgs": {
+    "message_id": 211,
+    "records_per_day": "~11",
+    "description": "Resting heart rate summary records",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "UTC time",
+        "nullable": false
+      },
+      "resting_heart_rate": {
+        "type": "uint8",
+        "unit": "bpm",
+        "description": "7-day rolling average resting heart rate",
+        "nullable": true
+      },
+      "current_day_resting_heart_rate": {
+        "type": "uint8",
+        "unit": "bpm",
+        "description": "Today's resting heart rate",
+        "nullable": true
+      }
+    }
+  },
+  "event_mesgs": {
+    "message_id": null,
+    "records_per_day": "~260",
+    "description": "Activity events — not currently parsed",
+    "fields": {
+      "timestamp": { "type": "datetime" },
+      "event": { "type": "enum" },
+      "event_type": { "type": "enum" },
+      "data": { "type": "uint32" },
+      "data16": { "type": "uint16" }
+    },
+    "status": "not_parsed"
+  },
+  "monitoring_info_mesgs": {
+    "records_per_file": "~2",
+    "description": "File metadata — timestamp base for compressed timestamps. Not currently parsed.",
+    "fields": {
+      "timestamp": { "type": "datetime" },
+      "local_timestamp": { "type": "local_date_time" },
+      "cycles_to_distance": { "type": "float" },
+      "cycles_to_calories": { "type": "float" }
+    },
+    "status": "not_parsed"
+  },
+  "ohr_settings_mesgs": {
+    "records_per_file": "~2",
+    "description": "Optical heart rate sensor settings. Not currently parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_233": {
+    "records_per_day": "~131-185",
+    "description": "Unknown message type 233. Possibly raw sensor data. Not parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_279": {
+    "records_per_file": "~65-92",
+    "description": "Unknown message type 279. Not parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_24": {
+    "records_per_file": "~22-41",
+    "description": "Unknown message type 24. Not parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_355": {
+    "records_per_file": 1,
+    "description": "Unknown message type 355. Metadata or training-related. Not parsed.",
+    "status": "not_parsed"
+  },
+  "unknown_484": {
+    "records_per_file": 1,
+    "description": "Unknown message type 484. Not parsed.",
+    "status": "not_parsed"
+  }
+}
