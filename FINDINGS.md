@@ -9,7 +9,7 @@ Data schemas and field documentation live in `.claude/skills/garmin-data/referen
 ## Data Quality
 
 ### Missingness
-- **SpO2: 16% missing days** (6 of 37). Needs investigation — is this sensor-off, device-not-worn, or systematic? The remaining SpO2 values cluster tightly (92.5-95.5%, sd=0.7), suggesting the sensor either works well or doesn't work at all.
+- **SpO2: 16% missing days** (6 of 37). **Explained:** SpO2 sensor was recently enabled — early days in the dataset predate activation. Not a sensor failure. The remaining values cluster tightly (92.5-95.5%, sd=0.7).
 - **HRV: 3% missing** (1 day). Likely device not worn overnight.
 - **Skin Temp: 3% missing** (1 day). Same likely cause.
 - **HR, Stress, Respiration: 0% missing.** Complete coverage across all 37 days.
@@ -74,7 +74,7 @@ Training metrics files contain 14+ undocumented message types (IDs: 232, 241, 28
 
 ## Open Questions
 
-1. Why is SpO2 missing for 16% of days? Is it a specific firmware behavior, device-not-worn, or sensor failure?
+1. ~~Why is SpO2 missing for 16% of days?~~ **Resolved:** sensor was recently enabled; early days predate activation.
 2. Is the respiration bimodality real (sleep vs wake) or an artifact of the daily aggregation method?
 3. Can we reconstruct per-reading timestamps for HR data? `monitoring_info_mesgs` contains a base timestamp that may allow decompressing `timestamp_16` offsets.
 4. What are the METRICS file message types? Correlating with Garmin Connect API data could decode them.

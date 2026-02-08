@@ -44,19 +44,37 @@
 - **Container needs `position: relative`**: Chart.js with `responsive: true` + `maintainAspectRatio: false` requires the parent container to have `position: relative`.
 - **Create in `onMount`, update in `$effect`**: Create the Chart instance in `onMount` (canvas guaranteed available), use `$effect` only for reactive config updates. Return `chart.destroy()` from `onMount` for cleanup.
 
-## Garmin Data Analysis
-- **Full skill docs:** `.claude/skills/garmin-data/SKILL.md`
-- **Trust existing schemas** for already-documented message types — don't re-decode files for known structures.
-- **Use scripts when things break or change:**
-  - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
-  - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
-- **Explore freely** for new metrics, new file types, or undocumented message types — just update the reference JSONs with what you find.
-- Schema files in `.claude/skills/garmin-data/references/`:
-  - `wellness-messages.json` — HR, stress, SpO2, respiration, activity
-  - `sleep-messages.json` — sleep stages, assessment scores
-  - `hrv-messages.json` — HRV raw values, summaries, baselines
-  - `skin-temp-messages.json` — skin temperature deviation
-  - `api-contracts.json` — all API endpoint request/response shapes
+## Skills
+
+Two skills support this project. Use them for different purposes:
+
+### `garmin-data` — project-specific data dictionary
+**Use when:** parsing FIT files, adding new endpoints, understanding field names/types/units, debugging parser errors, handling SDK changes.
+- Skill docs: `.claude/skills/garmin-data/SKILL.md`
+- Trust existing schemas for documented message types — don't re-decode files for known structures
+- Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
+- Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
+- Explore freely for new metrics, new file types, or undocumented message types — update reference JSONs with findings
+- Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions, api-contracts)
 - Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS, NAP
+
+### `data-analysis` — portable DA principles
+**Use when:** designing chart configurations, choosing summary statistics, deciding on band types (IQR vs min/max), inspecting generated charts, running EDA on new data, or any time you're making a decision about *how to present or analyze* data rather than *how to parse* it.
+- Skill docs: `.claude/skills/data-analysis/SKILL.md`
+- This skill is project-independent — it applies to any data analysis work
+
+### Chart Design Workflow (visual inspection → frontend)
+The project artifact is **frontend dashboards** (SvelteKit + Chart.js). But you cannot evaluate a chart just by reading its config. The workflow:
+
+1. **Build or modify** a Chart.js chart in `frontend/src/lib/components/` or a route page
+2. **Generate inspection images** that mirror the frontend chart:
+   `cd backend && uv run python ../.claude/skills/data-analysis/scripts/inspect_charts.py`
+3. **Visually inspect** the generated PNGs (in `.claude/chart-inspections/`) using multimodal capabilities
+4. **Apply the DA skill rules** — check for: min/max band problem, flat average lines, missing data gaps, axis scale issues, wrong chart type
+5. **Fix the frontend Chart.js config** based on what you saw — the Python charts are a diagnostic tool, not the deliverable
+
+Run this workflow whenever you create or modify any chart. Do not ship a chart you haven't visually inspected.
+
+## Data Context
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)
 - Data volume: ~1800 HR, ~1400 stress, ~1100 SpO2, ~1400 respiration readings per day
