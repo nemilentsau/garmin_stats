@@ -65,6 +65,9 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+garmin_stats.db
+garmin_stats.db-wal
+garmin_stats.db-shm
 
 # Flask stuff:
 instance/

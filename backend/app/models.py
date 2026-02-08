@@ -262,3 +262,15 @@ class DaySummaryResponse(_DefaultsRequired):
 class DaysResponse(_DefaultsRequired):
     days: list[str]
     total: int
+
+
+class IngestResult(_DefaultsRequired):
+    days_ingested: int
+    duration_ms: int
+
+
+class IngestStatus(_DefaultsRequired):
+    needs_ingest: bool
+    last_ingest_time: str | None = None
+    days_in_db: int
+    days_on_disk: int
