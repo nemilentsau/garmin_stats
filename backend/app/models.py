@@ -186,6 +186,9 @@ class DailyHeartRateStats(_DefaultsRequired):
     avg: float | None = None
     min: int | None = None
     max: int | None = None
+    median: float | None = None
+    q1: float | None = None
+    q3: float | None = None
     resting: int | None = None
 
 
@@ -193,6 +196,9 @@ class DailyMetricStats(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None
     max: float | None = None
+    median: float | None = None
+    q1: float | None = None
+    q3: float | None = None
 
 
 class DailyHrvStats(_DefaultsRequired):

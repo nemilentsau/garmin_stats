@@ -6,7 +6,7 @@ Produces PNG charts matching what the frontend dashboards display,
 so you can examine them with multimodal capabilities to catch:
 - Wrong scales, flat lines, missing data gaps
 - Outlier effects on averages
-- Min/max bands obscuring meaningful variation
+- IQR bands that are too wide or too narrow
 - Data that didn't load or was filtered incorrectly
 
 Usage:
@@ -31,72 +31,47 @@ import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime
 
-from app.parser import get_daily_aggregates, parse_wellness_data
+from app.parser import parse_all_days
+from app.stats import compute_daily_aggregates
 
 
 def load_aggregates(data_dir: Path) -> dict:
-    return get_daily_aggregates(data_dir)
+    days = parse_all_days(data_dir)
+    response = compute_daily_aggregates(days)
+    return response.model_dump()
 
 
 def parse_dates(date_strings: list[str]) -> list[datetime]:
     return [datetime.strptime(d, "%Y-%m-%d") for d in date_strings]
 
 
-def compute_iqr_bands(values_list: list[list[float]]) -> tuple[list, list, list, list, list]:
-    """Compute median, IQR (25-75), and 10-90 percentile bands.
-
-    Args:
-        values_list: list of lists — one inner list of raw values per day.
-
-    Returns:
-        (medians, q25, q75, p10, p90) — each is a list of float|None per day.
-    """
-    medians, q25s, q75s, p10s, p90s = [], [], [], [], []
-    for vals in values_list:
-        if not vals:
-            medians.append(None)
-            q25s.append(None)
-            q75s.append(None)
-            p10s.append(None)
-            p90s.append(None)
-        else:
-            arr = np.array(vals)
-            medians.append(float(np.median(arr)))
-            q25s.append(float(np.percentile(arr, 25)))
-            q75s.append(float(np.percentile(arr, 75)))
-            p10s.append(float(np.percentile(arr, 10)))
-            p90s.append(float(np.percentile(arr, 90)))
-    return medians, q25s, q75s, p10s, p90s
-
-
-def plot_metric_with_bands(
-    ax, dates, medians, q25, q75, p10, p90,
-    avg_line=None, color="#dc2626", label="Median", title="", ylabel=""
+def plot_metric_with_iqr(
+    ax, dates, avgs, q1s, q3s,
+    color="#dc2626", label="Avg", title="", ylabel=""
 ):
-    """Plot a metric with IQR band + 10-90 band + optional mean line."""
-    valid = [(d, m, q2, q7, p1, p9) for d, m, q2, q7, p1, p9
-             in zip(dates, medians, q25, q75, p10, p90)
-             if m is not None]
+    """Plot a metric with IQR band (Q1-Q3) from pre-computed API data."""
+    valid = [(d, a, lo, hi) for d, a, lo, hi in zip(dates, avgs, q1s, q3s)
+             if a is not None and lo is not None and hi is not None]
     if not valid:
         ax.text(0.5, 0.5, "No data", transform=ax.transAxes, ha="center", va="center")
         ax.set_title(title)
         return
 
-    vd, vm, vq2, vq7, vp1, vp9 = zip(*valid)
+    vd, va, vlo, vhi = zip(*valid)
 
-    # 10-90 percentile band (light)
-    ax.fill_between(vd, vp1, vp9, alpha=0.1, color=color, label="10th-90th pctl")
     # IQR band (25-75)
-    ax.fill_between(vd, vq2, vq7, alpha=0.25, color=color, label="IQR (25th-75th)")
-    # Median line
-    ax.plot(vd, vm, color=color, linewidth=1.5, label=label)
+    ax.fill_between(vd, vlo, vhi, alpha=0.25, color=color, label="IQR (25th-75th)")
+    # Average line
+    ax.plot(vd, va, color=color, linewidth=1.5, label=label)
 
-    # Optional mean line for comparison
-    if avg_line:
-        valid_avg = [(d, a) for d, a in zip(dates, avg_line) if a is not None]
-        if valid_avg:
-            ad, av = zip(*valid_avg)
-            ax.plot(ad, av, color=color, linewidth=1, linestyle="--", alpha=0.5, label="Mean")
+    # Annotate band ratio
+    band_height = max(vhi) - min(vlo)
+    avg_range = max(va) - min(va)
+    if avg_range > 0:
+        ratio = band_height / avg_range
+        ax.text(0.02, 0.02, f"Band: {band_height:.0f}, Avg var: {avg_range:.0f}, Ratio: {ratio:.1f}x",
+                transform=ax.transAxes, fontsize=7, va="bottom",
+                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8))
 
     ax.set_title(title, fontsize=11, fontweight="bold")
     ax.set_ylabel(ylabel, fontsize=9)
@@ -107,84 +82,56 @@ def plot_metric_with_bands(
 
 
 def generate_dashboard_charts(data_dir: Path, output_dir: Path):
-    """Generate the main dashboard overview charts."""
+    """Generate the main dashboard overview charts using IQR bands from API."""
     agg = load_aggregates(data_dir)
     dates = parse_dates(agg["days"])
     daily = agg["daily"]
 
     fig, axes = plt.subplots(3, 2, figsize=(16, 14))
-    fig.suptitle("Dashboard Overview — Visual Inspection", fontsize=14, fontweight="bold")
+    fig.suptitle("Dashboard Overview — IQR Bands", fontsize=14, fontweight="bold")
 
-    # Heart Rate — we need per-day raw values for proper IQR bands
-    # For now, use the daily avg/min/max from aggregates (this shows the problem)
-    avgs = [d["heart_rate"]["avg"] for d in daily]
-    mins = [d["heart_rate"]["min"] for d in daily]
-    maxs = [d["heart_rate"]["max"] for d in daily]
-    resting = [d["heart_rate"]["resting"] for d in daily]
-
+    # Heart Rate
     ax = axes[0, 0]
-    valid_hr = [(d, a, mn, mx) for d, a, mn, mx in zip(dates, avgs, mins, maxs) if a is not None]
-    if valid_hr:
-        hd, ha, hmn, hmx = zip(*valid_hr)
-        ax.fill_between(hd, hmn, hmx, alpha=0.15, color="#dc2626", label="Min-Max range")
-        ax.plot(hd, ha, color="#dc2626", linewidth=1.5, label="Daily Avg")
-        valid_rest = [(d, r) for d, r in zip(dates, resting) if r is not None]
-        if valid_rest:
-            rd, rv = zip(*valid_rest)
-            ax.plot(rd, rv, color="#16a34a", linewidth=1.5, label="Resting")
-    ax.set_title("Heart Rate (bpm)", fontsize=11, fontweight="bold")
-    ax.set_ylabel("bpm", fontsize=9)
-    ax.legend(fontsize=7)
-    ax.tick_params(axis="x", rotation=45, labelsize=7)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    avgs = [d["heart_rate"]["avg"] for d in daily]
+    q1s = [d["heart_rate"]["q1"] for d in daily]
+    q3s = [d["heart_rate"]["q3"] for d in daily]
+    resting = [d["heart_rate"]["resting"] for d in daily]
+    plot_metric_with_iqr(ax, dates, avgs, q1s, q3s,
+                         color="#dc2626", label="Daily Avg", title="Heart Rate (bpm)", ylabel="bpm")
+    valid_rest = [(d, r) for d, r in zip(dates, resting) if r is not None]
+    if valid_rest:
+        rd, rv = zip(*valid_rest)
+        ax.plot(rd, rv, color="#16a34a", linewidth=1.5, label="Resting")
+        ax.legend(fontsize=7)
 
     # Stress
-    stress_avgs = [d["stress"]["avg"] for d in daily]
-    stress_mins = [d["stress"]["min"] for d in daily]
-    stress_maxs = [d["stress"]["max"] for d in daily]
-    ax = axes[0, 1]
-    valid_s = [(d, a, mn, mx) for d, a, mn, mx in zip(dates, stress_avgs, stress_mins, stress_maxs) if a is not None]
-    if valid_s:
-        sd, sa, smn, smx = zip(*valid_s)
-        ax.fill_between(sd, smn, smx, alpha=0.15, color="#ea580c", label="Min-Max range")
-        ax.plot(sd, sa, color="#ea580c", linewidth=1.5, label="Daily Avg")
-    ax.set_title("Stress (0-100)", fontsize=11, fontweight="bold")
-    ax.set_ylabel("score", fontsize=9)
-    ax.legend(fontsize=7)
-    ax.tick_params(axis="x", rotation=45, labelsize=7)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    plot_metric_with_iqr(axes[0, 1], dates,
+                         [d["stress"]["avg"] for d in daily],
+                         [d["stress"]["q1"] for d in daily],
+                         [d["stress"]["q3"] for d in daily],
+                         color="#ea580c", label="Daily Avg", title="Stress (0-100)", ylabel="score")
 
-    # SpO2
-    spo2_avgs = [d["spo2"]["avg"] for d in daily]
-    spo2_mins = [d["spo2"]["min"] for d in daily]
+    # SpO2 — IQR band + min line
     ax = axes[1, 0]
-    valid_o = [(d, a, mn) for d, a, mn in zip(dates, spo2_avgs, spo2_mins) if a is not None]
-    if valid_o:
-        od, oa, omn = zip(*valid_o)
-        ax.plot(od, oa, color="#2563eb", linewidth=1.5, label="Daily Avg")
-        ax.plot(od, omn, color="#dc2626", linewidth=1, linestyle="--", label="Daily Min")
-        ax.axhline(y=90, color="#9ca3af", linewidth=0.8, linestyle=":", label="Concern threshold (90%)")
-    ax.set_title("SpO2 (%)", fontsize=11, fontweight="bold")
-    ax.set_ylabel("%", fontsize=9)
+    spo2_avgs = [d["spo2"]["avg"] for d in daily]
+    spo2_q1s = [d["spo2"]["q1"] for d in daily]
+    spo2_q3s = [d["spo2"]["q3"] for d in daily]
+    spo2_mins = [d["spo2"]["min"] for d in daily]
+    plot_metric_with_iqr(ax, dates, spo2_avgs, spo2_q1s, spo2_q3s,
+                         color="#2563eb", label="Daily Avg", title="SpO2 (%)", ylabel="%")
+    valid_mn = [(d, mn) for d, mn in zip(dates, spo2_mins) if mn is not None]
+    if valid_mn:
+        md, mv = zip(*valid_mn)
+        ax.plot(md, mv, color="#dc2626", linewidth=1, linestyle="--", label="Daily Min")
+    ax.axhline(y=90, color="#9ca3af", linewidth=0.8, linestyle=":", label="Concern (90%)")
     ax.legend(fontsize=7)
-    ax.tick_params(axis="x", rotation=45, labelsize=7)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
     # Respiration
-    resp_avgs = [d["respiration"]["avg"] for d in daily]
-    resp_mins = [d["respiration"]["min"] for d in daily]
-    resp_maxs = [d["respiration"]["max"] for d in daily]
-    ax = axes[1, 1]
-    valid_r = [(d, a, mn, mx) for d, a, mn, mx in zip(dates, resp_avgs, resp_mins, resp_maxs) if a is not None]
-    if valid_r:
-        rd, ra, rmn, rmx = zip(*valid_r)
-        ax.fill_between(rd, rmn, rmx, alpha=0.15, color="#0d9488", label="Min-Max range")
-        ax.plot(rd, ra, color="#0d9488", linewidth=1.5, label="Daily Avg")
-    ax.set_title("Respiration (br/min)", fontsize=11, fontweight="bold")
-    ax.set_ylabel("br/min", fontsize=9)
-    ax.legend(fontsize=7)
-    ax.tick_params(axis="x", rotation=45, labelsize=7)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    plot_metric_with_iqr(axes[1, 1], dates,
+                         [d["respiration"]["avg"] for d in daily],
+                         [d["respiration"]["q1"] for d in daily],
+                         [d["respiration"]["q3"] for d in daily],
+                         color="#0d9488", label="Daily Avg", title="Respiration (br/min)", ylabel="br/min")
 
     # HRV
     hrv_nightly = [d["hrv"]["nightly_avg"] for d in daily]
@@ -251,7 +198,6 @@ def generate_distribution_charts(data_dir: Path, output_dir: Path):
         valid = [v for v in values if v is not None]
         if valid:
             ax.hist(valid, bins=15, color=color, alpha=0.7, edgecolor="white")
-            # Add summary stats
             mean = np.mean(valid)
             median = np.median(valid)
             std = np.std(valid)
@@ -259,7 +205,6 @@ def generate_distribution_charts(data_dir: Path, output_dir: Path):
             ax.axvline(median, color="gray", linewidth=1, linestyle="-", label=f"Median: {median:.1f}")
             ax.set_xlabel(f"n={len(valid)}, sd={std:.1f}", fontsize=8)
             ax.legend(fontsize=7)
-            # Check for missingness
             total = len(values)
             missing = total - len(valid)
             if missing > 0:
@@ -279,10 +224,10 @@ def generate_distribution_charts(data_dir: Path, output_dir: Path):
     print(f"Saved: {output_path}")
 
 
-def generate_minmax_vs_iqr_comparison(data_dir: Path, output_dir: Path):
+def generate_iqr_vs_minmax_comparison(data_dir: Path, output_dir: Path):
     """Side-by-side comparison: min/max bands vs IQR bands for heart rate.
 
-    This is the diagnostic chart that shows WHY min/max bands are bad.
+    Uses real Q1/Q3 from the API (not simulated).
     """
     agg = load_aggregates(data_dir)
     dates = parse_dates(agg["days"])
@@ -291,51 +236,48 @@ def generate_minmax_vs_iqr_comparison(data_dir: Path, output_dir: Path):
     avgs = [d["heart_rate"]["avg"] for d in daily]
     mins = [d["heart_rate"]["min"] for d in daily]
     maxs = [d["heart_rate"]["max"] for d in daily]
+    q1s = [d["heart_rate"]["q1"] for d in daily]
+    q3s = [d["heart_rate"]["q3"] for d in daily]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 5), sharey=True)
     fig.suptitle("Heart Rate: Min/Max Bands vs IQR Bands — Readability Comparison",
                  fontsize=13, fontweight="bold")
 
-    # Left: min/max (current approach)
+    # Left: min/max (old approach)
     valid = [(d, a, mn, mx) for d, a, mn, mx in zip(dates, avgs, mins, maxs) if a is not None]
+    avg_range = 1  # fallback
     if valid:
         vd, va, vmn, vmx = zip(*valid)
         ax1.fill_between(vd, vmn, vmx, alpha=0.2, color="#dc2626", label="Min-Max")
         ax1.plot(vd, va, color="#dc2626", linewidth=1.5, label="Avg")
-    ax1.set_title("Current: Min/Max Bands", fontsize=11)
+        band_height = max(vmx) - min(vmn)
+        avg_range = max(va) - min(va)
+        ratio = band_height / avg_range if avg_range > 0 else float("inf")
+        ax1.text(0.02, 0.02, f"Band: {band_height:.0f} bpm\nAvg var: {avg_range:.0f} bpm\nRatio: {ratio:.1f}x",
+                 transform=ax1.transAxes, fontsize=8, va="bottom",
+                 bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8))
+    ax1.set_title("Old: Min/Max Bands", fontsize=11)
     ax1.set_ylabel("bpm", fontsize=9)
     ax1.legend(fontsize=8)
     ax1.tick_params(axis="x", rotation=45, labelsize=7)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-    # Annotate the problem
-    if valid:
-        band_height = max(vmx) - min(vmn)
-        avg_range = max(va) - min(va)
-        ratio = band_height / avg_range if avg_range > 0 else float("inf")
-        ax1.text(0.02, 0.02, f"Band height: {band_height:.0f} bpm\nAvg variation: {avg_range:.0f} bpm\nRatio: {ratio:.1f}x",
-                 transform=ax1.transAxes, fontsize=8, va="bottom",
-                 bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8))
 
-    # Right: simulated IQR (using approximate percentiles from daily avg±spread)
-    # Since we only have daily aggregates, simulate IQR as avg±(avg-min)*0.4
-    # This is approximate but shows the visual improvement
-    iqr_lo = [a - (a - mn) * 0.4 if a and mn else None for a, mn in zip(avgs, mins)]
-    iqr_hi = [a + (mx - a) * 0.4 if a and mx else None for a, mx in zip(avgs, maxs)]
-
-    valid2 = [(d, a, lo, hi) for d, a, lo, hi in zip(dates, avgs, iqr_lo, iqr_hi) if a is not None]
+    # Right: real IQR from API
+    valid2 = [(d, a, lo, hi) for d, a, lo, hi in zip(dates, avgs, q1s, q3s)
+              if a is not None and lo is not None and hi is not None]
     if valid2:
         vd2, va2, vlo, vhi = zip(*valid2)
-        ax2.fill_between(vd2, vlo, vhi, alpha=0.25, color="#dc2626", label="~IQR (25th-75th)")
+        ax2.fill_between(vd2, vlo, vhi, alpha=0.25, color="#dc2626", label="IQR (25th-75th)")
         ax2.plot(vd2, va2, color="#dc2626", linewidth=1.5, label="Avg")
-    ax2.set_title("Better: IQR Bands (estimated)", fontsize=11)
+        band2 = max(vhi) - min(vlo)
+        ratio2 = band2 / avg_range if avg_range > 0 else float("inf")
+        ax2.text(0.02, 0.02, f"Band: {band2:.0f} bpm\nAvg var: {avg_range:.0f} bpm\nRatio: {ratio2:.1f}x",
+                 transform=ax2.transAxes, fontsize=8, va="bottom",
+                 bbox=dict(boxstyle="round", facecolor="lightgreen", alpha=0.8))
+    ax2.set_title("New: IQR Bands (real Q1/Q3)", fontsize=11)
     ax2.legend(fontsize=8)
     ax2.tick_params(axis="x", rotation=45, labelsize=7)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-    if valid2:
-        band2 = max(vhi) - min(vlo)
-        ax2.text(0.02, 0.02, f"Band height: {band2:.0f} bpm\nAvg variation: {avg_range:.0f} bpm\nRatio: {band2/avg_range:.1f}x",
-                 transform=ax2.transAxes, fontsize=8, va="bottom",
-                 bbox=dict(boxstyle="round", facecolor="lightgreen", alpha=0.8))
 
     plt.tight_layout()
     output_path = output_dir / "minmax_vs_iqr.png"
@@ -361,7 +303,7 @@ def main():
     if args.chart in ("all", "distributions"):
         generate_distribution_charts(args.data_dir, args.output_dir)
     if args.chart in ("all", "minmax"):
-        generate_minmax_vs_iqr_comparison(args.data_dir, args.output_dir)
+        generate_iqr_vs_minmax_comparison(args.data_dir, args.output_dir)
 
     print(f"\nAll charts saved to: {args.output_dir}")
     print("Read the PNG files to visually inspect them.")

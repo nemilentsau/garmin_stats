@@ -66,34 +66,24 @@
 
 ## Skills
 
-Two skills support this project. Use them for different purposes:
+Two skills support this project. Each owns specific code layers:
 
-### `garmin-data` — project-specific data dictionary
-**Use when:** parsing FIT files, adding new endpoints, understanding field names/types/units, debugging parser errors, handling SDK changes.
+### `garmin-data` — FIT parsing layer
+**Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
+**Trigger:** touching `parser.py`, adding new FIT message types, debugging parse errors, SDK upgrades
 - Skill docs: `.claude/skills/garmin-data/SKILL.md`
 - Trust existing schemas for documented message types — don't re-decode files for known structures
 - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
 - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
-- Explore freely for new metrics, new file types, or undocumented message types — update reference JSONs with findings
 - Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions)
 - Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS, NAP
 
-### `data-analysis` — portable DA principles
-**Use when:** designing chart configurations, choosing summary statistics, deciding on band types (IQR vs min/max), inspecting generated charts, running EDA on new data, or any time you're making a decision about *how to present or analyze* data rather than *how to parse* it.
+### `data-analysis` — aggregation + presentation layers
+**Owns:** `stats.py`, aggregate stat fields in `models.py`, frontend chart configs, stat cards, `inspect_charts.py`
+**Trigger:** touching `stats.py`, adding/changing aggregate model fields, building or modifying charts, choosing what stats to show
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
-- This skill is project-independent — it applies to any data analysis work
-
-### Chart Design Workflow (visual inspection → frontend)
-The project artifact is **frontend dashboards** (SvelteKit + Chart.js). But you cannot evaluate a chart just by reading its config. The workflow:
-
-1. **Build or modify** a Chart.js chart in `frontend/src/lib/components/` or a route page
-2. **Generate inspection images** that mirror the frontend chart:
-   `cd backend && uv run python ../.claude/skills/data-analysis/scripts/inspect_charts.py`
-3. **Visually inspect** the generated PNGs (in `.claude/chart-inspections/`) using multimodal capabilities
-4. **Apply the DA skill rules** — check for: min/max band problem, flat average lines, missing data gaps, axis scale issues, wrong chart type
-5. **Fix the frontend Chart.js config** based on what you saw — the Python charts are a diagnostic tool, not the deliverable
-
-Run this workflow whenever you create or modify any chart. Do not ship a chart you haven't visually inspected.
+- This skill is project-independent — applies to any data analysis work
+- Defines what statistics to compute (section 1), how to present them (sections 2-3), and how to validate visually (section 4)
 
 ## Data Context
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)

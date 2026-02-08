@@ -66,8 +66,8 @@
 						spanGaps: true
 					},
 					{
-						label: 'Min',
-						data: agg.daily.map((d) => d.heart_rate.min),
+						label: 'Q1 (25th)',
+						data: agg.daily.map((d) => d.heart_rate.q1),
 						borderColor: '#dc262640',
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -77,8 +77,8 @@
 						fill: false
 					},
 					{
-						label: 'Max',
-						data: agg.daily.map((d) => d.heart_rate.max),
+						label: 'Q3 (75th)',
+						data: agg.daily.map((d) => d.heart_rate.q3),
 						borderColor: '#dc262640',
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -140,13 +140,13 @@
 		if (!agg) return null;
 		const d = agg.daily;
 		const avgs = d.map((x) => x.heart_rate.avg).filter((x): x is number => x != null);
-		const mins = d.map((x) => x.heart_rate.min).filter((x): x is number => x != null);
-		const maxs = d.map((x) => x.heart_rate.max).filter((x): x is number => x != null);
+		const q1s = d.map((x) => x.heart_rate.q1).filter((x): x is number => x != null);
+		const q3s = d.map((x) => x.heart_rate.q3).filter((x): x is number => x != null);
 		const resting = d.map((x) => x.heart_rate.resting).filter((x): x is number => x != null);
 		return {
 			overallAvg: avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null,
-			lowestMin: mins.length ? Math.min(...mins) : null,
-			highestMax: maxs.length ? Math.max(...maxs) : null,
+			typicalLow: q1s.length ? Math.round(q1s.reduce((a, b) => a + b, 0) / q1s.length) : null,
+			typicalHigh: q3s.length ? Math.round(q3s.reduce((a, b) => a + b, 0) / q3s.length) : null,
 			avgResting: resting.length
 				? Math.round(resting.reduce((a, b) => a + b, 0) / resting.length)
 				: null
@@ -187,8 +187,8 @@
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="bpm" colorClass="text-red-600" />
 			<StatCard title="Avg Resting" value={fmt(stats?.avgResting)} unit="bpm" colorClass="text-green-600" />
-			<StatCard title="Lowest" value={fmt(stats?.lowestMin)} unit="bpm" colorClass="text-blue-600" />
-			<StatCard title="Highest" value={fmt(stats?.highestMax)} unit="bpm" colorClass="text-orange-600" />
+			<StatCard title="Typical Low" value={fmt(stats?.typicalLow)} unit="bpm" colorClass="text-blue-600" />
+			<StatCard title="Typical High" value={fmt(stats?.typicalHigh)} unit="bpm" colorClass="text-orange-600" />
 		</div>
 	{/if}
 

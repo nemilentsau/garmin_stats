@@ -52,8 +52,8 @@
 						spanGaps: true
 					},
 					{
-						label: 'Min',
-						data: agg.daily.map((d) => d.respiration.min),
+						label: 'Q1 (25th)',
+						data: agg.daily.map((d) => d.respiration.q1),
 						borderColor: '#0d948840',
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -63,8 +63,8 @@
 						fill: false
 					},
 					{
-						label: 'Max',
-						data: agg.daily.map((d) => d.respiration.max),
+						label: 'Q3 (75th)',
+						data: agg.daily.map((d) => d.respiration.q3),
 						borderColor: '#0d948840',
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -124,13 +124,13 @@
 
 	let stats = $derived.by(() => {
 		if (!agg) return null;
+		const q1s = agg.daily.map((d) => d.respiration.q1).filter((x): x is number => x != null);
+		const q3s = agg.daily.map((d) => d.respiration.q3).filter((x): x is number => x != null);
 		const avgs = agg.daily.map((d) => d.respiration.avg).filter((x): x is number => x != null);
-		const mins = agg.daily.map((d) => d.respiration.min).filter((x): x is number => x != null);
-		const maxs = agg.daily.map((d) => d.respiration.max).filter((x): x is number => x != null);
 		return {
 			overallAvg: avgs.length ? (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(1) : null,
-			lowestMin: mins.length ? Math.min(...mins).toFixed(1) : null,
-			highestMax: maxs.length ? Math.max(...maxs).toFixed(1) : null
+			typicalLow: q1s.length ? (q1s.reduce((a, b) => a + b, 0) / q1s.length).toFixed(1) : null,
+			typicalHigh: q3s.length ? (q3s.reduce((a, b) => a + b, 0) / q3s.length).toFixed(1) : null
 		};
 	});
 </script>
@@ -167,8 +167,8 @@
 	{#if stats}
 		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
 			<StatCard title="Overall Avg" value={stats?.overallAvg ?? '-'} unit="br/min" colorClass="text-teal-600" />
-			<StatCard title="Lowest Min" value={stats?.lowestMin ?? '-'} unit="br/min" colorClass="text-blue-600" />
-			<StatCard title="Highest Max" value={stats?.highestMax ?? '-'} unit="br/min" colorClass="text-orange-600" />
+			<StatCard title="Typical Low" value={stats?.typicalLow ?? '-'} unit="br/min" colorClass="text-blue-600" />
+			<StatCard title="Typical High" value={stats?.typicalHigh ?? '-'} unit="br/min" colorClass="text-orange-600" />
 		</div>
 	{/if}
 

@@ -3,6 +3,8 @@ Aggregation and flattening — consumes typed parser output, produces API respon
 No FIT file knowledge here.
 """
 
+import numpy as np
+
 from .models import (
     DayWellness,
     DaySleep,
@@ -29,7 +31,17 @@ from .models import (
 
 def safe_avg(values: list[int | float]) -> float | None:
     """Average with rounding, or None if empty."""
-    return round(sum(values) / len(values), 1) if values else None
+    return round(float(np.mean(values)), 1) if values else None
+
+
+def safe_median(values: list[int | float]) -> float | None:
+    """Median, or None if empty."""
+    return round(float(np.median(values)), 1) if values else None
+
+
+def safe_percentile(values: list[int | float], pct: float) -> float | None:
+    """Percentile (linear interpolation), or None if empty."""
+    return round(float(np.percentile(values, pct)), 1) if values else None
 
 
 # ---------------------------------------------------------------------------
@@ -107,22 +119,34 @@ def aggregate_day(day: DayData) -> DailyMetric:
             avg=safe_avg(hr_vals),
             min=min(hr_vals) if hr_vals else None,
             max=max(hr_vals) if hr_vals else None,
+            median=safe_median(hr_vals),
+            q1=safe_percentile(hr_vals, 25),
+            q3=safe_percentile(hr_vals, 75),
             resting=resting_val,
         ),
         stress=DailyMetricStats(
             avg=safe_avg(stress_vals),
             min=min(stress_vals) if stress_vals else None,
             max=max(stress_vals) if stress_vals else None,
+            median=safe_median(stress_vals),
+            q1=safe_percentile(stress_vals, 25),
+            q3=safe_percentile(stress_vals, 75),
         ),
         spo2=DailyMetricStats(
             avg=safe_avg(spo2_vals),
             min=min(spo2_vals) if spo2_vals else None,
             max=max(spo2_vals) if spo2_vals else None,
+            median=safe_median(spo2_vals),
+            q1=safe_percentile(spo2_vals, 25),
+            q3=safe_percentile(spo2_vals, 75),
         ),
         respiration=DailyMetricStats(
             avg=safe_avg(resp_vals),
             min=round(min(resp_vals), 1) if resp_vals else None,
             max=round(max(resp_vals), 1) if resp_vals else None,
+            median=safe_median(resp_vals),
+            q1=safe_percentile(resp_vals, 25),
+            q3=safe_percentile(resp_vals, 75),
         ),
         hrv=DailyHrvStats(
             weekly_avg=hrv_s.weekly_average if hrv_s else None,

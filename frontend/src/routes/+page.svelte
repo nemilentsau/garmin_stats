@@ -25,8 +25,8 @@
 		getValue: (d: DailyMetric) => number | null,
 		label: string,
 		color: string,
-		getMin?: (d: DailyMetric) => number | null,
-		getMax?: (d: DailyMetric) => number | null
+		getQ1?: (d: DailyMetric) => number | null,
+		getQ3?: (d: DailyMetric) => number | null
 	): ChartConfiguration<'line'> {
 		const labels = daily.map((d) => d.date);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
@@ -41,10 +41,10 @@
 				spanGaps: true
 			}
 		];
-		if (getMin && getMax) {
+		if (getQ1 && getQ3) {
 			datasets.push({
-				label: 'Min',
-				data: daily.map(getMin),
+				label: 'Q1 (25th)',
+				data: daily.map(getQ1),
 				borderColor: color + '40',
 				borderWidth: 1,
 				borderDash: [4, 4],
@@ -54,8 +54,8 @@
 				fill: false
 			});
 			datasets.push({
-				label: 'Max',
-				data: daily.map(getMax),
+				label: 'Q3 (75th)',
+				data: daily.map(getQ3),
 				borderColor: color + '40',
 				borderWidth: 1,
 				borderDash: [4, 4],
@@ -83,19 +83,19 @@
 
 	let hrConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', '#dc2626', (d) => d.heart_rate.min, (d) => d.heart_rate.max);
+		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', '#dc2626', (d) => d.heart_rate.q1, (d) => d.heart_rate.q3);
 	});
 	let stressConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', '#ea580c', (d) => d.stress.min, (d) => d.stress.max);
+		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', '#ea580c', (d) => d.stress.q1, (d) => d.stress.q3);
 	});
 	let spo2Config = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', '#2563eb', (d) => d.spo2.min, (d) => d.spo2.max);
+		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', '#2563eb', (d) => d.spo2.q1, (d) => d.spo2.q3);
 	});
 	let respConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', '#0d9488', (d) => d.respiration.min, (d) => d.respiration.max);
+		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', '#0d9488', (d) => d.respiration.q1, (d) => d.respiration.q3);
 	});
 	let hrvConfig = $derived.by(() => {
 		if (!data) return null;

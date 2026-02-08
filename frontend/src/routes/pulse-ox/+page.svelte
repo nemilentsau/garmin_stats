@@ -52,6 +52,28 @@
 						spanGaps: true
 					},
 					{
+						label: 'Q1 (25th)',
+						data: agg.daily.map((d) => d.spo2.q1),
+						borderColor: '#2563eb40',
+						borderWidth: 1,
+						borderDash: [4, 4],
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true,
+						fill: false
+					},
+					{
+						label: 'Q3 (75th)',
+						data: agg.daily.map((d) => d.spo2.q3),
+						borderColor: '#2563eb40',
+						borderWidth: 1,
+						borderDash: [4, 4],
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true,
+						fill: '-1'
+					},
+					{
 						label: 'Min SpO2',
 						data: agg.daily.map((d) => d.spo2.min),
 						borderColor: '#dc2626',
