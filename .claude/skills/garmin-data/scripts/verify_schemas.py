@@ -11,7 +11,7 @@ Reports:
   - OK:    field matches between schema and data
 
 Usage:
-    cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/verify_schemas.py [--data-dir ../data]
+    cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py [--data-dir ../data]
 """
 
 import json
@@ -54,6 +54,13 @@ SCHEMA_MAP = {
     "SKIN_TEMP": {
         "file": "skin-temp-messages.json",
         "messages": ["skin_temp_overnight_mesgs"],
+    },
+    "SLEEP_DISRUPTIONS": {
+        "file": "sleep-disruptions-messages.json",
+        "messages": [
+            "sleep_disruption_overnight_severity_mesgs",
+            "sleep_disruption_severity_period_mesgs",
+        ],
     },
 }
 

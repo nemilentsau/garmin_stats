@@ -45,13 +45,13 @@
 - **Create in `onMount`, update in `$effect`**: Create the Chart instance in `onMount` (canvas guaranteed available), use `$effect` only for reactive config updates. Return `chart.destroy()` from `onMount` for cleanup.
 
 ## Garmin Data Analysis
-- **Full skill docs:** `.claude/skills/garmin-data-analysis/SKILL.md`
+- **Full skill docs:** `.claude/skills/garmin-data/SKILL.md`
 - **Trust existing schemas** for already-documented message types — don't re-decode files for known structures.
 - **Use scripts when things break or change:**
-  - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/verify_schemas.py`
-  - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type <TYPE>`
+  - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
+  - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
 - **Explore freely** for new metrics, new file types, or undocumented message types — just update the reference JSONs with what you find.
-- Schema files in `.claude/skills/garmin-data-analysis/references/`:
+- Schema files in `.claude/skills/garmin-data/references/`:
   - `wellness-messages.json` — HR, stress, SpO2, respiration, activity
   - `sleep-messages.json` — sleep stages, assessment scores
   - `hrv-messages.json` — HRV raw values, summaries, baselines

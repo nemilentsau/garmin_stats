@@ -12,23 +12,23 @@ for any message type. Use this when:
 Output is JSON-formatted, ready to paste into reference schema files.
 
 Usage:
-    cd backend && uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py [options]
+    cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py [options]
 
 Examples:
     # Discover ALL message types in WELLNESS files
-    uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type WELLNESS
+    uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type WELLNESS
 
     # Discover a specific unknown message type
-    uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type WELLNESS --message 233
+    uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type WELLNESS --message 233
 
     # Discover everything in METRICS files (entirely undocumented)
-    uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type METRICS
+    uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type METRICS
 
     # Discover from a specific day
-    uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type WELLNESS --day 2026-01-15
+    uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type WELLNESS --day 2026-01-15
 
     # Scan ALL file types and dump summary
-    uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --all
+    uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --all
 """
 
 import json

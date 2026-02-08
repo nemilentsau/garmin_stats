@@ -1,0 +1,48 @@
+{
+  "$description": "FIT message schemas found in SLEEP_DISRUPTIONS files. 1 file per day.",
+  "sleep_disruption_overnight_severity_mesgs": {
+    "records_per_night": 1,
+    "description": "Overall sleep disruption severity for the night",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "Record time (UTC)",
+        "nullable": false
+      },
+      "severity": {
+        "type": "enum",
+        "values": ["none", "low"],
+        "description": "Overall disruption severity classification",
+        "nullable": true,
+        "note": "Null observed in some records — may mean no data or unclassified"
+      }
+    },
+    "status": "not_parsed",
+    "extracted": false
+  },
+  "sleep_disruption_severity_period_mesgs": {
+    "records_per_night": "~6-12",
+    "description": "Per-period sleep disruption severity throughout the night",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "Period timestamp (UTC)",
+        "nullable": false
+      },
+      "message_index": {
+        "type": "int",
+        "range": "0-11",
+        "description": "Sequential index of the period within the night"
+      },
+      "severity": {
+        "type": "enum",
+        "values": ["none", "low"],
+        "description": "Disruption severity for this period",
+        "nullable": true,
+        "note": "5 of 22 records had null severity across 3 sample files"
+      }
+    },
+    "status": "not_parsed",
+    "extracted": false
+  }
+}

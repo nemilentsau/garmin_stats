@@ -1,6 +1,6 @@
 ---
-name: garmin-data-analysis
-description: Garmin FIT file data analysis — schemas, parsing patterns, and data contracts for health metrics
+name: garmin-data
+description: Garmin FIT file data dictionary — schemas, parsing patterns, and data contracts for health metrics
 version: 1.1.0
 ---
 
@@ -31,16 +31,16 @@ Run from `backend/` directory:
 
 ```bash
 # Verify schemas match real data (run after SDK upgrades or when things break)
-uv run python ../.claude/skills/garmin-data-analysis/scripts/verify_schemas.py
+uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py
 
 # Discover all file types and message types (overview)
-uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --all
+uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --all
 
 # Discover fields for a specific file type
-uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type METRICS
+uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type METRICS
 
 # Discover a specific message type
-uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type WELLNESS --message 233
+uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type WELLNESS --message 233
 ```
 
 ## Data Source
@@ -67,6 +67,7 @@ Before writing any parser code, consult the schema files in `references/`:
 - **`references/sleep-messages.json`** — sleep_level_mesgs, sleep_assessment_mesgs + event_mesgs + unknowns
 - **`references/hrv-messages.json`** — hrv_value_mesgs, hrv_status_summary_mesgs
 - **`references/skin-temp-messages.json`** — skin_temp_overnight_mesgs + unknown_397 (~1500 raw temp readings)
+- **`references/sleep-disruptions-messages.json`** — sleep_disruption_overnight_severity_mesgs, sleep_disruption_severity_period_mesgs
 - **`references/api-contracts.json`** — All API endpoint request/response shapes
 
 Each schema file documents:
@@ -112,8 +113,8 @@ def parse_X_data(data_dir: Path, date: str | None = None) -> dict:
 ## When Adding New Metrics
 
 1. Check `references/` schemas first — the field may already be documented (possibly with `"extracted": false`)
-2. If the field isn't there, run the discover script: `uv run python ../.claude/skills/garmin-data-analysis/scripts/discover_fields.py --file-type <TYPE> --message <MSG>`
+2. If the field isn't there, run the discover script: `uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE> --message <MSG>`
 3. Add the discovered fields to the appropriate reference JSON
 4. Write the parser code using the documented field names and filter rules
-5. Run the verify script to confirm the schema matches: `uv run python ../.claude/skills/garmin-data-analysis/scripts/verify_schemas.py`
+5. Run the verify script to confirm the schema matches: `uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
 6. Update `api-contracts.json` if adding a new endpoint
