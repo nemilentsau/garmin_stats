@@ -87,7 +87,7 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     dates = parse_dates(agg["days"])
     daily = agg["daily"]
 
-    fig, axes = plt.subplots(3, 2, figsize=(16, 14))
+    fig, axes = plt.subplots(4, 2, figsize=(16, 18))
     fig.suptitle("Dashboard Overview — IQR Bands", fontsize=14, fontweight="bold")
 
     # Heart Rate
@@ -111,8 +111,22 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
                          [d["stress"]["q3"] for d in daily],
                          color="#ea580c", label="Daily Avg", title="Stress (0-100)", ylabel="score")
 
+    # Body Battery
+    plot_metric_with_iqr(axes[1, 0], dates,
+                         [d["body_battery"]["avg"] for d in daily],
+                         [d["body_battery"]["q1"] for d in daily],
+                         [d["body_battery"]["q3"] for d in daily],
+                         color="#059669", label="Daily Avg", title="Body Battery (0-100)", ylabel="score")
+
+    # Respiration
+    plot_metric_with_iqr(axes[1, 1], dates,
+                         [d["respiration"]["avg"] for d in daily],
+                         [d["respiration"]["q1"] for d in daily],
+                         [d["respiration"]["q3"] for d in daily],
+                         color="#0d9488", label="Daily Avg", title="Respiration (br/min)", ylabel="br/min")
+
     # SpO2 — IQR band + min line
-    ax = axes[1, 0]
+    ax = axes[2, 0]
     spo2_avgs = [d["spo2"]["avg"] for d in daily]
     spo2_q1s = [d["spo2"]["q1"] for d in daily]
     spo2_q3s = [d["spo2"]["q3"] for d in daily]
@@ -126,17 +140,10 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     ax.axhline(y=90, color="#9ca3af", linewidth=0.8, linestyle=":", label="Concern (90%)")
     ax.legend(fontsize=7)
 
-    # Respiration
-    plot_metric_with_iqr(axes[1, 1], dates,
-                         [d["respiration"]["avg"] for d in daily],
-                         [d["respiration"]["q1"] for d in daily],
-                         [d["respiration"]["q3"] for d in daily],
-                         color="#0d9488", label="Daily Avg", title="Respiration (br/min)", ylabel="br/min")
-
     # HRV
     hrv_nightly = [d["hrv"]["nightly_avg"] for d in daily]
     hrv_weekly = [d["hrv"]["weekly_avg"] for d in daily]
-    ax = axes[2, 0]
+    ax = axes[2, 1]
     valid_h = [(d, n) for d, n in zip(dates, hrv_nightly) if n is not None]
     if valid_h:
         hd, hn = zip(*valid_h)
@@ -154,7 +161,7 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     # Skin Temp
     skin_dev = [d["skin_temp"]["deviation"] for d in daily]
     skin_7d = [d["skin_temp"]["deviation_7_day"] for d in daily]
-    ax = axes[2, 1]
+    ax = axes[3, 0]
     valid_st = [(d, v) for d, v in zip(dates, skin_dev) if v is not None]
     if valid_st:
         std, stv = zip(*valid_st)
@@ -166,6 +173,19 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     ax.axhline(y=0, color="#9ca3af", linewidth=0.8, linestyle=":")
     ax.set_title("Skin Temp Deviation (\u00b0C)", fontsize=11, fontweight="bold")
     ax.set_ylabel("\u00b0C", fontsize=9)
+    ax.legend(fontsize=7)
+    ax.tick_params(axis="x", rotation=45, labelsize=7)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+
+    # Sleep Score
+    sleep_scores = [d["sleep"]["score"] for d in daily]
+    ax = axes[3, 1]
+    valid_sl = [(d, s) for d, s in zip(dates, sleep_scores) if s is not None]
+    if valid_sl:
+        sld, slv = zip(*valid_sl)
+        ax.plot(sld, slv, color="#4f46e5", linewidth=1.5, label="Sleep Score")
+    ax.set_title("Sleep Score", fontsize=11, fontweight="bold")
+    ax.set_ylabel("score", fontsize=9)
     ax.legend(fontsize=7)
     ax.tick_params(axis="x", rotation=45, labelsize=7)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
@@ -286,13 +306,94 @@ def generate_iqr_vs_minmax_comparison(data_dir: Path, output_dir: Path):
     print(f"Saved: {output_path}")
 
 
+def generate_correlation_matrix(data_dir: Path, output_dir: Path):
+    """Generate cross-metric correlation matrix and scatter plots for EDA."""
+    agg = load_aggregates(data_dir)
+    daily = agg["daily"]
+
+    metric_defs = [
+        ("HR Avg", [d["heart_rate"]["avg"] for d in daily]),
+        ("Stress", [d["stress"]["avg"] for d in daily]),
+        ("Body Battery", [d["body_battery"]["avg"] for d in daily]),
+        ("SpO2", [d["spo2"]["avg"] for d in daily]),
+        ("Respiration", [d["respiration"]["avg"] for d in daily]),
+        ("HRV Nightly", [d["hrv"]["nightly_avg"] for d in daily]),
+        ("Sleep Score", [d["sleep"]["score"] for d in daily]),
+    ]
+
+    names = [m[0] for m in metric_defs]
+    arrays = [np.array([v if v is not None else np.nan for v in m[1]]) for m in metric_defs]
+    n = len(names)
+
+    # Compute pairwise Pearson correlations (skipping NaN pairs)
+    corr = np.full((n, n), np.nan)
+    for i in range(n):
+        for j in range(n):
+            mask = ~np.isnan(arrays[i]) & ~np.isnan(arrays[j])
+            if mask.sum() >= 5:
+                corr[i, j] = np.corrcoef(arrays[i][mask], arrays[j][mask])[0, 1]
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6),
+                             gridspec_kw={"width_ratios": [1, 1.4]})
+    fig.suptitle("Cross-Metric Correlations — EDA", fontsize=14, fontweight="bold")
+
+    # Left: heatmap
+    ax = axes[0]
+    im = ax.imshow(corr, cmap="RdBu_r", vmin=-1, vmax=1, aspect="auto")
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(names, rotation=45, ha="right", fontsize=8)
+    ax.set_yticklabels(names, fontsize=8)
+    for i in range(n):
+        for j in range(n):
+            if not np.isnan(corr[i, j]):
+                color = "white" if abs(corr[i, j]) > 0.6 else "black"
+                ax.text(j, i, f"{corr[i, j]:.2f}", ha="center", va="center",
+                        fontsize=7, color=color)
+    fig.colorbar(im, ax=ax, shrink=0.8, label="Pearson r")
+    ax.set_title("Correlation Matrix", fontsize=11)
+
+    # Right: scatter plots for strongest correlations (top 4 by |r|, excluding diagonal)
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            if not np.isnan(corr[i, j]):
+                pairs.append((abs(corr[i, j]), corr[i, j], i, j))
+    pairs.sort(reverse=True)
+    top_pairs = pairs[:4]
+
+    axes[1].remove()
+    # Create 2x2 sub-axes in the right half using absolute positions
+    sub_positions = [
+        [0.55, 0.55, 0.20, 0.30],
+        [0.78, 0.55, 0.20, 0.30],
+        [0.55, 0.12, 0.20, 0.30],
+        [0.78, 0.12, 0.20, 0.30],
+    ]
+    colors = ["#dc2626", "#2563eb", "#059669", "#7c3aed"]
+
+    for idx, (abs_r, r, i, j) in enumerate(top_pairs):
+        ax_sub = fig.add_axes(sub_positions[idx])
+        mask = ~np.isnan(arrays[i]) & ~np.isnan(arrays[j])
+        ax_sub.scatter(arrays[i][mask], arrays[j][mask], s=15, alpha=0.6,
+                       color=colors[idx], edgecolors="white", linewidth=0.3)
+        ax_sub.set_xlabel(names[i], fontsize=7)
+        ax_sub.set_ylabel(names[j], fontsize=7)
+        ax_sub.set_title(f"r = {r:.2f}", fontsize=9, fontweight="bold")
+        ax_sub.tick_params(labelsize=6)
+    output_path = output_dir / "correlations.png"
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {output_path}")
+
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate chart images for visual inspection")
     parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "data")
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / ".claude" / "chart-inspections")
-    parser.add_argument("--chart", choices=["all", "dashboard", "distributions", "minmax"],
+    parser.add_argument("--chart", choices=["all", "dashboard", "distributions", "minmax", "correlations"],
                         default="all", help="Which charts to generate")
     args = parser.parse_args()
 
@@ -304,6 +405,8 @@ def main():
         generate_distribution_charts(args.data_dir, args.output_dir)
     if args.chart in ("all", "minmax"):
         generate_iqr_vs_minmax_comparison(args.data_dir, args.output_dir)
+    if args.chart in ("all", "correlations"):
+        generate_correlation_matrix(args.data_dir, args.output_dir)
 
     print(f"\nAll charts saved to: {args.output_dir}")
     print("Read the PNG files to visually inspect them.")

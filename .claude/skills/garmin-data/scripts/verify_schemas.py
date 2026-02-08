@@ -89,6 +89,12 @@ def get_documented_fields(schema: dict, msg_type: str) -> tuple[set[str], set[st
             acknowledged.add(int(field_name))
         except ValueError:
             acknowledged.add(field_name)
+    # Also acknowledge fields in fields_discovered (discovered-but-unnamed SDK fields)
+    for key in entry.get("fields_discovered", {}):
+        try:
+            acknowledged.add(int(key))
+        except ValueError:
+            acknowledged.add(key)
     return all_fields, rare_fields, acknowledged
 
 

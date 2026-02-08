@@ -197,6 +197,53 @@ For every new dataset, before any visualization:
 
 ---
 
+## 6. Pipeline Trace
+
+When adding a new metric or making significant data changes, produce a trace in `.claude/chart-inspections/<trace-dir>/`. These artifacts let the user verify each step and feed back into skill improvements.
+
+**Trace directory naming:** Choose a descriptive, unique name that won't collide with future investigations of the same metric. Format: `<metric>-<context>`. Examples:
+- `body-battery-initial` — first time adding Body Battery
+- `body-battery-iqr-redesign` — revisiting BB to change band type
+- `heart-rate-band-ratio-fix` — fixing a specific issue
+- `sleep-score-eda` — exploratory analysis without frontend changes
+
+### 6.1 Required artifacts
+
+| Step | File | When | Contents |
+|------|------|------|----------|
+| 1. Discovery | `01-discovery-notes.md` | New FIT field/metric | Field names, types, ranges, filter rules, verification against real data |
+| 2. EDA charts | `02-eda-<name>.png` | Always | Distributions, time series with IQR, min/max range — via `inspect_charts.py` or custom script |
+| 3. EDA analysis | `03-eda-analysis.md` | Always | Written analysis: distribution shape, band ratio, data quality, decisions for dashboard |
+| 4. Dashboard inspection | `04-dashboard-inspection.md` | Always | 5-second check, pattern recognition, "so what?" test (per section 4) |
+| 5. Retrospective | `05-pipeline-retrospective.md` | Always | How each skill was used, what worked, what could improve |
+
+### 6.2 Retrospective → skill updates
+
+The retrospective is not just documentation. After writing it:
+1. Check "what could improve" for **actionable gaps** in skills or CLAUDE.md
+2. If a gap is found: update the relevant skill or CLAUDE.md in the same session
+3. If no gap: note "no skill updates needed" in the retrospective
+
+This creates a feedback loop: each new metric strengthens the skills for the next one.
+
+### 6.3 When to trace
+
+- **Full trace (all 5 steps)**: Adding a new metric end-to-end (parser → stats → frontend)
+- **Partial trace (steps 2-5)**: Modifying chart design, changing aggregation logic, fixing a data quality issue
+- **Inspection only (step 4)**: Minor chart tweaks (color, label changes)
+
+### 6.4 Correlation check
+
+After adding a new metric, regenerate the cross-metric correlation chart:
+
+```bash
+cd backend && uv run python ../.claude/skills/data-analysis/scripts/inspect_charts.py --chart correlations
+```
+
+Note any strong correlations (|r| > 0.5) in the EDA analysis. Cross-metric consistency validates the pipeline — if two metrics that should correlate don't, something is wrong.
+
+---
+
 ## Anti-Pattern Quick Reference
 
 | Anti-Pattern | Fix |
@@ -215,3 +262,5 @@ For every new dataset, before any visualization:
 | Filter bias undisclosed | State filter in chart subtitle |
 | Summary stats without scatter plot | Always plot before trusting aggregates |
 | Missing data treated as zero | Distinguish null from zero; report missingness |
+| New metric shipped without trace | Produce pipeline trace artifacts (section 6) |
+| Retrospective without action | Check "what could improve" and update skills/CLAUDE.md |

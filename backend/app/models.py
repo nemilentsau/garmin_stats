@@ -31,6 +31,11 @@ class StressReading(_DefaultsRequired):
     value: int
 
 
+class BodyBatteryReading(_DefaultsRequired):
+    timestamp: str
+    value: int
+
+
 class SpO2Reading(_DefaultsRequired):
     timestamp: str
     value: int
@@ -116,6 +121,7 @@ class DayWellness(_DefaultsRequired):
     date: str
     heart_rate: list[HeartRateReading] = []
     stress: list[StressReading] = []
+    body_battery: list[BodyBatteryReading] = []
     spo2: list[SpO2Reading] = []
     respiration: list[RespirationReading] = []
     activity: list[ActivityReading] = []
@@ -156,6 +162,7 @@ class WellnessResponse(_DefaultsRequired):
     days: list[str]
     heart_rate: list[HeartRateReading]
     stress: list[StressReading]
+    body_battery: list[BodyBatteryReading]
     spo2: list[SpO2Reading]
     respiration: list[RespirationReading]
     activity: list[ActivityReading]
@@ -201,6 +208,15 @@ class DailyMetricStats(_DefaultsRequired):
     q3: float | None = None
 
 
+class DailyBodyBatteryStats(_DefaultsRequired):
+    avg: float | None = None
+    min: int | None = None
+    max: int | None = None
+    median: float | None = None
+    q1: float | None = None
+    q3: float | None = None
+
+
 class DailyHrvStats(_DefaultsRequired):
     weekly_avg: float | None = None
     nightly_avg: float | None = None
@@ -223,6 +239,7 @@ class DailyMetric(_DefaultsRequired):
     date: str
     heart_rate: DailyHeartRateStats
     stress: DailyMetricStats
+    body_battery: DailyBodyBatteryStats
     spo2: DailyMetricStats
     respiration: DailyMetricStats
     hrv: DailyHrvStats

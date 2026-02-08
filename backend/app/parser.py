@@ -16,6 +16,7 @@ from garmin_fit_sdk import Decoder, Stream
 from .models import (
     HeartRateReading,
     StressReading,
+    BodyBatteryReading,
     SpO2Reading,
     RespirationReading,
     ActivityReading,
@@ -113,6 +114,7 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
     """Extract all wellness readings from a single decoded WELLNESS file."""
     hr: list[HeartRateReading] = []
     stress: list[StressReading] = []
+    body_battery: list[BodyBatteryReading] = []
     spo2: list[SpO2Reading] = []
     respiration: list[RespirationReading] = []
     activity: list[ActivityReading] = []
@@ -149,6 +151,9 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
         value = msg.get("stress_level_value")
         if value is not None and value >= 0:
             stress.append(StressReading(timestamp=ts, value=value))
+        bb_value = msg.get(3)
+        if bb_value is not None and ts is not None:
+            body_battery.append(BodyBatteryReading(timestamp=ts, value=bb_value))
 
     for msg in messages.get("spo2_data_mesgs", []):
         ts = parse_datetime(msg.get("timestamp"))
@@ -180,6 +185,7 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
         date=date,
         heart_rate=hr,
         stress=stress,
+        body_battery=body_battery,
         spo2=spo2,
         respiration=respiration,
         activity=activity,
@@ -272,6 +278,7 @@ def parse_wellness_day(files: list[Path], date: str) -> DayWellness:
             extracted = _extract_wellness(messages, date)
             merged.heart_rate.extend(extracted.heart_rate)
             merged.stress.extend(extracted.stress)
+            merged.body_battery.extend(extracted.body_battery)
             merged.spo2.extend(extracted.spo2)
             merged.respiration.extend(extracted.respiration)
             merged.activity.extend(extracted.activity)

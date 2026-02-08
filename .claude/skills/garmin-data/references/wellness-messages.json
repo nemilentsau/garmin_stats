@@ -117,7 +117,25 @@
         "filter": ">= 0 (exclude -1 and -2)"
       }
     },
-    "fields_undocumented": ["2 (int, sample=13)", "3 (int, sample=42)", "4 (int, sample=1)"],
+    "fields_undocumented": ["4 (int, values 1/2/125, status flag?)"],
+    "fields_discovered": {
+      "3": {
+        "name": "body_battery",
+        "type": "uint8",
+        "unit": "score",
+        "range": "1-100 (observed 5-96)",
+        "description": "Body Battery level. Higher = more energy. Charges during sleep/rest, drains during activity/stress.",
+        "filter": "none needed — values always valid",
+        "extracted": true
+      },
+      "2": {
+        "name": "body_battery_charge_rate",
+        "type": "sint16",
+        "range": "-99 to 102",
+        "description": "Charge/drain rate. Positive = charging, negative = draining. 102 when stress_level_value is -2.",
+        "extracted": false
+      }
+    },
     "gotchas": [
       "Uses stress_level_time, NOT timestamp.",
       "Negative values are invalid markers, not actual stress levels."

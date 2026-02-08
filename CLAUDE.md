@@ -83,7 +83,8 @@ Two skills support this project. Each owns specific code layers:
 **Trigger:** touching `stats.py`, adding/changing aggregate model fields, building or modifying charts, choosing what stats to show
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - This skill is project-independent — applies to any data analysis work
-- Defines what statistics to compute (section 1), how to present them (sections 2-3), and how to validate visually (section 4)
+- Defines what statistics to compute (section 1), how to present them (sections 2-3), how to validate visually (section 4), and the pipeline trace workflow (section 6)
+- **Pipeline traces** go to `.claude/chart-inspections/<metric>-<context>/` — discovery → EDA → inspection → retrospective. Required for new metrics.
 
 ## Data Context
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)

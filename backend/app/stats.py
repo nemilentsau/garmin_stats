@@ -17,6 +17,7 @@ from .models import (
     SkinTempResponse,
     DailyHeartRateStats,
     DailyMetricStats,
+    DailyBodyBatteryStats,
     DailyHrvStats,
     DailySleepStats,
     DailySkinTempStats,
@@ -53,6 +54,7 @@ def flatten_wellness(days: list[DayWellness]) -> WellnessResponse:
         days=[d.date for d in days],
         heart_rate=[r for d in days for r in d.heart_rate],
         stress=[r for d in days for r in d.stress],
+        body_battery=[r for d in days for r in d.body_battery],
         spo2=[r for d in days for r in d.spo2],
         respiration=[r for d in days for r in d.respiration],
         activity=[r for d in days for r in d.activity],
@@ -94,6 +96,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
 
     hr_vals = [r.value for r in w.heart_rate]
     stress_vals = [r.value for r in w.stress]
+    bb_vals = [r.value for r in w.body_battery]
     spo2_vals = [r.value for r in w.spo2]
     resp_vals = [r.value for r in w.respiration]
 
@@ -131,6 +134,14 @@ def aggregate_day(day: DayData) -> DailyMetric:
             median=safe_median(stress_vals),
             q1=safe_percentile(stress_vals, 25),
             q3=safe_percentile(stress_vals, 75),
+        ),
+        body_battery=DailyBodyBatteryStats(
+            avg=safe_avg(bb_vals),
+            min=min(bb_vals) if bb_vals else None,
+            max=max(bb_vals) if bb_vals else None,
+            median=safe_median(bb_vals),
+            q1=safe_percentile(bb_vals, 25),
+            q3=safe_percentile(bb_vals, 75),
         ),
         spo2=DailyMetricStats(
             avg=safe_avg(spo2_vals),
