@@ -10,18 +10,29 @@
 - **Frontend dev server**: `npm run dev` from `frontend/`
 
 ## Project Structure
-- `backend/` — FastAPI app in `backend/app/` (main.py, parser.py)
+- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py)
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
 - `data/` — Garmin FIT files organized as `data/YYYY-MM-DD/*.fit`
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
 ## Backend Conventions
-- Parser functions follow pattern: `parse_X_data(data_dir: Path, date: str | None = None) -> dict`
+
+### Architecture: parser → stats → API
+- **`models.py`**: Pydantic models — reading atoms, day containers, API response models
+- **`parser.py`**: 3 layers — `_extract_*` (per-file), `parse_*_day` (per-day merge), `parse_*` (directory scan + date filter)
+- **`stats.py`**: Aggregation/flattening — consumes typed parser output, produces API response models. No FIT knowledge.
+- **`main.py`**: FastAPI endpoints with `response_model=` for auto-validation
+
+### Key patterns
+- Parser returns typed Pydantic models (e.g., `list[DayWellness]`), not dicts
+- `parse_all_days(data_dir)` scans the directory **once** for all metrics (used by `/api/daily-aggregates`)
+- `flatten_*` functions concatenate per-day lists into flat API responses
 - Use `get_files_by_day()` to discover files, filter by type key (e.g., "SKIN_TEMP", "WELLNESS")
 - Use `decode_fit_file()` to read FIT files, returns `{message_type: [messages]}`
 - Use `parse_datetime()` for timestamp conversion
 - Filter invalid values (e.g., -1, -2 for stress; -1 for respiration)
 - API endpoints at `/api/...`, return JSON, use HTTPException(404) for missing data
+- Use `logging.warning()` for parse errors (not `print()`)
 
 ## Frontend Conventions
 - Svelte 5 runes: `$props()`, `$state()`, `$effect()`, `$derived()`

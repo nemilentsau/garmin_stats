@@ -9,12 +9,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from .parser import (
     get_available_days,
     get_day_summary,
-    get_overview_stats,
-    get_daily_aggregates,
-    parse_wellness_data,
-    parse_sleep_data,
-    parse_hrv_data,
-    parse_skin_temp_data,
+    parse_wellness,
+    parse_sleep,
+    parse_hrv,
+    parse_skin_temp,
+    parse_all_days,
+)
+from .stats import (
+    flatten_wellness,
+    flatten_sleep,
+    flatten_hrv,
+    flatten_skin_temp,
+    compute_daily_aggregates,
+)
+from .models import (
+    WellnessResponse,
+    SleepResponse,
+    HrvResponse,
+    SkinTempResponse,
+    DailyAggregatesResponse,
+    DaySummaryResponse,
+    DaysResponse,
 )
 
 # Data directory - relative to project root
@@ -47,17 +62,14 @@ def root():
     }
 
 
-@app.get("/api/days")
+@app.get("/api/days", response_model=DaysResponse)
 def list_days():
     """List available days of data."""
     days = get_available_days(DATA_DIR)
-    return {
-        "days": days,
-        "total": len(days),
-    }
+    return DaysResponse(days=days, total=len(days))
 
 
-@app.get("/api/days/{date}")
+@app.get("/api/days/{date}", response_model=DaySummaryResponse)
 def get_day(date: str):
     """Get summary for a specific day."""
     summary = get_day_summary(DATA_DIR, date)
@@ -66,49 +78,44 @@ def get_day(date: str):
     return summary
 
 
-@app.get("/api/overview")
-def get_overview():
-    """Get overview statistics across all data."""
-    return get_overview_stats(DATA_DIR)
-
-
-@app.get("/api/wellness")
+@app.get("/api/wellness", response_model=WellnessResponse)
 def get_wellness(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
     """Get wellness data (HR, stress, SpO2, respiration, activity)."""
-    data = parse_wellness_data(DATA_DIR, date)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
+    days = parse_wellness(DATA_DIR, date)
+    if date and not days:
+        raise HTTPException(status_code=404, detail=f"Day {date} not found")
+    return flatten_wellness(days)
 
 
-@app.get("/api/sleep")
+@app.get("/api/sleep", response_model=SleepResponse)
 def get_sleep(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
     """Get sleep data (stages, assessment scores)."""
-    data = parse_sleep_data(DATA_DIR, date)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
+    days = parse_sleep(DATA_DIR, date)
+    if date and not days:
+        raise HTTPException(status_code=404, detail=f"Day {date} not found")
+    return flatten_sleep(days)
 
 
-@app.get("/api/hrv")
+@app.get("/api/hrv", response_model=HrvResponse)
 def get_hrv(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
     """Get HRV data (values, summaries)."""
-    data = parse_hrv_data(DATA_DIR, date)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
+    days = parse_hrv(DATA_DIR, date)
+    if date and not days:
+        raise HTTPException(status_code=404, detail=f"Day {date} not found")
+    return flatten_hrv(days)
 
 
-@app.get("/api/daily-aggregates")
+@app.get("/api/daily-aggregates", response_model=DailyAggregatesResponse)
 def get_daily_agg():
     """Get per-day aggregate stats for all metrics."""
-    return get_daily_aggregates(DATA_DIR)
+    days = parse_all_days(DATA_DIR)
+    return compute_daily_aggregates(days)
 
 
-@app.get("/api/skin-temp")
+@app.get("/api/skin-temp", response_model=SkinTempResponse)
 def get_skin_temp(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
     """Get skin temperature data."""
-    data = parse_skin_temp_data(DATA_DIR, date)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
+    days = parse_skin_temp(DATA_DIR, date)
+    if date and not days:
+        raise HTTPException(status_code=404, detail=f"Day {date} not found")
+    return flatten_skin_temp(days)

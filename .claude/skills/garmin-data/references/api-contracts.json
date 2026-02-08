@@ -1,8 +1,10 @@
 {
-  "$description": "API endpoint response shapes. These are the data contracts between backend and frontend.",
+  "$description": "API endpoint response shapes. These are the data contracts between backend and frontend. Backend uses Pydantic models (app/models.py) validated by FastAPI response_model.",
+  "architecture": "parser.py (typed per-day models) → stats.py (aggregation/flattening) → main.py (API responses)",
   "endpoints": {
     "GET /api/daily-aggregates": {
-      "function": "get_daily_aggregates(data_dir)",
+      "function": "parse_all_days → compute_daily_aggregates",
+      "response_model": "DailyAggregatesResponse",
       "description": "Per-day aggregate stats for all metrics. Used by dashboard and trend charts.",
       "response": {
         "days": ["2026-01-01", "2026-01-02", "..."],
@@ -50,7 +52,8 @@
       }
     },
     "GET /api/wellness?date={YYYY-MM-DD}": {
-      "function": "parse_wellness_data(data_dir, date)",
+      "function": "parse_wellness → flatten_wellness",
+      "response_model": "WellnessResponse",
       "description": "Intraday wellness readings for a specific day. Used by subtab intraday charts.",
       "response": {
         "days": ["string"],
@@ -68,7 +71,8 @@
       ]
     },
     "GET /api/sleep?date={YYYY-MM-DD}": {
-      "function": "parse_sleep_data(data_dir, date)",
+      "function": "parse_sleep → flatten_sleep",
+      "response_model": "SleepResponse",
       "description": "Sleep stages and quality scores",
       "response": {
         "days": ["string"],
@@ -77,7 +81,8 @@
       }
     },
     "GET /api/hrv?date={YYYY-MM-DD}": {
-      "function": "parse_hrv_data(data_dir, date)",
+      "function": "parse_hrv → flatten_hrv",
+      "response_model": "HrvResponse",
       "description": "HRV raw values and summaries",
       "response": {
         "days": ["string"],
@@ -86,17 +91,13 @@
       }
     },
     "GET /api/skin-temp?date={YYYY-MM-DD}": {
-      "function": "parse_skin_temp_data(data_dir, date)",
+      "function": "parse_skin_temp → flatten_skin_temp",
+      "response_model": "SkinTempResponse",
       "description": "Skin temperature overnight data",
       "response": {
         "days": ["string"],
         "skin_temp_overnight": [{ "date": "string", "timestamp": "ISO string", "local_timestamp": "number", "nightly_value": "number | null", "average_deviation": "number | null", "average_7_day_deviation": "number | null" }]
       }
-    },
-    "GET /api/overview": {
-      "function": "get_overview_stats(data_dir)",
-      "description": "Legacy overview stats endpoint",
-      "status": "deprecated — replaced by /api/daily-aggregates for dashboard"
     }
   }
 }
