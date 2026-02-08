@@ -68,8 +68,6 @@ Before writing any parser code, consult the schema files in `references/`:
 - **`references/hrv-messages.json`** — hrv_value_mesgs, hrv_status_summary_mesgs
 - **`references/skin-temp-messages.json`** — skin_temp_overnight_mesgs + unknown_397 (~1500 raw temp readings)
 - **`references/sleep-disruptions-messages.json`** — sleep_disruption_overnight_severity_mesgs, sleep_disruption_severity_period_mesgs
-- **`references/api-contracts.json`** — All API endpoint request/response shapes
-
 Each schema file documents:
 - Field names, types, units, scale factors, valid ranges
 - Filtering rules (what to discard)
@@ -117,4 +115,4 @@ def parse_X_data(data_dir: Path, date: str | None = None) -> dict:
 3. Add the discovered fields to the appropriate reference JSON
 4. Write the parser code using the documented field names and filter rules
 5. Run the verify script to confirm the schema matches: `uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
-6. Update `api-contracts.json` if adding a new endpoint
+6. If adding a new endpoint, regenerate TypeScript types: `bash scripts/generate-api-types.sh`

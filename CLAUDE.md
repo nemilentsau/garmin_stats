@@ -10,29 +10,49 @@
 - **Frontend dev server**: `npm run dev` from `frontend/`
 
 ## Project Structure
-- `backend/` — FastAPI app in `backend/app/` (main.py, parser.py)
+- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py)
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
 - `data/` — Garmin FIT files organized as `data/YYYY-MM-DD/*.fit`
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
 ## Backend Conventions
-- Parser functions follow pattern: `parse_X_data(data_dir: Path, date: str | None = None) -> dict`
+
+### Architecture: parser → stats → API
+- **`models.py`**: Pydantic models — reading atoms, day containers, API response models
+- **`parser.py`**: 3 layers — `_extract_*` (per-file), `parse_*_day` (per-day merge), `parse_*` (directory scan + date filter)
+- **`stats.py`**: Aggregation/flattening — consumes typed parser output, produces API response models. No FIT knowledge.
+- **`main.py`**: FastAPI endpoints with `response_model=` for auto-validation
+
+### Key patterns
+- Parser returns typed Pydantic models (e.g., `list[DayWellness]`), not dicts
+- `parse_all_days(data_dir)` scans the directory **once** for all metrics (used by `/api/daily-aggregates`)
+- `flatten_*` functions concatenate per-day lists into flat API responses
 - Use `get_files_by_day()` to discover files, filter by type key (e.g., "SKIN_TEMP", "WELLNESS")
 - Use `decode_fit_file()` to read FIT files, returns `{message_type: [messages]}`
 - Use `parse_datetime()` for timestamp conversion
 - Filter invalid values (e.g., -1, -2 for stress; -1 for respiration)
 - API endpoints at `/api/...`, return JSON, use HTTPException(404) for missing data
+- Use `logging.warning()` for parse errors (not `print()`)
 
 ## Frontend Conventions
 - Svelte 5 runes: `$props()`, `$state()`, `$effect()`, `$derived()`
 - No `$:` reactive declarations (Svelte 4 syntax)
 - Use `{@render children()}` not `<slot/>`
-- API client in `src/lib/api.ts` — typed interfaces + `api` object with methods
+- API types generated from OpenAPI spec — run `bash scripts/generate-api-types.sh` after backend model changes
+- API client in `src/lib/api.ts` — imports generated types from `api-types.ts` + `api` object with methods
 - TailwindCSS 4 (imported via `@import "tailwindcss"` in app.css)
 - Components go in `src/lib/components/`
 - Routes in `src/routes/` following SvelteKit file-based routing
 - Use `import { page } from '$app/state'` for SvelteKit page state (Svelte 5 style)
 - Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
+
+## API Type Generation (Single Source of Truth)
+- **Pydantic models** (`backend/app/models.py`) are the source of truth for API types
+- **TypeScript types** (`frontend/src/lib/api-types.ts`) are generated from the OpenAPI spec, never hand-written
+- **Regenerate after model changes**: `bash scripts/generate-api-types.sh`
+- The script exports `app.openapi()` → `frontend/openapi.json` → `openapi-typescript` → `frontend/src/lib/api-types.ts`
+- `frontend/openapi.json` is gitignored (generated artifact)
+- `frontend/src/lib/api.ts` re-exports generated types with stable frontend names (e.g., `WellnessData` = `Schemas['WellnessResponse']`)
 
 ## Svelte 5 Gotchas (learned the hard way)
 - **`$derived` vs `$derived.by`**: `$derived(() => expr)` stores a *function*. `$derived.by(fn)` stores the *return value*. Always use `$derived.by` when you want the computed result.
@@ -46,34 +66,25 @@
 
 ## Skills
 
-Two skills support this project. Use them for different purposes:
+Two skills support this project. Each owns specific code layers:
 
-### `garmin-data` — project-specific data dictionary
-**Use when:** parsing FIT files, adding new endpoints, understanding field names/types/units, debugging parser errors, handling SDK changes.
+### `garmin-data` — FIT parsing layer
+**Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
+**Trigger:** touching `parser.py`, adding new FIT message types, debugging parse errors, SDK upgrades
 - Skill docs: `.claude/skills/garmin-data/SKILL.md`
 - Trust existing schemas for documented message types — don't re-decode files for known structures
 - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
 - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
-- Explore freely for new metrics, new file types, or undocumented message types — update reference JSONs with findings
-- Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions, api-contracts)
+- Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions)
 - Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS, NAP
 
-### `data-analysis` — portable DA principles
-**Use when:** designing chart configurations, choosing summary statistics, deciding on band types (IQR vs min/max), inspecting generated charts, running EDA on new data, or any time you're making a decision about *how to present or analyze* data rather than *how to parse* it.
+### `data-analysis` — aggregation + presentation layers
+**Owns:** `stats.py`, aggregate stat fields in `models.py`, frontend chart configs, stat cards, `inspect_charts.py`
+**Trigger:** touching `stats.py`, adding/changing aggregate model fields, building or modifying charts, choosing what stats to show
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
-- This skill is project-independent — it applies to any data analysis work
-
-### Chart Design Workflow (visual inspection → frontend)
-The project artifact is **frontend dashboards** (SvelteKit + Chart.js). But you cannot evaluate a chart just by reading its config. The workflow:
-
-1. **Build or modify** a Chart.js chart in `frontend/src/lib/components/` or a route page
-2. **Generate inspection images** that mirror the frontend chart:
-   `cd backend && uv run python ../.claude/skills/data-analysis/scripts/inspect_charts.py`
-3. **Visually inspect** the generated PNGs (in `.claude/chart-inspections/`) using multimodal capabilities
-4. **Apply the DA skill rules** — check for: min/max band problem, flat average lines, missing data gaps, axis scale issues, wrong chart type
-5. **Fix the frontend Chart.js config** based on what you saw — the Python charts are a diagnostic tool, not the deliverable
-
-Run this workflow whenever you create or modify any chart. Do not ship a chart you haven't visually inspected.
+- This skill is project-independent — applies to any data analysis work
+- Defines what statistics to compute (section 1), how to present them (sections 2-3), how to validate visually (section 4), and the pipeline trace workflow (section 6)
+- **Pipeline traces** go to `.claude/chart-inspections/<metric>-<context>/` — discovery → EDA → inspection → retrospective. Required for new metrics.
 
 ## Data Context
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)

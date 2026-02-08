@@ -1,14 +1,45 @@
 """
-Garmin FIT file parser service using official Garmin SDK.
+Garmin FIT file parser — three layers:
+
+  Layer 1: Per-file extractors (_extract_*)
+  Layer 2: Per-day parsers (parse_*_day) — merge multiple files of same type
+  Layer 3: High-level functions (parse_*) — directory scan + date filter
 """
 
+import logging
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Any
 
 from garmin_fit_sdk import Decoder, Stream
 
+from .models import (
+    HeartRateReading,
+    StressReading,
+    BodyBatteryReading,
+    SpO2Reading,
+    RespirationReading,
+    ActivityReading,
+    StepsReading,
+    RestingHRReading,
+    DayWellness,
+    SleepLevel,
+    SleepAssessment,
+    DaySleep,
+    HrvValue,
+    HrvSummary,
+    DayHrv,
+    SkinTempOvernight,
+    DaySkinTemp,
+    DayData,
+)
+
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Utilities (unchanged)
+# ---------------------------------------------------------------------------
 
 def decode_fit_file(file_path: Path) -> dict[str, list[dict]]:
     """Decode a FIT file and return messages as dict."""
@@ -36,7 +67,7 @@ def get_available_days(data_dir: Path) -> list[str]:
 
 def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
     """Group FIT files by date and type."""
-    files_by_day = defaultdict(lambda: defaultdict(list))
+    files_by_day: dict[str, dict[str, list[Path]]] = defaultdict(lambda: defaultdict(list))
 
     for fit_file in data_dir.rglob("*.fit"):
         date_dir = fit_file.parent.name
@@ -57,7 +88,7 @@ def get_day_summary(data_dir: Path, date: str) -> dict:
         return {"error": f"Day {date} not found"}
 
     files = list(day_dir.glob("*.fit"))
-    file_types = defaultdict(int)
+    file_types: dict[str, int] = defaultdict(int)
 
     for f in files:
         name_parts = f.stem.split("_")
@@ -75,452 +106,294 @@ def get_day_summary(data_dir: Path, date: str) -> dict:
     }
 
 
-def parse_wellness_data(data_dir: Path, date: str | None = None) -> dict:
-    """Parse wellness data from WELLNESS FIT files."""
-    files_by_day = get_files_by_day(data_dir)
+# ---------------------------------------------------------------------------
+# Layer 1 — Per-file extractors
+# ---------------------------------------------------------------------------
 
+def _extract_wellness(messages: dict, date: str) -> DayWellness:
+    """Extract all wellness readings from a single decoded WELLNESS file."""
+    hr: list[HeartRateReading] = []
+    stress: list[StressReading] = []
+    body_battery: list[BodyBatteryReading] = []
+    spo2: list[SpO2Reading] = []
+    respiration: list[RespirationReading] = []
+    activity: list[ActivityReading] = []
+    steps: list[StepsReading] = []
+    resting_hr: list[RestingHRReading] = []
+
+    # Single pass over monitoring_mesgs (fixes triple-iteration)
+    for msg in messages.get("monitoring_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+
+        if "heart_rate" in msg and msg["heart_rate"]:
+            hr.append(HeartRateReading(timestamp=ts, value=msg["heart_rate"]))
+
+        if "activity_type" in msg:
+            activity.append(ActivityReading(
+                timestamp=ts,
+                activity_type=str(msg.get("activity_type", "unknown")),
+                intensity=msg.get("intensity"),
+                steps=msg.get("steps"),
+                calories=msg.get("active_calories"),
+                distance=msg.get("distance"),
+            ))
+
+        if "steps" in msg and msg["steps"]:
+            steps.append(StepsReading(
+                timestamp=ts,
+                steps=msg["steps"],
+                distance=msg.get("distance"),
+                calories=msg.get("active_calories"),
+            ))
+
+    for msg in messages.get("stress_level_mesgs", []):
+        ts = parse_datetime(msg.get("stress_level_time"))
+        value = msg.get("stress_level_value")
+        if value is not None and value >= 0:
+            stress.append(StressReading(timestamp=ts, value=value))
+        bb_value = msg.get(3)
+        if bb_value is not None and ts is not None:
+            body_battery.append(BodyBatteryReading(timestamp=ts, value=bb_value))
+
+    for msg in messages.get("spo2_data_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+        value = msg.get("reading_spo2")
+        confidence = msg.get("reading_confidence")
+        if value:
+            spo2.append(SpO2Reading(
+                timestamp=ts,
+                value=value,
+                confidence=confidence,
+                mode=str(msg.get("mode", "unknown")),
+            ))
+
+    for msg in messages.get("respiration_rate_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+        value = msg.get("respiration_rate")
+        if value is not None and value > 0:
+            respiration.append(RespirationReading(timestamp=ts, value=value))
+
+    for msg in messages.get("monitoring_hr_data_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+        resting_hr.append(RestingHRReading(
+            timestamp=ts,
+            resting_hr=msg.get("resting_heart_rate"),
+            current_day_resting_hr=msg.get("current_day_resting_heart_rate"),
+        ))
+
+    return DayWellness(
+        date=date,
+        heart_rate=hr,
+        stress=stress,
+        body_battery=body_battery,
+        spo2=spo2,
+        respiration=respiration,
+        activity=activity,
+        steps_summary=steps,
+        resting_hr=resting_hr,
+    )
+
+
+def _extract_sleep(messages: dict, date: str) -> DaySleep:
+    """Extract sleep data from a single decoded SLEEP_DATA file."""
+    levels: list[SleepLevel] = []
+    assessments: list[SleepAssessment] = []
+
+    for msg in messages.get("sleep_level_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+        levels.append(SleepLevel(
+            date=date,
+            timestamp=ts,
+            level=str(msg.get("sleep_level", "unknown")),
+        ))
+
+    for msg in messages.get("sleep_assessment_mesgs", []):
+        assessments.append(SleepAssessment(
+            date=date,
+            overall_score=msg.get("overall_sleep_score"),
+            deep_sleep_score=msg.get("deep_sleep_score"),
+            light_sleep_score=msg.get("light_sleep_score"),
+            rem_sleep_score=msg.get("rem_sleep_score"),
+            awake_time_score=msg.get("awake_time_score"),
+            awakenings_count=msg.get("awakenings_count"),
+            average_stress=msg.get("average_stress_during_sleep"),
+        ))
+
+    return DaySleep(date=date, sleep_levels=levels, sleep_assessments=assessments)
+
+
+def _extract_hrv(messages: dict, date: str) -> DayHrv:
+    """Extract HRV data from a single decoded HRV_STATUS file."""
+    values: list[HrvValue] = []
+    summaries: list[HrvSummary] = []
+
+    for msg in messages.get("hrv_value_mesgs", []):
+        ts = parse_datetime(msg.get("timestamp"))
+        value = msg.get("value")
+        if value:
+            values.append(HrvValue(date=date, timestamp=ts, value=value))
+
+    for msg in messages.get("hrv_status_summary_mesgs", []):
+        summaries.append(HrvSummary(
+            date=date,
+            weekly_average=msg.get("weekly_average"),
+            last_night_average=msg.get("last_night_average"),
+            last_night_5_min_high=msg.get("last_night_5_min_high"),
+            baseline_low_upper=msg.get("baseline_low_upper"),
+            baseline_balanced_lower=msg.get("baseline_balanced_lower"),
+            baseline_balanced_upper=msg.get("baseline_balanced_upper"),
+            status=str(msg.get("status", "unknown")),
+        ))
+
+    return DayHrv(date=date, hrv_values=values, hrv_summaries=summaries)
+
+
+def _extract_skin_temp(messages: dict, date: str) -> DaySkinTemp:
+    """Extract skin temp data from a single decoded SKIN_TEMP file."""
+    readings: list[SkinTempOvernight] = []
+
+    for msg in messages.get("skin_temp_overnight_mesgs", []):
+        readings.append(SkinTempOvernight(
+            date=date,
+            timestamp=parse_datetime(msg.get("timestamp")),
+            local_timestamp=msg.get("local_timestamp"),
+            nightly_value=msg.get("nightly_value"),
+            average_deviation=msg.get("average_deviation"),
+            average_7_day_deviation=msg.get("average_7_day_deviation"),
+        ))
+
+    return DaySkinTemp(date=date, skin_temp_overnight=readings)
+
+
+# ---------------------------------------------------------------------------
+# Layer 2 — Per-day parsers (merge multiple files of same type)
+# ---------------------------------------------------------------------------
+
+def parse_wellness_day(files: list[Path], date: str) -> DayWellness:
+    """Decode all WELLNESS files for one day, merge into a single DayWellness."""
+    merged = DayWellness(date=date)
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            extracted = _extract_wellness(messages, date)
+            merged.heart_rate.extend(extracted.heart_rate)
+            merged.stress.extend(extracted.stress)
+            merged.body_battery.extend(extracted.body_battery)
+            merged.spo2.extend(extracted.spo2)
+            merged.respiration.extend(extracted.respiration)
+            merged.activity.extend(extracted.activity)
+            merged.steps_summary.extend(extracted.steps_summary)
+            merged.resting_hr.extend(extracted.resting_hr)
+        except Exception as e:
+            log.warning("Error parsing %s: %s", fit_file, e)
+    return merged
+
+
+def parse_sleep_day(files: list[Path], date: str) -> DaySleep:
+    """Decode all SLEEP_DATA files for one day, merge."""
+    merged = DaySleep(date=date)
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            extracted = _extract_sleep(messages, date)
+            merged.sleep_levels.extend(extracted.sleep_levels)
+            merged.sleep_assessments.extend(extracted.sleep_assessments)
+        except Exception as e:
+            log.warning("Error parsing %s: %s", fit_file, e)
+    return merged
+
+
+def parse_hrv_day(files: list[Path], date: str) -> DayHrv:
+    """Decode all HRV_STATUS files for one day, merge."""
+    merged = DayHrv(date=date)
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            extracted = _extract_hrv(messages, date)
+            merged.hrv_values.extend(extracted.hrv_values)
+            merged.hrv_summaries.extend(extracted.hrv_summaries)
+        except Exception as e:
+            log.warning("Error parsing %s: %s", fit_file, e)
+    return merged
+
+
+def parse_skin_temp_day(files: list[Path], date: str) -> DaySkinTemp:
+    """Decode all SKIN_TEMP files for one day, merge."""
+    merged = DaySkinTemp(date=date)
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            extracted = _extract_skin_temp(messages, date)
+            merged.skin_temp_overnight.extend(extracted.skin_temp_overnight)
+        except Exception as e:
+            log.warning("Error parsing %s: %s", fit_file, e)
+    return merged
+
+
+# ---------------------------------------------------------------------------
+# Layer 3 — High-level functions (directory scan + date filter)
+# ---------------------------------------------------------------------------
+
+def _select_days(
+    files_by_day: dict[str, dict[str, list[Path]]],
+    date: str | None,
+) -> list[tuple[str, dict[str, list[Path]]]]:
+    """Select and sort days to process. Returns list of (date, files_dict) tuples."""
     if date:
         if date not in files_by_day:
-            return {"error": f"Day {date} not found"}
-        days_to_process = {date: files_by_day[date]}
-    else:
-        days_to_process = files_by_day
+            return []
+        return [(date, files_by_day[date])]
+    return sorted(files_by_day.items())
 
-    result = {
-        "days": [],
-        "heart_rate": [],
-        "stress": [],
-        "spo2": [],
-        "respiration": [],
-        "activity": [],
-        "steps_summary": [],
-        "resting_hr": [],
-    }
 
-    for day, day_files in sorted(days_to_process.items()):
-        wellness_files = day_files.get("WELLNESS", [])
+def parse_wellness(data_dir: Path, date: str | None = None) -> list[DayWellness]:
+    """Parse wellness data across days."""
+    days = _select_days(get_files_by_day(data_dir), date)
+    return [
+        parse_wellness_day(day_files.get("WELLNESS", []), d)
+        for d, day_files in days
+    ]
 
-        day_hr = []
-        day_stress = []
-        day_spo2 = []
-        day_respiration = []
-        day_activity = []
-        day_steps = []
-        day_resting_hr = []
 
-        for fit_file in sorted(wellness_files):
-            try:
-                messages = decode_fit_file(fit_file)
+def parse_sleep(data_dir: Path, date: str | None = None) -> list[DaySleep]:
+    """Parse sleep data across days."""
+    days = _select_days(get_files_by_day(data_dir), date)
+    return [
+        parse_sleep_day(day_files.get("SLEEP_DATA", []), d)
+        for d, day_files in days
+    ]
 
-                # Heart rate from monitoring
-                for msg in messages.get("monitoring_mesgs", []):
-                    if "heart_rate" in msg and msg["heart_rate"]:
-                        ts = msg.get("timestamp")
-                        day_hr.append({
-                            "timestamp": parse_datetime(ts),
-                            "value": msg["heart_rate"],
-                        })
 
-                # Activity data
-                for msg in messages.get("monitoring_mesgs", []):
-                    if "activity_type" in msg:
-                        ts = msg.get("timestamp")
-                        day_activity.append({
-                            "timestamp": parse_datetime(ts),
-                            "activity_type": str(msg.get("activity_type", "unknown")),
-                            "intensity": msg.get("intensity"),
-                            "steps": msg.get("steps"),
-                            "calories": msg.get("active_calories"),
-                            "distance": msg.get("distance"),
-                        })
+def parse_hrv(data_dir: Path, date: str | None = None) -> list[DayHrv]:
+    """Parse HRV data across days."""
+    days = _select_days(get_files_by_day(data_dir), date)
+    return [
+        parse_hrv_day(day_files.get("HRV_STATUS", []), d)
+        for d, day_files in days
+    ]
 
-                # Steps aggregates
-                for msg in messages.get("monitoring_mesgs", []):
-                    if "steps" in msg and msg["steps"]:
-                        ts = msg.get("timestamp")
-                        day_steps.append({
-                            "timestamp": parse_datetime(ts),
-                            "steps": msg["steps"],
-                            "distance": msg.get("distance"),
-                            "calories": msg.get("active_calories"),
-                        })
 
-                # Stress
-                for msg in messages.get("stress_level_mesgs", []):
-                    ts = msg.get("stress_level_time")
-                    value = msg.get("stress_level_value")
-                    if value is not None and value >= 0:  # -1/-2 are invalid
-                        day_stress.append({
-                            "timestamp": parse_datetime(ts),
-                            "value": value,
-                        })
+def parse_skin_temp(data_dir: Path, date: str | None = None) -> list[DaySkinTemp]:
+    """Parse skin temp data across days."""
+    days = _select_days(get_files_by_day(data_dir), date)
+    return [
+        parse_skin_temp_day(day_files.get("SKIN_TEMP", []), d)
+        for d, day_files in days
+    ]
 
-                # SpO2
-                for msg in messages.get("spo2_data_mesgs", []):
-                    ts = msg.get("timestamp")
-                    value = msg.get("reading_spo2")
-                    confidence = msg.get("reading_confidence")
-                    if value:
-                        day_spo2.append({
-                            "timestamp": parse_datetime(ts),
-                            "value": value,
-                            "confidence": confidence,
-                            "mode": str(msg.get("mode", "unknown")),
-                        })
 
-                # Respiration
-                for msg in messages.get("respiration_rate_mesgs", []):
-                    ts = msg.get("timestamp")
-                    value = msg.get("respiration_rate")
-                    if value is not None and value > 0:  # -1 is invalid
-                        day_respiration.append({
-                            "timestamp": parse_datetime(ts),
-                            "value": value,
-                        })
+def parse_all_days(data_dir: Path) -> list[DayData]:
+    """Parse all metric types for all days — single directory scan."""
+    files_by_day = get_files_by_day(data_dir)
+    result: list[DayData] = []
 
-                # Resting HR
-                for msg in messages.get("monitoring_hr_data_mesgs", []):
-                    ts = msg.get("timestamp")
-                    day_resting_hr.append({
-                        "timestamp": parse_datetime(ts),
-                        "resting_hr": msg.get("resting_heart_rate"),
-                        "current_day_resting_hr": msg.get("current_day_resting_heart_rate"),
-                    })
-
-            except Exception as e:
-                print(f"Error parsing {fit_file}: {e}")
-
-        result["days"].append(day)
-        result["heart_rate"].extend(day_hr)
-        result["stress"].extend(day_stress)
-        result["spo2"].extend(day_spo2)
-        result["respiration"].extend(day_respiration)
-        result["activity"].extend(day_activity)
-        result["steps_summary"].extend(day_steps)
-        result["resting_hr"].extend(day_resting_hr)
+    for date, day_files in sorted(files_by_day.items()):
+        result.append(DayData(
+            date=date,
+            wellness=parse_wellness_day(day_files.get("WELLNESS", []), date),
+            sleep=parse_sleep_day(day_files.get("SLEEP_DATA", []), date),
+            hrv=parse_hrv_day(day_files.get("HRV_STATUS", []), date),
+            skin_temp=parse_skin_temp_day(day_files.get("SKIN_TEMP", []), date),
+        ))
 
     return result
-
-
-def parse_sleep_data(data_dir: Path, date: str | None = None) -> dict:
-    """Parse sleep data from SLEEP_DATA FIT files."""
-    files_by_day = get_files_by_day(data_dir)
-
-    if date:
-        if date not in files_by_day:
-            return {"error": f"Day {date} not found"}
-        days_to_process = {date: files_by_day[date]}
-    else:
-        days_to_process = files_by_day
-
-    result = {
-        "days": [],
-        "sleep_levels": [],
-        "sleep_assessments": [],
-    }
-
-    for day, day_files in sorted(days_to_process.items()):
-        sleep_files = day_files.get("SLEEP_DATA", [])
-
-        for fit_file in sorted(sleep_files):
-            try:
-                messages = decode_fit_file(fit_file)
-
-                # Sleep levels (stages)
-                for msg in messages.get("sleep_level_mesgs", []):
-                    ts = msg.get("timestamp")
-                    result["sleep_levels"].append({
-                        "date": day,
-                        "timestamp": parse_datetime(ts),
-                        "level": str(msg.get("sleep_level", "unknown")),
-                    })
-
-                # Sleep assessment
-                for msg in messages.get("sleep_assessment_mesgs", []):
-                    result["sleep_assessments"].append({
-                        "date": day,
-                        "overall_score": msg.get("overall_sleep_score"),
-                        "deep_sleep_score": msg.get("deep_sleep_score"),
-                        "light_sleep_score": msg.get("light_sleep_score"),
-                        "rem_sleep_score": msg.get("rem_sleep_score"),
-                        "awake_time_score": msg.get("awake_time_score"),
-                        "awakenings_count": msg.get("awakenings_count"),
-                        "average_stress": msg.get("average_stress_during_sleep"),
-                    })
-
-            except Exception as e:
-                print(f"Error parsing {fit_file}: {e}")
-
-        result["days"].append(day)
-
-    return result
-
-
-def parse_hrv_data(data_dir: Path, date: str | None = None) -> dict:
-    """Parse HRV data from HRV_STATUS FIT files."""
-    files_by_day = get_files_by_day(data_dir)
-
-    if date:
-        if date not in files_by_day:
-            return {"error": f"Day {date} not found"}
-        days_to_process = {date: files_by_day[date]}
-    else:
-        days_to_process = files_by_day
-
-    result = {
-        "days": [],
-        "hrv_values": [],
-        "hrv_summaries": [],
-    }
-
-    for day, day_files in sorted(days_to_process.items()):
-        hrv_files = day_files.get("HRV_STATUS", [])
-
-        for fit_file in sorted(hrv_files):
-            try:
-                messages = decode_fit_file(fit_file)
-
-                # Raw HRV values
-                for msg in messages.get("hrv_value_mesgs", []):
-                    ts = msg.get("timestamp")
-                    value = msg.get("value")
-                    if value:
-                        result["hrv_values"].append({
-                            "date": day,
-                            "timestamp": parse_datetime(ts),
-                            "value": value,
-                        })
-
-                # HRV summary
-                for msg in messages.get("hrv_status_summary_mesgs", []):
-                    result["hrv_summaries"].append({
-                        "date": day,
-                        "weekly_average": msg.get("weekly_average"),
-                        "last_night_average": msg.get("last_night_average"),
-                        "last_night_5_min_high": msg.get("last_night_5_min_high"),
-                        "baseline_low_upper": msg.get("baseline_low_upper"),
-                        "baseline_balanced_lower": msg.get("baseline_balanced_lower"),
-                        "baseline_balanced_upper": msg.get("baseline_balanced_upper"),
-                        "status": str(msg.get("status", "unknown")),
-                    })
-
-            except Exception as e:
-                print(f"Error parsing {fit_file}: {e}")
-
-        result["days"].append(day)
-
-    return result
-
-
-def parse_skin_temp_data(data_dir: Path, date: str | None = None) -> dict:
-    """Parse skin temperature data from SKIN_TEMP FIT files."""
-    files_by_day = get_files_by_day(data_dir)
-
-    if date:
-        if date not in files_by_day:
-            return {"error": f"Day {date} not found"}
-        days_to_process = {date: files_by_day[date]}
-    else:
-        days_to_process = files_by_day
-
-    result = {
-        "days": [],
-        "skin_temp_overnight": [],
-    }
-
-    for day, day_files in sorted(days_to_process.items()):
-        skin_temp_files = day_files.get("SKIN_TEMP", [])
-
-        for fit_file in sorted(skin_temp_files):
-            try:
-                messages = decode_fit_file(fit_file)
-
-                for msg in messages.get("skin_temp_overnight_mesgs", []):
-                    result["skin_temp_overnight"].append({
-                        "date": day,
-                        "timestamp": parse_datetime(msg.get("timestamp")),
-                        "local_timestamp": msg.get("local_timestamp"),
-                        "nightly_value": msg.get("nightly_value"),
-                        "average_deviation": msg.get("average_deviation"),
-                        "average_7_day_deviation": msg.get("average_7_day_deviation"),
-                    })
-
-            except Exception as e:
-                print(f"Error parsing {fit_file}: {e}")
-
-        result["days"].append(day)
-
-    return result
-
-
-def get_daily_aggregates(data_dir: Path) -> dict:
-    """Compute per-day aggregate stats for all metrics.
-
-    Parses WELLNESS files per-day directly (HR uses timestamp_16,
-    not timestamp, so it can't be grouped from flat output).
-    """
-    files_by_day = get_files_by_day(data_dir)
-    sleep = parse_sleep_data(data_dir)
-    hrv = parse_hrv_data(data_dir)
-    skin_temp = parse_skin_temp_data(data_dir)
-
-    sleep_by_day = {}
-    for a in sleep["sleep_assessments"]:
-        if a.get("date"):
-            sleep_by_day[a["date"]] = a
-
-    hrv_by_day = {}
-    for s in hrv["hrv_summaries"]:
-        if s.get("date"):
-            hrv_by_day[s["date"]] = s
-
-    skin_temp_by_day = {}
-    for st in skin_temp["skin_temp_overnight"]:
-        if st.get("date"):
-            skin_temp_by_day[st["date"]] = st
-
-    def safe_avg(values):
-        return round(sum(values) / len(values), 1) if values else None
-
-    all_days = sorted(files_by_day.keys())
-    daily = []
-
-    for day in all_days:
-        day_files = files_by_day[day]
-        wellness_files = day_files.get("WELLNESS", [])
-
-        hr_vals = []
-        stress_vals = []
-        spo2_vals = []
-        resp_vals = []
-        resting_val = None
-
-        for fit_file in sorted(wellness_files):
-            try:
-                messages = decode_fit_file(fit_file)
-
-                for msg in messages.get("monitoring_mesgs", []):
-                    if "heart_rate" in msg and msg["heart_rate"]:
-                        hr_vals.append(msg["heart_rate"])
-
-                for msg in messages.get("stress_level_mesgs", []):
-                    value = msg.get("stress_level_value")
-                    if value is not None and value >= 0:
-                        stress_vals.append(value)
-
-                for msg in messages.get("spo2_data_mesgs", []):
-                    value = msg.get("reading_spo2")
-                    if value:
-                        spo2_vals.append(value)
-
-                for msg in messages.get("respiration_rate_mesgs", []):
-                    value = msg.get("respiration_rate")
-                    if value is not None and value > 0:
-                        resp_vals.append(value)
-
-                for msg in messages.get("monitoring_hr_data_mesgs", []):
-                    v = msg.get("current_day_resting_heart_rate") or msg.get("resting_heart_rate")
-                    if v:
-                        resting_val = v
-
-            except Exception as e:
-                print(f"Error parsing {fit_file}: {e}")
-
-        sleep_a = sleep_by_day.get(day)
-        hrv_s = hrv_by_day.get(day)
-        skin_t = skin_temp_by_day.get(day)
-
-        daily.append({
-            "date": day,
-            "heart_rate": {
-                "avg": safe_avg(hr_vals),
-                "min": min(hr_vals) if hr_vals else None,
-                "max": max(hr_vals) if hr_vals else None,
-                "resting": resting_val,
-            },
-            "stress": {
-                "avg": safe_avg(stress_vals),
-                "min": min(stress_vals) if stress_vals else None,
-                "max": max(stress_vals) if stress_vals else None,
-            },
-            "spo2": {
-                "avg": safe_avg(spo2_vals),
-                "min": min(spo2_vals) if spo2_vals else None,
-                "max": max(spo2_vals) if spo2_vals else None,
-            },
-            "respiration": {
-                "avg": safe_avg(resp_vals),
-                "min": round(min(resp_vals), 1) if resp_vals else None,
-                "max": round(max(resp_vals), 1) if resp_vals else None,
-            },
-            "hrv": {
-                "weekly_avg": hrv_s.get("weekly_average") if hrv_s else None,
-                "nightly_avg": hrv_s.get("last_night_average") if hrv_s else None,
-                "status": hrv_s.get("status") if hrv_s else None,
-            },
-            "sleep": {
-                "score": sleep_a.get("overall_score") if sleep_a else None,
-                "deep_score": sleep_a.get("deep_sleep_score") if sleep_a else None,
-                "rem_score": sleep_a.get("rem_sleep_score") if sleep_a else None,
-            },
-            "skin_temp": {
-                "deviation": skin_t.get("average_deviation") if skin_t else None,
-                "deviation_7_day": skin_t.get("average_7_day_deviation") if skin_t else None,
-                "nightly_value": skin_t.get("nightly_value") if skin_t else None,
-            },
-        })
-
-    return {"days": all_days, "daily": daily}
-
-
-def get_overview_stats(data_dir: Path) -> dict:
-    """Get overview statistics across all data."""
-    wellness = parse_wellness_data(data_dir)
-    sleep = parse_sleep_data(data_dir)
-    hrv = parse_hrv_data(data_dir)
-
-    # Calculate stats
-    hr_values = [d["value"] for d in wellness["heart_rate"] if d["value"]]
-    stress_values = [d["value"] for d in wellness["stress"] if d["value"]]
-    spo2_values = [d["value"] for d in wellness["spo2"] if d["value"]]
-    resp_values = [d["value"] for d in wellness["respiration"] if d["value"]]
-
-    # Activity distribution
-    activity_counts = defaultdict(int)
-    for a in wellness["activity"]:
-        activity_counts[a["activity_type"]] += 1
-
-    return {
-        "days_available": wellness["days"],
-        "total_days": len(wellness["days"]),
-        "heart_rate": {
-            "total_readings": len(hr_values),
-            "min": min(hr_values) if hr_values else None,
-            "max": max(hr_values) if hr_values else None,
-            "avg": round(sum(hr_values) / len(hr_values), 1) if hr_values else None,
-        },
-        "stress": {
-            "total_readings": len(stress_values),
-            "min": min(stress_values) if stress_values else None,
-            "max": max(stress_values) if stress_values else None,
-            "avg": round(sum(stress_values) / len(stress_values), 1) if stress_values else None,
-        },
-        "spo2": {
-            "total_readings": len(spo2_values),
-            "min": min(spo2_values) if spo2_values else None,
-            "max": max(spo2_values) if spo2_values else None,
-            "avg": round(sum(spo2_values) / len(spo2_values), 1) if spo2_values else None,
-        },
-        "respiration": {
-            "total_readings": len(resp_values),
-            "min": round(min(resp_values), 1) if resp_values else None,
-            "max": round(max(resp_values), 1) if resp_values else None,
-            "avg": round(sum(resp_values) / len(resp_values), 1) if resp_values else None,
-        },
-        "activity_distribution": dict(activity_counts),
-        "sleep_scores": [
-            {"date": s["date"], "score": s["overall_score"]}
-            for s in sleep["sleep_assessments"]
-        ],
-        "hrv_summaries": hrv["hrv_summaries"],
-    }
