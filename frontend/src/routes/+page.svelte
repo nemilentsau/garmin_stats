@@ -1,275 +1,312 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-	import { api, type OverviewStats } from "$lib/api";
+	import { onMount } from 'svelte';
+	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
+	import LineChart from '$lib/components/LineChart.svelte';
+	import type { ChartConfiguration } from 'chart.js';
 
-	let overviewPromise: Promise<OverviewStats> = new Promise(() => {});
+	let data: DailyAggregates | null = $state(null);
+	let error: string | null = $state(null);
 
-	onMount(() => {
-		overviewPromise = api.getOverview();
+	onMount(async () => {
+		try {
+			data = await api.getDailyAggregates();
+		} catch (e: any) {
+			error = e.message;
+		}
 	});
 
-	function formatNumber(n: number | null): string {
-		if (n === null) return "-";
-		return n.toLocaleString();
+	function fmt(n: number | null | undefined): string {
+		if (n == null) return '-';
+		return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
+	}
+
+	function makeLineConfig(
+		daily: DailyMetric[],
+		getValue: (d: DailyMetric) => number | null,
+		label: string,
+		color: string,
+		getMin?: (d: DailyMetric) => number | null,
+		getMax?: (d: DailyMetric) => number | null
+	): ChartConfiguration<'line'> {
+		const labels = daily.map((d) => d.date);
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
+			{
+				label,
+				data: daily.map(getValue),
+				borderColor: color,
+				backgroundColor: color + '20',
+				borderWidth: 2,
+				pointRadius: 2,
+				tension: 0.3,
+				spanGaps: true
+			}
+		];
+		if (getMin && getMax) {
+			datasets.push({
+				label: 'Min',
+				data: daily.map(getMin),
+				borderColor: color + '40',
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: false
+			});
+			datasets.push({
+				label: 'Max',
+				data: daily.map(getMax),
+				borderColor: color + '40',
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: '-1'
+			});
+		}
+		return {
+			type: 'line',
+			data: { labels, datasets },
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index', intersect: false },
+				plugins: { legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 } } } },
+				scales: {
+					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
+					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
+				}
+			}
+		};
+	}
+
+	let hrConfig = $derived.by(() => {
+		if (!data) return null;
+		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', '#dc2626', (d) => d.heart_rate.min, (d) => d.heart_rate.max);
+	});
+	let stressConfig = $derived.by(() => {
+		if (!data) return null;
+		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', '#ea580c', (d) => d.stress.min, (d) => d.stress.max);
+	});
+	let spo2Config = $derived.by(() => {
+		if (!data) return null;
+		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', '#2563eb', (d) => d.spo2.min, (d) => d.spo2.max);
+	});
+	let respConfig = $derived.by(() => {
+		if (!data) return null;
+		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', '#0d9488', (d) => d.respiration.min, (d) => d.respiration.max);
+	});
+	let hrvConfig = $derived.by(() => {
+		if (!data) return null;
+		const labels = data.daily.map((d) => d.date);
+		return {
+			type: 'line' as const,
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Nightly Avg',
+						data: data.daily.map((d) => d.hrv.nightly_avg),
+						borderColor: '#7c3aed',
+						borderWidth: 2,
+						pointRadius: 2,
+						tension: 0.3,
+						spanGaps: true
+					},
+					{
+						label: 'Weekly Avg',
+						data: data.daily.map((d) => d.hrv.weekly_avg),
+						borderColor: '#a78bfa',
+						borderWidth: 2,
+						borderDash: [6, 3],
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index' as const, intersect: false },
+				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+				scales: {
+					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
+					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
+				}
+			}
+		};
+	});
+	let sleepConfig = $derived.by(() => {
+		if (!data) return null;
+		return makeLineConfig(data.daily, (d) => d.sleep.score, 'Sleep Score', '#4f46e5');
+	});
+	let skinTempConfig = $derived.by(() => {
+		if (!data) return null;
+		const labels = data.daily.map((d) => d.date);
+		return {
+			type: 'line' as const,
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Deviation',
+						data: data.daily.map((d) => d.skin_temp.deviation),
+						borderColor: '#d97706',
+						borderWidth: 2,
+						pointRadius: 2,
+						tension: 0.3,
+						spanGaps: true
+					},
+					{
+						label: '7-Day Avg',
+						data: data.daily.map((d) => d.skin_temp.deviation_7_day),
+						borderColor: '#f59e0b',
+						borderWidth: 2,
+						borderDash: [6, 3],
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index' as const, intersect: false },
+				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+				scales: {
+					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
+					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
+				}
+			}
+		};
+	});
+
+	function latestValid<T>(daily: DailyMetric[], getter: (d: DailyMetric) => T | null): T | null {
+		for (let i = daily.length - 1; i >= 0; i--) {
+			const v = getter(daily[i]);
+			if (v != null) return v;
+		}
+		return null;
 	}
 </script>
 
-{#await overviewPromise}
+{#if error}
+	<div class="bg-red-50 border border-red-200 rounded-lg p-4">
+		<p class="text-red-700">Error: {error}</p>
+		<p class="text-sm text-red-600 mt-2">Make sure the backend is running at localhost:8000</p>
+	</div>
+{:else if !data}
 	<div class="flex items-center justify-center h-64">
 		<div class="text-gray-500">Loading data...</div>
 	</div>
-{:then overview}
-	<!-- Overview Cards -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-		<!-- Days Card -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide"
-			>
-				Days of Data
-			</div>
-			<div class="mt-2 text-3xl font-bold text-gray-900">
-				{overview.total_days}
-			</div>
-			<div class="mt-1 text-sm text-gray-500">
-				{overview.days_available[0]} to {overview.days_available[
-					overview.days_available.length - 1
-				]}
-			</div>
-		</div>
-
-		<!-- Heart Rate Card -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide"
-			>
-				Heart Rate
-			</div>
-			<div class="mt-2 text-3xl font-bold text-red-600">
-				{formatNumber(overview.heart_rate.avg)}
-				<span class="text-lg font-normal">bpm</span>
-			</div>
-			<div class="mt-1 text-sm text-gray-500">
-				{formatNumber(overview.heart_rate.min)} - {formatNumber(
-					overview.heart_rate.max,
-				)} bpm
-			</div>
-			<div class="mt-1 text-xs text-gray-400">
-				{formatNumber(overview.heart_rate.total_readings)} readings
-			</div>
-		</div>
-
-		<!-- Stress Card -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide"
-			>
-				Stress Level
-			</div>
-			<div class="mt-2 text-3xl font-bold text-orange-600">
-				{formatNumber(overview.stress.avg)}
-			</div>
-			<div class="mt-1 text-sm text-gray-500">
-				{formatNumber(overview.stress.min)} - {formatNumber(
-					overview.stress.max,
-				)}
-			</div>
-			<div class="mt-1 text-xs text-gray-400">
-				{formatNumber(overview.stress.total_readings)} readings
-			</div>
-		</div>
-
-		<!-- SpO2 Card -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide"
-			>
-				SpO2
-			</div>
-			<div class="mt-2 text-3xl font-bold text-blue-600">
-				{formatNumber(overview.spo2.avg)}<span
-					class="text-lg font-normal">%</span
-				>
-			</div>
-			<div class="mt-1 text-sm text-gray-500">
-				{formatNumber(overview.spo2.min)} - {formatNumber(
-					overview.spo2.max,
-				)}%
-			</div>
-			<div class="mt-1 text-xs text-gray-400">
-				{formatNumber(overview.spo2.total_readings)} readings
-			</div>
-		</div>
+{:else}
+	<div class="mb-4 text-sm text-gray-500">
+		{data.days.length} days &middot; {data.days[0]} to {data.days[data.days.length - 1]}
 	</div>
 
-	<!-- Second Row -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-		<!-- Respiration Card -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide"
-			>
-				Respiration Rate
-			</div>
-			<div class="mt-2 text-3xl font-bold text-teal-600">
-				{formatNumber(overview.respiration.avg)}
-				<span class="text-lg font-normal">br/min</span>
-			</div>
-			<div class="mt-1 text-sm text-gray-500">
-				{formatNumber(overview.respiration.min)} - {formatNumber(
-					overview.respiration.max,
-				)} br/min
-			</div>
-			<div class="mt-1 text-xs text-gray-400">
-				{formatNumber(overview.respiration.total_readings)} readings
-			</div>
-		</div>
-
-		<!-- Activity Distribution -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4"
-			>
-				Activity Distribution
-			</div>
-			{#each Object.entries(overview.activity_distribution).sort((a, b) => b[1] - a[1]) as [activity, count]}
-				{@const total = Object.values(
-					overview.activity_distribution,
-				).reduce((a, b) => a + b, 0)}
-				{@const pct = ((count / total) * 100).toFixed(1)}
-				<div class="mb-2">
-					<div class="flex justify-between text-sm mb-1">
-						<span class="capitalize text-gray-700">{activity}</span>
-						<span class="text-gray-500">{pct}%</span>
-					</div>
-					<div class="w-full bg-gray-200 rounded-full h-2">
-						<div
-							class="h-2 rounded-full"
-							class:bg-gray-400={activity === "sedentary"}
-							class:bg-green-500={activity === "walking"}
-							class:bg-blue-500={activity === "running"}
-							class:bg-purple-500={activity === "generic"}
-							style="width: {pct}%"
-						></div>
-					</div>
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<!-- Heart Rate Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Heart Rate</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-red-600">{fmt(latestValid(data.daily, (d) => d.heart_rate.avg))}</span>
+					<span class="text-xs text-gray-500">bpm avg</span>
+					{#if latestValid(data.daily, (d) => d.heart_rate.resting)}
+						<span class="ml-2 text-xs text-gray-400">resting {fmt(latestValid(data.daily, (d) => d.heart_rate.resting))}</span>
+					{/if}
 				</div>
-			{/each}
-		</div>
-
-		<!-- Sleep Scores -->
-		<div class="bg-white rounded-lg shadow p-6">
-			<div
-				class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4"
-			>
-				Sleep Scores
 			</div>
-			{#each overview.sleep_scores as sleep}
-				<div
-					class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0"
-				>
-					<span class="text-sm text-gray-600">{sleep.date}</span>
-					<span
-						class="text-lg font-semibold"
-						class:text-green-600={sleep.score >= 80}
-						class:text-yellow-600={sleep.score >= 60 &&
-							sleep.score < 80}
-						class:text-red-600={sleep.score < 60}
-					>
-						{sleep.score}
-					</span>
+			{#if hrConfig}
+				<LineChart config={hrConfig} height={220} />
+			{/if}
+		</div>
+
+		<!-- Stress Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stress</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-orange-600">{fmt(latestValid(data.daily, (d) => d.stress.avg))}</span>
+					<span class="text-xs text-gray-500">avg</span>
 				</div>
-			{/each}
+			</div>
+			{#if stressConfig}
+				<LineChart config={stressConfig} height={220} />
+			{/if}
 		</div>
-	</div>
 
-	<!-- HRV Section -->
-	<div class="bg-white rounded-lg shadow p-6 mb-8">
-		<div
-			class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4"
-		>
-			HRV Status
+		<!-- SpO2 Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">SpO2</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-blue-600">{fmt(latestValid(data.daily, (d) => d.spo2.avg))}</span>
+					<span class="text-xs text-gray-500">%</span>
+				</div>
+			</div>
+			{#if spo2Config}
+				<LineChart config={spo2Config} height={220} />
+			{/if}
 		</div>
-		<div class="overflow-x-auto">
-			<table class="min-w-full">
-				<thead>
-					<tr class="border-b border-gray-200">
-						<th
-							class="text-left py-2 text-sm font-medium text-gray-500"
-							>Date</th
-						>
-						<th
-							class="text-right py-2 text-sm font-medium text-gray-500"
-							>Last Night Avg</th
-						>
-						<th
-							class="text-right py-2 text-sm font-medium text-gray-500"
-							>Weekly Avg</th
-						>
-						<th
-							class="text-right py-2 text-sm font-medium text-gray-500"
-							>Status</th
-						>
-					</tr>
-				</thead>
-				<tbody>
-					{#each overview.hrv_summaries as hrv}
-						<tr class="border-b border-gray-100">
-							<td class="py-2 text-sm text-gray-700"
-								>{hrv.date}</td
-							>
-							<td
-								class="py-2 text-sm text-right text-gray-900 font-medium"
-								>{hrv.last_night_average?.toFixed(0) ?? "-"} ms</td
-							>
-							<td class="py-2 text-sm text-right text-gray-600"
-								>{hrv.weekly_average?.toFixed(0) ?? "-"} ms</td
-							>
-							<td class="py-2 text-sm text-right">
-								<span
-									class="px-2 py-1 rounded-full text-xs font-medium"
-									class:bg-green-100={hrv.status.includes(
-										"balanced",
-									)}
-									class:text-green-800={hrv.status.includes(
-										"balanced",
-									)}
-									class:bg-yellow-100={hrv.status.includes(
-										"low",
-									)}
-									class:text-yellow-800={hrv.status.includes(
-										"low",
-									)}
-									class:bg-gray-100={!hrv.status.includes(
-										"balanced",
-									) && !hrv.status.includes("low")}
-									class:text-gray-800={!hrv.status.includes(
-										"balanced",
-									) && !hrv.status.includes("low")}
-								>
-									{hrv.status}
-								</span>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
 
-	<!-- Data Summary -->
-	<div class="bg-gray-100 rounded-lg p-4 text-sm text-gray-600">
-		<strong>Data Summary:</strong> Analyzing {overview.total_days} days of Garmin
-		Epix Gen 2 data with
-		{formatNumber(overview.heart_rate.total_readings)} HR readings,
-		{formatNumber(overview.stress.total_readings)} stress readings,
-		{formatNumber(overview.spo2.total_readings)} SpO2 readings, and
-		{formatNumber(overview.respiration.total_readings)} respiration readings.
+		<!-- Respiration Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Respiration</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-teal-600">{fmt(latestValid(data.daily, (d) => d.respiration.avg))}</span>
+					<span class="text-xs text-gray-500">br/min</span>
+				</div>
+			</div>
+			{#if respConfig}
+				<LineChart config={respConfig} height={220} />
+			{/if}
+		</div>
+
+		<!-- HRV Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">HRV</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-purple-600">{fmt(latestValid(data.daily, (d) => d.hrv.nightly_avg))}</span>
+					<span class="text-xs text-gray-500">ms nightly</span>
+				</div>
+			</div>
+			{#if hrvConfig}
+				<LineChart config={hrvConfig} height={220} />
+			{/if}
+		</div>
+
+		<!-- Sleep Score Panel -->
+		<div class="bg-white rounded-lg shadow p-5">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Sleep Score</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-indigo-600">{fmt(latestValid(data.daily, (d) => d.sleep.score))}</span>
+					<span class="text-xs text-gray-500">latest</span>
+				</div>
+			</div>
+			{#if sleepConfig}
+				<LineChart config={sleepConfig} height={220} />
+			{/if}
+		</div>
+
+		<!-- Skin Temp Panel -->
+		<div class="bg-white rounded-lg shadow p-5 lg:col-span-2">
+			<div class="flex items-baseline justify-between mb-3">
+				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Skin Temperature</h2>
+				<div class="text-right">
+					<span class="text-xl font-bold text-amber-600">{fmt(latestValid(data.daily, (d) => d.skin_temp.deviation))}</span>
+					<span class="text-xs text-gray-500">&deg;C deviation</span>
+				</div>
+			</div>
+			{#if skinTempConfig}
+				<LineChart config={skinTempConfig} height={200} />
+			{/if}
+		</div>
 	</div>
-{:catch error}
-	<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-		<p class="text-red-700">Error: {error.message}</p>
-		<p class="text-sm text-red-600 mt-2">
-			Make sure the backend is running at localhost:8000
-		</p>
-	</div>
-{/await}
+{/if}

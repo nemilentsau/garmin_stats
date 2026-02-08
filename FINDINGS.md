@@ -238,8 +238,10 @@ Still undocumented (numeric IDs):
 1. **Rich biometric data**: SpO2, respiration rate, HRV, skin temp all tracked continuously
 2. **Sleep analysis**: Detailed sleep stages + quality scores + disruption tracking
 3. **Activity intensity**: 8-level scale (0-7) for activity classification
-4. **HR sampling**: ~1-2 minute intervals throughout day
+4. **HR sampling**: ~1-2 minute intervals throughout day, but uses compressed `timestamp_16` (not full `timestamp`)
 5. **Stress tracking**: Continuous throughout day with quality indicators
+6. **Skin temp deviation**: Reported as deviation from personal baseline, not absolute temperature. 7-day smoothed average useful for trend detection.
+7. **HR timestamp caveat**: `monitoring_mesgs` with `heart_rate` use `timestamp_16` (16-bit compressed offset), NOT the standard `timestamp` field. You cannot extract per-reading timestamps without decoding the compressed format. For daily aggregation, group by the date directory the file lives in.
 
 ---
 
@@ -254,3 +256,5 @@ Still undocumented (numeric IDs):
 | 2026-01-19 | Reduced unknown message types from ~20 to ~10 |
 | 2026-01-19 | Analyzed METRICS files - 16 undocumented message types for training data |
 | 2026-01-19 | Added speculative field mappings for METRICS based on sample values |
+| 2026-02-08 | Discovered HR monitoring_mesgs use timestamp_16, not timestamp — breaks naive timestamp grouping |
+| 2026-02-08 | Confirmed skin_temp_overnight_mesgs: 1 per night, deviation-based, 7-day smoothed average included |

@@ -10,9 +10,11 @@ from .parser import (
     get_available_days,
     get_day_summary,
     get_overview_stats,
+    get_daily_aggregates,
     parse_wellness_data,
     parse_sleep_data,
     parse_hrv_data,
+    parse_skin_temp_data,
 )
 
 # Data directory - relative to project root
@@ -92,6 +94,21 @@ def get_sleep(date: str | None = Query(None, description="Filter by date (YYYY-M
 def get_hrv(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
     """Get HRV data (values, summaries)."""
     data = parse_hrv_data(DATA_DIR, date)
+    if "error" in data:
+        raise HTTPException(status_code=404, detail=data["error"])
+    return data
+
+
+@app.get("/api/daily-aggregates")
+def get_daily_agg():
+    """Get per-day aggregate stats for all metrics."""
+    return get_daily_aggregates(DATA_DIR)
+
+
+@app.get("/api/skin-temp")
+def get_skin_temp(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
+    """Get skin temperature data."""
+    data = parse_skin_temp_data(DATA_DIR, date)
     if "error" in data:
         raise HTTPException(status_code=404, detail=data["error"])
     return data
