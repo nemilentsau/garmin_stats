@@ -1,260 +1,81 @@
-# Garmin FIT File Analysis Findings
+# Garmin Health Data — Analysis Findings
 
-This document tracks discoveries from analyzing Garmin Epix Gen 2 FIT file exports.
+Data schemas and field documentation live in `.claude/skills/garmin-data/references/`. This file is for **analytical observations** — what the data tells us, not how it's structured.
 
-**SDK Used:** Official Garmin FIT SDK (`garmin-fit-sdk>=21.188.0`)
-
----
-
-## Data Structure Overview
-
-### File Organization
-
-Garmin exports health data into **date-based directories** (e.g., `2026-01-14/`) containing multiple FIT files per day.
-
-**File Types (per day):**
-
-| Type | Files/Day | Size/Day | Primary Data |
-|------|-----------|----------|--------------|
-| WELLNESS | 5-7 | ~75-80 KB | Activity, HR, stress, SpO2, respiration |
-| METRICS | 4-8 | ~2-4 KB | Training metrics (mostly undocumented) |
-| SKIN_TEMP | 1 | ~12-13 KB | Skin temperature readings |
-| SLEEP_DATA | 1 | ~0.8-0.9 KB | Sleep stages and assessment |
-| SLEEP_DISRUPTIONS | 1 | ~0.4 KB | Sleep interruptions |
-| HRV_STATUS | 1 | ~0.8-1.2 KB | Heart rate variability |
-
-### Why Multiple WELLNESS Files Per Day?
-
-WELLNESS files are **sequential time chunks** covering the 24-hour period. The watch splits files when syncing or when internal buffers fill up.
+**Device:** Garmin Epix Gen 2 Pro | **Period:** 2026-01-01 to 2026-02-06 (~37 days) | **SDK:** garmin-fit-sdk 21.188.0
 
 ---
 
-## Message Types - Complete Inventory
+## Data Quality
 
-### WELLNESS Files (Primary Health Data)
+### Missingness
+- **SpO2: 16% missing days** (6 of 37). **Explained:** SpO2 sensor was recently enabled — early days in the dataset predate activation. Not a sensor failure. The remaining values cluster tightly (92.5-95.5%, sd=0.7).
+- **HRV: 3% missing** (1 day). Likely device not worn overnight.
+- **Skin Temp: 3% missing** (1 day). Same likely cause.
+- **HR, Stress, Respiration: 0% missing.** Complete coverage across all 37 days.
 
-| Message Type | Records/Day | Fields | Description |
-|--------------|-------------|--------|-------------|
-| `monitoring_mesgs` | ~1,800 | 18 | Core activity data |
-| `stress_level_mesgs` | ~1,400 | 2+ | Stress measurements |
-| `respiration_rate_mesgs` | ~1,400 | 2 | Breathing rate |
-| `spo2_data_mesgs` | ~1,100 | 4 | Blood oxygen (SpO2) |
-| `event_mesgs` | ~260 | 8 | Activity events |
-| `monitoring_hr_data_mesgs` | ~11 | 3 | Resting heart rate |
-| `ohr_settings_mesgs` | ~11 | 2 | Optical HR settings |
-| `monitoring_info_mesgs` | 6 | 6 | File metadata |
-
-### SLEEP_DATA Files
-
-| Message Type | Records | Fields | Description |
-|--------------|---------|--------|-------------|
-| `sleep_level_mesgs` | ~15/night | 2 | Sleep stages (awake, light, deep, REM) |
-| `sleep_assessment_mesgs` | 1/night | 10 | Sleep quality scores |
-| `event_mesgs` | 2 | - | Sleep start/end markers |
-
-### HRV_STATUS Files
-
-| Message Type | Records | Fields | Description |
-|--------------|---------|--------|-------------|
-| `hrv_value_mesgs` | ~58/night | 2 | Raw HRV values during sleep |
-| `hrv_status_summary_mesgs` | 1 | 8 | HRV baseline and status |
-
-### SKIN_TEMP Files
-
-| Message Type | Records | Fields | Description |
-|--------------|---------|--------|-------------|
-| `skin_temp_overnight_mesgs` | 1 | 5 | Nightly skin temp summary |
-| `unknown_397` | ~1,400 | 2 | Raw temp readings (undocumented) |
-
-### SLEEP_DISRUPTIONS Files
-
-| Message Type | Records | Fields | Description |
-|--------------|---------|--------|-------------|
-| `sleep_disruption_severity_period_mesgs` | ~6/night | 3 | Disruption periods |
-| `sleep_disruption_overnight_severity_mesgs` | 1 | 2 | Overall severity |
-
-### METRICS Files (Mostly Undocumented)
-
-METRICS files contain **training and fitness metrics** but are almost entirely undocumented even in the official Garmin FIT SDK.
-
-**Named message types (metadata only):**
-- `file_id_mesgs` - File identification
-- `file_creator_mesgs` - Software version
-- `device_info_mesgs` - Device details
-
-**Unknown message types (16 total):**
-
-| ID | Records | Fields | Possible Content (speculative) |
-|----|---------|--------|-------------------------------|
-| 369 | ~11 | 30 | Training status summary (most fields of any message) |
-| 403 | ~7 | 12 | VO2 max data (values like 5686 ≈ 56.86 mL/kg/min) |
-| 339 | ~10 | 6 | Training load (values in thousands) |
-| 281 | ~10 | 9 | Recovery metrics |
-| 241 | ~17 | 3 | Timestamps/sync data |
-| 404 | ~14 | 4 | Goal tracking? (values like 10000 = step goal?) |
-| 357 | ~7 | 4 | Training readiness? (percentage values 95-98) |
-| 378 | ~7 | 7 | HR zones? (values include 42, 220 - VO2max, max HR) |
-| 356 | ~7 | 7 | Performance metrics |
-| 410 | ~7 | 9 | Training effect? |
-| 294 | ~7 | 11 | Large numeric values - cumulative stats |
-| 232 | ~7 | 5 | Status flags |
-| 402 | ~7 | 4 | Binary flags (0/1/2 values) |
-| 284 | ~7 | 6 | HR-related (includes value 2359 ≈ HR zones?) |
-| 330 | ~3 | 4 | Session markers |
-| 384 | ~3 | 26 | Comprehensive session summary |
-
-**Note:** These speculations are based on analyzing sample values. Reverse engineering would require correlating with Garmin Connect data to confirm meanings.
+### Sensor Artifacts
+- HR min values dip to ~40 bpm on some days — could be legitimate resting HR during deep sleep, or sensor artifact during low-motion periods. Worth cross-referencing with sleep stages.
+- HR max hits 160+ bpm — likely exercise peaks. Not artifacts, but they dominate min/max visualizations.
 
 ---
 
-## Field Details by Message Type
+## Distribution Observations (from EDA)
 
-### `monitoring_mesgs` (Activity Monitoring)
+| Metric | Mean | Median | SD | Shape | Notes |
+|--------|------|--------|-----|-------|-------|
+| HR Avg (bpm) | 64.3 | 64.3 | 3.3 | Normal, symmetric | Mean = median, safe to use mean |
+| Stress Avg | 28.6 | 28.0 | 5.6 | Slight right skew | Low baseline stress, some high-stress days |
+| SpO2 Avg (%) | 93.8 | 93.9 | 0.7 | Tight cluster | Very little variation day-to-day |
+| Respiration (br/min) | 12.6 | 12.4 | 0.6 | Possibly bimodal | Peaks near 12.2 and 14.2 — may reflect sleep vs wake patterns |
+| HRV Nightly (ms) | 58.3 | 61.0 | 12.4 | Left skew | Median > mean suggests low-HRV outlier days pulling down |
+| Skin Temp Dev (C) | -0.0 | -0.1 | 0.4 | Centered at 0 | Deviation from baseline, as expected |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Record time |
-| `heart_rate` | int | Current HR (bpm) |
-| `activity_type` | enum | sedentary, walking, running, generic |
-| `intensity` | int | 0-7 activity intensity |
-| `steps` | int | Step count |
-| `cycles` | float | Arm movements/steps |
-| `active_calories` | int | Calories burned |
-| `active_time` | float | Active seconds |
-| `distance` | float | Distance (meters) |
-| `ascent` | float | Elevation gain (meters) |
-| `descent` | float | Elevation loss (meters) |
-| `moderate_activity_minutes` | int | Moderate intensity time |
-| `vigorous_activity_minutes` | int | Vigorous intensity time |
-| `duration_min` | int | Duration metric |
-| `current_activity_type_intensity` | tuple | Packed value |
-| `timestamp_16` | int | 16-bit timestamp offset |
-
-### `stress_level_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `stress_level_time` | datetime | Measurement time |
-| `stress_level_value` | int | Stress score (0-100, -1/-2 = invalid) |
-
-### `respiration_rate_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Measurement time |
-| `respiration_rate` | float | Breaths per minute (-1 = invalid) |
-
-### `spo2_data_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Measurement time |
-| `reading_spo2` | int | SpO2 percentage (0-100) |
-| `reading_confidence` | int | Confidence score |
-| `mode` | enum | periodic, on_demand |
-
-### `monitoring_hr_data_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Record time |
-| `resting_heart_rate` | int | Current resting HR |
-| `current_day_resting_heart_rate` | int | Daily resting HR |
-
-### `sleep_level_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Stage start time |
-| `sleep_level` | enum | awake, light, deep, rem |
-
-### `sleep_assessment_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `overall_sleep_score` | int | Total sleep score |
-| `deep_sleep_score` | int | Deep sleep quality |
-| `light_sleep_score` | int | Light sleep quality |
-| `rem_sleep_score` | int | REM sleep quality |
-| `awake_time_score` | int | Time awake score |
-| `awakenings_count` | int | Number of awakenings |
-| `awakenings_count_score` | int | Awakenings score |
-| `interruptions_score` | int | Interruptions score |
-| `average_stress_during_sleep` | int | Sleep stress |
-| `combined_awake_score` | int | Combined awake score |
-
-### `hrv_status_summary_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Summary time |
-| `weekly_average` | float | 7-day HRV average |
-| `last_night_average` | float | Last night's HRV |
-| `last_night_5_min_high` | float | Peak 5-min HRV |
-| `baseline_low_upper` | float | Low baseline threshold |
-| `baseline_balanced_lower` | float | Balanced range lower |
-| `baseline_balanced_upper` | float | Balanced range upper |
-| `status` | enum | HRV status |
-
-### `skin_temp_overnight_mesgs`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | datetime | Record time |
-| `local_timestamp` | datetime | Local time |
-| `nightly_value` | float | Overnight temp |
-| `average_deviation` | float | Deviation from baseline |
-| `average_7_day_deviation` | float | 7-day avg deviation |
+### Key Observations
+1. **Respiration may be bimodal** — the distribution shows two peaks. If confirmed, reporting a single average is misleading. Should investigate whether the two modes correspond to sleep vs awake breathing rates.
+2. **HRV is left-skewed** — median (61) is higher than mean (58.3). A few low-HRV nights are dragging the average down. Median is more representative for this metric.
+3. **SpO2 has very low variance** (sd=0.7) — daily averages barely move. The interesting analysis for SpO2 is in the *minimums*, not the averages. A day with avg 94% but min 78% is very different from avg 94% min 92%.
 
 ---
 
-## Activity Type Distribution (3 days)
+## Visualization Issues (from chart inspection)
 
-| Activity | Count | Percentage |
-|----------|-------|------------|
-| sedentary | 1,101 | 73.2% |
-| walking | 305 | 20.3% |
-| generic | 74 | 4.9% |
-| running | 25 | 1.7% |
+### Min/Max Bands Are Hiding the Signal
+Visual inspection of the dashboard charts confirmed the problem quantitatively:
+- **Heart Rate:** Min/max band spans 135 bpm (40-175). Average line varies only 16 bpm. **Ratio: 8.3x** — the average looks flat.
+- **Stress:** Min/max band spans 0-100 (full scale). Average hovers around 28. The band makes the entire chart useless.
+- **Respiration:** Same problem. Band width dwarfs average variation.
 
----
+**Fix needed:** Replace min/max bands with IQR (25th-75th percentile) bands. Estimated IQR approach reduces the ratio to ~3.7x for HR, making the average trend readable.
 
-## Unknown Message Types
-
-Still undocumented (numeric IDs):
-
-| ID | Records | Likely Purpose |
-|----|---------|----------------|
-| 233 | 4,247 | High frequency - possibly raw sensor data |
-| 397 | 4,174 | In SKIN_TEMP - raw temperature readings |
-| 279 | 2,160 | Moderate frequency |
-| 24 | 611 | Lower frequency |
-| Others | <100 | Various training/body metrics |
+### Charts That Work Well
+- **HRV:** Nightly avg + weekly avg (two lines, no bands) — clean, shows real variability
+- **Skin Temp:** Deviation + 7-day smoothed + zero reference line — good use of smoothing
+- **SpO2:** Avg + min line + 90% threshold — the threshold reference line adds real value
 
 ---
 
-## Key Insights
+## Undocumented Data Sources (not yet parsed)
 
-1. **Rich biometric data**: SpO2, respiration rate, HRV, skin temp all tracked continuously
-2. **Sleep analysis**: Detailed sleep stages + quality scores + disruption tracking
-3. **Activity intensity**: 8-level scale (0-7) for activity classification
-4. **HR sampling**: ~1-2 minute intervals throughout day, but uses compressed `timestamp_16` (not full `timestamp`)
-5. **Stress tracking**: Continuous throughout day with quality indicators
-6. **Skin temp deviation**: Reported as deviation from personal baseline, not absolute temperature. 7-day smoothed average useful for trend detection.
-7. **HR timestamp caveat**: `monitoring_mesgs` with `heart_rate` use `timestamp_16` (16-bit compressed offset), NOT the standard `timestamp` field. You cannot extract per-reading timestamps without decoding the compressed format. For daily aggregation, group by the date directory the file lives in.
+### SLEEP_DISRUPTIONS
+Discovered: `sleep_disruption_overnight_severity_mesgs` with severity enum (none, low) and `sleep_disruption_severity_period_mesgs` with per-period breakdowns. Could add value to sleep analysis.
+
+### NAP
+A `NAP` file type exists in some days. Not yet explored.
+
+### METRICS (14+ unknown message types)
+Training metrics files contain 14+ undocumented message types (IDs: 232, 241, 281, 284, 294, 330, 339, 356, 357, 369, 378, 384, 402, 403, 404, 410). Type 369 has 30 fields — likely a comprehensive training summary. Type 403 may contain VO2 max data (values ~5686 which could be 56.86 mL/kg/min scaled by 100). Worth investigating when training analysis is needed.
+
+### Raw Sensor Data
+- Unknown type 233 in WELLNESS (~185 records/file) — possibly raw sensor data
+- Unknown type 397 in SKIN_TEMP (~1500 records/file) — likely continuous overnight temperature samples
 
 ---
 
-## Change Log
+## Open Questions
 
-| Date | Finding |
-|------|---------|
-| 2026-01-19 | Switched to official Garmin FIT SDK |
-| 2026-01-19 | Discovered respiration_rate, spo2_data, hrv_value messages |
-| 2026-01-19 | Documented sleep_assessment with 10 quality metrics |
-| 2026-01-19 | Documented skin_temp_overnight with deviation tracking |
-| 2026-01-19 | Reduced unknown message types from ~20 to ~10 |
-| 2026-01-19 | Analyzed METRICS files - 16 undocumented message types for training data |
-| 2026-01-19 | Added speculative field mappings for METRICS based on sample values |
-| 2026-02-08 | Discovered HR monitoring_mesgs use timestamp_16, not timestamp — breaks naive timestamp grouping |
-| 2026-02-08 | Confirmed skin_temp_overnight_mesgs: 1 per night, deviation-based, 7-day smoothed average included |
+1. ~~Why is SpO2 missing for 16% of days?~~ **Resolved:** sensor was recently enabled; early days predate activation.
+2. Is the respiration bimodality real (sleep vs wake) or an artifact of the daily aggregation method?
+3. Can we reconstruct per-reading timestamps for HR data? `monitoring_info_mesgs` contains a base timestamp that may allow decompressing `timestamp_16` offsets.
+4. What are the METRICS file message types? Correlating with Garmin Connect API data could decode them.
+5. What does the raw sensor data in type 233 contain? At ~185 records per WELLNESS file, it's substantial.

@@ -1,0 +1,47 @@
+{
+  "$description": "FIT message schemas found in SKIN_TEMP files. 1 file per day.",
+  "skin_temp_overnight_mesgs": {
+    "message_id": 465,
+    "records_per_night": 1,
+    "description": "Nightly skin temperature summary — deviation from personal baseline",
+    "fields": {
+      "timestamp": {
+        "type": "datetime",
+        "description": "Record time (UTC)",
+        "nullable": false
+      },
+      "local_timestamp": {
+        "type": "local_date_time",
+        "description": "Local time as integer (Unix timestamp format, not datetime object)",
+        "nullable": false
+      },
+      "nightly_value": {
+        "type": "float32",
+        "unit": "Celsius",
+        "description": "Final overnight temperature (absolute value)"
+      },
+      "average_deviation": {
+        "type": "float32",
+        "unit": "Celsius",
+        "description": "Average deviation from personal baseline. Positive = warmer than normal, negative = cooler."
+      },
+      "average_7_day_deviation": {
+        "type": "float32",
+        "unit": "Celsius",
+        "description": "7-day smoothed deviation from baseline. Useful for trend detection."
+      }
+    },
+    "fields_undocumented": ["3 (int, sample=19)"],
+    "gotchas": [
+      "Temperature values are DEVIATIONS from personal baseline, NOT absolute temperatures (except nightly_value).",
+      "Only 1 reading per night — no intraday view possible.",
+      "Consistent positive shifts of +0.5C or more may indicate illness/fever.",
+      "local_timestamp is stored as integer, not datetime."
+    ]
+  },
+  "unknown_397": {
+    "records_per_file": "~1519",
+    "description": "Raw temperature readings — undocumented, not parsed. Likely continuous overnight temperature samples.",
+    "status": "not_parsed"
+  }
+}

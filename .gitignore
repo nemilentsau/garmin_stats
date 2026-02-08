@@ -1,4 +1,5 @@
 data/
+.claude/chart-inspections/
 frontend/node_modules/
 frontend/.svelte-kit/
 frontend/.vite/
