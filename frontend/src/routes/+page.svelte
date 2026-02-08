@@ -1,7 +1,12 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import { api, type OverviewStats } from "$lib/api";
 
-	let overviewPromise = api.getOverview();
+	let overviewPromise: Promise<OverviewStats> = new Promise(() => {});
+
+	onMount(() => {
+		overviewPromise = api.getOverview();
+	});
 
 	function formatNumber(n: number | null): string {
 		if (n === null) return "-";
