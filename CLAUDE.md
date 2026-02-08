@@ -17,16 +17,31 @@
 
 ## Backend Conventions
 
-### Architecture: parser → stats → API
-- **`models.py`**: Pydantic models — reading atoms, day containers, API response models
+### Architecture: parser → stats → SQLite → API
+
+Two separate paths:
+- **Write path (ingest):** FIT files → `parser.py` → `stats.py` → SQLite (via `database.py`)
+- **Read path (API):** SQLite → reconstruct Pydantic models → `flatten_*` → JSON response
+
+Modules:
+- **`models.py`**: Pydantic models — reading atoms, day containers, API response models, ingest models
 - **`parser.py`**: 3 layers — `_extract_*` (per-file), `parse_*_day` (per-day merge), `parse_*` (directory scan + date filter)
 - **`stats.py`**: Aggregation/flattening — consumes typed parser output, produces API response models. No FIT knowledge.
-- **`main.py`**: FastAPI endpoints with `response_model=` for auto-validation
+- **`database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
+- **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest
+
+### SQLite details
+- DB at `backend/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
+- JSON blobs per day (Pydantic `.model_dump_json()` / `.model_validate_json()` round-trips)
+- Tables: `wellness_data`, `sleep_data`, `hrv_data`, `skin_temp_data`, `daily_metrics`, `ingest_meta`
+- Auto-ingest on startup if DB is empty
+- `POST /api/ingest` triggers manual re-ingest, `GET /api/ingest/status` checks if new files exist
+- Data fingerprinting (SHA-256 of sorted directory listing) detects new FIT files
 
 ### Key patterns
 - Parser returns typed Pydantic models (e.g., `list[DayWellness]`), not dicts
-- `parse_all_days(data_dir)` scans the directory **once** for all metrics (used by `/api/daily-aggregates`)
-- `flatten_*` functions concatenate per-day lists into flat API responses
+- `parse_all_days(data_dir)` scans the directory **once** for all metrics (used during ingest)
+- `flatten_*` functions concatenate per-day lists into flat API responses (same as before, data sourced from DB)
 - Use `get_files_by_day()` to discover files, filter by type key (e.g., "SKIN_TEMP", "WELLNESS")
 - Use `decode_fit_file()` to read FIT files, returns `{message_type: [messages]}`
 - Use `parse_datetime()` for timestamp conversion
