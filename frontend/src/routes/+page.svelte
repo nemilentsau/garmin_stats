@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import { fmt } from '$lib/format';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let data: DailyAggregates | null = $state(null);
@@ -10,15 +12,10 @@
 	onMount(async () => {
 		try {
 			data = await api.getDailyAggregates();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 	});
-
-	function fmt(n: number | null | undefined): string {
-		if (n == null) return '-';
-		return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
-	}
 
 	function makeLineConfig(
 		daily: DailyMetric[],
@@ -34,7 +31,7 @@
 				label,
 				data: daily.map(getValue),
 				borderColor: color,
-				backgroundColor: color + '20',
+				backgroundColor: withAlpha(color, '20'),
 				borderWidth: 2,
 				pointRadius: 2,
 				tension: 0.3,
@@ -45,7 +42,7 @@
 			datasets.push({
 				label: 'Q1 (25th)',
 				data: daily.map(getQ1),
-				borderColor: color + '40',
+				borderColor: withAlpha(color, '40'),
 				borderWidth: 1,
 				borderDash: [4, 4],
 				pointRadius: 0,
@@ -56,7 +53,7 @@
 			datasets.push({
 				label: 'Q3 (75th)',
 				data: daily.map(getQ3),
-				borderColor: color + '40',
+				borderColor: withAlpha(color, '40'),
 				borderWidth: 1,
 				borderDash: [4, 4],
 				pointRadius: 0,
@@ -83,23 +80,23 @@
 
 	let hrConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', '#dc2626', (d) => d.heart_rate.q1, (d) => d.heart_rate.q3);
+		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', COLORS.heartRate, (d) => d.heart_rate.q1, (d) => d.heart_rate.q3);
 	});
 	let stressConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', '#ea580c', (d) => d.stress.q1, (d) => d.stress.q3);
+		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', COLORS.stress, (d) => d.stress.q1, (d) => d.stress.q3);
 	});
 	let bbConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.body_battery.avg, 'Avg Body Battery', '#059669', (d) => d.body_battery.q1, (d) => d.body_battery.q3);
+		return makeLineConfig(data.daily, (d) => d.body_battery.avg, 'Avg Body Battery', COLORS.bodyBattery, (d) => d.body_battery.q1, (d) => d.body_battery.q3);
 	});
 	let spo2Config = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', '#2563eb', (d) => d.spo2.q1, (d) => d.spo2.q3);
+		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', COLORS.spo2, (d) => d.spo2.q1, (d) => d.spo2.q3);
 	});
 	let respConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', '#0d9488', (d) => d.respiration.q1, (d) => d.respiration.q3);
+		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', COLORS.respiration, (d) => d.respiration.q1, (d) => d.respiration.q3);
 	});
 	let hrvConfig = $derived.by(() => {
 		if (!data) return null;
@@ -112,7 +109,7 @@
 					{
 						label: 'Nightly Avg',
 						data: data.daily.map((d) => d.hrv.nightly_avg),
-						borderColor: '#7c3aed',
+						borderColor: COLORS.hrv,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -121,7 +118,7 @@
 					{
 						label: 'Weekly Avg',
 						data: data.daily.map((d) => d.hrv.weekly_avg),
-						borderColor: '#a78bfa',
+						borderColor: COLORS.hrvWeekly,
 						borderWidth: 2,
 						borderDash: [6, 3],
 						pointRadius: 0,
@@ -144,7 +141,7 @@
 	});
 	let sleepConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.sleep.score, 'Sleep Score', '#4f46e5');
+		return makeLineConfig(data.daily, (d) => d.sleep.score, 'Sleep Score', COLORS.sleep);
 	});
 	let skinTempConfig = $derived.by(() => {
 		if (!data) return null;
@@ -157,7 +154,7 @@
 					{
 						label: 'Deviation',
 						data: data.daily.map((d) => d.skin_temp.deviation),
-						borderColor: '#d97706',
+						borderColor: COLORS.skinTemp,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -166,7 +163,7 @@
 					{
 						label: '7-Day Avg',
 						data: data.daily.map((d) => d.skin_temp.deviation_7_day),
-						borderColor: '#f59e0b',
+						borderColor: COLORS.skinTemp7Day,
 						borderWidth: 2,
 						borderDash: [6, 3],
 						pointRadius: 0,

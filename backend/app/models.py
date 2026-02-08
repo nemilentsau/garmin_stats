@@ -247,9 +247,54 @@ class DailyMetric(_DefaultsRequired):
     skin_temp: DailySkinTempStats
 
 
+class PeriodHeartRateStats(_DefaultsRequired):
+    avg: float | None = None
+    avg_resting: float | None = None
+    typical_low: float | None = None
+    typical_high: float | None = None
+
+
+class PeriodMetricStats(_DefaultsRequired):
+    avg: float | None = None
+    typical_low: float | None = None
+    typical_high: float | None = None
+
+
+class PeriodHrvStats(_DefaultsRequired):
+    avg_nightly: float | None = None
+    avg_weekly: float | None = None
+    balanced_pct: float | None = None
+    total_days: int = 0
+
+
+class PeriodSpo2Stats(_DefaultsRequired):
+    avg: float | None = None
+    lowest_min: float | None = None
+    low_days: int = 0
+    total_days: int = 0
+
+
+class PeriodSkinTempStats(_DefaultsRequired):
+    avg_deviation: float | None = None
+    max_deviation: float | None = None
+    min_deviation: float | None = None
+    avg_nightly: float | None = None
+    days_tracked: int = 0
+
+
+class PeriodSummary(_DefaultsRequired):
+    heart_rate: PeriodHeartRateStats
+    stress: PeriodMetricStats
+    respiration: PeriodMetricStats
+    hrv: PeriodHrvStats
+    spo2: PeriodSpo2Stats
+    skin_temp: PeriodSkinTempStats
+
+
 class DailyAggregatesResponse(_DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
+    period: PeriodSummary | None = None
 
 
 class DaySummaryResponse(_DefaultsRequired):

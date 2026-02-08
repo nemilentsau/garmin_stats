@@ -4,17 +4,18 @@ Garmin Stats API - FastAPI backend for health data analysis.
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import (
+    DATA_DIR,
     init_db,
     is_db_empty,
     ingest_all,
     check_ingest_status,
     load_daily_metrics,
+    load_period_summary,
     load_wellness,
     load_sleep,
     load_hrv,
@@ -41,9 +42,6 @@ from .models import (
 )
 
 log = logging.getLogger(__name__)
-
-# Data directory - relative to project root
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 
 @asynccontextmanager
@@ -154,10 +152,10 @@ def get_hrv(date: str | None = Query(None, description="Filter by date (YYYY-MM-
 
 @app.get("/api/daily-aggregates", response_model=DailyAggregatesResponse)
 def get_daily_agg():
-    """Get per-day aggregate stats for all metrics."""
+    """Get per-day aggregate stats for all metrics, plus period summary."""
     metrics = load_daily_metrics()
     days = [m.date for m in metrics]
-    return DailyAggregatesResponse(days=days, daily=metrics)
+    return DailyAggregatesResponse(days=days, daily=metrics, period=load_period_summary())
 
 
 @app.get("/api/skin-temp", response_model=SkinTempResponse)

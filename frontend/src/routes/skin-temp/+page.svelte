@@ -4,6 +4,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
+	import { COLORS } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -13,8 +14,8 @@
 	onMount(async () => {
 		try {
 			agg = await api.getDailyAggregates();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 		loading = false;
 	});
@@ -34,7 +35,7 @@
 					{
 						label: 'Deviation',
 						data: agg.daily.map((d) => d.skin_temp.deviation),
-						borderColor: '#d97706',
+						borderColor: COLORS.skinTemp,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -43,7 +44,7 @@
 					{
 						label: '7-Day Smoothed',
 						data: agg.daily.map((d) => d.skin_temp.deviation_7_day),
-						borderColor: '#f59e0b',
+						borderColor: COLORS.skinTemp7Day,
 						borderWidth: 2,
 						borderDash: [6, 3],
 						pointRadius: 0,
@@ -53,7 +54,7 @@
 					{
 						label: 'Baseline (0)',
 						data: agg.daily.map(() => 0),
-						borderColor: '#9ca3af',
+						borderColor: COLORS.baseline,
 						borderWidth: 1,
 						borderDash: [2, 2],
 						pointRadius: 0
@@ -74,17 +75,14 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg) return null;
-		const devs = agg.daily.map((d) => d.skin_temp.deviation).filter((x): x is number => x != null);
-		const nightlyVals = agg.daily.map((d) => d.skin_temp.nightly_value).filter((x): x is number => x != null);
+		if (!agg?.period) return null;
+		const st = agg.period.skin_temp;
 		return {
-			avgDeviation: devs.length ? (devs.reduce((a, b) => a + b, 0) / devs.length).toFixed(2) : null,
-			maxDeviation: devs.length ? Math.max(...devs).toFixed(2) : null,
-			minDeviation: devs.length ? Math.min(...devs).toFixed(2) : null,
-			avgNightly: nightlyVals.length
-				? (nightlyVals.reduce((a, b) => a + b, 0) / nightlyVals.length).toFixed(1)
-				: null,
-			daysTracked: devs.length
+			avgDeviation: st.avg_deviation?.toFixed(2) ?? null,
+			maxDeviation: st.max_deviation?.toFixed(2) ?? null,
+			minDeviation: st.min_deviation?.toFixed(2) ?? null,
+			avgNightly: st.avg_nightly?.toFixed(1) ?? null,
+			daysTracked: st.days_tracked
 		};
 	});
 </script>

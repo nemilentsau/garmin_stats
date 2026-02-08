@@ -10,8 +10,10 @@
 - **Frontend dev server**: `npm run dev` from `frontend/`
 
 ## Project Structure
-- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py)
+- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py, database.py)
+- `backend/tests/` — pytest tests for stats and database
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
+- `storage/` — SQLite database (gitignored, auto-created on startup)
 - `data/` — Garmin FIT files organized as `data/YYYY-MM-DD/*.fit`
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
@@ -31,12 +33,22 @@ Modules:
 - **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest
 
 ### SQLite details
-- DB at `backend/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
+- DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
+- Configurable via env vars: `GARMIN_DB_PATH`, `GARMIN_DATA_DIR` (defaults: `storage/garmin_stats.db`, `data/`)
 - JSON blobs per day (Pydantic `.model_dump_json()` / `.model_validate_json()` round-trips)
 - Tables: `wellness_data`, `sleep_data`, `hrv_data`, `skin_temp_data`, `daily_metrics`, `ingest_meta`
+- `ingest_meta` also stores `period_summary` (precomputed period-level stats from raw data)
 - Auto-ingest on startup if DB is empty
 - `POST /api/ingest` triggers manual re-ingest, `GET /api/ingest/status` checks if new files exist
 - Data fingerprinting (SHA-256 of sorted directory listing) detects new FIT files
+- Connection management via `_connect()` context manager (never manual try/finally)
+- Table name whitelist (`_VALID_TABLES`) prevents SQL injection in dynamic queries
+
+### Testing
+- Tests in `backend/tests/` — run with `cd backend && uv run pytest tests/ -v`
+- `test_stats.py`: helpers, aggregate_day, compute_period_summary, flatten functions
+- `test_database.py`: schema init, round-trip storage, period summary, table whitelist
+- All DB tests use `tmp_path` fixture (isolated temp DB per test)
 
 ### Key patterns
 - Parser returns typed Pydantic models (e.g., `list[DayWellness]`), not dicts
@@ -55,11 +67,15 @@ Modules:
 - Use `{@render children()}` not `<slot/>`
 - API types generated from OpenAPI spec — run `bash scripts/generate-api-types.sh` after backend model changes
 - API client in `src/lib/api.ts` — imports generated types from `api-types.ts` + `api` object with methods
+- Shared utilities: `src/lib/format.ts` (`fmt()` for number display), `src/lib/colors.ts` (chart color palette)
+- Chart colors: always use `COLORS` from `$lib/colors`, never hardcode hex values in routes
+- Use `catch (e: unknown)` with `e instanceof Error` narrowing, never `catch (e: any)`
 - TailwindCSS 4 (imported via `@import "tailwindcss"` in app.css)
 - Components go in `src/lib/components/`
 - Routes in `src/routes/` following SvelteKit file-based routing
 - Use `import { page } from '$app/state'` for SvelteKit page state (Svelte 5 style)
 - Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
+- Period-level stats come from `data.period` (backend-computed from raw readings), never from averaging daily aggregates
 
 ## API Type Generation (Single Source of Truth)
 - **Pydantic models** (`backend/app/models.py`) are the source of truth for API types

@@ -23,6 +23,12 @@ from .models import (
     DailySkinTempStats,
     DailyMetric,
     DailyAggregatesResponse,
+    PeriodHeartRateStats,
+    PeriodMetricStats,
+    PeriodHrvStats,
+    PeriodSpo2Stats,
+    PeriodSkinTempStats,
+    PeriodSummary,
 )
 
 
@@ -177,9 +183,101 @@ def aggregate_day(day: DayData) -> DailyMetric:
     )
 
 
+def compute_period_summary(days: list[DayData]) -> PeriodSummary:
+    """Compute period-level stats from raw per-day data (not from daily averages)."""
+    # Collect all raw readings across the entire period
+    all_hr = [r.value for d in days for r in d.wellness.heart_rate]
+    all_stress = [r.value for d in days for r in d.wellness.stress]
+    all_resp = [r.value for d in days for r in d.wellness.respiration]
+
+    # Resting HR: collect last non-null per day, then average those
+    resting_vals: list[int] = []
+    for d in days:
+        val = None
+        for r in d.wellness.resting_hr:
+            v = r.current_day_resting_hr or r.resting_hr
+            if v:
+                val = v
+        if val is not None:
+            resting_vals.append(val)
+
+    # HRV: collect from summaries (one per day)
+    hrv_nightlys: list[float] = []
+    hrv_weeklys: list[float] = []
+    hrv_statuses: list[str] = []
+    for d in days:
+        if d.hrv.hrv_summaries:
+            s = d.hrv.hrv_summaries[0]
+            if s.last_night_average is not None:
+                hrv_nightlys.append(s.last_night_average)
+            if s.weekly_average is not None:
+                hrv_weeklys.append(s.weekly_average)
+            if s.status:
+                hrv_statuses.append(s.status)
+
+    # SpO2: collect raw readings + per-day mins for "lowest" and "low days"
+    all_spo2 = [r.value for d in days for r in d.wellness.spo2]
+    spo2_day_mins: list[int] = []
+    for d in days:
+        vals = [r.value for r in d.wellness.spo2]
+        if vals:
+            spo2_day_mins.append(min(vals))
+
+    # Skin temp: collect from overnight readings
+    skin_devs: list[float] = []
+    skin_nightlys: list[float] = []
+    for d in days:
+        for r in d.skin_temp.skin_temp_overnight:
+            if r.average_deviation is not None:
+                skin_devs.append(r.average_deviation)
+            if r.nightly_value is not None:
+                skin_nightlys.append(r.nightly_value)
+
+    balanced = sum(1 for s in hrv_statuses if "balanced" in s.lower())
+
+    return PeriodSummary(
+        heart_rate=PeriodHeartRateStats(
+            avg=safe_avg(all_hr),
+            avg_resting=safe_avg(resting_vals),
+            typical_low=safe_percentile(all_hr, 25),
+            typical_high=safe_percentile(all_hr, 75),
+        ),
+        stress=PeriodMetricStats(
+            avg=safe_avg(all_stress),
+            typical_low=safe_percentile(all_stress, 25),
+            typical_high=safe_percentile(all_stress, 75),
+        ),
+        respiration=PeriodMetricStats(
+            avg=safe_avg(all_resp),
+            typical_low=safe_percentile(all_resp, 25),
+            typical_high=safe_percentile(all_resp, 75),
+        ),
+        hrv=PeriodHrvStats(
+            avg_nightly=safe_avg(hrv_nightlys),
+            avg_weekly=safe_avg(hrv_weeklys),
+            balanced_pct=round(balanced / len(hrv_statuses) * 100) if hrv_statuses else None,
+            total_days=len(hrv_statuses),
+        ),
+        spo2=PeriodSpo2Stats(
+            avg=safe_avg(all_spo2),
+            lowest_min=float(min(spo2_day_mins)) if spo2_day_mins else None,
+            low_days=sum(1 for m in spo2_day_mins if m < 90),
+            total_days=len(spo2_day_mins),
+        ),
+        skin_temp=PeriodSkinTempStats(
+            avg_deviation=safe_avg(skin_devs),
+            max_deviation=round(max(skin_devs), 2) if skin_devs else None,
+            min_deviation=round(min(skin_devs), 2) if skin_devs else None,
+            avg_nightly=safe_avg(skin_nightlys),
+            days_tracked=len(skin_devs),
+        ),
+    )
+
+
 def compute_daily_aggregates(days: list[DayData]) -> DailyAggregatesResponse:
     """Compute daily aggregates for all days."""
     return DailyAggregatesResponse(
         days=[d.date for d in days],
         daily=[aggregate_day(d) for d in days],
+        period=compute_period_summary(days),
     )
