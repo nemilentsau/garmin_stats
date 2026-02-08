@@ -38,12 +38,21 @@
 - Svelte 5 runes: `$props()`, `$state()`, `$effect()`, `$derived()`
 - No `$:` reactive declarations (Svelte 4 syntax)
 - Use `{@render children()}` not `<slot/>`
-- API client in `src/lib/api.ts` — typed interfaces + `api` object with methods
+- API types generated from OpenAPI spec — run `bash scripts/generate-api-types.sh` after backend model changes
+- API client in `src/lib/api.ts` — imports generated types from `api-types.ts` + `api` object with methods
 - TailwindCSS 4 (imported via `@import "tailwindcss"` in app.css)
 - Components go in `src/lib/components/`
 - Routes in `src/routes/` following SvelteKit file-based routing
 - Use `import { page } from '$app/state'` for SvelteKit page state (Svelte 5 style)
 - Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
+
+## API Type Generation (Single Source of Truth)
+- **Pydantic models** (`backend/app/models.py`) are the source of truth for API types
+- **TypeScript types** (`frontend/src/lib/api-types.ts`) are generated from the OpenAPI spec, never hand-written
+- **Regenerate after model changes**: `bash scripts/generate-api-types.sh`
+- The script exports `app.openapi()` → `frontend/openapi.json` → `openapi-typescript` → `frontend/src/lib/api-types.ts`
+- `frontend/openapi.json` is gitignored (generated artifact)
+- `frontend/src/lib/api.ts` re-exports generated types with stable frontend names (e.g., `WellnessData` = `Schemas['WellnessResponse']`)
 
 ## Svelte 5 Gotchas (learned the hard way)
 - **`$derived` vs `$derived.by`**: `$derived(() => expr)` stores a *function*. `$derived.by(fn)` stores the *return value*. Always use `$derived.by` when you want the computed result.
@@ -66,7 +75,7 @@ Two skills support this project. Use them for different purposes:
 - Verify schemas: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
 - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
 - Explore freely for new metrics, new file types, or undocumented message types — update reference JSONs with findings
-- Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions, api-contracts)
+- Schema files in `.claude/skills/garmin-data/references/` (wellness, sleep, hrv, skin-temp, sleep-disruptions)
 - Available FIT types: WELLNESS, HRV_STATUS, SLEEP_DATA, SKIN_TEMP, METRICS, SLEEP_DISRUPTIONS, NAP
 
 ### `data-analysis` — portable DA principles

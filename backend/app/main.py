@@ -39,6 +39,7 @@ app = FastAPI(
     title="Garmin Stats API",
     description="API for analyzing Garmin Epix Gen 2 health data",
     version="0.1.0",
+    separate_input_output_schemas=True,
 )
 
 # CORS for frontend

@@ -6,36 +6,44 @@ Pydantic models for Garmin Stats — three tiers:
   Tier 3: API response models (match frontend TS interfaces)
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class _DefaultsRequired(BaseModel):
+    """Base for models where all fields (even those with defaults) should appear
+    as 'required' in the JSON schema serialization output.  This ensures
+    openapi-typescript generates `prop: T | null` instead of `prop?: T | null`."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
 # ---------------------------------------------------------------------------
 # Tier 1 — Reading-level models
 # ---------------------------------------------------------------------------
 
-class HeartRateReading(BaseModel):
+class HeartRateReading(_DefaultsRequired):
     timestamp: str | None = None
     value: int
 
 
-class StressReading(BaseModel):
+class StressReading(_DefaultsRequired):
     timestamp: str
     value: int
 
 
-class SpO2Reading(BaseModel):
+class SpO2Reading(_DefaultsRequired):
     timestamp: str
     value: int
     confidence: int | None = None
     mode: str
 
 
-class RespirationReading(BaseModel):
+class RespirationReading(_DefaultsRequired):
     timestamp: str
     value: float
 
 
-class ActivityReading(BaseModel):
+class ActivityReading(_DefaultsRequired):
     timestamp: str | None = None
     activity_type: str
     intensity: int | None = None
@@ -44,26 +52,26 @@ class ActivityReading(BaseModel):
     distance: float | None = None
 
 
-class StepsReading(BaseModel):
+class StepsReading(_DefaultsRequired):
     timestamp: str | None = None
     steps: int
     distance: float | None = None
     calories: int | None = None
 
 
-class RestingHRReading(BaseModel):
+class RestingHRReading(_DefaultsRequired):
     timestamp: str
     resting_hr: int | None = None
     current_day_resting_hr: int | None = None
 
 
-class SleepLevel(BaseModel):
+class SleepLevel(_DefaultsRequired):
     date: str
     timestamp: str
     level: str
 
 
-class SleepAssessment(BaseModel):
+class SleepAssessment(_DefaultsRequired):
     date: str
     overall_score: int | None = None
     deep_sleep_score: int | None = None
@@ -74,13 +82,13 @@ class SleepAssessment(BaseModel):
     average_stress: float | None = None
 
 
-class HrvValue(BaseModel):
+class HrvValue(_DefaultsRequired):
     date: str
     timestamp: str
     value: float
 
 
-class HrvSummary(BaseModel):
+class HrvSummary(_DefaultsRequired):
     date: str
     weekly_average: float | None = None
     last_night_average: float | None = None
@@ -91,7 +99,7 @@ class HrvSummary(BaseModel):
     status: str
 
 
-class SkinTempOvernight(BaseModel):
+class SkinTempOvernight(_DefaultsRequired):
     date: str
     timestamp: str | None = None
     local_timestamp: float | None = None
@@ -104,7 +112,7 @@ class SkinTempOvernight(BaseModel):
 # Tier 2 — Day-level containers
 # ---------------------------------------------------------------------------
 
-class DayWellness(BaseModel):
+class DayWellness(_DefaultsRequired):
     date: str
     heart_rate: list[HeartRateReading] = []
     stress: list[StressReading] = []
@@ -115,24 +123,24 @@ class DayWellness(BaseModel):
     resting_hr: list[RestingHRReading] = []
 
 
-class DaySleep(BaseModel):
+class DaySleep(_DefaultsRequired):
     date: str
     sleep_levels: list[SleepLevel] = []
     sleep_assessments: list[SleepAssessment] = []
 
 
-class DayHrv(BaseModel):
+class DayHrv(_DefaultsRequired):
     date: str
     hrv_values: list[HrvValue] = []
     hrv_summaries: list[HrvSummary] = []
 
 
-class DaySkinTemp(BaseModel):
+class DaySkinTemp(_DefaultsRequired):
     date: str
     skin_temp_overnight: list[SkinTempOvernight] = []
 
 
-class DayData(BaseModel):
+class DayData(_DefaultsRequired):
     date: str
     wellness: DayWellness
     sleep: DaySleep
@@ -144,7 +152,7 @@ class DayData(BaseModel):
 # Tier 3 — API response models (match frontend TypeScript interfaces)
 # ---------------------------------------------------------------------------
 
-class WellnessResponse(BaseModel):
+class WellnessResponse(_DefaultsRequired):
     days: list[str]
     heart_rate: list[HeartRateReading]
     stress: list[StressReading]
@@ -155,57 +163,57 @@ class WellnessResponse(BaseModel):
     resting_hr: list[RestingHRReading]
 
 
-class SleepResponse(BaseModel):
+class SleepResponse(_DefaultsRequired):
     days: list[str]
     sleep_levels: list[SleepLevel]
     sleep_assessments: list[SleepAssessment]
 
 
-class HrvResponse(BaseModel):
+class HrvResponse(_DefaultsRequired):
     days: list[str]
     hrv_values: list[HrvValue]
     hrv_summaries: list[HrvSummary]
 
 
-class SkinTempResponse(BaseModel):
+class SkinTempResponse(_DefaultsRequired):
     days: list[str]
     skin_temp_overnight: list[SkinTempOvernight]
 
 
 # Daily aggregate sub-models
 
-class DailyHeartRateStats(BaseModel):
+class DailyHeartRateStats(_DefaultsRequired):
     avg: float | None = None
     min: int | None = None
     max: int | None = None
     resting: int | None = None
 
 
-class DailyMetricStats(BaseModel):
+class DailyMetricStats(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None
     max: float | None = None
 
 
-class DailyHrvStats(BaseModel):
+class DailyHrvStats(_DefaultsRequired):
     weekly_avg: float | None = None
     nightly_avg: float | None = None
     status: str | None = None
 
 
-class DailySleepStats(BaseModel):
+class DailySleepStats(_DefaultsRequired):
     score: int | None = None
     deep_score: int | None = None
     rem_score: int | None = None
 
 
-class DailySkinTempStats(BaseModel):
+class DailySkinTempStats(_DefaultsRequired):
     deviation: float | None = None
     deviation_7_day: float | None = None
     nightly_value: float | None = None
 
 
-class DailyMetric(BaseModel):
+class DailyMetric(_DefaultsRequired):
     date: str
     heart_rate: DailyHeartRateStats
     stress: DailyMetricStats
@@ -216,18 +224,18 @@ class DailyMetric(BaseModel):
     skin_temp: DailySkinTempStats
 
 
-class DailyAggregatesResponse(BaseModel):
+class DailyAggregatesResponse(_DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
 
 
-class DaySummaryResponse(BaseModel):
+class DaySummaryResponse(_DefaultsRequired):
     date: str
     total_files: int
     file_types: dict[str, int]
     total_size_kb: float
 
 
-class DaysResponse(BaseModel):
+class DaysResponse(_DefaultsRequired):
     days: list[str]
     total: int
