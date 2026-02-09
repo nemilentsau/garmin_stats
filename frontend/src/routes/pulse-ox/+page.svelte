@@ -5,6 +5,8 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
+	import { fmt } from '$lib/format';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -16,8 +18,8 @@
 	onMount(async () => {
 		try {
 			agg = await api.getDailyAggregates();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 		loading = false;
 	});
@@ -30,11 +32,6 @@
 		}
 	}
 
-	function fmt(n: number | null | undefined): string {
-		if (n == null) return '-';
-		return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
-	}
-
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
 		return {
@@ -45,7 +42,7 @@
 					{
 						label: 'Avg SpO2',
 						data: agg.daily.map((d) => d.spo2.avg),
-						borderColor: '#2563eb',
+						borderColor: COLORS.spo2,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -54,7 +51,7 @@
 					{
 						label: 'Q1 (25th)',
 						data: agg.daily.map((d) => d.spo2.q1),
-						borderColor: '#2563eb40',
+						borderColor: withAlpha(COLORS.spo2, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -65,7 +62,7 @@
 					{
 						label: 'Q3 (75th)',
 						data: agg.daily.map((d) => d.spo2.q3),
-						borderColor: '#2563eb40',
+						borderColor: withAlpha(COLORS.spo2, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -76,7 +73,7 @@
 					{
 						label: 'Min SpO2',
 						data: agg.daily.map((d) => d.spo2.min),
-						borderColor: '#dc2626',
+						borderColor: COLORS.spo2Min,
 						borderWidth: 1.5,
 						borderDash: [4, 4],
 						pointRadius: 1,
@@ -108,11 +105,11 @@
 					{
 						label: 'SpO2',
 						data: intradayData.spo2.map((d) => d.value),
-						borderColor: '#2563eb',
+						borderColor: COLORS.spo2,
 						borderWidth: 1.5,
 						pointRadius: 0,
 						tension: 0.2,
-						fill: { target: 'origin', above: '#2563eb10' }
+						fill: { target: 'origin', above: withAlpha(COLORS.spo2, '10') }
 					}
 				]
 			},
@@ -133,15 +130,13 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg) return null;
-		const avgs = agg.daily.map((d) => d.spo2.avg).filter((x): x is number => x != null);
-		const mins = agg.daily.map((d) => d.spo2.min).filter((x): x is number => x != null);
-		const lowDays = mins.filter((m) => m < 90).length;
+		if (!agg?.period) return null;
+		const spo2 = agg.period.spo2;
 		return {
-			overallAvg: avgs.length ? (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(1) : null,
-			lowestMin: mins.length ? Math.min(...mins) : null,
-			lowDays,
-			totalDays: avgs.length
+			overallAvg: spo2.avg,
+			lowestMin: spo2.lowest_min,
+			lowDays: spo2.low_days,
+			totalDays: spo2.total_days
 		};
 	});
 </script>
@@ -178,7 +173,7 @@
 
 	{#if stats}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-			<StatCard title="Overall Avg" value={stats?.overallAvg ?? '-'} unit="%" colorClass="text-blue-600" />
+			<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="%" colorClass="text-blue-600" />
 			<StatCard title="Lowest Reading" value={fmt(stats?.lowestMin)} unit="%" colorClass="text-red-600" />
 			<StatCard
 				title="Days Below 90%"

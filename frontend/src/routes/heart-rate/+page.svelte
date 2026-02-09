@@ -10,6 +10,8 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
+	import { fmt } from '$lib/format';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -21,8 +23,8 @@
 	onMount(async () => {
 		try {
 			agg = await api.getDailyAggregates();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 		loading = false;
 	});
@@ -35,11 +37,6 @@
 		}
 	}
 
-	function fmt(n: number | null | undefined): string {
-		if (n == null) return '-';
-		return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
-	}
-
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
 		return {
@@ -50,7 +47,7 @@
 					{
 						label: 'Avg HR',
 						data: agg.daily.map((d) => d.heart_rate.avg),
-						borderColor: '#dc2626',
+						borderColor: COLORS.heartRate,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -59,7 +56,7 @@
 					{
 						label: 'Resting HR',
 						data: agg.daily.map((d) => d.heart_rate.resting),
-						borderColor: '#16a34a',
+						borderColor: COLORS.heartRateResting,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -68,7 +65,7 @@
 					{
 						label: 'Q1 (25th)',
 						data: agg.daily.map((d) => d.heart_rate.q1),
-						borderColor: '#dc262640',
+						borderColor: withAlpha(COLORS.heartRate, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -79,7 +76,7 @@
 					{
 						label: 'Q3 (75th)',
 						data: agg.daily.map((d) => d.heart_rate.q3),
-						borderColor: '#dc262640',
+						borderColor: withAlpha(COLORS.heartRate, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -112,11 +109,11 @@
 					{
 						label: 'Heart Rate',
 						data: intradayData.heart_rate.map((d) => d.value),
-						borderColor: '#dc2626',
+						borderColor: COLORS.heartRate,
 						borderWidth: 1.5,
 						pointRadius: 0,
 						tension: 0.2,
-						fill: { target: 'origin', above: '#dc262610' }
+						fill: { target: 'origin', above: withAlpha(COLORS.heartRate, '10') }
 					}
 				]
 			},
@@ -137,19 +134,13 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg) return null;
-		const d = agg.daily;
-		const avgs = d.map((x) => x.heart_rate.avg).filter((x): x is number => x != null);
-		const q1s = d.map((x) => x.heart_rate.q1).filter((x): x is number => x != null);
-		const q3s = d.map((x) => x.heart_rate.q3).filter((x): x is number => x != null);
-		const resting = d.map((x) => x.heart_rate.resting).filter((x): x is number => x != null);
+		if (!agg?.period) return null;
+		const hr = agg.period.heart_rate;
 		return {
-			overallAvg: avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null,
-			typicalLow: q1s.length ? Math.round(q1s.reduce((a, b) => a + b, 0) / q1s.length) : null,
-			typicalHigh: q3s.length ? Math.round(q3s.reduce((a, b) => a + b, 0) / q3s.length) : null,
-			avgResting: resting.length
-				? Math.round(resting.reduce((a, b) => a + b, 0) / resting.length)
-				: null
+			overallAvg: hr.avg,
+			typicalLow: hr.typical_low,
+			typicalHigh: hr.typical_high,
+			avgResting: hr.avg_resting
 		};
 	});
 </script>

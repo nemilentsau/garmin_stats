@@ -5,6 +5,8 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
+	import { fmt } from '$lib/format';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -16,8 +18,8 @@
 	onMount(async () => {
 		try {
 			agg = await api.getDailyAggregates();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
 		}
 		loading = false;
 	});
@@ -30,11 +32,6 @@
 		}
 	}
 
-	function fmt(n: number | null | undefined): string {
-		if (n == null) return '-';
-		return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
-	}
-
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
 		return {
@@ -45,7 +42,7 @@
 					{
 						label: 'Avg',
 						data: agg.daily.map((d) => d.respiration.avg),
-						borderColor: '#0d9488',
+						borderColor: COLORS.respiration,
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
@@ -54,7 +51,7 @@
 					{
 						label: 'Q1 (25th)',
 						data: agg.daily.map((d) => d.respiration.q1),
-						borderColor: '#0d948840',
+						borderColor: withAlpha(COLORS.respiration, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -65,7 +62,7 @@
 					{
 						label: 'Q3 (75th)',
 						data: agg.daily.map((d) => d.respiration.q3),
-						borderColor: '#0d948840',
+						borderColor: withAlpha(COLORS.respiration, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -98,11 +95,11 @@
 					{
 						label: 'Respiration',
 						data: intradayData.respiration.map((d) => d.value),
-						borderColor: '#0d9488',
+						borderColor: COLORS.respiration,
 						borderWidth: 1.5,
 						pointRadius: 0,
 						tension: 0.2,
-						fill: { target: 'origin', above: '#0d948810' }
+						fill: { target: 'origin', above: withAlpha(COLORS.respiration, '10') }
 					}
 				]
 			},
@@ -123,14 +120,12 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg) return null;
-		const q1s = agg.daily.map((d) => d.respiration.q1).filter((x): x is number => x != null);
-		const q3s = agg.daily.map((d) => d.respiration.q3).filter((x): x is number => x != null);
-		const avgs = agg.daily.map((d) => d.respiration.avg).filter((x): x is number => x != null);
+		if (!agg?.period) return null;
+		const resp = agg.period.respiration;
 		return {
-			overallAvg: avgs.length ? (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(1) : null,
-			typicalLow: q1s.length ? (q1s.reduce((a, b) => a + b, 0) / q1s.length).toFixed(1) : null,
-			typicalHigh: q3s.length ? (q3s.reduce((a, b) => a + b, 0) / q3s.length).toFixed(1) : null
+			overallAvg: resp.avg,
+			typicalLow: resp.typical_low,
+			typicalHigh: resp.typical_high
 		};
 	});
 </script>
@@ -166,9 +161,9 @@
 
 	{#if stats}
 		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-			<StatCard title="Overall Avg" value={stats?.overallAvg ?? '-'} unit="br/min" colorClass="text-teal-600" />
-			<StatCard title="Typical Low" value={stats?.typicalLow ?? '-'} unit="br/min" colorClass="text-blue-600" />
-			<StatCard title="Typical High" value={stats?.typicalHigh ?? '-'} unit="br/min" colorClass="text-orange-600" />
+			<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="br/min" colorClass="text-teal-600" />
+			<StatCard title="Typical Low" value={fmt(stats?.typicalLow)} unit="br/min" colorClass="text-blue-600" />
+			<StatCard title="Typical High" value={fmt(stats?.typicalHigh)} unit="br/min" colorClass="text-orange-600" />
 		</div>
 	{/if}
 

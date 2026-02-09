@@ -7,9 +7,11 @@ Read path (API):      SQLite → reconstruct Pydantic models → API response
 
 import hashlib
 import logging
+import os
 import sqlite3
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from .models import (
     DaySkinTemp,
     DailyMetric,
     DailyAggregatesResponse,
+    PeriodSummary,
     IngestResult,
     IngestStatus,
 )
@@ -28,9 +31,24 @@ from .stats import compute_daily_aggregates
 
 log = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent.parent / "garmin_stats.db"
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+DB_PATH = Path(os.environ.get(
+    "GARMIN_DB_PATH",
+    str(_PROJECT_ROOT / "storage" / "garmin_stats.db"),
+))
+
+DATA_DIR = Path(os.environ.get(
+    "GARMIN_DATA_DIR",
+    str(_PROJECT_ROOT / "data"),
+))
 
 _ingest_lock = threading.Lock()
+
+_VALID_TABLES = frozenset({
+    "wellness_data", "sleep_data", "hrv_data",
+    "skin_temp_data", "daily_metrics", "ingest_meta",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -47,22 +65,24 @@ CREATE TABLE IF NOT EXISTS ingest_meta    (key TEXT PRIMARY KEY, value TEXT NOT 
 """
 
 
-def init_db() -> None:
-    """Create tables if they don't exist. Enable WAL mode."""
-    con = get_connection()
+@contextmanager
+def _connect():
+    """Yield a sqlite3 connection with Row factory; close on exit."""
+    con = sqlite3.connect(str(DB_PATH))
+    con.row_factory = sqlite3.Row
     try:
-        con.executescript(_SCHEMA)
-        con.execute("PRAGMA journal_mode=WAL")
-        con.commit()
+        yield con
     finally:
         con.close()
 
 
-def get_connection() -> sqlite3.Connection:
-    """Return a connection with Row factory."""
-    con = sqlite3.connect(str(DB_PATH))
-    con.row_factory = sqlite3.Row
-    return con
+def init_db() -> None:
+    """Create tables if they don't exist. Enable WAL mode."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _connect() as con:
+        con.executescript(_SCHEMA)
+        con.execute("PRAGMA journal_mode=WAL")
+        con.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -84,24 +104,20 @@ def compute_data_fingerprint(data_dir: Path) -> str:
 
 def _get_meta(key: str) -> str | None:
     """Read a single metadata value."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         row = con.execute(
             "SELECT value FROM ingest_meta WHERE key = ?", (key,)
         ).fetchone()
         return row["value"] if row else None
-    finally:
-        con.close()
 
 
 def _count_rows(table: str) -> int:
-    """Count rows in a table."""
-    con = get_connection()
-    try:
-        row = con.execute(f"SELECT COUNT(*) AS cnt FROM {table}").fetchone()  # noqa: S608
+    """Count rows in a table (validated against whitelist)."""
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+    with _connect() as con:
+        row = con.execute(f"SELECT COUNT(*) AS cnt FROM {table}").fetchone()
         return row["cnt"]
-    finally:
-        con.close()
 
 
 def check_ingest_status(data_dir: Path) -> IngestStatus:
@@ -139,8 +155,7 @@ def ingest_all(data_dir: Path) -> IngestResult:
         agg = compute_daily_aggregates(all_days)
 
         now = datetime.now(timezone.utc).isoformat()
-        con = get_connection()
-        try:
+        with _connect() as con:
             with con:
                 # Per-day data
                 for day in all_days:
@@ -168,6 +183,13 @@ def ingest_all(data_dir: Path) -> IngestResult:
                         (metric.date, metric.model_dump_json(), now),
                     )
 
+                # Period summary
+                if agg.period:
+                    con.execute(
+                        "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
+                        ("period_summary", agg.period.model_dump_json()),
+                    )
+
                 # Metadata
                 fingerprint = compute_data_fingerprint(data_dir)
                 duration_ms = int((time.monotonic() - t0) * 1000)
@@ -182,8 +204,6 @@ def ingest_all(data_dir: Path) -> IngestResult:
                         "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
                         (k, v),
                     )
-        finally:
-            con.close()
 
         duration_ms = int((time.monotonic() - t0) * 1000)
         log.info("Ingested %d days in %d ms", len(all_days), duration_ms)
@@ -203,20 +223,16 @@ def is_db_empty() -> bool:
 
 def load_daily_metrics() -> list[DailyMetric]:
     """Load all daily metrics from DB."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         rows = con.execute(
             "SELECT data FROM daily_metrics ORDER BY date"
         ).fetchall()
         return [DailyMetric.model_validate_json(r["data"]) for r in rows]
-    finally:
-        con.close()
 
 
 def load_wellness(date: str | None = None) -> list[DayWellness]:
     """Load wellness data, optionally filtered by date."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         if date:
             rows = con.execute(
                 "SELECT data FROM wellness_data WHERE date = ?", (date,)
@@ -226,14 +242,11 @@ def load_wellness(date: str | None = None) -> list[DayWellness]:
                 "SELECT data FROM wellness_data ORDER BY date"
             ).fetchall()
         return [DayWellness.model_validate_json(r["data"]) for r in rows]
-    finally:
-        con.close()
 
 
 def load_sleep(date: str | None = None) -> list[DaySleep]:
     """Load sleep data, optionally filtered by date."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         if date:
             rows = con.execute(
                 "SELECT data FROM sleep_data WHERE date = ?", (date,)
@@ -243,14 +256,11 @@ def load_sleep(date: str | None = None) -> list[DaySleep]:
                 "SELECT data FROM sleep_data ORDER BY date"
             ).fetchall()
         return [DaySleep.model_validate_json(r["data"]) for r in rows]
-    finally:
-        con.close()
 
 
 def load_hrv(date: str | None = None) -> list[DayHrv]:
     """Load HRV data, optionally filtered by date."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         if date:
             rows = con.execute(
                 "SELECT data FROM hrv_data WHERE date = ?", (date,)
@@ -260,14 +270,11 @@ def load_hrv(date: str | None = None) -> list[DayHrv]:
                 "SELECT data FROM hrv_data ORDER BY date"
             ).fetchall()
         return [DayHrv.model_validate_json(r["data"]) for r in rows]
-    finally:
-        con.close()
 
 
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
     """Load skin temp data, optionally filtered by date."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         if date:
             rows = con.execute(
                 "SELECT data FROM skin_temp_data WHERE date = ?", (date,)
@@ -277,17 +284,20 @@ def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
                 "SELECT data FROM skin_temp_data ORDER BY date"
             ).fetchall()
         return [DaySkinTemp.model_validate_json(r["data"]) for r in rows]
-    finally:
-        con.close()
+
+
+def load_period_summary() -> PeriodSummary | None:
+    """Load the precomputed period summary from DB."""
+    raw = _get_meta("period_summary")
+    if raw is None:
+        return None
+    return PeriodSummary.model_validate_json(raw)
 
 
 def load_available_days() -> list[str]:
     """Load all dates that have data in the DB."""
-    con = get_connection()
-    try:
+    with _connect() as con:
         rows = con.execute(
             "SELECT date FROM daily_metrics ORDER BY date"
         ).fetchall()
         return [r["date"] for r in rows]
-    finally:
-        con.close()
