@@ -12,6 +12,8 @@ Data schemas and field documentation live in `.claude/skills/garmin-data/referen
 - **SpO2: 16% missing days** (6 of 37). **Explained:** SpO2 sensor was recently enabled — early days in the dataset predate activation. Not a sensor failure. The remaining values cluster tightly (92.5-95.5%, sd=0.7).
 - **HRV: 3% missing** (1 day). Likely device not worn overnight.
 - **Skin Temp: 3% missing** (1 day). Same likely cause.
+- **Body Battery: 0% missing.** Complete coverage.
+- **Sleep Score: 0% missing.** Complete coverage.
 - **HR, Stress, Respiration: 0% missing.** Complete coverage across all 37 days.
 
 ### Sensor Artifacts
@@ -26,32 +28,69 @@ Data schemas and field documentation live in `.claude/skills/garmin-data/referen
 |--------|------|--------|-----|-------|-------|
 | HR Avg (bpm) | 64.3 | 64.3 | 3.3 | Normal, symmetric | Mean = median, safe to use mean |
 | Stress Avg | 28.6 | 28.0 | 5.6 | Slight right skew | Low baseline stress, some high-stress days |
+| Body Battery Avg | 45.0 | 44.6 | 14.6 | Roughly symmetric | Wide spread reflects large intraday swings |
 | SpO2 Avg (%) | 93.8 | 93.9 | 0.7 | Tight cluster | Very little variation day-to-day |
 | Respiration (br/min) | 12.6 | 12.4 | 0.6 | Possibly bimodal | Peaks near 12.2 and 14.2 — may reflect sleep vs wake patterns |
-| HRV Nightly (ms) | 58.3 | 61.0 | 12.4 | Left skew | Median > mean suggests low-HRV outlier days pulling down |
-| Skin Temp Dev (C) | -0.0 | -0.1 | 0.4 | Centered at 0 | Deviation from baseline, as expected |
+| HRV Nightly (ms) | 57.8 | 61.0 | 11.8 | Left skew | Median > mean suggests low-HRV outlier days pulling down |
+| Sleep Score | 69.5 | 72.5 | 15.8 | Left skew | Median > mean; a few bad nights drag the average down |
+| Skin Temp Dev (C) | -0.0 | -0.1 | 0.3 | Centered at 0 | Deviation from baseline, as expected |
 
 ### Key Observations
 1. **Respiration may be bimodal** — the distribution shows two peaks. If confirmed, reporting a single average is misleading. Should investigate whether the two modes correspond to sleep vs awake breathing rates.
-2. **HRV is left-skewed** — median (61) is higher than mean (58.3). A few low-HRV nights are dragging the average down. Median is more representative for this metric.
+2. **HRV is left-skewed** — median (61) is higher than mean (57.8). A few low-HRV nights are dragging the average down. Median is more representative for this metric.
 3. **SpO2 has very low variance** (sd=0.7) — daily averages barely move. The interesting analysis for SpO2 is in the *minimums*, not the averages. A day with avg 94% but min 78% is very different from avg 94% min 92%.
+4. **Sleep Score is left-skewed** like HRV — median (72.5) > mean (69.5). Both are overnight recovery metrics that share this pattern: a few bad nights pull the mean down while the typical night is better than the average suggests.
+5. **Body Battery has the widest relative spread** (sd=14.6 on mean 45.0, CV=32%). This is expected — body battery swings heavily intraday (drains during activity, recharges during rest). The daily average captures the center of that swing.
 
 ---
 
-## Visualization Issues (from chart inspection)
+## Visualization Status (from chart inspection)
 
-### Min/Max Bands Are Hiding the Signal
-Visual inspection of the dashboard charts confirmed the problem quantitatively:
-- **Heart Rate:** Min/max band spans 135 bpm (40-175). Average line varies only 16 bpm. **Ratio: 8.3x** — the average looks flat.
-- **Stress:** Min/max band spans 0-100 (full scale). Average hovers around 28. The band makes the entire chart useless.
-- **Respiration:** Same problem. Band width dwarfs average variation.
+### IQR Bands — Implemented and Validated
+The min/max band readability problem has been fixed. All applicable dashboard panels now use IQR (25th-75th percentile) bands. Quantitative comparison for Heart Rate:
+- **Old (min/max):** Band = 135 bpm, avg variation = 16 bpm, **ratio: 8.3x** — average looked flat
+- **New (IQR):** Band = 33 bpm, avg variation = 16 bpm, **ratio: 2.0x** — average trend clearly visible
 
-**Fix needed:** Replace min/max bands with IQR (25th-75th percentile) bands. Estimated IQR approach reduces the ratio to ~3.7x for HR, making the average trend readable.
+The actual IQR ratio (2.0x) is better than the pre-implementation estimate (3.7x). IQR bands now used on: Heart Rate, Stress, Body Battery, SpO2, Respiration.
 
 ### Charts That Work Well
 - **HRV:** Nightly avg + weekly avg (two lines, no bands) — clean, shows real variability
 - **Skin Temp:** Deviation + 7-day smoothed + zero reference line — good use of smoothing
-- **SpO2:** Avg + min line + 90% threshold — the threshold reference line adds real value
+- **SpO2:** Avg + min line + IQR band + 90% concern threshold — combines trend with clinically relevant context
+- **Body Battery:** IQR band with daily avg — wide daily swings are well captured by the band
+- **Respiration:** IQR band + 14 br/min "elevated" reference line — provides context for the bimodal distribution
+- **Sleep Score:** Raw daily values + 7-day rolling average — smoothing reveals trends hidden by day-to-day volatility
+
+---
+
+## Cross-Metric Correlations
+
+Pearson correlations computed across all available days. Strong correlations (|r| > 0.5) form two coherent clusters.
+
+### Recovery Cluster (positively correlated with each other)
+| Pair | r | Interpretation |
+|------|---|----------------|
+| Body Battery ↔ HRV Nightly | **0.85** | Higher body battery on nights with higher HRV |
+| HRV Nightly ↔ Sleep Score | **0.75** | Better HRV predicts better sleep scores |
+| Body Battery ↔ Sleep Score | **0.64** | Recovery metrics move together |
+
+### Stress Cluster (inversely correlated with recovery)
+| Pair | r | Interpretation |
+|------|---|----------------|
+| Respiration ↔ HRV Nightly | **-0.87** | Strongest correlation — elevated breathing rate tracks with suppressed HRV |
+| Stress ↔ Body Battery | **-0.78** | Higher stress days drain body battery |
+| Body Battery ↔ Respiration | **-0.71** | Elevated respiration on low-battery days |
+| Stress ↔ HRV Nightly | **-0.65** | Stress suppresses overnight HRV |
+| HR Avg ↔ Stress | **0.73** | Higher average HR on higher stress days |
+| Stress ↔ Sleep Score | **-0.55** | High-stress days precede worse sleep |
+| HR Avg ↔ Body Battery | **-0.57** | Higher HR associated with lower recovery |
+| Respiration ↔ Sleep Score | **-0.62** | Elevated respiration tracks with worse sleep |
+
+### Weakly Correlated: SpO2
+SpO2 shows no strong correlation with any other metric (all |r| < 0.5). This is consistent with its very low daily variance (sd=0.7) — there isn't enough signal to correlate.
+
+### Key Takeaway
+The data tells a consistent physiological story: stress, elevated HR, and elevated respiration form one axis; HRV, body battery, and sleep score form the opposing recovery axis. Respiration ↔ HRV (-0.87) is the single strongest link, suggesting respiration rate may be the most sensitive daily indicator of autonomic stress load.
 
 ---
 

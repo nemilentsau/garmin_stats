@@ -2,11 +2,15 @@
 Garmin Stats API - FastAPI backend for health data analysis.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
+logging.basicConfig(level=logging.INFO)
+
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .database import (
     DATA_DIR,
@@ -22,7 +26,9 @@ from .database import (
     load_skin_temp,
     load_available_days,
 )
+from .events import event_bus
 from .parser import get_day_summary
+from .watcher import heartbeat_loop, watch_data_directory
 from .stats import (
     flatten_wellness,
     flatten_sleep,
@@ -44,15 +50,31 @@ from .models import (
 log = logging.getLogger(__name__)
 
 
+def _task_done_callback(task: asyncio.Task) -> None:
+    """Log exceptions from background tasks instead of swallowing them."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc:
+        log.error("Background task %s failed: %s", task.get_name(), exc, exc_info=exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: init DB, auto-ingest if empty."""
+    """Startup: init DB, auto-ingest if empty, start file watcher."""
     init_db()
     if is_db_empty():
         log.info("DB empty — running initial ingest")
         result = ingest_all(DATA_DIR)
         log.info("Initial ingest complete: %d days in %d ms", result.days_ingested, result.duration_ms)
+
+    watcher_task = asyncio.create_task(watch_data_directory(DATA_DIR), name="file-watcher")
+    watcher_task.add_done_callback(_task_done_callback)
+    heartbeat_task = asyncio.create_task(heartbeat_loop(), name="sse-heartbeat")
+    heartbeat_task.add_done_callback(_task_done_callback)
     yield
+    watcher_task.cancel()
+    heartbeat_task.cancel()
 
 
 app = FastAPI(
@@ -165,3 +187,35 @@ def get_skin_temp(date: str | None = Query(None, description="Filter by date (YY
     if date and not days:
         raise HTTPException(status_code=404, detail=f"Day {date} not found")
     return flatten_skin_temp(days)
+
+
+# ---------------------------------------------------------------------------
+# SSE endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/events")
+async def sse_events(request: Request):
+    """Server-Sent Events stream for real-time data updates."""
+    queue = event_bus.subscribe()
+
+    async def generate():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            event_bus.unsubscribe(queue)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

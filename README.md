@@ -105,13 +105,15 @@ data/
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/daily-aggregates` | Per-day stats for all metrics (dashboard data source) |
-| `GET /api/overview` | Overview statistics across all data |
 | `GET /api/days` | List available days of data |
 | `GET /api/days/{date}` | Summary for a specific day |
 | `GET /api/wellness?date=YYYY-MM-DD` | Wellness data (HR, stress, SpO2, respiration) |
 | `GET /api/sleep?date=YYYY-MM-DD` | Sleep data (stages, assessment scores) |
 | `GET /api/hrv?date=YYYY-MM-DD` | HRV data (values, summaries) |
 | `GET /api/skin-temp?date=YYYY-MM-DD` | Skin temperature data |
+| `POST /api/ingest` | Trigger manual re-ingest of FIT files |
+| `GET /api/ingest/status` | Check if new FIT files exist since last ingest |
+| `GET /api/events` | SSE stream — pushes `data_updated` when new FIT files are ingested |
 
 ## Data Explorer Script
 
@@ -131,13 +133,20 @@ garmin_stats/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI application + endpoints
-│   │   └── parser.py        # FIT file parsing (wellness, sleep, HRV, skin temp, aggregates)
+│   │   ├── models.py        # Pydantic models (reading atoms, day containers, API responses)
+│   │   ├── parser.py        # FIT file parsing (wellness, sleep, HRV, skin temp)
+│   │   ├── stats.py         # Aggregation/flattening (daily aggregates, period summaries)
+│   │   └── database.py      # SQLite persistence (schema, ingest, read, fingerprinting)
+│   ├── tests/               # pytest tests (stats, database)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── lib/
 │   │   │   ├── api.ts              # Typed API client
+│   │   │   ├── api-types.ts        # Generated from OpenAPI spec (never hand-edit)
 │   │   │   ├── chart-setup.ts      # Chart.js registration + date adapter
+│   │   │   ├── colors.ts           # Chart color palette
+│   │   │   ├── format.ts           # Number formatting utilities
 │   │   │   └── components/
 │   │   │       ├── LineChart.svelte       # Chart.js line chart wrapper
 │   │   │       ├── StatCard.svelte        # Summary stat card
@@ -152,7 +161,9 @@ garmin_stats/
 │   │       ├── skin-temp/+page.svelte
 │   │       └── pulse-ox/+page.svelte
 │   └── package.json
+├── storage/                 # SQLite database (gitignored, auto-created)
 ├── data/                    # FIT files (gitignored)
+├── scripts/                 # generate-api-types.sh, etc.
 ├── explore_fit_files.py     # CLI exploration tool
 ├── CLAUDE.md                # Project rules + gotchas for AI assistants
 ├── FINDINGS.md              # Data analysis findings
@@ -164,7 +175,7 @@ garmin_stats/
 - [x] Phase 1: Data Exploration — FIT file parsing with official SDK
 - [x] Phase 2: Basic App — FastAPI backend + Svelte dashboard
 - [x] Phase 3: Time Series — Trend charts for all metrics, metric subtab pages with intraday views
-- [ ] Phase 4: Database — SQLite storage for parsed data
+- [x] Phase 4: Database — SQLite persistence with auto-ingest, fingerprinting, period summaries
 - [ ] Phase 5: Advanced Analytics — Trends, correlations, anomaly detection
 
 ## Data Privacy
