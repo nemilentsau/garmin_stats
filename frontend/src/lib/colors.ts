@@ -10,6 +10,7 @@ export const COLORS = {
 	hrv: '#7c3aed',
 	hrvWeekly: '#a78bfa',
 	sleep: '#4f46e5',
+	sleep7Day: '#818cf8',
 	skinTemp: '#d97706',
 	skinTemp7Day: '#f59e0b',
 	baseline: '#9ca3af',

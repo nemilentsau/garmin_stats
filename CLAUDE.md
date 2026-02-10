@@ -10,11 +10,14 @@
 - **Frontend dev server**: `npm run dev` from `frontend/`
 
 ## Project Structure
-- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py, database.py)
+- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py, database.py, events.py, watcher.py)
 - `backend/tests/` — pytest tests for stats and database
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
 - `storage/` — SQLite database (gitignored, auto-created on startup)
-- `data/` — Garmin FIT files organized as `data/YYYY-MM-DD/*.fit`
+- `data/` — Garmin health data. Raw input is `.zip` archives, unpacked form is `YYYY-MM-DD/*.fit`
+  - **Input format:** `data/YYYY-MM-DD.zip` — flat zip containing `.fit` files (no subdirectory inside)
+  - **Unpacked format:** `data/YYYY-MM-DD/*.fit` — created by extracting the zip into a same-named directory
+  - The watcher/ingest pipeline must handle `.zip` → extract → parse `.fit` files
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
 ## Backend Conventions
@@ -30,7 +33,9 @@ Modules:
 - **`parser.py`**: 3 layers — `_extract_*` (per-file), `parse_*_day` (per-day merge), `parse_*` (directory scan + date filter)
 - **`stats.py`**: Aggregation/flattening — consumes typed parser output, produces API response models. No FIT knowledge.
 - **`database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
-- **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest
+- **`events.py`**: SSE event bus — `EventBus` with per-client `asyncio.Queue`, module-level `event_bus` singleton
+- **`watcher.py`**: File watcher — `watch_data_directory()` uses `watchfiles.awatch()` to detect new `.fit` files, auto-ingests, broadcasts `data_updated` via SSE; `heartbeat_loop()` keeps connections alive
+- **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest + file watcher + heartbeat tasks, SSE endpoint at `GET /api/events`
 
 ### SQLite details
 - DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
@@ -67,6 +72,7 @@ Modules:
 - Use `{@render children()}` not `<slot/>`
 - API types generated from OpenAPI spec — run `bash scripts/generate-api-types.sh` after backend model changes
 - API client in `src/lib/api.ts` — imports generated types from `api-types.ts` + `api` object with methods
+- SSE client in `src/lib/sse.ts` — `createDataUpdateListener(onUpdate)` subscribes to `GET /api/events`, calls callback on `data_updated`, returns cleanup function for `onMount`
 - Shared utilities: `src/lib/format.ts` (`fmt()` for number display), `src/lib/colors.ts` (chart color palette)
 - Chart colors: always use `COLORS` from `$lib/colors`, never hardcode hex values in routes
 - Use `catch (e: unknown)` with `e instanceof Error` narrowing, never `catch (e: any)`
@@ -116,6 +122,29 @@ Two skills support this project. Each owns specific code layers:
 - This skill is project-independent — applies to any data analysis work
 - Defines what statistics to compute (section 1), how to present them (sections 2-3), how to validate visually (section 4), and the pipeline trace workflow (section 6)
 - **Pipeline traces** go to `.claude/chart-inspections/<metric>-<context>/` — discovery → EDA → inspection → retrospective. Required for new metrics.
+- **Hard rule:** Any data analysis work (EDA, chart inspection, revalidation) MUST produce trace artifacts in a dedicated subdirectory under `.claude/chart-inspections/`. Never dump PNGs into the root or skip the markdown artifacts. See DA skill section 6 for the exact file list.
+- **Never overwrite or delete** previous trace directories. Each run gets its own `<metric>-<context>` directory.
+
+## Keeping Docs Current
+
+Two documentation files must stay in sync with the codebase. Update them as part of the same PR/commit that introduces the change — not as a separate follow-up.
+
+### `README.md` — update when:
+- Adding/removing **frontend routes** → update the "Frontend Pages" table
+- Adding/removing/changing **API endpoints** → update the "API Endpoints" table
+- Adding new **backend modules or components** → update the "Project Structure" tree
+- Completing a **roadmap item** → check the box and add the next planned phase if known
+- Changing **setup instructions** (new dependencies, env vars, commands)
+
+### `FINDINGS.md` — update when:
+- New **data analysis findings** emerge (EDA, chart inspection, distribution observations)
+- **Data quality** observations change (missingness, sensor artifacts, new date range)
+- New **undocumented data sources** are discovered or existing ones get parsed
+- An **open question** is resolved or a new one arises
+
+### What NOT to update
+- Don't update README for internal refactors that don't change the external interface
+- Don't update FINDINGS for code-only changes (bug fixes, performance, refactoring)
 
 ## Data Context
 - Date range: ~2026-01-01 to 2026-02-06 (about 37 days)

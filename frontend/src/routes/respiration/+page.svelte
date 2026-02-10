@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type WellnessData } from '$lib/api';
+	import { createDataUpdateListener } from '$lib/sse';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
@@ -15,13 +16,25 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
-	onMount(async () => {
-		try {
-			agg = await api.getDailyAggregates();
-		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+	async function fetchData() {
+		agg = await api.getDailyAggregates();
+		if (selectedDate) {
+			intradayData = await api.getWellness(selectedDate);
 		}
-		loading = false;
+	}
+
+	onMount(() => {
+		fetchData()
+			.catch((e: unknown) => {
+				error = e instanceof Error ? e.message : String(e);
+			})
+			.finally(() => {
+				loading = false;
+			});
+
+		return createDataUpdateListener(() => {
+			fetchData();
+		});
 	});
 
 	async function onDateChange(date: string) {

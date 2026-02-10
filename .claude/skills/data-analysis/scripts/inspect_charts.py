@@ -119,11 +119,14 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
                          color="#059669", label="Daily Avg", title="Body Battery (0-100)", ylabel="score")
 
     # Respiration
-    plot_metric_with_iqr(axes[1, 1], dates,
+    ax = axes[1, 1]
+    plot_metric_with_iqr(ax, dates,
                          [d["respiration"]["avg"] for d in daily],
                          [d["respiration"]["q1"] for d in daily],
                          [d["respiration"]["q3"] for d in daily],
                          color="#0d9488", label="Daily Avg", title="Respiration (br/min)", ylabel="br/min")
+    ax.axhline(y=14, color="#9ca3af", linewidth=0.8, linestyle=":", label="Elevated (14)")
+    ax.legend(fontsize=7)
 
     # SpO2 — IQR band + min line
     ax = axes[2, 0]
@@ -177,13 +180,22 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     ax.tick_params(axis="x", rotation=45, labelsize=7)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
-    # Sleep Score
+    # Sleep Score with 7-day rolling average
     sleep_scores = [d["sleep"]["score"] for d in daily]
     ax = axes[3, 1]
     valid_sl = [(d, s) for d, s in zip(dates, sleep_scores) if s is not None]
     if valid_sl:
         sld, slv = zip(*valid_sl)
         ax.plot(sld, slv, color="#4f46e5", linewidth=1.5, label="Sleep Score")
+        # 7-day rolling average
+        smoothed = []
+        for i in range(len(sleep_scores)):
+            window = [v for v in sleep_scores[max(0, i - 6):i + 1] if v is not None]
+            smoothed.append(np.mean(window) if len(window) >= 3 else None)
+        valid_sm = [(d, s) for d, s in zip(dates, smoothed) if s is not None]
+        if valid_sm:
+            smd, smv = zip(*valid_sm)
+            ax.plot(smd, smv, color="#818cf8", linewidth=1.5, linestyle="--", label="7-Day Avg")
     ax.set_title("Sleep Score", fontsize=11, fontweight="bold")
     ax.set_ylabel("score", fontsize=9)
     ax.legend(fontsize=7)
@@ -202,15 +214,17 @@ def generate_distribution_charts(data_dir: Path, output_dir: Path):
     agg = load_aggregates(data_dir)
     daily = agg["daily"]
 
-    fig, axes = plt.subplots(2, 3, figsize=(16, 8))
+    fig, axes = plt.subplots(2, 4, figsize=(20, 8))
     fig.suptitle("Daily Metric Distributions — EDA Inspection", fontsize=14, fontweight="bold")
 
     metrics = [
         ("Heart Rate Avg (bpm)", [d["heart_rate"]["avg"] for d in daily], "#dc2626"),
         ("Stress Avg (0-100)", [d["stress"]["avg"] for d in daily], "#ea580c"),
+        ("Body Battery Avg", [d["body_battery"]["avg"] for d in daily], "#059669"),
         ("SpO2 Avg (%)", [d["spo2"]["avg"] for d in daily], "#2563eb"),
         ("Respiration Avg (br/min)", [d["respiration"]["avg"] for d in daily], "#0d9488"),
         ("HRV Nightly (ms)", [d["hrv"]["nightly_avg"] for d in daily], "#7c3aed"),
+        ("Sleep Score", [d["sleep"]["score"] for d in daily], "#4f46e5"),
         ("Skin Temp Dev (\u00b0C)", [d["skin_temp"]["deviation"] for d in daily], "#d97706"),
     ]
 

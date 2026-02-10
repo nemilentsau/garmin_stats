@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates } from '$lib/api';
+	import { createDataUpdateListener } from '$lib/sse';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
@@ -11,13 +12,22 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
-	onMount(async () => {
-		try {
-			agg = await api.getDailyAggregates();
-		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
-		}
-		loading = false;
+	async function fetchData() {
+		agg = await api.getDailyAggregates();
+	}
+
+	onMount(() => {
+		fetchData()
+			.catch((e: unknown) => {
+				error = e instanceof Error ? e.message : String(e);
+			})
+			.finally(() => {
+				loading = false;
+			});
+
+		return createDataUpdateListener(() => {
+			fetchData();
+		});
 	});
 
 	function fmt(n: number | null | undefined): string {

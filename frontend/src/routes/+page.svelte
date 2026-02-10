@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
+	import { createDataUpdateListener } from '$lib/sse';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -9,12 +10,18 @@
 	let data: DailyAggregates | null = $state(null);
 	let error: string | null = $state(null);
 
-	onMount(async () => {
-		try {
-			data = await api.getDailyAggregates();
-		} catch (e: unknown) {
+	async function fetchData() {
+		data = await api.getDailyAggregates();
+	}
+
+	onMount(() => {
+		fetchData().catch((e: unknown) => {
 			error = e instanceof Error ? e.message : String(e);
-		}
+		});
+
+		return createDataUpdateListener(() => {
+			fetchData();
+		});
 	});
 
 	function makeLineConfig(
@@ -96,7 +103,19 @@
 	});
 	let respConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', COLORS.respiration, (d) => d.respiration.q1, (d) => d.respiration.q3);
+		const config = makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', COLORS.respiration, (d) => d.respiration.q1, (d) => d.respiration.q3);
+		config.data.datasets.push({
+			label: 'Elevated (14)',
+			data: data.daily.map(() => 14),
+			borderColor: COLORS.baseline,
+			borderWidth: 1,
+			borderDash: [4, 4],
+			pointRadius: 0,
+			tension: 0,
+			spanGaps: true,
+			fill: false
+		});
+		return config;
 	});
 	let hrvConfig = $derived.by(() => {
 		if (!data) return null;
@@ -139,9 +158,56 @@
 			}
 		};
 	});
+	function rollingAvg(values: (number | null)[], window: number): (number | null)[] {
+		return values.map((_, i) => {
+			const start = Math.max(0, i - window + 1);
+			const slice = values.slice(start, i + 1).filter((v): v is number => v != null);
+			return slice.length >= Math.min(3, window) ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length * 10) / 10 : null;
+		});
+	}
+
 	let sleepConfig = $derived.by(() => {
 		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.sleep.score, 'Sleep Score', COLORS.sleep);
+		const labels = data.daily.map((d) => d.date);
+		const raw = data.daily.map((d) => d.sleep.score);
+		const smoothed = rollingAvg(raw, 7);
+		return {
+			type: 'line' as const,
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Sleep Score',
+						data: raw,
+						borderColor: COLORS.sleep,
+						borderWidth: 2,
+						pointRadius: 2,
+						tension: 0.3,
+						spanGaps: true
+					},
+					{
+						label: '7-Day Avg',
+						data: smoothed,
+						borderColor: COLORS.sleep7Day,
+						borderWidth: 2,
+						borderDash: [6, 3],
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index' as const, intersect: false },
+				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+				scales: {
+					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
+					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
+				}
+			}
+		};
 	});
 	let skinTempConfig = $derived.by(() => {
 		if (!data) return null;
