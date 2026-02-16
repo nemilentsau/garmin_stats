@@ -83,6 +83,7 @@ Modules:
 - Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
 - Period-level stats come from `data.period` (backend-computed from raw readings), never from averaging daily aggregates
 
+
 ## API Type Generation (Single Source of Truth)
 - **Pydantic models** (`backend/app/models.py`) are the source of truth for API types
 - **TypeScript types** (`frontend/src/lib/api-types.ts`) are generated from the OpenAPI spec, never hand-written
@@ -95,6 +96,7 @@ Modules:
 - **`$derived` vs `$derived.by`**: `$derived(() => expr)` stores a *function*. `$derived.by(fn)` stores the *return value*. Always use `$derived.by` when you want the computed result.
 - **Type narrowing fails in `$derived` ternaries**: `$derived(stateVar ? expr : null)` narrows `stateVar` to `never`. Always use `$derived.by(() => { if (!stateVar) return null; ... })` instead.
 - **`bind:this` + `$effect`**: A plain `let` variable set by `bind:this` does NOT reliably trigger `$effect` re-runs. Use `onMount` for anything that needs the DOM element (e.g., creating a Chart.js instance on a canvas).
+- **`{@const}` placement**: Only valid inside `{#if}`, `{#each}`, `{:else}` — NOT inside plain elements like `<nav>` or `<div>`. Move data arrays to the `<script>` block instead.
 
 ## Chart.js Gotchas
 - **Register `CategoryScale`**: Trend charts use string date labels, which default to the `category` scale type. If `CategoryScale` is not registered in `chart-setup.ts`, charts silently fail to render.
@@ -103,7 +105,7 @@ Modules:
 
 ## Skills
 
-Two skills support this project. Each owns specific code layers:
+Three skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
@@ -124,6 +126,14 @@ Two skills support this project. Each owns specific code layers:
 - **Pipeline traces** go to `.claude/chart-inspections/<metric>-<context>/` — discovery → EDA → inspection → retrospective. Required for new metrics.
 - **Hard rule:** Any data analysis work (EDA, chart inspection, revalidation) MUST produce trace artifacts in a dedicated subdirectory under `.claude/chart-inspections/`. Never dump PNGs into the root or skip the markdown artifacts. See DA skill section 6 for the exact file list.
 - **Never overwrite or delete** previous trace directories. Each run gets its own `<metric>-<context>` directory.
+
+### `ux-design` — frontend interface design (**MANDATORY** for any UI work)
+**Owns:** Frontend UX design, dashboard layout decisions
+**Trigger:** building new dashboard layouts, choosing fonts/colors/spacing, creating or modifying UI prototypes
+- **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — contains both generic design guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
+- Additional design context in memory `dashboard-ux.md`
+- Always validate with `svelte-check` after creating design pages
 
 ## Keeping Docs Current
 

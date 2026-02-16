@@ -132,11 +132,13 @@ uv run python explore_fit_files.py --type WELLNESS
 garmin_stats/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # FastAPI application + endpoints
+│   │   ├── main.py          # FastAPI application + endpoints + SSE
 │   │   ├── models.py        # Pydantic models (reading atoms, day containers, API responses)
 │   │   ├── parser.py        # FIT file parsing (wellness, sleep, HRV, skin temp)
 │   │   ├── stats.py         # Aggregation/flattening (daily aggregates, period summaries)
-│   │   └── database.py      # SQLite persistence (schema, ingest, read, fingerprinting)
+│   │   ├── database.py      # SQLite persistence (schema, ingest, read, fingerprinting)
+│   │   ├── events.py        # SSE event bus (pub/sub with asyncio.Queue)
+│   │   └── watcher.py       # File watcher (watchfiles — zip extraction + auto-ingest)
 │   ├── tests/               # pytest tests (stats, database)
 │   └── requirements.txt
 ├── frontend/
@@ -147,6 +149,7 @@ garmin_stats/
 │   │   │   ├── chart-setup.ts      # Chart.js registration + date adapter
 │   │   │   ├── colors.ts           # Chart color palette
 │   │   │   ├── format.ts           # Number formatting utilities
+│   │   │   ├── sse.ts              # SSE client (EventSource for live updates)
 │   │   │   └── components/
 │   │   │       ├── LineChart.svelte       # Chart.js line chart wrapper
 │   │   │       ├── StatCard.svelte        # Summary stat card
@@ -159,7 +162,8 @@ garmin_stats/
 │   │       ├── hrv/+page.svelte
 │   │       ├── respiration/+page.svelte
 │   │       ├── skin-temp/+page.svelte
-│   │       └── pulse-ox/+page.svelte
+│   │       ├── pulse-ox/+page.svelte
+│   │       └── design-{1..5}/+page.svelte   # UX design prototypes
 │   └── package.json
 ├── storage/                 # SQLite database (gitignored, auto-created)
 ├── data/                    # FIT files (gitignored)

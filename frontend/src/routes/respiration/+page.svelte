@@ -89,10 +89,23 @@
 				responsive: true,
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
-				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+				plugins: {
+					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.respiration, '60'), padding: 10, cornerRadius: 4 }
+				},
 				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { beginAtZero: false, title: { display: true, text: 'br/min' } }
+					x: {
+						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'br/min', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
 				}
 			}
 		};
@@ -119,14 +132,25 @@
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				plugins: { legend: { display: false } },
+				plugins: {
+					legend: { display: false },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.respiration, '60'), padding: 10, cornerRadius: 4 }
+				},
 				scales: {
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 } }
+						ticks: { font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
 					},
-					y: { beginAtZero: false, title: { display: true, text: 'br/min' } }
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'br/min', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
 				}
 			}
 		};
@@ -146,15 +170,15 @@
 <svelte:head><title>Respiration - Garmin Stats</title></svelte:head>
 
 {#if error}
-	<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-		<p class="text-red-700">Error: {error}</p>
+	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
+		<p class="text-[#E85D4A]">Error: {error}</p>
 	</div>
 {:else if loading}
 	<div class="flex items-center justify-center h-64">
-		<div class="text-gray-500">Loading...</div>
+		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
-	<h1 class="text-xl font-bold text-gray-900 mb-4">Respiration Rate</h1>
+	<h1 class="text-xl font-bold text-[#e8f0f5] mb-4">Respiration Rate</h1>
 
 	<MetricDefinition title="What is Respiration Rate?">
 		<p class="mb-2">
@@ -174,28 +198,28 @@
 
 	{#if stats}
 		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-			<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="br/min" colorClass="text-teal-600" />
-			<StatCard title="Typical Low" value={fmt(stats?.typicalLow)} unit="br/min" colorClass="text-blue-600" />
-			<StatCard title="Typical High" value={fmt(stats?.typicalHigh)} unit="br/min" colorClass="text-orange-600" />
+			<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="br/min" colorClass="text-[#5BB5A6]" />
+			<StatCard title="Typical Low" value={fmt(stats?.typicalLow)} unit="br/min" colorClass="text-[#4A90D9]" />
+			<StatCard title="Typical High" value={fmt(stats?.typicalHigh)} unit="br/min" colorClass="text-[#D4944C]" />
 		</div>
 	{/if}
 
-	<div class="bg-white rounded-lg shadow p-5 mb-6">
-		<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Daily Trend</h2>
+	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Daily Trend</h2>
 		{#if trendConfig}
 			<LineChart config={trendConfig} height={300} />
 		{/if}
 	</div>
 
 	{#if selectedDate && intradayConfig}
-		<div class="bg-white rounded-lg shadow p-5">
-			<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 				Intraday — {selectedDate}
 			</h2>
 			<LineChart config={intradayConfig} height={300} />
-			<p class="text-xs text-gray-400 mt-2">{intradayData?.respiration.length ?? 0} readings</p>
+			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.respiration.length ?? 0} readings</p>
 		</div>
 	{:else if selectedDate}
-		<div class="text-sm text-gray-500">Loading intraday data...</div>
+		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
 	{/if}
 {/if}

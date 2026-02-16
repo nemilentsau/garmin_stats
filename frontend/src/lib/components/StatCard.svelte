@@ -4,7 +4,7 @@
 		value,
 		unit = '',
 		subtitle = '',
-		colorClass = 'text-gray-900'
+		colorClass = 'text-[#e8f0f5]'
 	}: {
 		title: string;
 		value: string | number;
@@ -14,13 +14,13 @@
 	} = $props();
 </script>
 
-<div class="bg-white rounded-lg shadow p-4">
-	<div class="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</div>
+<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-4">
+	<div class="text-xs font-medium text-[#8a9baa] uppercase tracking-wide">{title}</div>
 	<div class="mt-1 text-2xl font-bold {colorClass}">
 		{value}
-		{#if unit}<span class="text-sm font-normal text-gray-500">{unit}</span>{/if}
+		{#if unit}<span class="text-sm font-normal text-[#4a5c6a]">{unit}</span>{/if}
 	</div>
 	{#if subtitle}
-		<div class="mt-0.5 text-xs text-gray-400">{subtitle}</div>
+		<div class="mt-0.5 text-xs text-[#5e7282]">{subtitle}</div>
 	{/if}
 </div>
