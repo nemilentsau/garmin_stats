@@ -5,7 +5,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
-	import { COLORS } from '$lib/colors';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -75,10 +75,22 @@
 				responsive: true,
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
-				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+				plugins: {
+					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.skinTemp, '60'), padding: 10, cornerRadius: 4 }
+				},
 				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { title: { display: true, text: '\u00B0C deviation' } }
+					x: {
+						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						title: { display: true, text: '\u00B0C deviation', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
 				}
 			}
 		};
@@ -100,15 +112,15 @@
 <svelte:head><title>Skin Temp - Garmin Stats</title></svelte:head>
 
 {#if error}
-	<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-		<p class="text-red-700">Error: {error}</p>
+	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
+		<p class="text-[#E85D4A]">Error: {error}</p>
 	</div>
 {:else if loading}
 	<div class="flex items-center justify-center h-64">
-		<div class="text-gray-500">Loading...</div>
+		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
-	<h1 class="text-xl font-bold text-gray-900 mb-4">Skin Temperature</h1>
+	<h1 class="text-xl font-bold text-[#e8f0f5] mb-4">Skin Temperature</h1>
 
 	<MetricDefinition title="What is Skin Temperature?">
 		<p class="mb-2">
@@ -127,21 +139,21 @@
 
 	{#if stats}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-			<StatCard title="Avg Deviation" value={stats?.avgDeviation ?? '-'} unit="&deg;C" colorClass="text-amber-600" />
-			<StatCard title="Max Deviation" value={stats?.maxDeviation ?? '-'} unit="&deg;C" colorClass="text-red-600" />
-			<StatCard title="Min Deviation" value={stats?.minDeviation ?? '-'} unit="&deg;C" colorClass="text-blue-600" />
-			<StatCard title="Avg Nightly" value={stats?.avgNightly ?? '-'} unit="&deg;C" colorClass="text-gray-700" />
+			<StatCard title="Avg Deviation" value={stats?.avgDeviation ?? '-'} unit="&deg;C" colorClass="text-[#C9933A]" />
+			<StatCard title="Max Deviation" value={stats?.maxDeviation ?? '-'} unit="&deg;C" colorClass="text-[#E85D4A]" />
+			<StatCard title="Min Deviation" value={stats?.minDeviation ?? '-'} unit="&deg;C" colorClass="text-[#4A90D9]" />
+			<StatCard title="Avg Nightly" value={stats?.avgNightly ?? '-'} unit="&deg;C" colorClass="text-[#8a9baa]" />
 		</div>
 	{/if}
 
-	<div class="bg-white rounded-lg shadow p-5">
-		<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 			Nightly Deviation Trend
 		</h2>
 		{#if trendConfig}
 			<LineChart config={trendConfig} height={350} />
 		{/if}
-		<p class="text-xs text-gray-400 mt-2">
+		<p class="text-xs text-[#4a5c6a] mt-2">
 			{stats?.daysTracked ?? 0} nights tracked. Only 1 reading per night — no intraday view available.
 		</p>
 	</div>
