@@ -189,6 +189,15 @@ class SkinTempResponse(_DefaultsRequired):
 
 # Daily aggregate sub-models
 
+
+class HRZoneBucket(_DefaultsRequired):
+    label: str
+    min_bpm: int
+    max_bpm: int | None = None
+    count: int
+    pct: float
+
+
 class DailyHeartRateStats(_DefaultsRequired):
     avg: float | None = None
     min: int | None = None
@@ -197,6 +206,7 @@ class DailyHeartRateStats(_DefaultsRequired):
     q1: float | None = None
     q3: float | None = None
     resting: int | None = None
+    zones: list[HRZoneBucket] = []
 
 
 class DailyMetricStats(_DefaultsRequired):
@@ -252,6 +262,7 @@ class PeriodHeartRateStats(_DefaultsRequired):
     avg_resting: float | None = None
     typical_low: float | None = None
     typical_high: float | None = None
+    zones: list[HRZoneBucket] = []
 
 
 class PeriodMetricStats(_DefaultsRequired):

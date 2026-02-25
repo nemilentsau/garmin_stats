@@ -14,6 +14,7 @@
 - API types flow: Pydantic models → OpenAPI → generated TypeScript. Never hand-write `frontend/src/lib/api-types.ts`.
 - Data format: `data/YYYY-MM-DD.zip` → extract → `YYYY-MM-DD/*.fit`. Ingest pipeline handles zip extraction.
 - Period-level stats come from raw readings, never from averaging daily aggregates.
+- Frontend is display-only: zero statistical computation. All stats, aggregations, and derived values come from the backend API.
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`

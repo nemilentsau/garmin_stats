@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.stats import (
     aggregate_day,
+    compute_hr_zones,
     compute_period_summary,
     flatten_wellness,
     safe_avg,
@@ -241,6 +242,71 @@ class TestPeriodSummary:
         assert period.heart_rate.avg is None
         assert period.hrv.total_days == 0
         assert period.spo2.total_days == 0
+
+
+# ---------------------------------------------------------------------------
+# compute_hr_zones
+# ---------------------------------------------------------------------------
+
+class TestHRZones:
+    def test_empty_values(self):
+        assert compute_hr_zones([]) == []
+
+    def test_single_zone(self):
+        zones = compute_hr_zones([70, 75, 80])
+        assert len(zones) == 1
+        assert zones[0].label == "Light"
+        assert zones[0].pct == 100
+        assert zones[0].count == 3
+
+    def test_multi_zone_distribution(self):
+        # 2 rest (<60), 2 light (60-99), 1 moderate (100-129), 1 vigorous (130+)
+        zones = compute_hr_zones([50, 55, 70, 90, 110, 140])
+        by_label = {z.label: z for z in zones}
+        assert by_label["Rest"].count == 2
+        assert by_label["Rest"].pct == 33  # 2/6 ≈ 33%
+        assert by_label["Light"].count == 2
+        assert by_label["Moderate"].count == 1
+        assert by_label["Vigorous"].count == 1
+
+    def test_boundary_values(self):
+        """60 → Light (not Rest), 100 → Moderate (not Light), 130 → Vigorous."""
+        zones = compute_hr_zones([60, 100, 130])
+        by_label = {z.label: z for z in zones}
+        assert "Rest" not in by_label
+        assert by_label["Light"].count == 1
+        assert by_label["Moderate"].count == 1
+        assert by_label["Vigorous"].count == 1
+
+    def test_zero_pct_zones_filtered(self):
+        """Zones with 0 readings are excluded."""
+        zones = compute_hr_zones([70, 75])  # all Light
+        labels = [z.label for z in zones]
+        assert labels == ["Light"]
+
+    def test_zones_in_aggregate_day(self):
+        day = _make_day(hr_values=[50, 70, 110, 140])
+        agg = aggregate_day(day)
+        assert len(agg.heart_rate.zones) > 0
+        total_count = sum(z.count for z in agg.heart_rate.zones)
+        assert total_count == 4
+
+    def test_zones_in_period_summary(self):
+        day1 = _make_day(date="2026-01-01", hr_values=[50, 70])
+        day2 = _make_day(date="2026-01-02", hr_values=[110, 140])
+        period = compute_period_summary([day1, day2])
+        assert len(period.heart_rate.zones) > 0
+        total_count = sum(z.count for z in period.heart_rate.zones)
+        assert total_count == 4
+
+    def test_zone_min_max_bpm(self):
+        zones = compute_hr_zones([50, 140])
+        rest = next(z for z in zones if z.label == "Rest")
+        assert rest.min_bpm == 0
+        assert rest.max_bpm == 60
+        vigorous = next(z for z in zones if z.label == "Vigorous")
+        assert vigorous.min_bpm == 130
+        assert vigorous.max_bpm is None
 
 
 # ---------------------------------------------------------------------------

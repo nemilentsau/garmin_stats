@@ -204,6 +204,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sse Events
+         * @description Server-Sent Events stream for real-time data updates.
+         */
+        get: operations["sse_events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -226,7 +246,7 @@ export interface components {
         /** BodyBatteryReading */
         BodyBatteryReading: {
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Value */
             value: number;
         };
@@ -269,6 +289,11 @@ export interface components {
             q3: number | null;
             /** Resting */
             resting: number | null;
+            /**
+             * Zones
+             * @default []
+             */
+            zones: components["schemas"]["HRZoneBucket"][];
         };
         /** DailyHrvStats */
         DailyHrvStats: {
@@ -345,6 +370,19 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** HRZoneBucket */
+        HRZoneBucket: {
+            /** Label */
+            label: string;
+            /** Min Bpm */
+            min_bpm: number;
+            /** Max Bpm */
+            max_bpm: number | null;
+            /** Count */
+            count: number;
+            /** Pct */
+            pct: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -390,7 +428,7 @@ export interface components {
             /** Date */
             date: string;
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Value */
             value: number;
         };
@@ -422,6 +460,11 @@ export interface components {
             typical_low: number | null;
             /** Typical High */
             typical_high: number | null;
+            /**
+             * Zones
+             * @default []
+             */
+            zones: components["schemas"]["HRZoneBucket"][];
         };
         /** PeriodHrvStats */
         PeriodHrvStats: {
@@ -491,14 +534,14 @@ export interface components {
         /** RespirationReading */
         RespirationReading: {
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Value */
             value: number;
         };
         /** RestingHRReading */
         RestingHRReading: {
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Resting Hr */
             resting_hr: number | null;
             /** Current Day Resting Hr */
@@ -550,7 +593,7 @@ export interface components {
             /** Date */
             date: string;
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Level */
             level: string;
         };
@@ -566,7 +609,7 @@ export interface components {
         /** SpO2Reading */
         SpO2Reading: {
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Value */
             value: number;
             /** Confidence */
@@ -588,7 +631,7 @@ export interface components {
         /** StressReading */
         StressReading: {
             /** Timestamp */
-            timestamp: string;
+            timestamp: string | null;
             /** Value */
             value: number;
         };
@@ -886,6 +929,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sse_events_api_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

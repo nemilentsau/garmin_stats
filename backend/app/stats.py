@@ -22,6 +22,7 @@ from .models import (
     DaySleep,
     DayWellness,
     HrvResponse,
+    HRZoneBucket,
     PeriodHeartRateStats,
     PeriodHrvStats,
     PeriodMetricStats,
@@ -34,8 +35,46 @@ from .models import (
 )
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# HR zone definitions: (label, lower_bound_inclusive, upper_bound_exclusive_or_None)
+HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [
+    ("Rest", 0, 60),
+    ("Light", 60, 100),
+    ("Moderate", 100, 130),
+    ("Vigorous", 130, None),
+]
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def compute_hr_zones(hr_values: Sequence[int]) -> list[HRZoneBucket]:
+    """Bucket HR readings into zones and return counts + percentages."""
+    if not hr_values:
+        return []
+    counts = [0] * len(HR_ZONE_THRESHOLDS)
+    for v in hr_values:
+        for i, (_, low, high) in enumerate(HR_ZONE_THRESHOLDS):
+            if v >= low and (high is None or v < high):
+                counts[i] += 1
+                break
+    total = sum(counts)
+    if total == 0:
+        return []
+    return [
+        HRZoneBucket(
+            label=label,
+            min_bpm=low,
+            max_bpm=high,
+            count=counts[i],
+            pct=round(counts[i] / total * 100),
+        )
+        for i, (label, low, high) in enumerate(HR_ZONE_THRESHOLDS)
+        if counts[i] > 0
+    ]
+
 
 def safe_avg(values: Sequence[int | float]) -> float | None:
     """Average with rounding, or None if empty."""
@@ -133,6 +172,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
             q1=safe_percentile(hr_vals, 25),
             q3=safe_percentile(hr_vals, 75),
             resting=resting_val,
+            zones=compute_hr_zones(hr_vals),
         ),
         stress=DailyMetricStats(
             avg=safe_avg(stress_vals),
@@ -242,6 +282,7 @@ def compute_period_summary(days: list[DayData]) -> PeriodSummary:
             avg_resting=safe_avg(resting_vals),
             typical_low=safe_percentile(all_hr, 25),
             typical_high=safe_percentile(all_hr, 75),
+            zones=compute_hr_zones(all_hr),
         ),
         stress=PeriodMetricStats(
             avg=safe_avg(all_stress),

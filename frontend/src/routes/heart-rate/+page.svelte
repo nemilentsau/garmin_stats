@@ -104,7 +104,7 @@
 					{
 						label: 'Q1 (25th)',
 						data: agg.daily.map((d) => d.heart_rate.q1),
-						borderColor: withAlpha(COLORS.heartRate, '40'),
+						borderColor: withAlpha(COLORS.heartRate, '80'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
@@ -115,13 +115,14 @@
 					{
 						label: 'Q3 (75th)',
 						data: agg.daily.map((d) => d.heart_rate.q3),
-						borderColor: withAlpha(COLORS.heartRate, '40'),
+						borderColor: withAlpha(COLORS.heartRate, '80'),
 						borderWidth: 1,
 						borderDash: [4, 4],
 						pointRadius: 0,
 						tension: 0.3,
 						spanGaps: true,
-						fill: '-1'
+						fill: '-1',
+						backgroundColor: withAlpha(COLORS.heartRate, '12')
 					}
 				]
 			},
@@ -135,29 +136,52 @@
 		};
 	});
 
+	// Day-level stats derived from daily aggregates
+	let dayStats = $derived.by(() => {
+		if (!agg || !selectedDate) return null;
+		const day = agg.daily.find((d) => d.date === selectedDate);
+		if (!day) return null;
+		return day.heart_rate;
+	});
+
 	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!intradayData || intradayData.heart_rate.length === 0) return null;
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
+			{
+				label: 'Heart Rate',
+				data: intradayData.heart_rate.map((d) => d.value),
+				borderColor: COLORS.heartRate,
+				borderWidth: 1.5,
+				pointRadius: 0,
+				tension: 0.2,
+				fill: { target: 'origin', above: withAlpha(COLORS.heartRate, '18') }
+			}
+		];
+		// Add resting HR reference line if available
+		if (dayStats?.resting != null) {
+			const restingVal = dayStats.resting;
+			datasets.push({
+				label: 'Resting HR',
+				data: intradayData.heart_rate.map(() => restingVal),
+				borderColor: COLORS.heartRateResting,
+				borderWidth: 1,
+				borderDash: [6, 4],
+				pointRadius: 0,
+				tension: 0,
+				fill: false
+			});
+		}
 		return {
 			type: 'line',
 			data: {
 				labels: intradayData.heart_rate.map((d) => d.timestamp),
-				datasets: [
-					{
-						label: 'Heart Rate',
-						data: intradayData.heart_rate.map((d) => d.value),
-						borderColor: COLORS.heartRate,
-						borderWidth: 1.5,
-						pointRadius: 0,
-						tension: 0.2,
-						fill: { target: 'origin', above: withAlpha(COLORS.heartRate, '10') }
-					}
-				]
+				datasets
 			},
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
 				plugins: {
-					legend: { display: false },
+					legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
 					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 }
 				},
 				scales: {
@@ -178,6 +202,23 @@
 				}
 			}
 		};
+	});
+
+	// Zone colors (presentation only — zone data comes from backend)
+	const ZONE_COLORS: Record<string, string> = {
+		Rest: '#4A6FA5',
+		Light: '#4CAF82',
+		Moderate: '#D4944C',
+		Vigorous: '#E85D4A'
+	};
+
+	let zoneBreakdown = $derived.by(() => {
+		if (!dayStats || dayStats.zones.length === 0) return null;
+		return dayStats.zones.map((z) => ({
+			label: z.label,
+			color: ZONE_COLORS[z.label] ?? '#6b7d8e',
+			pct: z.pct
+		}));
 	});
 
 	let stats = $derived.by(() => {
@@ -230,6 +271,16 @@
 		</div>
 	{/if}
 
+	{#if dayStats}
+		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+			<StatCard title="Min" value={fmt(dayStats.min)} unit="bpm" colorClass="text-[#4A90D9]" />
+			<StatCard title="Max" value={fmt(dayStats.max)} unit="bpm" colorClass="text-[#D4944C]" />
+			<StatCard title="Avg" value={fmt(dayStats.avg)} unit="bpm" colorClass="text-[#E85D4A]" />
+			<StatCard title="Resting" value={fmt(dayStats.resting)} unit="bpm" colorClass="text-[#4CAF82]" />
+			<StatCard title="Median" value={fmt(dayStats.median)} unit="bpm" colorClass="text-[#8a9baa]" />
+		</div>
+	{/if}
+
 	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
 		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Daily Trend</h2>
 		{#if trendConfig}
@@ -238,13 +289,38 @@
 	</div>
 
 	{#if selectedDate && intradayConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
 			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 				Intraday — {selectedDate}
 			</h2>
 			<LineChart config={intradayConfig} height={300} />
 			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.heart_rate.length ?? 0} readings</p>
 		</div>
+
+		{#if zoneBreakdown}
+			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">HR Zones</h2>
+				<div class="flex h-6 rounded overflow-hidden">
+					{#each zoneBreakdown as zone}
+						<div
+							class="flex items-center justify-center text-[10px] font-medium text-white/90"
+							style="width: {zone.pct}%; background-color: {zone.color};"
+							title="{zone.label}: {zone.pct}%"
+						>
+							{#if zone.pct >= 8}{zone.pct}%{/if}
+						</div>
+					{/each}
+				</div>
+				<div class="flex gap-4 mt-2">
+					{#each zoneBreakdown as zone}
+						<div class="flex items-center gap-1.5 text-xs text-[#8a9baa]">
+							<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: {zone.color};"></span>
+							{zone.label} {zone.pct}%
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 	{:else if selectedDate}
 		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
 	{/if}
