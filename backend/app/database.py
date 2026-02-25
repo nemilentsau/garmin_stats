@@ -12,19 +12,18 @@ import sqlite3
 import threading
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .models import (
-    DayWellness,
-    DaySleep,
+    DailyMetric,
     DayHrv,
     DaySkinTemp,
-    DailyMetric,
-    DailyAggregatesResponse,
-    PeriodSummary,
+    DaySleep,
+    DayWellness,
     IngestResult,
     IngestStatus,
+    PeriodSummary,
 )
 from .parser import get_files_by_day, parse_all_days
 from .stats import compute_daily_aggregates
@@ -55,12 +54,13 @@ _VALID_TABLES = frozenset({
 # Schema & connection
 # ---------------------------------------------------------------------------
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS wellness_data  (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS sleep_data     (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS hrv_data       (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS skin_temp_data (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS daily_metrics  (date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL);
+_COLS_3 = "date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL"
+_SCHEMA = f"""
+CREATE TABLE IF NOT EXISTS wellness_data  ({_COLS_3});
+CREATE TABLE IF NOT EXISTS sleep_data     ({_COLS_3});
+CREATE TABLE IF NOT EXISTS hrv_data       ({_COLS_3});
+CREATE TABLE IF NOT EXISTS skin_temp_data ({_COLS_3});
+CREATE TABLE IF NOT EXISTS daily_metrics  ({_COLS_3});
 CREATE TABLE IF NOT EXISTS ingest_meta    (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
@@ -154,56 +154,57 @@ def ingest_all(data_dir: Path) -> IngestResult:
         all_days = parse_all_days(data_dir)
         agg = compute_daily_aggregates(all_days)
 
-        now = datetime.now(timezone.utc).isoformat()
-        with _connect() as con:
-            with con:
-                # Per-day data
-                for day in all_days:
-                    con.execute(
-                        "INSERT OR REPLACE INTO wellness_data (date, data, updated_at) VALUES (?, ?, ?)",
-                        (day.date, day.wellness.model_dump_json(), now),
-                    )
-                    con.execute(
-                        "INSERT OR REPLACE INTO sleep_data (date, data, updated_at) VALUES (?, ?, ?)",
-                        (day.date, day.sleep.model_dump_json(), now),
-                    )
-                    con.execute(
-                        "INSERT OR REPLACE INTO hrv_data (date, data, updated_at) VALUES (?, ?, ?)",
-                        (day.date, day.hrv.model_dump_json(), now),
-                    )
-                    con.execute(
-                        "INSERT OR REPLACE INTO skin_temp_data (date, data, updated_at) VALUES (?, ?, ?)",
-                        (day.date, day.skin_temp.model_dump_json(), now),
-                    )
+        now = datetime.now(UTC).isoformat()
+        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
+        with _connect() as con, con:
+            # Per-day data
+            for day in all_days:
+                con.execute(
+                    upsert.format("wellness_data"),
+                    (day.date, day.wellness.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("sleep_data"),
+                    (day.date, day.sleep.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("hrv_data"),
+                    (day.date, day.hrv.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("skin_temp_data"),
+                    (day.date, day.skin_temp.model_dump_json(), now),
+                )
 
-                # Daily aggregates
-                for metric in agg.daily:
-                    con.execute(
-                        "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                        (metric.date, metric.model_dump_json(), now),
-                    )
+            # Daily aggregates
+            for metric in agg.daily:
+                con.execute(
+                    upsert.format("daily_metrics"),
+                    (metric.date, metric.model_dump_json(), now),
+                )
 
-                # Period summary
-                if agg.period:
-                    con.execute(
-                        "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
-                        ("period_summary", agg.period.model_dump_json()),
-                    )
+            # Period summary
+            meta_upsert = (
+                "INSERT OR REPLACE INTO ingest_meta"
+                " (key, value) VALUES (?, ?)"
+            )
+            if agg.period:
+                con.execute(
+                    meta_upsert,
+                    ("period_summary", agg.period.model_dump_json()),
+                )
 
-                # Metadata
-                fingerprint = compute_data_fingerprint(data_dir)
-                duration_ms = int((time.monotonic() - t0) * 1000)
-                meta = {
-                    "last_ingest_time": now,
-                    "duration_ms": str(duration_ms),
-                    "data_fingerprint": fingerprint,
-                    "days_ingested": str(len(all_days)),
-                }
-                for k, v in meta.items():
-                    con.execute(
-                        "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
-                        (k, v),
-                    )
+            # Metadata
+            fingerprint = compute_data_fingerprint(data_dir)
+            duration_ms = int((time.monotonic() - t0) * 1000)
+            meta = {
+                "last_ingest_time": now,
+                "duration_ms": str(duration_ms),
+                "data_fingerprint": fingerprint,
+                "days_ingested": str(len(all_days)),
+            }
+            for k, v in meta.items():
+                con.execute(meta_upsert, (k, v))
 
         duration_ms = int((time.monotonic() - t0) * 1000)
         log.info("Ingested %d days in %d ms", len(all_days), duration_ms)

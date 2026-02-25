@@ -5,7 +5,10 @@
 - **Backend**: `cd backend && uv run uvicorn app.main:app --reload`
 - **Frontend**: `cd frontend && npm run dev`
 - **Tests**: `cd backend && uv run pytest tests/ -v`
+- **Lint**: `cd backend && uv run ruff check` (checks both `app/` and `tests/`)
+- **Type check**: `cd backend && uv run pyright app/ tests/`
 - **API types**: `bash scripts/generate-api-types.sh` (run after backend model changes)
+- **After any Python change**: run lint + type check + tests. Iterate until all pass — 0 errors, no exceptions.
 
 ## Key Constraints
 - API types flow: Pydantic models → OpenAPI → generated TypeScript. Never hand-write `frontend/src/lib/api-types.ts`.

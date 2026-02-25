@@ -7,31 +7,31 @@ Garmin FIT file parser — three layers:
 """
 
 import logging
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 from garmin_fit_sdk import Decoder, Stream
 
 from .models import (
-    HeartRateReading,
-    StressReading,
-    BodyBatteryReading,
-    SpO2Reading,
-    RespirationReading,
     ActivityReading,
-    StepsReading,
-    RestingHRReading,
-    DayWellness,
-    SleepLevel,
-    SleepAssessment,
-    DaySleep,
-    HrvValue,
-    HrvSummary,
-    DayHrv,
-    SkinTempOvernight,
-    DaySkinTemp,
+    BodyBatteryReading,
     DayData,
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
+    DayWellness,
+    HeartRateReading,
+    HrvSummary,
+    HrvValue,
+    RespirationReading,
+    RestingHRReading,
+    SkinTempOvernight,
+    SleepAssessment,
+    SleepLevel,
+    SpO2Reading,
+    StepsReading,
+    StressReading,
 )
 
 log = logging.getLogger(__name__)
@@ -72,10 +72,7 @@ def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
     for fit_file in data_dir.rglob("*.fit"):
         date_dir = fit_file.parent.name
         name_parts = fit_file.stem.split("_")
-        if len(name_parts) >= 2:
-            file_type = "_".join(name_parts[1:])
-        else:
-            file_type = "UNKNOWN"
+        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
         files_by_day[date_dir][file_type].append(fit_file)
 
     return {k: dict(v) for k, v in sorted(files_by_day.items())}
@@ -92,10 +89,7 @@ def get_day_summary(data_dir: Path, date: str) -> dict:
 
     for f in files:
         name_parts = f.stem.split("_")
-        if len(name_parts) >= 2:
-            file_type = "_".join(name_parts[1:])
-        else:
-            file_type = "UNKNOWN"
+        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
         file_types[file_type] += 1
 
     return {
