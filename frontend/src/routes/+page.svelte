@@ -2,13 +2,36 @@
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
 	import { createDataUpdateListener } from '$lib/sse';
-	import LineChart from '$lib/components/LineChart.svelte';
-	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { Chart } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
+	import { fmt } from '$lib/format';
+	import { COLORS } from '$lib/colors';
 
 	let data: DailyAggregates | null = $state(null);
 	let error: string | null = $state(null);
+	let canvasRefs: Record<string, HTMLCanvasElement> = $state({});
+	let charts: Record<string, Chart<'line'>> = {};
+
+	type MetricConfig = {
+		key: string;
+		label: string;
+		unit: string;
+		color: string;
+		getValue: (d: DailyMetric) => number | null;
+		getSecondary?: (d: DailyMetric) => number | null;
+		secondaryLabel?: string;
+	};
+
+	const metrics: MetricConfig[] = [
+		{ key: 'hr', label: 'Heart Rate', unit: 'bpm', color: COLORS.heartRate, getValue: (d) => d.heart_rate.avg, getSecondary: (d) => d.heart_rate.resting, secondaryLabel: 'resting' },
+		{ key: 'stress', label: 'Stress', unit: 'avg', color: COLORS.stress, getValue: (d) => d.stress.avg },
+		{ key: 'bb', label: 'Body Battery', unit: 'avg', color: COLORS.bodyBattery, getValue: (d) => d.body_battery.avg },
+		{ key: 'spo2', label: 'Blood Oxygen', unit: '%', color: COLORS.spo2, getValue: (d) => d.spo2.avg },
+		{ key: 'resp', label: 'Respiration', unit: 'br/min', color: COLORS.respiration, getValue: (d) => d.respiration.avg },
+		{ key: 'hrv', label: 'HRV', unit: 'ms', color: COLORS.hrv, getValue: (d) => d.hrv.nightly_avg, getSecondary: (d) => d.hrv.weekly_avg, secondaryLabel: 'weekly' },
+		{ key: 'sleep', label: 'Sleep Score', unit: 'pts', color: COLORS.sleep, getValue: (d) => d.sleep.score, getSecondary: (d) => d.sleep.deep_score, secondaryLabel: 'deep' },
+		{ key: 'temp', label: 'Skin Temperature', unit: '\u00B0C dev', color: COLORS.skinTemp, getValue: (d) => d.skin_temp.deviation }
+	];
 
 	async function fetchData() {
 		data = await api.getDailyAggregates();
@@ -18,376 +41,338 @@
 		fetchData().catch((e: unknown) => {
 			error = e instanceof Error ? e.message : String(e);
 		});
-
-		return createDataUpdateListener(() => {
-			fetchData();
-		});
+		return createDataUpdateListener(() => { fetchData(); });
 	});
 
-	function makeLineConfig(
-		daily: DailyMetric[],
-		getValue: (d: DailyMetric) => number | null,
-		label: string,
-		color: string,
-		getQ1?: (d: DailyMetric) => number | null,
-		getQ3?: (d: DailyMetric) => number | null
-	): ChartConfiguration<'line'> {
-		const labels = daily.map((d) => d.date);
-		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
-			{
-				label,
-				data: daily.map(getValue),
-				borderColor: color,
-				backgroundColor: withAlpha(color, '20'),
-				borderWidth: 2,
-				pointRadius: 2,
-				tension: 0.3,
-				spanGaps: true
-			}
-		];
-		if (getQ1 && getQ3) {
-			datasets.push({
-				label: 'Q1 (25th)',
-				data: daily.map(getQ1),
-				borderColor: withAlpha(color, '40'),
-				borderWidth: 1,
-				borderDash: [4, 4],
-				pointRadius: 0,
-				tension: 0.3,
-				spanGaps: true,
-				fill: false
-			});
-			datasets.push({
-				label: 'Q3 (75th)',
-				data: daily.map(getQ3),
-				borderColor: withAlpha(color, '40'),
-				borderWidth: 1,
-				borderDash: [4, 4],
-				pointRadius: 0,
-				tension: 0.3,
-				spanGaps: true,
-				fill: '-1'
-			});
-		}
-		return {
-			type: 'line',
-			data: { labels, datasets },
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index', intersect: false },
-				plugins: { legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 } } } },
-				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
-				}
-			}
-		};
-	}
-
-	let hrConfig = $derived.by(() => {
-		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.heart_rate.avg, 'Avg HR', COLORS.heartRate, (d) => d.heart_rate.q1, (d) => d.heart_rate.q3);
-	});
-	let stressConfig = $derived.by(() => {
-		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.stress.avg, 'Avg Stress', COLORS.stress, (d) => d.stress.q1, (d) => d.stress.q3);
-	});
-	let bbConfig = $derived.by(() => {
-		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.body_battery.avg, 'Avg Body Battery', COLORS.bodyBattery, (d) => d.body_battery.q1, (d) => d.body_battery.q3);
-	});
-	let spo2Config = $derived.by(() => {
-		if (!data) return null;
-		return makeLineConfig(data.daily, (d) => d.spo2.avg, 'Avg SpO2', COLORS.spo2, (d) => d.spo2.q1, (d) => d.spo2.q3);
-	});
-	let respConfig = $derived.by(() => {
-		if (!data) return null;
-		const config = makeLineConfig(data.daily, (d) => d.respiration.avg, 'Avg Respiration', COLORS.respiration, (d) => d.respiration.q1, (d) => d.respiration.q3);
-		config.data.datasets.push({
-			label: 'Elevated (14)',
-			data: data.daily.map(() => 14),
-			borderColor: COLORS.baseline,
-			borderWidth: 1,
-			borderDash: [4, 4],
-			pointRadius: 0,
-			tension: 0,
-			spanGaps: true,
-			fill: false
-		});
-		return config;
-	});
-	let hrvConfig = $derived.by(() => {
-		if (!data) return null;
-		const labels = data.daily.map((d) => d.date);
-		return {
-			type: 'line' as const,
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Nightly Avg',
-						data: data.daily.map((d) => d.hrv.nightly_avg),
-						borderColor: COLORS.hrv,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: 'Weekly Avg',
-						data: data.daily.map((d) => d.hrv.weekly_avg),
-						borderColor: COLORS.hrvWeekly,
-						borderWidth: 2,
-						borderDash: [6, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
-				}
-			}
-		};
-	});
-	function rollingAvg(values: (number | null)[], window: number): (number | null)[] {
-		return values.map((_, i) => {
-			const start = Math.max(0, i - window + 1);
-			const slice = values.slice(start, i + 1).filter((v): v is number => v != null);
-			return slice.length >= Math.min(3, window) ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length * 10) / 10 : null;
-		});
-	}
-
-	let sleepConfig = $derived.by(() => {
-		if (!data) return null;
-		const labels = data.daily.map((d) => d.date);
-		const raw = data.daily.map((d) => d.sleep.score);
-		const smoothed = rollingAvg(raw, 7);
-		return {
-			type: 'line' as const,
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Sleep Score',
-						data: raw,
-						borderColor: COLORS.sleep,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: '7-Day Avg',
-						data: smoothed,
-						borderColor: COLORS.sleep7Day,
-						borderWidth: 2,
-						borderDash: [6, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
-				}
-			}
-		};
-	});
-	let skinTempConfig = $derived.by(() => {
-		if (!data) return null;
-		const labels = data.daily.map((d) => d.date);
-		return {
-			type: 'line' as const,
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Deviation',
-						data: data.daily.map((d) => d.skin_temp.deviation),
-						borderColor: COLORS.skinTemp,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: '7-Day Avg',
-						data: data.daily.map((d) => d.skin_temp.deviation_7_day),
-						borderColor: COLORS.skinTemp7Day,
-						borderWidth: 2,
-						borderDash: [6, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 } } },
-					y: { beginAtZero: false, ticks: { font: { size: 10 } } }
-				}
-			}
-		};
-	});
-
-	function latestValid<T>(daily: DailyMetric[], getter: (d: DailyMetric) => T | null): T | null {
+	function latestValid(daily: DailyMetric[], getter: (d: DailyMetric) => number | null): number | null {
 		for (let i = daily.length - 1; i >= 0; i--) {
 			const v = getter(daily[i]);
 			if (v != null) return v;
 		}
 		return null;
 	}
+
+	function createChart(canvas: HTMLCanvasElement, metric: MetricConfig, daily: DailyMetric[]) {
+		const labels = daily.map((d) => d.date.slice(5));
+		const config: ChartConfiguration<'line'> = {
+			type: 'line',
+			data: {
+				labels,
+				datasets: [{
+					label: metric.label,
+					data: daily.map(metric.getValue),
+					borderColor: metric.color,
+					backgroundColor: metric.color + '15',
+					borderWidth: 2,
+					pointRadius: 0,
+					pointHoverRadius: 4,
+					tension: 0.4,
+					spanGaps: true,
+					fill: true
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderColor: metric.color + '60',
+						borderWidth: 1,
+						titleFont: { family: 'DM Mono', size: 11 },
+						bodyFont: { family: 'DM Mono', size: 12 },
+						padding: 10,
+						cornerRadius: 4
+					}
+				},
+				scales: {
+					x: {
+						grid: { color: '#ffffff08' },
+						ticks: { color: '#6b7d8e', font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 6 },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						grid: { color: '#ffffff06' },
+						ticks: { color: '#6b7d8e', font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 5 },
+						border: { color: '#ffffff10' },
+						beginAtZero: false
+					}
+				}
+			}
+		};
+		return new Chart(canvas, config);
+	}
+
+	$effect(() => {
+		if (!data) return;
+		for (const metric of metrics) {
+			const canvas = canvasRefs[metric.key];
+			if (!canvas) continue;
+			if (charts[metric.key]) {
+				const chart = charts[metric.key];
+				chart.data.labels = data.daily.map((d) => d.date.slice(5));
+				chart.data.datasets[0].data = data.daily.map(metric.getValue);
+				chart.update();
+			} else {
+				charts[metric.key] = createChart(canvas, metric, data.daily);
+			}
+		}
+	});
+
+	onMount(() => {
+		return () => {
+			Object.values(charts).forEach((c) => c.destroy());
+		};
+	});
 </script>
 
+<svelte:head>
+	<title>Dashboard - Garmin Stats</title>
+</svelte:head>
+
 {#if error}
-	<div class="bg-red-50 border border-red-200 rounded-lg p-4">
-		<p class="text-red-700">Error: {error}</p>
-		<p class="text-sm text-red-600 mt-2">Make sure the backend is running at localhost:8000</p>
+	<div class="topo-error">
+		<p>Error: {error}</p>
 	</div>
 {:else if !data}
-	<div class="flex items-center justify-center h-64">
-		<div class="text-gray-500">Loading data...</div>
+	<div class="topo-loading">
+		<div class="loading-pulse"></div>
+		<span>Mapping terrain data...</span>
 	</div>
 {:else}
-	<div class="mb-4 text-sm text-gray-500">
-		{data.days.length} days &middot; {data.days[0]} to {data.days[data.days.length - 1]}
+	<!-- Summary strip -->
+	<div class="summary-strip">
+		<div class="strip-border"></div>
+		<div class="strip-content">
+			{#each metrics.slice(0, 6) as metric}
+				{@const val = latestValid(data.daily, metric.getValue)}
+				<div class="strip-item">
+					<span class="strip-label">{metric.label}</span>
+					<span class="strip-value" style="color:{metric.color}">{fmt(val)}</span>
+					<span class="strip-unit">{metric.unit}</span>
+				</div>
+			{/each}
+		</div>
+		<div class="strip-border"></div>
 	</div>
 
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-		<!-- Heart Rate Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Heart Rate</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-red-600">{fmt(latestValid(data.daily, (d) => d.heart_rate.avg))}</span>
-					<span class="text-xs text-gray-500">bpm avg</span>
-					{#if latestValid(data.daily, (d) => d.heart_rate.resting)}
-						<span class="ml-2 text-xs text-gray-400">resting {fmt(latestValid(data.daily, (d) => d.heart_rate.resting))}</span>
-					{/if}
-				</div>
-			</div>
-			{#if hrConfig}
-				<LineChart config={hrConfig} height={220} />
-			{/if}
-		</div>
+	<div class="strip-date">
+		{data.days.length} days collected &mdash; {data.days[0]} to {data.days[data.days.length - 1]}
+	</div>
 
-		<!-- Stress Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Stress</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-orange-600">{fmt(latestValid(data.daily, (d) => d.stress.avg))}</span>
-					<span class="text-xs text-gray-500">avg</span>
+	<!-- Metric grid -->
+	<div class="metric-grid">
+		{#each metrics as metric}
+			{@const val = latestValid(data.daily, metric.getValue)}
+			{@const secVal = metric.getSecondary ? latestValid(data.daily, metric.getSecondary) : null}
+			<div class="metric-card" style="--accent:{metric.color}">
+				<div class="card-header">
+					<div class="card-title-row">
+						<div class="card-dot" style="background:{metric.color}"></div>
+						<h3 class="card-title">{metric.label}</h3>
+					</div>
+					<div class="card-values">
+						<span class="card-primary" style="color:{metric.color}">{fmt(val)}</span>
+						<span class="card-unit">{metric.unit}</span>
+						{#if secVal != null}
+							<span class="card-secondary">{metric.secondaryLabel} {fmt(secVal)}</span>
+						{/if}
+					</div>
+				</div>
+				<div class="card-chart">
+					<canvas bind:this={canvasRefs[metric.key]}></canvas>
 				</div>
 			</div>
-			{#if stressConfig}
-				<LineChart config={stressConfig} height={220} />
-			{/if}
-		</div>
-
-		<!-- Body Battery Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Body Battery</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-emerald-600">{fmt(latestValid(data.daily, (d) => d.body_battery.avg))}</span>
-					<span class="text-xs text-gray-500">avg</span>
-				</div>
-			</div>
-			{#if bbConfig}
-				<LineChart config={bbConfig} height={220} />
-			{/if}
-		</div>
-
-		<!-- SpO2 Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">SpO2</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-blue-600">{fmt(latestValid(data.daily, (d) => d.spo2.avg))}</span>
-					<span class="text-xs text-gray-500">%</span>
-				</div>
-			</div>
-			{#if spo2Config}
-				<LineChart config={spo2Config} height={220} />
-			{/if}
-		</div>
-
-		<!-- Respiration Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Respiration</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-teal-600">{fmt(latestValid(data.daily, (d) => d.respiration.avg))}</span>
-					<span class="text-xs text-gray-500">br/min</span>
-				</div>
-			</div>
-			{#if respConfig}
-				<LineChart config={respConfig} height={220} />
-			{/if}
-		</div>
-
-		<!-- HRV Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">HRV</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-purple-600">{fmt(latestValid(data.daily, (d) => d.hrv.nightly_avg))}</span>
-					<span class="text-xs text-gray-500">ms nightly</span>
-				</div>
-			</div>
-			{#if hrvConfig}
-				<LineChart config={hrvConfig} height={220} />
-			{/if}
-		</div>
-
-		<!-- Sleep Score Panel -->
-		<div class="bg-white rounded-lg shadow p-5">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Sleep Score</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-indigo-600">{fmt(latestValid(data.daily, (d) => d.sleep.score))}</span>
-					<span class="text-xs text-gray-500">latest</span>
-				</div>
-			</div>
-			{#if sleepConfig}
-				<LineChart config={sleepConfig} height={220} />
-			{/if}
-		</div>
-
-		<!-- Skin Temp Panel -->
-		<div class="bg-white rounded-lg shadow p-5 lg:col-span-2">
-			<div class="flex items-baseline justify-between mb-3">
-				<h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Skin Temperature</h2>
-				<div class="text-right">
-					<span class="text-xl font-bold text-amber-600">{fmt(latestValid(data.daily, (d) => d.skin_temp.deviation))}</span>
-					<span class="text-xs text-gray-500">&deg;C deviation</span>
-				</div>
-			</div>
-			{#if skinTempConfig}
-				<LineChart config={skinTempConfig} height={200} />
-			{/if}
-		</div>
+		{/each}
 	</div>
 {/if}
+
+<style>
+	.topo-error {
+		margin: 40px 0;
+		padding: 20px;
+		border: 1px solid rgba(232,93,74,0.3);
+		border-radius: 8px;
+		background: rgba(232,93,74,0.08);
+		color: #E85D4A;
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+	}
+
+	.topo-loading {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		height: 60vh;
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+		color: #5e7282;
+	}
+
+	.loading-pulse {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #5BB5A6;
+		animation: pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 0.3; transform: scale(0.8); }
+		50% { opacity: 1; transform: scale(1.2); }
+	}
+
+	.summary-strip {
+		margin: 0 0 0;
+	}
+
+	.strip-border {
+		height: 1px;
+		background: linear-gradient(90deg, transparent, rgba(91,181,166,0.35), transparent);
+	}
+
+	.strip-content {
+		display: flex;
+		justify-content: space-between;
+		padding: 18px 0;
+	}
+
+	.strip-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.strip-label {
+		font-size: 9px;
+		letter-spacing: 1.5px;
+		text-transform: uppercase;
+		color: #5e7282;
+	}
+
+	.strip-value {
+		font-family: 'DM Mono', monospace;
+		font-size: 24px;
+		font-weight: 500;
+		line-height: 1;
+	}
+
+	.strip-unit {
+		font-family: 'DM Mono', monospace;
+		font-size: 9px;
+		color: #4a5c6a;
+		letter-spacing: 1px;
+	}
+
+	.strip-date {
+		text-align: center;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: #4a5c6a;
+		letter-spacing: 2px;
+		text-transform: uppercase;
+		margin: 12px 0 20px;
+	}
+
+	.metric-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 12px;
+	}
+
+	.metric-card {
+		background: rgba(255,255,255,0.02);
+		border: 1px solid rgba(255,255,255,0.05);
+		border-radius: 10px;
+		padding: 16px;
+		transition: all 0.3s;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.metric-card::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 2px;
+		background: var(--accent);
+		opacity: 0.4;
+	}
+
+	.metric-card:hover {
+		background: rgba(255,255,255,0.04);
+		border-color: rgba(255,255,255,0.08);
+		transform: translateY(-2px);
+	}
+
+	.card-header {
+		margin-bottom: 12px;
+	}
+
+	.card-title-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 6px;
+	}
+
+	.card-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+	}
+
+	.card-title {
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 1.5px;
+		text-transform: uppercase;
+		color: #8a9baa;
+		margin: 0;
+	}
+
+	.card-values {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+
+	.card-primary {
+		font-family: 'DM Mono', monospace;
+		font-size: 24px;
+		font-weight: 500;
+		line-height: 1;
+	}
+
+	.card-unit {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #4a5c6a;
+	}
+
+	.card-secondary {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #5e7282;
+		margin-left: auto;
+	}
+
+	.card-chart {
+		height: 140px;
+		position: relative;
+	}
+
+	@media (max-width: 1200px) {
+		.metric-grid { grid-template-columns: repeat(2, 1fr); }
+	}
+
+	@media (max-width: 640px) {
+		.metric-grid { grid-template-columns: 1fr; }
+		.strip-content { flex-wrap: wrap; gap: 12px; justify-content: center; }
+	}
+</style>

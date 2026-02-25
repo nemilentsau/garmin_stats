@@ -17,7 +17,7 @@
 
 ## Skills
 
-Two skills support this project. Each owns specific code layers:
+Three skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
@@ -31,6 +31,14 @@ Two skills support this project. Each owns specific code layers:
 **Trigger:** touching `stats.py`, adding/changing aggregate model fields, building or modifying charts
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - Pipeline traces go to `.claude/chart-inspections/<metric>-<context>/`. Never overwrite previous trace directories.
+
+### `ux-design` — frontend interface design (**MANDATORY** for any UI work)
+**Owns:** Frontend UX design, dashboard layout decisions
+**Trigger:** building new dashboard layouts, choosing fonts/colors/spacing, creating or modifying UI prototypes
+- **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — contains both generic design guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
+- Additional design context in memory `dashboard-ux.md`
+- Always validate with `svelte-check` after creating design pages
 
 ## Keeping Docs Current
 

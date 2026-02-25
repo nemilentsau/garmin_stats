@@ -1,19 +1,19 @@
 /** Centralized chart color palette. Each metric has a primary color and a faded variant for bands. */
 export const COLORS = {
-	heartRate: '#dc2626',
-	heartRateResting: '#16a34a',
-	stress: '#ea580c',
-	bodyBattery: '#059669',
-	spo2: '#2563eb',
-	spo2Min: '#dc2626',
-	respiration: '#0d9488',
-	hrv: '#7c3aed',
-	hrvWeekly: '#a78bfa',
-	sleep: '#4f46e5',
-	sleep7Day: '#818cf8',
-	skinTemp: '#d97706',
-	skinTemp7Day: '#f59e0b',
-	baseline: '#9ca3af',
+	heartRate: '#E85D4A',
+	heartRateResting: '#4CAF82',
+	stress: '#D4944C',
+	bodyBattery: '#4CAF82',
+	spo2: '#4A90D9',
+	spo2Min: '#E85D4A',
+	respiration: '#5BB5A6',
+	hrv: '#9B6BCD',
+	hrvWeekly: '#b794e0',
+	sleep: '#6366B0',
+	sleep7Day: '#8b8dd6',
+	skinTemp: '#C9933A',
+	skinTemp7Day: '#e0b35e',
+	baseline: '#5e7282',
 } as const;
 
 /** Append hex alpha to a color string. */
