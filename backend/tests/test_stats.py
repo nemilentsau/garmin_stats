@@ -1,31 +1,29 @@
 """Tests for stats.py — aggregation, flattening, period summary."""
 
-import pytest
 from app.models import (
+    BodyBatteryReading,
     DayData,
-    DayWellness,
-    DaySleep,
     DayHrv,
     DaySkinTemp,
+    DaySleep,
+    DayWellness,
     HeartRateReading,
-    StressReading,
-    BodyBatteryReading,
-    SpO2Reading,
+    HrvSummary,
     RespirationReading,
     RestingHRReading,
-    SleepAssessment,
-    HrvSummary,
     SkinTempOvernight,
+    SleepAssessment,
+    SpO2Reading,
+    StressReading,
 )
 from app.stats import (
-    safe_avg,
-    safe_median,
-    safe_percentile,
     aggregate_day,
     compute_period_summary,
     flatten_wellness,
+    safe_avg,
+    safe_median,
+    safe_percentile,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -83,14 +81,35 @@ def _make_day(
     resp = [12.0, 14.0, 16.0] if resp_values is None else resp_values
     bb = [50, 60, 70] if bb_values is None else bb_values
 
+    ts = "2026-01-15T{:02d}:00:00"
     wellness = DayWellness(
         date=date,
-        heart_rate=[HeartRateReading(timestamp=f"2026-01-15T{i:02d}:00:00", value=v) for i, v in enumerate(hr)],
-        stress=[StressReading(timestamp=f"2026-01-15T{i:02d}:00:00", value=v) for i, v in enumerate(stress)],
-        body_battery=[BodyBatteryReading(timestamp=f"2026-01-15T{i:02d}:00:00", value=v) for i, v in enumerate(bb)],
-        spo2=[SpO2Reading(timestamp=f"2026-01-15T{i:02d}:00:00", value=v, mode="sleep") for i, v in enumerate(spo2)],
-        respiration=[RespirationReading(timestamp=f"2026-01-15T{i:02d}:00:00", value=v) for i, v in enumerate(resp)],
-        resting_hr=[RestingHRReading(timestamp="2026-01-15T06:00:00", resting_hr=resting_hr)] if resting_hr else [],
+        heart_rate=[
+            HeartRateReading(timestamp=ts.format(i), value=v)
+            for i, v in enumerate(hr)
+        ],
+        stress=[
+            StressReading(timestamp=ts.format(i), value=v)
+            for i, v in enumerate(stress)
+        ],
+        body_battery=[
+            BodyBatteryReading(timestamp=ts.format(i), value=v)
+            for i, v in enumerate(bb)
+        ],
+        spo2=[
+            SpO2Reading(timestamp=ts.format(i), value=v, mode="sleep")
+            for i, v in enumerate(spo2)
+        ],
+        respiration=[
+            RespirationReading(timestamp=ts.format(i), value=v)
+            for i, v in enumerate(resp)
+        ],
+        resting_hr=[
+            RestingHRReading(
+                timestamp="2026-01-15T06:00:00",
+                resting_hr=resting_hr,
+            ),
+        ] if resting_hr else [],
     )
     sleep = DaySleep(
         date=date,

@@ -7,7 +7,7 @@ import logging
 import zipfile
 from pathlib import Path
 
-from watchfiles import awatch, Change
+from watchfiles import Change, awatch
 
 from .database import compute_data_fingerprint, ingest_all
 from .events import event_bus

@@ -6,47 +6,46 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-logging.basicConfig(level=logging.INFO)
-
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .database import (
     DATA_DIR,
+    check_ingest_status,
+    ingest_all,
     init_db,
     is_db_empty,
-    ingest_all,
-    check_ingest_status,
-    load_daily_metrics,
-    load_period_summary,
-    load_wellness,
-    load_sleep,
-    load_hrv,
-    load_skin_temp,
     load_available_days,
+    load_daily_metrics,
+    load_hrv,
+    load_period_summary,
+    load_skin_temp,
+    load_sleep,
+    load_wellness,
 )
 from .events import event_bus
-from .parser import get_day_summary
-from .watcher import heartbeat_loop, watch_data_directory
-from .stats import (
-    flatten_wellness,
-    flatten_sleep,
-    flatten_hrv,
-    flatten_skin_temp,
-)
 from .models import (
-    WellnessResponse,
-    SleepResponse,
-    HrvResponse,
-    SkinTempResponse,
     DailyAggregatesResponse,
-    DaySummaryResponse,
     DaysResponse,
+    DaySummaryResponse,
+    HrvResponse,
     IngestResult,
     IngestStatus,
+    SkinTempResponse,
+    SleepResponse,
+    WellnessResponse,
 )
+from .parser import get_day_summary
+from .stats import (
+    flatten_hrv,
+    flatten_skin_temp,
+    flatten_sleep,
+    flatten_wellness,
+)
+from .watcher import heartbeat_loop, watch_data_directory
 
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 
@@ -66,7 +65,10 @@ async def lifespan(app: FastAPI):
     if is_db_empty():
         log.info("DB empty — running initial ingest")
         result = ingest_all(DATA_DIR)
-        log.info("Initial ingest complete: %d days in %d ms", result.days_ingested, result.duration_ms)
+        log.info(
+            "Initial ingest complete: %d days in %d ms",
+            result.days_ingested, result.duration_ms,
+        )
 
     watcher_task = asyncio.create_task(watch_data_directory(DATA_DIR), name="file-watcher")
     watcher_task.add_done_callback(_task_done_callback)
@@ -115,8 +117,10 @@ def trigger_ingest():
     """Re-ingest all FIT files into the database."""
     try:
         return ingest_all(DATA_DIR)
-    except RuntimeError:
-        raise HTTPException(status_code=409, detail="Ingest already in progress")
+    except RuntimeError as err:
+        raise HTTPException(
+            status_code=409, detail="Ingest already in progress",
+        ) from err
 
 
 @app.get("/api/ingest/status", response_model=IngestStatus)
@@ -206,7 +210,7 @@ async def sse_events(request: Request):
                 try:
                     message = await asyncio.wait_for(queue.get(), timeout=1.0)
                     yield message
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
         finally:
             event_bus.unsubscribe(queue)

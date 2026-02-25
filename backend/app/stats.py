@@ -3,50 +3,51 @@ Aggregation and flattening — consumes typed parser output, produces API respon
 No FIT file knowledge here.
 """
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from .models import (
-    DayWellness,
-    DaySleep,
+    DailyAggregatesResponse,
+    DailyBodyBatteryStats,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
+    DayData,
     DayHrv,
     DaySkinTemp,
-    DayData,
-    WellnessResponse,
-    SleepResponse,
+    DaySleep,
+    DayWellness,
     HrvResponse,
-    SkinTempResponse,
-    DailyHeartRateStats,
-    DailyMetricStats,
-    DailyBodyBatteryStats,
-    DailyHrvStats,
-    DailySleepStats,
-    DailySkinTempStats,
-    DailyMetric,
-    DailyAggregatesResponse,
     PeriodHeartRateStats,
-    PeriodMetricStats,
     PeriodHrvStats,
-    PeriodSpo2Stats,
+    PeriodMetricStats,
     PeriodSkinTempStats,
+    PeriodSpo2Stats,
     PeriodSummary,
+    SkinTempResponse,
+    SleepResponse,
+    WellnessResponse,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def safe_avg(values: list[int | float]) -> float | None:
+def safe_avg(values: Sequence[int | float]) -> float | None:
     """Average with rounding, or None if empty."""
     return round(float(np.mean(values)), 1) if values else None
 
 
-def safe_median(values: list[int | float]) -> float | None:
+def safe_median(values: Sequence[int | float]) -> float | None:
     """Median, or None if empty."""
     return round(float(np.median(values)), 1) if values else None
 
 
-def safe_percentile(values: list[int | float], pct: float) -> float | None:
+def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
     """Percentile (linear interpolation), or None if empty."""
     return round(float(np.percentile(values, pct)), 1) if values else None
 

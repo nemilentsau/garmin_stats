@@ -1,30 +1,24 @@
 """Tests for database.py — connection, storage, read-back."""
 
-import os
-import tempfile
 import pytest
-from pathlib import Path
 
-from app.models import (
-    DayWellness,
-    DaySleep,
-    DayHrv,
-    DaySkinTemp,
-    DailyMetric,
-    DailyHeartRateStats,
-    DailyMetricStats,
-    DailyBodyBatteryStats,
-    DailyHrvStats,
-    DailySleepStats,
-    DailySkinTempStats,
-    PeriodSummary,
-    PeriodHeartRateStats,
-    PeriodMetricStats,
-    PeriodHrvStats,
-    PeriodSpo2Stats,
-    PeriodSkinTempStats,
-)
 import app.database as db
+from app.models import (
+    DailyBodyBatteryStats,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
+    DayWellness,
+    PeriodHeartRateStats,
+    PeriodHrvStats,
+    PeriodMetricStats,
+    PeriodSkinTempStats,
+    PeriodSpo2Stats,
+    PeriodSummary,
+)
 
 
 @pytest.fixture(autouse=True)

@@ -27,24 +27,24 @@ class HeartRateReading(_DefaultsRequired):
 
 
 class StressReading(_DefaultsRequired):
-    timestamp: str
+    timestamp: str | None = None
     value: int
 
 
 class BodyBatteryReading(_DefaultsRequired):
-    timestamp: str
+    timestamp: str | None = None
     value: int
 
 
 class SpO2Reading(_DefaultsRequired):
-    timestamp: str
+    timestamp: str | None = None
     value: int
     confidence: int | None = None
     mode: str
 
 
 class RespirationReading(_DefaultsRequired):
-    timestamp: str
+    timestamp: str | None = None
     value: float
 
 
@@ -65,14 +65,14 @@ class StepsReading(_DefaultsRequired):
 
 
 class RestingHRReading(_DefaultsRequired):
-    timestamp: str
+    timestamp: str | None = None
     resting_hr: int | None = None
     current_day_resting_hr: int | None = None
 
 
 class SleepLevel(_DefaultsRequired):
     date: str
-    timestamp: str
+    timestamp: str | None = None
     level: str
 
 
@@ -89,7 +89,7 @@ class SleepAssessment(_DefaultsRequired):
 
 class HrvValue(_DefaultsRequired):
     date: str
-    timestamp: str
+    timestamp: str | None = None
     value: float
 
 
