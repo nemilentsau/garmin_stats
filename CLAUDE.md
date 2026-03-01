@@ -21,7 +21,7 @@
 
 ## Skills
 
-Three skills support this project. Each owns specific code layers:
+Four skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
@@ -43,6 +43,12 @@ Three skills support this project. Each owns specific code layers:
 - Skill docs: `.claude/skills/ux-design/SKILL.md` — contains both generic design guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
 - Additional design context in memory `dashboard-ux.md`
 - Always validate with `svelte-check` after creating design pages
+
+### `testing` — test discipline
+**Owns:** test files in `backend/tests/`, test patterns and conventions
+**Trigger:** writing or reviewing any test, adding test coverage for new features
+- **Read before writing any test** — enforces equivalence-class discipline, branch/boundary coverage, and naming conventions
+- Skill docs: `.claude/skills/testing/SKILL.md`
 
 ## Keeping Docs Current
 

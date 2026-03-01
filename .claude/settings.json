@@ -2,18 +2,8 @@
   "hooks": {
     "Stop": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -c \"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()\""
-          }
-        ]
+        "hooks": []
       }
     ]
-  },
-  "env": {
-    "MLFLOW_CLAUDE_TRACING_ENABLED": "true",
-    "MLFLOW_TRACKING_URI": "sqlite:///traces.db",
-    "MLFLOW_EXPERIMENT_NAME": "skills-optimization"
   }
 }

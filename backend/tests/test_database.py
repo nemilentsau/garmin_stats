@@ -40,7 +40,7 @@ def tmp_db(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestInit:
-    def test_creates_tables(self, tmp_db):
+    def test_creates_all_required_tables(self, tmp_db):
         with db._connect() as con:
             tables = {r["name"] for r in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -49,7 +49,7 @@ class TestInit:
         assert "daily_metrics" in tables
         assert "ingest_meta" in tables
 
-    def test_wal_mode(self, tmp_db):
+    def test_enables_wal_journal_mode(self, tmp_db):
         with db._connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
@@ -60,16 +60,20 @@ class TestInit:
 # ---------------------------------------------------------------------------
 
 class TestCountRows:
-    def test_valid_table(self):
+    def test_returns_zero_for_empty_table(self):
         assert db._count_rows("daily_metrics") == 0
 
-    def test_invalid_table_raises(self):
+    def test_rejects_invalid_table_name(self):
         with pytest.raises(ValueError, match="Invalid table name"):
             db._count_rows("users; DROP TABLE daily_metrics")
 
 
+# ---------------------------------------------------------------------------
+# Fingerprinting
+# ---------------------------------------------------------------------------
+
 class TestFingerprint:
-    def test_fingerprint_changes_when_file_changes_same_name(self, tmp_path):
+    def test_detects_file_content_change(self, tmp_path):
         data_dir = tmp_path / "data"
         day_dir = data_dir / "2026-01-15"
         day_dir.mkdir(parents=True)
@@ -83,6 +87,12 @@ class TestFingerprint:
         fp2 = db.compute_data_fingerprint(data_dir)
 
         assert fp1 != fp2
+
+    def test_returns_stable_hash_for_nonexistent_dir(self, tmp_path):
+        missing = tmp_path / "does_not_exist"
+        fp = db.compute_data_fingerprint(missing)
+        assert isinstance(fp, str)
+        assert len(fp) == 64  # SHA-256 hex digest
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +115,7 @@ def _make_daily_metric(date: str) -> DailyMetric:
 
 
 class TestStoreAndLoad:
-    def test_wellness_round_trip(self):
+    def test_wellness_survives_round_trip(self):
         wellness = DayWellness(date="2026-01-15")
         with db._connect() as con:
             con.execute(
@@ -117,7 +127,7 @@ class TestStoreAndLoad:
         assert len(loaded) == 1
         assert loaded[0].date == "2026-01-15"
 
-    def test_daily_metrics_round_trip(self):
+    def test_daily_metrics_survive_round_trip(self):
         metric = _make_daily_metric("2026-01-15")
         with db._connect() as con:
             con.execute(
@@ -130,7 +140,7 @@ class TestStoreAndLoad:
         assert loaded[0].heart_rate.avg == 70.0
         assert loaded[0].heart_rate.resting == 48
 
-    def test_available_days(self):
+    def test_available_days_returned_sorted(self):
         for date in ["2026-01-15", "2026-01-16", "2026-01-17"]:
             metric = _make_daily_metric(date)
             with db._connect() as con:
@@ -142,10 +152,10 @@ class TestStoreAndLoad:
         days = db.load_available_days()
         assert days == ["2026-01-15", "2026-01-16", "2026-01-17"]
 
-    def test_is_db_empty_true(self):
+    def test_is_db_empty_true_when_no_metrics(self):
         assert db.is_db_empty() is True
 
-    def test_is_db_empty_false(self):
+    def test_is_db_empty_false_after_insert(self):
         metric = _make_daily_metric("2026-01-15")
         with db._connect() as con:
             con.execute(
@@ -161,7 +171,7 @@ class TestStoreAndLoad:
 # ---------------------------------------------------------------------------
 
 class TestPeriodSummary:
-    def test_store_and_load(self):
+    def test_period_summary_survives_round_trip(self):
         period = PeriodSummary(
             heart_rate=PeriodHeartRateStats(avg=70.0, avg_resting=48.0),
             stress=PeriodMetricStats(avg=25.0),
@@ -181,12 +191,16 @@ class TestPeriodSummary:
         assert loaded.heart_rate.avg == 70.0
         assert loaded.hrv.total_days == 30
 
-    def test_load_returns_none_when_missing(self):
+    def test_returns_none_when_no_summary_stored(self):
         assert db.load_period_summary() is None
 
 
+# ---------------------------------------------------------------------------
+# _delete_stale_day_rows
+# ---------------------------------------------------------------------------
+
 class TestDeleteStaleRows:
-    def test_deletes_dates_missing_from_parsed_input(self):
+    def test_removes_dates_absent_from_parsed_input(self):
         date_keep = "2026-01-15"
         date_drop = "2026-01-16"
         now = "2026-01-15T00:00:00Z"
@@ -237,3 +251,27 @@ class TestDeleteStaleRows:
             for table, _, _ in tables:
                 rows = con.execute(f"SELECT date FROM {table} ORDER BY date").fetchall()
                 assert [r["date"] for r in rows] == [date_keep]
+
+    def test_empty_parsed_dates_deletes_all_rows(self):
+        """When no dates are parsed, all per-day rows should be deleted."""
+        now = "2026-01-15T00:00:00Z"
+        tables = (
+            "wellness_data", "sleep_data", "hrv_data",
+            "skin_temp_data", "daily_metrics",
+        )
+        with db._connect() as con:
+            for table in tables:
+                con.execute(
+                    f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
+                    ("2026-01-15", "{}", now),
+                )
+            con.commit()
+
+            db._delete_stale_day_rows(con, [])
+            con.commit()
+
+            for table in tables:
+                count = con.execute(
+                    f"SELECT COUNT(*) AS cnt FROM {table}"
+                ).fetchone()["cnt"]
+                assert count == 0
