@@ -73,6 +73,7 @@ Two separate paths:
 - Routes in `src/routes/` following SvelteKit file-based routing
 - Use `import { page } from '$app/state'` for SvelteKit page state (Svelte 5 style)
 - Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
+- **Frontend is display-only** — zero statistical computation. All stats, aggregations, zone distributions, and derived values are computed on the backend. Frontend only handles chart config, formatting, and rendering.
 - Period-level stats come from `data.period` (backend-computed from raw readings), never from averaging daily aggregates
 
 ### API Type Generation

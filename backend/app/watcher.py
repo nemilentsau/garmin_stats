@@ -28,9 +28,19 @@ def _extract_zip(zip_path: Path) -> Path:
     out_dir = zip_path.parent / date_str
     out_dir.mkdir(exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(out_dir)
+        _safe_extract_all(zf, out_dir)
     log.info("Extracted %s → %s/", zip_path.name, date_str)
     return out_dir
+
+
+def _safe_extract_all(zf: zipfile.ZipFile, out_dir: Path) -> None:
+    """Extract zip members while preventing path traversal (zip-slip)."""
+    root = out_dir.resolve()
+    for member in zf.infolist():
+        destination = (out_dir / member.filename).resolve()
+        if destination != root and root not in destination.parents:
+            raise ValueError(f"Unsafe path in archive: {member.filename}")
+        zf.extract(member, out_dir)
 
 
 async def watch_data_directory(data_dir: Path) -> None:
@@ -78,6 +88,8 @@ def _extract_all(zips: list[Path]) -> None:
             _extract_zip(zip_path)
         except zipfile.BadZipFile:
             log.warning("Skipping invalid zip: %s", zip_path.name)
+        except ValueError as exc:
+            log.warning("Skipping unsafe zip %s: %s", zip_path.name, exc)
 
 
 async def heartbeat_loop() -> None:

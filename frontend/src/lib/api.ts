@@ -6,6 +6,7 @@
  */
 
 import type { components } from './api-types';
+import { API_BASE } from './config';
 
 type Schemas = components['schemas'];
 
@@ -18,8 +19,6 @@ export type DailyAggregates = Schemas['DailyAggregatesResponse'];
 export type DailyMetric = Schemas['DailyMetric'];
 export type IngestResult = Schemas['IngestResult'];
 export type IngestStatus = Schemas['IngestStatus'];
-
-const API_BASE = 'http://localhost:8000';
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);

@@ -90,15 +90,15 @@ def init_db() -> None:
 # ---------------------------------------------------------------------------
 
 def compute_data_fingerprint(data_dir: Path) -> str:
-    """SHA-256 of sorted directory listing (dates + filenames)."""
-    files_by_day = get_files_by_day(data_dir)
+    """SHA-256 of FIT file paths + size + modified time."""
+    if not data_dir.exists():
+        return hashlib.sha256(b"").hexdigest()
+
     parts: list[str] = []
-    for date in sorted(files_by_day.keys()):
-        day_files = files_by_day[date]
-        filenames = sorted(
-            f.name for type_files in day_files.values() for f in type_files
-        )
-        parts.append(f"{date}:{','.join(filenames)}")
+    for fit_file in sorted(data_dir.rglob("*.fit")):
+        stat = fit_file.stat()
+        rel = fit_file.relative_to(data_dir)
+        parts.append(f"{rel}:{stat.st_size}:{stat.st_mtime_ns}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
@@ -157,6 +157,8 @@ def ingest_all(data_dir: Path) -> IngestResult:
         now = datetime.now(UTC).isoformat()
         upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
         with _connect() as con, con:
+            _delete_stale_day_rows(con, [d.date for d in all_days])
+
             # Per-day data
             for day in all_days:
                 con.execute(
@@ -211,6 +213,28 @@ def ingest_all(data_dir: Path) -> IngestResult:
         return IngestResult(days_ingested=len(all_days), duration_ms=duration_ms)
     finally:
         _ingest_lock.release()
+
+
+def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> None:
+    """Delete DB rows for dates no longer present in parsed input."""
+    per_day_tables = (
+        "wellness_data",
+        "sleep_data",
+        "hrv_data",
+        "skin_temp_data",
+        "daily_metrics",
+    )
+    if not parsed_dates:
+        for table in per_day_tables:
+            con.execute(f"DELETE FROM {table}")
+        return
+
+    placeholders = ", ".join("?" for _ in parsed_dates)
+    for table in per_day_tables:
+        con.execute(
+            f"DELETE FROM {table} WHERE date NOT IN ({placeholders})",
+            parsed_dates,
+        )
 
 
 def is_db_empty() -> bool:

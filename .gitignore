@@ -1,6 +1,7 @@
 # Data & storage
 data/
 storage/
+traces.db
 
 # Claude Code artifacts
 .claude/chart-inspections/

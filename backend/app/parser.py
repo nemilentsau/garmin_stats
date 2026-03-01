@@ -8,6 +8,7 @@ Garmin FIT file parser — three layers:
 
 import logging
 from collections import defaultdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,10 @@ from .models import (
 
 log = logging.getLogger(__name__)
 
+# Garmin FIT epoch: Dec 31, 1989 00:00:00 UTC
+_GARMIN_EPOCH = datetime(1989, 12, 31, tzinfo=UTC)
+_GARMIN_EPOCH_UNIX = int(_GARMIN_EPOCH.timestamp())
+
 
 # ---------------------------------------------------------------------------
 # Utilities (unchanged)
@@ -56,6 +61,21 @@ def parse_datetime(dt: Any) -> str | None:
     if hasattr(dt, "isoformat"):
         return dt.isoformat()
     return str(dt)
+
+
+def _resolve_timestamp_16(ts16: int, ref_garmin: int) -> datetime:
+    """Resolve a compressed 16-bit FIT timestamp using a reference timestamp.
+
+    FIT monitoring messages use ``timestamp_16`` — the lower 16 bits of a
+    full Garmin-epoch timestamp.  We reconstruct the full timestamp by
+    combining these with the upper bits of the most recent reference
+    timestamp, handling 16-bit rollover.
+    """
+    upper = ref_garmin & ~0xFFFF
+    resolved = upper | ts16
+    if resolved < ref_garmin:
+        resolved += 0x10000  # 16-bit rollover
+    return datetime.fromtimestamp(resolved + _GARMIN_EPOCH_UNIX, tz=UTC)
 
 
 def get_available_days(data_dir: Path) -> list[str]:
@@ -115,12 +135,31 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
     steps: list[StepsReading] = []
     resting_hr: list[RestingHRReading] = []
 
+    # Track reference timestamp for resolving compressed timestamp_16 values.
+    # FIT monitoring files interleave full-timestamp messages with compressed
+    # ones; we update the reference whenever a full timestamp appears.
+    ref_garmin: int | None = None
+
     # Single pass over monitoring_mesgs (fixes triple-iteration)
     for msg in messages.get("monitoring_mesgs", []):
-        ts = parse_datetime(msg.get("timestamp"))
+        full_ts = msg.get("timestamp")
+        if full_ts is not None and hasattr(full_ts, "timestamp"):
+            ref_garmin = int(full_ts.timestamp()) - _GARMIN_EPOCH_UNIX
 
-        if "heart_rate" in msg and msg["heart_rate"]:
-            hr.append(HeartRateReading(timestamp=ts, value=msg["heart_rate"]))
+        # Resolve timestamp: prefer full, fall back to compressed timestamp_16
+        ts16 = msg.get("timestamp_16")
+        if full_ts is not None:
+            ts = parse_datetime(full_ts)
+        elif ts16 is not None and ref_garmin is not None:
+            resolved = _resolve_timestamp_16(ts16, ref_garmin)
+            ts = resolved.isoformat()
+            ref_garmin = int(resolved.timestamp()) - _GARMIN_EPOCH_UNIX
+        else:
+            ts = None
+
+        hr_value = msg.get("heart_rate")
+        if hr_value is not None:
+            hr.append(HeartRateReading(timestamp=ts, value=hr_value))
 
         if "activity_type" in msg:
             activity.append(ActivityReading(
@@ -132,10 +171,11 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
                 distance=msg.get("distance"),
             ))
 
-        if "steps" in msg and msg["steps"]:
+        steps_value = msg.get("steps")
+        if steps_value is not None:
             steps.append(StepsReading(
                 timestamp=ts,
-                steps=msg["steps"],
+                steps=steps_value,
                 distance=msg.get("distance"),
                 calories=msg.get("active_calories"),
             ))
@@ -153,7 +193,7 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
         ts = parse_datetime(msg.get("timestamp"))
         value = msg.get("reading_spo2")
         confidence = msg.get("reading_confidence")
-        if value:
+        if value is not None:
             spo2.append(SpO2Reading(
                 timestamp=ts,
                 value=value,
@@ -224,7 +264,7 @@ def _extract_hrv(messages: dict, date: str) -> DayHrv:
     for msg in messages.get("hrv_value_mesgs", []):
         ts = parse_datetime(msg.get("timestamp"))
         value = msg.get("value")
-        if value:
+        if value is not None:
             values.append(HrvValue(date=date, timestamp=ts, value=value))
 
     for msg in messages.get("hrv_status_summary_mesgs", []):
