@@ -283,6 +283,19 @@ class HrvDataQuality(_DefaultsRequired):
     coverage_hours: float | None = None
 
 
+class HrvIntradaySegment(_DefaultsRequired):
+    key: str
+    label: str
+    sample_count: int = 0
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+    values: list[HrvValue] = []
+
+
 class HrvStatusBucket(_DefaultsRequired):
     label: str
     count: int
@@ -305,6 +318,7 @@ class HrvInsightsResponse(_DefaultsRequired):
     day_stats: DailyHrvStats
     recovery: HrvRecovery
     quality: HrvDataQuality
+    intraday_segments: list[HrvIntradaySegment] = []
     trend_band: HrvTrendBand
     status_mix: list[HrvStatusBucket] = []
     insights: list[HrvInsight] = []

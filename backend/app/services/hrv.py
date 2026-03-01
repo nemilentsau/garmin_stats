@@ -11,10 +11,15 @@ from ..models import (
     HrvDataQuality,
     HrvInsight,
     HrvInsightsResponse,
+    HrvIntradaySegment,
     HrvRecovery,
     HrvStatusBucket,
     HrvTrendBand,
+    HrvValue,
 )
+
+_DAY_START_HOUR = 10
+_NIGHT_START_HOUR = 22
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -82,9 +87,7 @@ def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRec
     )
 
 
-def _compute_quality(date: str) -> HrvDataQuality:
-    day_rows = load_hrv(date)
-    hrv_values = day_rows[0].hrv_values if day_rows else []
+def _compute_quality(hrv_values: list[HrvValue]) -> HrvDataQuality:
     parsed_times = sorted(
         dt for dt in (_parse_iso(value.timestamp) for value in hrv_values) if dt is not None
     )
@@ -100,6 +103,62 @@ def _compute_quality(date: str) -> HrvDataQuality:
         coverage_end=coverage_end,
         coverage_hours=coverage_hours,
     )
+
+
+def _is_night_hour(hour: int) -> bool:
+    return hour >= _NIGHT_START_HOUR or hour < _DAY_START_HOUR
+
+
+def _build_intraday_segment(
+    *,
+    key: str,
+    label: str,
+    values: list[HrvValue],
+) -> HrvIntradaySegment:
+    parsed_times = sorted(
+        dt for dt in (_parse_iso(value.timestamp) for value in values) if dt is not None
+    )
+    coverage_start = parsed_times[0].isoformat() if parsed_times else None
+    coverage_end = parsed_times[-1].isoformat() if parsed_times else None
+    coverage_hours = (
+        round((parsed_times[-1] - parsed_times[0]).total_seconds() / 3600, 2)
+        if len(parsed_times) >= 2 else None
+    )
+    sample_values = [value.value for value in values]
+    avg = (
+        round(sum(sample_values) / len(sample_values), 1)
+        if sample_values else None
+    )
+    min_val = round(min(sample_values), 1) if sample_values else None
+    max_val = round(max(sample_values), 1) if sample_values else None
+
+    return HrvIntradaySegment(
+        key=key,
+        label=label,
+        sample_count=len(values),
+        avg=avg,
+        min=min_val,
+        max=max_val,
+        coverage_start=coverage_start,
+        coverage_end=coverage_end,
+        coverage_hours=coverage_hours,
+        values=values,
+    )
+
+
+def _compute_intraday_segments(hrv_values: list[HrvValue]) -> list[HrvIntradaySegment]:
+    nighttime: list[HrvValue] = []
+    daytime: list[HrvValue] = []
+    for value in hrv_values:
+        parsed = _parse_iso(value.timestamp)
+        if parsed is None or _is_night_hour(parsed.hour):
+            nighttime.append(value)
+        else:
+            daytime.append(value)
+    return [
+        _build_intraday_segment(key="night", label="Nighttime", values=nighttime),
+        _build_intraday_segment(key="day", label="Daytime", values=daytime),
+    ]
 
 
 def _compute_trend_band(metrics: list[DailyMetric]) -> HrvTrendBand:
@@ -263,8 +322,11 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         raise LookupError(f"Day {selected_date} not found")
 
     selected_metric = metrics[selected_index]
+    day_rows = load_hrv(selected_date)
+    day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
-    quality = _compute_quality(selected_date)
+    quality = _compute_quality(day_values)
+    intraday_segments = _compute_intraday_segments(day_values)
     trend_band = _compute_trend_band(metrics)
     status_mix = _compute_status_mix(metrics, selected_index)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
@@ -275,6 +337,7 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         day_stats=selected_metric.hrv,
         recovery=recovery,
         quality=quality,
+        intraday_segments=intraday_segments,
         trend_band=trend_band,
         status_mix=status_mix,
         insights=insights,

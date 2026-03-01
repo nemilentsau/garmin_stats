@@ -99,6 +99,11 @@ class TestHrvInsights:
         assert insights.quality.coverage_hours == 0.17
         assert insights.trend_band.nightly_typical_low == 48.8
         assert insights.trend_band.nightly_typical_high == 56.2
+        assert len(insights.intraday_segments) == 2
+        night_segment = next(seg for seg in insights.intraday_segments if seg.key == "night")
+        day_segment = next(seg for seg in insights.intraday_segments if seg.key == "day")
+        assert night_segment.sample_count == 3
+        assert day_segment.sample_count == 0
         titles = {item.title for item in insights.insights}
         assert "HRV appears suppressed" in titles
         assert "Acute recovery is below weekly trend" in titles
@@ -149,3 +154,28 @@ class TestHrvInsights:
 
         with pytest.raises(LookupError, match="Day 2026-01-16 not found"):
             load_hrv_insights("2026-01-16")
+
+    def test_builds_daytime_intraday_segment_when_data_exists(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=52.0,
+            weekly_avg=53.0,
+            hrv_status="balanced",
+            sleep_score=82,
+            resting_hr=48,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:00:00+00:00", value=51.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:05:00+00:00", value=53.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:00:00+00:00", value=46.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:05:00+00:00", value=47.0),
+        ])
+
+        insights = load_hrv_insights("2026-01-15")
+        night_segment = next(seg for seg in insights.intraday_segments if seg.key == "night")
+        day_segment = next(seg for seg in insights.intraday_segments if seg.key == "day")
+        assert night_segment.sample_count == 2
+        assert night_segment.avg == 52.0
+        assert day_segment.sample_count == 2
+        assert day_segment.avg == 46.5
+        assert day_segment.coverage_hours == 0.08

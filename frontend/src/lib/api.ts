@@ -66,6 +66,22 @@ export type HrvInsights = {
 		coverage_end: string | null;
 		coverage_hours: number | null;
 	};
+	intraday_segments: {
+		key: string;
+		label: string;
+		sample_count: number;
+		avg: number | null;
+		min: number | null;
+		max: number | null;
+		coverage_start: string | null;
+		coverage_end: string | null;
+		coverage_hours: number | null;
+		values: {
+			date: string;
+			timestamp: string | null;
+			value: number;
+		}[];
+	}[];
 	trend_band: {
 		nightly_typical_low: number | null;
 		nightly_typical_high: number | null;

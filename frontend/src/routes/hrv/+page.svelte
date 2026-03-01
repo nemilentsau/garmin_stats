@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type HrvData, type HrvInsights } from '$lib/api';
+	import { api, type DailyAggregates, type HrvInsights } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
@@ -12,7 +12,6 @@
 
 	let agg: DailyAggregates | null = $state(null);
 	let insights: HrvInsights | null = $state(null);
-	let intradayData: HrvData | null = $state(null);
 	let selectedDate = $state('');
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -20,17 +19,15 @@
 
 	async function fetchData() {
 		const date = selectedDate || undefined;
-		const [nextAgg, nextInsights, nextIntraday] = await Promise.all([
+		const [nextAgg, nextInsights] = await Promise.all([
 			api.getDailyAggregates(),
-			api.getHrvInsights(date),
-			date ? api.getHrv(date) : Promise.resolve<HrvData | null>(null)
+			api.getHrvInsights(date)
 		]);
 		if ((selectedDate || undefined) !== date) {
 			return;
 		}
 		agg = nextAgg;
 		insights = nextInsights;
-		intradayData = nextIntraday;
 	}
 
 	onMount(() => {
@@ -47,19 +44,14 @@
 
 	async function onDateChange(date: string) {
 		selectedDate = date;
-		intradayData = null;
 		insights = null;
 		const requestId = ++dateRequestId;
 		try {
-			const [nextInsights, nextIntraday] = await Promise.all([
-				api.getHrvInsights(date || undefined),
-				date ? api.getHrv(date) : Promise.resolve<HrvData | null>(null)
-			]);
+			const nextInsights = await api.getHrvInsights(date || undefined);
 			if (requestId !== dateRequestId) {
 				return;
 			}
 			insights = nextInsights;
-			intradayData = nextIntraday;
 		} catch (e: unknown) {
 			if (requestId !== dateRequestId) {
 				return;
@@ -165,17 +157,24 @@
 		};
 	});
 
-	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
-		if (!intradayData || intradayData.hrv_values.length === 0) return null;
+	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
+
+	function makeIntradayConfig(
+		segment: HrvIntradaySegment | null,
+		color: string
+	): ChartConfiguration<'line'> | null {
+		if (!segment || segment.values.length === 0) return null;
+		const points = segment.values.filter((value) => Boolean(value.timestamp));
+		if (points.length === 0) return null;
 		return {
 			type: 'line',
 			data: {
-				labels: intradayData.hrv_values.map((d) => d.timestamp),
+				labels: points.map((value) => value.timestamp),
 				datasets: [
 					{
-						label: 'HRV',
-						data: intradayData.hrv_values.map((d) => d.value),
-						borderColor: COLORS.hrv,
+						label: segment.label,
+						data: points.map((value) => value.value),
+						borderColor: color,
 						borderWidth: 1.5,
 						pointRadius: 1,
 						tension: 0.2
@@ -213,7 +212,16 @@
 				}
 			}
 		};
-	});
+	}
+
+	let nightSegment = $derived.by(
+		() => insights?.intraday_segments.find((segment) => segment.key === 'night') ?? null
+	);
+	let daySegment = $derived.by(
+		() => insights?.intraday_segments.find((segment) => segment.key === 'day') ?? null
+	);
+	let nightIntradayConfig = $derived.by(() => makeIntradayConfig(nightSegment, COLORS.hrv));
+	let dayIntradayConfig = $derived.by(() => makeIntradayConfig(daySegment, COLORS.hrvWeekly));
 
 	let stats = $derived.by(() => {
 		if (!agg?.period) return null;
@@ -400,15 +408,36 @@
 		{/if}
 	</div>
 
-	{#if selectedDate && intradayConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-				Intraday HRV — {selectedDate}
-			</h2>
-			<LineChart config={intradayConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.hrv_values.length ?? 0} readings (5-min intervals during sleep)</p>
-		</div>
+	{#if selectedDate && !insights}
+		<div class="text-sm text-[#5e7282]">Loading intraday segments...</div>
 	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+					Nighttime HRV — {selectedDate}
+				</h2>
+				{#if nightIntradayConfig}
+					<LineChart config={nightIntradayConfig} height={260} />
+					<p class="text-xs text-[#4a5c6a] mt-2">
+						{nightSegment?.sample_count ?? 0} readings • avg {fmt(nightSegment?.avg)} ms
+					</p>
+				{:else}
+					<div class="text-sm text-[#5e7282]">No nighttime HRV samples for this day.</div>
+				{/if}
+			</div>
+			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+					Daytime HRV — {selectedDate}
+				</h2>
+				{#if dayIntradayConfig}
+					<LineChart config={dayIntradayConfig} height={260} />
+					<p class="text-xs text-[#4a5c6a] mt-2">
+						{daySegment?.sample_count ?? 0} readings • avg {fmt(daySegment?.avg)} ms
+					</p>
+				{:else}
+					<div class="text-sm text-[#5e7282]">No daytime HRV samples for this day.</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 {/if}
