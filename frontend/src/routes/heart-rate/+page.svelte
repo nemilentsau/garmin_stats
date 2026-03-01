@@ -3,10 +3,10 @@
 	import {
 		api,
 		type DailyAggregates,
-		type DailyMetric,
+		type HeartRateInsights,
 		type WellnessData
 	} from '$lib/api';
-	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
@@ -16,20 +16,26 @@
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
+	let insights: HeartRateInsights | null = $state(null);
 	let intradayData: WellnessData | null = $state(null);
 	let selectedDate = $state('');
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let dateRequestId = 0;
 
 	async function fetchData() {
-		agg = await api.getDailyAggregates();
-		const date = selectedDate;
-		if (date) {
-			const data = await api.getWellness(date);
-			if (selectedDate === date) {
-				intradayData = data;
-			}
+		const date = selectedDate || undefined;
+		const [nextAgg, nextInsights, nextIntraday] = await Promise.all([
+			api.getDailyAggregates(),
+			api.getHeartRateInsights(date),
+			date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null)
+		]);
+		if ((selectedDate || undefined) !== date) {
+			return;
 		}
+		agg = nextAgg;
+		insights = nextInsights;
+		intradayData = nextIntraday;
 	}
 
 	onMount(() => {
@@ -44,21 +50,28 @@
 		});
 	});
 
-	const onDateChange = createDateLoader<WellnessData>({
-		setSelectedDate: (date) => {
-			selectedDate = date;
-		},
-		clearData: () => {
-			intradayData = null;
-		},
-		fetchByDate: (date) => api.getWellness(date),
-		setData: (data) => {
-			intradayData = data;
-		},
-		setError: (message) => {
-			error = message;
+	async function onDateChange(date: string) {
+		selectedDate = date;
+		intradayData = null;
+		insights = null;
+		const requestId = ++dateRequestId;
+		try {
+			const [nextInsights, nextIntraday] = await Promise.all([
+				api.getHeartRateInsights(date || undefined),
+				date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null)
+			]);
+			if (requestId !== dateRequestId) {
+				return;
+			}
+			insights = nextInsights;
+			intradayData = nextIntraday;
+		} catch (e: unknown) {
+			if (requestId !== dateRequestId) {
+				return;
+			}
+			error = e instanceof Error ? e.message : String(e);
 		}
-	});
+	}
 
 	const darkScales = {
 		x: {
@@ -88,70 +101,106 @@
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
+		const labels = agg.daily.map((d) => d.date);
+		const typicalLow = agg.period?.heart_rate.typical_low ?? null;
+		const typicalHigh = agg.period?.heart_rate.typical_high ?? null;
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
+
+		if (typicalLow != null && typicalHigh != null) {
+			datasets.push(
+				{
+					label: 'Typical Low',
+					data: labels.map(() => typicalLow),
+					borderColor: withAlpha(COLORS.heartRateResting, '70'),
+					borderWidth: 1,
+					borderDash: [3, 3],
+					pointRadius: 0,
+					tension: 0,
+					fill: false
+				},
+				{
+					label: 'Typical High',
+					data: labels.map(() => typicalHigh),
+					borderColor: withAlpha(COLORS.heartRateResting, '70'),
+					borderWidth: 1,
+					borderDash: [3, 3],
+					pointRadius: 0,
+					tension: 0,
+					fill: '-1',
+					backgroundColor: withAlpha(COLORS.heartRateResting, '10')
+				}
+			);
+		}
+
+		datasets.push(
+			{
+				label: 'Avg HR',
+				data: agg.daily.map((d) => d.heart_rate.avg),
+				borderColor: COLORS.heartRate,
+				borderWidth: 2,
+				pointRadius: 2,
+				tension: 0.3,
+				spanGaps: true
+			},
+			{
+				label: 'Resting HR',
+				data: agg.daily.map((d) => d.heart_rate.resting),
+				borderColor: COLORS.heartRateResting,
+				borderWidth: 2,
+				pointRadius: 2,
+				tension: 0.3,
+				spanGaps: true
+			},
+			{
+				label: 'Q1 (25th)',
+				data: agg.daily.map((d) => d.heart_rate.q1),
+				borderColor: withAlpha(COLORS.heartRate, '80'),
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: false
+			},
+			{
+				label: 'Q3 (75th)',
+				data: agg.daily.map((d) => d.heart_rate.q3),
+				borderColor: withAlpha(COLORS.heartRate, '80'),
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: '-1',
+				backgroundColor: withAlpha(COLORS.heartRate, '12')
+			}
+		);
+
 		return {
 			type: 'line',
 			data: {
-				labels: agg.daily.map((d) => d.date),
-				datasets: [
-					{
-						label: 'Avg HR',
-						data: agg.daily.map((d) => d.heart_rate.avg),
-						borderColor: COLORS.heartRate,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: 'Resting HR',
-						data: agg.daily.map((d) => d.heart_rate.resting),
-						borderColor: COLORS.heartRateResting,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: 'Q1 (25th)',
-						data: agg.daily.map((d) => d.heart_rate.q1),
-						borderColor: withAlpha(COLORS.heartRate, '80'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true,
-						fill: false
-					},
-					{
-						label: 'Q3 (75th)',
-						data: agg.daily.map((d) => d.heart_rate.q3),
-						borderColor: withAlpha(COLORS.heartRate, '80'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.heartRate, '12')
-					}
-				]
+				labels,
+				datasets
 			},
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
+				onClick: (_event, elements, chart) => {
+					const active = elements[0];
+					if (!active) return;
+					const label = chart.data.labels?.[active.index];
+					if (typeof label !== 'string' || label === selectedDate) return;
+					void onDateChange(label);
+				},
 				plugins: darkPlugins,
 				scales: darkScales
 			}
 		};
 	});
 
-	// Day-level stats derived from daily aggregates
 	let dayStats = $derived.by(() => {
-		if (!agg || !selectedDate) return null;
-		const day = agg.daily.find((d) => d.date === selectedDate);
-		if (!day) return null;
-		return day.heart_rate;
+		return insights?.day_stats ?? null;
 	});
 
 	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
@@ -223,13 +272,18 @@
 	};
 
 	let zoneBreakdown = $derived.by(() => {
-		if (!dayStats || dayStats.zones.length === 0) return null;
-		return dayStats.zones.map((z) => ({
+		if (!insights || insights.zones.length === 0) return null;
+		return insights.zones.map((z) => ({
 			label: z.label,
 			color: ZONE_COLORS[z.label] ?? '#6b7d8e',
-			pct: z.pct
+			pct: z.pct,
+			minutes: z.minutes
 		}));
 	});
+
+	let recovery = $derived.by(() => insights?.recovery ?? null);
+	let quality = $derived.by(() => insights?.quality ?? null);
+	let insightDate = $derived.by(() => insights?.date ?? null);
 
 	let stats = $derived.by(() => {
 		if (!agg?.period) return null;
@@ -241,7 +295,31 @@
 			avgResting: hr.avg_resting
 		};
 	});
-</script>
+
+	function fmtSigned(n: number | null | undefined): string {
+		if (n == null) return '-';
+		const rounded = n.toFixed(1);
+		return n > 0 ? `+${rounded}` : rounded;
+	}
+
+	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
+		if (!start || !end) return '-';
+		return `${start.slice(11, 16)}-${end.slice(11, 16)}`;
+	}
+
+	function recoveryColorClass(status: string | null | undefined): string {
+		if (status === 'high' || status === 'elevated') return 'text-[#E85D4A]';
+		if (status === 'low' || status === 'normal') return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
+	}
+
+	function insightColor(level: string): string {
+		if (level === 'warning') return '#E85D4A';
+		if (level === 'caution') return '#D4944C';
+		if (level === 'good') return '#4CAF82';
+		return '#8a9baa';
+	}
+	</script>
 
 <svelte:head><title>Heart Rate - Garmin Stats</title></svelte:head>
 
@@ -281,7 +359,62 @@
 		</div>
 	{/if}
 
+	{#if recovery || quality}
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+			<StatCard
+				title="RHR vs 7-Day"
+				value={fmtSigned(recovery?.delta_from_baseline)}
+				unit="bpm"
+				subtitle={`baseline ${fmt(recovery?.baseline_resting_7d)} bpm`}
+				colorClass={recoveryColorClass(recovery?.status)}
+			/>
+			<StatCard
+				title="Recovery"
+				value={recovery?.status ? recovery.status.toUpperCase() : '-'}
+				subtitle="server-derived signal"
+				colorClass={recoveryColorClass(recovery?.status)}
+			/>
+			<StatCard
+				title="Samples"
+				value={quality?.sample_count ?? '-'}
+				subtitle={insightDate ? `date ${insightDate}` : ''}
+				colorClass="text-[#8a9baa]"
+			/>
+			<StatCard
+				title="Coverage"
+				value={fmtTimeWindow(quality?.coverage_start, quality?.coverage_end)}
+				subtitle={`${fmt(quality?.coverage_hours)} hrs`}
+				colorClass="text-[#5BB5A6]"
+			/>
+		</div>
+	{/if}
+
+	{#if insights && insights.insights.length > 0}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Recovery Insights {insightDate ? `— ${insightDate}` : ''}
+			</h2>
+			<div class="space-y-2">
+				{#each insights.insights as item}
+					<div
+						class="bg-[rgba(255,255,255,0.02)] rounded-md px-3 py-2 border-l-2"
+						style="border-left-color: {insightColor(item.level)};"
+					>
+						<div class="text-[11px] uppercase tracking-wide" style="color: {insightColor(item.level)};">
+							{item.level}
+						</div>
+						<div class="text-sm text-[#d9e5ec] font-medium">{item.title}</div>
+						<div class="text-xs text-[#8a9baa]">{item.detail}</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	{#if dayStats}
+		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+			Day Snapshot {insightDate ? `— ${insightDate}` : ''}
+		</h2>
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<StatCard title="Min" value={fmt(dayStats.min)} unit="bpm" colorClass="text-[#4A90D9]" />
 			<StatCard title="Max" value={fmt(dayStats.max)} unit="bpm" colorClass="text-[#D4944C]" />
@@ -306,32 +439,34 @@
 			<LineChart config={intradayConfig} height={300} />
 			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.heart_rate.length ?? 0} readings</p>
 		</div>
-
-		{#if zoneBreakdown}
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">HR Zones</h2>
-				<div class="flex h-6 rounded overflow-hidden">
-					{#each zoneBreakdown as zone}
-						<div
-							class="flex items-center justify-center text-[10px] font-medium text-white/90"
-							style="width: {zone.pct}%; background-color: {zone.color};"
-							title="{zone.label}: {zone.pct}%"
-						>
-							{#if zone.pct >= 8}{zone.pct}%{/if}
-						</div>
-					{/each}
-				</div>
-				<div class="flex gap-4 mt-2">
-					{#each zoneBreakdown as zone}
-						<div class="flex items-center gap-1.5 text-xs text-[#8a9baa]">
-							<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: {zone.color};"></span>
-							{zone.label} {zone.pct}%
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
 	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		<div class="text-sm text-[#5e7282] mb-6">Loading intraday data...</div>
+	{/if}
+
+	{#if zoneBreakdown}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				HR Zones {insightDate ? `— ${insightDate}` : ''}
+			</h2>
+			<div class="flex h-6 rounded overflow-hidden">
+				{#each zoneBreakdown as zone}
+					<div
+						class="flex items-center justify-center text-[10px] font-medium text-white/90"
+						style="width: {zone.pct}%; background-color: {zone.color};"
+						title="{zone.label}: {zone.minutes} min ({zone.pct}%)"
+					>
+						{#if zone.pct >= 8}{zone.pct}%{/if}
+					</div>
+				{/each}
+			</div>
+			<div class="flex gap-4 mt-2 flex-wrap">
+				{#each zoneBreakdown as zone}
+					<div class="flex items-center gap-1.5 text-xs text-[#8a9baa]">
+						<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: {zone.color};"></span>
+						{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
+					</div>
+				{/each}
+			</div>
+		</div>
 	{/if}
 {/if}

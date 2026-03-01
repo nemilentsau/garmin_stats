@@ -209,6 +209,42 @@ class DailyHeartRateStats(_DefaultsRequired):
     zones: list[HRZoneBucket] = []
 
 
+class HeartRateRecovery(_DefaultsRequired):
+    baseline_resting_7d: float | None = None
+    delta_from_baseline: float | None = None
+    status: str | None = None
+
+
+class HeartRateDataQuality(_DefaultsRequired):
+    sample_count: int = 0
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+
+
+class HRZoneDuration(_DefaultsRequired):
+    label: str
+    min_bpm: int
+    max_bpm: int | None = None
+    minutes: float
+    pct: float
+
+
+class HeartRateInsight(_DefaultsRequired):
+    level: str
+    title: str
+    detail: str
+
+
+class HeartRateInsightsResponse(_DefaultsRequired):
+    date: str
+    day_stats: DailyHeartRateStats
+    recovery: HeartRateRecovery
+    zones: list[HRZoneDuration]
+    quality: HeartRateDataQuality
+    insights: list[HeartRateInsight] = []
+
+
 class DailyMetricStats(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None

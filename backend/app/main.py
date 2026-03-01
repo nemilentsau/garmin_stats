@@ -37,6 +37,7 @@ from .models import (
     WellnessResponse,
 )
 from .parser import get_day_summary
+from .routers.heart_rate import router as heart_rate_router
 from .stats import (
     flatten_hrv,
     flatten_skin_temp,
@@ -95,6 +96,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(heart_rate_router)
 
 
 @app.get("/")
