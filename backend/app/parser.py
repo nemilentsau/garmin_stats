@@ -157,8 +157,9 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
         else:
             ts = None
 
-        if "heart_rate" in msg and msg["heart_rate"]:
-            hr.append(HeartRateReading(timestamp=ts, value=msg["heart_rate"]))
+        hr_value = msg.get("heart_rate")
+        if hr_value is not None:
+            hr.append(HeartRateReading(timestamp=ts, value=hr_value))
 
         if "activity_type" in msg:
             activity.append(ActivityReading(
@@ -170,10 +171,11 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
                 distance=msg.get("distance"),
             ))
 
-        if "steps" in msg and msg["steps"]:
+        steps_value = msg.get("steps")
+        if steps_value is not None:
             steps.append(StepsReading(
                 timestamp=ts,
-                steps=msg["steps"],
+                steps=steps_value,
                 distance=msg.get("distance"),
                 calories=msg.get("active_calories"),
             ))
@@ -191,7 +193,7 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
         ts = parse_datetime(msg.get("timestamp"))
         value = msg.get("reading_spo2")
         confidence = msg.get("reading_confidence")
-        if value:
+        if value is not None:
             spo2.append(SpO2Reading(
                 timestamp=ts,
                 value=value,
@@ -262,7 +264,7 @@ def _extract_hrv(messages: dict, date: str) -> DayHrv:
     for msg in messages.get("hrv_value_mesgs", []):
         ts = parse_datetime(msg.get("timestamp"))
         value = msg.get("value")
-        if value:
+        if value is not None:
             values.append(HrvValue(date=date, timestamp=ts, value=value))
 
     for msg in messages.get("hrv_status_summary_mesgs", []):

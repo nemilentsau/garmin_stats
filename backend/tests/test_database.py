@@ -1,5 +1,7 @@
 """Tests for database.py — connection, storage, read-back."""
 
+import os
+
 import pytest
 
 import app.database as db
@@ -11,6 +13,9 @@ from app.models import (
     DailyMetricStats,
     DailySkinTempStats,
     DailySleepStats,
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
     DayWellness,
     PeriodHeartRateStats,
     PeriodHrvStats,
@@ -61,6 +66,23 @@ class TestCountRows:
     def test_invalid_table_raises(self):
         with pytest.raises(ValueError, match="Invalid table name"):
             db._count_rows("users; DROP TABLE daily_metrics")
+
+
+class TestFingerprint:
+    def test_fingerprint_changes_when_file_changes_same_name(self, tmp_path):
+        data_dir = tmp_path / "data"
+        day_dir = data_dir / "2026-01-15"
+        day_dir.mkdir(parents=True)
+        fit_file = day_dir / "001_WELLNESS.fit"
+        fit_file.write_bytes(b"AAAA")
+        fp1 = db.compute_data_fingerprint(data_dir)
+
+        fit_file.write_bytes(b"BBBB")
+        stat = fit_file.stat()
+        os.utime(fit_file, ns=(stat.st_atime_ns + 1, stat.st_mtime_ns + 1))
+        fp2 = db.compute_data_fingerprint(data_dir)
+
+        assert fp1 != fp2
 
 
 # ---------------------------------------------------------------------------
@@ -161,3 +183,57 @@ class TestPeriodSummary:
 
     def test_load_returns_none_when_missing(self):
         assert db.load_period_summary() is None
+
+
+class TestDeleteStaleRows:
+    def test_deletes_dates_missing_from_parsed_input(self):
+        date_keep = "2026-01-15"
+        date_drop = "2026-01-16"
+        now = "2026-01-15T00:00:00Z"
+
+        tables = [
+            (
+                "wellness_data",
+                DayWellness(date=date_keep).model_dump_json(),
+                DayWellness(date=date_drop).model_dump_json(),
+            ),
+            (
+                "sleep_data",
+                DaySleep(date=date_keep).model_dump_json(),
+                DaySleep(date=date_drop).model_dump_json(),
+            ),
+            (
+                "hrv_data",
+                DayHrv(date=date_keep).model_dump_json(),
+                DayHrv(date=date_drop).model_dump_json(),
+            ),
+            (
+                "skin_temp_data",
+                DaySkinTemp(date=date_keep).model_dump_json(),
+                DaySkinTemp(date=date_drop).model_dump_json(),
+            ),
+            (
+                "daily_metrics",
+                _make_daily_metric(date_keep).model_dump_json(),
+                _make_daily_metric(date_drop).model_dump_json(),
+            ),
+        ]
+
+        with db._connect() as con:
+            for table, keep_payload, drop_payload in tables:
+                con.execute(
+                    f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
+                    (date_keep, keep_payload, now),
+                )
+                con.execute(
+                    f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
+                    (date_drop, drop_payload, now),
+                )
+            con.commit()
+
+            db._delete_stale_day_rows(con, [date_keep])
+            con.commit()
+
+            for table, _, _ in tables:
+                rows = con.execute(f"SELECT date FROM {table} ORDER BY date").fetchall()
+                assert [r["date"] for r in rows] == [date_keep]
