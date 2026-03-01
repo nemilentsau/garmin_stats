@@ -26,7 +26,17 @@ Two separate paths:
 - **`database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
 - **`events.py`**: SSE event bus — `EventBus` with per-client `asyncio.Queue`, module-level `event_bus` singleton
 - **`watcher.py`**: File watcher — `watch_data_directory()` uses `watchfiles.awatch()` to detect new `.fit` files, auto-ingests, broadcasts `data_updated` via SSE; `heartbeat_loop()` keeps connections alive
-- **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest + file watcher + heartbeat tasks, SSE endpoint at `GET /api/events`
+- **`main.py`**: App creation, CORS middleware, lifespan (auto-ingest + file watcher + heartbeat tasks), router registration. All endpoints live in `routers/`.
+- **`routers/`**: Domain-specific HTTP route modules. Each defines an `APIRouter` with a prefix and delegates to `database`/`stats`/`services`:
+  - `ingest.py` (`/api/ingest`) — trigger re-ingest, check ingest status
+  - `days.py` (`/api/days`) — list available days, get day summary
+  - `wellness.py` (`/api/wellness`) — wellness data (HR, stress, SpO2, respiration, activity)
+  - `sleep.py` (`/api/sleep`) — sleep data (stages, assessment scores)
+  - `daily_aggregates.py` (`/api/daily-aggregates`) — per-day aggregate stats + period summary
+  - `skin_temp.py` (`/api/skin-temp`) — skin temperature data
+  - `heart_rate.py` (`/api/heart-rate`) — heart rate insights
+  - `hrv.py` (`/api/hrv`) — HRV data + insights
+  - `events.py` (`/api/events`) — SSE stream for real-time updates
 
 ### SQLite details
 - DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
