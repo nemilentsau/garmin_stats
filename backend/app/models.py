@@ -269,6 +269,47 @@ class DailyHrvStats(_DefaultsRequired):
     status: str | None = None
 
 
+class HrvRecovery(_DefaultsRequired):
+    baseline_nightly_7d: float | None = None
+    delta_nightly_from_baseline: float | None = None
+    acute_gap_vs_weekly: float | None = None
+    status: str | None = None
+
+
+class HrvDataQuality(_DefaultsRequired):
+    sample_count: int = 0
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+
+
+class HrvStatusBucket(_DefaultsRequired):
+    label: str
+    count: int
+    pct: float
+
+
+class HrvTrendBand(_DefaultsRequired):
+    nightly_typical_low: float | None = None
+    nightly_typical_high: float | None = None
+
+
+class HrvInsight(_DefaultsRequired):
+    level: str
+    title: str
+    detail: str
+
+
+class HrvInsightsResponse(_DefaultsRequired):
+    date: str
+    day_stats: DailyHrvStats
+    recovery: HrvRecovery
+    quality: HrvDataQuality
+    trend_band: HrvTrendBand
+    status_mix: list[HrvStatusBucket] = []
+    insights: list[HrvInsight] = []
+
+
 class DailySleepStats(_DefaultsRequired):
     score: int | None = None
     deep_score: int | None = None

@@ -51,6 +51,37 @@ export type HeartRateInsights = {
 	}[];
 };
 
+export type HrvInsights = {
+	date: string;
+	day_stats: Schemas['DailyHrvStats'];
+	recovery: {
+		baseline_nightly_7d: number | null;
+		delta_nightly_from_baseline: number | null;
+		acute_gap_vs_weekly: number | null;
+		status: string | null;
+	};
+	quality: {
+		sample_count: number;
+		coverage_start: string | null;
+		coverage_end: string | null;
+		coverage_hours: number | null;
+	};
+	trend_band: {
+		nightly_typical_low: number | null;
+		nightly_typical_high: number | null;
+	};
+	status_mix: {
+		label: string;
+		count: number;
+		pct: number;
+	}[];
+	insights: {
+		level: string;
+		title: string;
+		detail: string;
+	}[];
+};
+
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
 	if (!response.ok) {
@@ -65,6 +96,8 @@ export const api = {
 		fetchJson<WellnessData>(`/api/wellness${date ? `?date=${date}` : ''}`),
 	getSleep: (date?: string) => fetchJson<SleepData>(`/api/sleep${date ? `?date=${date}` : ''}`),
 	getHrv: (date?: string) => fetchJson<HrvData>(`/api/hrv${date ? `?date=${date}` : ''}`),
+	getHrvInsights: (date?: string) =>
+		fetchJson<HrvInsights>(`/api/hrv/insights${date ? `?date=${date}` : ''}`),
 	getSkinTemp: (date?: string) =>
 		fetchJson<SkinTempData>(`/api/skin-temp${date ? `?date=${date}` : ''}`),
 	getHeartRateInsights: (date?: string) =>

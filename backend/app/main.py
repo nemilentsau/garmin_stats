@@ -18,7 +18,6 @@ from .database import (
     is_db_empty,
     load_available_days,
     load_daily_metrics,
-    load_hrv,
     load_period_summary,
     load_skin_temp,
     load_sleep,
@@ -29,7 +28,6 @@ from .models import (
     DailyAggregatesResponse,
     DaysResponse,
     DaySummaryResponse,
-    HrvResponse,
     IngestResult,
     IngestStatus,
     SkinTempResponse,
@@ -38,8 +36,8 @@ from .models import (
 )
 from .parser import get_day_summary
 from .routers.heart_rate import router as heart_rate_router
+from .routers.hrv import router as hrv_router
 from .stats import (
-    flatten_hrv,
     flatten_skin_temp,
     flatten_sleep,
     flatten_wellness,
@@ -98,6 +96,7 @@ app.add_middleware(
 )
 
 app.include_router(heart_rate_router)
+app.include_router(hrv_router)
 
 
 @app.get("/")
@@ -177,15 +176,6 @@ def get_sleep(date: str | None = Query(None, description="Filter by date (YYYY-M
     if date and not days:
         raise HTTPException(status_code=404, detail=f"Day {date} not found")
     return flatten_sleep(days)
-
-
-@app.get("/api/hrv", response_model=HrvResponse)
-def get_hrv(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
-    """Get HRV data (values, summaries)."""
-    days = load_hrv(date)
-    if date and not days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-    return flatten_hrv(days)
 
 
 @app.get("/api/daily-aggregates", response_model=DailyAggregatesResponse)
