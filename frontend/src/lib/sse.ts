@@ -7,12 +7,34 @@
 
 const API_BASE = 'http://localhost:8000';
 
-export function createDataUpdateListener(onUpdate: () => void): () => void {
+export function createDataUpdateListener(onUpdate: () => void | Promise<void>): () => void {
 	const source = new EventSource(`${API_BASE}/api/events`);
 
 	source.addEventListener('data_updated', () => {
-		onUpdate();
+		console.debug('[SSE] data_updated received, refreshing data');
+		try {
+			const result = onUpdate();
+			if (result instanceof Promise) {
+				result.catch((e: unknown) => {
+					console.warn('[SSE] refresh failed:', e instanceof Error ? e.message : e);
+				});
+			}
+		} catch (e: unknown) {
+			console.warn('[SSE] refresh failed:', e instanceof Error ? e.message : e);
+		}
 	});
+
+	source.onerror = () => {
+		if (source.readyState === EventSource.CONNECTING) {
+			console.debug('[SSE] connection lost, reconnecting...');
+		} else if (source.readyState === EventSource.CLOSED) {
+			console.warn('[SSE] connection closed permanently');
+		}
+	};
+
+	source.onopen = () => {
+		console.debug('[SSE] connected');
+	};
 
 	return () => {
 		source.close();

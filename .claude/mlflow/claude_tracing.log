@@ -23,3 +23,6 @@ FileNotFoundError: [Errno 2] No such file or directory: '/tmp/nonexistent.jsonl'
 2026-02-25 10:06:58,394 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=67677f1b-33c1-408d-80ce-f54d8f5a4537, transcript=/Users/andreinemilentsau/.claude/projects/-Users-andreinemilentsau-Projects-garmin-stats/67677f1b-33c1-408d-80ce-f54d8f5a4537.jsonl
 2026-02-25 10:06:58,400 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 67677f1b-33c1-408d-80ce-f54d8f5a4537
 2026-02-25 10:06:58,557 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-5653eaba9b6847c264321b1343464a88
+2026-02-25 10:12:45,707 - mlflow.claude_code.tracing - CLAUDE_TRACING - Stop hook: session=67677f1b-33c1-408d-80ce-f54d8f5a4537, transcript=/Users/andreinemilentsau/.claude/projects/-Users-andreinemilentsau-Projects-garmin-stats/67677f1b-33c1-408d-80ce-f54d8f5a4537.jsonl
+2026-02-25 10:12:45,715 - mlflow.claude_code.tracing - CLAUDE_TRACING - Creating MLflow trace for session: 67677f1b-33c1-408d-80ce-f54d8f5a4537
+2026-02-25 10:12:45,881 - mlflow.claude_code.tracing - CLAUDE_TRACING - Created MLflow trace: tr-d9add6f0803dc08fdf1865cfbed4ca01
