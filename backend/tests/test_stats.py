@@ -44,6 +44,7 @@ def _make_day(
     hrv_weekly: float | None = 52.0,
     hrv_status: str = "balanced",
     skin_dev: float | None = 0.1,
+    utc_offset_hours: float | None = None,
 ) -> DayData:
     """Build a DayData with controlled values for testing."""
     hr = [60, 70, 80, 90, 100] if hr_values is None else hr_values
@@ -101,7 +102,10 @@ def _make_day(
             date=date, average_deviation=skin_dev, nightly_value=36.5,
         )] if skin_dev is not None else [],
     )
-    return DayData(date=date, wellness=wellness, sleep=sleep, hrv=hrv, skin_temp=skin_temp)
+    return DayData(
+        date=date, utc_offset_hours=utc_offset_hours,
+        wellness=wellness, sleep=sleep, hrv=hrv, skin_temp=skin_temp,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +195,16 @@ class TestAggregateDay:
         day = _make_day(resting_hr=50, current_day_resting_hr=45)
         agg = aggregate_day(day)
         assert agg.heart_rate.resting == 45
+
+    def test_offset_propagated_to_daily_metric(self):
+        day = _make_day(utc_offset_hours=13.0)
+        agg = aggregate_day(day)
+        assert agg.utc_offset_hours == 13.0
+
+    def test_offset_none_when_not_set(self):
+        day = _make_day()
+        agg = aggregate_day(day)
+        assert agg.utc_offset_hours is None
 
 
 # ---------------------------------------------------------------------------

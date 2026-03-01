@@ -164,6 +164,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
 
     return DailyMetric(
         date=day.date,
+        utc_offset_hours=day.utc_offset_hours,
         heart_rate=DailyHeartRateStats(
             avg=safe_avg(hr_vals),
             min=min(hr_vals) if hr_vals else None,

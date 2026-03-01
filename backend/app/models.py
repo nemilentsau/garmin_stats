@@ -148,6 +148,7 @@ class DaySkinTemp(_DefaultsRequired):
 
 class DayData(_DefaultsRequired):
     date: str
+    utc_offset_hours: float | None = None
     wellness: DayWellness
     sleep: DaySleep
     hrv: DayHrv
@@ -338,6 +339,7 @@ class DailySkinTempStats(_DefaultsRequired):
 
 class DailyMetric(_DefaultsRequired):
     date: str
+    utc_offset_hours: float | None = None
     heart_rate: DailyHeartRateStats
     stress: DailyMetricStats
     body_battery: DailyBodyBatteryStats

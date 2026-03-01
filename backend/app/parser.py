@@ -4,11 +4,17 @@ Garmin FIT file parser — three layers:
   Layer 1: Per-file extractors (_extract_*)
   Layer 2: Per-day parsers (parse_*_day) — merge multiple files of same type
   Layer 3: High-level functions (parse_*) — directory scan + date filter
+
+All timestamps are converted from UTC to local time at ingest.
+The UTC offset is extracted from monitoring_info_mesgs (timestamp vs
+local_timestamp) and applied via _shift_timestamps().  When adding new
+timestamp fields, add them to _shift_timestamps() so they are also
+converted to local time.
 """
 
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -300,6 +306,86 @@ def _extract_skin_temp(messages: dict, date: str) -> DaySkinTemp:
 
 
 # ---------------------------------------------------------------------------
+# UTC offset extraction + timestamp shifting
+# ---------------------------------------------------------------------------
+
+def _extract_utc_offset_hours(messages: dict) -> float | None:
+    """Extract UTC offset from monitoring_info_mesgs.
+
+    Each WELLNESS file carries monitoring_info with both a UTC `timestamp`
+    and a `local_timestamp` (Garmin-epoch int).  The difference gives the
+    device's local UTC offset for that day.
+    """
+    for msg in messages.get("monitoring_info_mesgs", []):
+        utc_ts = msg.get("timestamp")
+        local_raw = msg.get("local_timestamp")
+        if utc_ts is None or local_raw is None:
+            continue
+        if not hasattr(utc_ts, "timestamp"):
+            continue
+        local_dt = datetime.fromtimestamp(int(local_raw) + _GARMIN_EPOCH_UNIX, tz=UTC)
+        return (local_dt - utc_ts).total_seconds() / 3600
+    return None
+
+
+def _extract_offset_from_files(files: list[Path]) -> float | None:
+    """Decode WELLNESS files until we find a UTC offset, then return it."""
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            offset = _extract_utc_offset_hours(messages)
+            if offset is not None:
+                return offset
+        except Exception:
+            continue
+    return None
+
+
+def _shift_timestamps(day: DayData, offset_hours: float) -> None:
+    """Shift all timestamp fields in a DayData from UTC to local time."""
+    delta = timedelta(hours=offset_hours)
+
+    def shift(iso: str | None) -> str | None:
+        if iso is None:
+            return None
+        try:
+            dt = datetime.fromisoformat(iso) + delta
+            return dt.isoformat()
+        except (ValueError, TypeError):
+            return iso
+
+    # Wellness readings
+    for r in day.wellness.heart_rate:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.stress:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.body_battery:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.spo2:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.respiration:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.activity:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.steps_summary:
+        r.timestamp = shift(r.timestamp)
+    for r in day.wellness.resting_hr:
+        r.timestamp = shift(r.timestamp)
+
+    # Sleep
+    for r in day.sleep.sleep_levels:
+        r.timestamp = shift(r.timestamp)
+
+    # HRV
+    for r in day.hrv.hrv_values:
+        r.timestamp = shift(r.timestamp)
+
+    # Skin temp
+    for r in day.skin_temp.skin_temp_overnight:
+        r.timestamp = shift(r.timestamp)
+
+
+# ---------------------------------------------------------------------------
 # Layer 2 — Per-day parsers (merge multiple files of same type)
 # ---------------------------------------------------------------------------
 
@@ -422,12 +508,18 @@ def parse_all_days(data_dir: Path) -> list[DayData]:
     result: list[DayData] = []
 
     for date, day_files in sorted(files_by_day.items()):
-        result.append(DayData(
+        wellness_files = day_files.get("WELLNESS", [])
+        offset = _extract_offset_from_files(wellness_files)
+        day = DayData(
             date=date,
-            wellness=parse_wellness_day(day_files.get("WELLNESS", []), date),
+            utc_offset_hours=offset,
+            wellness=parse_wellness_day(wellness_files, date),
             sleep=parse_sleep_day(day_files.get("SLEEP_DATA", []), date),
             hrv=parse_hrv_day(day_files.get("HRV_STATUS", []), date),
             skin_temp=parse_skin_temp_day(day_files.get("SKIN_TEMP", []), date),
-        ))
+        )
+        if offset is not None:
+            _shift_timestamps(day, offset)
+        result.append(day)
 
     return result
