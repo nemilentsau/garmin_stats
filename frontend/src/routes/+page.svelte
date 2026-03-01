@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
-	import { createDataUpdateListener } from '$lib/sse';
+	import { startRealtimePage } from '$lib/realtime-page';
 	import { Chart } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 	import { fmt } from '$lib/format';
@@ -38,10 +38,13 @@
 	}
 
 	onMount(() => {
-		fetchData().catch((e: unknown) => {
-			error = e instanceof Error ? e.message : String(e);
+		return startRealtimePage({
+			fetchData,
+			setError: (message) => {
+				error = message;
+			},
+			setLoading: () => {}
 		});
-		return createDataUpdateListener(() => { fetchData(); });
 	});
 
 	function latestValid(daily: DailyMetric[], getter: (d: DailyMetric) => number | null): number | null {

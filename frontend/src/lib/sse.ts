@@ -5,7 +5,7 @@
  * EventSource auto-reconnects on connection loss (browser built-in).
  */
 
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from './config';
 
 export function createDataUpdateListener(onUpdate: () => void | Promise<void>): () => void {
 	const source = new EventSource(`${API_BASE}/api/events`);

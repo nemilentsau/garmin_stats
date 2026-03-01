@@ -25,6 +25,12 @@ npm run dev
 npm run dev -- --open
 ```
 
+Set backend URL with `PUBLIC_API_BASE_URL` when needed (defaults to `http://localhost:8000`):
+
+```sh
+PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
 ## Building
 
 To create a production version of your app:

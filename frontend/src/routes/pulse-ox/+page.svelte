@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type WellnessData } from '$lib/api';
-	import { createDataUpdateListener } from '$lib/sse';
+	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
@@ -18,32 +18,42 @@
 
 	async function fetchData() {
 		agg = await api.getDailyAggregates();
-		if (selectedDate) {
-			intradayData = await api.getWellness(selectedDate);
+		const date = selectedDate;
+		if (date) {
+			const data = await api.getWellness(date);
+			if (selectedDate === date) {
+				intradayData = data;
+			}
 		}
 	}
 
 	onMount(() => {
-		fetchData()
-			.catch((e: unknown) => {
-				error = e instanceof Error ? e.message : String(e);
-			})
-			.finally(() => {
-				loading = false;
-			});
-
-		return createDataUpdateListener(() => {
-			fetchData();
+		return startRealtimePage({
+			fetchData,
+			setError: (message) => {
+				error = message;
+			},
+			setLoading: (value) => {
+				loading = value;
+			}
 		});
 	});
 
-	async function onDateChange(date: string) {
-		selectedDate = date;
-		intradayData = null;
-		if (date) {
-			intradayData = await api.getWellness(date);
+	const onDateChange = createDateLoader<WellnessData>({
+		setSelectedDate: (date) => {
+			selectedDate = date;
+		},
+		clearData: () => {
+			intradayData = null;
+		},
+		fetchByDate: (date) => api.getWellness(date),
+		setData: (data) => {
+			intradayData = data;
+		},
+		setError: (message) => {
+			error = message;
 		}
-	}
+	});
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
