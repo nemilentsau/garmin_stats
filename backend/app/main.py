@@ -6,43 +6,19 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 
-from .database import (
-    DATA_DIR,
-    check_ingest_status,
-    ingest_all,
-    init_db,
-    is_db_empty,
-    load_available_days,
-    load_daily_metrics,
-    load_hrv,
-    load_period_summary,
-    load_skin_temp,
-    load_sleep,
-    load_wellness,
-)
-from .events import event_bus
-from .models import (
-    DailyAggregatesResponse,
-    DaysResponse,
-    DaySummaryResponse,
-    HrvResponse,
-    IngestResult,
-    IngestStatus,
-    SkinTempResponse,
-    SleepResponse,
-    WellnessResponse,
-)
-from .parser import get_day_summary
-from .stats import (
-    flatten_hrv,
-    flatten_skin_temp,
-    flatten_sleep,
-    flatten_wellness,
-)
+from .database import DATA_DIR, ingest_all, init_db, is_db_empty
+from .routers.daily_aggregates import router as daily_aggregates_router
+from .routers.days import router as days_router
+from .routers.events import router as events_router
+from .routers.heart_rate import router as heart_rate_router
+from .routers.hrv import router as hrv_router
+from .routers.ingest import router as ingest_router
+from .routers.skin_temp import router as skin_temp_router
+from .routers.sleep import router as sleep_router
+from .routers.wellness import router as wellness_router
 from .watcher import heartbeat_loop, watch_data_directory
 
 logging.basicConfig(level=logging.INFO)
@@ -96,6 +72,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(ingest_router)
+app.include_router(days_router)
+app.include_router(wellness_router)
+app.include_router(sleep_router)
+app.include_router(daily_aggregates_router)
+app.include_router(skin_temp_router)
+app.include_router(heart_rate_router)
+app.include_router(hrv_router)
+app.include_router(events_router)
+
 
 @app.get("/")
 def root():
@@ -106,129 +92,3 @@ def root():
         "data_dir": str(DATA_DIR),
         "data_exists": DATA_DIR.exists(),
     }
-
-
-# ---------------------------------------------------------------------------
-# Ingest endpoints
-# ---------------------------------------------------------------------------
-
-@app.post("/api/ingest", response_model=IngestResult)
-def trigger_ingest():
-    """Re-ingest all FIT files into the database."""
-    try:
-        return ingest_all(DATA_DIR)
-    except RuntimeError as err:
-        raise HTTPException(
-            status_code=409, detail="Ingest already in progress",
-        ) from err
-
-
-@app.get("/api/ingest/status", response_model=IngestStatus)
-def get_ingest_status():
-    """Check whether new data needs ingesting."""
-    return check_ingest_status(DATA_DIR)
-
-
-# ---------------------------------------------------------------------------
-# Data endpoints (read from DB)
-# ---------------------------------------------------------------------------
-
-@app.get("/api/days", response_model=DaysResponse)
-def list_days():
-    """List available days of data."""
-    days = load_available_days()
-    return DaysResponse(days=days, total=len(days))
-
-
-@app.get("/api/days/{date}", response_model=DaySummaryResponse)
-def get_day(date: str):
-    """Get summary for a specific ingested day."""
-    days = set(load_available_days())
-    if date not in days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-
-    summary = get_day_summary(DATA_DIR, date)
-    if "error" in summary:
-        return DaySummaryResponse(
-            date=date,
-            total_files=0,
-            file_types={},
-            total_size_kb=0.0,
-        )
-    return DaySummaryResponse.model_validate(summary)
-
-
-@app.get("/api/wellness", response_model=WellnessResponse)
-def get_wellness(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
-    """Get wellness data (HR, stress, SpO2, respiration, activity)."""
-    days = load_wellness(date)
-    if date and not days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-    return flatten_wellness(days)
-
-
-@app.get("/api/sleep", response_model=SleepResponse)
-def get_sleep(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
-    """Get sleep data (stages, assessment scores)."""
-    days = load_sleep(date)
-    if date and not days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-    return flatten_sleep(days)
-
-
-@app.get("/api/hrv", response_model=HrvResponse)
-def get_hrv(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
-    """Get HRV data (values, summaries)."""
-    days = load_hrv(date)
-    if date and not days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-    return flatten_hrv(days)
-
-
-@app.get("/api/daily-aggregates", response_model=DailyAggregatesResponse)
-def get_daily_agg():
-    """Get per-day aggregate stats for all metrics, plus period summary."""
-    metrics = load_daily_metrics()
-    days = [m.date for m in metrics]
-    return DailyAggregatesResponse(days=days, daily=metrics, period=load_period_summary())
-
-
-@app.get("/api/skin-temp", response_model=SkinTempResponse)
-def get_skin_temp(date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)")):
-    """Get skin temperature data."""
-    days = load_skin_temp(date)
-    if date and not days:
-        raise HTTPException(status_code=404, detail=f"Day {date} not found")
-    return flatten_skin_temp(days)
-
-
-# ---------------------------------------------------------------------------
-# SSE endpoint
-# ---------------------------------------------------------------------------
-
-@app.get("/api/events")
-async def sse_events(request: Request):
-    """Server-Sent Events stream for real-time data updates."""
-    queue = event_bus.subscribe()
-
-    async def generate():
-        try:
-            while True:
-                if await request.is_disconnected():
-                    break
-                try:
-                    message = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    yield message
-                except TimeoutError:
-                    continue
-        finally:
-            event_bus.unsubscribe(queue)
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )

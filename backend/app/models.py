@@ -148,6 +148,7 @@ class DaySkinTemp(_DefaultsRequired):
 
 class DayData(_DefaultsRequired):
     date: str
+    utc_offset_hours: float | None = None
     wellness: DayWellness
     sleep: DaySleep
     hrv: DayHrv
@@ -209,6 +210,42 @@ class DailyHeartRateStats(_DefaultsRequired):
     zones: list[HRZoneBucket] = []
 
 
+class HeartRateRecovery(_DefaultsRequired):
+    baseline_resting_7d: float | None = None
+    delta_from_baseline: float | None = None
+    status: str | None = None
+
+
+class HeartRateDataQuality(_DefaultsRequired):
+    sample_count: int = 0
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+
+
+class HRZoneDuration(_DefaultsRequired):
+    label: str
+    min_bpm: int
+    max_bpm: int | None = None
+    minutes: float
+    pct: float
+
+
+class HeartRateInsight(_DefaultsRequired):
+    level: str
+    title: str
+    detail: str
+
+
+class HeartRateInsightsResponse(_DefaultsRequired):
+    date: str
+    day_stats: DailyHeartRateStats
+    recovery: HeartRateRecovery
+    zones: list[HRZoneDuration]
+    quality: HeartRateDataQuality
+    insights: list[HeartRateInsight] = []
+
+
 class DailyMetricStats(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None
@@ -233,6 +270,61 @@ class DailyHrvStats(_DefaultsRequired):
     status: str | None = None
 
 
+class HrvRecovery(_DefaultsRequired):
+    baseline_nightly_7d: float | None = None
+    delta_nightly_from_baseline: float | None = None
+    acute_gap_vs_weekly: float | None = None
+    status: str | None = None
+
+
+class HrvDataQuality(_DefaultsRequired):
+    sample_count: int = 0
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+
+
+class HrvIntradaySegment(_DefaultsRequired):
+    key: str
+    label: str
+    sample_count: int = 0
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+    coverage_start: str | None = None
+    coverage_end: str | None = None
+    coverage_hours: float | None = None
+    values: list[HrvValue] = []
+
+
+class HrvStatusBucket(_DefaultsRequired):
+    label: str
+    count: int
+    pct: float
+
+
+class HrvTrendBand(_DefaultsRequired):
+    nightly_typical_low: float | None = None
+    nightly_typical_high: float | None = None
+
+
+class HrvInsight(_DefaultsRequired):
+    level: str
+    title: str
+    detail: str
+
+
+class HrvInsightsResponse(_DefaultsRequired):
+    date: str
+    day_stats: DailyHrvStats
+    recovery: HrvRecovery
+    quality: HrvDataQuality
+    intraday_segments: list[HrvIntradaySegment] = []
+    trend_band: HrvTrendBand
+    status_mix: list[HrvStatusBucket] = []
+    insights: list[HrvInsight] = []
+
+
 class DailySleepStats(_DefaultsRequired):
     score: int | None = None
     deep_score: int | None = None
@@ -247,6 +339,7 @@ class DailySkinTempStats(_DefaultsRequired):
 
 class DailyMetric(_DefaultsRequired):
     date: str
+    utc_offset_hours: float | None = None
     heart_rate: DailyHeartRateStats
     stress: DailyMetricStats
     body_battery: DailyBodyBatteryStats
@@ -306,6 +399,58 @@ class DailyAggregatesResponse(_DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
     period: PeriodSummary | None = None
+
+
+# ---------------------------------------------------------------------------
+# Heart Rate Analysis models
+# ---------------------------------------------------------------------------
+
+
+class CircadianHRPoint(_DefaultsRequired):
+    hour: int
+    avg_bpm: float | None = None
+    sample_count: int = 0
+
+
+class SleepingHRPoint(_DefaultsRequired):
+    date: str
+    avg_sleeping_bpm: float | None = None
+    sample_count: int = 0
+
+
+class RestingHRTrendPoint(_DefaultsRequired):
+    date: str
+    resting_bpm: int | None = None
+    ma7_bpm: float | None = None
+
+
+class HRHistogramBin(_DefaultsRequired):
+    bin_start: int
+    bin_end: int
+    count: int
+
+
+class HRDistributionResponse(_DefaultsRequired):
+    date: str
+    bins: list[HRHistogramBin] = []
+    sample_count: int = 0
+
+
+class WeeklyRestingHRBox(_DefaultsRequired):
+    iso_week: str
+    min_bpm: float | None = None
+    q1_bpm: float | None = None
+    median_bpm: float | None = None
+    q3_bpm: float | None = None
+    max_bpm: float | None = None
+    day_count: int = 0
+
+
+class HeartRateAnalysisResponse(_DefaultsRequired):
+    circadian_profile: list[CircadianHRPoint] = []
+    sleeping_hr_trend: list[SleepingHRPoint] = []
+    resting_hr_trend: list[RestingHRTrendPoint] = []
+    weekly_boxplots: list[WeeklyRestingHRBox] = []
 
 
 class DaySummaryResponse(_DefaultsRequired):

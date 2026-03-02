@@ -1,0 +1,248 @@
+"""Heart-rate domain service: backend source of truth for derived HR insights."""
+
+from datetime import datetime
+from statistics import median
+
+from ..database import load_daily_metrics, load_wellness
+from ..models import (
+    DailyMetric,
+    HeartRateDataQuality,
+    HeartRateInsight,
+    HeartRateInsightsResponse,
+    HeartRateReading,
+    HeartRateRecovery,
+    HRZoneDuration,
+)
+from ..stats import HR_ZONE_THRESHOLDS
+
+
+def _parse_iso(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    normalized = ts.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
+def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:
+    for label, lower, upper in HR_ZONE_THRESHOLDS:
+        if value >= lower and (upper is None or value < upper):
+            return (label, lower, upper)
+    return None
+
+
+def _estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> float:
+    if len(readings) < 2:
+        return 1.0
+    deltas = []
+    for i in range(len(readings) - 1):
+        delta = (readings[i + 1][0] - readings[i][0]).total_seconds() / 60.0
+        if delta > 0:
+            deltas.append(delta)
+    if not deltas:
+        return 1.0
+    return max(0.25, min(float(median(deltas)), 5.0))
+
+
+def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDuration]:
+    resolved: list[tuple[datetime, int]] = []
+    for reading in hr_readings:
+        if reading.value == 0:
+            continue
+        dt = _parse_iso(reading.timestamp)
+        if dt is None:
+            continue
+        resolved.append((dt, reading.value))
+
+    if not resolved:
+        return []
+
+    resolved.sort(key=lambda item: item[0])
+    default_interval = _estimate_default_interval_minutes(resolved)
+    max_interval = max(default_interval * 3, 1.0)
+
+    buckets: dict[tuple[str, int, int | None], float] = {}
+    for i, (dt, value) in enumerate(resolved):
+        zone = _zone_for_value(value)
+        if zone is None:
+            continue
+
+        if i == len(resolved) - 1:
+            interval = default_interval
+        else:
+            interval = (resolved[i + 1][0] - dt).total_seconds() / 60.0
+            interval = min(interval, max_interval)
+
+        if interval <= 0:
+            continue
+        buckets[zone] = buckets.get(zone, 0.0) + interval
+
+    total_minutes = sum(buckets.values())
+    if total_minutes <= 0:
+        return []
+
+    result: list[HRZoneDuration] = []
+    for label, lower, upper in HR_ZONE_THRESHOLDS:
+        minutes = buckets.get((label, lower, upper), 0.0)
+        if minutes <= 0:
+            continue
+        result.append(HRZoneDuration(
+            label=label,
+            min_bpm=lower,
+            max_bpm=upper,
+            minutes=round(minutes, 1),
+            pct=round(minutes / total_minutes * 100, 1),
+        ))
+    return result
+
+
+def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
+    selected_resting = metrics[selected_index].heart_rate.resting
+    previous_resting = [
+        m.heart_rate.resting
+        for m in metrics[max(0, selected_index - 7):selected_index]
+        if m.heart_rate.resting is not None
+    ]
+    baseline = (
+        round(sum(previous_resting) / len(previous_resting), 1)
+        if previous_resting else None
+    )
+    delta = (
+        round(selected_resting - baseline, 1)
+        if selected_resting is not None and baseline is not None else None
+    )
+    status: str | None
+    if delta is None:
+        status = None
+    elif delta >= 6:
+        status = "high"
+    elif delta >= 3:
+        status = "elevated"
+    elif delta <= -3:
+        status = "low"
+    else:
+        status = "normal"
+
+    return HeartRateRecovery(
+        baseline_resting_7d=baseline,
+        delta_from_baseline=delta,
+        status=status,
+    )
+
+
+def _build_insights(
+    selected: DailyMetric,
+    recovery: HeartRateRecovery,
+    quality: HeartRateDataQuality,
+) -> list[HeartRateInsight]:
+    insights: list[HeartRateInsight] = []
+
+    delta = recovery.delta_from_baseline
+    status = recovery.status
+    sleep_score = selected.sleep.score
+    hrv_status = selected.hrv.status.lower() if selected.hrv.status else None
+
+    if status == "high":
+        insights.append(HeartRateInsight(
+            level="warning",
+            title="Resting HR is materially elevated",
+            detail=f"Resting HR is {delta:+.1f} bpm versus the prior 7-day baseline.",
+        ))
+    elif status == "elevated":
+        insights.append(HeartRateInsight(
+            level="caution",
+            title="Resting HR is mildly elevated",
+            detail=f"Resting HR is {delta:+.1f} bpm versus the prior 7-day baseline.",
+        ))
+    elif status == "low":
+        insights.append(HeartRateInsight(
+            level="good",
+            title="Resting HR is below baseline",
+            detail=f"Resting HR is {delta:+.1f} bpm versus the prior 7-day baseline.",
+        ))
+
+    if sleep_score is not None and sleep_score < 70 and status in {"high", "elevated"}:
+        insights.append(HeartRateInsight(
+            level="warning",
+            title="Sleep may be impacting recovery",
+            detail=f"Sleep score is {sleep_score}, which often coincides with elevated resting HR.",
+        ))
+
+    hrv_unfavorable = bool(
+        hrv_status and ("low" in hrv_status or "unbalanced" in hrv_status)
+    )
+    if hrv_unfavorable and status in {"high", "elevated"}:
+        insights.append(HeartRateInsight(
+            level="warning",
+            title="HRV and resting HR are both unfavorable",
+            detail=f"HRV status is '{selected.hrv.status}', while resting HR is above baseline.",
+        ))
+
+    hrv_balanced = bool(hrv_status and "balanced" in hrv_status)
+    if (
+        not insights
+        and sleep_score is not None
+        and sleep_score >= 80
+        and hrv_balanced
+    ):
+        insights.append(HeartRateInsight(
+            level="good",
+            title="Recovery signals look stable",
+            detail="Sleep score and HRV status are supportive, with no elevated resting-HR signal.",
+        ))
+
+    if quality.sample_count < 30:
+        insights.append(HeartRateInsight(
+            level="info",
+            title="Low sample coverage",
+            detail=f"Only {quality.sample_count} heart-rate samples were available for this day.",
+        ))
+
+    return insights
+
+
+def load_heart_rate_insights(date: str | None = None) -> HeartRateInsightsResponse:
+    """Load backend-derived heart-rate insights for a day (or latest if omitted)."""
+    metrics = load_daily_metrics()
+    if not metrics:
+        raise LookupError("No heart-rate data available")
+
+    selected_date = date or metrics[-1].date
+    selected_index = next(
+        (i for i, metric in enumerate(metrics) if metric.date == selected_date),
+        None,
+    )
+    if selected_index is None:
+        raise LookupError(f"Day {selected_date} not found")
+
+    wellness_days = load_wellness(selected_date)
+    heart_rate_readings = wellness_days[0].heart_rate if wellness_days else []
+    parsed_times = sorted(
+        dt for dt in (_parse_iso(r.timestamp) for r in heart_rate_readings) if dt is not None
+    )
+    coverage_start = parsed_times[0].isoformat() if parsed_times else None
+    coverage_end = parsed_times[-1].isoformat() if parsed_times else None
+    coverage_hours = (
+        round((parsed_times[-1] - parsed_times[0]).total_seconds() / 3600, 2)
+        if len(parsed_times) >= 2 else None
+    )
+
+    quality = HeartRateDataQuality(
+        sample_count=len(heart_rate_readings),
+        coverage_start=coverage_start,
+        coverage_end=coverage_end,
+        coverage_hours=coverage_hours,
+    )
+    recovery = _compute_recovery(metrics, selected_index)
+    selected_metric = metrics[selected_index]
+
+    return HeartRateInsightsResponse(
+        date=selected_date,
+        day_stats=selected_metric.heart_rate,
+        recovery=recovery,
+        zones=_compute_zone_minutes(heart_rate_readings),
+        quality=quality,
+        insights=_build_insights(selected_metric, recovery, quality),
+    )

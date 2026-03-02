@@ -17,7 +17,8 @@ Data schemas and field documentation live in `.claude/skills/garmin-data/referen
 - **HR, Stress, Respiration: 0% missing.** Complete coverage across all 37 days.
 
 ### Sensor Artifacts
-- HR min values dip to ~40 bpm on some days — could be legitimate resting HR during deep sleep, or sensor artifact during low-motion periods. Worth cross-referencing with sleep stages.
+- **Zero-BPM readings:** The Garmin sensor emits HR=0 when it loses skin contact (wrist lifted, poor fit, etc.). These were contaminating stats — MIN showed 0 bpm, pulling averages down. Fixed by filtering `hr_value > 0` at ingest and as defense-in-depth in aggregation/zone computation. Same pattern already existed for respiration (filtered at `value > 0`).
+- HR min values dip to ~40 bpm on some days — could be legitimate resting HR during deep sleep, or sensor artifact during low-motion periods. Cross-referencing with sleeping HR analysis confirms many low values coincide with deep sleep stages.
 - HR max hits 160+ bpm — likely exercise peaks. Not artifacts, but they dominate min/max visualizations.
 
 ---
@@ -91,6 +92,27 @@ SpO2 shows no strong correlation with any other metric (all |r| < 0.5). This is 
 
 ### Key Takeaway
 The data tells a consistent physiological story: stress, elevated HR, and elevated respiration form one axis; HRV, body battery, and sleep score form the opposing recovery axis. Respiration ↔ HRV (-0.87) is the single strongest link, suggesting respiration rate may be the most sensitive daily indicator of autonomic stress load.
+
+---
+
+## Heart Rate Analysis Features
+
+Five analysis views were added to the heart rate tab, moving beyond simple daily averages into physiologically meaningful patterns.
+
+### Resting HR Trend (7-Day Moving Average)
+Raw daily resting HR overlaid with a trailing 7-day moving average. The MA smooths out day-to-day noise (e.g., a single bad night) so gradual drift becomes visible. A sustained upward MA trend — even 2-3 bpm over two weeks — can indicate overtraining, accumulated stress, or the early stages of illness, often days before subjective symptoms appear.
+
+### HR Distribution (per-day histogram)
+Each day's ~1800 HR readings bucketed into 5-bpm bins. Shape tells the story: a unimodal cluster around 55-65 bpm is a quiet day; a bimodal distribution with a second peak at 120+ reveals a distinct exercise bout. Wide, flat distributions indicate constant mode-switching. Comparing histograms across days reveals behavioral patterns invisible to a single "avg HR" number.
+
+### Circadian HR Profile
+Average HR for each hour (0-23) aggregated across the entire data period. The characteristic U-shaped curve — nadir at 3-5 AM (deep sleep), rise through the morning, plateau at midday, gradual decline in the evening — reflects the body's circadian autonomic rhythm. Changes in the curve's shape (e.g., an elevated overnight floor, a blunted morning rise) can indicate disrupted sleep patterns, shift changes, or chronic stress.
+
+### Sleeping HR Trend
+Average HR during actual sleep stages (light, deep, REM), with awake periods excluded. Uses cross-date correlation: sleep data for date D spans the evening of D-1 through the morning of D, so HR readings from both dates are matched against sleep-stage timestamps. This yields the purest resting signal — unlike "resting HR" which can include sitting at a desk, sleeping HR removes all waking physiology. A rising sleeping HR trend warrants attention even if daytime metrics look normal.
+
+### Weekly Resting HR Boxplot
+Five-number summary (min, Q1, median, Q3, max) of daily resting HR grouped by ISO week. Visualized as filled bands with a bold median line. Shows both the central tendency and *variability* of resting HR within each week. A tightening box (Q1 and Q3 converging) means the body is settling into a consistent rhythm; a widening box suggests disrupted recovery patterns. Comparing median lines across weeks provides the clearest long-term resting HR trend.
 
 ---
 

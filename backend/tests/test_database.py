@@ -99,10 +99,11 @@ class TestFingerprint:
 # Store and load round-trips
 # ---------------------------------------------------------------------------
 
-def _make_daily_metric(date: str) -> DailyMetric:
+def _make_daily_metric(date: str, utc_offset_hours: float | None = None) -> DailyMetric:
     """Build a minimal DailyMetric for storage tests."""
     return DailyMetric(
         date=date,
+        utc_offset_hours=utc_offset_hours,
         heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, resting=48),
         stress=DailyMetricStats(avg=25.0),
         body_battery=DailyBodyBatteryStats(avg=60.0),

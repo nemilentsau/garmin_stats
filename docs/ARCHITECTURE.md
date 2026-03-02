@@ -26,7 +26,22 @@ Two separate paths:
 - **`database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
 - **`events.py`**: SSE event bus — `EventBus` with per-client `asyncio.Queue`, module-level `event_bus` singleton
 - **`watcher.py`**: File watcher — `watch_data_directory()` uses `watchfiles.awatch()` to detect new `.fit` files, auto-ingests, broadcasts `data_updated` via SSE; `heartbeat_loop()` keeps connections alive
-- **`main.py`**: FastAPI endpoints with `response_model=`, lifespan for auto-ingest + file watcher + heartbeat tasks, SSE endpoint at `GET /api/events`
+- **`main.py`**: App creation, CORS middleware, lifespan (auto-ingest + file watcher + heartbeat tasks), router registration. All endpoints live in `routers/`.
+- **`routers/`**: Domain-specific HTTP route modules. Each defines an `APIRouter` with a prefix and delegates to `database`/`stats`/`services`:
+  - `ingest.py` (`/api/ingest`) — trigger re-ingest, check ingest status
+  - `days.py` (`/api/days`) — list available days, get day summary
+  - `wellness.py` (`/api/wellness`) — wellness data (HR, stress, SpO2, respiration, activity)
+  - `sleep.py` (`/api/sleep`) — sleep data (stages, assessment scores)
+  - `daily_aggregates.py` (`/api/daily-aggregates`) — per-day aggregate stats + period summary
+  - `skin_temp.py` (`/api/skin-temp`) — skin temperature data
+  - `heart_rate.py` (`/api/heart-rate`) — heart rate insights + analysis + distribution
+  - `hrv.py` (`/api/hrv`) — HRV data + insights
+  - `events.py` (`/api/events`) — SSE stream for real-time updates
+
+- **`services/`**: Domain-level business logic — pure functions + DB loaders for derived insights:
+  - `heart_rate.py` — day-level HR insights: recovery, zone durations, quality metrics
+  - `heart_rate_analysis.py` — period-level HR analysis: circadian profile, sleeping HR trend (cross-date sleep-stage correlation), resting HR trend (7-day MA), HR distribution (5-bpm histogram), weekly boxplots (5-number summary by ISO week)
+  - `hrv.py` — day-level HRV insights: recovery, intraday segments (day/night split), status mix, trend bands
 
 ### SQLite details
 - DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
@@ -72,7 +87,7 @@ Two separate paths:
 - Components go in `src/lib/components/`
 - Routes in `src/routes/` following SvelteKit file-based routing
 - Use `import { page } from '$app/state'` for SvelteKit page state (Svelte 5 style)
-- Chart.js charts live in `src/lib/components/LineChart.svelte`, config via `src/lib/chart-setup.ts`
+- Chart.js charts live in `src/lib/components/LineChart.svelte` and `BarChart.svelte`, config via `src/lib/chart-setup.ts`
 - **Frontend is display-only** — zero statistical computation. All stats, aggregations, zone distributions, and derived values are computed on the backend. Frontend only handles chart config, formatting, and rendering.
 - Period-level stats come from `data.period` (backend-computed from raw readings), never from averaging daily aggregates
 

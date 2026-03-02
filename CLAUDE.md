@@ -7,14 +7,20 @@
 - **Tests**: `cd backend && uv run pytest tests/ -v`
 - **Lint**: `cd backend && uv run ruff check` (checks both `app/` and `tests/`)
 - **Type check**: `cd backend && uv run pyright app/ tests/`
-- **API types**: `bash scripts/generate-api-types.sh` (run after backend model changes)
-- **After any Python change**: run lint + type check + tests. Iterate until all pass — 0 errors, no exceptions.
+- **API types**: `bash scripts/generate-api-types.sh` (run after backend model/route changes)
+- **Validation scope rules**:
+  - **Python files changed**: run backend lint + type check + tests. Iterate until all pass — 0 errors, no exceptions.
+  - **Frontend/TypeScript-only changes**: run `cd frontend && npm run check` (and fix all errors).
+  - **If backend API schema changed**: regenerate API types, commit updated `frontend/src/lib/api-types.ts`, then run `npm run check`.
 
 ## Key Constraints
-- API types flow: Pydantic models → OpenAPI → generated TypeScript. Never hand-write `frontend/src/lib/api-types.ts`.
+- API types flow: Pydantic models/routes → OpenAPI → generated TypeScript.
+- Never hand-write `frontend/src/lib/api-types.ts`; always regenerate via script after backend schema changes.
 - Data format: `data/YYYY-MM-DD.zip` → extract → `YYYY-MM-DD/*.fit`. Ingest pipeline handles zip extraction.
 - Period-level stats come from raw readings, never from averaging daily aggregates.
 - Frontend is display-only: zero statistical computation. All stats, aggregations, and derived values come from the backend API.
+- **Timestamps are local time.** FIT files store UTC; the parser extracts the per-day UTC offset from `monitoring_info_mesgs` and shifts all timestamps to local time at ingest. `DayData.utc_offset_hours` / `DailyMetric.utc_offset_hours` carry the offset for display. New timestamp fields must go through `_shift_timestamps` in `parser.py`.
+- **Re-ingest after parser changes**: `cd backend && uv run python ../scripts/reingest.py`
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`

@@ -3,11 +3,14 @@
 	import {
 		api,
 		type DailyAggregates,
-		type DailyMetric,
+		type HeartRateInsights,
+		type HRAnalysis,
+		type HRDistribution,
 		type WellnessData
 	} from '$lib/api';
-	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import BarChart from '$lib/components/BarChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
@@ -16,19 +19,32 @@
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
+	let insights: HeartRateInsights | null = $state(null);
 	let intradayData: WellnessData | null = $state(null);
+	let analysis: HRAnalysis | null = $state(null);
+	let distribution: HRDistribution | null = $state(null);
 	let selectedDate = $state('');
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let dateRequestId = 0;
 
 	async function fetchData() {
-		agg = await api.getDailyAggregates();
-		const date = selectedDate;
+		const date = selectedDate || undefined;
+		const [nextAgg, nextInsights, nextIntraday, nextAnalysis] = await Promise.all([
+			api.getDailyAggregates(),
+			api.getHeartRateInsights(date),
+			date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null),
+			api.getHeartRateAnalysis()
+		]);
+		if ((selectedDate || undefined) !== date) {
+			return;
+		}
+		agg = nextAgg;
+		insights = nextInsights;
+		intradayData = nextIntraday;
+		analysis = nextAnalysis;
 		if (date) {
-			const data = await api.getWellness(date);
-			if (selectedDate === date) {
-				intradayData = data;
-			}
+			distribution = await api.getHRDistribution(date);
 		}
 	}
 
@@ -44,21 +60,36 @@
 		});
 	});
 
-	const onDateChange = createDateLoader<WellnessData>({
-		setSelectedDate: (date) => {
-			selectedDate = date;
-		},
-		clearData: () => {
-			intradayData = null;
-		},
-		fetchByDate: (date) => api.getWellness(date),
-		setData: (data) => {
-			intradayData = data;
-		},
-		setError: (message) => {
-			error = message;
+	async function onDateChange(date: string) {
+		selectedDate = date;
+		intradayData = null;
+		insights = null;
+		distribution = null;
+		const requestId = ++dateRequestId;
+		try {
+			const promises: [
+				Promise<HeartRateInsights>,
+				Promise<WellnessData | null>,
+				Promise<HRDistribution | null>
+			] = [
+				api.getHeartRateInsights(date || undefined),
+				date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null),
+				date ? api.getHRDistribution(date) : Promise.resolve<HRDistribution | null>(null)
+			];
+			const [nextInsights, nextIntraday, nextDistribution] = await Promise.all(promises);
+			if (requestId !== dateRequestId) {
+				return;
+			}
+			insights = nextInsights;
+			intradayData = nextIntraday;
+			distribution = nextDistribution;
+		} catch (e: unknown) {
+			if (requestId !== dateRequestId) {
+				return;
+			}
+			error = e instanceof Error ? e.message : String(e);
 		}
-	});
+	}
 
 	const darkScales = {
 		x: {
@@ -88,70 +119,106 @@
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
+		const labels = agg.daily.map((d) => d.date);
+		const typicalLow = agg.period?.heart_rate.typical_low ?? null;
+		const typicalHigh = agg.period?.heart_rate.typical_high ?? null;
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
+
+		if (typicalLow != null && typicalHigh != null) {
+			datasets.push(
+				{
+					label: 'Typical Low',
+					data: labels.map(() => typicalLow),
+					borderColor: withAlpha(COLORS.heartRateResting, '70'),
+					borderWidth: 1,
+					borderDash: [3, 3],
+					pointRadius: 0,
+					tension: 0,
+					fill: false
+				},
+				{
+					label: 'Typical High',
+					data: labels.map(() => typicalHigh),
+					borderColor: withAlpha(COLORS.heartRateResting, '70'),
+					borderWidth: 1,
+					borderDash: [3, 3],
+					pointRadius: 0,
+					tension: 0,
+					fill: '-1',
+					backgroundColor: withAlpha(COLORS.heartRateResting, '10')
+				}
+			);
+		}
+
+		datasets.push(
+			{
+				label: 'Avg HR',
+				data: agg.daily.map((d) => d.heart_rate.avg),
+				borderColor: COLORS.heartRate,
+				borderWidth: 2,
+				pointRadius: 2,
+				tension: 0.3,
+				spanGaps: true
+			},
+			{
+				label: 'Resting HR',
+				data: agg.daily.map((d) => d.heart_rate.resting),
+				borderColor: COLORS.heartRateResting,
+				borderWidth: 2,
+				pointRadius: 2,
+				tension: 0.3,
+				spanGaps: true
+			},
+			{
+				label: 'Q1 (25th)',
+				data: agg.daily.map((d) => d.heart_rate.q1),
+				borderColor: withAlpha(COLORS.heartRate, '80'),
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: false
+			},
+			{
+				label: 'Q3 (75th)',
+				data: agg.daily.map((d) => d.heart_rate.q3),
+				borderColor: withAlpha(COLORS.heartRate, '80'),
+				borderWidth: 1,
+				borderDash: [4, 4],
+				pointRadius: 0,
+				tension: 0.3,
+				spanGaps: true,
+				fill: '-1',
+				backgroundColor: withAlpha(COLORS.heartRate, '12')
+			}
+		);
+
 		return {
 			type: 'line',
 			data: {
-				labels: agg.daily.map((d) => d.date),
-				datasets: [
-					{
-						label: 'Avg HR',
-						data: agg.daily.map((d) => d.heart_rate.avg),
-						borderColor: COLORS.heartRate,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: 'Resting HR',
-						data: agg.daily.map((d) => d.heart_rate.resting),
-						borderColor: COLORS.heartRateResting,
-						borderWidth: 2,
-						pointRadius: 2,
-						tension: 0.3,
-						spanGaps: true
-					},
-					{
-						label: 'Q1 (25th)',
-						data: agg.daily.map((d) => d.heart_rate.q1),
-						borderColor: withAlpha(COLORS.heartRate, '80'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true,
-						fill: false
-					},
-					{
-						label: 'Q3 (75th)',
-						data: agg.daily.map((d) => d.heart_rate.q3),
-						borderColor: withAlpha(COLORS.heartRate, '80'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: true,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.heartRate, '12')
-					}
-				]
+				labels,
+				datasets
 			},
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
+				onClick: (_event, elements, chart) => {
+					const active = elements[0];
+					if (!active) return;
+					const label = chart.data.labels?.[active.index];
+					if (typeof label !== 'string' || label === selectedDate) return;
+					void onDateChange(label);
+				},
 				plugins: darkPlugins,
 				scales: darkScales
 			}
 		};
 	});
 
-	// Day-level stats derived from daily aggregates
 	let dayStats = $derived.by(() => {
-		if (!agg || !selectedDate) return null;
-		const day = agg.daily.find((d) => d.date === selectedDate);
-		if (!day) return null;
-		return day.heart_rate;
+		return insights?.day_stats ?? null;
 	});
 
 	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
@@ -223,13 +290,18 @@
 	};
 
 	let zoneBreakdown = $derived.by(() => {
-		if (!dayStats || dayStats.zones.length === 0) return null;
-		return dayStats.zones.map((z) => ({
+		if (!insights || insights.zones.length === 0) return null;
+		return insights.zones.map((z) => ({
 			label: z.label,
 			color: ZONE_COLORS[z.label] ?? '#6b7d8e',
-			pct: z.pct
+			pct: z.pct,
+			minutes: z.minutes
 		}));
 	});
+
+	let recovery = $derived.by(() => insights?.recovery ?? null);
+	let quality = $derived.by(() => insights?.quality ?? null);
+	let insightDate = $derived.by(() => insights?.date ?? null);
 
 	let stats = $derived.by(() => {
 		if (!agg?.period) return null;
@@ -241,7 +313,295 @@
 			avgResting: hr.avg_resting
 		};
 	});
-</script>
+
+	function fmtSigned(n: number | null | undefined): string {
+		if (n == null) return '-';
+		const rounded = n.toFixed(1);
+		return n > 0 ? `+${rounded}` : rounded;
+	}
+
+	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
+		if (!start || !end) return '-';
+		return `${start.slice(11, 16)}-${end.slice(11, 16)}`;
+	}
+
+	function recoveryColorClass(status: string | null | undefined): string {
+		if (status === 'high' || status === 'elevated') return 'text-[#E85D4A]';
+		if (status === 'low' || status === 'normal') return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
+	}
+
+	function insightColor(level: string): string {
+		if (level === 'warning') return '#E85D4A';
+		if (level === 'caution') return '#D4944C';
+		if (level === 'good') return '#4CAF82';
+		return '#8a9baa';
+	}
+
+	// --- Analysis chart configs ---
+
+	let restingTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!analysis || analysis.resting_hr_trend.length === 0) return null;
+		const t = analysis.resting_hr_trend;
+		return {
+			type: 'line',
+			data: {
+				labels: t.map((p) => p.date),
+				datasets: [
+					{
+						label: 'Resting HR',
+						data: t.map((p) => p.resting_bpm),
+						borderColor: withAlpha(COLORS.heartRateResting, '60'),
+						borderWidth: 1,
+						pointRadius: 2,
+						pointBackgroundColor: COLORS.heartRateResting,
+						tension: 0,
+						spanGaps: true
+					},
+					{
+						label: '7-Day MA',
+						data: t.map((p) => p.ma7_bpm),
+						borderColor: COLORS.heartRateResting,
+						borderWidth: 2.5,
+						pointRadius: 0,
+						tension: 0.3,
+						spanGaps: true
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index' as const, intersect: false },
+				plugins: darkPlugins,
+				scales: darkScales
+			}
+		};
+	});
+
+	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (!distribution || distribution.bins.length === 0) return null;
+		return {
+			type: 'bar',
+			data: {
+				labels: distribution.bins.map((b) => `${b.bin_start}-${b.bin_end}`),
+				datasets: [
+					{
+						label: 'Readings',
+						data: distribution.bins.map((b) => b.count),
+						backgroundColor: withAlpha(COLORS.heartRate, '70'),
+						borderColor: COLORS.heartRate,
+						borderWidth: 1,
+						borderRadius: 2
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderWidth: 1,
+						borderColor: withAlpha(COLORS.heartRate, '60'),
+						padding: 10,
+						cornerRadius: 4
+					}
+				},
+				scales: {
+					x: {
+						title: { display: true, text: 'bpm range', color: '#6b7d8e' },
+						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: true,
+						title: { display: true, text: 'count', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
+				}
+			}
+		};
+	});
+
+	let circadianConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!analysis || analysis.circadian_profile.length === 0) return null;
+		const profile = analysis.circadian_profile;
+		return {
+			type: 'line',
+			data: {
+				labels: profile.map((p) => `${String(p.hour).padStart(2, '0')}:00`),
+				datasets: [
+					{
+						label: 'Avg HR',
+						data: profile.map((p) => p.avg_bpm),
+						borderColor: COLORS.heartRate,
+						borderWidth: 2,
+						pointRadius: 3,
+						pointBackgroundColor: COLORS.heartRate,
+						tension: 0.3,
+						fill: { target: 'origin', above: withAlpha(COLORS.heartRate, '15') },
+						spanGaps: true
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderWidth: 1,
+						borderColor: withAlpha(COLORS.heartRate, '60'),
+						padding: 10,
+						cornerRadius: 4
+					}
+				},
+				scales: {
+					x: {
+						title: { display: true, text: 'Hour of Day', color: '#6b7d8e' },
+						ticks: { font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'bpm', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
+				}
+			}
+		};
+	});
+
+	let sleepingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!analysis || analysis.sleeping_hr_trend.length === 0) return null;
+		const trend = analysis.sleeping_hr_trend;
+		return {
+			type: 'line',
+			data: {
+				labels: trend.map((p) => p.date),
+				datasets: [
+					{
+						label: 'Sleeping HR',
+						data: trend.map((p) => p.avg_sleeping_bpm),
+						borderColor: '#6366B0',
+						borderWidth: 2,
+						pointRadius: 2,
+						pointBackgroundColor: '#6366B0',
+						tension: 0.3,
+						spanGaps: true,
+						fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderWidth: 1,
+						borderColor: 'rgba(99, 102, 176, 0.6)',
+						padding: 10,
+						cornerRadius: 4
+					}
+				},
+				scales: darkScales
+			}
+		};
+	});
+
+	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
+		const boxes = analysis.weekly_boxplots;
+		const labels = boxes.map((b) => b.iso_week);
+		return {
+			type: 'line',
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Min',
+						data: boxes.map((b) => b.min_bpm),
+						borderColor: withAlpha(COLORS.heartRateResting, '50'),
+						borderWidth: 1,
+						borderDash: [3, 3],
+						pointRadius: 0,
+						tension: 0,
+						fill: false
+					},
+					{
+						label: 'Q1',
+						data: boxes.map((b) => b.q1_bpm),
+						borderColor: withAlpha(COLORS.heartRateResting, '70'),
+						borderWidth: 1,
+						pointRadius: 0,
+						tension: 0,
+						fill: false
+					},
+					{
+						label: 'Median',
+						data: boxes.map((b) => b.median_bpm),
+						borderColor: COLORS.heartRateResting,
+						borderWidth: 2.5,
+						pointRadius: 3,
+						pointBackgroundColor: COLORS.heartRateResting,
+						tension: 0
+					},
+					{
+						label: 'Q3',
+						data: boxes.map((b) => b.q3_bpm),
+						borderColor: withAlpha(COLORS.heartRateResting, '70'),
+						borderWidth: 1,
+						pointRadius: 0,
+						tension: 0,
+						fill: '-2',
+						backgroundColor: withAlpha(COLORS.heartRateResting, '12')
+					},
+					{
+						label: 'Max',
+						data: boxes.map((b) => b.max_bpm),
+						borderColor: withAlpha(COLORS.heartRateResting, '50'),
+						borderWidth: 1,
+						borderDash: [3, 3],
+						pointRadius: 0,
+						tension: 0,
+						fill: false
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: { mode: 'index' as const, intersect: false },
+				plugins: darkPlugins,
+				scales: {
+					x: {
+						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'Resting bpm', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
+				}
+			}
+		};
+	});
+	</script>
 
 <svelte:head><title>Heart Rate - Garmin Stats</title></svelte:head>
 
@@ -256,17 +616,30 @@
 {:else if agg}
 	<h1 class="text-xl font-bold text-[#e8f0f5] mb-4">Heart Rate</h1>
 
-	<MetricDefinition title="What is Heart Rate?">
+	<MetricDefinition title="Understanding Your Heart Rate">
 		<p class="mb-2">
-			Heart rate measures how many times your heart beats per minute (bpm). <strong>Resting heart rate</strong> (RHR)
-			is measured when you're calm and still — a lower RHR generally indicates better cardiovascular fitness.
+			Your heart rate tells a story about how your body responds to the world. <strong>Resting heart rate</strong>
+			(RHR) &mdash; measured when you're calm and still &mdash; is the baseline of that story. A lower RHR
+			generally indicates stronger cardiovascular fitness; most adults sit between 60&ndash;100 bpm,
+			while trained athletes can drop to 40&ndash;60 bpm.
 		</p>
 		<p class="mb-2">
-			<strong>Normal resting range:</strong> 60-100 bpm for adults. Athletes may be 40-60 bpm.
+			But a single number only tells you where you are <em>today</em>. The charts below unpack the full picture:
 		</p>
+		<ul class="list-disc list-inside space-y-1 mb-2 text-[#8a9baa]">
+			<li><strong>Daily Trend</strong> &mdash; day-to-day avg and resting HR, with IQR bands showing your typical range. Click a day to drill in.</li>
+			<li><strong>Intraday</strong> &mdash; every reading across a single day. Reveals exercise spikes, rest valleys, and how quickly you recover.</li>
+			<li><strong>HR Zones</strong> &mdash; how your day splits across Rest / Light / Moderate / Vigorous. More time in higher zones means more cardiovascular load.</li>
+			<li><strong>Resting HR Trend</strong> &mdash; raw daily resting HR plus a 7-day moving average. The MA line smooths out noise so you can spot gradual drift &mdash; a steady climb can signal overtraining, illness, or accumulated stress.</li>
+			<li><strong>HR Distribution</strong> &mdash; a histogram of every reading in a day, binned by 5 bpm. A tight cluster means a quiet day; a wide spread or a second peak means your body shifted gears.</li>
+			<li><strong>Circadian Profile</strong> &mdash; your average heart rate for each hour of the day, built from the entire period. The dip in the early-morning hours reflects deep sleep; the rise through midday reflects waking activity. Changes in the shape of this curve can indicate shifting sleep patterns or lifestyle changes.</li>
+			<li><strong>Sleeping HR</strong> &mdash; average HR during actual sleep stages (light, deep, REM &mdash; awake periods excluded). This is the purest resting signal your body produces; a rising trend here deserves attention even if daytime resting HR looks stable.</li>
+			<li><strong>Weekly Boxplot</strong> &mdash; each ISO week's resting HR summarized as min / Q1 / median / Q3 / max. Lets you compare week-to-week variability at a glance &mdash; a tightening box means your body is settling into a consistent rhythm.</li>
+		</ul>
 		<p>
-			Trends in average and resting HR can indicate fitness improvements, overtraining,
-			illness, or stress changes over time.
+			Together, these views let you move from &ldquo;my resting HR is 52&rdquo; to understanding <em>when</em> it
+			rises, <em>how</em> your body distributes effort across a day, and <em>whether</em> the trend is heading
+			in the right direction.
 		</p>
 	</MetricDefinition>
 
@@ -281,7 +654,62 @@
 		</div>
 	{/if}
 
+	{#if recovery || quality}
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+			<StatCard
+				title="RHR vs 7-Day"
+				value={fmtSigned(recovery?.delta_from_baseline)}
+				unit="bpm"
+				subtitle={`baseline ${fmt(recovery?.baseline_resting_7d)} bpm`}
+				colorClass={recoveryColorClass(recovery?.status)}
+			/>
+			<StatCard
+				title="Recovery"
+				value={recovery?.status ? recovery.status.toUpperCase() : '-'}
+				subtitle="server-derived signal"
+				colorClass={recoveryColorClass(recovery?.status)}
+			/>
+			<StatCard
+				title="Samples"
+				value={quality?.sample_count ?? '-'}
+				subtitle={insightDate ? `date ${insightDate}` : ''}
+				colorClass="text-[#8a9baa]"
+			/>
+			<StatCard
+				title="Coverage"
+				value={fmtTimeWindow(quality?.coverage_start, quality?.coverage_end)}
+				subtitle={`${fmt(quality?.coverage_hours)} hrs`}
+				colorClass="text-[#5BB5A6]"
+			/>
+		</div>
+	{/if}
+
+	{#if insights && insights.insights.length > 0}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Recovery Insights {insightDate ? `— ${insightDate}` : ''}
+			</h2>
+			<div class="space-y-2">
+				{#each insights.insights as item}
+					<div
+						class="bg-[rgba(255,255,255,0.02)] rounded-md px-3 py-2 border-l-2"
+						style="border-left-color: {insightColor(item.level)};"
+					>
+						<div class="text-[11px] uppercase tracking-wide" style="color: {insightColor(item.level)};">
+							{item.level}
+						</div>
+						<div class="text-sm text-[#d9e5ec] font-medium">{item.title}</div>
+						<div class="text-xs text-[#8a9baa]">{item.detail}</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	{#if dayStats}
+		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+			Day Snapshot {insightDate ? `— ${insightDate}` : ''}
+		</h2>
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<StatCard title="Min" value={fmt(dayStats.min)} unit="bpm" colorClass="text-[#4A90D9]" />
 			<StatCard title="Max" value={fmt(dayStats.max)} unit="bpm" colorClass="text-[#D4944C]" />
@@ -306,32 +734,83 @@
 			<LineChart config={intradayConfig} height={300} />
 			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.heart_rate.length ?? 0} readings</p>
 		</div>
-
-		{#if zoneBreakdown}
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">HR Zones</h2>
-				<div class="flex h-6 rounded overflow-hidden">
-					{#each zoneBreakdown as zone}
-						<div
-							class="flex items-center justify-center text-[10px] font-medium text-white/90"
-							style="width: {zone.pct}%; background-color: {zone.color};"
-							title="{zone.label}: {zone.pct}%"
-						>
-							{#if zone.pct >= 8}{zone.pct}%{/if}
-						</div>
-					{/each}
-				</div>
-				<div class="flex gap-4 mt-2">
-					{#each zoneBreakdown as zone}
-						<div class="flex items-center gap-1.5 text-xs text-[#8a9baa]">
-							<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: {zone.color};"></span>
-							{zone.label} {zone.pct}%
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
 	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		<div class="text-sm text-[#5e7282] mb-6">Loading intraday data...</div>
+	{/if}
+
+	{#if zoneBreakdown}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				HR Zones {insightDate ? `— ${insightDate}` : ''}
+			</h2>
+			<div class="flex h-6 rounded overflow-hidden">
+				{#each zoneBreakdown as zone}
+					<div
+						class="flex items-center justify-center text-[10px] font-medium text-white/90"
+						style="width: {zone.pct}%; background-color: {zone.color};"
+						title="{zone.label}: {zone.minutes} min ({zone.pct}%)"
+					>
+						{#if zone.pct >= 8}{zone.pct}%{/if}
+					</div>
+				{/each}
+			</div>
+			<div class="flex gap-4 mt-2 flex-wrap">
+				{#each zoneBreakdown as zone}
+					<div class="flex items-center gap-1.5 text-xs text-[#8a9baa]">
+						<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background-color: {zone.color};"></span>
+						{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	{#if restingTrendConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Resting HR Trend &mdash; 7-Day Moving Average
+			</h2>
+			<LineChart config={restingTrendConfig} height={300} />
+		</div>
+	{/if}
+
+	{#if selectedDate && distributionConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				HR Distribution &mdash; {selectedDate}
+			</h2>
+			<BarChart config={distributionConfig} height={260} />
+			<p class="text-xs text-[#4a5c6a] mt-2">{distribution?.sample_count ?? 0} readings</p>
+		</div>
+	{/if}
+
+	{#if circadianConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Circadian HR Profile
+			</h2>
+			<LineChart config={circadianConfig} height={280} />
+			<p class="text-xs text-[#4a5c6a] mt-2">Average heart rate by hour of day across the entire period</p>
+		</div>
+	{/if}
+
+	{#if sleepingHRConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Sleeping HR Trend
+			</h2>
+			<LineChart config={sleepingHRConfig} height={280} />
+			<p class="text-xs text-[#4a5c6a] mt-2">Average HR during light/deep/REM sleep stages (excludes awake)</p>
+		</div>
+	{/if}
+
+	{#if boxplotConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Weekly Resting HR &mdash; Boxplot
+			</h2>
+			<LineChart config={boxplotConfig} height={280} />
+			<p class="text-xs text-[#4a5c6a] mt-2">Min / Q1 / Median / Q3 / Max of daily resting HR per ISO week</p>
+		</div>
 	{/if}
 {/if}

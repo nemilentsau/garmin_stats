@@ -19,6 +19,87 @@ export type DailyAggregates = Schemas['DailyAggregatesResponse'];
 export type DailyMetric = Schemas['DailyMetric'];
 export type IngestResult = Schemas['IngestResult'];
 export type IngestStatus = Schemas['IngestStatus'];
+export type DailyHeartRateStats = Schemas['DailyHeartRateStats'];
+
+export type HRAnalysis = Schemas['HeartRateAnalysisResponse'];
+export type HRDistribution = Schemas['HRDistributionResponse'];
+
+export type HeartRateZoneDuration = {
+	label: string;
+	min_bpm: number;
+	max_bpm: number | null;
+	minutes: number;
+	pct: number;
+};
+
+export type HeartRateInsights = {
+	date: string;
+	day_stats: DailyHeartRateStats;
+	recovery: {
+		baseline_resting_7d: number | null;
+		delta_from_baseline: number | null;
+		status: string | null;
+	};
+	quality: {
+		sample_count: number;
+		coverage_start: string | null;
+		coverage_end: string | null;
+		coverage_hours: number | null;
+	};
+	zones: HeartRateZoneDuration[];
+	insights: {
+		level: string;
+		title: string;
+		detail: string;
+	}[];
+};
+
+export type HrvInsights = {
+	date: string;
+	day_stats: Schemas['DailyHrvStats'];
+	recovery: {
+		baseline_nightly_7d: number | null;
+		delta_nightly_from_baseline: number | null;
+		acute_gap_vs_weekly: number | null;
+		status: string | null;
+	};
+	quality: {
+		sample_count: number;
+		coverage_start: string | null;
+		coverage_end: string | null;
+		coverage_hours: number | null;
+	};
+	intraday_segments: {
+		key: string;
+		label: string;
+		sample_count: number;
+		avg: number | null;
+		min: number | null;
+		max: number | null;
+		coverage_start: string | null;
+		coverage_end: string | null;
+		coverage_hours: number | null;
+		values: {
+			date: string;
+			timestamp: string | null;
+			value: number;
+		}[];
+	}[];
+	trend_band: {
+		nightly_typical_low: number | null;
+		nightly_typical_high: number | null;
+	};
+	status_mix: {
+		label: string;
+		count: number;
+		pct: number;
+	}[];
+	insights: {
+		level: string;
+		title: string;
+		detail: string;
+	}[];
+};
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
@@ -34,8 +115,15 @@ export const api = {
 		fetchJson<WellnessData>(`/api/wellness${date ? `?date=${date}` : ''}`),
 	getSleep: (date?: string) => fetchJson<SleepData>(`/api/sleep${date ? `?date=${date}` : ''}`),
 	getHrv: (date?: string) => fetchJson<HrvData>(`/api/hrv${date ? `?date=${date}` : ''}`),
+	getHrvInsights: (date?: string) =>
+		fetchJson<HrvInsights>(`/api/hrv/insights${date ? `?date=${date}` : ''}`),
 	getSkinTemp: (date?: string) =>
 		fetchJson<SkinTempData>(`/api/skin-temp${date ? `?date=${date}` : ''}`),
+	getHeartRateInsights: (date?: string) =>
+		fetchJson<HeartRateInsights>(`/api/heart-rate/insights${date ? `?date=${date}` : ''}`),
+	getHeartRateAnalysis: () => fetchJson<HRAnalysis>('/api/heart-rate/analysis'),
+	getHRDistribution: (date: string) =>
+		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
 	getDays: () => fetchJson<Schemas['DaysResponse']>('/api/days'),
 	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
 	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status')
