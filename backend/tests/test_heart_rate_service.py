@@ -3,6 +3,7 @@
 import pytest
 
 import app.database as db
+from app import cache
 from app.models import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -21,6 +22,7 @@ from app.services.heart_rate import load_heart_rate_insights
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    cache.invalidate()
     db.init_db()
     yield
 

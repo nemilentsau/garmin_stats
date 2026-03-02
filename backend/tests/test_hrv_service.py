@@ -3,6 +3,7 @@
 import pytest
 
 import app.database as db
+from app import cache
 from app.models import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -21,6 +22,7 @@ from app.services.hrv import load_hrv_insights
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    cache.invalidate()
     db.init_db()
     yield
 
@@ -84,9 +86,9 @@ class TestHrvInsights:
             resting_hr=52,
         ))
         _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00+00:00", value=45.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00+00:00", value=44.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:10:00+00:00", value=46.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=45.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=44.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:10:00", value=46.0),
         ])
 
         insights = load_hrv_insights()
@@ -99,11 +101,9 @@ class TestHrvInsights:
         assert insights.quality.coverage_hours == 0.17
         assert insights.trend_band.nightly_typical_low == 48.8
         assert insights.trend_band.nightly_typical_high == 56.2
-        assert len(insights.intraday_segments) == 2
-        night_segment = next(seg for seg in insights.intraday_segments if seg.key == "night")
-        day_segment = next(seg for seg in insights.intraday_segments if seg.key == "day")
-        assert night_segment.sample_count == 3
-        assert day_segment.sample_count == 0
+        assert len(insights.intraday_segments) == 1
+        segment = next(seg for seg in insights.intraday_segments if seg.key == "all")
+        assert segment.sample_count == 3
         titles = {item.title for item in insights.insights}
         assert "HRV appears suppressed" in titles
         assert "Acute recovery is below weekly trend" in titles
@@ -131,7 +131,7 @@ class TestHrvInsights:
         _insert_hrv_day("2026-01-15", [
             HrvValue(
                 date="2026-01-15",
-                timestamp=f"2026-01-15T00:{minute:02d}:00+00:00",
+                timestamp=f"2026-01-15T00:{minute:02d}:00",
                 value=60.0 + minute * 0.1,
             )
             for minute in range(25)
@@ -155,7 +155,7 @@ class TestHrvInsights:
         with pytest.raises(LookupError, match="Day 2026-01-16 not found"):
             load_hrv_insights("2026-01-16")
 
-    def test_builds_daytime_intraday_segment_when_data_exists(self):
+    def test_builds_single_intraday_segment_with_all_readings(self):
         _insert_metric(_make_daily_metric(
             date="2026-01-15",
             nightly_avg=52.0,
@@ -165,17 +165,15 @@ class TestHrvInsights:
             resting_hr=48,
         ))
         _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:00:00+00:00", value=51.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:05:00+00:00", value=53.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:00:00+00:00", value=46.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:05:00+00:00", value=47.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:00:00", value=51.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T01:05:00", value=53.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:00:00", value=46.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T13:05:00", value=47.0),
         ])
 
         insights = load_hrv_insights("2026-01-15")
-        night_segment = next(seg for seg in insights.intraday_segments if seg.key == "night")
-        day_segment = next(seg for seg in insights.intraday_segments if seg.key == "day")
-        assert night_segment.sample_count == 2
-        assert night_segment.avg == 52.0
-        assert day_segment.sample_count == 2
-        assert day_segment.avg == 46.5
-        assert day_segment.coverage_hours == 0.08
+        assert len(insights.intraday_segments) == 1
+        segment = insights.intraday_segments[0]
+        assert segment.key == "all"
+        assert segment.sample_count == 4
+        assert segment.avg == 49.2

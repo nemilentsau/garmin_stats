@@ -4,6 +4,7 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
+from .. import cache
 from ..database import load_daily_metrics, load_sleep, load_wellness
 from ..models import (
     CircadianHRPoint,
@@ -222,17 +223,23 @@ def _compute_weekly_boxplots(
 
 
 def load_heart_rate_analysis() -> HeartRateAnalysisResponse:
-    """Load all wellness + sleep + metrics, compute analysis features."""
+    """Load all wellness + sleep + metrics, compute analysis features (cached)."""
+    cached = cache.get("hr_analysis")
+    if cached is not None:
+        return cached
+    gen = cache.generation()
     all_wellness = load_wellness()
     all_sleep = load_sleep()
     metrics = load_daily_metrics()
 
-    return HeartRateAnalysisResponse(
+    result = HeartRateAnalysisResponse(
         circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
         resting_hr_trend=_compute_resting_hr_trend(metrics),
         weekly_boxplots=_compute_weekly_boxplots(metrics),
     )
+    cache.put("hr_analysis", result, gen)
+    return result
 
 
 def load_hr_distribution(date: str) -> HRDistributionResponse:

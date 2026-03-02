@@ -214,14 +214,10 @@
 		};
 	}
 
-	let nightSegment = $derived.by(
-		() => insights?.intraday_segments.find((segment) => segment.key === 'night') ?? null
+	let intradaySegment = $derived.by(
+		() => insights?.intraday_segments.find((segment) => segment.key === 'all') ?? null
 	);
-	let daySegment = $derived.by(
-		() => insights?.intraday_segments.find((segment) => segment.key === 'day') ?? null
-	);
-	let nightIntradayConfig = $derived.by(() => makeIntradayConfig(nightSegment, COLORS.hrv));
-	let dayIntradayConfig = $derived.by(() => makeIntradayConfig(daySegment, COLORS.hrvWeekly));
+	let intradayConfig = $derived.by(() => makeIntradayConfig(intradaySegment, COLORS.hrv));
 
 	let stats = $derived.by(() => {
 		if (!agg?.period) return null;
@@ -411,33 +407,18 @@
 	{#if selectedDate && !insights}
 		<div class="text-sm text-[#5e7282]">Loading intraday segments...</div>
 	{:else if selectedDate}
-		<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-					Nighttime HRV — {selectedDate}
-				</h2>
-				{#if nightIntradayConfig}
-					<LineChart config={nightIntradayConfig} height={260} />
-					<p class="text-xs text-[#4a5c6a] mt-2">
-						{nightSegment?.sample_count ?? 0} readings • avg {fmt(nightSegment?.avg)} ms
-					</p>
-				{:else}
-					<div class="text-sm text-[#5e7282]">No nighttime HRV samples for this day.</div>
-				{/if}
-			</div>
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-					Daytime HRV — {selectedDate}
-				</h2>
-				{#if dayIntradayConfig}
-					<LineChart config={dayIntradayConfig} height={260} />
-					<p class="text-xs text-[#4a5c6a] mt-2">
-						{daySegment?.sample_count ?? 0} readings • avg {fmt(daySegment?.avg)} ms
-					</p>
-				{:else}
-					<div class="text-sm text-[#5e7282]">No daytime HRV samples for this day.</div>
-				{/if}
-			</div>
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Overnight HRV — {selectedDate}
+			</h2>
+			{#if intradayConfig}
+				<LineChart config={intradayConfig} height={300} />
+				<p class="text-xs text-[#4a5c6a] mt-2">
+					{intradaySegment?.sample_count ?? 0} readings • avg {fmt(intradaySegment?.avg)} ms
+				</p>
+			{:else}
+				<div class="text-sm text-[#5e7282]">No HRV samples for this day.</div>
+			{/if}
 		</div>
 	{/if}
 {/if}

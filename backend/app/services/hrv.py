@@ -18,9 +18,6 @@ from ..models import (
     HrvValue,
 )
 
-_DAY_START_HOUR = 10
-_NIGHT_START_HOUR = 22
-
 
 def _parse_iso(ts: str | None) -> datetime | None:
     if not ts:
@@ -105,10 +102,6 @@ def _compute_quality(hrv_values: list[HrvValue]) -> HrvDataQuality:
     )
 
 
-def _is_night_hour(hour: int) -> bool:
-    return hour >= _NIGHT_START_HOUR or hour < _DAY_START_HOUR
-
-
 def _build_intraday_segment(
     *,
     key: str,
@@ -147,17 +140,8 @@ def _build_intraday_segment(
 
 
 def _compute_intraday_segments(hrv_values: list[HrvValue]) -> list[HrvIntradaySegment]:
-    nighttime: list[HrvValue] = []
-    daytime: list[HrvValue] = []
-    for value in hrv_values:
-        parsed = _parse_iso(value.timestamp)
-        if parsed is None or _is_night_hour(parsed.hour):
-            nighttime.append(value)
-        else:
-            daytime.append(value)
     return [
-        _build_intraday_segment(key="night", label="Nighttime", values=nighttime),
-        _build_intraday_segment(key="day", label="Daytime", values=daytime),
+        _build_intraday_segment(key="all", label="Overnight HRV", values=hrv_values),
     ]
 
 
