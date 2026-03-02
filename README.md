@@ -94,7 +94,7 @@ data/
 | Route | Description |
 |-------|-------------|
 | `/` | Dashboard — 7 trend chart panels (HR, Stress, SpO2, Respiration, HRV, Sleep, Skin Temp) |
-| `/heart-rate` | Heart rate detail — trend + intraday view, resting HR tracking |
+| `/heart-rate` | Heart rate detail — trend, intraday, zones, resting HR trend (7-day MA), HR distribution histogram, circadian profile, sleeping HR trend, weekly boxplots |
 | `/hrv` | HRV detail — nightly/weekly averages, balanced status tracking |
 | `/respiration` | Respiration detail — trend + intraday, min/max bands |
 | `/skin-temp` | Skin temperature — deviation from baseline, 7-day smoothed trend |
@@ -107,6 +107,8 @@ data/
 | `GET /api/daily-aggregates` | Per-day stats for all metrics (dashboard data source) |
 | `GET /api/days` | List available days of data |
 | `GET /api/days/{date}` | Summary for a specific day |
+| `GET /api/heart-rate/analysis` | HR analysis (circadian profile, sleeping HR, resting trend, weekly boxplots) |
+| `GET /api/heart-rate/distribution?date=YYYY-MM-DD` | HR histogram for a single day (5-bpm bins) |
 | `GET /api/wellness?date=YYYY-MM-DD` | Wellness data (HR, stress, SpO2, respiration) |
 | `GET /api/sleep?date=YYYY-MM-DD` | Sleep data (stages, assessment scores) |
 | `GET /api/hrv?date=YYYY-MM-DD` | HRV data (values, summaries) |
@@ -138,7 +140,9 @@ garmin_stats/
 │   │   ├── stats.py         # Aggregation/flattening (daily aggregates, period summaries)
 │   │   ├── database.py      # SQLite persistence (schema, ingest, read, fingerprinting)
 │   │   ├── events.py        # SSE event bus (pub/sub with asyncio.Queue)
-│   │   └── watcher.py       # File watcher (watchfiles — zip extraction + auto-ingest)
+│   │   ├── watcher.py       # File watcher (watchfiles — zip extraction + auto-ingest)
+│   │   ├── routers/         # Domain-specific HTTP route modules
+│   │   └── services/        # Domain services (HR insights, HR analysis, HRV insights)
 │   ├── tests/               # pytest tests (stats, database)
 │   └── requirements.txt
 ├── frontend/
@@ -146,12 +150,13 @@ garmin_stats/
 │   │   ├── lib/
 │   │   │   ├── api.ts              # Typed API client
 │   │   │   ├── api-types.ts        # Generated from OpenAPI spec (never hand-edit)
-│   │   │   ├── chart-setup.ts      # Chart.js registration + date adapter
+│   │   │   ├── chart-setup.ts      # Chart.js registration (line + bar) + date adapter
 │   │   │   ├── colors.ts           # Chart color palette
 │   │   │   ├── format.ts           # Number formatting utilities
 │   │   │   ├── sse.ts              # SSE client (EventSource for live updates)
 │   │   │   └── components/
 │   │   │       ├── LineChart.svelte       # Chart.js line chart wrapper
+│   │   │       ├── BarChart.svelte        # Chart.js bar chart wrapper
 │   │   │       ├── StatCard.svelte        # Summary stat card
 │   │   │       ├── MetricDefinition.svelte # Collapsible info box
 │   │   │       └── DateSelector.svelte    # Day picker dropdown

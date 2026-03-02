@@ -164,7 +164,7 @@ def _extract_wellness(messages: dict, date: str) -> DayWellness:
             ts = None
 
         hr_value = msg.get("heart_rate")
-        if hr_value is not None:
+        if hr_value is not None and hr_value > 0:
             hr.append(HeartRateReading(timestamp=ts, value=hr_value))
 
         if "activity_type" in msg:

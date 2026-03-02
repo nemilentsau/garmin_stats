@@ -401,6 +401,58 @@ class DailyAggregatesResponse(_DefaultsRequired):
     period: PeriodSummary | None = None
 
 
+# ---------------------------------------------------------------------------
+# Heart Rate Analysis models
+# ---------------------------------------------------------------------------
+
+
+class CircadianHRPoint(_DefaultsRequired):
+    hour: int
+    avg_bpm: float | None = None
+    sample_count: int = 0
+
+
+class SleepingHRPoint(_DefaultsRequired):
+    date: str
+    avg_sleeping_bpm: float | None = None
+    sample_count: int = 0
+
+
+class RestingHRTrendPoint(_DefaultsRequired):
+    date: str
+    resting_bpm: int | None = None
+    ma7_bpm: float | None = None
+
+
+class HRHistogramBin(_DefaultsRequired):
+    bin_start: int
+    bin_end: int
+    count: int
+
+
+class HRDistributionResponse(_DefaultsRequired):
+    date: str
+    bins: list[HRHistogramBin] = []
+    sample_count: int = 0
+
+
+class WeeklyRestingHRBox(_DefaultsRequired):
+    iso_week: str
+    min_bpm: float | None = None
+    q1_bpm: float | None = None
+    median_bpm: float | None = None
+    q3_bpm: float | None = None
+    max_bpm: float | None = None
+    day_count: int = 0
+
+
+class HeartRateAnalysisResponse(_DefaultsRequired):
+    circadian_profile: list[CircadianHRPoint] = []
+    sleeping_hr_trend: list[SleepingHRPoint] = []
+    resting_hr_trend: list[RestingHRTrendPoint] = []
+    weekly_boxplots: list[WeeklyRestingHRBox] = []
+
+
 class DaySummaryResponse(_DefaultsRequired):
     date: str
     total_files: int

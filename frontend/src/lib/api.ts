@@ -21,6 +21,9 @@ export type IngestResult = Schemas['IngestResult'];
 export type IngestStatus = Schemas['IngestStatus'];
 export type DailyHeartRateStats = Schemas['DailyHeartRateStats'];
 
+export type HRAnalysis = Schemas['HeartRateAnalysisResponse'];
+export type HRDistribution = Schemas['HRDistributionResponse'];
+
 export type HeartRateZoneDuration = {
 	label: string;
 	min_bpm: number;
@@ -118,6 +121,9 @@ export const api = {
 		fetchJson<SkinTempData>(`/api/skin-temp${date ? `?date=${date}` : ''}`),
 	getHeartRateInsights: (date?: string) =>
 		fetchJson<HeartRateInsights>(`/api/heart-rate/insights${date ? `?date=${date}` : ''}`),
+	getHeartRateAnalysis: () => fetchJson<HRAnalysis>('/api/heart-rate/analysis'),
+	getHRDistribution: (date: string) =>
+		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
 	getDays: () => fetchJson<Schemas['DaysResponse']>('/api/days'),
 	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
 	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status')

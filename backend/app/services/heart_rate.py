@@ -49,6 +49,8 @@ def _estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> 
 def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDuration]:
     resolved: list[tuple[datetime, int]] = []
     for reading in hr_readings:
+        if reading.value == 0:
+            continue
         dt = _parse_iso(reading.timestamp)
         if dt is None:
             continue

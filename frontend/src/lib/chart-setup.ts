@@ -2,6 +2,8 @@ import {
 	Chart,
 	LineController,
 	LineElement,
+	BarController,
+	BarElement,
 	PointElement,
 	LinearScale,
 	CategoryScale,
@@ -15,6 +17,8 @@ import 'chartjs-adapter-date-fns';
 Chart.register(
 	LineController,
 	LineElement,
+	BarController,
+	BarElement,
 	PointElement,
 	LinearScale,
 	CategoryScale,

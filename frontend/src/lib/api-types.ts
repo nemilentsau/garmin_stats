@@ -4,86 +4,6 @@
  */
 
 export interface paths {
-    "/api/heart-rate/insights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Heart Rate Insights
-         * @description Return backend-derived heart-rate insights for UI rendering.
-         */
-        get: operations["get_heart_rate_insights_api_heart_rate_insights_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/hrv": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Hrv
-         * @description Get HRV data (values, summaries).
-         */
-        get: operations["get_hrv_api_hrv_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/hrv/insights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Hrv Insights
-         * @description Return backend-derived HRV insights for UI rendering.
-         */
-        get: operations["get_hrv_insights_api_hrv_insights_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Root
-         * @description API root - health check.
-         */
-        get: operations["root__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/ingest": {
         parameters: {
             query?: never;
@@ -244,6 +164,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/heart-rate/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heart Rate Insights
+         * @description Return backend-derived heart-rate insights for UI rendering.
+         */
+        get: operations["get_heart_rate_insights_api_heart_rate_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/heart-rate/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heart Rate Analysis
+         * @description Return period-level heart-rate analysis (circadian, sleeping HR, resting trend, boxplots).
+         */
+        get: operations["get_heart_rate_analysis_api_heart_rate_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/heart-rate/distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hr Distribution
+         * @description Return heart-rate histogram for a single day.
+         */
+        get: operations["get_hr_distribution_api_heart_rate_distribution_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hrv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hrv
+         * @description Get HRV data (values, summaries).
+         */
+        get: operations["get_hrv_api_hrv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hrv/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hrv Insights
+         * @description Return backend-derived HRV insights for UI rendering.
+         */
+        get: operations["get_hrv_insights_api_hrv_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -256,6 +276,26 @@ export interface paths {
          * @description Server-Sent Events stream for real-time data updates.
          */
         get: operations["sse_events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Root
+         * @description API root - health check.
+         */
+        get: operations["root__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,6 +329,18 @@ export interface components {
             timestamp: string | null;
             /** Value */
             value: number;
+        };
+        /** CircadianHRPoint */
+        CircadianHRPoint: {
+            /** Hour */
+            hour: number;
+            /** Avg Bpm */
+            avg_bpm: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
         };
         /** DailyAggregatesResponse */
         DailyAggregatesResponse: {
@@ -412,6 +464,30 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** HRDistributionResponse */
+        HRDistributionResponse: {
+            /** Date */
+            date: string;
+            /**
+             * Bins
+             * @default []
+             */
+            bins: components["schemas"]["HRHistogramBin"][];
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+        };
+        /** HRHistogramBin */
+        HRHistogramBin: {
+            /** Bin Start */
+            bin_start: number;
+            /** Bin End */
+            bin_end: number;
+            /** Count */
+            count: number;
+        };
         /** HRZoneBucket */
         HRZoneBucket: {
             /** Label */
@@ -442,6 +518,29 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HeartRateAnalysisResponse */
+        HeartRateAnalysisResponse: {
+            /**
+             * Circadian Profile
+             * @default []
+             */
+            circadian_profile: components["schemas"]["CircadianHRPoint"][];
+            /**
+             * Sleeping Hr Trend
+             * @default []
+             */
+            sleeping_hr_trend: components["schemas"]["SleepingHRPoint"][];
+            /**
+             * Resting Hr Trend
+             * @default []
+             */
+            resting_hr_trend: components["schemas"]["RestingHRTrendPoint"][];
+            /**
+             * Weekly Boxplots
+             * @default []
+             */
+            weekly_boxplots: components["schemas"]["WeeklyRestingHRBox"][];
         };
         /** HeartRateDataQuality */
         HeartRateDataQuality: {
@@ -752,6 +851,15 @@ export interface components {
             /** Current Day Resting Hr */
             current_day_resting_hr: number | null;
         };
+        /** RestingHRTrendPoint */
+        RestingHRTrendPoint: {
+            /** Date */
+            date: string;
+            /** Resting Bpm */
+            resting_bpm: number | null;
+            /** Ma7 Bpm */
+            ma7_bpm: number | null;
+        };
         /** SkinTempOvernight */
         SkinTempOvernight: {
             /** Date */
@@ -811,6 +919,18 @@ export interface components {
             /** Sleep Assessments */
             sleep_assessments: components["schemas"]["SleepAssessment"][];
         };
+        /** SleepingHRPoint */
+        SleepingHRPoint: {
+            /** Date */
+            date: string;
+            /** Avg Sleeping Bpm */
+            avg_sleeping_bpm: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+        };
         /** SpO2Reading */
         SpO2Reading: {
             /** Timestamp */
@@ -849,6 +969,26 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** WeeklyRestingHRBox */
+        WeeklyRestingHRBox: {
+            /** Iso Week */
+            iso_week: string;
+            /** Min Bpm */
+            min_bpm: number | null;
+            /** Q1 Bpm */
+            q1_bpm: number | null;
+            /** Median Bpm */
+            median_bpm: number | null;
+            /** Q3 Bpm */
+            q3_bpm: number | null;
+            /** Max Bpm */
+            max_bpm: number | null;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
+        };
         /** WellnessResponse */
         WellnessResponse: {
             /** Days */
@@ -879,122 +1019,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_heart_rate_insights_api_heart_rate_insights_get: {
-        parameters: {
-            query?: {
-                /** @description Day (YYYY-MM-DD), defaults to latest day */
-                date?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HeartRateInsightsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_hrv_api_hrv_get: {
-        parameters: {
-            query?: {
-                /** @description Filter by date (YYYY-MM-DD) */
-                date?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HrvResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_hrv_insights_api_hrv_insights_get: {
-        parameters: {
-            query?: {
-                /** @description Day (YYYY-MM-DD), defaults to latest day */
-                date?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HrvInsightsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    root__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     trigger_ingest_api_ingest_post: {
         parameters: {
             query?: never;
@@ -1202,7 +1226,175 @@ export interface operations {
             };
         };
     };
+    get_heart_rate_insights_api_heart_rate_insights_get: {
+        parameters: {
+            query?: {
+                /** @description Day (YYYY-MM-DD), defaults to latest day */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartRateInsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_heart_rate_analysis_api_heart_rate_analysis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartRateAnalysisResponse"];
+                };
+            };
+        };
+    };
+    get_hr_distribution_api_heart_rate_distribution_get: {
+        parameters: {
+            query: {
+                /** @description Day (YYYY-MM-DD) */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HRDistributionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_hrv_api_hrv_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_hrv_insights_api_hrv_insights_get: {
+        parameters: {
+            query?: {
+                /** @description Day (YYYY-MM-DD), defaults to latest day */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrvInsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     sse_events_api_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    root__get: {
         parameters: {
             query?: never;
             header?: never;

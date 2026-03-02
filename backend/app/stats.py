@@ -161,7 +161,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
     """Compute aggregate stats for a single day."""
     w = day.wellness
 
-    hr_vals = [r.value for r in w.heart_rate]
+    hr_vals = [r.value for r in w.heart_rate if r.value > 0]
     stress_vals = [r.value for r in w.stress]
     bb_vals = [r.value for r in w.body_battery]
     spo2_vals = [r.value for r in w.spo2]
@@ -249,7 +249,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
 def compute_period_summary(days: list[DayData]) -> PeriodSummary:
     """Compute period-level stats from raw per-day data (not from daily averages)."""
     # Collect all raw readings across the entire period
-    all_hr = [r.value for d in days for r in d.wellness.heart_rate]
+    all_hr = [r.value for d in days for r in d.wellness.heart_rate if r.value > 0]
     all_stress = [r.value for d in days for r in d.wellness.stress]
     all_resp = [r.value for d in days for r in d.wellness.respiration]
 

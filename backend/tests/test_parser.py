@@ -23,7 +23,7 @@ from app.parser import (
 
 
 class TestExtractorZeroValues:
-    def test_wellness_keeps_zero_heart_rate_steps_and_spo2(self):
+    def test_wellness_filters_zero_heart_rate_keeps_zero_steps_and_spo2(self):
         messages = {
             "monitoring_mesgs": [
                 {"heart_rate": 0, "steps": 0},
@@ -34,7 +34,7 @@ class TestExtractorZeroValues:
         }
 
         day = _extract_wellness(messages, "2026-01-15")
-        assert [r.value for r in day.heart_rate] == [0]
+        assert [r.value for r in day.heart_rate] == []
         assert [r.steps for r in day.steps_summary] == [0]
         assert [r.value for r in day.spo2] == [0]
 
