@@ -18,16 +18,7 @@ from ..models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-
-
-def _parse_iso(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    normalized = ts.replace("Z", "+00:00")
-    try:
-        return datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+from ..timeutil import parse_iso as _parse_iso
 
 
 def _compute_circadian_profile(
@@ -224,22 +215,19 @@ def _compute_weekly_boxplots(
 
 def load_heart_rate_analysis() -> HeartRateAnalysisResponse:
     """Load all wellness + sleep + metrics, compute analysis features (cached)."""
-    cached = cache.get("hr_analysis")
-    if cached is not None:
-        return cached
-    gen = cache.generation()
+    return cache.cached(cache.HR_ANALYSIS, _compute_heart_rate_analysis)
+
+
+def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
     all_wellness = load_wellness()
     all_sleep = load_sleep()
     metrics = load_daily_metrics()
-
-    result = HeartRateAnalysisResponse(
+    return HeartRateAnalysisResponse(
         circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
         resting_hr_trend=_compute_resting_hr_trend(metrics),
         weekly_boxplots=_compute_weekly_boxplots(metrics),
     )
-    cache.put("hr_analysis", result, gen)
-    return result
 
 
 def load_hr_distribution(date: str) -> HRDistributionResponse:

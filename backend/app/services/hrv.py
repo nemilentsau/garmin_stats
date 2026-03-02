@@ -1,7 +1,6 @@
 """HRV domain service: backend source of truth for derived HRV insights."""
 
 from collections import Counter
-from datetime import datetime
 
 import numpy as np
 
@@ -17,16 +16,7 @@ from ..models import (
     HrvTrendBand,
     HrvValue,
 )
-
-
-def _parse_iso(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    normalized = ts.replace("Z", "+00:00")
-    try:
-        return datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+from ..timeutil import parse_iso as _parse_iso
 
 
 def _normalize_hrv_status(raw: str | None) -> str:
@@ -137,12 +127,6 @@ def _build_intraday_segment(
         coverage_hours=coverage_hours,
         values=values,
     )
-
-
-def _compute_intraday_segments(hrv_values: list[HrvValue]) -> list[HrvIntradaySegment]:
-    return [
-        _build_intraday_segment(key="all", label="Overnight HRV", values=hrv_values),
-    ]
 
 
 def _compute_trend_band(metrics: list[DailyMetric]) -> HrvTrendBand:
@@ -310,7 +294,9 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
     day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
-    intraday_segments = _compute_intraday_segments(day_values)
+    intraday_segments = [
+        _build_intraday_segment(key="all", label="Overnight HRV", values=day_values),
+    ]
     trend_band = _compute_trend_band(metrics)
     status_mix = _compute_status_mix(metrics, selected_index)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)

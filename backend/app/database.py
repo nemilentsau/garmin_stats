@@ -248,133 +248,95 @@ def is_db_empty() -> bool:
 # Read path
 # ---------------------------------------------------------------------------
 
+def _load_day_table[M](
+    table: str,
+    model: type[M],
+    cache_key: str,
+    date: str | None = None,
+) -> list[M]:
+    """Generic loader for per-day data tables with caching.
+
+    All-days results are cached.  Per-date queries filter from the warm
+    all-days cache when available, falling back to a direct DB query.
+    """
+    if date is not None:
+        all_cached = cache.get(cache_key)
+        if all_cached is not None:
+            return [item for item in all_cached if item.date == date]  # type: ignore[union-attr]
+        with _connect() as con:
+            rows = con.execute(
+                f"SELECT data FROM {table} WHERE date = ?", (date,)  # noqa: S608
+            ).fetchall()
+        return [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
+    # All-days path with caching
+    hit = cache.get(cache_key)
+    if hit is not None:
+        return hit
+    gen = cache.generation()
+    with _connect() as con:
+        rows = con.execute(
+            f"SELECT data FROM {table} ORDER BY date"  # noqa: S608
+        ).fetchall()
+    result = [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
+    cache.put(cache_key, result, gen)
+    return result
+
+
 def load_daily_metrics() -> list[DailyMetric]:
     """Load all daily metrics from DB (cached until next ingest)."""
-    cached = cache.get("daily_metrics")
-    if cached is not None:
-        return cached
-    gen = cache.generation()
+    return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
+
+
+def _fetch_daily_metrics() -> list[DailyMetric]:
     with _connect() as con:
         rows = con.execute(
             "SELECT data FROM daily_metrics ORDER BY date"
         ).fetchall()
-        result = [DailyMetric.model_validate_json(r["data"]) for r in rows]
-    cache.put("daily_metrics", result, gen)
-    return result
+    return [DailyMetric.model_validate_json(r["data"]) for r in rows]
 
 
 def load_wellness(date: str | None = None) -> list[DayWellness]:
-    """Load wellness data, optionally filtered by date. All-days result is cached."""
-    if date is None:
-        cached = cache.get("wellness_all")
-        if cached is not None:
-            return cached
-    gen = cache.generation()
-    with _connect() as con:
-        if date:
-            rows = con.execute(
-                "SELECT data FROM wellness_data WHERE date = ?", (date,)
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT data FROM wellness_data ORDER BY date"
-            ).fetchall()
-        result = [DayWellness.model_validate_json(r["data"]) for r in rows]
-    if date is None:
-        cache.put("wellness_all", result, gen)
-    return result
+    """Load wellness data, optionally filtered by date."""
+    return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
 
 
 def load_sleep(date: str | None = None) -> list[DaySleep]:
-    """Load sleep data, optionally filtered by date. All-days result is cached."""
-    if date is None:
-        cached = cache.get("sleep_all")
-        if cached is not None:
-            return cached
-    gen = cache.generation()
-    with _connect() as con:
-        if date:
-            rows = con.execute(
-                "SELECT data FROM sleep_data WHERE date = ?", (date,)
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT data FROM sleep_data ORDER BY date"
-            ).fetchall()
-        result = [DaySleep.model_validate_json(r["data"]) for r in rows]
-    if date is None:
-        cache.put("sleep_all", result, gen)
-    return result
+    """Load sleep data, optionally filtered by date."""
+    return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
 
 
 def load_hrv(date: str | None = None) -> list[DayHrv]:
-    """Load HRV data, optionally filtered by date. All-days result is cached."""
-    if date is None:
-        cached = cache.get("hrv_all")
-        if cached is not None:
-            return cached
-    gen = cache.generation()
-    with _connect() as con:
-        if date:
-            rows = con.execute(
-                "SELECT data FROM hrv_data WHERE date = ?", (date,)
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT data FROM hrv_data ORDER BY date"
-            ).fetchall()
-        result = [DayHrv.model_validate_json(r["data"]) for r in rows]
-    if date is None:
-        cache.put("hrv_all", result, gen)
-    return result
+    """Load HRV data, optionally filtered by date."""
+    return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
 
 
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
-    """Load skin temp data, optionally filtered by date. All-days result is cached."""
-    if date is None:
-        cached = cache.get("skin_temp_all")
-        if cached is not None:
-            return cached
-    gen = cache.generation()
-    with _connect() as con:
-        if date:
-            rows = con.execute(
-                "SELECT data FROM skin_temp_data WHERE date = ?", (date,)
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT data FROM skin_temp_data ORDER BY date"
-            ).fetchall()
-        result = [DaySkinTemp.model_validate_json(r["data"]) for r in rows]
-    if date is None:
-        cache.put("skin_temp_all", result, gen)
-    return result
+    """Load skin temp data, optionally filtered by date."""
+    return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
 
 
 def load_period_summary() -> PeriodSummary | None:
     """Load the precomputed period summary from DB (cached until next ingest)."""
-    cached = cache.get("period_summary")
-    if cached is not None:
-        return cached
+    hit = cache.get(cache.PERIOD_SUMMARY)
+    if hit is not None:
+        return hit
     gen = cache.generation()
     raw = _get_meta("period_summary")
     if raw is None:
         return None
     result = PeriodSummary.model_validate_json(raw)
-    cache.put("period_summary", result, gen)
+    cache.put(cache.PERIOD_SUMMARY, result, gen)
     return result
 
 
 def load_available_days() -> list[str]:
     """Load all dates that have data in the DB (cached until next ingest)."""
-    cached = cache.get("available_days")
-    if cached is not None:
-        return cached
-    gen = cache.generation()
+    return cache.cached(cache.AVAILABLE_DAYS, _fetch_available_days)
+
+
+def _fetch_available_days() -> list[str]:
     with _connect() as con:
         rows = con.execute(
             "SELECT date FROM daily_metrics ORDER BY date"
         ).fetchall()
-        result = [r["date"] for r in rows]
-    cache.put("available_days", result, gen)
-    return result
+    return [r["date"] for r in rows]
