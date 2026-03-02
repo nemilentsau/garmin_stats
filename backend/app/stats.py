@@ -8,6 +8,8 @@ from collections.abc import Sequence
 import numpy as np
 
 from .models import (
+    ActivityReading,
+    BodyBatteryReading,
     DailyAggregatesResponse,
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -21,6 +23,7 @@ from .models import (
     DaySkinTemp,
     DaySleep,
     DayWellness,
+    HeartRateReading,
     HrvResponse,
     HRZoneBucket,
     PeriodHeartRateStats,
@@ -29,8 +32,13 @@ from .models import (
     PeriodSkinTempStats,
     PeriodSpo2Stats,
     PeriodSummary,
+    RespirationReading,
+    RestingHRReading,
     SkinTempResponse,
     SleepResponse,
+    SpO2Reading,
+    StepsReading,
+    StressReading,
     WellnessResponse,
 )
 
@@ -96,16 +104,29 @@ def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
 # ---------------------------------------------------------------------------
 
 def flatten_wellness(days: list[DayWellness]) -> WellnessResponse:
+    dates: list[str] = []
+    heart_rate: list[HeartRateReading] = []
+    stress: list[StressReading] = []
+    body_battery: list[BodyBatteryReading] = []
+    spo2: list[SpO2Reading] = []
+    respiration: list[RespirationReading] = []
+    activity: list[ActivityReading] = []
+    steps_summary: list[StepsReading] = []
+    resting_hr: list[RestingHRReading] = []
+    for d in days:
+        dates.append(d.date)
+        heart_rate.extend(d.heart_rate)
+        stress.extend(d.stress)
+        body_battery.extend(d.body_battery)
+        spo2.extend(d.spo2)
+        respiration.extend(d.respiration)
+        activity.extend(d.activity)
+        steps_summary.extend(d.steps_summary)
+        resting_hr.extend(d.resting_hr)
     return WellnessResponse(
-        days=[d.date for d in days],
-        heart_rate=[r for d in days for r in d.heart_rate],
-        stress=[r for d in days for r in d.stress],
-        body_battery=[r for d in days for r in d.body_battery],
-        spo2=[r for d in days for r in d.spo2],
-        respiration=[r for d in days for r in d.respiration],
-        activity=[r for d in days for r in d.activity],
-        steps_summary=[r for d in days for r in d.steps_summary],
-        resting_hr=[r for d in days for r in d.resting_hr],
+        days=dates, heart_rate=heart_rate, stress=stress,
+        body_battery=body_battery, spo2=spo2, respiration=respiration,
+        activity=activity, steps_summary=steps_summary, resting_hr=resting_hr,
     )
 
 
