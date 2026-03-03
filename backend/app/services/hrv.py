@@ -7,7 +7,11 @@ import numpy as np
 from ..infra.database import load_daily_metrics, load_hrv
 from ..models import (
     DailyMetric,
+    DayHrv,
+    HrvBaselineBands,
     HrvDataQuality,
+    HrvDistribution,
+    HrvDistributionBin,
     HrvInsight,
     HrvInsightsResponse,
     HrvIntradaySegment,
@@ -19,6 +23,8 @@ from ..models import (
     HrvValue,
 )
 from ..utils.timeutil import parse_iso as _parse_iso
+
+_BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
 
 def _normalize_hrv_status(raw: str | None) -> str:
@@ -180,13 +186,12 @@ def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStrea
         else:
             break
 
-    bad_statuses = {"Low", "Unbalanced"}
     window_start = max(0, selected_index - 13)
     window = metrics[window_start:selected_index + 1]
     worst = 0
     run = 0
     for metric in window:
-        if _normalize_hrv_status(metric.hrv.status) in bad_statuses:
+        if _normalize_hrv_status(metric.hrv.status) in _BAD_HRV_STATUSES:
             run += 1
             worst = max(worst, run)
         else:
@@ -303,7 +308,7 @@ def _build_insights(
 
     if (
         streak is not None
-        and streak.current_status in {"Low", "Unbalanced"}
+        and streak.current_status in _BAD_HRV_STATUSES
         and streak.streak_days >= 3
     ):
         insights.append(HrvInsight(
@@ -374,6 +379,78 @@ def _build_insights(
     return insights
 
 
+_HRV_DIST_MIN_DAYS = 7
+_HRV_BIN_WIDTH = 5.0
+
+
+def _extract_baseline_bands(day_rows: list[DayHrv]) -> HrvBaselineBands | None:
+    """Extract Garmin baseline bands from the first HRV summary of the day."""
+    for row in day_rows:
+        for summary in row.hrv_summaries:
+            fields = (
+                summary.baseline_low_upper,
+                summary.baseline_balanced_lower,
+                summary.baseline_balanced_upper,
+                summary.last_night_5_min_high,
+            )
+            if any(f is not None for f in fields):
+                return HrvBaselineBands(
+                    baseline_low_upper=summary.baseline_low_upper,
+                    baseline_balanced_lower=summary.baseline_balanced_lower,
+                    baseline_balanced_upper=summary.baseline_balanced_upper,
+                    five_min_high=summary.last_night_5_min_high,
+                )
+    return None
+
+
+def _compute_hrv_distribution(
+    metrics: list[DailyMetric],
+    selected_index: int,
+) -> HrvDistribution | None:
+    """5ms-wide histogram of nightly HRV across the full period."""
+    values = [
+        m.hrv.nightly_avg
+        for m in metrics
+        if m.hrv.nightly_avg is not None
+    ]
+    if len(values) < _HRV_DIST_MIN_DAYS:
+        return None
+
+    min_val = min(values)
+    max_val = max(values)
+    bin_start = int(min_val // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
+    bin_end = (int(max_val // _HRV_BIN_WIDTH) + 1) * _HRV_BIN_WIDTH
+
+    counts: dict[float, int] = {}
+    for v in values:
+        b = int(v // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
+        counts[b] = counts.get(b, 0) + 1
+
+    bins: list[HrvDistributionBin] = []
+    b = bin_start
+    while b < bin_end:
+        c = counts.get(float(b), 0)
+        if c > 0:
+            bins.append(HrvDistributionBin(
+                bin_start=float(b), bin_end=float(b) + _HRV_BIN_WIDTH, count=c,
+            ))
+        b += _HRV_BIN_WIDTH
+
+    selected_value = metrics[selected_index].hrv.nightly_avg
+    selected_percentile: float | None = None
+    if selected_value is not None:
+        arr = np.array(sorted(values))
+        idx = float(np.searchsorted(arr, selected_value, side="right"))
+        selected_percentile = round(idx / len(values) * 100, 1)
+
+    return HrvDistribution(
+        bins=bins,
+        total_days=len(values),
+        selected_value=selected_value,
+        selected_percentile=selected_percentile,
+    )
+
+
 def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
     """Load backend-derived HRV insights for a day (or latest if omitted)."""
     metrics = load_daily_metrics()
@@ -402,6 +479,8 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
     long_baseline = _compute_long_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d,
     )
+    baseline_bands = _extract_baseline_bands(day_rows)
+    distribution = _compute_hrv_distribution(metrics, selected_index)
     status_mix = _compute_status_mix(metrics, selected_index)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
     insights = _build_insights(
@@ -420,6 +499,8 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         trend_band=trend_band,
         streak=streak,
         long_baseline=long_baseline,
+        baseline_bands=baseline_bands,
+        distribution=distribution,
         status_mix=status_mix,
         insights=insights,
     )

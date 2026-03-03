@@ -99,6 +99,22 @@ export type HrvInsights = {
 		baseline_30d: number | null;
 		delta_7d_vs_30d: number | null;
 	} | null;
+	baseline_bands: {
+		baseline_low_upper: number | null;
+		baseline_balanced_lower: number | null;
+		baseline_balanced_upper: number | null;
+		five_min_high: number | null;
+	} | null;
+	distribution: {
+		bins: {
+			bin_start: number;
+			bin_end: number;
+			count: number;
+		}[];
+		total_days: number;
+		selected_value: number | null;
+		selected_percentile: number | null;
+	} | null;
 	status_mix: {
 		label: string;
 		count: number;

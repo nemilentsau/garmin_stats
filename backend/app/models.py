@@ -320,6 +320,26 @@ class HrvLongBaseline(_DefaultsRequired):
     delta_7d_vs_30d: float | None = None
 
 
+class HrvBaselineBands(_DefaultsRequired):
+    baseline_low_upper: float | None = None
+    baseline_balanced_lower: float | None = None
+    baseline_balanced_upper: float | None = None
+    five_min_high: float | None = None
+
+
+class HrvDistributionBin(_DefaultsRequired):
+    bin_start: float
+    bin_end: float
+    count: int
+
+
+class HrvDistribution(_DefaultsRequired):
+    bins: list[HrvDistributionBin] = []
+    total_days: int = 0
+    selected_value: float | None = None
+    selected_percentile: float | None = None
+
+
 class HrvInsight(_DefaultsRequired):
     level: str
     title: str
@@ -335,6 +355,8 @@ class HrvInsightsResponse(_DefaultsRequired):
     trend_band: HrvTrendBand
     streak: HrvStreak | None = None
     long_baseline: HrvLongBaseline | None = None
+    baseline_bands: HrvBaselineBands | None = None
+    distribution: HrvDistribution | None = None
     status_mix: list[HrvStatusBucket] = []
     insights: list[HrvInsight] = []
 

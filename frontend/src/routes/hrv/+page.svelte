@@ -3,6 +3,7 @@
 	import { api, type DailyAggregates, type HrvInsights } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import BarChart from '$lib/components/BarChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
@@ -59,6 +60,9 @@
 			error = e instanceof Error ? e.message : String(e);
 		}
 	}
+
+	let baselineBands = $derived.by(() => insights?.baseline_bands ?? null);
+	let distribution = $derived.by(() => insights?.distribution ?? null);
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
@@ -129,6 +133,30 @@
 			}
 		);
 
+		const bands = insights?.baseline_bands;
+		const annotationPlugin = bands
+			? {
+					annotations: {
+						lowZone: {
+							type: 'box' as const,
+							yMin: 0,
+							yMax: bands.baseline_low_upper ?? undefined,
+							backgroundColor: 'rgba(232,93,74,0.06)',
+							borderWidth: 0,
+							adjustScaleRange: false
+						},
+						balancedZone: {
+							type: 'box' as const,
+							yMin: bands.baseline_balanced_lower ?? undefined,
+							yMax: bands.baseline_balanced_upper ?? undefined,
+							backgroundColor: 'rgba(76,175,130,0.06)',
+							borderWidth: 0,
+							adjustScaleRange: false
+						}
+					}
+				}
+			: undefined;
+
 		return {
 			type: 'line',
 			data: { labels, datasets },
@@ -151,7 +179,8 @@
 						borderColor: withAlpha(COLORS.hrv, '60'),
 						padding: 10,
 						cornerRadius: 4
-					}
+					},
+					annotation: annotationPlugin
 				},
 				scales: {
 					x: {
@@ -163,6 +192,58 @@
 						beginAtZero: false,
 						title: { display: true, text: 'ms', color: '#6b7d8e' },
 						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
+				}
+			}
+		};
+	});
+
+	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (!distribution || distribution.bins.length === 0) return null;
+		const selectedValue = distribution.selected_value;
+		return {
+			type: 'bar',
+			data: {
+				labels: distribution.bins.map((b) => `${b.bin_start}-${b.bin_end}`),
+				datasets: [
+					{
+						label: 'Nights',
+						data: distribution.bins.map((b) => b.count),
+						backgroundColor: distribution.bins.map((b) =>
+							selectedValue != null && selectedValue >= b.bin_start && selectedValue < b.bin_end
+								? withAlpha(COLORS.hrv, 'cc')
+								: withAlpha(COLORS.hrv, '55')
+						),
+						borderRadius: 2
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderWidth: 1,
+						borderColor: withAlpha(COLORS.hrv, '60'),
+						padding: 10,
+						cornerRadius: 4
+					}
+				},
+				scales: {
+					x: {
+						title: { display: true, text: 'HRV (ms)', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e', font: { size: 10 } },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: true,
+						title: { display: true, text: 'Nights', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e', stepSize: 1 },
 						grid: { color: '#ffffff06' },
 						border: { color: '#ffffff10' }
 					}
@@ -397,7 +478,7 @@
 		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 			Day Snapshot {insightDate ? `— ${insightDate}` : ''}
 		</h2>
-		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<StatCard title="Nightly" value={fmt(dayStats.nightly_avg)} unit="ms" colorClass="text-[#9B6BCD]" />
 			<StatCard title="Weekly" value={fmt(dayStats.weekly_avg)} unit="ms" colorClass="text-[#b794e0]" />
 			<StatCard
@@ -405,6 +486,14 @@
 				value={dayStats.status ? dayStats.status.toUpperCase() : '-'}
 				colorClass="text-[#8a9baa]"
 			/>
+			{#if baselineBands?.five_min_high != null}
+				<StatCard
+					title="5-Min High"
+					value={fmt(baselineBands.five_min_high)}
+					unit="ms"
+					colorClass="text-[#5BB5A6]"
+				/>
+			{/if}
 		</div>
 	{/if}
 
@@ -451,6 +540,20 @@
 					<div class="text-xs text-[#8a9baa]">{bucket.label}: {bucket.count}d ({bucket.pct}%)</div>
 				{/each}
 			</div>
+		</div>
+	{/if}
+
+	{#if distributionConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Nightly HRV Distribution
+			</h2>
+			<BarChart config={distributionConfig} height={220} />
+			{#if distribution}
+				<p class="text-xs text-[#4a5c6a] mt-2">
+					{distribution.total_days} nights{#if distribution.selected_percentile != null && insightDate} • {insightDate} is at the {distribution.selected_percentile}th percentile{/if}
+				</p>
+			{/if}
 		</div>
 	{/if}
 

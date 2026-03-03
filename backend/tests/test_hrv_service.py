@@ -13,6 +13,7 @@ from app.models import (
     DailySkinTempStats,
     DailySleepStats,
     DayHrv,
+    HrvSummary,
     HrvValue,
 )
 from app.services.hrv import load_hrv_insights
@@ -57,8 +58,12 @@ def _insert_metric(metric: DailyMetric) -> None:
         con.commit()
 
 
-def _insert_hrv_day(date: str, values: list[HrvValue]) -> None:
-    payload = DayHrv(date=date, hrv_values=values, hrv_summaries=[])
+def _insert_hrv_day(
+    date: str,
+    values: list[HrvValue],
+    summaries: list[HrvSummary] | None = None,
+) -> None:
+    payload = DayHrv(date=date, hrv_values=values, hrv_summaries=summaries or [])
     with db._connect() as con:
         con.execute(
             "INSERT INTO hrv_data (date, data, updated_at) VALUES (?, ?, ?)",
@@ -506,3 +511,130 @@ class TestLongBaseline:
 
         result = load_hrv_insights("2026-02-15")
         assert result.long_baseline is None
+
+
+class TestBaselineBands:
+    def test_bands_extracted_when_summary_has_baseline_values(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day(
+            "2026-01-15",
+            [HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0)],
+            summaries=[HrvSummary(
+                date="2026-01-15",
+                status="balanced",
+                baseline_low_upper=35.0,
+                baseline_balanced_lower=40.0,
+                baseline_balanced_upper=65.0,
+                last_night_5_min_high=72.0,
+            )],
+        )
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.baseline_bands is not None
+        assert result.baseline_bands.baseline_low_upper == 35.0
+        assert result.baseline_bands.baseline_balanced_lower == 40.0
+        assert result.baseline_bands.baseline_balanced_upper == 65.0
+        assert result.baseline_bands.five_min_high == 72.0
+
+    def test_bands_none_when_no_summaries(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.baseline_bands is None
+
+    def test_bands_none_when_summary_fields_all_null(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day(
+            "2026-01-15",
+            [HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0)],
+            summaries=[HrvSummary(
+                date="2026-01-15",
+                status="balanced",
+                baseline_low_upper=None,
+                baseline_balanced_lower=None,
+                baseline_balanced_upper=None,
+                last_night_5_min_high=None,
+            )],
+        )
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.baseline_bands is None
+
+
+class TestHrvDistribution:
+    def _insert_days(self, nightly_values: list[float | None]) -> None:
+        """Insert len(nightly_values) days, last day is selected."""
+        for i, nightly in enumerate(nightly_values):
+            d = f"2026-01-{i + 1:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=nightly, weekly_avg=50.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=50.0),
+            ])
+
+    def test_returns_none_when_fewer_than_7_days(self):
+        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0])
+
+        result = load_hrv_insights("2026-01-06")
+        assert result.distribution is None
+
+    def test_returns_distribution_with_exactly_7_days(self):
+        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0])
+
+        result = load_hrv_insights("2026-01-07")
+        assert result.distribution is not None
+        assert result.distribution.total_days == 7
+
+    def test_5ms_bin_width_verified(self):
+        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0])
+
+        result = load_hrv_insights("2026-01-07")
+        assert result.distribution is not None
+        for b in result.distribution.bins:
+            assert b.bin_end - b.bin_start == 5.0
+
+    def test_selected_percentile_highest_value_is_100(self):
+        # Last value (selected) is highest
+        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 60.0])
+
+        result = load_hrv_insights("2026-01-07")
+        assert result.distribution is not None
+        assert result.distribution.selected_percentile == 100.0
+
+    def test_none_nightly_avg_values_excluded(self):
+        # 5 valid + 3 None = 8 total, only 5 non-null → below threshold
+        self._insert_days([40.0, 42.0, None, 46.0, None, None, 48.0, 50.0])
+
+        result = load_hrv_insights("2026-01-08")
+        assert result.distribution is None
+
+    def test_boundary_value_placed_in_correct_bin(self):
+        # 45.0 should go in bin [45, 50), not [40, 45)
+        self._insert_days([30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0])
+
+        result = load_hrv_insights("2026-01-07")
+        assert result.distribution is not None
+        bin_45 = next(
+            (b for b in result.distribution.bins if b.bin_start == 45.0), None,
+        )
+        assert bin_45 is not None
+        assert bin_45.count == 1
+        bin_40 = next(
+            (b for b in result.distribution.bins if b.bin_start == 40.0), None,
+        )
+        assert bin_40 is not None
+        assert bin_40.count == 1

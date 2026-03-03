@@ -596,6 +596,17 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** HrvBaselineBands */
+        HrvBaselineBands: {
+            /** Baseline Low Upper */
+            baseline_low_upper: number | null;
+            /** Baseline Balanced Lower */
+            baseline_balanced_lower: number | null;
+            /** Baseline Balanced Upper */
+            baseline_balanced_upper: number | null;
+            /** Five Min High */
+            five_min_high: number | null;
+        };
         /** HrvDataQuality */
         HrvDataQuality: {
             /**
@@ -609,6 +620,32 @@ export interface components {
             coverage_end: string | null;
             /** Coverage Hours */
             coverage_hours: number | null;
+        };
+        /** HrvDistribution */
+        HrvDistribution: {
+            /**
+             * Bins
+             * @default []
+             */
+            bins: components["schemas"]["HrvDistributionBin"][];
+            /**
+             * Total Days
+             * @default 0
+             */
+            total_days: number;
+            /** Selected Value */
+            selected_value: number | null;
+            /** Selected Percentile */
+            selected_percentile: number | null;
+        };
+        /** HrvDistributionBin */
+        HrvDistributionBin: {
+            /** Bin Start */
+            bin_start: number;
+            /** Bin End */
+            bin_end: number;
+            /** Count */
+            count: number;
         };
         /** HrvInsight */
         HrvInsight: {
@@ -634,6 +671,8 @@ export interface components {
             trend_band: components["schemas"]["HrvTrendBand"];
             streak: components["schemas"]["HrvStreak"] | null;
             long_baseline: components["schemas"]["HrvLongBaseline"] | null;
+            baseline_bands: components["schemas"]["HrvBaselineBands"] | null;
+            distribution: components["schemas"]["HrvDistribution"] | null;
             /**
              * Status Mix
              * @default []
