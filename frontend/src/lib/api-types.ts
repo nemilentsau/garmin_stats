@@ -621,6 +621,20 @@ export interface components {
             /** Coverage Hours */
             coverage_hours: number | null;
         };
+        /** HrvDayOfWeekBucket */
+        HrvDayOfWeekBucket: {
+            /** Day */
+            day: string;
+            /** Day Index */
+            day_index: number;
+            /** Avg Nightly */
+            avg_nightly: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+        };
         /** HrvDistribution */
         HrvDistribution: {
             /**
@@ -673,11 +687,17 @@ export interface components {
             long_baseline: components["schemas"]["HrvLongBaseline"] | null;
             baseline_bands: components["schemas"]["HrvBaselineBands"] | null;
             distribution: components["schemas"]["HrvDistribution"] | null;
+            trajectory: components["schemas"]["HrvTrajectory"] | null;
             /**
              * Status Mix
              * @default []
              */
             status_mix: components["schemas"]["HrvStatusBucket"][];
+            /**
+             * Day Of Week
+             * @default []
+             */
+            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
             /**
              * Insights
              * @default []
@@ -784,6 +804,17 @@ export interface components {
             baseline_balanced_upper: number | null;
             /** Status */
             status: string;
+        };
+        /** HrvTrajectory */
+        HrvTrajectory: {
+            /** Early Avg */
+            early_avg: number | null;
+            /** Mid Avg */
+            mid_avg: number | null;
+            /** Late Avg */
+            late_avg: number | null;
+            /** Direction */
+            direction: string | null;
         };
         /** HrvTrendBand */
         HrvTrendBand: {

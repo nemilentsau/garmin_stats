@@ -638,3 +638,187 @@ class TestHrvDistribution:
         )
         assert bin_40 is not None
         assert bin_40.count == 1
+
+
+class TestTrajectory:
+    def test_returns_none_when_fewer_than_6_readings(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=50.0)
+            for i in range(5)
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is None
+
+    def test_computes_three_segment_averages(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        # 9 values evenly spaced: 00:00 to 08:00 (1h apart)
+        # early=00-02:39 (0,1,2), mid=02:40-05:19 (3,4,5), late=05:20-08:00 (6,7,8)
+        values = [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=40.0 + i * 3.0)
+            for i in range(9)
+        ]
+        _insert_hrv_day("2026-01-15", values)
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is not None
+        assert result.trajectory.early_avg is not None
+        assert result.trajectory.mid_avg is not None
+        assert result.trajectory.late_avg is not None
+        # Verify late > early since values are increasing
+        assert result.trajectory.late_avg > result.trajectory.early_avg
+
+    def test_rising_direction_when_late_exceeds_early_by_more_than_5(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        # early ~30, late ~50 → diff > 5 → rising
+        values = [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=30.0 + i * 3.0)
+            for i in range(9)
+        ]
+        _insert_hrv_day("2026-01-15", values)
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is not None
+        assert result.trajectory.direction == "rising"
+
+    def test_falling_direction_when_early_exceeds_late_by_more_than_5(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        # early ~60, late ~36 → diff < -5 → falling
+        values = [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=60.0 - i * 3.0)
+            for i in range(9)
+        ]
+        _insert_hrv_day("2026-01-15", values)
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is not None
+        assert result.trajectory.direction == "falling"
+
+    def test_flat_direction_when_difference_within_5(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        # All values ~50 → |diff| ≤ 5 → flat
+        values = [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=50.0)
+            for i in range(9)
+        ]
+        _insert_hrv_day("2026-01-15", values)
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is not None
+        assert result.trajectory.direction == "flat"
+
+    def test_falling_with_suppressed_fires_insight(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-14", nightly_avg=60.0, weekly_avg=60.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=45.0, weekly_avg=55.0,
+            hrv_status="low", sleep_score=80, resting_hr=46,
+        ))
+        # Falling trajectory: early ~60, late ~36
+        values = [
+            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=60.0 - i * 3.0)
+            for i in range(9)
+        ]
+        _insert_hrv_day("2026-01-15", values)
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.trajectory is not None
+        assert result.trajectory.direction == "falling"
+        titles = {item.title for item in result.insights}
+        assert "HRV declined through the night" in titles
+
+
+class TestDayOfWeek:
+    def test_returns_7_buckets_sorted_mon_to_sun(self):
+        # Single day is enough to verify structure
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert len(result.day_of_week) == 7
+        expected = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        assert [b.day for b in result.day_of_week] == expected
+        assert [b.day_index for b in result.day_of_week] == list(range(7))
+
+    def test_averages_grouped_by_weekday(self):
+        # 2026-01-05 = Monday, 2026-01-12 = Monday
+        _insert_metric(_make_daily_metric(
+            date="2026-01-05", nightly_avg=40.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-12", nightly_avg=60.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-05", [
+            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=40.0),
+        ])
+        _insert_hrv_day("2026-01-12", [
+            HrvValue(date="2026-01-12", timestamp="2026-01-12T00:00:00", value=60.0),
+        ])
+
+        result = load_hrv_insights("2026-01-12")
+        monday = result.day_of_week[0]
+        assert monday.day == "Mon"
+        assert monday.avg_nightly == 50.0
+        assert monday.sample_count == 2
+
+    def test_days_with_no_data_have_none_avg(self):
+        # Only insert a Monday (2026-01-05)
+        _insert_metric(_make_daily_metric(
+            date="2026-01-05", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-05", [
+            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=50.0),
+        ])
+
+        result = load_hrv_insights("2026-01-05")
+        tuesday = result.day_of_week[1]
+        assert tuesday.avg_nightly is None
+        assert tuesday.sample_count == 0
+
+    def test_none_nightly_avg_excluded(self):
+        # 2026-01-05 = Monday with None nightly_avg, 2026-01-12 = Monday with 50.0
+        _insert_metric(_make_daily_metric(
+            date="2026-01-05", nightly_avg=None, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-12", nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-05", [
+            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=40.0),
+        ])
+        _insert_hrv_day("2026-01-12", [
+            HrvValue(date="2026-01-12", timestamp="2026-01-12T00:00:00", value=50.0),
+        ])
+
+        result = load_hrv_insights("2026-01-12")
+        monday = result.day_of_week[0]
+        assert monday.avg_nightly == 50.0
+        assert monday.sample_count == 1

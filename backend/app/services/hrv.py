@@ -2,6 +2,7 @@
 
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime
 
 import numpy as np
 
@@ -11,6 +12,7 @@ from ..models import (
     DayHrv,
     HrvBaselineBands,
     HrvDataQuality,
+    HrvDayOfWeekBucket,
     HrvDistribution,
     HrvDistributionBin,
     HrvInsight,
@@ -20,6 +22,7 @@ from ..models import (
     HrvRecovery,
     HrvStatusBucket,
     HrvStreak,
+    HrvTrajectory,
     HrvTrendBand,
     HrvValue,
 )
@@ -241,6 +244,7 @@ class _InsightContext:
     overnight_stdev: float | None = None
     streak: HrvStreak | None = None
     long_baseline: HrvLongBaseline | None = None
+    trajectory: HrvTrajectory | None = None
 
 
 def _build_insights(ctx: _InsightContext) -> list[HrvInsight]:
@@ -318,6 +322,17 @@ def _build_insights(ctx: _InsightContext) -> list[HrvInsight]:
                 f"{ctx.streak.current_status} HRV status. "
                 "Consider reviewing recent stressors, sleep, or training load."
             ),
+        ))
+
+    if (
+        ctx.trajectory is not None
+        and ctx.trajectory.direction == "falling"
+        and status in {"suppressed", "below_baseline"}
+    ):
+        insights.append(HrvInsight(
+            level="warning",
+            title="HRV declined through the night",
+            detail="HRV declined through the night, suggesting disrupted recovery.",
         ))
 
     if (
@@ -446,6 +461,85 @@ def _compute_hrv_distribution(
     )
 
 
+def _compute_trajectory(hrv_values: list[HrvValue]) -> HrvTrajectory | None:
+    """Split overnight readings into 3 equal time segments and compare averages."""
+    parsed = sorted(
+        (dt, v.value)
+        for v in hrv_values
+        if (dt := _parse_iso(v.timestamp)) is not None
+    )
+    if len(parsed) < 6:
+        return None
+
+    t_start = parsed[0][0]
+    t_end = parsed[-1][0]
+    span = (t_end - t_start).total_seconds()
+    if span <= 0:
+        return None
+    third = span / 3
+    t_mid_start = t_start.timestamp() + third
+    t_late_start = t_start.timestamp() + 2 * third
+
+    early: list[float] = []
+    mid: list[float] = []
+    late: list[float] = []
+    for dt, val in parsed:
+        ts = dt.timestamp()
+        if ts < t_mid_start:
+            early.append(val)
+        elif ts < t_late_start:
+            mid.append(val)
+        else:
+            late.append(val)
+
+    if not early or not mid or not late:
+        return None
+
+    early_avg = round(sum(early) / len(early), 1)
+    mid_avg = round(sum(mid) / len(mid), 1)
+    late_avg = round(sum(late) / len(late), 1)
+
+    diff = late_avg - early_avg
+    if diff > 5:
+        direction = "rising"
+    elif diff < -5:
+        direction = "falling"
+    else:
+        direction = "flat"
+
+    return HrvTrajectory(
+        early_avg=early_avg,
+        mid_avg=mid_avg,
+        late_avg=late_avg,
+        direction=direction,
+    )
+
+
+_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def _compute_day_of_week(metrics: list[DailyMetric]) -> list[HrvDayOfWeekBucket]:
+    """Average nightly HRV grouped by weekday across the full dataset."""
+    groups: dict[int, list[float]] = {i: [] for i in range(7)}
+    for m in metrics:
+        if m.hrv.nightly_avg is not None:
+            try:
+                weekday = datetime.strptime(m.date, "%Y-%m-%d").weekday()
+            except ValueError:
+                continue
+            groups[weekday].append(m.hrv.nightly_avg)
+
+    return [
+        HrvDayOfWeekBucket(
+            day=_DAY_NAMES[i],
+            day_index=i,
+            avg_nightly=round(sum(vals) / len(vals), 1) if vals else None,
+            sample_count=len(vals),
+        )
+        for i, vals in sorted(groups.items())
+    ]
+
+
 def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
     """Load backend-derived HRV insights for a day (or latest if omitted)."""
     metrics = load_daily_metrics()
@@ -481,7 +575,9 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
     distribution = _compute_hrv_distribution(
         nightly_vals, selected_metric.hrv.nightly_avg,
     )
+    trajectory = _compute_trajectory(day_values)
     status_mix = _compute_status_mix(metrics, selected_index)
+    day_of_week = _compute_day_of_week(metrics)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
     insights = _build_insights(_InsightContext(
         selected=selected_metric,
@@ -491,6 +587,7 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         overnight_stdev=overnight_stdev,
         streak=streak,
         long_baseline=long_baseline,
+        trajectory=trajectory,
     ))
 
     return HrvInsightsResponse(
@@ -504,6 +601,8 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         long_baseline=long_baseline,
         baseline_bands=baseline_bands,
         distribution=distribution,
+        trajectory=trajectory,
         status_mix=status_mix,
+        day_of_week=day_of_week,
         insights=insights,
     )

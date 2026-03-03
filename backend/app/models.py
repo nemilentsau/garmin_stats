@@ -340,6 +340,20 @@ class HrvDistribution(_DefaultsRequired):
     selected_percentile: float | None = None
 
 
+class HrvTrajectory(_DefaultsRequired):
+    early_avg: float | None = None
+    mid_avg: float | None = None
+    late_avg: float | None = None
+    direction: str | None = None  # "rising", "falling", "flat", or None
+
+
+class HrvDayOfWeekBucket(_DefaultsRequired):
+    day: str             # "Mon", "Tue", ..., "Sun"
+    day_index: int       # 0=Mon, 6=Sun
+    avg_nightly: float | None = None
+    sample_count: int = 0
+
+
 class HrvInsight(_DefaultsRequired):
     level: str
     title: str
@@ -357,7 +371,9 @@ class HrvInsightsResponse(_DefaultsRequired):
     long_baseline: HrvLongBaseline | None = None
     baseline_bands: HrvBaselineBands | None = None
     distribution: HrvDistribution | None = None
+    trajectory: HrvTrajectory | None = None
     status_mix: list[HrvStatusBucket] = []
+    day_of_week: list[HrvDayOfWeekBucket] = []
     insights: list[HrvInsight] = []
 
 

@@ -64,6 +64,8 @@
 
 	let baselineBands = $derived.by(() => insights?.baseline_bands ?? null);
 	let distribution = $derived.by(() => insights?.distribution ?? null);
+	let trajectory = $derived.by(() => insights?.trajectory ?? null);
+	let dayOfWeek = $derived.by(() => insights?.day_of_week ?? []);
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
@@ -240,6 +242,53 @@
 		};
 	});
 
+	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (dayOfWeek.length === 0) return null;
+		const validAvgs = dayOfWeek.filter((b) => b.avg_nightly != null).map((b) => b.avg_nightly!);
+		const overallAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : null;
+		return {
+			type: 'bar',
+			data: {
+				labels: dayOfWeek.map((b) => b.day),
+				datasets: [
+					{
+						label: 'Avg Nightly HRV',
+						data: dayOfWeek.map((b) => b.avg_nightly),
+						backgroundColor: dayOfWeek.map((b) => {
+							if (b.avg_nightly == null || overallAvg == null) return withAlpha(COLORS.hrv, '55');
+							if (b.avg_nightly - overallAvg > 5) return withAlpha(COLORS.hrv, 'cc');
+							if (b.avg_nightly - overallAvg < -5) return withAlpha(COLORS.hrv, '33');
+							return withAlpha(COLORS.hrv, '77');
+						}),
+						borderRadius: 3
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
+				},
+				scales: {
+					x: {
+						ticks: { ...DARK_TICK, font: { size: 11 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	});
+
 	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
 
 	function makeIntradayConfig(
@@ -314,6 +363,18 @@
 	let longBaseline = $derived.by(() => insights?.long_baseline ?? null);
 	let statusMix = $derived.by(() => insights?.status_mix ?? []);
 	let insightDate = $derived.by(() => insights?.date ?? null);
+
+function trajectoryColorClass(direction: string | null | undefined): string {
+		if (direction === 'rising') return 'text-[#4CAF82]';
+		if (direction === 'falling') return 'text-[#E85D4A]';
+		return 'text-[#8a9baa]';
+	}
+
+	function trajectoryArrow(direction: string | null | undefined): string {
+		if (direction === 'rising') return '\u2191 rising';
+		if (direction === 'falling') return '\u2193 falling';
+		return '\u2192 flat';
+	}
 
 function recoveryColorClass(status: string | null | undefined): string {
 		if (status === 'suppressed' || status === 'below_baseline') return 'text-[#E85D4A]';
@@ -462,6 +523,30 @@ function recoveryColorClass(status: string | null | undefined): string {
 		</div>
 	{/if}
 
+	{#if trajectory}
+		<div class="grid grid-cols-3 gap-3 mb-6">
+			<StatCard
+				title="Early"
+				value={fmt(trajectory.early_avg)}
+				unit="ms"
+				colorClass={trajectoryColorClass(trajectory.direction)}
+			/>
+			<StatCard
+				title="Mid"
+				value={fmt(trajectory.mid_avg)}
+				unit="ms"
+				colorClass={trajectoryColorClass(trajectory.direction)}
+			/>
+			<StatCard
+				title="Late"
+				value={fmt(trajectory.late_avg)}
+				unit="ms"
+				subtitle={trajectoryArrow(trajectory.direction)}
+				colorClass={trajectoryColorClass(trajectory.direction)}
+			/>
+		</div>
+	{/if}
+
 	{#if insights && insights.insights.length > 0}
 		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
 			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
@@ -519,6 +604,18 @@ function recoveryColorClass(status: string | null | undefined): string {
 					{distribution.total_days} nights{#if distribution.selected_percentile != null && insightDate} • {insightDate} is at the {distribution.selected_percentile}th percentile{/if}
 				</p>
 			{/if}
+		</div>
+	{/if}
+
+	{#if dayOfWeekConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				HRV by Day of Week
+			</h2>
+			<BarChart config={dayOfWeekConfig} height={220} />
+			<p class="text-xs text-[#4a5c6a] mt-2">
+				{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights
+			</p>
 		</div>
 	{/if}
 
