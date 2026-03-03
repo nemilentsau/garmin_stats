@@ -2,8 +2,8 @@
 
 import pytest
 
-import app.database as db
-from app import cache
+import app.infra.database as db
+from app.infra import cache
 from app.models import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,

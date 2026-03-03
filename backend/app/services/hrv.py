@@ -4,7 +4,7 @@ from collections import Counter
 
 import numpy as np
 
-from ..database import load_daily_metrics, load_hrv
+from ..infra.database import load_daily_metrics, load_hrv
 from ..models import (
     DailyMetric,
     HrvDataQuality,
@@ -16,7 +16,7 @@ from ..models import (
     HrvTrendBand,
     HrvValue,
 )
-from ..timeutil import parse_iso as _parse_iso
+from ..utils.timeutil import parse_iso as _parse_iso
 
 
 def _normalize_hrv_status(raw: str | None) -> str:

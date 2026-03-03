@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import DATA_DIR, ingest_all, init_db, is_db_empty
+from .infra.database import DATA_DIR, ingest_all, init_db, is_db_empty
+from .infra.watcher import heartbeat_loop, watch_data_directory
 from .routers.daily_aggregates import router as daily_aggregates_router
 from .routers.days import router as days_router
 from .routers.events import router as events_router
@@ -19,7 +20,6 @@ from .routers.ingest import router as ingest_router
 from .routers.skin_temp import router as skin_temp_router
 from .routers.sleep import router as sleep_router
 from .routers.wellness import router as wellness_router
-from .watcher import heartbeat_loop, watch_data_directory
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

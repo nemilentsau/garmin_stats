@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
-from ..database import DATA_DIR, check_ingest_status, ingest_all
+from ..infra.database import DATA_DIR, check_ingest_status, ingest_all
 from ..models import IngestResult, IngestStatus
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])

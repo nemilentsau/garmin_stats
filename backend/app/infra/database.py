@@ -15,8 +15,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import cache
-from .models import (
+from ..models import (
     DailyMetric,
     DayHrv,
     DaySkinTemp,
@@ -26,12 +25,13 @@ from .models import (
     IngestStatus,
     PeriodSummary,
 )
-from .parser import get_files_by_day, parse_all_days
-from .stats import compute_daily_aggregates
+from ..parser import get_files_by_day, parse_all_days
+from ..stats import compute_daily_aggregates
+from . import cache
 
 log = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 DB_PATH = Path(os.environ.get(
     "GARMIN_DB_PATH",

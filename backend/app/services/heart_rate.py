@@ -3,7 +3,7 @@
 from datetime import datetime
 from statistics import median
 
-from ..database import load_daily_metrics, load_wellness
+from ..infra.database import load_daily_metrics, load_wellness
 from ..models import (
     DailyMetric,
     HeartRateDataQuality,
@@ -14,7 +14,7 @@ from ..models import (
     HRZoneDuration,
 )
 from ..stats import HR_ZONE_THRESHOLDS
-from ..timeutil import parse_iso as _parse_iso
+from ..utils.timeutil import parse_iso as _parse_iso
 
 
 def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:

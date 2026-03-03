@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..database import load_skin_temp
+from ..infra.database import load_skin_temp
 from ..models import SkinTempResponse
 from ..stats import flatten_skin_temp
 

@@ -28,6 +28,13 @@ from pathlib import Path
 
 from garminconnect import Garmin, GarminConnectAuthenticationError
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 TOKEN_DIR = os.environ.get("GARMINTOKENS", "~/.garminconnect")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DOWNLOAD_SERVICE_URL = "/download-service/files"

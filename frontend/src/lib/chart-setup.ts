@@ -13,6 +13,7 @@ import {
 	Legend
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
 Chart.register(
 	LineController,
@@ -25,7 +26,8 @@ Chart.register(
 	TimeScale,
 	Filler,
 	Tooltip,
-	Legend
+	Legend,
+	annotationPlugin
 );
 
 export { Chart };

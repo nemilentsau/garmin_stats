@@ -14,7 +14,7 @@ from pathlib import Path
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from app.database import DATA_DIR, init_db, ingest_all  # noqa: E402
+from app.infra.database import DATA_DIR, init_db, ingest_all  # noqa: E402
 
 if __name__ == "__main__":
     print(f"Data directory: {DATA_DIR}")
