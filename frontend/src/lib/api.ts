@@ -26,6 +26,7 @@ export type HRDistribution = Schemas['HRDistributionResponse'];
 
 export type HeartRateInsights = Schemas['HeartRateInsightsResponse'];
 export type HrvInsights = Schemas['HrvInsightsResponse'];
+export type DashboardOverview = Schemas['DashboardOverviewResponse'];
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
@@ -37,6 +38,7 @@ async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 
 export const api = {
 	getDailyAggregates: () => fetchJson<DailyAggregates>('/api/daily-aggregates'),
+	getDashboardOverview: () => fetchJson<DashboardOverview>('/api/dashboard'),
 	getWellness: (date?: string) =>
 		fetchJson<WellnessData>(`/api/wellness${date ? `?date=${date}` : ''}`),
 	getSleep: (date?: string) => fetchJson<SleepData>(`/api/sleep${date ? `?date=${date}` : ''}`),

@@ -527,3 +527,34 @@ class IngestStatus(_DefaultsRequired):
     last_ingest_time: str | None = None
     days_in_db: int
     days_on_disk: int
+
+
+# ---------------------------------------------------------------------------
+# Dashboard overview models
+# ---------------------------------------------------------------------------
+
+
+class ReadinessScore(_DefaultsRequired):
+    score: int | None = None
+    components: dict[str, float] = {}
+    label: str | None = None  # "Ready", "Moderate", "Rest"
+
+
+class CorrelationPoint(_DefaultsRequired):
+    date: str
+    hrv_nightly: float
+    other_value: float
+
+
+class MetricCorrelation(_DefaultsRequired):
+    metric: str              # "sleep_score", "resting_hr"
+    label: str               # "Sleep Score", "Resting HR"
+    points: list[CorrelationPoint] = []
+    r_value: float | None = None
+    sample_count: int = 0
+
+
+class DashboardOverviewResponse(_DefaultsRequired):
+    date: str
+    readiness: ReadinessScore | None = None
+    correlations: list[MetricCorrelation] = []

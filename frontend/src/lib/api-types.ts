@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard Overview
+         * @description Return readiness score and cross-domain correlations.
+         */
+        get: operations["get_dashboard_overview_api_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/days": {
         parameters: {
             query?: never;
@@ -342,6 +362,15 @@ export interface components {
              */
             sample_count: number;
         };
+        /** CorrelationPoint */
+        CorrelationPoint: {
+            /** Date */
+            date: string;
+            /** Hrv Nightly */
+            hrv_nightly: number;
+            /** Other Value */
+            other_value: number;
+        };
         /** DailyAggregatesResponse */
         DailyAggregatesResponse: {
             /** Days */
@@ -443,6 +472,17 @@ export interface components {
             deep_score: number | null;
             /** Rem Score */
             rem_score: number | null;
+        };
+        /** DashboardOverviewResponse */
+        DashboardOverviewResponse: {
+            /** Date */
+            date: string;
+            readiness: components["schemas"]["ReadinessScore"] | null;
+            /**
+             * Correlations
+             * @default []
+             */
+            correlations: components["schemas"]["MetricCorrelation"][];
         };
         /** DaySummaryResponse */
         DaySummaryResponse: {
@@ -850,6 +890,25 @@ export interface components {
             /** Days On Disk */
             days_on_disk: number;
         };
+        /** MetricCorrelation */
+        MetricCorrelation: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["CorrelationPoint"][];
+            /** R Value */
+            r_value: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+        };
         /** PeriodHeartRateStats */
         PeriodHeartRateStats: {
             /** Avg */
@@ -930,6 +989,20 @@ export interface components {
             hrv: components["schemas"]["PeriodHrvStats"];
             spo2: components["schemas"]["PeriodSpo2Stats"];
             skin_temp: components["schemas"]["PeriodSkinTempStats"];
+        };
+        /** ReadinessScore */
+        ReadinessScore: {
+            /** Score */
+            score: number | null;
+            /**
+             * Components
+             * @default {}
+             */
+            components: {
+                [key: string]: number;
+            };
+            /** Label */
+            label: string | null;
         };
         /** RespirationReading */
         RespirationReading: {
@@ -1151,6 +1224,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestStatus"];
+                };
+            };
+        };
+    };
+    get_dashboard_overview_api_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOverviewResponse"];
                 };
             };
         };
