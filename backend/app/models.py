@@ -291,6 +291,7 @@ class HrvIntradaySegment(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None
     max: float | None = None
+    stdev: float | None = None
     coverage_start: str | None = None
     coverage_end: str | None = None
     coverage_hours: float | None = None
@@ -308,6 +309,17 @@ class HrvTrendBand(_DefaultsRequired):
     nightly_typical_high: float | None = None
 
 
+class HrvStreak(_DefaultsRequired):
+    current_status: str | None = None
+    streak_days: int = 0
+    worst_recent_streak: int = 0
+
+
+class HrvLongBaseline(_DefaultsRequired):
+    baseline_30d: float | None = None
+    delta_7d_vs_30d: float | None = None
+
+
 class HrvInsight(_DefaultsRequired):
     level: str
     title: str
@@ -321,6 +333,8 @@ class HrvInsightsResponse(_DefaultsRequired):
     quality: HrvDataQuality
     intraday_segments: list[HrvIntradaySegment] = []
     trend_band: HrvTrendBand
+    streak: HrvStreak | None = None
+    long_baseline: HrvLongBaseline | None = None
     status_mix: list[HrvStatusBucket] = []
     insights: list[HrvInsight] = []
 

@@ -177,3 +177,332 @@ class TestHrvInsights:
         assert segment.key == "all"
         assert segment.sample_count == 4
         assert segment.avg == 49.2
+
+
+class TestStdev:
+    def test_stdev_computed_for_multiple_samples(self):
+        """stdev of [45, 44, 46] with ddof=1 = 1.0"""
+        _insert_metric(_make_daily_metric(
+            date="2026-01-14",
+            nightly_avg=60.0, weekly_avg=62.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=45.0, weekly_avg=55.0,
+            hrv_status="low", sleep_score=65, resting_hr=52,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=45.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=44.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:10:00", value=46.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.intraday_segments[0].stdev == 1.0
+
+    def test_stdev_none_for_single_sample(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=50.0, weekly_avg=50.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.intraday_segments[0].stdev is None
+
+    def test_high_stdev_with_suppressed_fires_volatility_insight(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-14",
+            nightly_avg=60.0, weekly_avg=62.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=45.0, weekly_avg=55.0,
+            hrv_status="low", sleep_score=80, resting_hr=46,
+        ))
+        # Wide-ranging values to produce stdev > 25
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=20.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=80.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        titles = {item.title for item in result.insights}
+        assert "High overnight HRV volatility" in titles
+
+    def test_high_stdev_with_stable_does_not_fire_volatility_insight(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-14",
+            nightly_avg=60.0, weekly_avg=60.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=61.0, weekly_avg=60.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=20.0),
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=80.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        titles = {item.title for item in result.insights}
+        assert "High overnight HRV volatility" not in titles
+
+
+class TestStreak:
+    def test_three_consecutive_same_status_days(self):
+        for d in ["2026-01-13", "2026-01-14", "2026-01-15"]:
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=40.0, weekly_avg=55.0,
+                hrv_status="low", sleep_score=70, resting_hr=50,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
+            ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.streak is not None
+        assert result.streak.current_status == "Low"
+        assert result.streak.streak_days == 3
+
+    def test_single_day_streak_is_one(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-14",
+            nightly_avg=60.0, weekly_avg=60.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=40.0, weekly_avg=55.0,
+            hrv_status="low", sleep_score=70, resting_hr=50,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=40.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.streak is not None
+        assert result.streak.streak_days == 1
+
+    def test_worst_recent_streak_finds_longest_bad_run(self):
+        # Balanced, then 4 low, then 1 balanced, then 2 low (selected)
+        dates = [f"2026-01-{d:02d}" for d in range(8, 16)]
+        statuses = ["balanced", "low", "low", "low", "low", "balanced", "low", "low"]
+        for d, s in zip(dates, statuses, strict=True):
+            _insert_metric(_make_daily_metric(
+                date=d,
+                nightly_avg=40.0 if s == "low" else 60.0,
+                weekly_avg=55.0,
+                hrv_status=s, sleep_score=70, resting_hr=50,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
+            ])
+
+        result = load_hrv_insights("2026-01-15")
+        assert result.streak is not None
+        assert result.streak.worst_recent_streak == 4
+
+    def test_low_streak_ge_3_fires_warning_insight(self):
+        for d in ["2026-01-13", "2026-01-14", "2026-01-15"]:
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=40.0, weekly_avg=55.0,
+                hrv_status="low", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
+            ])
+
+        result = load_hrv_insights("2026-01-15")
+        titles = {item.title for item in result.insights}
+        assert "Extended low HRV streak" in titles
+
+    def test_low_streak_2_does_not_fire_insight(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-13",
+            nightly_avg=60.0, weekly_avg=60.0,
+            hrv_status="balanced", sleep_score=85, resting_hr=46,
+        ))
+        for d in ["2026-01-14", "2026-01-15"]:
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=40.0, weekly_avg=55.0,
+                hrv_status="low", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
+            ])
+        _insert_hrv_day("2026-01-13", [
+            HrvValue(date="2026-01-13", timestamp="2026-01-13T00:00:00", value=60.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+        titles = {item.title for item in result.insights}
+        assert "Extended low HRV streak" not in titles
+
+    def test_balanced_streak_ge_3_does_not_fire_insight(self):
+        for d in ["2026-01-13", "2026-01-14", "2026-01-15"]:
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=60.0, weekly_avg=60.0,
+                hrv_status="balanced", sleep_score=85, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=60.0),
+            ])
+
+        result = load_hrv_insights("2026-01-15")
+        titles = {item.title for item in result.insights}
+        assert "Extended low HRV streak" not in titles
+
+
+class TestLongBaseline:
+    def _insert_history(self, count: int, selected_date: str = "2026-02-15") -> None:
+        """Insert `count` days before selected_date, plus the selected day itself."""
+        for i in range(count, 0, -1):
+            day_num = 15 - i
+            month = 2 if day_num > 0 else 1
+            d = f"2026-{month:02d}-{abs(day_num) if day_num <= 0 else day_num:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=50.0 + i * 0.1, weekly_avg=52.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=50.0),
+            ])
+        _insert_metric(_make_daily_metric(
+            date=selected_date, nightly_avg=48.0, weekly_avg=49.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day(selected_date, [
+            HrvValue(date=selected_date, timestamp=f"{selected_date}T00:00:00", value=48.0),
+        ])
+
+    def test_returns_none_when_fewer_than_14_data_points(self):
+        self._insert_history(13)
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is None
+
+    def test_computes_baseline_with_exactly_14_data_points(self):
+        self._insert_history(14)
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is not None
+        assert result.long_baseline.baseline_30d is not None
+
+    def test_delta_7d_vs_30d_computed_correctly(self):
+        self._insert_history(20)
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is not None
+        baseline_7d = result.recovery.baseline_nightly_7d
+        assert baseline_7d is not None
+        assert result.long_baseline.baseline_30d is not None
+        expected_delta = round(baseline_7d - result.long_baseline.baseline_30d, 1)
+        assert result.long_baseline.delta_7d_vs_30d == expected_delta
+
+    def test_delta_below_minus_5_fires_caution_insight(self):
+        # Create 20 days of high nightly_avg, then drop for recent 7 days
+        for i in range(20, 7, -1):
+            day_num = 15 - i
+            month = 2 if day_num > 0 else 1
+            d = f"2026-{month:02d}-{abs(day_num) if day_num <= 0 else day_num:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=65.0, weekly_avg=65.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=65.0),
+            ])
+        for i in range(7, 0, -1):
+            day_num = 15 - i
+            d = f"2026-02-{day_num:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=55.0, weekly_avg=56.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=55.0),
+            ])
+        _insert_metric(_make_daily_metric(
+            date="2026-02-15", nightly_avg=55.0, weekly_avg=56.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-02-15", [
+            HrvValue(date="2026-02-15", timestamp="2026-02-15T00:00:00", value=55.0),
+        ])
+
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is not None
+        assert result.long_baseline.delta_7d_vs_30d is not None
+        assert result.long_baseline.delta_7d_vs_30d < -5
+        titles = {item.title for item in result.insights}
+        assert "7-day baseline is trending below 30-day average" in titles
+
+    def test_delta_exactly_minus_5_does_not_fire_insight(self):
+        # baseline_7d and baseline_30d differ by exactly 5
+        # We need baseline_7d = baseline_30d - 5.0
+        # 30d window (14+ days): all nightly_avg = 60.0 → baseline_30d = 60.0
+        # 7d window: all nightly_avg = 55.0 → baseline_7d = 55.0
+        # delta = 55.0 - 60.0 = -5.0 (exactly at boundary, should NOT fire)
+        for i in range(20, 7, -1):
+            day_num = 15 - i
+            month = 2 if day_num > 0 else 1
+            d = f"2026-{month:02d}-{abs(day_num) if day_num <= 0 else day_num:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=60.0, weekly_avg=60.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=60.0),
+            ])
+        for i in range(7, 0, -1):
+            day_num = 15 - i
+            d = f"2026-02-{day_num:02d}"
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=55.0, weekly_avg=55.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=55.0),
+            ])
+        _insert_metric(_make_daily_metric(
+            date="2026-02-15", nightly_avg=55.0, weekly_avg=55.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-02-15", [
+            HrvValue(date="2026-02-15", timestamp="2026-02-15T00:00:00", value=55.0),
+        ])
+
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is not None
+        titles = {item.title for item in result.insights}
+        assert "7-day baseline is trending below 30-day average" not in titles
+
+    def test_none_nightly_avg_days_excluded(self):
+        # 13 valid + 5 None = 18 total, but only 13 non-null → should return None
+        for i in range(18, 0, -1):
+            day_num = 15 - i
+            month = 2 if day_num > 0 else 1
+            d = f"2026-{month:02d}-{abs(day_num) if day_num <= 0 else day_num:02d}"
+            nightly = None if i > 13 else 50.0
+            _insert_metric(_make_daily_metric(
+                date=d, nightly_avg=nightly, weekly_avg=52.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ))
+            _insert_hrv_day(d, [
+                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=50.0),
+            ])
+        _insert_metric(_make_daily_metric(
+            date="2026-02-15", nightly_avg=48.0, weekly_avg=49.0,
+            hrv_status="balanced", sleep_score=80, resting_hr=46,
+        ))
+        _insert_hrv_day("2026-02-15", [
+            HrvValue(date="2026-02-15", timestamp="2026-02-15T00:00:00", value=48.0),
+        ])
+
+        result = load_hrv_insights("2026-02-15")
+        assert result.long_baseline is None

@@ -632,6 +632,8 @@ export interface components {
              */
             intraday_segments: components["schemas"]["HrvIntradaySegment"][];
             trend_band: components["schemas"]["HrvTrendBand"];
+            streak: components["schemas"]["HrvStreak"] | null;
+            long_baseline: components["schemas"]["HrvLongBaseline"] | null;
             /**
              * Status Mix
              * @default []
@@ -660,6 +662,8 @@ export interface components {
             min: number | null;
             /** Max */
             max: number | null;
+            /** Stdev */
+            stdev: number | null;
             /** Coverage Start */
             coverage_start: string | null;
             /** Coverage End */
@@ -671,6 +675,13 @@ export interface components {
              * @default []
              */
             values: components["schemas"]["HrvValue"][];
+        };
+        /** HrvLongBaseline */
+        HrvLongBaseline: {
+            /** Baseline 30D */
+            baseline_30d: number | null;
+            /** Delta 7D Vs 30D */
+            delta_7d_vs_30d: number | null;
         };
         /** HrvRecovery */
         HrvRecovery: {
@@ -700,6 +711,21 @@ export interface components {
             count: number;
             /** Pct */
             pct: number;
+        };
+        /** HrvStreak */
+        HrvStreak: {
+            /** Current Status */
+            current_status: string | null;
+            /**
+             * Streak Days
+             * @default 0
+             */
+            streak_days: number;
+            /**
+             * Worst Recent Streak
+             * @default 0
+             */
+            worst_recent_streak: number;
         };
         /** HrvSummary */
         HrvSummary: {

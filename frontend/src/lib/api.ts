@@ -76,6 +76,7 @@ export type HrvInsights = {
 		avg: number | null;
 		min: number | null;
 		max: number | null;
+		stdev: number | null;
 		coverage_start: string | null;
 		coverage_end: string | null;
 		coverage_hours: number | null;
@@ -89,6 +90,15 @@ export type HrvInsights = {
 		nightly_typical_low: number | null;
 		nightly_typical_high: number | null;
 	};
+	streak: {
+		current_status: string | null;
+		streak_days: number;
+		worst_recent_streak: number;
+	} | null;
+	long_baseline: {
+		baseline_30d: number | null;
+		delta_7d_vs_30d: number | null;
+	} | null;
 	status_mix: {
 		label: string;
 		count: number;

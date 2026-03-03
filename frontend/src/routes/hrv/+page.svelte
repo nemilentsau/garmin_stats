@@ -93,6 +93,20 @@
 			);
 		}
 
+		const baseline30d = insights?.long_baseline?.baseline_30d ?? null;
+		if (baseline30d != null) {
+			datasets.push({
+				label: '30-Day Baseline',
+				data: labels.map(() => baseline30d),
+				borderColor: COLORS.baseline,
+				borderWidth: 1.5,
+				borderDash: [8, 4],
+				pointRadius: 0,
+				tension: 0,
+				fill: false
+			});
+		}
+
 		datasets.push(
 			{
 				label: 'Nightly Avg',
@@ -233,6 +247,8 @@
 	let dayStats = $derived.by(() => insights?.day_stats ?? null);
 	let recovery = $derived.by(() => insights?.recovery ?? null);
 	let quality = $derived.by(() => insights?.quality ?? null);
+	let streak = $derived.by(() => insights?.streak ?? null);
+	let longBaseline = $derived.by(() => insights?.long_baseline ?? null);
 	let statusMix = $derived.by(() => insights?.status_mix ?? []);
 	let insightDate = $derived.by(() => insights?.date ?? null);
 
@@ -250,6 +266,19 @@
 	function recoveryColorClass(status: string | null | undefined): string {
 		if (status === 'suppressed' || status === 'below_baseline') return 'text-[#E85D4A]';
 		if (status === 'elevated' || status === 'stable') return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
+	}
+
+	function streakColorClass(status: string | null | undefined): string {
+		if (status === 'Low' || status === 'Unbalanced') return 'text-[#E85D4A]';
+		if (status === 'Balanced' || status === 'High') return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
+	}
+
+	function deltaColorClass(delta: number | null | undefined): string {
+		if (delta == null) return 'text-[#8a9baa]';
+		if (delta < -5) return 'text-[#D4944C]';
+		if (delta > 5) return 'text-[#4CAF82]';
 		return 'text-[#8a9baa]';
 	}
 
@@ -336,6 +365,34 @@
 		</div>
 	{/if}
 
+	{#if streak || longBaseline}
+		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+			{#if streak}
+				<StatCard
+					title="Status Streak"
+					value="{streak.streak_days}d"
+					subtitle={streak.current_status ?? '-'}
+					colorClass={streakColorClass(streak.current_status)}
+				/>
+				<StatCard
+					title="Worst Recent Streak"
+					value="{streak.worst_recent_streak}d"
+					subtitle="Low/Unbalanced (14d)"
+					colorClass={streak.worst_recent_streak >= 3 ? 'text-[#E85D4A]' : 'text-[#8a9baa]'}
+				/>
+			{/if}
+			{#if longBaseline}
+				<StatCard
+					title="7d vs 30d"
+					value={fmtSigned(longBaseline.delta_7d_vs_30d)}
+					unit="ms"
+					subtitle={longBaseline.baseline_30d != null ? `30d baseline ${longBaseline.baseline_30d} ms` : '-'}
+					colorClass={deltaColorClass(longBaseline.delta_7d_vs_30d)}
+				/>
+			{/if}
+		</div>
+	{/if}
+
 	{#if dayStats}
 		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 			Day Snapshot {insightDate ? `— ${insightDate}` : ''}
@@ -414,7 +471,7 @@
 			{#if intradayConfig}
 				<LineChart config={intradayConfig} height={300} />
 				<p class="text-xs text-[#4a5c6a] mt-2">
-					{intradaySegment?.sample_count ?? 0} readings • avg {fmt(intradaySegment?.avg)} ms
+					{intradaySegment?.sample_count ?? 0} readings • avg {fmt(intradaySegment?.avg)} ms{#if intradaySegment?.stdev != null} • stdev {intradaySegment.stdev} ms{/if}
 				</p>
 			{:else}
 				<div class="text-sm text-[#5e7282]">No HRV samples for this day.</div>
