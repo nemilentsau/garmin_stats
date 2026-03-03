@@ -14,8 +14,9 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -93,28 +94,22 @@
 
 	const darkScales = {
 		x: {
-			ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-			grid: { color: '#ffffff08' },
-			border: { color: '#ffffff10' }
+			ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+			grid: DARK_GRID,
+			border: DARK_BORDER
 		},
 		y: {
 			beginAtZero: false,
-			title: { display: true, text: 'bpm', color: '#6b7d8e' },
-			ticks: { color: '#6b7d8e' },
-			grid: { color: '#ffffff06' },
-			border: { color: '#ffffff10' }
+			title: { display: true, text: 'bpm', ...DARK_TICK },
+			ticks: DARK_TICK,
+			grid: DARK_GRID_Y,
+			border: DARK_BORDER
 		}
 	} as const;
 
 	const darkPlugins = {
 		legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-		tooltip: {
-			backgroundColor: '#1a2332',
-			borderWidth: 1,
-			borderColor: withAlpha(COLORS.heartRate, '60'),
-			padding: 10,
-			cornerRadius: 4
-		}
+		tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
 	} as const;
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
@@ -259,22 +254,22 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 }
+					tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
 				},
 				scales: {
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'bpm', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'bpm', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -314,28 +309,10 @@
 		};
 	});
 
-	function fmtSigned(n: number | null | undefined): string {
-		if (n == null) return '-';
-		const rounded = n.toFixed(1);
-		return n > 0 ? `+${rounded}` : rounded;
-	}
-
-	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
-		if (!start || !end) return '-';
-		return `${start.slice(11, 16)}-${end.slice(11, 16)}`;
-	}
-
 	function recoveryColorClass(status: string | null | undefined): string {
 		if (status === 'high' || status === 'elevated') return 'text-[#E85D4A]';
 		if (status === 'low' || status === 'normal') return 'text-[#4CAF82]';
 		return 'text-[#8a9baa]';
-	}
-
-	function insightColor(level: string): string {
-		if (level === 'warning') return '#E85D4A';
-		if (level === 'caution') return '#D4944C';
-		if (level === 'good') return '#4CAF82';
-		return '#8a9baa';
 	}
 
 	// --- Analysis chart configs ---
@@ -401,27 +378,21 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.heartRate, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
 				},
 				scales: {
 					x: {
-						title: { display: true, text: 'bpm range', color: '#6b7d8e' },
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'bpm range', ...DARK_TICK },
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: true,
-						title: { display: true, text: 'count', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'count', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -454,27 +425,21 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.heartRate, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
 				},
 				scales: {
 					x: {
-						title: { display: true, text: 'Hour of Day', color: '#6b7d8e' },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'Hour of Day', ...DARK_TICK },
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'bpm', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'bpm', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -492,13 +457,13 @@
 					{
 						label: 'Sleeping HR',
 						data: trend.map((p) => p.avg_sleeping_bpm),
-						borderColor: '#6366B0',
+						borderColor: COLORS.sleep,
 						borderWidth: 2,
 						pointRadius: 2,
-						pointBackgroundColor: '#6366B0',
+						pointBackgroundColor: COLORS.sleep,
 						tension: 0.3,
 						spanGaps: true,
-						fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
+						fill: { target: 'origin', above: withAlpha(COLORS.sleep, '1F') }
 					}
 				]
 			},
@@ -507,13 +472,7 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: 'rgba(99, 102, 176, 0.6)',
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.sleep, '99'))
 				},
 				scales: darkScales
 			}
@@ -586,16 +545,16 @@
 				plugins: darkPlugins,
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'Resting bpm', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'Resting bpm', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -693,9 +652,9 @@
 				{#each insights.insights as item}
 					<div
 						class="bg-[rgba(255,255,255,0.02)] rounded-md px-3 py-2 border-l-2"
-						style="border-left-color: {insightColor(item.level)};"
+						style="border-left-color: {insightLevelColor(item.level)};"
 					>
-						<div class="text-[11px] uppercase tracking-wide" style="color: {insightColor(item.level)};">
+						<div class="text-[11px] uppercase tracking-wide" style="color: {insightLevelColor(item.level)};">
 							{item.level}
 						</div>
 						<div class="text-sm text-[#d9e5ec] font-medium">{item.title}</div>

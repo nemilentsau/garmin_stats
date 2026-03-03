@@ -2,10 +2,10 @@
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DailyMetric } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
-	import { Chart } from '$lib/chart-setup';
+	import { Chart, chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 	import { fmt } from '$lib/format';
-	import { COLORS } from '$lib/colors';
+	import { COLORS, withAlpha } from '$lib/colors';
 
 	let data: DailyAggregates | null = $state(null);
 	let error: string | null = $state(null);
@@ -80,25 +80,21 @@
 				plugins: {
 					legend: { display: false },
 					tooltip: {
-						backgroundColor: '#1a2332',
-						borderColor: metric.color + '60',
-						borderWidth: 1,
+						...chartTooltip(withAlpha(metric.color, '60')),
 						titleFont: { family: 'DM Mono', size: 11 },
-						bodyFont: { family: 'DM Mono', size: 12 },
-						padding: 10,
-						cornerRadius: 4
+						bodyFont: { family: 'DM Mono', size: 12 }
 					}
 				},
 				scales: {
 					x: {
-						grid: { color: '#ffffff08' },
-						ticks: { color: '#6b7d8e', font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 6 },
-						border: { color: '#ffffff10' }
+						grid: DARK_GRID,
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 6 },
+						border: DARK_BORDER
 					},
 					y: {
-						grid: { color: '#ffffff06' },
-						ticks: { color: '#6b7d8e', font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 5 },
-						border: { color: '#ffffff10' },
+						grid: DARK_GRID_Y,
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 5 },
+						border: DARK_BORDER,
 						beginAtZero: false
 					}
 				}

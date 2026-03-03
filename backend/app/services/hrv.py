@@ -1,6 +1,7 @@
 """HRV domain service: backend source of truth for derived HRV insights."""
 
 from collections import Counter
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -142,12 +143,7 @@ def _build_intraday_segment(
     )
 
 
-def _compute_trend_band(metrics: list[DailyMetric]) -> HrvTrendBand:
-    nightly_vals = [
-        metric.hrv.nightly_avg
-        for metric in metrics
-        if metric.hrv.nightly_avg is not None
-    ]
+def _compute_trend_band(nightly_vals: list[float]) -> HrvTrendBand:
     if len(nightly_vals) < 2:
         return HrvTrendBand()
     low = round(float(np.percentile(nightly_vals, 25)), 1)
@@ -236,27 +232,30 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
     return round(selected_resting - baseline, 1)
 
 
-def _build_insights(
-    selected: DailyMetric,
-    recovery: HrvRecovery,
-    quality: HrvDataQuality,
-    resting_delta: float | None,
-    overnight_stdev: float | None = None,
-    streak: HrvStreak | None = None,
-    long_baseline: HrvLongBaseline | None = None,
-) -> list[HrvInsight]:
+@dataclass(frozen=True, slots=True)
+class _InsightContext:
+    selected: DailyMetric
+    recovery: HrvRecovery
+    quality: HrvDataQuality
+    resting_delta: float | None
+    overnight_stdev: float | None = None
+    streak: HrvStreak | None = None
+    long_baseline: HrvLongBaseline | None = None
+
+
+def _build_insights(ctx: _InsightContext) -> list[HrvInsight]:
     insights: list[HrvInsight] = []
-    status = recovery.status
+    status = ctx.recovery.status
 
     if status == "suppressed":
         insights.append(HrvInsight(
             level="warning",
             title="HRV appears suppressed",
             detail=(
-                f"Nightly HRV is {recovery.delta_nightly_from_baseline:+.1f} ms versus the "
+                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
                 "prior 7-day baseline."
             )
-            if recovery.delta_nightly_from_baseline is not None
+            if ctx.recovery.delta_nightly_from_baseline is not None
             else "Nightly HRV is below expected levels.",
         ))
     elif status == "below_baseline":
@@ -264,10 +263,10 @@ def _build_insights(
             level="caution",
             title="HRV is below baseline",
             detail=(
-                f"Nightly HRV is {recovery.delta_nightly_from_baseline:+.1f} ms versus the "
+                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
                 "prior 7-day baseline."
             )
-            if recovery.delta_nightly_from_baseline is not None
+            if ctx.recovery.delta_nightly_from_baseline is not None
             else "Nightly HRV is mildly below baseline.",
         ))
     elif status == "elevated":
@@ -275,66 +274,67 @@ def _build_insights(
             level="good",
             title="HRV is above baseline",
             detail=(
-                f"Nightly HRV is {recovery.delta_nightly_from_baseline:+.1f} ms versus the "
+                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
                 "prior 7-day baseline."
             )
-            if recovery.delta_nightly_from_baseline is not None
+            if ctx.recovery.delta_nightly_from_baseline is not None
             else "Nightly HRV is above baseline.",
         ))
 
-    if recovery.acute_gap_vs_weekly is not None and recovery.acute_gap_vs_weekly <= -8:
+    if ctx.recovery.acute_gap_vs_weekly is not None and ctx.recovery.acute_gap_vs_weekly <= -8:
         insights.append(HrvInsight(
             level="caution",
             title="Acute recovery is below weekly trend",
             detail=(
-                f"Nightly HRV is {recovery.acute_gap_vs_weekly:+.1f} ms versus weekly average, "
+                f"Nightly HRV is {ctx.recovery.acute_gap_vs_weekly:+.1f} ms versus weekly average, "
                 "which can indicate short-term strain."
             ),
         ))
 
     if (
-        overnight_stdev is not None
-        and overnight_stdev > 25
+        ctx.overnight_stdev is not None
+        and ctx.overnight_stdev > 25
         and status in {"suppressed", "below_baseline"}
     ):
         insights.append(HrvInsight(
             level="caution",
             title="High overnight HRV volatility",
             detail=(
-                f"Overnight HRV stdev is {overnight_stdev:.1f} ms, suggesting irregular "
+                f"Overnight HRV stdev is {ctx.overnight_stdev:.1f} ms, suggesting irregular "
                 "autonomic activity alongside suppressed recovery."
             ),
         ))
 
     if (
-        streak is not None
-        and streak.current_status in _BAD_HRV_STATUSES
-        and streak.streak_days >= 3
+        ctx.streak is not None
+        and ctx.streak.current_status in _BAD_HRV_STATUSES
+        and ctx.streak.streak_days >= 3
     ):
         insights.append(HrvInsight(
             level="warning",
             title="Extended low HRV streak",
             detail=(
-                f"{streak.streak_days} consecutive days of {streak.current_status} HRV status. "
+                f"{ctx.streak.streak_days} consecutive days of "
+                f"{ctx.streak.current_status} HRV status. "
                 "Consider reviewing recent stressors, sleep, or training load."
             ),
         ))
 
     if (
-        long_baseline is not None
-        and long_baseline.delta_7d_vs_30d is not None
-        and long_baseline.delta_7d_vs_30d < -5
+        ctx.long_baseline is not None
+        and ctx.long_baseline.delta_7d_vs_30d is not None
+        and ctx.long_baseline.delta_7d_vs_30d < -5
     ):
         insights.append(HrvInsight(
             level="caution",
             title="7-day baseline is trending below 30-day average",
             detail=(
-                f"Recent 7-day baseline is {long_baseline.delta_7d_vs_30d:+.1f} ms versus "
-                f"30-day average of {long_baseline.baseline_30d:.1f} ms."
+                f"Recent 7-day baseline is {ctx.long_baseline.delta_7d_vs_30d:+.1f} ms versus "
+                f"30-day average of {ctx.long_baseline.baseline_30d:.1f} ms."
             ),
         ))
 
-    sleep_score = selected.sleep.score
+    sleep_score = ctx.selected.sleep.score
     if sleep_score is not None and sleep_score < 70 and status in {"suppressed", "below_baseline"}:
         insights.append(HrvInsight(
             level="warning",
@@ -343,15 +343,15 @@ def _build_insights(
         ))
 
     if (
-        resting_delta is not None
-        and resting_delta >= 4
+        ctx.resting_delta is not None
+        and ctx.resting_delta >= 4
         and status in {"suppressed", "below_baseline"}
     ):
         insights.append(HrvInsight(
             level="warning",
             title="Resting HR and HRV are diverging unfavorably",
             detail=(
-                f"Resting HR is +{resting_delta:.1f} bpm versus recent baseline "
+                f"Resting HR is +{ctx.resting_delta:.1f} bpm versus recent baseline "
                 "while HRV is below baseline."
             ),
         ))
@@ -360,8 +360,8 @@ def _build_insights(
         not insights
         and sleep_score is not None
         and sleep_score >= 80
-        and selected.hrv.status
-        and "balanced" in selected.hrv.status.lower()
+        and ctx.selected.hrv.status
+        and "balanced" in ctx.selected.hrv.status.lower()
     ):
         insights.append(HrvInsight(
             level="good",
@@ -369,18 +369,21 @@ def _build_insights(
             detail="Balanced HRV status and strong sleep score suggest good recovery.",
         ))
 
-    if quality.sample_count < 20:
+    if ctx.quality.sample_count < 20:
         insights.append(HrvInsight(
             level="info",
             title="Low HRV sample coverage",
-            detail=f"Only {quality.sample_count} intraday HRV values were available for this day.",
+            detail=(
+                f"Only {ctx.quality.sample_count} intraday HRV values "
+                "were available for this day."
+            ),
         ))
 
     return insights
 
 
 _HRV_DIST_MIN_DAYS = 7
-_HRV_BIN_WIDTH = 5.0
+_HRV_BIN_WIDTH = 5
 
 
 def _extract_baseline_bands(day_rows: list[DayHrv]) -> HrvBaselineBands | None:
@@ -404,48 +407,40 @@ def _extract_baseline_bands(day_rows: list[DayHrv]) -> HrvBaselineBands | None:
 
 
 def _compute_hrv_distribution(
-    metrics: list[DailyMetric],
-    selected_index: int,
+    nightly_vals: list[float],
+    selected_value: float | None,
 ) -> HrvDistribution | None:
     """5ms-wide histogram of nightly HRV across the full period."""
-    values = [
-        m.hrv.nightly_avg
-        for m in metrics
-        if m.hrv.nightly_avg is not None
-    ]
-    if len(values) < _HRV_DIST_MIN_DAYS:
+    if len(nightly_vals) < _HRV_DIST_MIN_DAYS:
         return None
 
-    min_val = min(values)
-    max_val = max(values)
+    min_val = min(nightly_vals)
+    max_val = max(nightly_vals)
     bin_start = int(min_val // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
     bin_end = (int(max_val // _HRV_BIN_WIDTH) + 1) * _HRV_BIN_WIDTH
 
-    counts: dict[float, int] = {}
-    for v in values:
+    counts: dict[int, int] = {}
+    for v in nightly_vals:
         b = int(v // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
         counts[b] = counts.get(b, 0) + 1
 
     bins: list[HrvDistributionBin] = []
-    b = bin_start
-    while b < bin_end:
-        c = counts.get(float(b), 0)
+    for b in range(bin_start, bin_end, _HRV_BIN_WIDTH):
+        c = counts.get(b, 0)
         if c > 0:
             bins.append(HrvDistributionBin(
-                bin_start=float(b), bin_end=float(b) + _HRV_BIN_WIDTH, count=c,
+                bin_start=float(b), bin_end=float(b + _HRV_BIN_WIDTH), count=c,
             ))
-        b += _HRV_BIN_WIDTH
 
-    selected_value = metrics[selected_index].hrv.nightly_avg
     selected_percentile: float | None = None
     if selected_value is not None:
-        arr = np.array(sorted(values))
+        arr = np.sort(nightly_vals)
         idx = float(np.searchsorted(arr, selected_value, side="right"))
-        selected_percentile = round(idx / len(values) * 100, 1)
+        selected_percentile = round(idx / len(nightly_vals) * 100, 1)
 
     return HrvDistribution(
         bins=bins,
-        total_days=len(values),
+        total_days=len(nightly_vals),
         selected_value=selected_value,
         selected_percentile=selected_percentile,
     )
@@ -474,21 +469,29 @@ def load_hrv_insights(date: str | None = None) -> HrvInsightsResponse:
         _build_intraday_segment(key="all", label="Overnight HRV", values=day_values),
     ]
     overnight_stdev = intraday_segments[0].stdev if intraday_segments else None
-    trend_band = _compute_trend_band(metrics)
+    nightly_vals = [
+        m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
+    ]
+    trend_band = _compute_trend_band(nightly_vals)
     streak = _compute_streak(metrics, selected_index)
     long_baseline = _compute_long_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d,
     )
     baseline_bands = _extract_baseline_bands(day_rows)
-    distribution = _compute_hrv_distribution(metrics, selected_index)
+    distribution = _compute_hrv_distribution(
+        nightly_vals, selected_metric.hrv.nightly_avg,
+    )
     status_mix = _compute_status_mix(metrics, selected_index)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
-    insights = _build_insights(
-        selected_metric, recovery, quality, resting_delta,
+    insights = _build_insights(_InsightContext(
+        selected=selected_metric,
+        recovery=recovery,
+        quality=quality,
+        resting_delta=resting_delta,
         overnight_stdev=overnight_stdev,
         streak=streak,
         long_baseline=long_baseline,
-    )
+    ))
 
     return HrvInsightsResponse(
         date=selected_date,

@@ -7,8 +7,9 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -133,23 +134,22 @@
 			}
 		);
 
-		const bands = insights?.baseline_bands;
-		const annotationPlugin = bands
+		const annotationPlugin = baselineBands
 			? {
 					annotations: {
 						lowZone: {
 							type: 'box' as const,
 							yMin: 0,
-							yMax: bands.baseline_low_upper ?? undefined,
-							backgroundColor: 'rgba(232,93,74,0.06)',
+							yMax: baselineBands.baseline_low_upper ?? undefined,
+							backgroundColor: withAlpha(COLORS.heartRate, '0F'),
 							borderWidth: 0,
 							adjustScaleRange: false
 						},
 						balancedZone: {
 							type: 'box' as const,
-							yMin: bands.baseline_balanced_lower ?? undefined,
-							yMax: bands.baseline_balanced_upper ?? undefined,
-							backgroundColor: 'rgba(76,175,130,0.06)',
+							yMin: baselineBands.baseline_balanced_lower ?? undefined,
+							yMax: baselineBands.baseline_balanced_upper ?? undefined,
+							backgroundColor: withAlpha(COLORS.heartRateResting, '0F'),
 							borderWidth: 0,
 							adjustScaleRange: false
 						}
@@ -173,27 +173,21 @@
 				},
 				plugins: {
 					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.hrv, '60'),
-						padding: 10,
-						cornerRadius: 4
-					},
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60')),
 					annotation: annotationPlugin
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'ms', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -225,27 +219,21 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.hrv, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
 				},
 				scales: {
 					x: {
-						title: { display: true, text: 'HRV (ms)', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e', font: { size: 10 } },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'HRV (ms)', ...DARK_TICK },
+						ticks: { ...DARK_TICK, font: { size: 10 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: true,
-						title: { display: true, text: 'Nights', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e', stepSize: 1 },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'Nights', ...DARK_TICK },
+						ticks: { ...DARK_TICK, stepSize: 1 },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -281,28 +269,22 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.hrv, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
 				},
 				scales: {
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'ms', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -333,18 +315,7 @@
 	let statusMix = $derived.by(() => insights?.status_mix ?? []);
 	let insightDate = $derived.by(() => insights?.date ?? null);
 
-	function fmtSigned(n: number | null | undefined): string {
-		if (n == null) return '-';
-		const rounded = n.toFixed(1);
-		return n > 0 ? `+${rounded}` : rounded;
-	}
-
-	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
-		if (!start || !end) return '-';
-		return `${start.slice(11, 16)}-${end.slice(11, 16)}`;
-	}
-
-	function recoveryColorClass(status: string | null | undefined): string {
+function recoveryColorClass(status: string | null | undefined): string {
 		if (status === 'suppressed' || status === 'below_baseline') return 'text-[#E85D4A]';
 		if (status === 'elevated' || status === 'stable') return 'text-[#4CAF82]';
 		return 'text-[#8a9baa]';
@@ -363,12 +334,6 @@
 		return 'text-[#8a9baa]';
 	}
 
-	function insightColor(level: string): string {
-		if (level === 'warning') return '#E85D4A';
-		if (level === 'caution') return '#D4944C';
-		if (level === 'good') return '#4CAF82';
-		return '#8a9baa';
-	}
 </script>
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
@@ -506,9 +471,9 @@
 				{#each insights.insights as item}
 					<div
 						class="bg-[rgba(255,255,255,0.02)] rounded-md px-3 py-2 border-l-2"
-						style="border-left-color: {insightColor(item.level)};"
+						style="border-left-color: {insightLevelColor(item.level)};"
 					>
-						<div class="text-[11px] uppercase tracking-wide" style="color: {insightColor(item.level)};">
+						<div class="text-[11px] uppercase tracking-wide" style="color: {insightLevelColor(item.level)};">
 							{item.level}
 						</div>
 						<div class="text-sm text-[#d9e5ec] font-medium">{item.title}</div>

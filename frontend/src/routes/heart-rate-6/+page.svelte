@@ -12,8 +12,9 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
-	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -149,55 +150,31 @@
 		Rest: '#4A6FA5', Light: '#4CAF82', Moderate: '#D4944C', Vigorous: '#E85D4A'
 	};
 
-	function fmtSigned(n: number | null | undefined): string {
-		if (n == null) return '-';
-		const rounded = n.toFixed(1);
-		return n > 0 ? `+${rounded}` : rounded;
-	}
-
-	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
-		if (!start || !end) return '-';
-		return `${start.slice(11, 16)}–${end.slice(11, 16)}`;
-	}
-
 	function recoveryColor(status: string | null | undefined): string {
 		if (status === 'high' || status === 'elevated') return '#E85D4A';
 		if (status === 'low' || status === 'normal') return '#4CAF82';
 		return '#8a9baa';
 	}
 
-	function insightColor(level: string): string {
-		if (level === 'warning') return '#E85D4A';
-		if (level === 'caution') return '#D4944C';
-		if (level === 'good') return '#4CAF82';
-		return '#8a9baa';
-	}
-
 	// ── Shared chart config ──
 	const darkScales = {
 		x: {
-			ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-			grid: { color: '#ffffff08' },
-			border: { color: '#ffffff10' }
+			ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+			grid: DARK_GRID,
+			border: DARK_BORDER
 		},
 		y: {
 			beginAtZero: false,
-			title: { display: true, text: 'bpm', color: '#6b7d8e' },
-			ticks: { color: '#6b7d8e' },
-			grid: { color: '#ffffff06' },
-			border: { color: '#ffffff10' }
+			title: { display: true, text: 'bpm', ...DARK_TICK },
+			ticks: DARK_TICK,
+			grid: DARK_GRID_Y,
+			border: DARK_BORDER
 		}
 	} as const;
 
 	const darkPlugins = {
 		legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-		tooltip: {
-			backgroundColor: '#1a2332',
-			borderWidth: 1,
-			borderColor: withAlpha(COLORS.heartRate, '60'),
-			padding: 10,
-			cornerRadius: 4
-		}
+		tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
 	} as const;
 
 	// ── Chart: Intraday with zone shading ──
@@ -237,13 +214,13 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 },
+					tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')),
 					annotation: {
 						annotations: {
-							restZone: { type: 'box', yMin: 0, yMax: 60, backgroundColor: 'rgba(74,111,165,0.06)', borderWidth: 0, adjustScaleRange: false },
-							lightZone: { type: 'box', yMin: 60, yMax: 100, backgroundColor: 'rgba(76,175,130,0.05)', borderWidth: 0, adjustScaleRange: false },
-							modZone: { type: 'box', yMin: 100, yMax: 140, backgroundColor: 'rgba(212,148,76,0.05)', borderWidth: 0, adjustScaleRange: false },
-							vigZone: { type: 'box', yMin: 140, yMax: 220, backgroundColor: 'rgba(232,93,74,0.05)', borderWidth: 0, adjustScaleRange: false }
+							restZone: { type: 'box', yMin: 0, yMax: 60, backgroundColor: withAlpha(COLORS.zoneRest, '0F'), borderWidth: 0, adjustScaleRange: false },
+							lightZone: { type: 'box', yMin: 60, yMax: 100, backgroundColor: withAlpha(COLORS.heartRateResting, '0D'), borderWidth: 0, adjustScaleRange: false },
+							modZone: { type: 'box', yMin: 100, yMax: 140, backgroundColor: withAlpha(COLORS.stress, '0D'), borderWidth: 0, adjustScaleRange: false },
+							vigZone: { type: 'box', yMin: 140, yMax: 220, backgroundColor: withAlpha(COLORS.heartRate, '0D'), borderWidth: 0, adjustScaleRange: false }
 						}
 					}
 				},
@@ -251,16 +228,16 @@
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'bpm', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'bpm', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -359,14 +336,14 @@
 				labels: trend.map((p) => p.date),
 				datasets: [{
 					label: 'Sleeping HR', data: trend.map((p) => p.avg_sleeping_bpm),
-					borderColor: '#6366B0', borderWidth: 2, pointRadius: 2,
-					pointBackgroundColor: '#6366B0', tension: 0.3, spanGaps: true,
-					fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
+					borderColor: COLORS.sleep, borderWidth: 2, pointRadius: 2,
+					pointBackgroundColor: COLORS.sleep, tension: 0.3, spanGaps: true,
+					fill: { target: 'origin', above: withAlpha(COLORS.sleep, '1F') }
 				}]
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: 'rgba(99, 102, 176, 0.6)', padding: 10, cornerRadius: 4 } },
+				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.sleep, '99')) },
 				scales: darkScales
 			}
 		};
@@ -389,10 +366,10 @@
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
+				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')) },
 				scales: {
-					x: { title: { display: true, text: 'Hour of Day', color: '#6b7d8e' }, ticks: { font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
-					y: { beginAtZero: false, title: { display: true, text: 'bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
+					x: { title: { display: true, text: 'Hour of Day', ...DARK_TICK }, ticks: { font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
+					y: { beginAtZero: false, title: { display: true, text: 'bpm', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
 				}
 			}
 		};
@@ -413,10 +390,10 @@
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
+				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')) },
 				scales: {
-					x: { title: { display: true, text: 'bpm range', color: '#6b7d8e' }, ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
-					y: { beginAtZero: true, title: { display: true, text: 'count', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
+					x: { title: { display: true, text: 'bpm range', ...DARK_TICK }, ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
+					y: { beginAtZero: true, title: { display: true, text: 'count', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
 				}
 			}
 		};
@@ -444,8 +421,8 @@
 				interaction: { mode: 'index' as const, intersect: false },
 				plugins: darkPlugins,
 				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
-					y: { beginAtZero: false, title: { display: true, text: 'Resting bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
+					x: { ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
+					y: { beginAtZero: false, title: { display: true, text: 'Resting bpm', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
 				}
 			}
 		};
@@ -504,8 +481,8 @@
 	{#if insights && insights.insights.length > 0}
 		{@const topInsight = insights.insights[0]}
 		<div class="insight-line">
-			<span class="insight-dot" style="background: {insightColor(topInsight.level)};"></span>
-			<span class="insight-level" style="color: {insightColor(topInsight.level)};">{topInsight.level.toUpperCase()}</span>
+			<span class="insight-dot" style="background: {insightLevelColor(topInsight.level)};"></span>
+			<span class="insight-level" style="color: {insightLevelColor(topInsight.level)};">{topInsight.level.toUpperCase()}</span>
 			<span class="insight-text">{topInsight.title}</span>
 			<span class="insight-detail">{topInsight.detail}</span>
 		</div>
@@ -609,8 +586,8 @@
 				<h2 class="card-title">Recovery Insights</h2>
 				<div class="insights-list">
 					{#each insights.insights as item}
-						<div class="insight-card" style="border-left-color: {insightColor(item.level)};">
-							<div class="insight-card-level" style="color: {insightColor(item.level)};">{item.level}</div>
+						<div class="insight-card" style="border-left-color: {insightLevelColor(item.level)};">
+							<div class="insight-card-level" style="color: {insightLevelColor(item.level)};">{item.level}</div>
 							<div class="insight-card-title">{item.title}</div>
 							<div class="insight-card-detail">{item.detail}</div>
 						</div>
