@@ -137,19 +137,36 @@
 		return COLORS.heartRate;
 	}
 
-	const componentLabels: Record<string, string> = {
-		hrv_recovery: 'HRV Recovery',
-		sleep: 'Sleep',
-		resting_hr: 'Resting HR',
-		hrv_status: 'HRV Status'
+	type ReadinessComponent = {
+		label: string;
+		color: string;
+		description: string;
 	};
 
-	const componentColors: Record<string, string> = {
-		hrv_recovery: COLORS.hrv,
-		sleep: COLORS.sleep,
-		resting_hr: COLORS.heartRate,
-		hrv_status: COLORS.respiration
+	const componentInfo: Record<string, ReadinessComponent> = {
+		hrv_recovery: {
+			label: 'HRV Recovery',
+			color: COLORS.hrv,
+			description: 'Overnight HRV trend vs your recent baseline'
+		},
+		sleep: {
+			label: 'Sleep',
+			color: COLORS.sleep,
+			description: 'Sleep quality score from last night'
+		},
+		resting_hr: {
+			label: 'Resting HR',
+			color: COLORS.heartRate,
+			description: 'Resting heart rate change vs 7-day average'
+		},
+		hrv_status: {
+			label: 'HRV Status',
+			color: COLORS.respiration,
+			description: 'Autonomic nervous system balance assessment'
+		}
 	};
+
+	const componentOrder = ['hrv_recovery', 'sleep', 'resting_hr', 'hrv_status'] as const;
 
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
 
@@ -251,33 +268,39 @@
 	{#if overview?.readiness}
 		{@const r = overview.readiness}
 		<div class="readiness-hero">
-			<div class="readiness-main">
-				<div class="readiness-score" style="color:{readinessColor(r.score)}">
-					{r.score ?? '-'}
+			<div class="readiness-top">
+				<div class="readiness-ring" style="--ring-color:{readinessColor(r.score)}; --ring-pct:{r.score ?? 0}">
+					<svg viewBox="0 0 120 120" class="ring-svg">
+						<circle cx="60" cy="60" r="52" class="ring-track" />
+						<circle cx="60" cy="60" r="52" class="ring-fill" style="stroke:{readinessColor(r.score)}; stroke-dasharray:{((r.score ?? 0) / 100) * 327} 327" />
+					</svg>
+					<div class="ring-content">
+						<span class="ring-score" style="color:{readinessColor(r.score)}">{r.score ?? '-'}</span>
+					</div>
 				</div>
-				<div class="readiness-meta">
+				<div class="readiness-info">
 					<span class="readiness-label" style="color:{readinessColor(r.score)}">{r.label ?? '-'}</span>
 					<span class="readiness-subtitle">Readiness · {overview.date}</span>
+					<p class="readiness-explain">
+						Composite score from 4 recovery signals, each contributing up to 25 points.
+					</p>
 				</div>
 			</div>
-			<div class="readiness-bar">
-				{#each ['hrv_recovery', 'sleep', 'resting_hr', 'hrv_status'] as key}
-					{@const val = r.components[key] ?? 0}
-					<div
-						class="readiness-segment"
-						style="width:{(val / 25) * 100}%; background:{componentColors[key]};"
-						title="{componentLabels[key]}: {val}/25"
-					></div>
-				{/each}
-			</div>
 			<div class="readiness-components">
-				{#each ['hrv_recovery', 'sleep', 'resting_hr', 'hrv_status'] as key}
+				{#each componentOrder as key}
 					{@const val = r.components[key] ?? 0}
-					<div class="readiness-comp-item">
-						<div class="comp-dot" style="background:{componentColors[key]}"></div>
-						<span class="comp-label">{componentLabels[key]}</span>
-						<span class="comp-value" style="color:{componentColors[key]}">{val}</span>
-						<span class="comp-max">/25</span>
+					{@const info = componentInfo[key]}
+					<div class="comp-row">
+						<div class="comp-header">
+							<div class="comp-dot" style="background:{info.color}"></div>
+							<span class="comp-label">{info.label}</span>
+							<span class="comp-score" style="color:{info.color}">{Math.round(val)}</span>
+							<span class="comp-max">/ 25</span>
+						</div>
+						<div class="comp-bar-track">
+							<div class="comp-bar-fill" style="width:{(val / 25) * 100}%; background:{info.color}"></div>
+						</div>
+						<p class="comp-desc">{info.description}</p>
 					</div>
 				{/each}
 			</div>
@@ -426,25 +449,61 @@
 		background: rgba(255,255,255,0.02);
 		border: 1px solid rgba(255,255,255,0.05);
 		border-radius: 10px;
-		padding: 24px;
+		padding: 28px;
 		margin-bottom: 20px;
 	}
 
-	.readiness-main {
+	.readiness-top {
 		display: flex;
 		align-items: center;
-		gap: 20px;
-		margin-bottom: 16px;
+		gap: 24px;
+		margin-bottom: 24px;
+		padding-bottom: 20px;
+		border-bottom: 1px solid rgba(255,255,255,0.04);
 	}
 
-	.readiness-score {
+	.readiness-ring {
+		position: relative;
+		width: 100px;
+		height: 100px;
+		flex-shrink: 0;
+	}
+
+	.ring-svg {
+		width: 100%;
+		height: 100%;
+		transform: rotate(-90deg);
+	}
+
+	.ring-track {
+		fill: none;
+		stroke: rgba(255,255,255,0.05);
+		stroke-width: 6;
+	}
+
+	.ring-fill {
+		fill: none;
+		stroke-width: 6;
+		stroke-linecap: round;
+		transition: stroke-dasharray 0.6s ease;
+	}
+
+	.ring-content {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.ring-score {
 		font-family: 'DM Mono', monospace;
-		font-size: 56px;
+		font-size: 32px;
 		font-weight: 600;
 		line-height: 1;
 	}
 
-	.readiness-meta {
+	.readiness-info {
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -463,32 +522,26 @@
 		color: #5e7282;
 	}
 
-	.readiness-bar {
-		display: flex;
-		height: 8px;
-		border-radius: 4px;
-		overflow: hidden;
-		gap: 2px;
-		margin-bottom: 12px;
-	}
-
-	.readiness-segment {
-		border-radius: 2px;
-		opacity: 0.75;
-		transition: opacity 0.2s;
-	}
-
-	.readiness-segment:hover {
-		opacity: 1;
+	.readiness-explain {
+		font-size: 11px;
+		color: #4a5c6a;
+		margin: 4px 0 0;
+		line-height: 1.4;
 	}
 
 	.readiness-components {
-		display: flex;
-		justify-content: space-between;
-		gap: 8px;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 16px;
 	}
 
-	.readiness-comp-item {
+	.comp-row {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.comp-header {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -502,21 +555,44 @@
 	}
 
 	.comp-label {
-		font-size: 10px;
-		color: #5e7282;
+		font-size: 11px;
+		color: #8a9baa;
 		letter-spacing: 0.5px;
+		font-weight: 500;
 	}
 
-	.comp-value {
+	.comp-score {
 		font-family: 'DM Mono', monospace;
-		font-size: 12px;
-		font-weight: 500;
+		font-size: 13px;
+		font-weight: 600;
+		margin-left: auto;
 	}
 
 	.comp-max {
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
 		color: #3a4a56;
+	}
+
+	.comp-bar-track {
+		height: 4px;
+		background: rgba(255,255,255,0.05);
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.comp-bar-fill {
+		height: 100%;
+		border-radius: 2px;
+		transition: width 0.5s ease;
+		opacity: 0.8;
+	}
+
+	.comp-desc {
+		font-size: 10px;
+		color: #4a5c6a;
+		margin: 0;
+		line-height: 1.3;
 	}
 
 	/* Correlations */
@@ -674,6 +750,7 @@
 		.metric-grid { grid-template-columns: 1fr; }
 		.correlation-grid { grid-template-columns: 1fr; }
 		.strip-content { flex-wrap: wrap; gap: 12px; justify-content: center; }
-		.readiness-components { flex-wrap: wrap; }
+		.readiness-components { grid-template-columns: 1fr; }
+		.readiness-top { flex-direction: column; text-align: center; }
 	}
 </style>
