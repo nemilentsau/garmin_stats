@@ -6,6 +6,7 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -75,19 +76,19 @@
 				interaction: { mode: 'index' as const, intersect: false },
 				plugins: {
 					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.skinTemp, '60'), padding: 10, cornerRadius: 4 }
+					tooltip: chartTooltip(withAlpha(COLORS.skinTemp, '60'))
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
-						title: { display: true, text: '\u00B0C deviation', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: '\u00B0C deviation', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}

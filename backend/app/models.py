@@ -291,6 +291,7 @@ class HrvIntradaySegment(_DefaultsRequired):
     avg: float | None = None
     min: float | None = None
     max: float | None = None
+    stdev: float | None = None
     coverage_start: str | None = None
     coverage_end: str | None = None
     coverage_hours: float | None = None
@@ -308,6 +309,51 @@ class HrvTrendBand(_DefaultsRequired):
     nightly_typical_high: float | None = None
 
 
+class HrvStreak(_DefaultsRequired):
+    current_status: str | None = None
+    streak_days: int = 0
+    worst_recent_streak: int = 0
+
+
+class HrvLongBaseline(_DefaultsRequired):
+    baseline_30d: float | None = None
+    delta_7d_vs_30d: float | None = None
+
+
+class HrvBaselineBands(_DefaultsRequired):
+    baseline_low_upper: float | None = None
+    baseline_balanced_lower: float | None = None
+    baseline_balanced_upper: float | None = None
+    five_min_high: float | None = None
+
+
+class HrvDistributionBin(_DefaultsRequired):
+    bin_start: float
+    bin_end: float
+    count: int
+
+
+class HrvDistribution(_DefaultsRequired):
+    bins: list[HrvDistributionBin] = []
+    total_days: int = 0
+    selected_value: float | None = None
+    selected_percentile: float | None = None
+
+
+class HrvTrajectory(_DefaultsRequired):
+    early_avg: float | None = None
+    mid_avg: float | None = None
+    late_avg: float | None = None
+    direction: str | None = None  # "rising", "falling", "flat", or None
+
+
+class HrvDayOfWeekBucket(_DefaultsRequired):
+    day: str             # "Mon", "Tue", ..., "Sun"
+    day_index: int       # 0=Mon, 6=Sun
+    avg_nightly: float | None = None
+    sample_count: int = 0
+
+
 class HrvInsight(_DefaultsRequired):
     level: str
     title: str
@@ -321,7 +367,13 @@ class HrvInsightsResponse(_DefaultsRequired):
     quality: HrvDataQuality
     intraday_segments: list[HrvIntradaySegment] = []
     trend_band: HrvTrendBand
+    streak: HrvStreak | None = None
+    long_baseline: HrvLongBaseline | None = None
+    baseline_bands: HrvBaselineBands | None = None
+    distribution: HrvDistribution | None = None
+    trajectory: HrvTrajectory | None = None
     status_mix: list[HrvStatusBucket] = []
+    day_of_week: list[HrvDayOfWeekBucket] = []
     insights: list[HrvInsight] = []
 
 
@@ -475,3 +527,34 @@ class IngestStatus(_DefaultsRequired):
     last_ingest_time: str | None = None
     days_in_db: int
     days_on_disk: int
+
+
+# ---------------------------------------------------------------------------
+# Dashboard overview models
+# ---------------------------------------------------------------------------
+
+
+class ReadinessScore(_DefaultsRequired):
+    score: int | None = None
+    components: dict[str, float] = {}
+    label: str | None = None  # "Ready", "Moderate", "Rest"
+
+
+class CorrelationPoint(_DefaultsRequired):
+    date: str
+    hrv_nightly: float
+    other_value: float
+
+
+class MetricCorrelation(_DefaultsRequired):
+    metric: str              # "sleep_score", "resting_hr"
+    label: str               # "Sleep Score", "Resting HR"
+    points: list[CorrelationPoint] = []
+    r_value: float | None = None
+    sample_count: int = 0
+
+
+class DashboardOverviewResponse(_DefaultsRequired):
+    date: str
+    readiness: ReadinessScore | None = None
+    correlations: list[MetricCorrelation] = []

@@ -8,6 +8,7 @@
 	import DateSelector from '$lib/components/DateSelector.svelte';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -111,21 +112,21 @@
 				interaction: { mode: 'index' as const, intersect: false },
 				plugins: {
 					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.spo2, '60'), padding: 10, cornerRadius: 4 }
+					tooltip: chartTooltip(withAlpha(COLORS.spo2, '60'))
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: '%', color: '#6b7d8e' },
+						title: { display: true, text: '%', ...DARK_TICK },
 						min: 85,
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -155,23 +156,23 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.spo2, '60'), padding: 10, cornerRadius: 4 }
+					tooltip: chartTooltip(withAlpha(COLORS.spo2, '60'))
 				},
 				scales: {
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: '%', color: '#6b7d8e' },
+						title: { display: true, text: '%', ...DARK_TICK },
 						min: 85,
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}

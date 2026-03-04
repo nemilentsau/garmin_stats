@@ -14,9 +14,18 @@ export const COLORS = {
 	skinTemp: '#C9933A',
 	skinTemp7Day: '#e0b35e',
 	baseline: '#5e7282',
+	zoneRest: '#4A6FA5',
 } as const;
 
 /** Append hex alpha to a color string. */
 export function withAlpha(color: string, alpha: string): string {
 	return color + alpha;
+}
+
+/** Map insight severity level to a display color. */
+export function insightLevelColor(level: string): string {
+	if (level === 'warning') return COLORS.heartRate;
+	if (level === 'caution') return COLORS.stress;
+	if (level === 'good') return COLORS.heartRateResting;
+	return '#8a9baa';
 }

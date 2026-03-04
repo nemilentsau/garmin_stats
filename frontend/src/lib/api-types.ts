@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard Overview
+         * @description Return readiness score and cross-domain correlations.
+         */
+        get: operations["get_dashboard_overview_api_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/days": {
         parameters: {
             query?: never;
@@ -342,6 +362,15 @@ export interface components {
              */
             sample_count: number;
         };
+        /** CorrelationPoint */
+        CorrelationPoint: {
+            /** Date */
+            date: string;
+            /** Hrv Nightly */
+            hrv_nightly: number;
+            /** Other Value */
+            other_value: number;
+        };
         /** DailyAggregatesResponse */
         DailyAggregatesResponse: {
             /** Days */
@@ -443,6 +472,17 @@ export interface components {
             deep_score: number | null;
             /** Rem Score */
             rem_score: number | null;
+        };
+        /** DashboardOverviewResponse */
+        DashboardOverviewResponse: {
+            /** Date */
+            date: string;
+            readiness: components["schemas"]["ReadinessScore"] | null;
+            /**
+             * Correlations
+             * @default []
+             */
+            correlations: components["schemas"]["MetricCorrelation"][];
         };
         /** DaySummaryResponse */
         DaySummaryResponse: {
@@ -596,6 +636,17 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** HrvBaselineBands */
+        HrvBaselineBands: {
+            /** Baseline Low Upper */
+            baseline_low_upper: number | null;
+            /** Baseline Balanced Lower */
+            baseline_balanced_lower: number | null;
+            /** Baseline Balanced Upper */
+            baseline_balanced_upper: number | null;
+            /** Five Min High */
+            five_min_high: number | null;
+        };
         /** HrvDataQuality */
         HrvDataQuality: {
             /**
@@ -609,6 +660,46 @@ export interface components {
             coverage_end: string | null;
             /** Coverage Hours */
             coverage_hours: number | null;
+        };
+        /** HrvDayOfWeekBucket */
+        HrvDayOfWeekBucket: {
+            /** Day */
+            day: string;
+            /** Day Index */
+            day_index: number;
+            /** Avg Nightly */
+            avg_nightly: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
+        };
+        /** HrvDistribution */
+        HrvDistribution: {
+            /**
+             * Bins
+             * @default []
+             */
+            bins: components["schemas"]["HrvDistributionBin"][];
+            /**
+             * Total Days
+             * @default 0
+             */
+            total_days: number;
+            /** Selected Value */
+            selected_value: number | null;
+            /** Selected Percentile */
+            selected_percentile: number | null;
+        };
+        /** HrvDistributionBin */
+        HrvDistributionBin: {
+            /** Bin Start */
+            bin_start: number;
+            /** Bin End */
+            bin_end: number;
+            /** Count */
+            count: number;
         };
         /** HrvInsight */
         HrvInsight: {
@@ -632,11 +723,21 @@ export interface components {
              */
             intraday_segments: components["schemas"]["HrvIntradaySegment"][];
             trend_band: components["schemas"]["HrvTrendBand"];
+            streak: components["schemas"]["HrvStreak"] | null;
+            long_baseline: components["schemas"]["HrvLongBaseline"] | null;
+            baseline_bands: components["schemas"]["HrvBaselineBands"] | null;
+            distribution: components["schemas"]["HrvDistribution"] | null;
+            trajectory: components["schemas"]["HrvTrajectory"] | null;
             /**
              * Status Mix
              * @default []
              */
             status_mix: components["schemas"]["HrvStatusBucket"][];
+            /**
+             * Day Of Week
+             * @default []
+             */
+            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
             /**
              * Insights
              * @default []
@@ -660,6 +761,8 @@ export interface components {
             min: number | null;
             /** Max */
             max: number | null;
+            /** Stdev */
+            stdev: number | null;
             /** Coverage Start */
             coverage_start: string | null;
             /** Coverage End */
@@ -671,6 +774,13 @@ export interface components {
              * @default []
              */
             values: components["schemas"]["HrvValue"][];
+        };
+        /** HrvLongBaseline */
+        HrvLongBaseline: {
+            /** Baseline 30D */
+            baseline_30d: number | null;
+            /** Delta 7D Vs 30D */
+            delta_7d_vs_30d: number | null;
         };
         /** HrvRecovery */
         HrvRecovery: {
@@ -701,6 +811,21 @@ export interface components {
             /** Pct */
             pct: number;
         };
+        /** HrvStreak */
+        HrvStreak: {
+            /** Current Status */
+            current_status: string | null;
+            /**
+             * Streak Days
+             * @default 0
+             */
+            streak_days: number;
+            /**
+             * Worst Recent Streak
+             * @default 0
+             */
+            worst_recent_streak: number;
+        };
         /** HrvSummary */
         HrvSummary: {
             /** Date */
@@ -719,6 +844,17 @@ export interface components {
             baseline_balanced_upper: number | null;
             /** Status */
             status: string;
+        };
+        /** HrvTrajectory */
+        HrvTrajectory: {
+            /** Early Avg */
+            early_avg: number | null;
+            /** Mid Avg */
+            mid_avg: number | null;
+            /** Late Avg */
+            late_avg: number | null;
+            /** Direction */
+            direction: string | null;
         };
         /** HrvTrendBand */
         HrvTrendBand: {
@@ -753,6 +889,25 @@ export interface components {
             days_in_db: number;
             /** Days On Disk */
             days_on_disk: number;
+        };
+        /** MetricCorrelation */
+        MetricCorrelation: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["CorrelationPoint"][];
+            /** R Value */
+            r_value: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
         };
         /** PeriodHeartRateStats */
         PeriodHeartRateStats: {
@@ -834,6 +989,20 @@ export interface components {
             hrv: components["schemas"]["PeriodHrvStats"];
             spo2: components["schemas"]["PeriodSpo2Stats"];
             skin_temp: components["schemas"]["PeriodSkinTempStats"];
+        };
+        /** ReadinessScore */
+        ReadinessScore: {
+            /** Score */
+            score: number | null;
+            /**
+             * Components
+             * @default {}
+             */
+            components: {
+                [key: string]: number;
+            };
+            /** Label */
+            label: string | null;
         };
         /** RespirationReading */
         RespirationReading: {
@@ -1055,6 +1224,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestStatus"];
+                };
+            };
+        };
+    };
+    get_dashboard_overview_api_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOverviewResponse"];
                 };
             };
         };

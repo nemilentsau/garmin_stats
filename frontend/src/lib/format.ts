@@ -3,3 +3,16 @@ export function fmt(n: number | null | undefined): string {
 	if (n == null) return '-';
 	return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
 }
+
+/** Format a number with explicit sign (+/-). */
+export function fmtSigned(n: number | null | undefined): string {
+	if (n == null) return '-';
+	const rounded = n.toFixed(1);
+	return n > 0 ? `+${rounded}` : rounded;
+}
+
+/** Format a time window from two ISO timestamps as HH:MM–HH:MM. */
+export function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
+	if (!start || !end) return '-';
+	return `${start.slice(11, 16)}–${end.slice(11, 16)}`;
+}
