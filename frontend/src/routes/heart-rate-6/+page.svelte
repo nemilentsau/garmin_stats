@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import {
 		api,
 		type DailyAggregates,
@@ -11,40 +12,48 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
+	import DoughnutChart from '$lib/components/DoughnutChart.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
-	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
-	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
-	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import { fmt } from '$lib/format';
+	import { COLORS, withAlpha } from '$lib/colors';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
 	let agg: DailyAggregates | null = $state(null);
-	let insights: HeartRateInsights | null = $state(null);
-	let intradayData: WellnessData | null = $state(null);
 	let analysis: HRAnalysis | null = $state(null);
-	let distribution: HRDistribution | null = $state(null);
-	let selectedDate = $state('');
 	let loading = $state(true);
 	let error: string | null = $state(null);
+
+	// Latest day (Tier 1 — always the most recent)
+	let latestInsights: HeartRateInsights | null = $state(null);
+	let latestIntraday: WellnessData | null = $state(null);
+
+	// Historical day (Tier 2 — selected via bar)
+	let selectedDate = $state('');
+	let historyOpen = $state(false);
+	let historicalInsights: HeartRateInsights | null = $state(null);
+	let historicalIntraday: WellnessData | null = $state(null);
+	let historicalDistribution: HRDistribution | null = $state(null);
 	let dateRequestId = 0;
-	let activeTab: 'today' | 'trends' | 'sleep' | 'analysis' = $state('today');
 
 	// ── Data fetching ──
 	async function fetchData() {
-		const date = selectedDate || undefined;
-		const [nextAgg, nextInsights, nextIntraday, nextAnalysis] = await Promise.all([
+		const [nextAgg, nextAnalysis] = await Promise.all([
 			api.getDailyAggregates(),
-			api.getHeartRateInsights(date),
-			date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null),
 			api.getHeartRateAnalysis()
 		]);
-		if ((selectedDate || undefined) !== date) return;
 		agg = nextAgg;
-		insights = nextInsights;
-		intradayData = nextIntraday;
 		analysis = nextAnalysis;
-		if (date) {
-			distribution = await api.getHRDistribution(date);
+
+		// Always fetch latest day data for Tier 1
+		if (nextAgg.days.length > 0) {
+			const latest = nextAgg.days[nextAgg.days.length - 1];
+			const [ins, intra] = await Promise.all([
+				api.getHeartRateInsights(latest),
+				api.getWellness(latest)
+			]);
+			latestInsights = ins;
+			latestIntraday = intra;
 		}
 	}
 
@@ -57,22 +66,30 @@
 	});
 
 	async function onDateChange(date: string) {
+		if (date === '') {
+			selectedDate = '';
+			historyOpen = false;
+			historicalInsights = null;
+			historicalIntraday = null;
+			historicalDistribution = null;
+			return;
+		}
 		selectedDate = date;
-		intradayData = null;
-		insights = null;
-		distribution = null;
-		if (date && activeTab !== 'today') activeTab = 'today';
+		historyOpen = true;
+		historicalInsights = null;
+		historicalIntraday = null;
+		historicalDistribution = null;
 		const requestId = ++dateRequestId;
 		try {
 			const [nextInsights, nextIntraday, nextDistribution] = await Promise.all([
-				api.getHeartRateInsights(date || undefined),
-				date ? api.getWellness(date) : Promise.resolve<WellnessData | null>(null),
-				date ? api.getHRDistribution(date) : Promise.resolve<HRDistribution | null>(null)
+				api.getHeartRateInsights(date),
+				api.getWellness(date),
+				api.getHRDistribution(date)
 			]);
 			if (requestId !== dateRequestId) return;
-			insights = nextInsights;
-			intradayData = nextIntraday;
-			distribution = nextDistribution;
+			historicalInsights = nextInsights;
+			historicalIntraday = nextIntraday;
+			historicalDistribution = nextDistribution;
 		} catch (e: unknown) {
 			if (requestId !== dateRequestId) return;
 			error = e instanceof Error ? e.message : String(e);
@@ -84,7 +101,6 @@
 		if (!agg) return;
 		const days = agg.days;
 		if (!selectedDate) {
-			// Select last day if navigating from "All"
 			if (days.length > 0) void onDateChange(days[days.length - 1]);
 			return;
 		}
@@ -95,21 +111,42 @@
 		}
 	}
 
-	// ── Derived data ──
-	let dayStats = $derived.by(() => insights?.day_stats ?? null);
-	let recovery = $derived.by(() => insights?.recovery ?? null);
-	let quality = $derived.by(() => insights?.quality ?? null);
-	let insightDate = $derived.by(() => insights?.date ?? null);
+	function closeHistory() {
+		selectedDate = '';
+		historyOpen = false;
+		historicalInsights = null;
+		historicalIntraday = null;
+		historicalDistribution = null;
+	}
 
-	let stats = $derived.by(() => {
+	// ── Derived: Latest day (Tier 1) ──
+	let latestDate = $derived.by(() => agg?.days[agg.days.length - 1] ?? '');
+	let latestDayStats = $derived.by(() => latestInsights?.day_stats ?? null);
+	let latestRecovery = $derived.by(() => latestInsights?.recovery ?? null);
+
+	let latestStats = $derived.by(() => {
 		if (!agg?.period) return null;
 		const hr = agg.period.heart_rate;
 		return { overallAvg: hr.avg, typicalLow: hr.typical_low, typicalHigh: hr.typical_high, avgResting: hr.avg_resting };
 	});
 
-	let zoneBreakdown = $derived.by(() => {
-		if (!insights || insights.zones.length === 0) return null;
-		return insights.zones.map((z) => ({
+	let latestZoneBreakdown = $derived.by(() => {
+		if (!latestInsights || latestInsights.zones.length === 0) return null;
+		return latestInsights.zones.map((z) => ({
+			label: z.label,
+			color: ZONE_COLORS[z.label] ?? '#6b7d8e',
+			pct: z.pct,
+			minutes: z.minutes
+		}));
+	});
+
+	// ── Derived: Historical day (Tier 2) ──
+	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
+	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
+
+	let historicalZoneBreakdown = $derived.by(() => {
+		if (!historicalInsights || historicalInsights.zones.length === 0) return null;
+		return historicalInsights.zones.map((z) => ({
 			label: z.label,
 			color: ZONE_COLORS[z.label] ?? '#6b7d8e',
 			pct: z.pct,
@@ -121,21 +158,19 @@
 	let dayRecoveryMap = $derived.by(() => {
 		if (!agg) return new Map<string, string>();
 		const map = new Map<string, string>();
-		// We'll color based on resting HR relative to period avg
 		const avgResting = agg.period?.heart_rate.avg_resting;
 		if (avgResting == null) return map;
 		for (const d of agg.daily) {
 			const rhr = d.heart_rate.resting;
 			if (rhr == null) { map.set(d.date, '#3a4a5a'); continue; }
 			const delta = rhr - avgResting;
-			if (delta > 5) map.set(d.date, '#E85D4A');       // elevated
-			else if (delta > 2) map.set(d.date, '#D4944C');  // slightly high
-			else map.set(d.date, '#4CAF82');                  // normal/good
+			if (delta > 5) map.set(d.date, '#E85D4A');
+			else if (delta > 2) map.set(d.date, '#D4944C');
+			else map.set(d.date, '#4CAF82');
 		}
 		return map;
 	});
 
-	// Can navigate prev/next?
 	let canPrev = $derived.by(() => {
 		if (!agg || !selectedDate) return false;
 		return agg.days.indexOf(selectedDate) > 0;
@@ -150,40 +185,59 @@
 		Rest: '#4A6FA5', Light: '#4CAF82', Moderate: '#D4944C', Vigorous: '#E85D4A'
 	};
 
+	function fmtSigned(n: number | null | undefined): string {
+		if (n == null) return '-';
+		const rounded = n.toFixed(1);
+		return n > 0 ? `+${rounded}` : rounded;
+	}
+
 	function recoveryColor(status: string | null | undefined): string {
 		if (status === 'high' || status === 'elevated') return '#E85D4A';
 		if (status === 'low' || status === 'normal') return '#4CAF82';
 		return '#8a9baa';
 	}
 
+	function insightColor(level: string): string {
+		if (level === 'warning') return '#E85D4A';
+		if (level === 'caution') return '#D4944C';
+		if (level === 'good') return '#4CAF82';
+		return '#8a9baa';
+	}
+
 	// ── Shared chart config ──
 	const darkScales = {
 		x: {
-			ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-			grid: DARK_GRID,
-			border: DARK_BORDER
+			ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
+			grid: { color: '#ffffff08' },
+			border: { color: '#ffffff10' }
 		},
 		y: {
 			beginAtZero: false,
-			title: { display: true, text: 'bpm', ...DARK_TICK },
-			ticks: DARK_TICK,
-			grid: DARK_GRID_Y,
-			border: DARK_BORDER
+			title: { display: true, text: 'bpm', color: '#6b7d8e' },
+			ticks: { color: '#6b7d8e' },
+			grid: { color: '#ffffff06' },
+			border: { color: '#ffffff10' }
 		}
 	} as const;
 
 	const darkPlugins = {
 		legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-		tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60'))
+		tooltip: {
+			backgroundColor: '#1a2332',
+			borderWidth: 1,
+			borderColor: withAlpha(COLORS.heartRate, '60'),
+			padding: 10,
+			cornerRadius: 4
+		}
 	} as const;
 
-	// ── Chart: Intraday with zone shading ──
-	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
-		if (!intradayData || intradayData.heart_rate.length === 0) return null;
+	// ── Chart: Latest Intraday ──
+	let latestIntradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!latestIntraday || latestIntraday.heart_rate.length === 0) return null;
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
 			{
 				label: 'Heart Rate',
-				data: intradayData.heart_rate.map((d) => d.value),
+				data: latestIntraday.heart_rate.map((d) => d.value),
 				borderColor: COLORS.heartRate,
 				borderWidth: 1.5,
 				pointRadius: 0,
@@ -191,10 +245,10 @@
 				fill: false
 			}
 		];
-		if (dayStats?.resting != null) {
+		if (latestDayStats?.resting != null) {
 			datasets.push({
 				label: 'Resting HR',
-				data: intradayData.heart_rate.map(() => dayStats!.resting!),
+				data: latestIntraday.heart_rate.map(() => latestDayStats!.resting!),
 				borderColor: COLORS.heartRateResting,
 				borderWidth: 1,
 				borderDash: [6, 4],
@@ -206,7 +260,7 @@
 		return {
 			type: 'line',
 			data: {
-				labels: intradayData.heart_rate.map((d) => d.timestamp),
+				labels: latestIntraday.heart_rate.map((d) => d.timestamp),
 				datasets
 			},
 			options: {
@@ -214,13 +268,13 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')),
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 },
 					annotation: {
 						annotations: {
-							restZone: { type: 'box', yMin: 0, yMax: 60, backgroundColor: withAlpha(COLORS.zoneRest, '0F'), borderWidth: 0, adjustScaleRange: false },
-							lightZone: { type: 'box', yMin: 60, yMax: 100, backgroundColor: withAlpha(COLORS.heartRateResting, '0D'), borderWidth: 0, adjustScaleRange: false },
-							modZone: { type: 'box', yMin: 100, yMax: 140, backgroundColor: withAlpha(COLORS.stress, '0D'), borderWidth: 0, adjustScaleRange: false },
-							vigZone: { type: 'box', yMin: 140, yMax: 220, backgroundColor: withAlpha(COLORS.heartRate, '0D'), borderWidth: 0, adjustScaleRange: false }
+							restZone: { type: 'box', yMin: 0, yMax: 60, backgroundColor: 'rgba(74,111,165,0.06)', borderWidth: 0, adjustScaleRange: false },
+							lightZone: { type: 'box', yMin: 60, yMax: 100, backgroundColor: 'rgba(76,175,130,0.05)', borderWidth: 0, adjustScaleRange: false },
+							modZone: { type: 'box', yMin: 100, yMax: 140, backgroundColor: 'rgba(212,148,76,0.05)', borderWidth: 0, adjustScaleRange: false },
+							vigZone: { type: 'box', yMin: 140, yMax: 220, backgroundColor: 'rgba(232,93,74,0.05)', borderWidth: 0, adjustScaleRange: false }
 						}
 					}
 				},
@@ -228,21 +282,130 @@
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
+						ticks: { font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'bpm', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
+						title: { display: true, text: 'bpm', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
 					}
 				}
 			}
 		};
 	});
+
+	// ── Chart: Historical Intraday ──
+	let historicalIntradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!historicalIntraday || historicalIntraday.heart_rate.length === 0) return null;
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
+			{
+				label: 'Heart Rate',
+				data: historicalIntraday.heart_rate.map((d) => d.value),
+				borderColor: COLORS.heartRate,
+				borderWidth: 1.5,
+				pointRadius: 0,
+				tension: 0.2,
+				fill: false
+			}
+		];
+		if (historicalDayStats?.resting != null) {
+			datasets.push({
+				label: 'Resting HR',
+				data: historicalIntraday.heart_rate.map(() => historicalDayStats!.resting!),
+				borderColor: COLORS.heartRateResting,
+				borderWidth: 1,
+				borderDash: [6, 4],
+				pointRadius: 0,
+				tension: 0,
+				fill: false
+			});
+		}
+		return {
+			type: 'line',
+			data: {
+				labels: historicalIntraday.heart_rate.map((d) => d.timestamp),
+				datasets
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 },
+					annotation: {
+						annotations: {
+							restZone: { type: 'box', yMin: 0, yMax: 60, backgroundColor: 'rgba(74,111,165,0.06)', borderWidth: 0, adjustScaleRange: false },
+							lightZone: { type: 'box', yMin: 60, yMax: 100, backgroundColor: 'rgba(76,175,130,0.05)', borderWidth: 0, adjustScaleRange: false },
+							modZone: { type: 'box', yMin: 100, yMax: 140, backgroundColor: 'rgba(212,148,76,0.05)', borderWidth: 0, adjustScaleRange: false },
+							vigZone: { type: 'box', yMin: 140, yMax: 220, backgroundColor: 'rgba(232,93,74,0.05)', borderWidth: 0, adjustScaleRange: false }
+						}
+					}
+				},
+				scales: {
+					x: {
+						type: 'time',
+						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+						ticks: { font: { size: 10 }, color: '#6b7d8e' },
+						grid: { color: '#ffffff08' },
+						border: { color: '#ffffff10' }
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'bpm', color: '#6b7d8e' },
+						ticks: { color: '#6b7d8e' },
+						grid: { color: '#ffffff06' },
+						border: { color: '#ffffff10' }
+					}
+				}
+			}
+		};
+	});
+
+	// ── Chart: Doughnut (zone breakdown) ──
+	function makeDoughnutConfig(zones: typeof latestZoneBreakdown): ChartConfiguration<'doughnut'> | null {
+		if (!zones || zones.length === 0) return null;
+		return {
+			type: 'doughnut',
+			data: {
+				labels: zones.map((z) => z.label),
+				datasets: [{
+					data: zones.map((z) => z.minutes),
+					backgroundColor: zones.map((z) => z.color),
+					borderColor: 'rgba(13,21,32,0.95)',
+					borderWidth: 2,
+					hoverBorderColor: '#1a2332'
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				cutout: '62%',
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332',
+						borderWidth: 1,
+						borderColor: 'rgba(255,255,255,0.1)',
+						padding: 10,
+						cornerRadius: 4,
+						callbacks: {
+							label: (ctx) => {
+								const zone = zones[ctx.dataIndex];
+								return `${zone.label}: ${zone.minutes}m (${zone.pct}%)`;
+							}
+						}
+					}
+				}
+			}
+		};
+	}
+
+	let latestDoughnutConfig = $derived.by(() => makeDoughnutConfig(latestZoneBreakdown));
+	let historicalDoughnutConfig = $derived.by(() => makeDoughnutConfig(historicalZoneBreakdown));
 
 	// ── Chart: Trend ──
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
@@ -288,8 +451,12 @@
 					const active = elements[0];
 					if (!active) return;
 					const label = chart.data.labels?.[active.index];
-					if (typeof label !== 'string' || label === selectedDate) return;
-					void onDateChange(label);
+					if (typeof label !== 'string') return;
+					if (label === selectedDate) {
+						closeHistory();
+					} else {
+						void onDateChange(label);
+					}
 				},
 				plugins: darkPlugins,
 				scales: darkScales
@@ -336,14 +503,14 @@
 				labels: trend.map((p) => p.date),
 				datasets: [{
 					label: 'Sleeping HR', data: trend.map((p) => p.avg_sleeping_bpm),
-					borderColor: COLORS.sleep, borderWidth: 2, pointRadius: 2,
-					pointBackgroundColor: COLORS.sleep, tension: 0.3, spanGaps: true,
-					fill: { target: 'origin', above: withAlpha(COLORS.sleep, '1F') }
+					borderColor: '#6366B0', borderWidth: 2, pointRadius: 2,
+					pointBackgroundColor: '#6366B0', tension: 0.3, spanGaps: true,
+					fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
 				}]
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.sleep, '99')) },
+				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: 'rgba(99, 102, 176, 0.6)', padding: 10, cornerRadius: 4 } },
 				scales: darkScales
 			}
 		};
@@ -366,10 +533,10 @@
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')) },
+				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
 				scales: {
-					x: { title: { display: true, text: 'Hour of Day', ...DARK_TICK }, ticks: { font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
-					y: { beginAtZero: false, title: { display: true, text: 'bpm', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
+					x: { title: { display: true, text: 'Hour of Day', color: '#6b7d8e' }, ticks: { font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
+					y: { beginAtZero: false, title: { display: true, text: 'bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
 				}
 			}
 		};
@@ -377,23 +544,23 @@
 
 	// ── Chart: Distribution ──
 	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
-		if (!distribution || distribution.bins.length === 0) return null;
+		if (!historicalDistribution || historicalDistribution.bins.length === 0) return null;
 		return {
 			type: 'bar',
 			data: {
-				labels: distribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
+				labels: historicalDistribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
 				datasets: [{
-					label: 'Readings', data: distribution.bins.map((b) => b.count),
+					label: 'Readings', data: historicalDistribution.bins.map((b) => b.count),
 					backgroundColor: withAlpha(COLORS.heartRate, '70'), borderColor: COLORS.heartRate,
 					borderWidth: 1, borderRadius: 2
 				}]
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: chartTooltip(withAlpha(COLORS.heartRate, '60')) },
+				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
 				scales: {
-					x: { title: { display: true, text: 'bpm range', ...DARK_TICK }, ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
-					y: { beginAtZero: true, title: { display: true, text: 'count', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
+					x: { title: { display: true, text: 'bpm range', color: '#6b7d8e' }, ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
+					y: { beginAtZero: true, title: { display: true, text: 'count', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
 				}
 			}
 		};
@@ -421,8 +588,8 @@
 				interaction: { mode: 'index' as const, intersect: false },
 				plugins: darkPlugins,
 				scales: {
-					x: { ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK }, grid: DARK_GRID, border: DARK_BORDER },
-					y: { beginAtZero: false, title: { display: true, text: 'Resting bpm', ...DARK_TICK }, ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER }
+					x: { ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
+					y: { beginAtZero: false, title: { display: true, text: 'Resting bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
 				}
 			}
 		};
@@ -441,58 +608,121 @@
 	</div>
 {:else if agg}
 
-	<!-- ─── Top Stat Bar ─── -->
+	<!-- ════════════════════════════════════════════════════ -->
+	<!-- TIER 1: TODAY                                        -->
+	<!-- ════════════════════════════════════════════════════ -->
+
+	<div class="section-header">
+		<span class="section-label">Today</span>
+		<span class="section-date">{latestDate}</span>
+	</div>
+
+	<!-- Stat bar — always latest day -->
 	<div class="stat-bar">
 		<div class="stat-item">
 			<span class="stat-label">Resting HR</span>
 			<span class="stat-value" style="color: #4CAF82;">
-				{fmt(stats?.avgResting)}
+				{fmt(latestStats?.avgResting)}
 			</span>
 			<span class="stat-unit">bpm</span>
-			{#if recovery?.delta_from_baseline != null}
-				<span class="stat-delta" style="color: {recoveryColor(recovery?.status)};">
-					{fmtSigned(recovery.delta_from_baseline)} vs 7d
+			{#if latestRecovery?.delta_from_baseline != null}
+				<span class="stat-delta" style="color: {recoveryColor(latestRecovery?.status)};">
+					{fmtSigned(latestRecovery.delta_from_baseline)} vs 7d
 				</span>
 			{/if}
 		</div>
 		<div class="stat-item">
 			<span class="stat-label">Recovery</span>
-			<span class="recovery-pill" style="background: {recoveryColor(recovery?.status)}20; color: {recoveryColor(recovery?.status)}; border-color: {recoveryColor(recovery?.status)}40;">
-				{recovery?.status ? recovery.status.toUpperCase() : '-'}
+			<span class="recovery-pill" style="background: {recoveryColor(latestRecovery?.status)}20; color: {recoveryColor(latestRecovery?.status)}; border-color: {recoveryColor(latestRecovery?.status)}40;">
+				{latestRecovery?.status ? latestRecovery.status.toUpperCase() : '-'}
 			</span>
 		</div>
 		<div class="stat-item">
 			<span class="stat-label">Daily Avg</span>
 			<span class="stat-value" style="color: #E85D4A;">
-				{fmt(dayStats?.avg ?? stats?.overallAvg)}
+				{fmt(latestDayStats?.avg ?? latestStats?.overallAvg)}
 			</span>
 			<span class="stat-unit">bpm</span>
 		</div>
 		<div class="stat-item">
 			<span class="stat-label">Range</span>
 			<span class="stat-value" style="color: #c8d6e0;">
-				{fmt(stats?.typicalLow)}–{fmt(stats?.typicalHigh)}
+				{fmt(latestStats?.typicalLow)}–{fmt(latestStats?.typicalHigh)}
 			</span>
 			<span class="stat-unit">bpm</span>
 		</div>
 	</div>
 
-	<!-- ─── Insight line ─── -->
-	{#if insights && insights.insights.length > 0}
-		{@const topInsight = insights.insights[0]}
+	<!-- Insight line — latest day -->
+	{#if latestInsights && latestInsights.insights.length > 0}
+		{@const topInsight = latestInsights.insights[0]}
 		<div class="insight-line">
-			<span class="insight-dot" style="background: {insightLevelColor(topInsight.level)};"></span>
-			<span class="insight-level" style="color: {insightLevelColor(topInsight.level)};">{topInsight.level.toUpperCase()}</span>
+			<span class="insight-dot" style="background: {insightColor(topInsight.level)};"></span>
+			<span class="insight-level" style="color: {insightColor(topInsight.level)};">{topInsight.level.toUpperCase()}</span>
 			<span class="insight-text">{topInsight.title}</span>
 			<span class="insight-detail">{topInsight.detail}</span>
 		</div>
 	{/if}
 
-	<!-- ─── Day selector strip ─── -->
+	<!-- Intraday chart — latest day -->
+	{#if latestIntradayConfig}
+		<div class="card">
+			<h2 class="card-title">Intraday Heart Rate</h2>
+			<LineChart config={latestIntradayConfig} height={280} />
+			<p class="card-footnote">{latestIntraday?.heart_rate.length ?? 0} readings</p>
+		</div>
+	{/if}
+
+	<!-- Donut + Day Stats — latest day -->
+	{#if latestZoneBreakdown && latestDoughnutConfig}
+		<div class="zones-stats-row">
+			<div class="card donut-card">
+				<h2 class="card-title">HR Zones</h2>
+				<div class="donut-layout">
+					<div class="donut-chart-wrap">
+						<DoughnutChart config={latestDoughnutConfig} height={160} />
+					</div>
+					<div class="zone-legend-vertical">
+						{#each latestZoneBreakdown as zone}
+							<span class="zone-item">
+								<i class="legend-dot" style="background: {zone.color};"></i>
+								<span class="zone-label-text">{zone.label}</span>
+								<span class="zone-time">{fmt(zone.minutes)}m</span>
+								<span class="zone-pct-label">{zone.pct}%</span>
+							</span>
+						{/each}
+					</div>
+				</div>
+			</div>
+			{#if latestDayStats}
+				<div class="card day-stats-card">
+					<h2 class="card-title">Day Stats</h2>
+					<div class="mini-stat-grid">
+						<div class="mini-stat"><span class="mini-label">Min</span><span class="mini-value" style="color:#4A90D9">{fmt(latestDayStats.min)}</span></div>
+						<div class="mini-stat"><span class="mini-label">Max</span><span class="mini-value" style="color:#D4944C">{fmt(latestDayStats.max)}</span></div>
+						<div class="mini-stat"><span class="mini-label">Avg</span><span class="mini-value" style="color:#E85D4A">{fmt(latestDayStats.avg)}</span></div>
+						<div class="mini-stat"><span class="mini-label">Median</span><span class="mini-value">{fmt(latestDayStats.median)}</span></div>
+						<div class="mini-stat"><span class="mini-label">Resting</span><span class="mini-value" style="color:#4CAF82">{fmt(latestDayStats.resting)}</span></div>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- ════════════════════════════════════════════════════ -->
+	<!-- TIER 2: HISTORY BAR + EXPANDABLE DETAIL              -->
+	<!-- ════════════════════════════════════════════════════ -->
+
+	<div class="section-header tier2-header">
+		<span class="section-label">History</span>
+		<span class="section-sublabel">Click a day to explore</span>
+	</div>
+
+	<!-- Day selector strip -->
 	<div class="day-nav">
 		<div class="day-nav-controls">
 			<button class="nav-arrow" disabled={!canPrev} onclick={() => navigateDay(-1)}>←</button>
-			<button class="day-label" onclick={() => onDateChange('')}>
+			<button class="day-label" onclick={() => closeHistory()}>
 				{selectedDate || 'All Days'}
 			</button>
 			<button class="nav-arrow" disabled={!canNext} onclick={() => navigateDay(1)}>→</button>
@@ -517,138 +747,147 @@
 		</div>
 	</div>
 
-	<!-- ─── Tab bar ─── -->
-	<div class="tab-bar">
-		<button class="tab" class:active={activeTab === 'today'} onclick={() => activeTab = 'today'}>Today</button>
-		<button class="tab" class:active={activeTab === 'trends'} onclick={() => activeTab = 'trends'}>Trends</button>
-		<button class="tab" class:active={activeTab === 'sleep'} onclick={() => activeTab = 'sleep'}>Sleep HR</button>
-		<button class="tab" class:active={activeTab === 'analysis'} onclick={() => activeTab = 'analysis'}>Analysis</button>
-	</div>
-
-	<!-- ─── TAB: Today ─── -->
-	{#if activeTab === 'today'}
-		{#if selectedDate && intradayConfig}
-			<div class="card">
-				<h2 class="card-title">Intraday Heart Rate — {selectedDate}</h2>
-				<LineChart config={intradayConfig} height={320} />
-				<p class="card-footnote">{intradayData?.heart_rate.length ?? 0} readings</p>
+	<!-- Expandable day detail panel -->
+	{#if historyOpen && selectedDate}
+		<div class="history-detail" transition:slide={{ duration: 300 }}>
+			<div class="history-detail-header">
+				<div class="history-detail-title">
+					<span class="history-date">{selectedDate}</span>
+					{#if historicalDayStats?.resting != null && latestDayStats?.resting != null}
+						<span class="history-comparison">
+							Resting: <strong>{fmt(historicalDayStats.resting)}</strong> bpm
+							<span class="comparison-vs">(today: {fmt(latestDayStats.resting)})</span>
+						</span>
+					{/if}
+				</div>
+				<button class="close-btn" onclick={closeHistory} title="Close">✕</button>
 			</div>
-		{:else if selectedDate}
-			<div class="text-sm text-[#5e7282] mb-6">Loading intraday data...</div>
-		{:else if trendConfig}
-			<div class="card">
-				<h2 class="card-title">Daily Trend — Click a day to drill in</h2>
-				<LineChart config={trendConfig} height={320} />
-			</div>
-		{/if}
 
-		{#if zoneBreakdown}
-			<div class="zones-stats-row">
-				<div class="card zones-card">
-					<h2 class="card-title">HR Zones</h2>
-					<div class="zone-bar">
-						{#each zoneBreakdown as zone}
-							<div
-								class="zone-segment"
-								style="width: {zone.pct}%; background-color: {zone.color};"
-								title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
-							>
-								{#if zone.pct >= 8}<span class="zone-pct">{zone.pct}%</span>{/if}
+			{#if historicalIntradayConfig}
+				<div class="history-section">
+					<h3 class="history-section-title">Intraday Heart Rate</h3>
+					<LineChart config={historicalIntradayConfig} height={240} />
+					<p class="card-footnote">{historicalIntraday?.heart_rate.length ?? 0} readings</p>
+				</div>
+			{:else if !historicalIntraday}
+				<div class="text-sm text-[#5e7282] py-4">Loading intraday data...</div>
+			{/if}
+
+			{#if historicalZoneBreakdown && historicalDoughnutConfig}
+				<div class="zones-stats-row history-zones-row">
+					<div class="history-subsection donut-card">
+						<h3 class="history-section-title">HR Zones</h3>
+						<div class="donut-layout">
+							<div class="donut-chart-wrap">
+								<DoughnutChart config={historicalDoughnutConfig} height={140} />
+							</div>
+							<div class="zone-legend-vertical">
+								{#each historicalZoneBreakdown as zone}
+									<span class="zone-item">
+										<i class="legend-dot" style="background: {zone.color};"></i>
+										<span class="zone-label-text">{zone.label}</span>
+										<span class="zone-time">{fmt(zone.minutes)}m</span>
+										<span class="zone-pct-label">{zone.pct}%</span>
+									</span>
+								{/each}
+							</div>
+						</div>
+					</div>
+					{#if historicalDayStats}
+						<div class="history-subsection day-stats-card">
+							<h3 class="history-section-title">Day Stats</h3>
+							<div class="mini-stat-grid">
+								<div class="mini-stat"><span class="mini-label">Min</span><span class="mini-value" style="color:#4A90D9">{fmt(historicalDayStats.min)}</span></div>
+								<div class="mini-stat"><span class="mini-label">Max</span><span class="mini-value" style="color:#D4944C">{fmt(historicalDayStats.max)}</span></div>
+								<div class="mini-stat"><span class="mini-label">Avg</span><span class="mini-value" style="color:#E85D4A">{fmt(historicalDayStats.avg)}</span></div>
+								<div class="mini-stat"><span class="mini-label">Median</span><span class="mini-value">{fmt(historicalDayStats.median)}</span></div>
+								<div class="mini-stat"><span class="mini-label">Resting</span><span class="mini-value" style="color:#4CAF82">{fmt(historicalDayStats.resting)}</span></div>
+							</div>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			{#if distributionConfig}
+				<div class="history-section">
+					<h3 class="history-section-title">HR Distribution</h3>
+					<BarChart config={distributionConfig} height={220} />
+					<p class="card-footnote">{historicalDistribution?.sample_count ?? 0} readings</p>
+				</div>
+			{/if}
+
+			{#if historicalInsights && historicalInsights.insights.length > 0}
+				<div class="history-section">
+					<h3 class="history-section-title">Recovery Insights</h3>
+					<div class="insights-list">
+						{#each historicalInsights.insights as item}
+							<div class="insight-card" style="border-left-color: {insightColor(item.level)};">
+								<div class="insight-card-level" style="color: {insightColor(item.level)};">{item.level}</div>
+								<div class="insight-card-title">{item.title}</div>
+								<div class="insight-card-detail">{item.detail}</div>
 							</div>
 						{/each}
 					</div>
-					<div class="zone-legend">
-						{#each zoneBreakdown as zone}
-							<span class="zone-item">
-								<i class="legend-dot" style="background: {zone.color};"></i>
-								{zone.label} {fmt(zone.minutes)}m
-							</span>
-						{/each}
-					</div>
 				</div>
-				{#if dayStats}
-					<div class="card day-stats-card">
-						<h2 class="card-title">Day Stats</h2>
-						<div class="mini-stat-grid">
-							<div class="mini-stat"><span class="mini-label">Min</span><span class="mini-value" style="color:#4A90D9">{fmt(dayStats.min)}</span></div>
-							<div class="mini-stat"><span class="mini-label">Max</span><span class="mini-value" style="color:#D4944C">{fmt(dayStats.max)}</span></div>
-							<div class="mini-stat"><span class="mini-label">Avg</span><span class="mini-value" style="color:#E85D4A">{fmt(dayStats.avg)}</span></div>
-							<div class="mini-stat"><span class="mini-label">Median</span><span class="mini-value">{fmt(dayStats.median)}</span></div>
-							<div class="mini-stat"><span class="mini-label">Resting</span><span class="mini-value" style="color:#4CAF82">{fmt(dayStats.resting)}</span></div>
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
+			{/if}
+		</div>
+	{/if}
 
-		{#if insights && insights.insights.length > 0}
-			<div class="card">
-				<h2 class="card-title">Recovery Insights</h2>
-				<div class="insights-list">
-					{#each insights.insights as item}
-						<div class="insight-card" style="border-left-color: {insightLevelColor(item.level)};">
-							<div class="insight-card-level" style="color: {insightLevelColor(item.level)};">{item.level}</div>
-							<div class="insight-card-title">{item.title}</div>
-							<div class="insight-card-detail">{item.detail}</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
+	<!-- ════════════════════════════════════════════════════ -->
+	<!-- TIER 3: TRENDS                                       -->
+	<!-- ════════════════════════════════════════════════════ -->
 
-	<!-- ─── TAB: Trends ─── -->
-	{:else if activeTab === 'trends'}
-		{#if trendConfig}
-			<div class="card">
-				<h2 class="card-title">Daily Trend — Avg & Resting HR</h2>
-				<LineChart config={trendConfig} height={320} />
-			</div>
-		{/if}
+	<div class="section-header tier3-header">
+		<span class="section-label">Trends</span>
+	</div>
 
-		{#if restingTrendConfig}
-			<div class="card">
-				<h2 class="card-title">Resting HR Trend — 7-Day Moving Average</h2>
-				<LineChart config={restingTrendConfig} height={280} />
-			</div>
-		{/if}
+	<!-- Heart Rate Trends -->
+	{#if trendConfig}
+		<div class="card">
+			<h2 class="card-title">Daily Avg & Resting HR — Click a day to explore</h2>
+			<LineChart config={trendConfig} height={300} />
+		</div>
+	{/if}
 
-	<!-- ─── TAB: Sleep HR ─── -->
-	{:else if activeTab === 'sleep'}
-		{#if sleepingHRConfig}
-			<div class="card">
-				<h2 class="card-title">Sleeping HR Trend</h2>
-				<LineChart config={sleepingHRConfig} height={300} />
-				<p class="card-footnote">Average HR during light/deep/REM sleep stages (excludes awake)</p>
-			</div>
-		{/if}
+	{#if restingTrendConfig}
+		<div class="card">
+			<h2 class="card-title">Resting HR — 7-Day Moving Average</h2>
+			<LineChart config={restingTrendConfig} height={260} />
+		</div>
+	{/if}
 
-		{#if circadianConfig}
-			<div class="card">
-				<h2 class="card-title">Circadian HR Profile</h2>
-				<LineChart config={circadianConfig} height={280} />
-				<p class="card-footnote">Average heart rate by hour of day across the entire period</p>
-			</div>
-		{/if}
+	<!-- Sleep & Recovery -->
+	<div class="section-subheader">
+		<span class="section-sublabel">Sleep & Recovery</span>
+	</div>
 
-	<!-- ─── TAB: Analysis ─── -->
-	{:else if activeTab === 'analysis'}
-		{#if selectedDate && distributionConfig}
-			<div class="card">
-				<h2 class="card-title">HR Distribution — {selectedDate}</h2>
-				<BarChart config={distributionConfig} height={260} />
-				<p class="card-footnote">{distribution?.sample_count ?? 0} readings</p>
-			</div>
-		{:else if !selectedDate}
-			<p class="text-sm text-[#5e7282] mb-4">Select a day to see its HR distribution.</p>
-		{/if}
+	{#if sleepingHRConfig}
+		<div class="card">
+			<h2 class="card-title">Sleeping HR Trend</h2>
+			<LineChart config={sleepingHRConfig} height={260} />
+			<p class="card-footnote">Average HR during light/deep/REM sleep stages (excludes awake)</p>
+		</div>
+	{/if}
 
-		{#if boxplotConfig}
-			<div class="card">
-				<h2 class="card-title">Weekly Resting HR — Boxplot</h2>
-				<LineChart config={boxplotConfig} height={280} />
-				<p class="card-footnote">Min / Q1 / Median / Q3 / Max of daily resting HR per ISO week</p>
-			</div>
-		{/if}
+	{#if circadianConfig}
+		<div class="card">
+			<h2 class="card-title">Circadian HR Profile</h2>
+			<LineChart config={circadianConfig} height={260} />
+			<p class="card-footnote">Average heart rate by hour of day across the entire period</p>
+		</div>
+	{/if}
+
+	<!-- Analysis -->
+	<div class="section-subheader">
+		<span class="section-sublabel">Analysis</span>
+	</div>
+
+	{#if boxplotConfig}
+		<div class="card">
+			<h2 class="card-title">Weekly Resting HR — Boxplot</h2>
+			<LineChart config={boxplotConfig} height={260} />
+			<p class="card-footnote">Min / Q1 / Median / Q3 / Max of daily resting HR per ISO week</p>
+		</div>
 	{/if}
 
 	<MetricDefinition title="What is Heart Rate?">
@@ -661,6 +900,47 @@
 {/if}
 
 <style>
+	/* ── Section Headers ── */
+	.section-header {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		padding-bottom: 10px;
+		margin-bottom: 14px;
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+	}
+	.tier2-header {
+		margin-top: 28px;
+	}
+	.tier3-header {
+		margin-top: 28px;
+	}
+	.section-label {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 2px;
+		color: #6b7d8e;
+		font-weight: 600;
+	}
+	.section-date {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #4a5c6a;
+	}
+	.section-sublabel {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: #4a5c6a;
+		letter-spacing: 1px;
+	}
+	.section-subheader {
+		padding-bottom: 8px;
+		margin-bottom: 12px;
+		margin-top: 20px;
+		border-bottom: 1px solid rgba(255,255,255,0.04);
+	}
+
 	/* ── Stat Bar ── */
 	.stat-bar {
 		display: grid;
@@ -843,31 +1123,86 @@
 		border-radius: 2px;
 	}
 
-	/* ── Tab bar ── */
-	.tab-bar {
-		display: flex;
-		gap: 2px;
-		margin-bottom: 16px;
-		background: rgba(255,255,255,0.03);
-		border-radius: 8px;
-		padding: 3px;
+	/* ── History Detail Panel ── */
+	.history-detail {
+		background: rgba(255,255,255,0.025);
+		border: 1px solid rgba(232,93,74,0.15);
+		border-left: 3px solid rgba(232,93,74,0.4);
+		border-radius: 10px;
+		padding: 20px;
+		margin-bottom: 14px;
 	}
-	.tab {
+	.history-detail-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 16px;
+	}
+	.history-detail-title {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	.history-date {
 		font-family: 'DM Mono', monospace;
+		font-size: 16px;
+		font-weight: 600;
+		color: #e8f0f5;
+		letter-spacing: 0.5px;
+	}
+	.history-comparison {
 		font-size: 12px;
-		padding: 7px 18px;
+		color: #8a9baa;
+	}
+	.history-comparison strong {
+		color: #c8d6e0;
+	}
+	.comparison-vs {
+		color: #5e7282;
+	}
+	.close-btn {
+		width: 28px;
+		height: 28px;
 		border-radius: 6px;
-		border: none;
-		background: transparent;
+		border: 1px solid rgba(255,255,255,0.1);
+		background: rgba(255,255,255,0.03);
 		color: #6b7d8e;
 		cursor: pointer;
+		font-size: 14px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		transition: all 0.15s;
+		flex-shrink: 0;
 	}
-	.tab:hover { color: #c8d6e0; background: rgba(255,255,255,0.04); }
-	.tab.active {
-		color: #e8f0f5;
-		background: rgba(255,255,255,0.08);
-		font-weight: 500;
+	.close-btn:hover { background: rgba(255,255,255,0.08); color: #c8d6e0; }
+
+	.history-section {
+		margin-top: 16px;
+		padding-top: 16px;
+		border-top: 1px solid rgba(255,255,255,0.04);
+	}
+	.history-section:first-of-type {
+		margin-top: 0;
+		padding-top: 0;
+		border-top: none;
+	}
+	.history-section-title {
+		font-size: 11px;
+		font-weight: 600;
+		color: #6b7d8e;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		margin-bottom: 10px;
+	}
+	.history-subsection {
+		margin-bottom: 0;
+	}
+	.history-zones-row {
+		margin-top: 16px;
+		padding-top: 16px;
+		border-top: 1px solid rgba(255,255,255,0.04);
+		margin-bottom: 0;
 	}
 
 	/* ── Cards ── */
@@ -892,45 +1227,53 @@
 		margin-top: 8px;
 	}
 
-	/* ── Zones + Stats row ── */
+	/* ── Donut + Stats row ── */
 	.zones-stats-row {
 		display: grid;
 		grid-template-columns: 1fr auto;
 		gap: 14px;
-		margin-bottom: 0;
+		margin-bottom: 14px;
 	}
-	.zones-card { margin-bottom: 0; }
+	.donut-card { margin-bottom: 0; }
 	.day-stats-card { margin-bottom: 0; min-width: 180px; }
 
-	.zone-bar {
-		display: flex;
-		height: 24px;
-		border-radius: 4px;
-		overflow: hidden;
-	}
-	.zone-segment {
+	.donut-layout {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		transition: all 0.2s;
+		gap: 20px;
 	}
-	.zone-pct {
-		font-size: 10px;
-		font-weight: 600;
-		color: rgba(255,255,255,0.9);
+	.donut-chart-wrap {
+		width: 160px;
+		flex-shrink: 0;
 	}
-	.zone-legend {
+	.zone-legend-vertical {
 		display: flex;
-		gap: 12px;
-		margin-top: 10px;
-		flex-wrap: wrap;
+		flex-direction: column;
+		gap: 6px;
 	}
 	.zone-item {
 		font-size: 11px;
 		color: #8a9baa;
 		display: flex;
 		align-items: center;
-		gap: 5px;
+		gap: 6px;
+	}
+	.zone-label-text {
+		width: 64px;
+	}
+	.zone-time {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #c8d6e0;
+		min-width: 44px;
+		text-align: right;
+	}
+	.zone-pct-label {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: #5e7282;
+		min-width: 32px;
+		text-align: right;
 	}
 
 	/* ── Mini stat grid ── */
@@ -992,5 +1335,7 @@
 		.stat-bar { grid-template-columns: repeat(2, 1fr); }
 		.zones-stats-row { grid-template-columns: 1fr; }
 		.day-nav { flex-direction: column; align-items: stretch; }
+		.donut-layout { flex-direction: column; align-items: flex-start; }
+		.donut-chart-wrap { width: 140px; }
 	}
 </style>
