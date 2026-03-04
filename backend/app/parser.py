@@ -350,7 +350,7 @@ def _shift_timestamps(day: DayData, offset_hours: float) -> None:
             return None
         try:
             dt = datetime.fromisoformat(iso) + delta
-            return dt.isoformat()
+            return dt.replace(tzinfo=None).isoformat()
         except (ValueError, TypeError):
             return iso
 

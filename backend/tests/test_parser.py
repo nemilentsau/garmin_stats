@@ -109,7 +109,7 @@ class TestShiftTimestamps:
         )
         _shift_timestamps(day, 13.0)
 
-        expected = "2026-01-15T13:00:00+00:00"
+        expected = "2026-01-15T13:00:00"
         assert day.wellness.heart_rate[0].timestamp == expected
         assert day.sleep.sleep_levels[0].timestamp == expected
         assert day.hrv.hrv_values[0].timestamp == expected
@@ -128,7 +128,7 @@ class TestShiftTimestamps:
             skin_temp=DaySkinTemp(date="2026-01-15"),
         )
         _shift_timestamps(day, -5.0)
-        assert day.wellness.heart_rate[0].timestamp == "2026-01-14T22:00:00+00:00"
+        assert day.wellness.heart_rate[0].timestamp == "2026-01-14T22:00:00"
 
     def test_none_timestamps_preserved(self):
         day = DayData(

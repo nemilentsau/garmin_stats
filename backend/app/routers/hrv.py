@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..database import load_hrv
+from ..infra.database import load_hrv
 from ..models import HrvInsightsResponse, HrvResponse
 from ..services.hrv import load_hrv_insights
 from ..stats import flatten_hrv

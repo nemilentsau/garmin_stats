@@ -1,7 +1,7 @@
 # Architecture
 
 ## Project Structure
-- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py, database.py, events.py, watcher.py)
+- `backend/` — FastAPI app in `backend/app/` (models.py, parser.py, stats.py, main.py, infra/, utils/)
 - `backend/tests/` — pytest tests for stats and database
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
 - `storage/` — SQLite database (gitignored, auto-created on startup)
@@ -20,13 +20,21 @@ Two separate paths:
 - **Read path (API):** SQLite → reconstruct Pydantic models → `flatten_*` → JSON response
 
 ### Modules
+
+Domain core (app root):
 - **`models.py`**: Pydantic models — reading atoms, day containers, API response models, ingest models
 - **`parser.py`**: 3 layers — `_extract_*` (per-file), `parse_*_day` (per-day merge), `parse_*` (directory scan + date filter)
 - **`stats.py`**: Aggregation/flattening — consumes typed parser output, produces API response models. No FIT knowledge.
-- **`database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
-- **`events.py`**: SSE event bus — `EventBus` with per-client `asyncio.Queue`, module-level `event_bus` singleton
-- **`watcher.py`**: File watcher — `watch_data_directory()` uses `watchfiles.awatch()` to detect new `.fit` files, auto-ingests, broadcasts `data_updated` via SSE; `heartbeat_loop()` keeps connections alive
 - **`main.py`**: App creation, CORS middleware, lifespan (auto-ingest + file watcher + heartbeat tasks), router registration. All endpoints live in `routers/`.
+
+Infrastructure (`infra/`):
+- **`infra/database.py`**: SQLite persistence — schema, ingest (write), read functions, fingerprinting
+- **`infra/cache.py`**: In-memory cache with generation-based invalidation
+- **`infra/events.py`**: SSE event bus — `EventBus` with per-client `asyncio.Queue`, module-level `event_bus` singleton
+- **`infra/watcher.py`**: File watcher — `watch_data_directory()` uses `watchfiles.awatch()` to detect new `.zip` files, auto-ingests, broadcasts `data_updated` via SSE; `heartbeat_loop()` keeps connections alive
+
+Utilities (`utils/`):
+- **`utils/timeutil.py`**: Shared time helpers (ISO-8601 parsing)
 - **`routers/`**: Domain-specific HTTP route modules. Each defines an `APIRouter` with a prefix and delegates to `database`/`stats`/`services`:
   - `ingest.py` (`/api/ingest`) — trigger re-ingest, check ingest status
   - `days.py` (`/api/days`) — list available days, get day summary

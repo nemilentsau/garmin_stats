@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..database import load_sleep
+from ..infra.database import load_sleep
 from ..models import SleepResponse
 from ..stats import flatten_sleep
 

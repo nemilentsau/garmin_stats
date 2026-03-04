@@ -4,7 +4,8 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
-from ..database import load_daily_metrics, load_sleep, load_wellness
+from ..infra import cache
+from ..infra.database import load_daily_metrics, load_sleep, load_wellness
 from ..models import (
     CircadianHRPoint,
     DailyMetric,
@@ -17,16 +18,7 @@ from ..models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-
-
-def _parse_iso(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    normalized = ts.replace("Z", "+00:00")
-    try:
-        return datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+from ..utils.timeutil import parse_iso as _parse_iso
 
 
 def _compute_circadian_profile(
@@ -222,11 +214,14 @@ def _compute_weekly_boxplots(
 
 
 def load_heart_rate_analysis() -> HeartRateAnalysisResponse:
-    """Load all wellness + sleep + metrics, compute analysis features."""
+    """Load all wellness + sleep + metrics, compute analysis features (cached)."""
+    return cache.cached(cache.HR_ANALYSIS, _compute_heart_rate_analysis)
+
+
+def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
     all_wellness = load_wellness()
     all_sleep = load_sleep()
     metrics = load_daily_metrics()
-
     return HeartRateAnalysisResponse(
         circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),

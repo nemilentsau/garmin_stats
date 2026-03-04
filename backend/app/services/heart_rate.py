@@ -3,7 +3,7 @@
 from datetime import datetime
 from statistics import median
 
-from ..database import load_daily_metrics, load_wellness
+from ..infra.database import load_daily_metrics, load_wellness
 from ..models import (
     DailyMetric,
     HeartRateDataQuality,
@@ -14,16 +14,7 @@ from ..models import (
     HRZoneDuration,
 )
 from ..stats import HR_ZONE_THRESHOLDS
-
-
-def _parse_iso(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    normalized = ts.replace("Z", "+00:00")
-    try:
-        return datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+from ..utils.timeutil import parse_iso as _parse_iso
 
 
 def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:

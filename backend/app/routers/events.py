@@ -5,7 +5,7 @@ import asyncio
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-from ..events import event_bus
+from ..infra.events import event_bus
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 

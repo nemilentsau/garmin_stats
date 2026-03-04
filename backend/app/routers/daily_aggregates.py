@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from ..database import load_daily_metrics, load_period_summary
+from ..infra.database import load_daily_metrics, load_period_summary
 from ..models import DailyAggregatesResponse
 
 router = APIRouter(prefix="/api/daily-aggregates", tags=["daily-aggregates"])

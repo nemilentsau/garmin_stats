@@ -4,7 +4,7 @@ import zipfile
 
 import pytest
 
-from app.watcher import _safe_extract_all
+from app.infra.watcher import _safe_extract_all
 
 
 class TestSafeExtract:

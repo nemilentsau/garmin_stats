@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..database import load_wellness
+from ..infra.database import load_wellness
 from ..models import WellnessResponse
 from ..stats import flatten_wellness
 

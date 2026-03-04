@@ -3,11 +3,13 @@
 	import { api, type DailyAggregates, type HrvInsights } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import BarChart from '$lib/components/BarChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
+	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
@@ -60,6 +62,11 @@
 		}
 	}
 
+	let baselineBands = $derived.by(() => insights?.baseline_bands ?? null);
+	let distribution = $derived.by(() => insights?.distribution ?? null);
+	let trajectory = $derived.by(() => insights?.trajectory ?? null);
+	let dayOfWeek = $derived.by(() => insights?.day_of_week ?? []);
+
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
 		const labels = agg.daily.map((d) => d.date);
@@ -93,6 +100,20 @@
 			);
 		}
 
+		const baseline30d = insights?.long_baseline?.baseline_30d ?? null;
+		if (baseline30d != null) {
+			datasets.push({
+				label: '30-Day Baseline',
+				data: labels.map(() => baseline30d),
+				borderColor: COLORS.baseline,
+				borderWidth: 1.5,
+				borderDash: [8, 4],
+				pointRadius: 0,
+				tension: 0,
+				fill: false
+			});
+		}
+
 		datasets.push(
 			{
 				label: 'Nightly Avg',
@@ -115,6 +136,29 @@
 			}
 		);
 
+		const annotationPlugin = baselineBands
+			? {
+					annotations: {
+						lowZone: {
+							type: 'box' as const,
+							yMin: 0,
+							yMax: baselineBands.baseline_low_upper ?? undefined,
+							backgroundColor: withAlpha(COLORS.heartRate, '0F'),
+							borderWidth: 0,
+							adjustScaleRange: false
+						},
+						balancedZone: {
+							type: 'box' as const,
+							yMin: baselineBands.baseline_balanced_lower ?? undefined,
+							yMax: baselineBands.baseline_balanced_upper ?? undefined,
+							backgroundColor: withAlpha(COLORS.heartRateResting, '0F'),
+							borderWidth: 0,
+							adjustScaleRange: false
+						}
+					}
+				}
+			: undefined;
+
 		return {
 			type: 'line',
 			data: { labels, datasets },
@@ -131,26 +175,114 @@
 				},
 				plugins: {
 					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.hrv, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60')),
+					annotation: annotationPlugin
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'ms', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	});
+
+	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (!distribution || distribution.bins.length === 0) return null;
+		const selectedValue = distribution.selected_value;
+		return {
+			type: 'bar',
+			data: {
+				labels: distribution.bins.map((b) => `${b.bin_start}-${b.bin_end}`),
+				datasets: [
+					{
+						label: 'Nights',
+						data: distribution.bins.map((b) => b.count),
+						backgroundColor: distribution.bins.map((b) =>
+							selectedValue != null && selectedValue >= b.bin_start && selectedValue < b.bin_end
+								? withAlpha(COLORS.hrv, 'cc')
+								: withAlpha(COLORS.hrv, '55')
+						),
+						borderRadius: 2
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
+				},
+				scales: {
+					x: {
+						title: { display: true, text: 'HRV (ms)', ...DARK_TICK },
+						ticks: { ...DARK_TICK, font: { size: 10 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
+					},
+					y: {
+						beginAtZero: true,
+						title: { display: true, text: 'Nights', ...DARK_TICK },
+						ticks: { ...DARK_TICK, stepSize: 1 },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	});
+
+	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (dayOfWeek.length === 0) return null;
+		const validAvgs = dayOfWeek.filter((b) => b.avg_nightly != null).map((b) => b.avg_nightly!);
+		const overallAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : null;
+		return {
+			type: 'bar',
+			data: {
+				labels: dayOfWeek.map((b) => b.day),
+				datasets: [
+					{
+						label: 'Avg Nightly HRV',
+						data: dayOfWeek.map((b) => b.avg_nightly),
+						backgroundColor: dayOfWeek.map((b) => {
+							if (b.avg_nightly == null || overallAvg == null) return withAlpha(COLORS.hrv, '55');
+							if (b.avg_nightly - overallAvg > 5) return withAlpha(COLORS.hrv, 'cc');
+							if (b.avg_nightly - overallAvg < -5) return withAlpha(COLORS.hrv, '33');
+							return withAlpha(COLORS.hrv, '77');
+						}),
+						borderRadius: 3
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
+				},
+				scales: {
+					x: {
+						ticks: { ...DARK_TICK, font: { size: 11 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
+					},
+					y: {
+						beginAtZero: false,
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
@@ -186,42 +318,32 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: withAlpha(COLORS.hrv, '60'),
-						padding: 10,
-						cornerRadius: 4
-					}
+					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
 				},
 				scales: {
 					x: {
 						type: 'time',
 						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, color: '#6b7d8e' },
-						grid: { color: '#ffffff08' },
-						border: { color: '#ffffff10' }
+						ticks: { font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID,
+						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						title: { display: true, text: 'ms', color: '#6b7d8e' },
-						ticks: { color: '#6b7d8e' },
-						grid: { color: '#ffffff06' },
-						border: { color: '#ffffff10' }
+						title: { display: true, text: 'ms', ...DARK_TICK },
+						ticks: DARK_TICK,
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
 					}
 				}
 			}
 		};
 	}
 
-	let nightSegment = $derived.by(
-		() => insights?.intraday_segments.find((segment) => segment.key === 'night') ?? null
+	let intradaySegment = $derived.by(
+		() => insights?.intraday_segments.find((segment) => segment.key === 'all') ?? null
 	);
-	let daySegment = $derived.by(
-		() => insights?.intraday_segments.find((segment) => segment.key === 'day') ?? null
-	);
-	let nightIntradayConfig = $derived.by(() => makeIntradayConfig(nightSegment, COLORS.hrv));
-	let dayIntradayConfig = $derived.by(() => makeIntradayConfig(daySegment, COLORS.hrvWeekly));
+	let intradayConfig = $derived.by(() => makeIntradayConfig(intradaySegment, COLORS.hrv));
 
 	let stats = $derived.by(() => {
 		if (!agg?.period) return null;
@@ -237,32 +359,42 @@
 	let dayStats = $derived.by(() => insights?.day_stats ?? null);
 	let recovery = $derived.by(() => insights?.recovery ?? null);
 	let quality = $derived.by(() => insights?.quality ?? null);
+	let streak = $derived.by(() => insights?.streak ?? null);
+	let longBaseline = $derived.by(() => insights?.long_baseline ?? null);
 	let statusMix = $derived.by(() => insights?.status_mix ?? []);
 	let insightDate = $derived.by(() => insights?.date ?? null);
 
-	function fmtSigned(n: number | null | undefined): string {
-		if (n == null) return '-';
-		const rounded = n.toFixed(1);
-		return n > 0 ? `+${rounded}` : rounded;
+function trajectoryColorClass(direction: string | null | undefined): string {
+		if (direction === 'rising') return 'text-[#4CAF82]';
+		if (direction === 'falling') return 'text-[#E85D4A]';
+		return 'text-[#8a9baa]';
 	}
 
-	function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
-		if (!start || !end) return '-';
-		return `${start.slice(11, 16)}-${end.slice(11, 16)}`;
+	function trajectoryArrow(direction: string | null | undefined): string {
+		if (direction === 'rising') return '\u2191 rising';
+		if (direction === 'falling') return '\u2193 falling';
+		return '\u2192 flat';
 	}
 
-	function recoveryColorClass(status: string | null | undefined): string {
+function recoveryColorClass(status: string | null | undefined): string {
 		if (status === 'suppressed' || status === 'below_baseline') return 'text-[#E85D4A]';
 		if (status === 'elevated' || status === 'stable') return 'text-[#4CAF82]';
 		return 'text-[#8a9baa]';
 	}
 
-	function insightColor(level: string): string {
-		if (level === 'warning') return '#E85D4A';
-		if (level === 'caution') return '#D4944C';
-		if (level === 'good') return '#4CAF82';
-		return '#8a9baa';
+	function streakColorClass(status: string | null | undefined): string {
+		if (status === 'Low' || status === 'Unbalanced') return 'text-[#E85D4A]';
+		if (status === 'Balanced' || status === 'High') return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
 	}
+
+	function deltaColorClass(delta: number | null | undefined): string {
+		if (delta == null) return 'text-[#8a9baa]';
+		if (delta < -5) return 'text-[#D4944C]';
+		if (delta > 5) return 'text-[#4CAF82]';
+		return 'text-[#8a9baa]';
+	}
+
 </script>
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
@@ -340,17 +472,77 @@
 		</div>
 	{/if}
 
+	{#if streak || longBaseline}
+		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+			{#if streak}
+				<StatCard
+					title="Status Streak"
+					value="{streak.streak_days}d"
+					subtitle={streak.current_status ?? '-'}
+					colorClass={streakColorClass(streak.current_status)}
+				/>
+				<StatCard
+					title="Worst Recent Streak"
+					value="{streak.worst_recent_streak}d"
+					subtitle="Low/Unbalanced (14d)"
+					colorClass={streak.worst_recent_streak >= 3 ? 'text-[#E85D4A]' : 'text-[#8a9baa]'}
+				/>
+			{/if}
+			{#if longBaseline}
+				<StatCard
+					title="7d vs 30d"
+					value={fmtSigned(longBaseline.delta_7d_vs_30d)}
+					unit="ms"
+					subtitle={longBaseline.baseline_30d != null ? `30d baseline ${longBaseline.baseline_30d} ms` : '-'}
+					colorClass={deltaColorClass(longBaseline.delta_7d_vs_30d)}
+				/>
+			{/if}
+		</div>
+	{/if}
+
 	{#if dayStats}
 		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
 			Day Snapshot {insightDate ? `— ${insightDate}` : ''}
 		</h2>
-		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<StatCard title="Nightly" value={fmt(dayStats.nightly_avg)} unit="ms" colorClass="text-[#9B6BCD]" />
 			<StatCard title="Weekly" value={fmt(dayStats.weekly_avg)} unit="ms" colorClass="text-[#b794e0]" />
 			<StatCard
 				title="HRV Status"
 				value={dayStats.status ? dayStats.status.toUpperCase() : '-'}
 				colorClass="text-[#8a9baa]"
+			/>
+			{#if baselineBands?.five_min_high != null}
+				<StatCard
+					title="5-Min High"
+					value={fmt(baselineBands.five_min_high)}
+					unit="ms"
+					colorClass="text-[#5BB5A6]"
+				/>
+			{/if}
+		</div>
+	{/if}
+
+	{#if trajectory}
+		<div class="grid grid-cols-3 gap-3 mb-6">
+			<StatCard
+				title="Early"
+				value={fmt(trajectory.early_avg)}
+				unit="ms"
+				colorClass={trajectoryColorClass(trajectory.direction)}
+			/>
+			<StatCard
+				title="Mid"
+				value={fmt(trajectory.mid_avg)}
+				unit="ms"
+				colorClass={trajectoryColorClass(trajectory.direction)}
+			/>
+			<StatCard
+				title="Late"
+				value={fmt(trajectory.late_avg)}
+				unit="ms"
+				subtitle={trajectoryArrow(trajectory.direction)}
+				colorClass={trajectoryColorClass(trajectory.direction)}
 			/>
 		</div>
 	{/if}
@@ -364,9 +556,9 @@
 				{#each insights.insights as item}
 					<div
 						class="bg-[rgba(255,255,255,0.02)] rounded-md px-3 py-2 border-l-2"
-						style="border-left-color: {insightColor(item.level)};"
+						style="border-left-color: {insightLevelColor(item.level)};"
 					>
-						<div class="text-[11px] uppercase tracking-wide" style="color: {insightColor(item.level)};">
+						<div class="text-[11px] uppercase tracking-wide" style="color: {insightLevelColor(item.level)};">
 							{item.level}
 						</div>
 						<div class="text-sm text-[#d9e5ec] font-medium">{item.title}</div>
@@ -401,6 +593,32 @@
 		</div>
 	{/if}
 
+	{#if distributionConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Nightly HRV Distribution
+			</h2>
+			<BarChart config={distributionConfig} height={220} />
+			{#if distribution}
+				<p class="text-xs text-[#4a5c6a] mt-2">
+					{distribution.total_days} nights{#if distribution.selected_percentile != null && insightDate} • {insightDate} is at the {distribution.selected_percentile}th percentile{/if}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if dayOfWeekConfig}
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				HRV by Day of Week
+			</h2>
+			<BarChart config={dayOfWeekConfig} height={220} />
+			<p class="text-xs text-[#4a5c6a] mt-2">
+				{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights
+			</p>
+		</div>
+	{/if}
+
 	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
 		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Daily Trend</h2>
 		{#if trendConfig}
@@ -411,33 +629,18 @@
 	{#if selectedDate && !insights}
 		<div class="text-sm text-[#5e7282]">Loading intraday segments...</div>
 	{:else if selectedDate}
-		<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-					Nighttime HRV — {selectedDate}
-				</h2>
-				{#if nightIntradayConfig}
-					<LineChart config={nightIntradayConfig} height={260} />
-					<p class="text-xs text-[#4a5c6a] mt-2">
-						{nightSegment?.sample_count ?? 0} readings • avg {fmt(nightSegment?.avg)} ms
-					</p>
-				{:else}
-					<div class="text-sm text-[#5e7282]">No nighttime HRV samples for this day.</div>
-				{/if}
-			</div>
-			<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-				<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-					Daytime HRV — {selectedDate}
-				</h2>
-				{#if dayIntradayConfig}
-					<LineChart config={dayIntradayConfig} height={260} />
-					<p class="text-xs text-[#4a5c6a] mt-2">
-						{daySegment?.sample_count ?? 0} readings • avg {fmt(daySegment?.avg)} ms
-					</p>
-				{:else}
-					<div class="text-sm text-[#5e7282]">No daytime HRV samples for this day.</div>
-				{/if}
-			</div>
+		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
+			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
+				Overnight HRV — {selectedDate}
+			</h2>
+			{#if intradayConfig}
+				<LineChart config={intradayConfig} height={300} />
+				<p class="text-xs text-[#4a5c6a] mt-2">
+					{intradaySegment?.sample_count ?? 0} readings • avg {fmt(intradaySegment?.avg)} ms{#if intradaySegment?.stdev != null} • stdev {intradaySegment.stdev} ms{/if}
+				</p>
+			{:else}
+				<div class="text-sm text-[#5e7282]">No HRV samples for this day.</div>
+			{/if}
 		</div>
 	{/if}
 {/if}
