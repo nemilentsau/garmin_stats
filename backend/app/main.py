@@ -43,7 +43,8 @@ async def lifespan(app: FastAPI):
         result = ingest_all(DATA_DIR)
         log.info(
             "Initial ingest complete: %d days in %d ms",
-            result.days_ingested, result.duration_ms,
+            result.days_ingested,
+            result.duration_ms,
         )
 
     watcher_task = asyncio.create_task(watch_data_directory(DATA_DIR), name="file-watcher")
@@ -66,7 +67,7 @@ app = FastAPI(
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5180"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
