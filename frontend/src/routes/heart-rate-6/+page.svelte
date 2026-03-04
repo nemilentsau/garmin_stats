@@ -12,7 +12,7 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
-	import DoughnutChart from '$lib/components/DoughnutChart.svelte';
+
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -365,48 +365,6 @@
 		};
 	});
 
-	// ── Chart: Doughnut (zone breakdown) ──
-	function makeDoughnutConfig(zones: typeof latestZoneBreakdown): ChartConfiguration<'doughnut'> | null {
-		if (!zones || zones.length === 0) return null;
-		return {
-			type: 'doughnut',
-			data: {
-				labels: zones.map((z) => z.label),
-				datasets: [{
-					data: zones.map((z) => z.minutes),
-					backgroundColor: zones.map((z) => z.color),
-					borderColor: 'rgba(13,21,32,0.95)',
-					borderWidth: 2,
-					hoverBorderColor: '#1a2332'
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				cutout: '62%',
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a2332',
-						borderWidth: 1,
-						borderColor: 'rgba(255,255,255,0.1)',
-						padding: 10,
-						cornerRadius: 4,
-						callbacks: {
-							label: (ctx) => {
-								const zone = zones[ctx.dataIndex];
-								return `${zone.label}: ${zone.minutes}m (${zone.pct}%)`;
-							}
-						}
-					}
-				}
-			}
-		};
-	}
-
-	let latestDoughnutConfig = $derived.by(() => makeDoughnutConfig(latestZoneBreakdown));
-	let historicalDoughnutConfig = $derived.by(() => makeDoughnutConfig(historicalZoneBreakdown));
-
 	// ── Chart: Trend ──
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
@@ -664,48 +622,42 @@
 		</div>
 	{/if}
 
-	<!-- Intraday chart — latest day -->
+	<!-- Intraday chart + zone sidebar — latest day -->
 	{#if latestIntradayConfig}
 		<div class="card">
 			<h2 class="card-title">Intraday Heart Rate</h2>
-			<LineChart config={latestIntradayConfig} height={280} />
-			<p class="card-footnote">{latestIntraday?.heart_rate.length ?? 0} readings</p>
-		</div>
-	{/if}
-
-	<!-- Donut + Day Stats — latest day -->
-	{#if latestZoneBreakdown && latestDoughnutConfig}
-		<div class="zones-stats-row">
-			<div class="card donut-card">
-				<h2 class="card-title">HR Zones</h2>
-				<div class="donut-layout">
-					<div class="donut-chart-wrap">
-						<DoughnutChart config={latestDoughnutConfig} height={160} />
-					</div>
-					<div class="zone-legend-vertical">
-						{#each latestZoneBreakdown as zone}
-							<span class="zone-item">
-								<i class="legend-dot" style="background: {zone.color};"></i>
-								<span class="zone-label-text">{zone.label}</span>
-								<span class="zone-time">{fmt(zone.minutes)}m</span>
-								<span class="zone-pct-label">{zone.pct}%</span>
-							</span>
-						{/each}
-					</div>
+			<div class="intraday-with-zones">
+				<div class="intraday-chart-area">
+					<LineChart config={latestIntradayConfig} height={280} />
 				</div>
+				{#if latestZoneBreakdown}
+					<div class="zone-sidebar">
+						<div class="zone-vbar">
+							{#each latestZoneBreakdown as zone}
+								{#if zone.pct > 0}
+									<div
+										class="zone-vsegment"
+										style="height: {zone.pct}%; background: {zone.color};"
+										title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
+									></div>
+								{/if}
+							{/each}
+						</div>
+						<div class="zone-vlabels">
+							{#each latestZoneBreakdown as zone}
+								{#if zone.pct > 0}
+									<span class="zone-vlabel" title="{zone.minutes}m">
+										<i class="legend-dot" style="background: {zone.color};"></i>
+										<span class="zone-vname">{zone.label}</span>
+										<span class="zone-vpct">{zone.pct}%</span>
+									</span>
+								{/if}
+							{/each}
+						</div>
+					</div>
+				{/if}
 			</div>
-			{#if latestDayStats}
-				<div class="card day-stats-card">
-					<h2 class="card-title">Day Stats</h2>
-					<div class="mini-stat-grid">
-						<div class="mini-stat"><span class="mini-label">Min</span><span class="mini-value" style="color:#4A90D9">{fmt(latestDayStats.min)}</span></div>
-						<div class="mini-stat"><span class="mini-label">Max</span><span class="mini-value" style="color:#D4944C">{fmt(latestDayStats.max)}</span></div>
-						<div class="mini-stat"><span class="mini-label">Avg</span><span class="mini-value" style="color:#E85D4A">{fmt(latestDayStats.avg)}</span></div>
-						<div class="mini-stat"><span class="mini-label">Median</span><span class="mini-value">{fmt(latestDayStats.median)}</span></div>
-						<div class="mini-stat"><span class="mini-label">Resting</span><span class="mini-value" style="color:#4CAF82">{fmt(latestDayStats.resting)}</span></div>
-					</div>
-				</div>
-			{/if}
+			<p class="card-footnote">{latestIntraday?.heart_rate.length ?? 0} readings</p>
 		</div>
 	{/if}
 
@@ -766,46 +718,41 @@
 			{#if historicalIntradayConfig}
 				<div class="history-section">
 					<h3 class="history-section-title">Intraday Heart Rate</h3>
-					<LineChart config={historicalIntradayConfig} height={240} />
+					<div class="intraday-with-zones">
+						<div class="intraday-chart-area">
+							<LineChart config={historicalIntradayConfig} height={240} />
+						</div>
+						{#if historicalZoneBreakdown}
+							<div class="zone-sidebar">
+								<div class="zone-vbar">
+									{#each historicalZoneBreakdown as zone}
+										{#if zone.pct > 0}
+											<div
+												class="zone-vsegment"
+												style="height: {zone.pct}%; background: {zone.color};"
+												title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
+											></div>
+										{/if}
+									{/each}
+								</div>
+								<div class="zone-vlabels">
+									{#each historicalZoneBreakdown as zone}
+										{#if zone.pct > 0}
+											<span class="zone-vlabel" title="{zone.minutes}m">
+												<i class="legend-dot" style="background: {zone.color};"></i>
+												<span class="zone-vname">{zone.label}</span>
+												<span class="zone-vpct">{zone.pct}%</span>
+											</span>
+										{/if}
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
 					<p class="card-footnote">{historicalIntraday?.heart_rate.length ?? 0} readings</p>
 				</div>
 			{:else if !historicalIntraday}
 				<div class="text-sm text-[#5e7282] py-4">Loading intraday data...</div>
-			{/if}
-
-			{#if historicalZoneBreakdown && historicalDoughnutConfig}
-				<div class="zones-stats-row history-zones-row">
-					<div class="history-subsection donut-card">
-						<h3 class="history-section-title">HR Zones</h3>
-						<div class="donut-layout">
-							<div class="donut-chart-wrap">
-								<DoughnutChart config={historicalDoughnutConfig} height={140} />
-							</div>
-							<div class="zone-legend-vertical">
-								{#each historicalZoneBreakdown as zone}
-									<span class="zone-item">
-										<i class="legend-dot" style="background: {zone.color};"></i>
-										<span class="zone-label-text">{zone.label}</span>
-										<span class="zone-time">{fmt(zone.minutes)}m</span>
-										<span class="zone-pct-label">{zone.pct}%</span>
-									</span>
-								{/each}
-							</div>
-						</div>
-					</div>
-					{#if historicalDayStats}
-						<div class="history-subsection day-stats-card">
-							<h3 class="history-section-title">Day Stats</h3>
-							<div class="mini-stat-grid">
-								<div class="mini-stat"><span class="mini-label">Min</span><span class="mini-value" style="color:#4A90D9">{fmt(historicalDayStats.min)}</span></div>
-								<div class="mini-stat"><span class="mini-label">Max</span><span class="mini-value" style="color:#D4944C">{fmt(historicalDayStats.max)}</span></div>
-								<div class="mini-stat"><span class="mini-label">Avg</span><span class="mini-value" style="color:#E85D4A">{fmt(historicalDayStats.avg)}</span></div>
-								<div class="mini-stat"><span class="mini-label">Median</span><span class="mini-value">{fmt(historicalDayStats.median)}</span></div>
-								<div class="mini-stat"><span class="mini-label">Resting</span><span class="mini-value" style="color:#4CAF82">{fmt(historicalDayStats.resting)}</span></div>
-							</div>
-						</div>
-					{/if}
-				</div>
 			{/if}
 
 			{#if distributionConfig}
@@ -1195,16 +1142,6 @@
 		letter-spacing: 1px;
 		margin-bottom: 10px;
 	}
-	.history-subsection {
-		margin-bottom: 0;
-	}
-	.history-zones-row {
-		margin-top: 16px;
-		padding-top: 16px;
-		border-top: 1px solid rgba(255,255,255,0.04);
-		margin-bottom: 0;
-	}
-
 	/* ── Cards ── */
 	.card {
 		background: rgba(255,255,255,0.02);
@@ -1227,77 +1164,59 @@
 		margin-top: 8px;
 	}
 
-	/* ── Donut + Stats row ── */
-	.zones-stats-row {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 14px;
-		margin-bottom: 14px;
-	}
-	.donut-card { margin-bottom: 0; }
-	.day-stats-card { margin-bottom: 0; min-width: 180px; }
-
-	.donut-layout {
+	/* ── Intraday + Zone sidebar ── */
+	.intraday-with-zones {
 		display: flex;
-		align-items: center;
-		gap: 20px;
+		gap: 16px;
+		align-items: stretch;
 	}
-	.donut-chart-wrap {
-		width: 160px;
+	.intraday-chart-area {
+		flex: 1;
+		min-width: 0;
+	}
+	.zone-sidebar {
+		display: flex;
+		gap: 8px;
+		align-items: stretch;
 		flex-shrink: 0;
 	}
-	.zone-legend-vertical {
+	.zone-vbar {
+		width: 12px;
+		border-radius: 6px;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
+		gap: 2px;
+	}
+	.zone-vsegment {
+		transition: opacity 0.15s;
+		cursor: default;
+	}
+	.zone-vsegment:hover {
+		opacity: 0.8;
+	}
+	.zone-vlabels {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
 		gap: 6px;
 	}
-	.zone-item {
-		font-size: 11px;
+	.zone-vlabel {
+		font-size: 10px;
 		color: #8a9baa;
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
+		cursor: default;
+		white-space: nowrap;
 	}
-	.zone-label-text {
-		width: 64px;
+	.zone-vname {
+		width: 52px;
 	}
-	.zone-time {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: #c8d6e0;
-		min-width: 44px;
-		text-align: right;
-	}
-	.zone-pct-label {
+	.zone-vpct {
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
 		color: #5e7282;
-		min-width: 32px;
-		text-align: right;
-	}
-
-	/* ── Mini stat grid ── */
-	.mini-stat-grid {
-		display: grid;
-		gap: 8px;
-	}
-	.mini-stat {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 4px 0;
-		border-bottom: 1px solid rgba(255,255,255,0.04);
-	}
-	.mini-stat:last-child { border-bottom: none; }
-	.mini-label {
-		font-size: 12px;
-		color: #6b7d8e;
-	}
-	.mini-value {
-		font-family: 'DM Mono', monospace;
-		font-size: 16px;
-		font-weight: 500;
-		color: #c8d6e0;
 	}
 
 	/* ── Insights list ── */
@@ -1333,9 +1252,6 @@
 	/* ── Responsive ── */
 	@media (max-width: 768px) {
 		.stat-bar { grid-template-columns: repeat(2, 1fr); }
-		.zones-stats-row { grid-template-columns: 1fr; }
 		.day-nav { flex-direction: column; align-items: stretch; }
-		.donut-layout { flex-direction: column; align-items: flex-start; }
-		.donut-chart-wrap { width: 140px; }
 	}
 </style>
