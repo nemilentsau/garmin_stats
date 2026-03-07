@@ -27,7 +27,7 @@
 
 ## Skills
 
-Four skills support this project. Each owns specific code layers:
+Five skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `parser.py`, FIT field names/types/filters, SDK quirks
@@ -42,11 +42,17 @@ Four skills support this project. Each owns specific code layers:
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - Pipeline traces go to `.claude/chart-inspections/<metric>-<context>/`. Never overwrite previous trace directories.
 
+### `analytical-dashboard` — dashboard design system
+**Owns:** Information hierarchy, chart selection, data visualization best practices, number formatting, interaction patterns
+**Trigger:** designing or modifying any dashboard layout, choosing chart types, formatting numbers/stats, evaluating data density or readability
+- Skill docs: `.claude/skills/analytical-dashboard/SKILL.md` — Tufte, Few, Knaflic principles + health platform analysis + shipping checklist
+- **Read before making layout decisions** — prioritizes comprehension over aesthetics
+
 ### `ux-design` — frontend interface design (**MANDATORY** for any UI work)
-**Owns:** Frontend UX design, dashboard layout decisions
-**Trigger:** building new dashboard layouts, choosing fonts/colors/spacing, creating or modifying UI prototypes
+**Owns:** Frontend UX aesthetics, visual styling, project-specific dashboard rules
+**Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
-- Skill docs: `.claude/skills/ux-design/SKILL.md` — contains both generic design guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — contains aesthetic guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
 - Additional design context in memory `dashboard-ux.md`
 - Always validate with `svelte-check` after creating design pages
 

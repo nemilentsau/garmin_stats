@@ -27,6 +27,7 @@
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HeartRateInsights | null = $state(null);
 	let latestIntraday: WellnessData | null = $state(null);
+	let latestDistribution: HRDistribution | null = $state(null);
 
 	// Historical day (Tier 2 — selected via bar)
 	let selectedDate = $state('');
@@ -48,12 +49,14 @@
 		// Always fetch latest day data for Tier 1
 		if (nextAgg.days.length > 0) {
 			const latest = nextAgg.days[nextAgg.days.length - 1];
-			const [ins, intra] = await Promise.all([
+			const [ins, intra, dist] = await Promise.all([
 				api.getHeartRateInsights(latest),
-				api.getWellness(latest)
+				api.getWellness(latest),
+				api.getHRDistribution(latest)
 			]);
 			latestInsights = ins;
 			latestIntraday = intra;
+			latestDistribution = dist;
 		}
 	}
 
@@ -365,6 +368,70 @@
 		};
 	});
 
+	// ── Chart: Distribution sidebar (horizontal bars) — latest ──
+	let latestDistributionSidebarConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (!latestDistribution || latestDistribution.bins.length === 0) return null;
+		return {
+			type: 'bar' as const,
+			data: {
+				labels: latestDistribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
+				datasets: [{
+					label: 'Readings',
+					data: latestDistribution.bins.map((b) => b.count),
+					backgroundColor: withAlpha(COLORS.heartRate, '50'),
+					borderColor: COLORS.heartRate,
+					borderWidth: 1,
+					borderRadius: 2
+				}]
+			},
+			options: {
+				indexAxis: 'y' as const,
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 }
+				},
+				scales: {
+					x: { display: false, beginAtZero: true, grid: { display: false }, border: { display: false } },
+					y: { ticks: { font: { size: 9 }, color: '#6b7d8e' }, grid: { display: false }, border: { display: false } }
+				}
+			}
+		};
+	});
+
+	// ── Chart: Distribution sidebar (horizontal bars) — historical ──
+	let historicalDistributionSidebarConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
+		if (!historicalDistribution || historicalDistribution.bins.length === 0) return null;
+		return {
+			type: 'bar' as const,
+			data: {
+				labels: historicalDistribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
+				datasets: [{
+					label: 'Readings',
+					data: historicalDistribution.bins.map((b) => b.count),
+					backgroundColor: withAlpha(COLORS.heartRate, '50'),
+					borderColor: COLORS.heartRate,
+					borderWidth: 1,
+					borderRadius: 2
+				}]
+			},
+			options: {
+				indexAxis: 'y' as const,
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 }
+				},
+				scales: {
+					x: { display: false, beginAtZero: true, grid: { display: false }, border: { display: false } },
+					y: { ticks: { font: { size: 9 }, color: '#6b7d8e' }, grid: { display: false }, border: { display: false } }
+				}
+			}
+		};
+	});
+
 	// ── Chart: Trend ──
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
@@ -500,29 +567,6 @@
 		};
 	});
 
-	// ── Chart: Distribution ──
-	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
-		if (!historicalDistribution || historicalDistribution.bins.length === 0) return null;
-		return {
-			type: 'bar',
-			data: {
-				labels: historicalDistribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
-				datasets: [{
-					label: 'Readings', data: historicalDistribution.bins.map((b) => b.count),
-					backgroundColor: withAlpha(COLORS.heartRate, '70'), borderColor: COLORS.heartRate,
-					borderWidth: 1, borderRadius: 2
-				}]
-			},
-			options: {
-				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
-				scales: {
-					x: { title: { display: true, text: 'bpm range', color: '#6b7d8e' }, ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
-					y: { beginAtZero: true, title: { display: true, text: 'count', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
-				}
-			}
-		};
-	});
 
 	// ── Chart: Weekly Boxplot ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
@@ -622,41 +666,50 @@
 		</div>
 	{/if}
 
-	<!-- Intraday chart + zone sidebar — latest day -->
+	<!-- Intraday chart + distribution sidebar — latest day -->
 	{#if latestIntradayConfig}
 		<div class="card">
 			<h2 class="card-title">Intraday Heart Rate</h2>
-			<div class="intraday-with-zones">
+			<div class="intraday-with-distribution">
 				<div class="intraday-chart-area">
 					<LineChart config={latestIntradayConfig} height={280} />
 				</div>
-				{#if latestZoneBreakdown}
-					<div class="zone-sidebar">
-						<div class="zone-vbar">
-							{#each latestZoneBreakdown as zone}
-								{#if zone.pct > 0}
-									<div
-										class="zone-vsegment"
-										style="height: {zone.pct}%; background: {zone.color};"
-										title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
-									></div>
-								{/if}
-							{/each}
-						</div>
-						<div class="zone-vlabels">
-							{#each latestZoneBreakdown as zone}
-								{#if zone.pct > 0}
-									<span class="zone-vlabel" title="{zone.minutes}m">
-										<i class="legend-dot" style="background: {zone.color};"></i>
-										<span class="zone-vname">{zone.label}</span>
-										<span class="zone-vpct">{zone.pct}%</span>
-									</span>
-								{/if}
-							{/each}
-						</div>
+				{#if latestDistributionSidebarConfig}
+					<div class="distribution-sidebar">
+						<BarChart config={latestDistributionSidebarConfig} height={280} />
 					</div>
 				{/if}
 			</div>
+
+			{#if latestZoneBreakdown}
+				<div class="zone-bar-section">
+					<h3 class="zone-bar-label">HR Zones</h3>
+					<div class="zone-hbar">
+						{#each latestZoneBreakdown as zone}
+							{#if zone.pct > 0}
+								<div
+									class="zone-hsegment"
+									style="width: {zone.pct}%; background-color: {zone.color};"
+									title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
+								>
+									{#if zone.pct >= 8}<span class="zone-hpct">{zone.pct}%</span>{/if}
+								</div>
+							{/if}
+						{/each}
+					</div>
+					<div class="zone-hlegend">
+						{#each latestZoneBreakdown as zone}
+							{#if zone.pct > 0}
+								<div class="zone-hlegend-item">
+									<span class="legend-dot" style="background-color: {zone.color};"></span>
+									{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			<p class="card-footnote">{latestIntraday?.heart_rate.length ?? 0} readings</p>
 		</div>
 	{/if}
@@ -718,49 +771,50 @@
 			{#if historicalIntradayConfig}
 				<div class="history-section">
 					<h3 class="history-section-title">Intraday Heart Rate</h3>
-					<div class="intraday-with-zones">
+					<div class="intraday-with-distribution">
 						<div class="intraday-chart-area">
 							<LineChart config={historicalIntradayConfig} height={240} />
 						</div>
-						{#if historicalZoneBreakdown}
-							<div class="zone-sidebar">
-								<div class="zone-vbar">
-									{#each historicalZoneBreakdown as zone}
-										{#if zone.pct > 0}
-											<div
-												class="zone-vsegment"
-												style="height: {zone.pct}%; background: {zone.color};"
-												title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
-											></div>
-										{/if}
-									{/each}
-								</div>
-								<div class="zone-vlabels">
-									{#each historicalZoneBreakdown as zone}
-										{#if zone.pct > 0}
-											<span class="zone-vlabel" title="{zone.minutes}m">
-												<i class="legend-dot" style="background: {zone.color};"></i>
-												<span class="zone-vname">{zone.label}</span>
-												<span class="zone-vpct">{zone.pct}%</span>
-											</span>
-										{/if}
-									{/each}
-								</div>
+						{#if historicalDistributionSidebarConfig}
+							<div class="distribution-sidebar">
+								<BarChart config={historicalDistributionSidebarConfig} height={240} />
 							</div>
 						{/if}
 					</div>
+
+					{#if historicalZoneBreakdown}
+						<div class="zone-bar-section">
+							<h3 class="zone-bar-label">HR Zones</h3>
+							<div class="zone-hbar">
+								{#each historicalZoneBreakdown as zone}
+									{#if zone.pct > 0}
+										<div
+											class="zone-hsegment"
+											style="width: {zone.pct}%; background-color: {zone.color};"
+											title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
+										>
+											{#if zone.pct >= 8}<span class="zone-hpct">{zone.pct}%</span>{/if}
+										</div>
+									{/if}
+								{/each}
+							</div>
+							<div class="zone-hlegend">
+								{#each historicalZoneBreakdown as zone}
+									{#if zone.pct > 0}
+										<div class="zone-hlegend-item">
+											<span class="legend-dot" style="background-color: {zone.color};"></span>
+											{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
+										</div>
+									{/if}
+								{/each}
+							</div>
+						</div>
+					{/if}
+
 					<p class="card-footnote">{historicalIntraday?.heart_rate.length ?? 0} readings</p>
 				</div>
 			{:else if !historicalIntraday}
 				<div class="text-sm text-[#5e7282] py-4">Loading intraday data...</div>
-			{/if}
-
-			{#if distributionConfig}
-				<div class="history-section">
-					<h3 class="history-section-title">HR Distribution</h3>
-					<BarChart config={distributionConfig} height={220} />
-					<p class="card-footnote">{historicalDistribution?.sample_count ?? 0} readings</p>
-				</div>
 			{/if}
 
 			{#if historicalInsights && historicalInsights.insights.length > 0}
@@ -1164,59 +1218,70 @@
 		margin-top: 8px;
 	}
 
-	/* ── Intraday + Zone sidebar ── */
-	.intraday-with-zones {
+	/* ── Intraday + Distribution sidebar ── */
+	.intraday-with-distribution {
 		display: flex;
-		gap: 16px;
+		gap: 12px;
 		align-items: stretch;
 	}
 	.intraday-chart-area {
 		flex: 1;
 		min-width: 0;
 	}
-	.zone-sidebar {
-		display: flex;
-		gap: 8px;
-		align-items: stretch;
+	.distribution-sidebar {
+		width: 28%;
+		min-width: 180px;
+		max-width: 280px;
 		flex-shrink: 0;
 	}
-	.zone-vbar {
-		width: 12px;
-		border-radius: 6px;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
+
+	/* ── Horizontal zone bar ── */
+	.zone-bar-section {
+		margin-top: 14px;
+		padding-top: 10px;
+		border-top: 1px solid rgba(255,255,255,0.04);
 	}
-	.zone-vsegment {
+	.zone-bar-label {
+		font-size: 10px;
+		font-weight: 600;
+		color: #6b7d8e;
+		text-transform: uppercase;
+		letter-spacing: 1.5px;
+		margin-bottom: 6px;
+	}
+	.zone-hbar {
+		display: flex;
+		height: 22px;
+		border-radius: 4px;
+		overflow: hidden;
+	}
+	.zone-hsegment {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		transition: opacity 0.15s;
 		cursor: default;
 	}
-	.zone-vsegment:hover {
-		opacity: 0.8;
+	.zone-hsegment:hover {
+		opacity: 0.85;
 	}
-	.zone-vlabels {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 6px;
-	}
-	.zone-vlabel {
+	.zone-hpct {
 		font-size: 10px;
-		color: #8a9baa;
+		font-weight: 500;
+		color: rgba(255,255,255,0.9);
+	}
+	.zone-hlegend {
+		display: flex;
+		gap: 16px;
+		margin-top: 6px;
+		flex-wrap: wrap;
+	}
+	.zone-hlegend-item {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		cursor: default;
-		white-space: nowrap;
-	}
-	.zone-vname {
-		width: 52px;
-	}
-	.zone-vpct {
-		font-family: 'DM Mono', monospace;
+		gap: 5px;
 		font-size: 10px;
-		color: #5e7282;
+		color: #8a9baa;
 	}
 
 	/* ── Insights list ── */
@@ -1253,5 +1318,7 @@
 	@media (max-width: 768px) {
 		.stat-bar { grid-template-columns: repeat(2, 1fr); }
 		.day-nav { flex-direction: column; align-items: stretch; }
+		.intraday-with-distribution { flex-direction: column; }
+		.distribution-sidebar { width: 100%; max-width: none; min-width: 0; }
 	}
 </style>
