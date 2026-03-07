@@ -624,13 +624,15 @@
 		<div class="stat-item">
 			<span class="stat-label">Resting HR</span>
 			<span class="stat-value" style="color: #4CAF82;">
-				{fmt(latestStats?.avgResting)}
+				{fmt(latestDayStats?.resting ?? latestStats?.avgResting)}
 			</span>
 			<span class="stat-unit">bpm</span>
 			{#if latestRecovery?.delta_from_baseline != null}
 				<span class="stat-delta" style="color: {recoveryColor(latestRecovery?.status)};">
-					{fmtSigned(latestRecovery.delta_from_baseline)} vs 7d
+					{fmtSigned(latestRecovery.delta_from_baseline)} vs {fmt(latestRecovery.baseline_resting_7d)} avg
 				</span>
+			{:else if latestDayStats?.resting == null && latestStats?.avgResting != null}
+				<span class="stat-delta" style="color: #6b7d8e;">period avg</span>
 			{/if}
 		</div>
 		<div class="stat-item">
@@ -645,13 +647,31 @@
 				{fmt(latestDayStats?.avg ?? latestStats?.overallAvg)}
 			</span>
 			<span class="stat-unit">bpm</span>
+			{#if latestStats?.overallAvg != null}
+				<span class="stat-delta" style="color: #6b7d8e;">
+					vs {fmt(latestStats.overallAvg)} avg
+				</span>
+			{/if}
 		</div>
 		<div class="stat-item">
-			<span class="stat-label">Range</span>
-			<span class="stat-value" style="color: #c8d6e0;">
-				{fmt(latestStats?.typicalLow)}–{fmt(latestStats?.typicalHigh)}
-			</span>
-			<span class="stat-unit">bpm</span>
+			{#if latestDayStats?.min != null && latestDayStats?.max != null}
+				<span class="stat-label">Today's Range</span>
+				<span class="stat-value" style="color: #c8d6e0;">
+					{fmt(latestDayStats.min)}–{fmt(latestDayStats.max)}
+				</span>
+				<span class="stat-unit">bpm</span>
+				{#if latestStats?.typicalLow != null && latestStats?.typicalHigh != null}
+					<span class="stat-delta" style="color: #6b7d8e;">
+						typical {fmt(latestStats.typicalLow)}–{fmt(latestStats.typicalHigh)}
+					</span>
+				{/if}
+			{:else}
+				<span class="stat-label">Typical Range</span>
+				<span class="stat-value" style="color: #c8d6e0;">
+					{fmt(latestStats?.typicalLow)}–{fmt(latestStats?.typicalHigh)}
+				</span>
+				<span class="stat-unit">bpm</span>
+			{/if}
 		</div>
 	</div>
 
