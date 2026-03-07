@@ -8,6 +8,7 @@ from ..infra import cache
 from ..infra.database import load_daily_metrics, load_sleep, load_wellness
 from ..models import (
     CircadianHRPoint,
+    DailyAvgHRTrendPoint,
     DailyMetric,
     DaySleep,
     DayWellness,
@@ -115,6 +116,13 @@ def _compute_sleeping_hr_trend(
                 sample_count=len(hr_values),
             ))
 
+    # Compute 7-day trailing moving average
+    values = [p.avg_sleeping_bpm for p in result]
+    for i, point in enumerate(result):
+        window_start = max(0, i - 6)
+        window = [v for v in values[window_start : i + 1] if v is not None]
+        point.ma7_bpm = round(sum(window) / len(window), 1) if window else None
+
     return result
 
 
@@ -134,6 +142,26 @@ def _compute_resting_hr_trend(
         points.append(RestingHRTrendPoint(
             date=m.date,
             resting_bpm=resting,
+            ma7_bpm=ma7,
+        ))
+    return points
+
+
+def _compute_daily_avg_trend(
+    metrics: list[DailyMetric],
+) -> list[DailyAvgHRTrendPoint]:
+    """Raw daily avg HR + 7-day trailing moving average."""
+    points: list[DailyAvgHRTrendPoint] = []
+    avg_values: list[float | None] = [m.heart_rate.avg for m in metrics]
+
+    for i, m in enumerate(metrics):
+        avg = avg_values[i]
+        window_start = max(0, i - 6)
+        window = [v for v in avg_values[window_start:i + 1] if v is not None]
+        ma7 = round(sum(window) / len(window), 1) if window else None
+        points.append(DailyAvgHRTrendPoint(
+            date=m.date,
+            avg_bpm=avg,
             ma7_bpm=ma7,
         ))
     return points
@@ -226,6 +254,7 @@ def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
         circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
         resting_hr_trend=_compute_resting_hr_trend(metrics),
+        daily_avg_trend=_compute_daily_avg_trend(metrics),
         weekly_boxplots=_compute_weekly_boxplots(metrics),
     )
 

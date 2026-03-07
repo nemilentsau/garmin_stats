@@ -12,6 +12,7 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
+	import PolarAreaChart from '$lib/components/PolarAreaChart.svelte';
 
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { fmt } from '$lib/format';
@@ -205,6 +206,24 @@
 		if (level === 'caution') return '#D4944C';
 		if (level === 'good') return '#4CAF82';
 		return '#8a9baa';
+	}
+
+	// ── ISO week label formatting ──
+	function isoWeekToMonday(isoWeek: string): Date | null {
+		const m = isoWeek.match(/^(\d{4})-W(\d{2})$/);
+		if (!m) return null;
+		const year = parseInt(m[1]), week = parseInt(m[2]);
+		const jan4 = new Date(year, 0, 4);
+		const dow = (jan4.getDay() + 6) % 7; // Mon=0
+		const weekStart = new Date(jan4);
+		weekStart.setDate(jan4.getDate() - dow + (week - 1) * 7);
+		return weekStart;
+	}
+
+	function fmtWeekLabel(isoWeek: string): string {
+		const d = isoWeekToMonday(isoWeek);
+		if (!d) return isoWeek;
+		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 
 	// ── Shared chart config ──
@@ -433,44 +452,46 @@
 	});
 
 	// ── Chart: Trend ──
-	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
-		if (!agg) return null;
-		const labels = agg.daily.map((d) => d.date);
-		const typicalLow = agg.period?.heart_rate.typical_low ?? null;
-		const typicalHigh = agg.period?.heart_rate.typical_high ?? null;
+	// ── Chart: Daily Avg HR (with 7-day MA) ──
+	let dailyAvgConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+		if (!analysis || analysis.daily_avg_trend.length === 0) return null;
+		const t = analysis.daily_avg_trend;
+		const typicalLow = agg?.period?.heart_rate.typical_low ?? null;
+		const typicalHigh = agg?.period?.heart_rate.typical_high ?? null;
+		const labels = t.map((p) => p.date);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
 
 		if (typicalLow != null && typicalHigh != null) {
 			datasets.push(
 				{
 					label: 'Typical Low', data: labels.map(() => typicalLow),
-					borderColor: withAlpha(COLORS.heartRateResting, '70'), borderWidth: 1, borderDash: [3, 3],
+					borderColor: withAlpha(COLORS.heartRate, '40'), borderWidth: 1, borderDash: [3, 3],
 					pointRadius: 0, tension: 0, fill: false
 				},
 				{
 					label: 'Typical High', data: labels.map(() => typicalHigh),
-					borderColor: withAlpha(COLORS.heartRateResting, '70'), borderWidth: 1, borderDash: [3, 3],
-					pointRadius: 0, tension: 0, fill: '-1', backgroundColor: withAlpha(COLORS.heartRateResting, '10')
+					borderColor: withAlpha(COLORS.heartRate, '40'), borderWidth: 1, borderDash: [3, 3],
+					pointRadius: 0, tension: 0, fill: '-1', backgroundColor: withAlpha(COLORS.heartRate, '06')
 				}
 			);
 		}
 		datasets.push(
 			{
-				label: 'Avg HR', data: agg.daily.map((d) => d.heart_rate.avg),
-				borderColor: COLORS.heartRate, borderWidth: 2, pointRadius: 2, tension: 0.3, spanGaps: true
+				label: 'Daily Avg', data: t.map((p) => p.avg_bpm),
+				borderColor: withAlpha(COLORS.heartRate, '50'), borderWidth: 1, pointRadius: 2,
+				pointBackgroundColor: COLORS.heartRate, tension: 0, spanGaps: true
 			},
 			{
-				label: 'Resting HR', data: agg.daily.map((d) => d.heart_rate.resting),
-				borderColor: COLORS.heartRateResting, borderWidth: 2, pointRadius: 2, tension: 0.3, spanGaps: true
+				label: '7-Day MA', data: t.map((p) => p.ma7_bpm),
+				borderColor: COLORS.heartRate, borderWidth: 2.5,
+				pointRadius: 0, tension: 0.3, spanGaps: true
 			}
 		);
-
 		return {
 			type: 'line',
 			data: { labels, datasets },
 			options: {
-				responsive: true,
-				maintainAspectRatio: false,
+				responsive: true, maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
 				onClick: (_event, elements, chart) => {
 					const active = elements[0];
@@ -483,14 +504,13 @@
 						void onDateChange(label);
 					}
 				},
-				plugins: darkPlugins,
-				scales: darkScales
+				plugins: darkPlugins, scales: darkScales
 			}
 		};
 	});
 
-	// ── Chart: Resting HR trend ──
-	let restingTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+	// ── Chart: Resting HR (with 7-day MA) ──
+	let restingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.resting_hr_trend.length === 0) return null;
 		const t = analysis.resting_hr_trend;
 		return {
@@ -500,7 +520,7 @@
 				datasets: [
 					{
 						label: 'Resting HR', data: t.map((p) => p.resting_bpm),
-						borderColor: withAlpha(COLORS.heartRateResting, '60'), borderWidth: 1,
+						borderColor: withAlpha(COLORS.heartRateResting, '50'), borderWidth: 1,
 						pointRadius: 2, pointBackgroundColor: COLORS.heartRateResting, tension: 0, spanGaps: true
 					},
 					{
@@ -513,6 +533,17 @@
 			options: {
 				responsive: true, maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
+				onClick: (_event, elements, chart) => {
+					const active = elements[0];
+					if (!active) return;
+					const label = chart.data.labels?.[active.index];
+					if (typeof label !== 'string') return;
+					if (label === selectedDate) {
+						closeHistory();
+					} else {
+						void onDateChange(label);
+					}
+				},
 				plugins: darkPlugins, scales: darkScales
 			}
 		};
@@ -526,42 +557,86 @@
 			type: 'line',
 			data: {
 				labels: trend.map((p) => p.date),
-				datasets: [{
-					label: 'Sleeping HR', data: trend.map((p) => p.avg_sleeping_bpm),
-					borderColor: '#6366B0', borderWidth: 2, pointRadius: 2,
-					pointBackgroundColor: '#6366B0', tension: 0.3, spanGaps: true,
-					fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
-				}]
+				datasets: [
+					{
+						label: 'Sleeping HR', data: trend.map((p) => p.avg_sleeping_bpm),
+						borderColor: 'rgba(99, 102, 176, 0.45)', borderWidth: 1, pointRadius: 2,
+						pointBackgroundColor: '#6366B0', tension: 0, spanGaps: true
+					},
+					{
+						label: '7-Day MA', data: trend.map((p) => p.ma7_bpm),
+						borderColor: '#6366B0', borderWidth: 2.5,
+						pointRadius: 0, tension: 0.3, spanGaps: true,
+						fill: { target: 'origin', above: 'rgba(99, 102, 176, 0.12)' }
+					}
+				]
 			},
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: 'rgba(99, 102, 176, 0.6)', padding: 10, cornerRadius: 4 } },
+				plugins: { legend: { display: true, labels: { color: '#8a9baa', font: { size: 11 }, boxWidth: 12, padding: 16 } }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: 'rgba(99, 102, 176, 0.6)', padding: 10, cornerRadius: 4 } },
 				scales: darkScales
 			}
 		};
 	});
 
-	// ── Chart: Circadian ──
-	let circadianConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
+	// ── Chart: Circadian (polar area) ──
+	let circadianConfig = $derived.by<ChartConfiguration<'polarArea'> | null>(() => {
 		if (!analysis || analysis.circadian_profile.length === 0) return null;
 		const profile = analysis.circadian_profile;
+		const values = profile.map((p) => p.avg_bpm ?? 0);
+		const minBpm = Math.min(...values.filter((v) => v > 0));
+		const maxBpm = Math.max(...values);
+		const range = maxBpm - minBpm || 1;
+
+		// Color gradient: cool (sleep) → warm (active)
+		function bpmColor(bpm: number, alpha: string): string {
+			const t = Math.max(0, Math.min(1, (bpm - minBpm) / range));
+			// Blue(210°) → Orange(25°) via hue interpolation
+			const hue = 210 - t * 185;
+			const sat = 55 + t * 20;
+			const light = 45 + t * 10;
+			return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+		}
+
 		return {
-			type: 'line',
+			type: 'polarArea',
 			data: {
 				labels: profile.map((p) => `${String(p.hour).padStart(2, '0')}:00`),
 				datasets: [{
-					label: 'Avg HR', data: profile.map((p) => p.avg_bpm),
-					borderColor: COLORS.heartRate, borderWidth: 2, pointRadius: 3,
-					pointBackgroundColor: COLORS.heartRate, tension: 0.3,
-					fill: { target: 'origin', above: withAlpha(COLORS.heartRate, '15') }, spanGaps: true
+					data: values,
+					backgroundColor: values.map((v) => bpmColor(v, '0.7')),
+					borderColor: values.map((v) => bpmColor(v, '1')),
+					borderWidth: 1
 				}]
 			},
 			options: {
-				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2332', borderWidth: 1, borderColor: withAlpha(COLORS.heartRate, '60'), padding: 10, cornerRadius: 4 } },
+				responsive: true,
+				maintainAspectRatio: true,
+				startAngle: -90, // Midnight at 12 o'clock (clock-like)
+				layout: { padding: 4 },
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a2332', borderWidth: 1,
+						borderColor: withAlpha(COLORS.heartRate, '60'),
+						padding: 10, cornerRadius: 4,
+						callbacks: {
+							title: (items: { dataIndex: number }[]) => {
+								const idx = items[0]?.dataIndex ?? 0;
+								return `${String(idx).padStart(2, '0')}:00`;
+							},
+							label: (ctx: { parsed: { r: number } }) => ` ${ctx.parsed.r} bpm`
+						}
+					}
+				},
 				scales: {
-					x: { title: { display: true, text: 'Hour of Day', color: '#6b7d8e' }, ticks: { font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
-					y: { beginAtZero: false, title: { display: true, text: 'bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
+					r: {
+						beginAtZero: false,
+						suggestedMin: Math.max(0, minBpm - 5),
+						ticks: { display: false },
+						grid: { color: '#ffffff10' },
+						pointLabels: { display: false }
+					}
 				}
 			}
 		};
@@ -572,7 +647,7 @@
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
 		const boxes = analysis.weekly_boxplots;
-		const labels = boxes.map((b) => b.iso_week);
+		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
 		return {
 			type: 'line',
 			data: {
@@ -588,7 +663,27 @@
 			options: {
 				responsive: true, maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
-				plugins: darkPlugins,
+				plugins: {
+					...darkPlugins,
+					tooltip: {
+						...darkPlugins.tooltip,
+						callbacks: {
+							title: (items: { dataIndex: number }[]) => {
+								const box = boxes[items[0]?.dataIndex ?? 0];
+								const mon = isoWeekToMonday(box.iso_week);
+								if (!mon) return box.iso_week;
+								const sun = new Date(mon);
+								sun.setDate(mon.getDate() + 6);
+								const f = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+								return `${f(mon)} – ${f(sun)}`;
+							},
+							afterBody: (items: { dataIndex: number }[]) => {
+								const n = boxes[items[0]?.dataIndex ?? 0]?.day_count ?? 0;
+								return [`${n} day${n !== 1 ? 's' : ''} of data`];
+							}
+						}
+					}
+				},
 				scales: {
 					x: { ticks: { maxRotation: 45, font: { size: 10 }, color: '#6b7d8e' }, grid: { color: '#ffffff08' }, border: { color: '#ffffff10' } },
 					y: { beginAtZero: false, title: { display: true, text: 'Resting bpm', color: '#6b7d8e' }, ticks: { color: '#6b7d8e' }, grid: { color: '#ffffff06' }, border: { color: '#ffffff10' } }
@@ -860,41 +955,45 @@
 		<span class="section-label">Trends</span>
 	</div>
 
-	<!-- Heart Rate Trends -->
-	{#if trendConfig}
-		<div class="card">
-			<h2 class="card-title">Daily Avg & Resting HR — Click a day to explore</h2>
-			<LineChart config={trendConfig} height={300} />
-		</div>
-	{/if}
+	<!-- Heart Rate Trends — side by side -->
+	<div class="two-col-row">
+		{#if dailyAvgConfig}
+			<div class="card two-col-item">
+				<h2 class="card-title">Daily Avg HR — Click to Explore <span class="info-hint" title="Click any point to explore that day. Thick line = 7-day moving average. Shaded band = your typical range.">ⓘ</span></h2>
+				<LineChart config={dailyAvgConfig} height={260} />
+			</div>
+		{/if}
 
-	{#if restingTrendConfig}
-		<div class="card">
-			<h2 class="card-title">Resting HR — 7-Day Moving Average</h2>
-			<LineChart config={restingTrendConfig} height={260} />
-		</div>
-	{/if}
+		{#if restingHRConfig}
+			<div class="card two-col-item">
+				<h2 class="card-title">Resting HR</h2>
+				<LineChart config={restingHRConfig} height={260} />
+			</div>
+		{/if}
+	</div>
 
 	<!-- Sleep & Recovery -->
 	<div class="section-subheader">
 		<span class="section-sublabel">Sleep & Recovery</span>
 	</div>
 
-	{#if sleepingHRConfig}
-		<div class="card">
-			<h2 class="card-title">Sleeping HR Trend</h2>
-			<LineChart config={sleepingHRConfig} height={260} />
-			<p class="card-footnote">Average HR during light/deep/REM sleep stages (excludes awake)</p>
-		</div>
-	{/if}
+	<div class="two-col-row">
+		{#if sleepingHRConfig}
+			<div class="card two-col-item">
+				<h2 class="card-title">Sleeping HR Trend <span class="info-hint" title="Average HR during sleep stages (light, deep, REM) — excludes awake time. Lower is generally better.">ⓘ</span></h2>
+				<LineChart config={sleepingHRConfig} height={280} />
+				<p class="card-footnote">Average HR during light/deep/REM sleep stages (excludes awake)</p>
+			</div>
+		{/if}
 
-	{#if circadianConfig}
-		<div class="card">
-			<h2 class="card-title">Circadian HR Profile</h2>
-			<LineChart config={circadianConfig} height={260} />
-			<p class="card-footnote">Average heart rate by hour of day across the entire period</p>
-		</div>
-	{/if}
+		{#if circadianConfig}
+			<div class="card two-col-item">
+				<h2 class="card-title">Circadian HR Profile <span class="info-hint" title="Average HR by hour of day. Midnight at top, clockwise. Blue = resting hours, warm = active hours.">ⓘ</span></h2>
+				<PolarAreaChart config={circadianConfig} height={320} />
+				<p class="card-footnote">Avg HR by hour · blue = rest · warm = active</p>
+			</div>
+		{/if}
+	</div>
 
 	<!-- Analysis -->
 	<div class="section-subheader">
@@ -903,18 +1002,35 @@
 
 	{#if boxplotConfig}
 		<div class="card">
-			<h2 class="card-title">Weekly Resting HR — Boxplot</h2>
+			<h2 class="card-title">Resting HR — Weekly Spread <span class="info-hint" title="How much your resting HR varies within each week. Narrow band = consistent. Wide band = variable.">ⓘ</span></h2>
 			<LineChart config={boxplotConfig} height={260} />
-			<p class="card-footnote">Min / Q1 / Median / Q3 / Max of daily resting HR per ISO week</p>
+			<p class="card-footnote">Shaded band = middle 50% of days · dashes = extremes · bold line = median</p>
 		</div>
 	{/if}
 
-	<MetricDefinition title="What is Heart Rate?">
-		<p>
-			Resting heart rate (RHR) is measured when you're calm and still — a lower RHR generally indicates
-			stronger cardiovascular fitness. Most adults sit between 60–100 bpm; trained athletes can drop to 40–60 bpm.
-			The charts above unpack the full picture: daily trends, intraday patterns, sleep recovery, and statistical analysis.
-		</p>
+	<MetricDefinition title="How to Read This Dashboard">
+		<div class="reading-guide">
+			<div class="guide-section">
+				<strong class="guide-heading">Today (top)</strong>
+				<p>Your snapshot right now. Resting HR, Recovery, and Daily Avg are today's actual values. The intraday chart shows your full day — the dashed line is your resting HR baseline.</p>
+			</div>
+			<div class="guide-section">
+				<strong class="guide-heading">History strip</strong>
+				<p>Green = normal · Orange = elevated · Red = high. Each block is one day, colored by how resting HR compared to your 7-day average. Click any block to drill into that day.</p>
+			</div>
+			<div class="guide-section">
+				<strong class="guide-heading">Trend charts — the bold line is the signal</strong>
+				<p>Raw daily values are noisy. The thick 7-day moving average reveals the real trend — watch it for multi-week drift up or down. Click any point to jump to that day's detail.</p>
+			</div>
+			<div class="guide-section">
+				<strong class="guide-heading">Sleep & Recovery — your heart's overnight report card</strong>
+				<p>Sleeping HR measures your true autonomic state during actual sleep stages (not awake time). The clock chart shows when your heart works hardest vs. rests — look for deep blue between 2–5 AM.</p>
+			</div>
+			<div class="guide-section">
+				<strong class="guide-heading">Weekly spread — consistency is the goal</strong>
+				<p>A narrow, stable band means your resting HR baseline is consistent. A widening band or rising median may signal accumulated fatigue or illness. Weeks with fewer days of data (shown in tooltips) are less reliable.</p>
+			</div>
+		</div>
 	</MetricDefinition>
 {/if}
 
@@ -958,6 +1074,17 @@
 		margin-bottom: 12px;
 		margin-top: 20px;
 		border-bottom: 1px solid rgba(255,255,255,0.04);
+	}
+
+	/* ── Sleep & Recovery side-by-side ── */
+	.two-col-row {
+		display: flex;
+		gap: 16px;
+	}
+	.two-col-item {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	/* ── Stat Bar ── */
@@ -1236,6 +1363,38 @@
 		margin-top: 8px;
 	}
 
+	/* ── Info hint icon ── */
+	.info-hint {
+		font-size: 11px;
+		color: #4a5c6a;
+		cursor: help;
+		margin-left: 4px;
+		vertical-align: middle;
+		user-select: none;
+	}
+	.info-hint:hover {
+		color: #8a9baa;
+	}
+
+	/* ── Dashboard reading guide ── */
+	.reading-guide {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding-top: 4px;
+	}
+	.guide-section {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.guide-heading {
+		color: #c8d6e0;
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.3px;
+	}
+
 	/* ── Intraday + Distribution sidebar ── */
 	.intraday-with-distribution {
 		display: flex;
@@ -1352,5 +1511,6 @@
 		.intraday-with-distribution { flex-direction: column; }
 		.distribution-sidebar { width: 100%; max-width: none; min-width: 0; }
 		.zone-inline-legend { display: none; }
+		.two-col-row { flex-direction: column; }
 	}
 </style>
