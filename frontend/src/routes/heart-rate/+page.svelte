@@ -838,7 +838,7 @@
 	<div class="two-col-row">
 		{#if dailyAvgConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">Daily Avg HR — Click to Explore <span class="info-hint" title="Click any point to explore that day. Thick line = 7-day moving average. Shaded band = your typical range.">ⓘ</span></h2>
+				<h2 class="card-title">Daily Avg HR — Click to Explore <span class="info-hint" data-tip="Click any point to explore that day. Thick line = 7-day moving average. Shaded band = your typical range.">ⓘ</span></h2>
 				<LineChart config={dailyAvgConfig} height={260} />
 			</div>
 		{/if}
@@ -859,7 +859,7 @@
 	<div class="two-col-row">
 		{#if sleepingHRConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">Sleeping HR Trend <span class="info-hint" title="Average HR during sleep stages (light, deep, REM) — excludes awake time. Lower is generally better.">ⓘ</span></h2>
+				<h2 class="card-title">Sleeping HR Trend <span class="info-hint" data-tip="Average HR during sleep stages (light, deep, REM) — excludes awake time. Lower is generally better.">ⓘ</span></h2>
 				<LineChart config={sleepingHRConfig} height={280} />
 				<p class="card-footnote">Average HR during light/deep/REM sleep stages (excludes awake)</p>
 			</div>
@@ -867,7 +867,7 @@
 
 		{#if circadianConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">Circadian HR Profile <span class="info-hint" title="Average HR by hour of day. Midnight at top, clockwise. Blue = resting hours, warm = active hours.">ⓘ</span></h2>
+				<h2 class="card-title">Circadian HR Profile <span class="info-hint" data-tip="Average HR by hour of day. Midnight at top, clockwise. Blue = resting hours, warm = active hours.">ⓘ</span></h2>
 				<PolarAreaChart config={circadianConfig} height={320} />
 				<p class="card-footnote">Avg HR by hour · blue = rest · warm = active</p>
 			</div>
@@ -881,7 +881,7 @@
 
 	{#if boxplotConfig}
 		<div class="card">
-			<h2 class="card-title">Resting HR — Weekly Spread <span class="info-hint" title="How much your resting HR varies within each week. Narrow band = consistent. Wide band = variable.">ⓘ</span></h2>
+			<h2 class="card-title">Resting HR — Weekly Spread <span class="info-hint" data-tip="How much your resting HR varies within each week. Narrow band = consistent. Wide band = variable.">ⓘ</span></h2>
 			<LineChart config={boxplotConfig} height={260} />
 			<p class="card-footnote">Shaded band = middle 50% of days · dashes = extremes · bold line = median</p>
 		</div>
@@ -963,7 +963,6 @@
 	.two-col-item {
 		flex: 1;
 		min-width: 0;
-		overflow: hidden;
 	}
 
 	/* ── Stat Bar ── */
@@ -1242,7 +1241,7 @@
 		margin-top: 8px;
 	}
 
-	/* ── Info hint icon ── */
+	/* ── Info hint icon with CSS tooltip ── */
 	.info-hint {
 		font-size: 11px;
 		color: #4a5c6a;
@@ -1250,9 +1249,33 @@
 		margin-left: 4px;
 		vertical-align: middle;
 		user-select: none;
+		position: relative;
 	}
 	.info-hint:hover {
 		color: #8a9baa;
+	}
+	.info-hint:hover::after {
+		content: attr(data-tip);
+		position: absolute;
+		left: 50%;
+		top: calc(100% + 6px);
+		transform: translateX(-50%);
+		background: rgba(13, 21, 32, 0.95);
+		color: #c8d6e0;
+		font-size: 11px;
+		font-weight: 400;
+		letter-spacing: 0;
+		text-transform: none;
+		line-height: 1.4;
+		padding: 8px 12px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		white-space: normal;
+		width: max-content;
+		max-width: 280px;
+		z-index: 50;
+		pointer-events: none;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 
 	/* ── Dashboard reading guide ── */

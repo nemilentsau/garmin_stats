@@ -21,6 +21,7 @@ SKIN_TEMP_ALL = "skin_temp_all"
 PERIOD_SUMMARY = "period_summary"
 AVAILABLE_DAYS = "available_days"
 HR_ANALYSIS = "hr_analysis"
+HRV_ANALYSIS = "hrv_analysis"
 
 
 def generation() -> int:

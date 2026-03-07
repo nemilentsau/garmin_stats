@@ -58,6 +58,22 @@ HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_hrv_status(raw: str) -> str:
+    """Normalize Garmin HRV status strings to clean labels."""
+    value = raw.lower()
+    if value == "none":
+        return "Unknown"
+    if "unbalanced" in value:  # must precede "balanced" (substring match)
+        return "Unbalanced"
+    if "balanced" in value:
+        return "Balanced"
+    if "low" in value:
+        return "Low"
+    if "high" in value:
+        return "High"
+    return raw.title()
+
+
 def compute_hr_zones(hr_values: Sequence[int]) -> list[HRZoneBucket]:
     """Bucket HR readings into zones and return counts + percentages."""
     if not hr_values:
@@ -231,7 +247,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
         hrv=DailyHrvStats(
             weekly_avg=hrv_s.weekly_average if hrv_s else None,
             nightly_avg=hrv_s.last_night_average if hrv_s else None,
-            status=hrv_s.status if hrv_s else None,
+            status=_normalize_hrv_status(hrv_s.status) if hrv_s else None,
         ),
         sleep=DailySleepStats(
             score=sleep_a.overall_score if sleep_a else None,

@@ -23,6 +23,7 @@ export type DailyHeartRateStats = Schemas['DailyHeartRateStats'];
 
 export type HRAnalysis = Schemas['HeartRateAnalysisResponse'];
 export type HRDistribution = Schemas['HRDistributionResponse'];
+export type HrvAnalysis = Schemas['HrvAnalysisResponse'];
 
 export type HeartRateInsights = Schemas['HeartRateInsightsResponse'];
 export type HrvInsights = Schemas['HrvInsightsResponse'];
@@ -45,6 +46,7 @@ export const api = {
 	getHrv: (date?: string) => fetchJson<HrvData>(`/api/hrv${date ? `?date=${date}` : ''}`),
 	getHrvInsights: (date?: string) =>
 		fetchJson<HrvInsights>(`/api/hrv/insights${date ? `?date=${date}` : ''}`),
+	getHrvAnalysis: () => fetchJson<HrvAnalysis>('/api/hrv/analysis'),
 	getSkinTemp: (date?: string) =>
 		fetchJson<SkinTempData>(`/api/skin-temp${date ? `?date=${date}` : ''}`),
 	getHeartRateInsights: (date?: string) =>

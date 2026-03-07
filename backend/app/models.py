@@ -513,6 +513,27 @@ class HeartRateAnalysisResponse(_DefaultsRequired):
     weekly_boxplots: list[WeeklyRestingHRBox] = []
 
 
+class NightlyHrvTrendPoint(_DefaultsRequired):
+    date: str
+    nightly_avg: float | None = None
+    ma7: float | None = None
+
+
+class WeeklyHrvBox(_DefaultsRequired):
+    iso_week: str
+    min_ms: float | None = None
+    q1_ms: float | None = None
+    median_ms: float | None = None
+    q3_ms: float | None = None
+    max_ms: float | None = None
+    day_count: int = 0
+
+
+class HrvAnalysisResponse(_DefaultsRequired):
+    nightly_trend: list[NightlyHrvTrendPoint] = []
+    weekly_boxplots: list[WeeklyHrvBox] = []
+
+
 class DaySummaryResponse(_DefaultsRequired):
     date: str
     total_files: int

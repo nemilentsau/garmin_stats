@@ -16,12 +16,14 @@ def _normalize_hrv_status(raw: str | None) -> str:
     if not raw:
         return "Unknown"
     value = raw.lower()
+    if value == "none":
+        return "Unknown"
+    if "unbalanced" in value:  # must precede "balanced" (substring match)
+        return "Unbalanced"
     if "balanced" in value:
         return "Balanced"
     if "low" in value:
         return "Low"
-    if "unbalanced" in value:
-        return "Unbalanced"
     if "high" in value:
         return "High"
     return raw.title()

@@ -182,7 +182,7 @@ class TestAggregateDay:
         agg = aggregate_day(day)
         assert agg.hrv.nightly_avg == 55.0
         assert agg.hrv.weekly_avg == 52.0
-        assert agg.hrv.status == "balanced"
+        assert agg.hrv.status == "Balanced"
 
     def test_skin_temp_extracted_from_first_overnight(self):
         day = _make_day(skin_dev=0.1)
