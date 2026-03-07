@@ -467,12 +467,19 @@ class CircadianHRPoint(_DefaultsRequired):
 class SleepingHRPoint(_DefaultsRequired):
     date: str
     avg_sleeping_bpm: float | None = None
+    ma7_bpm: float | None = None
     sample_count: int = 0
 
 
 class RestingHRTrendPoint(_DefaultsRequired):
     date: str
     resting_bpm: int | None = None
+    ma7_bpm: float | None = None
+
+
+class DailyAvgHRTrendPoint(_DefaultsRequired):
+    date: str
+    avg_bpm: float | None = None
     ma7_bpm: float | None = None
 
 
@@ -502,6 +509,7 @@ class HeartRateAnalysisResponse(_DefaultsRequired):
     circadian_profile: list[CircadianHRPoint] = []
     sleeping_hr_trend: list[SleepingHRPoint] = []
     resting_hr_trend: list[RestingHRTrendPoint] = []
+    daily_avg_trend: list[DailyAvgHRTrendPoint] = []
     weekly_boxplots: list[WeeklyRestingHRBox] = []
 
 

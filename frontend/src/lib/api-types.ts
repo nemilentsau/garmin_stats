@@ -379,6 +379,15 @@ export interface components {
             daily: components["schemas"]["DailyMetric"][];
             period: components["schemas"]["PeriodSummary"] | null;
         };
+        /** DailyAvgHRTrendPoint */
+        DailyAvgHRTrendPoint: {
+            /** Date */
+            date: string;
+            /** Avg Bpm */
+            avg_bpm: number | null;
+            /** Ma7 Bpm */
+            ma7_bpm: number | null;
+        };
         /** DailyBodyBatteryStats */
         DailyBodyBatteryStats: {
             /** Avg */
@@ -576,6 +585,11 @@ export interface components {
              * @default []
              */
             resting_hr_trend: components["schemas"]["RestingHRTrendPoint"][];
+            /**
+             * Daily Avg Trend
+             * @default []
+             */
+            daily_avg_trend: components["schemas"]["DailyAvgHRTrendPoint"][];
             /**
              * Weekly Boxplots
              * @default []
@@ -1094,6 +1108,8 @@ export interface components {
             date: string;
             /** Avg Sleeping Bpm */
             avg_sleeping_bpm: number | null;
+            /** Ma7 Bpm */
+            ma7_bpm: number | null;
             /**
              * Sample Count
              * @default 0
@@ -1137,6 +1153,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** WeeklyRestingHRBox */
         WeeklyRestingHRBox: {
