@@ -669,7 +669,36 @@
 	<!-- Intraday chart + distribution sidebar — latest day -->
 	{#if latestIntradayConfig}
 		<div class="card">
-			<h2 class="card-title">Intraday Heart Rate</h2>
+			<div class="card-header-row">
+				<h2 class="card-title">Intraday Heart Rate</h2>
+				{#if latestZoneBreakdown}
+					<div class="zone-inline">
+						<div class="zone-inline-top">
+							<span class="zone-inline-label">HR Zones</span>
+							<div class="zone-inline-bar">
+								{#each latestZoneBreakdown as zone}
+									{#if zone.pct > 0}
+										<div
+											style="width: {zone.pct}%; background: {zone.color};"
+											title="{zone.label}: {zone.pct}%"
+										></div>
+									{/if}
+								{/each}
+							</div>
+						</div>
+						<div class="zone-inline-legend">
+							{#each latestZoneBreakdown as zone}
+								{#if zone.pct > 0}
+									<span class="zone-inline-item" title="{zone.label}: {zone.pct}%">
+										<i class="legend-dot" style="background: {zone.color};"></i>
+										{zone.label} {zone.pct}%
+									</span>
+								{/if}
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
 			<div class="intraday-with-distribution">
 				<div class="intraday-chart-area">
 					<LineChart config={latestIntradayConfig} height={280} />
@@ -680,36 +709,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#if latestZoneBreakdown}
-				<div class="zone-bar-section">
-					<h3 class="zone-bar-label">HR Zones</h3>
-					<div class="zone-hbar">
-						{#each latestZoneBreakdown as zone}
-							{#if zone.pct > 0}
-								<div
-									class="zone-hsegment"
-									style="width: {zone.pct}%; background-color: {zone.color};"
-									title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
-								>
-									{#if zone.pct >= 8}<span class="zone-hpct">{zone.pct}%</span>{/if}
-								</div>
-							{/if}
-						{/each}
-					</div>
-					<div class="zone-hlegend">
-						{#each latestZoneBreakdown as zone}
-							{#if zone.pct > 0}
-								<div class="zone-hlegend-item">
-									<span class="legend-dot" style="background-color: {zone.color};"></span>
-									{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
-								</div>
-							{/if}
-						{/each}
-					</div>
-				</div>
-			{/if}
-
 			<p class="card-footnote">{latestIntraday?.heart_rate.length ?? 0} readings</p>
 		</div>
 	{/if}
@@ -770,7 +769,36 @@
 
 			{#if historicalIntradayConfig}
 				<div class="history-section">
-					<h3 class="history-section-title">Intraday Heart Rate</h3>
+					<div class="card-header-row">
+						<h3 class="history-section-title" style="margin-bottom: 0;">Intraday Heart Rate</h3>
+						{#if historicalZoneBreakdown}
+							<div class="zone-inline">
+								<div class="zone-inline-top">
+									<span class="zone-inline-label">HR Zones</span>
+									<div class="zone-inline-bar">
+										{#each historicalZoneBreakdown as zone}
+											{#if zone.pct > 0}
+												<div
+													style="width: {zone.pct}%; background: {zone.color};"
+													title="{zone.label}: {zone.pct}%"
+												></div>
+											{/if}
+										{/each}
+									</div>
+								</div>
+								<div class="zone-inline-legend">
+									{#each historicalZoneBreakdown as zone}
+										{#if zone.pct > 0}
+											<span class="zone-inline-item" title="{zone.label}: {zone.pct}%">
+												<i class="legend-dot" style="background: {zone.color};"></i>
+												{zone.label} {zone.pct}%
+											</span>
+										{/if}
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
 					<div class="intraday-with-distribution">
 						<div class="intraday-chart-area">
 							<LineChart config={historicalIntradayConfig} height={240} />
@@ -781,36 +809,6 @@
 							</div>
 						{/if}
 					</div>
-
-					{#if historicalZoneBreakdown}
-						<div class="zone-bar-section">
-							<h3 class="zone-bar-label">HR Zones</h3>
-							<div class="zone-hbar">
-								{#each historicalZoneBreakdown as zone}
-									{#if zone.pct > 0}
-										<div
-											class="zone-hsegment"
-											style="width: {zone.pct}%; background-color: {zone.color};"
-											title="{zone.label}: {zone.minutes}m ({zone.pct}%)"
-										>
-											{#if zone.pct >= 8}<span class="zone-hpct">{zone.pct}%</span>{/if}
-										</div>
-									{/if}
-								{/each}
-							</div>
-							<div class="zone-hlegend">
-								{#each historicalZoneBreakdown as zone}
-									{#if zone.pct > 0}
-										<div class="zone-hlegend-item">
-											<span class="legend-dot" style="background-color: {zone.color};"></span>
-											{zone.label} {fmt(zone.minutes)}m ({zone.pct}%)
-										</div>
-									{/if}
-								{/each}
-							</div>
-						</div>
-					{/if}
-
 					<p class="card-footnote">{historicalIntraday?.heart_rate.length ?? 0} readings</p>
 				</div>
 			{:else if !historicalIntraday}
@@ -1235,53 +1233,66 @@
 		flex-shrink: 0;
 	}
 
-	/* ── Horizontal zone bar ── */
-	.zone-bar-section {
-		margin-top: 14px;
-		padding-top: 10px;
-		border-top: 1px solid rgba(255,255,255,0.04);
-	}
-	.zone-bar-label {
-		font-size: 10px;
-		font-weight: 600;
-		color: #6b7d8e;
-		text-transform: uppercase;
-		letter-spacing: 1.5px;
-		margin-bottom: 6px;
-	}
-	.zone-hbar {
+	/* ── Inline zone bar (card header) ── */
+	.card-header-row {
 		display: flex;
-		height: 22px;
-		border-radius: 4px;
+		align-items: flex-start;
+		gap: 16px;
+		margin-bottom: 14px;
+	}
+	.card-header-row .card-title,
+	.card-header-row .history-section-title {
+		margin-bottom: 0;
+		flex-shrink: 0;
+	}
+	.zone-inline {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		margin-left: auto;
+		min-width: 0;
 		overflow: hidden;
 	}
-	.zone-hsegment {
+	.zone-inline-top {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		transition: opacity 0.15s;
-		cursor: default;
+		gap: 10px;
 	}
-	.zone-hsegment:hover {
-		opacity: 0.85;
-	}
-	.zone-hpct {
+	.zone-inline-label {
 		font-size: 10px;
-		font-weight: 500;
-		color: rgba(255,255,255,0.9);
+		font-weight: 600;
+		color: #5e7282;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
-	.zone-hlegend {
+	.zone-inline-bar {
 		display: flex;
-		gap: 16px;
-		margin-top: 6px;
+		flex: 1;
+		min-width: 80px;
+		height: 10px;
+		border-radius: 3px;
+		overflow: hidden;
+	}
+	.zone-inline-bar > div {
+		transition: opacity 0.15s;
+	}
+	.zone-inline-bar > div:hover {
+		opacity: 0.8;
+	}
+	.zone-inline-legend {
+		display: flex;
+		gap: 10px;
 		flex-wrap: wrap;
 	}
-	.zone-hlegend-item {
+	.zone-inline-item {
+		font-size: 11px;
+		color: #8a9baa;
 		display: flex;
 		align-items: center;
-		gap: 5px;
-		font-size: 10px;
-		color: #8a9baa;
+		gap: 4px;
+		white-space: nowrap;
 	}
 
 	/* ── Insights list ── */
@@ -1320,5 +1331,6 @@
 		.day-nav { flex-direction: column; align-items: stretch; }
 		.intraday-with-distribution { flex-direction: column; }
 		.distribution-sidebar { width: 100%; max-width: none; min-width: 0; }
+		.zone-inline-legend { display: none; }
 	}
 </style>
