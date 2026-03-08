@@ -264,6 +264,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hrv/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hrv Analysis
+         * @description Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots).
+         */
+        get: operations["get_hrv_analysis_api_hrv_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hrv/insights": {
         parameters: {
             query?: never;
@@ -650,6 +670,19 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** HrvAnalysisResponse */
+        HrvAnalysisResponse: {
+            /**
+             * Nightly Trend
+             * @default []
+             */
+            nightly_trend: components["schemas"]["NightlyHrvTrendPoint"][];
+            /**
+             * Weekly Boxplots
+             * @default []
+             */
+            weekly_boxplots: components["schemas"]["WeeklyHrvBox"][];
+        };
         /** HrvBaselineBands */
         HrvBaselineBands: {
             /** Baseline Low Upper */
@@ -923,6 +956,15 @@ export interface components {
              */
             sample_count: number;
         };
+        /** NightlyHrvTrendPoint */
+        NightlyHrvTrendPoint: {
+            /** Date */
+            date: string;
+            /** Nightly Avg */
+            nightly_avg: number | null;
+            /** Ma7 */
+            ma7: number | null;
+        };
         /** PeriodHeartRateStats */
         PeriodHeartRateStats: {
             /** Avg */
@@ -1157,6 +1199,26 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeeklyHrvBox */
+        WeeklyHrvBox: {
+            /** Iso Week */
+            iso_week: string;
+            /** Min Ms */
+            min_ms: number | null;
+            /** Q1 Ms */
+            q1_ms: number | null;
+            /** Median Ms */
+            median_ms: number | null;
+            /** Q3 Ms */
+            q3_ms: number | null;
+            /** Max Ms */
+            max_ms: number | null;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
         };
         /** WeeklyRestingHRBox */
         WeeklyRestingHRBox: {
@@ -1547,6 +1609,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_hrv_analysis_api_hrv_analysis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrvAnalysisResponse"];
                 };
             };
         };
