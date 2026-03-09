@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api, type DailyAggregates, type DashboardOverview } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
-	import { Chart, DARK_BORDER } from '$lib/chart-setup';
+	import { Chart, DARK_BORDER, DARK_GRID_Y, DARK_TICK, chartTooltip } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 	import { fmt, fmtSigned } from '$lib/format';
 	import { COLORS } from '$lib/colors';
@@ -68,8 +68,8 @@
 
 	const componentOrder = ['hrv_recovery', 'sleep', 'resting_hr', 'hrv_status'] as const;
 
-	// ── Vitals KPI config ──
-	type VitalConfig = {
+	// ── Combined metric card config (vitals + sparklines) ──
+	type MetricCardConfig = {
 		key: string;
 		label: string;
 		unit: string;
@@ -77,9 +77,10 @@
 		getValue: (v: NonNullable<DashboardOverview['vitals']>) => number | null | undefined;
 		getDelta: (v: NonNullable<DashboardOverview['vitals']>) => number | null | undefined;
 		lowerIsBetter: boolean;
+		getData: (s: NonNullable<DashboardOverview['sparklines']>) => Array<{ date: string; value: number | null }>;
 	};
 
-	const vitalConfigs: VitalConfig[] = [
+	const metricConfigs: MetricCardConfig[] = [
 		{
 			key: 'resting_hr',
 			label: 'Resting HR',
@@ -87,7 +88,8 @@
 			color: COLORS.heartRate,
 			getValue: (v) => v.resting_hr,
 			getDelta: (v) => v.resting_hr_delta_7d,
-			lowerIsBetter: true
+			lowerIsBetter: true,
+			getData: (s) => s.resting_hr
 		},
 		{
 			key: 'nightly_hrv',
@@ -96,7 +98,8 @@
 			color: COLORS.hrv,
 			getValue: (v) => v.nightly_hrv,
 			getDelta: (v) => v.nightly_hrv_delta_7d,
-			lowerIsBetter: false
+			lowerIsBetter: false,
+			getData: (s) => s.nightly_hrv
 		},
 		{
 			key: 'sleep_score',
@@ -105,7 +108,8 @@
 			color: COLORS.sleep,
 			getValue: (v) => v.sleep_score,
 			getDelta: () => null,
-			lowerIsBetter: false
+			lowerIsBetter: false,
+			getData: (s) => s.sleep_score
 		},
 		{
 			key: 'stress_avg',
@@ -114,7 +118,8 @@
 			color: COLORS.stress,
 			getValue: (v) => v.stress_avg,
 			getDelta: () => null,
-			lowerIsBetter: true
+			lowerIsBetter: true,
+			getData: (s) => s.stress_avg
 		}
 	];
 
@@ -126,29 +131,46 @@
 		return COLORS.heartRate;
 	}
 
-	// ── Sparkline configs ──
-	type SparkConfig = {
-		key: string;
-		label: string;
-		color: string;
-		getData: (s: NonNullable<DashboardOverview['sparklines']>) => Array<{ date: string; value: number | null }>;
-	};
+	/** Compute min/max/avg from sparkline data (ignoring nulls). */
+	function sparkStats(points: Array<{ value: number | null }>): { min: number; max: number; avg: number } | null {
+		const vals = points.map(p => p.value).filter((v): v is number => v != null);
+		if (vals.length === 0) return null;
+		const min = Math.min(...vals);
+		const max = Math.max(...vals);
+		const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+		return { min, max, avg };
+	}
 
-	const sparkConfigs: SparkConfig[] = [
-		{ key: 'resting_hr', label: 'Resting HR', color: COLORS.heartRate, getData: (s) => s.resting_hr },
-		{ key: 'nightly_hrv', label: 'Nightly HRV', color: COLORS.hrv, getData: (s) => s.nightly_hrv },
-		{ key: 'sleep_score', label: 'Sleep Score', color: COLORS.sleep, getData: (s) => s.sleep_score },
-		{ key: 'stress_avg', label: 'Stress', color: COLORS.stress, getData: (s) => s.stress_avg }
-	];
-
+	// ── Sparkline chart creation ──
 	function sparkDateLabels(points: Array<{ date: string }>): string[] {
+		const len = points.length;
+		if (len === 0) return [];
+		// Show ~4 evenly spaced date labels, avoiding overlap at the end
+		const step = Math.max(1, Math.floor(len / 4));
+		const minGap = Math.floor(step * 0.6); // don't show last label if too close to previous
+		let lastShown = -Infinity;
 		return points.map((p, i) => {
-			if (i === 0 || i === points.length - 1) return p.date.slice(5); // MM-DD
+			const isFirst = i === 0;
+			const isLast = i === len - 1;
+			const isStep = i % step === 0;
+			if (isFirst || isStep) {
+				lastShown = i;
+				return p.date.slice(5); // MM-DD
+			}
+			if (isLast && (i - lastShown) >= minGap) {
+				return p.date.slice(5);
+			}
 			return '';
 		});
 	}
 
 	function createSparkline(canvas: HTMLCanvasElement, points: Array<{ date: string; value: number | null }>, color: string): Chart<'line'> {
+		const vals = points.map(p => p.value).filter((v): v is number => v != null);
+		const dataMin = vals.length ? Math.min(...vals) : 0;
+		const dataMax = vals.length ? Math.max(...vals) : 100;
+		const range = dataMax - dataMin || 1;
+		const padding = range * 0.1;
+
 		const config: ChartConfiguration<'line'> = {
 			type: 'line',
 			data: {
@@ -156,11 +178,14 @@
 				datasets: [{
 					data: points.map((p) => p.value),
 					borderColor: color,
-					backgroundColor: color + '15',
+					backgroundColor: color + '12',
 					borderWidth: 1.5,
 					pointRadius: 0,
-					pointHoverRadius: 0,
-					tension: 0.4,
+					pointHoverRadius: 4,
+					pointHoverBackgroundColor: color,
+					pointHoverBorderColor: '#0d1520',
+					pointHoverBorderWidth: 2,
+					tension: 0.35,
 					spanGaps: true,
 					fill: true
 				}]
@@ -168,15 +193,41 @@
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				plugins: { legend: { display: false }, tooltip: { enabled: false } },
+				interaction: {
+					mode: 'index',
+					intersect: false
+				},
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						enabled: true,
+						...chartTooltip(color),
+						titleFont: { family: 'DM Mono', size: 10 },
+						bodyFont: { family: 'DM Mono', size: 12, weight: 'bold' },
+						titleColor: '#8a9baa',
+						bodyColor: color,
+						displayColors: false,
+						callbacks: {
+							title: function(items) {
+								if (!items.length) return '';
+								const idx = items[0].dataIndex;
+								return points[idx]?.date ?? '';
+							},
+							label: function(item) {
+								const v = item.parsed.y;
+								return v != null ? fmt(v) : '-';
+							}
+						}
+					}
+				},
 				scales: {
 					x: {
 						display: true,
 						border: DARK_BORDER,
 						grid: { display: false },
 						ticks: {
-							color: '#4a5c6a',
-							font: { family: 'DM Mono', size: 8 },
+							color: '#6b7d8e',
+							font: { family: 'DM Mono', size: 10 },
 							maxRotation: 0,
 							autoSkip: false,
 							callback: function(_value: string | number, index: number) {
@@ -185,10 +236,23 @@
 							}
 						}
 					},
-					y: { display: false, border: DARK_BORDER }
+					y: {
+						display: true,
+						border: { display: false },
+						grid: DARK_GRID_Y,
+						min: dataMin - padding,
+						max: dataMax + padding,
+						ticks: {
+							...DARK_TICK,
+							font: { family: 'DM Mono', size: 10 },
+							maxTicksLimit: 4,
+							callback: function(value) {
+								return Math.round(Number(value));
+							}
+						}
+					}
 				},
-				animation: false,
-				events: []
+				animation: false
 			}
 		};
 		return new Chart(canvas, config);
@@ -197,18 +261,15 @@
 	$effect(() => {
 		if (!overview?.sparklines) return;
 		const sparklines = overview.sparklines;
-		for (const sc of sparkConfigs) {
-			const canvas = sparkCanvases[sc.key];
+		for (const mc of metricConfigs) {
+			const canvas = sparkCanvases[mc.key];
 			if (!canvas) continue;
-			const points = sc.getData(sparklines);
-			if (sparkCharts[sc.key]) {
-				const chart = sparkCharts[sc.key];
-				chart.data.labels = sparkDateLabels(points);
-				chart.data.datasets[0].data = points.map((p) => p.value);
-				chart.update();
-			} else {
-				sparkCharts[sc.key] = createSparkline(canvas, points, sc.color);
+			const points = mc.getData(sparklines);
+			if (sparkCharts[mc.key]) {
+				// Destroy and recreate to recalculate Y-axis range
+				sparkCharts[mc.key].destroy();
 			}
+			sparkCharts[mc.key] = createSparkline(canvas, points, mc.color);
 		}
 	});
 
@@ -291,35 +352,47 @@
 		</div>
 	{/if}
 
-	<!-- Today's Vitals -->
-	{#if overview?.vitals}
+	<!-- Unified Metric Cards: value + trend chart + stats -->
+	{#if overview?.vitals && overview?.sparklines}
 		{@const vitals = overview.vitals}
-		<div class="vitals-row">
-			{#each vitalConfigs as vc}
-				{@const val = vc.getValue(vitals)}
-				{@const delta = vc.getDelta(vitals)}
-				<div class="vital-item">
-					<span class="vital-label">{vc.label}</span>
-					<div class="vital-value-row">
-						<span class="vital-value" style="color:{vc.color}">{fmt(val)}</span>
-						<span class="vital-unit">{vc.unit}</span>
+		{@const sparklines = overview.sparklines}
+		<div class="metric-grid">
+			{#each metricConfigs as mc}
+				{@const val = mc.getValue(vitals)}
+				{@const delta = mc.getDelta(vitals)}
+				{@const points = mc.getData(sparklines)}
+				{@const stats = sparkStats(points)}
+				<div class="metric-card">
+					<div class="metric-card-header">
+						<div class="metric-card-left">
+							<span class="metric-label">{mc.label}</span>
+							<div class="metric-value-row">
+								<span class="metric-value" style="color:{mc.color}">{fmt(val)}</span>
+								<span class="metric-unit">{mc.unit}</span>
+							</div>
+							{#if delta != null}
+								<span class="metric-delta" style="color:{deltaColor(delta, mc.lowerIsBetter)}">{fmtSigned(delta)} vs 7d</span>
+							{/if}
+						</div>
+						{#if stats}
+							<div class="metric-card-stats">
+								<div class="mini-stat">
+									<span class="mini-stat-label">90d avg</span>
+									<span class="mini-stat-value" style="color:{mc.color}">{Math.round(stats.avg)}</span>
+								</div>
+								<div class="mini-stat">
+									<span class="mini-stat-label">low</span>
+									<span class="mini-stat-value">{Math.round(stats.min)}</span>
+								</div>
+								<div class="mini-stat">
+									<span class="mini-stat-label">high</span>
+									<span class="mini-stat-value">{Math.round(stats.max)}</span>
+								</div>
+							</div>
+						{/if}
 					</div>
-					{#if delta != null}
-						<span class="vital-delta" style="color:{deltaColor(delta, vc.lowerIsBetter)}">{fmtSigned(delta)} vs 7d</span>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
-
-	<!-- 3-Month Sparklines -->
-	{#if overview?.sparklines}
-		<div class="sparkline-grid">
-			{#each sparkConfigs as sc}
-				<div class="sparkline-card">
-					<span class="sparkline-label">{sc.label}</span>
-					<div class="sparkline-chart">
-						<canvas bind:this={sparkCanvases[sc.key]}></canvas>
+					<div class="metric-chart">
+						<canvas bind:this={sparkCanvases[mc.key]}></canvas>
 					</div>
 				</div>
 			{/each}
@@ -369,7 +442,7 @@
 		background: rgba(255,255,255,0.02);
 		border: 1px solid rgba(255,255,255,0.05);
 		border-radius: 10px;
-		padding: 28px;
+		padding: 24px 28px;
 		margin-bottom: 20px;
 	}
 
@@ -377,8 +450,8 @@
 		display: flex;
 		align-items: center;
 		gap: 24px;
-		margin-bottom: 24px;
-		padding-bottom: 20px;
+		margin-bottom: 20px;
+		padding-bottom: 16px;
 		border-bottom: 1px solid rgba(255,255,255,0.04);
 	}
 
@@ -438,13 +511,13 @@
 	}
 
 	.readiness-subtitle {
-		font-size: 11px;
-		color: #5e7282;
+		font-size: 12px;
+		color: #7e8f9e;
 	}
 
 	.readiness-explain {
-		font-size: 11px;
-		color: #4a5c6a;
+		font-size: 12px;
+		color: #6b7d8e;
 		margin: 4px 0 0;
 		line-height: 1.4;
 	}
@@ -475,35 +548,35 @@
 	}
 
 	.comp-label {
-		font-size: 11px;
-		color: #8a9baa;
+		font-size: 13px;
+		color: #a0b0bc;
 		letter-spacing: 0.5px;
 		font-weight: 500;
 	}
 
 	.comp-actual {
 		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: #c8d6e0;
+		font-size: 13px;
+		color: #d0dce4;
 		margin-left: 4px;
 	}
 
 	.comp-delta {
 		font-family: 'DM Mono', monospace;
-		font-size: 10px;
+		font-size: 12px;
 	}
 
 	.comp-score {
 		font-family: 'DM Mono', monospace;
-		font-size: 13px;
+		font-size: 15px;
 		font-weight: 600;
 		margin-left: auto;
 	}
 
 	.comp-max {
 		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		color: #3a4a56;
+		font-size: 15px;
+		color: #5e7282;
 	}
 
 	.comp-bar-track {
@@ -520,93 +593,109 @@
 		opacity: 0.8;
 	}
 
-	/* Today's Vitals */
-	.vitals-row {
-		display: flex;
-		justify-content: space-between;
-		gap: 1px;
-		background: rgba(255,255,255,0.06);
-		border-radius: 10px;
-		overflow: hidden;
+	/* ── Unified Metric Cards ── */
+	.metric-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 16px;
 		margin-bottom: 20px;
 	}
 
-	.vital-item {
-		flex: 1;
-		background: rgba(13,21,32,0.95);
-		padding: 16px 20px;
+	.metric-card {
+		background: rgba(255,255,255,0.02);
+		border: 1px solid rgba(255,255,255,0.05);
+		border-radius: 10px;
+		padding: 16px 18px;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 4px;
+		gap: 12px;
 	}
 
-	.vital-label {
-		font-size: 9px;
+	.metric-card-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+	}
+
+	.metric-card-left {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.metric-label {
+		font-size: 11px;
 		letter-spacing: 1.5px;
 		text-transform: uppercase;
-		color: #5e7282;
+		color: #7e8f9e;
 	}
 
-	.vital-value-row {
+	.metric-value-row {
 		display: flex;
 		align-items: baseline;
 		gap: 4px;
 	}
 
-	.vital-value {
+	.metric-value {
 		font-family: 'DM Mono', monospace;
 		font-size: 24px;
-		font-weight: 500;
-		line-height: 1;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums lining-nums;
+		line-height: 1.1;
 	}
 
-	.vital-unit {
+	.metric-unit {
 		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #6b7d8e;
+		letter-spacing: 0.5px;
+	}
+
+	.metric-delta {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		margin-top: 2px;
+	}
+
+	.metric-card-stats {
+		display: flex;
+		gap: 14px;
+		align-items: flex-start;
+		padding-top: 4px;
+	}
+
+	.mini-stat {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+	}
+
+	.mini-stat-label {
 		font-size: 9px;
-		color: #4a5c6a;
 		letter-spacing: 1px;
-	}
-
-	.vital-delta {
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-	}
-
-	/* Sparkline grid */
-	.sparkline-grid {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 12px;
-		margin-bottom: 20px;
-	}
-
-	.sparkline-card {
-		background: rgba(255,255,255,0.02);
-		border: 1px solid rgba(255,255,255,0.05);
-		border-radius: 10px;
-		padding: 12px 14px;
-	}
-
-	.sparkline-label {
-		font-size: 9px;
-		letter-spacing: 1.5px;
 		text-transform: uppercase;
-		color: #5e7282;
-		display: block;
-		margin-bottom: 6px;
+		color: #6b7d8e;
 	}
 
-	.sparkline-chart {
-		height: 80px;
+	.mini-stat-value {
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+		font-weight: 500;
+		color: #a0b0bc;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
+	.metric-chart {
+		height: 160px;
 		position: relative;
 	}
 
 	@media (max-width: 768px) {
-		.vitals-row { flex-wrap: wrap; }
-		.vital-item { min-width: 45%; }
-		.sparkline-grid { grid-template-columns: repeat(2, 1fr); }
+		.metric-grid { grid-template-columns: 1fr; }
 		.readiness-components { grid-template-columns: 1fr; }
 		.readiness-top { flex-direction: column; text-align: center; }
+		.metric-card-header { flex-direction: column; gap: 8px; }
+		.metric-card-stats { justify-content: flex-start; }
 	}
 </style>
