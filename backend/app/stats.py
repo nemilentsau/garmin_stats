@@ -115,6 +115,16 @@ def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
     return round(float(np.percentile(values, pct)), 1) if values else None
 
 
+def trailing_ma7(values: list[float | None]) -> list[float | None]:
+    """Compute 7-day trailing moving average, skipping None values."""
+    result: list[float | None] = []
+    for i in range(len(values)):
+        window_start = max(0, i - 6)
+        window = [v for v in values[window_start : i + 1] if v is not None]
+        result.append(round(sum(window) / len(window), 1) if window else None)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Response flattening (per-day lists → flat API responses)
 # ---------------------------------------------------------------------------

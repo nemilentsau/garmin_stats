@@ -11,8 +11,11 @@ from ..models import (
     MetricCorrelation,
     ReadinessScore,
     SparklinePoint,
+    SparklineSeries,
+    SparklineSummary,
     TodayVitals,
 )
+from ..stats import trailing_ma7
 
 
 def _normalize_hrv_status(raw: str | None) -> str:
@@ -174,53 +177,44 @@ def _compute_vitals(
 _SPARKLINE_DAYS = 91  # ~3 months
 
 
-def _trailing_ma7(values: list[float | None]) -> list[float | None]:
-    """Compute 7-day trailing moving average, skipping None values."""
-    result: list[float | None] = []
-    for i in range(len(values)):
-        window_start = max(0, i - 6)
-        window = [v for v in values[window_start : i + 1] if v is not None]
-        result.append(round(sum(window) / len(window), 1) if window else None)
-    return result
+def _build_series(
+    window: list[DailyMetric],
+    raw_vals: list[float | None],
+) -> SparklineSeries:
+    """Build a SparklineSeries with points, MA, and summary stats."""
+    ma_vals = trailing_ma7(raw_vals)
+    non_null = [v for v in raw_vals if v is not None]
+    summary = SparklineSummary(
+        avg=round(sum(non_null) / len(non_null), 1) if non_null else None,
+        min=round(min(non_null), 1) if non_null else None,
+        max=round(max(non_null), 1) if non_null else None,
+    )
+    points = [
+        SparklinePoint(date=m.date, value=raw_vals[i], ma7=ma_vals[i])
+        for i, m in enumerate(window)
+    ]
+    return SparklineSeries(points=points, summary=summary)
 
 
 def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
     """Build 3-month sparkline data for 4 key metrics with 7-day MA."""
     window = metrics[-_SPARKLINE_DAYS:]
 
-    resting_vals: list[float | None] = [
-        float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
-        for m in window
-    ]
-    hrv_vals: list[float | None] = [m.hrv.nightly_avg for m in window]
-    sleep_vals: list[float | None] = [
-        float(m.sleep.score) if m.sleep.score is not None else None
-        for m in window
-    ]
-    stress_vals: list[float | None] = [m.stress.avg for m in window]
-
-    resting_ma = _trailing_ma7(resting_vals)
-    hrv_ma = _trailing_ma7(hrv_vals)
-    sleep_ma = _trailing_ma7(sleep_vals)
-    stress_ma = _trailing_ma7(stress_vals)
-
     return DashboardSparklines(
-        resting_hr=[
-            SparklinePoint(date=m.date, value=resting_vals[i], ma7=resting_ma[i])
-            for i, m in enumerate(window)
-        ],
-        nightly_hrv=[
-            SparklinePoint(date=m.date, value=hrv_vals[i], ma7=hrv_ma[i])
-            for i, m in enumerate(window)
-        ],
-        sleep_score=[
-            SparklinePoint(date=m.date, value=sleep_vals[i], ma7=sleep_ma[i])
-            for i, m in enumerate(window)
-        ],
-        stress_avg=[
-            SparklinePoint(date=m.date, value=stress_vals[i], ma7=stress_ma[i])
-            for i, m in enumerate(window)
-        ],
+        resting_hr=_build_series(window, [
+            float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
+            for m in window
+        ]),
+        nightly_hrv=_build_series(window, [
+            m.hrv.nightly_avg for m in window
+        ]),
+        sleep_score=_build_series(window, [
+            float(m.sleep.score) if m.sleep.score is not None else None
+            for m in window
+        ]),
+        stress_avg=_build_series(window, [
+            m.stress.avg for m in window
+        ]),
     )
 
 

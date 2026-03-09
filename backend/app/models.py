@@ -611,11 +611,22 @@ class SparklinePoint(_DefaultsRequired):
     ma7: float | None = None
 
 
+class SparklineSummary(_DefaultsRequired):
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+
+
+class SparklineSeries(_DefaultsRequired):
+    points: list[SparklinePoint] = []
+    summary: SparklineSummary = SparklineSummary()
+
+
 class DashboardSparklines(_DefaultsRequired):
-    resting_hr: list[SparklinePoint] = []
-    nightly_hrv: list[SparklinePoint] = []
-    sleep_score: list[SparklinePoint] = []
-    stress_avg: list[SparklinePoint] = []
+    resting_hr: SparklineSeries = SparklineSeries()
+    nightly_hrv: SparklineSeries = SparklineSeries()
+    sleep_score: SparklineSeries = SparklineSeries()
+    stress_avg: SparklineSeries = SparklineSeries()
 
 
 class DashboardOverviewResponse(_DefaultsRequired):

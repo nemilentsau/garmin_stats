@@ -11,6 +11,7 @@ from ..models import (
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
+from ..stats import trailing_ma7
 from ._windows import compute_windows
 from .hrv import _compute_day_of_week, _compute_hrv_distribution
 
@@ -19,23 +20,17 @@ def _compute_nightly_hrv_trend(
     metrics: list[DailyMetric],
 ) -> list[NightlyHrvTrendPoint]:
     """Raw nightly HRV + 7-day trailing moving average."""
-    points: list[NightlyHrvTrendPoint] = []
     nightly_values: list[float | None] = [m.hrv.nightly_avg for m in metrics]
+    ma7_values = trailing_ma7(nightly_values)
 
-    for i, m in enumerate(metrics):
-        nightly = nightly_values[i]
-        # 7-day trailing window: i-6 to i inclusive
-        window_start = max(0, i - 6)
-        window = [v for v in nightly_values[window_start : i + 1] if v is not None]
-        ma7 = round(sum(window) / len(window), 1) if window else None
-        points.append(
-            NightlyHrvTrendPoint(
-                date=m.date,
-                nightly_avg=nightly,
-                ma7=ma7,
-            )
+    return [
+        NightlyHrvTrendPoint(
+            date=m.date,
+            nightly_avg=nightly_values[i],
+            ma7=ma7_values[i],
         )
-    return points
+        for i, m in enumerate(metrics)
+    ]
 
 
 def _compute_weekly_hrv_boxplots(

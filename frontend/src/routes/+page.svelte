@@ -69,6 +69,8 @@
 	const componentOrder = ['hrv_recovery', 'sleep', 'resting_hr', 'hrv_status'] as const;
 
 	// ── Combined metric card config (vitals + sparklines) ──
+	type SparkSeries = NonNullable<DashboardOverview['sparklines']>['resting_hr'];
+
 	type MetricCardConfig = {
 		key: string;
 		label: string;
@@ -77,7 +79,7 @@
 		getValue: (v: NonNullable<DashboardOverview['vitals']>) => number | null | undefined;
 		getDelta: (v: NonNullable<DashboardOverview['vitals']>) => number | null | undefined;
 		lowerIsBetter: boolean;
-		getData: (s: NonNullable<DashboardOverview['sparklines']>) => Array<{ date: string; value: number | null }>;
+		getSeries: (s: NonNullable<DashboardOverview['sparklines']>) => SparkSeries;
 	};
 
 	const metricConfigs: MetricCardConfig[] = [
@@ -89,7 +91,7 @@
 			getValue: (v) => v.resting_hr,
 			getDelta: (v) => v.resting_hr_delta_7d,
 			lowerIsBetter: true,
-			getData: (s) => s.resting_hr
+			getSeries: (s) => s.resting_hr
 		},
 		{
 			key: 'nightly_hrv',
@@ -99,7 +101,7 @@
 			getValue: (v) => v.nightly_hrv,
 			getDelta: (v) => v.nightly_hrv_delta_7d,
 			lowerIsBetter: false,
-			getData: (s) => s.nightly_hrv
+			getSeries: (s) => s.nightly_hrv
 		},
 		{
 			key: 'sleep_score',
@@ -109,7 +111,7 @@
 			getValue: (v) => v.sleep_score,
 			getDelta: () => null,
 			lowerIsBetter: false,
-			getData: (s) => s.sleep_score
+			getSeries: (s) => s.sleep_score
 		},
 		{
 			key: 'stress_avg',
@@ -119,7 +121,7 @@
 			getValue: (v) => v.stress_avg,
 			getDelta: () => null,
 			lowerIsBetter: true,
-			getData: (s) => s.stress_avg
+			getSeries: (s) => s.stress_avg
 		}
 	];
 
@@ -129,16 +131,6 @@
 		if (isGood) return COLORS.heartRateResting;
 		if (delta === 0) return '#5e7282';
 		return COLORS.heartRate;
-	}
-
-	/** Compute min/max/avg from sparkline data (ignoring nulls). */
-	function sparkStats(points: Array<{ value: number | null }>): { min: number; max: number; avg: number } | null {
-		const vals = points.map(p => p.value).filter((v): v is number => v != null);
-		if (vals.length === 0) return null;
-		const min = Math.min(...vals);
-		const max = Math.max(...vals);
-		const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-		return { min, max, avg };
 	}
 
 	// ── Sparkline chart creation ──
@@ -267,12 +259,24 @@
 		for (const mc of metricConfigs) {
 			const canvas = sparkCanvases[mc.key];
 			if (!canvas) continue;
-			const points = mc.getData(sparklines);
-			if (sparkCharts[mc.key]) {
-				// Destroy and recreate to recalculate Y-axis range
-				sparkCharts[mc.key].destroy();
+			const series = mc.getSeries(sparklines);
+			const points = series.points;
+			const existing = sparkCharts[mc.key];
+			if (existing) {
+				// Update data and Y-axis range in-place
+				const ma7Vals = points.map(p => p.ma7).filter((v): v is number => v != null);
+				const dataMin = ma7Vals.length ? Math.min(...ma7Vals) : 0;
+				const dataMax = ma7Vals.length ? Math.max(...ma7Vals) : 100;
+				const range = dataMax - dataMin || 1;
+				const padding = range * 0.1;
+				existing.data.labels = sparkDateLabels(points);
+				existing.data.datasets[0].data = points.map(p => p.ma7);
+				existing.options.scales!.y!.min = dataMin - padding;
+				existing.options.scales!.y!.max = dataMax + padding;
+				existing.update();
+			} else {
+				sparkCharts[mc.key] = createSparkline(canvas, points, mc.color);
 			}
-			sparkCharts[mc.key] = createSparkline(canvas, points, mc.color);
 		}
 	});
 
@@ -363,8 +367,8 @@
 			{#each metricConfigs as mc}
 				{@const val = mc.getValue(vitals)}
 				{@const delta = mc.getDelta(vitals)}
-				{@const points = mc.getData(sparklines)}
-				{@const stats = sparkStats(points)}
+				{@const series = mc.getSeries(sparklines)}
+				{@const summary = series.summary}
 				<div class="metric-card">
 					<div class="metric-card-header">
 						<div class="metric-card-left">
@@ -377,19 +381,19 @@
 								<span class="metric-delta" style="color:{deltaColor(delta, mc.lowerIsBetter)}">{fmtSigned(delta)} vs 7d</span>
 							{/if}
 						</div>
-						{#if stats}
+						{#if summary.avg != null}
 							<div class="metric-card-stats">
 								<div class="mini-stat">
 									<span class="mini-stat-label">90d avg</span>
-									<span class="mini-stat-value" style="color:{mc.color}">{Math.round(stats.avg)}</span>
+									<span class="mini-stat-value" style="color:{mc.color}">{fmt(summary.avg)}</span>
 								</div>
 								<div class="mini-stat">
 									<span class="mini-stat-label">low</span>
-									<span class="mini-stat-value">{Math.round(stats.min)}</span>
+									<span class="mini-stat-value">{fmt(summary.min)}</span>
 								</div>
 								<div class="mini-stat">
 									<span class="mini-stat-label">high</span>
-									<span class="mini-stat-value">{Math.round(stats.max)}</span>
+									<span class="mini-stat-value">{fmt(summary.max)}</span>
 								</div>
 							</div>
 						{/if}

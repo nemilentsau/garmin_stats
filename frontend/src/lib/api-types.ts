@@ -524,25 +524,33 @@ export interface components {
         /** DashboardSparklines */
         DashboardSparklines: {
             /**
-             * Resting Hr
-             * @default []
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
              */
-            resting_hr: components["schemas"]["SparklinePoint"][];
+            resting_hr: components["schemas"]["SparklineSeries"];
             /**
-             * Nightly Hrv
-             * @default []
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
              */
-            nightly_hrv: components["schemas"]["SparklinePoint"][];
+            nightly_hrv: components["schemas"]["SparklineSeries"];
             /**
-             * Sleep Score
-             * @default []
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
              */
-            sleep_score: components["schemas"]["SparklinePoint"][];
+            sleep_score: components["schemas"]["SparklineSeries"];
             /**
-             * Stress Avg
-             * @default []
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
              */
-            stress_avg: components["schemas"]["SparklinePoint"][];
+            stress_avg: components["schemas"]["SparklineSeries"];
         };
         /** DaySummaryResponse */
         DaySummaryResponse: {
@@ -1240,6 +1248,25 @@ export interface components {
             value: number | null;
             /** Ma7 */
             ma7: number | null;
+        };
+        /** SparklineSeries */
+        SparklineSeries: {
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["SparklinePoint"][];
+            /** @default {} */
+            summary: components["schemas"]["SparklineSummary"];
+        };
+        /** SparklineSummary */
+        SparklineSummary: {
+            /** Avg */
+            avg: number | null;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
         };
         /** StepsReading */
         StepsReading: {
