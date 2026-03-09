@@ -5,12 +5,15 @@
 	import { Chart, chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 	import ScatterChart from '$lib/components/ScatterChart.svelte';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
 
 	let data: DailyAggregates | null = $state(null);
 	let overview: DashboardOverview | null = $state(null);
 	let error: string | null = $state(null);
+	let trendRange: TrendRange = $state('3M');
 	let canvasRefs: Record<string, HTMLCanvasElement> = $state({});
 	let charts: Record<string, Chart<'line'>> = {};
 
@@ -108,18 +111,21 @@
 		return new Chart(canvas, config);
 	}
 
+	let filteredDaily = $derived.by<DailyMetric[]>(() => data ? filterByRange(data.daily, trendRange) : []);
+
 	$effect(() => {
 		if (!data) return;
+		const daily = filteredDaily;
 		for (const metric of metrics) {
 			const canvas = canvasRefs[metric.key];
 			if (!canvas) continue;
 			if (charts[metric.key]) {
 				const chart = charts[metric.key];
-				chart.data.labels = data.daily.map((d) => d.date.slice(5));
-				chart.data.datasets[0].data = data.daily.map(metric.getValue);
+				chart.data.labels = daily.map((d) => d.date.slice(5));
+				chart.data.datasets[0].data = daily.map(metric.getValue);
 				chart.update();
 			} else {
-				charts[metric.key] = createChart(canvas, metric, data.daily);
+				charts[metric.key] = createChart(canvas, metric, daily);
 			}
 		}
 	});
@@ -249,7 +255,7 @@
 		<div class="strip-border"></div>
 		<div class="strip-content">
 			{#each metrics as metric}
-				{@const val = latestValid(data.daily, metric.getValue)}
+				{@const val = latestValid(filteredDaily, metric.getValue)}
 				<div class="strip-item">
 					<span class="strip-label">{metric.label}</span>
 					<span class="strip-value" style="color:{metric.color}">{fmt(val)}</span>
@@ -260,8 +266,11 @@
 		<div class="strip-border"></div>
 	</div>
 
-	<div class="strip-date">
-		{data.days.length} days collected &mdash; {data.days[0]} to {data.days[data.days.length - 1]}
+	<div class="strip-date-row">
+		<div class="strip-date">
+			{data.days.length} days collected &mdash; {data.days[0]} to {data.days[data.days.length - 1]}
+		</div>
+		<TrendRangePicker bind:value={trendRange} />
 	</div>
 
 	<!-- Readiness hero -->
@@ -434,14 +443,19 @@
 		letter-spacing: 1px;
 	}
 
+	.strip-date-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin: 12px 0 20px;
+	}
+
 	.strip-date {
-		text-align: center;
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
 		color: #4a5c6a;
 		letter-spacing: 2px;
 		text-transform: uppercase;
-		margin: 12px 0 20px;
 	}
 
 	/* Readiness hero */

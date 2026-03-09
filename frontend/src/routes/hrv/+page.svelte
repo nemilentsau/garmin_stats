@@ -14,6 +14,8 @@
 	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -209,17 +211,7 @@
 	let historicalIntradayConfig = $derived.by(() => makeIntradayConfig(historicalIntradaySegment, COLORS.hrv));
 
 	// ── Trend time-window ──
-	type TrendRange = '1M' | '3M' | '6M' | 'All';
-	const TREND_RANGES: TrendRange[] = ['1M', '3M', '6M', 'All'];
 	let trendRange: TrendRange = $state('3M');
-
-	function trendCutoff(range: TrendRange): string | null {
-		if (range === 'All') return null;
-		const d = new Date();
-		const months = range === '1M' ? 1 : range === '3M' ? 3 : 6;
-		d.setMonth(d.getMonth() - months);
-		return d.toISOString().slice(0, 10);
-	}
 
 	// ── Trend chart helpers ──
 	const darkPlugins = {
@@ -496,9 +488,8 @@
 	});
 
 	// ── Pattern window (3M floor: 1M→3M, others pass through) ──
-	const PATTERN_KEY_MAP: Record<TrendRange, string> = { '1M': '3M', '3M': '3M', '6M': '6M', 'All': 'All' };
 	let patternWindow = $derived.by(() => {
-		const key = PATTERN_KEY_MAP[trendRange];
+		const key = PERIOD_KEY_MAP[trendRange];
 		return analysis?.pattern_windows?.[key] ?? null;
 	});
 
@@ -855,15 +846,7 @@
 
 	<div class="section-header tier3-header">
 		<span class="section-label">Trends</span>
-		<div class="range-picker">
-			{#each TREND_RANGES as r}
-				<button
-					class="range-btn"
-					class:active={trendRange === r}
-					onclick={() => (trendRange = r)}
-				>{r}</button>
-			{/each}
-		</div>
+		<TrendRangePicker bind:value={trendRange} />
 	</div>
 
 	<!-- Nightly HRV Trend + Weekly Boxplot — side by side -->
@@ -954,31 +937,6 @@
 	.tier3-header {
 		margin-top: 28px;
 		justify-content: space-between;
-	}
-	.range-picker {
-		display: flex;
-		gap: 4px;
-	}
-	.range-btn {
-		padding: 3px 10px;
-		font-size: 11px;
-		font-family: 'DM Mono', monospace;
-		font-weight: 400;
-		color: #6b7d8e;
-		background: transparent;
-		border: 1px solid rgba(255,255,255,0.1);
-		border-radius: 4px;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-	.range-btn:hover {
-		color: #c8d6e0;
-		border-color: rgba(255,255,255,0.2);
-	}
-	.range-btn.active {
-		color: #c8d6e0;
-		background: rgba(255,255,255,0.08);
-		border-color: rgba(255,255,255,0.2);
 	}
 	.section-label {
 		font-family: 'DM Mono', monospace;

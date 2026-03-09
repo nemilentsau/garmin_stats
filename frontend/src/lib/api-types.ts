@@ -153,7 +153,7 @@ export interface paths {
         };
         /**
          * Get Daily Agg
-         * @description Get per-day aggregate stats for all metrics, plus period summary.
+         * @description Get per-day aggregate stats for all metrics, plus windowed period summaries.
          */
         get: operations["get_daily_agg_api_daily_aggregates_get"];
         put?: never;
@@ -397,7 +397,13 @@ export interface components {
             days: string[];
             /** Daily */
             daily: components["schemas"]["DailyMetric"][];
-            period: components["schemas"]["PeriodSummary"] | null;
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodSummary"];
+            };
         };
         /** DailyAvgHRTrendPoint */
         DailyAvgHRTrendPoint: {
@@ -557,6 +563,17 @@ export interface components {
             /** Count */
             count: number;
         };
+        /**
+         * HRPatternWindow
+         * @description Pre-computed circadian profile for a time window.
+         */
+        HRPatternWindow: {
+            /**
+             * Circadian Profile
+             * @default []
+             */
+            circadian_profile: components["schemas"]["CircadianHRPoint"][];
+        };
         /** HRZoneBucket */
         HRZoneBucket: {
             /** Label */
@@ -615,6 +632,13 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyRestingHRBox"][];
+            /**
+             * Pattern Windows
+             * @default {}
+             */
+            pattern_windows: {
+                [key: string]: components["schemas"]["HRPatternWindow"];
+            };
         };
         /** HeartRateDataQuality */
         HeartRateDataQuality: {
@@ -689,15 +713,6 @@ export interface components {
             pattern_windows: {
                 [key: string]: components["schemas"]["HrvPatternWindow"];
             };
-        };
-        /** HrvPatternWindow - Pre-computed distribution + day-of-week for a time window. */
-        HrvPatternWindow: {
-            distribution: components["schemas"]["HrvDistribution"] | null;
-            /**
-             * Day Of Week
-             * @default []
-             */
-            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
         };
         /** HrvBaselineBands */
         HrvBaselineBands: {
@@ -844,6 +859,18 @@ export interface components {
             baseline_30d: number | null;
             /** Delta 7D Vs 30D */
             delta_7d_vs_30d: number | null;
+        };
+        /**
+         * HrvPatternWindow
+         * @description Pre-computed distribution + day-of-week for a time window.
+         */
+        HrvPatternWindow: {
+            distribution: components["schemas"]["HrvDistribution"] | null;
+            /**
+             * Day Of Week
+             * @default []
+             */
+            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
         };
         /** HrvRecovery */
         HrvRecovery: {

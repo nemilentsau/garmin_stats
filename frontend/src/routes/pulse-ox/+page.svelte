@@ -6,6 +6,8 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
@@ -14,6 +16,7 @@
 	let agg: DailyAggregates | null = $state(null);
 	let intradayData: WellnessData | null = $state(null);
 	let selectedDate = $state('');
+	let trendRange: TrendRange = $state('3M');
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
@@ -58,14 +61,15 @@
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
+		const daily = filterByRange(agg.daily, trendRange);
 		return {
 			type: 'line',
 			data: {
-				labels: agg.daily.map((d) => d.date),
+				labels: daily.map((d) => d.date),
 				datasets: [
 					{
 						label: 'Avg SpO2',
-						data: agg.daily.map((d) => d.spo2.avg),
+						data: daily.map((d) => d.spo2.avg),
 						borderColor: COLORS.spo2,
 						borderWidth: 2,
 						pointRadius: 2,
@@ -74,7 +78,7 @@
 					},
 					{
 						label: 'Q1 (25th)',
-						data: agg.daily.map((d) => d.spo2.q1),
+						data: daily.map((d) => d.spo2.q1),
 						borderColor: withAlpha(COLORS.spo2, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -85,7 +89,7 @@
 					},
 					{
 						label: 'Q3 (75th)',
-						data: agg.daily.map((d) => d.spo2.q3),
+						data: daily.map((d) => d.spo2.q3),
 						borderColor: withAlpha(COLORS.spo2, '40'),
 						borderWidth: 1,
 						borderDash: [4, 4],
@@ -96,7 +100,7 @@
 					},
 					{
 						label: 'Min SpO2',
-						data: agg.daily.map((d) => d.spo2.min),
+						data: daily.map((d) => d.spo2.min),
 						borderColor: COLORS.spo2Min,
 						borderWidth: 1.5,
 						borderDash: [4, 4],
@@ -180,8 +184,9 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg?.period) return null;
-		const spo2 = agg.period.spo2;
+		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
+		if (!pw) return null;
+		const spo2 = pw.spo2;
 		return {
 			overallAvg: spo2.avg,
 			lowestMin: spo2.lowest_min,
@@ -202,7 +207,10 @@
 		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
-	<h1 class="text-xl font-bold text-[#e8f0f5] mb-4">Pulse Ox (SpO2)</h1>
+	<div class="flex items-center justify-between mb-4">
+		<h1 class="text-xl font-bold text-[#e8f0f5]">Pulse Ox (SpO2)</h1>
+		<TrendRangePicker bind:value={trendRange} />
+	</div>
 
 	<MetricDefinition title="What is Pulse Ox / SpO2?">
 		<p class="mb-2">

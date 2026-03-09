@@ -362,5 +362,4 @@ def compute_daily_aggregates(days: list[DayData]) -> DailyAggregatesResponse:
     return DailyAggregatesResponse(
         days=[d.date for d in days],
         daily=[aggregate_day(d) for d in days],
-        period=compute_period_summary(days),
     )

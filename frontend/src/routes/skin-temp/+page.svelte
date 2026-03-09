@@ -5,6 +5,8 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { COLORS, withAlpha } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
@@ -12,6 +14,7 @@
 	let agg: DailyAggregates | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let trendRange: TrendRange = $state('3M');
 
 	async function fetchData() {
 		agg = await api.getDailyAggregates();
@@ -36,14 +39,15 @@
 
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!agg) return null;
+		const daily = filterByRange(agg.daily, trendRange);
 		return {
 			type: 'line',
 			data: {
-				labels: agg.daily.map((d) => d.date),
+				labels: daily.map((d) => d.date),
 				datasets: [
 					{
 						label: 'Deviation',
-						data: agg.daily.map((d) => d.skin_temp.deviation),
+						data: daily.map((d) => d.skin_temp.deviation),
 						borderColor: COLORS.skinTemp,
 						borderWidth: 2,
 						pointRadius: 2,
@@ -52,7 +56,7 @@
 					},
 					{
 						label: '7-Day Smoothed',
-						data: agg.daily.map((d) => d.skin_temp.deviation_7_day),
+						data: daily.map((d) => d.skin_temp.deviation_7_day),
 						borderColor: COLORS.skinTemp7Day,
 						borderWidth: 2,
 						borderDash: [6, 3],
@@ -62,7 +66,7 @@
 					},
 					{
 						label: 'Baseline (0)',
-						data: agg.daily.map(() => 0),
+						data: daily.map(() => 0),
 						borderColor: COLORS.baseline,
 						borderWidth: 1,
 						borderDash: [2, 2],
@@ -96,8 +100,9 @@
 	});
 
 	let stats = $derived.by(() => {
-		if (!agg?.period) return null;
-		const st = agg.period.skin_temp;
+		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
+		if (!pw) return null;
+		const st = pw.skin_temp;
 		return {
 			avgDeviation: st.avg_deviation?.toFixed(2) ?? null,
 			maxDeviation: st.max_deviation?.toFixed(2) ?? null,
@@ -119,7 +124,10 @@
 		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
-	<h1 class="text-xl font-bold text-[#e8f0f5] mb-4">Skin Temperature</h1>
+	<div class="flex items-center justify-between mb-4">
+		<h1 class="text-xl font-bold text-[#e8f0f5]">Skin Temperature</h1>
+		<TrendRangePicker bind:value={trendRange} />
+	</div>
 
 	<MetricDefinition title="What is Skin Temperature?">
 		<p class="mb-2">

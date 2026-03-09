@@ -450,7 +450,7 @@ class PeriodSummary(_DefaultsRequired):
 class DailyAggregatesResponse(_DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
-    period: PeriodSummary | None = None
+    period_windows: dict[str, PeriodSummary] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -505,12 +505,18 @@ class WeeklyRestingHRBox(_DefaultsRequired):
     day_count: int = 0
 
 
+class HRPatternWindow(_DefaultsRequired):
+    """Pre-computed circadian profile for a time window."""
+    circadian_profile: list[CircadianHRPoint] = []
+
+
 class HeartRateAnalysisResponse(_DefaultsRequired):
     circadian_profile: list[CircadianHRPoint] = []
     sleeping_hr_trend: list[SleepingHRPoint] = []
     resting_hr_trend: list[RestingHRTrendPoint] = []
     daily_avg_trend: list[DailyAvgHRTrendPoint] = []
     weekly_boxplots: list[WeeklyRestingHRBox] = []
+    pattern_windows: dict[str, HRPatternWindow] = {}
 
 
 class NightlyHrvTrendPoint(_DefaultsRequired):
