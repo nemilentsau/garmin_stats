@@ -174,29 +174,52 @@ def _compute_vitals(
 _SPARKLINE_DAYS = 91  # ~3 months
 
 
+def _trailing_ma7(values: list[float | None]) -> list[float | None]:
+    """Compute 7-day trailing moving average, skipping None values."""
+    result: list[float | None] = []
+    for i in range(len(values)):
+        window_start = max(0, i - 6)
+        window = [v for v in values[window_start : i + 1] if v is not None]
+        result.append(round(sum(window) / len(window), 1) if window else None)
+    return result
+
+
 def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
-    """Build 3-month sparkline data for 4 key metrics."""
+    """Build 3-month sparkline data for 4 key metrics with 7-day MA."""
     window = metrics[-_SPARKLINE_DAYS:]
+
+    resting_vals: list[float | None] = [
+        float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
+        for m in window
+    ]
+    hrv_vals: list[float | None] = [m.hrv.nightly_avg for m in window]
+    sleep_vals: list[float | None] = [
+        float(m.sleep.score) if m.sleep.score is not None else None
+        for m in window
+    ]
+    stress_vals: list[float | None] = [m.stress.avg for m in window]
+
+    resting_ma = _trailing_ma7(resting_vals)
+    hrv_ma = _trailing_ma7(hrv_vals)
+    sleep_ma = _trailing_ma7(sleep_vals)
+    stress_ma = _trailing_ma7(stress_vals)
+
     return DashboardSparklines(
         resting_hr=[
-            SparklinePoint(
-                date=m.date,
-                value=float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
-            )
-            for m in window
+            SparklinePoint(date=m.date, value=resting_vals[i], ma7=resting_ma[i])
+            for i, m in enumerate(window)
         ],
         nightly_hrv=[
-            SparklinePoint(date=m.date, value=m.hrv.nightly_avg) for m in window
+            SparklinePoint(date=m.date, value=hrv_vals[i], ma7=hrv_ma[i])
+            for i, m in enumerate(window)
         ],
         sleep_score=[
-            SparklinePoint(
-                date=m.date,
-                value=float(m.sleep.score) if m.sleep.score is not None else None,
-            )
-            for m in window
+            SparklinePoint(date=m.date, value=sleep_vals[i], ma7=sleep_ma[i])
+            for i, m in enumerate(window)
         ],
         stress_avg=[
-            SparklinePoint(date=m.date, value=m.stress.avg) for m in window
+            SparklinePoint(date=m.date, value=stress_vals[i], ma7=stress_ma[i])
+            for i, m in enumerate(window)
         ],
     )
 

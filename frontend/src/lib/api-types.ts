@@ -1238,6 +1238,8 @@ export interface components {
             date: string;
             /** Value */
             value: number | null;
+            /** Ma7 */
+            ma7: number | null;
         };
         /** StepsReading */
         StepsReading: {

@@ -164,10 +164,10 @@
 		});
 	}
 
-	function createSparkline(canvas: HTMLCanvasElement, points: Array<{ date: string; value: number | null }>, color: string): Chart<'line'> {
-		const vals = points.map(p => p.value).filter((v): v is number => v != null);
-		const dataMin = vals.length ? Math.min(...vals) : 0;
-		const dataMax = vals.length ? Math.max(...vals) : 100;
+	function createSparkline(canvas: HTMLCanvasElement, points: Array<{ date: string; value: number | null; ma7: number | null }>, color: string): Chart<'line'> {
+		const ma7Vals = points.map(p => p.ma7).filter((v): v is number => v != null);
+		const dataMin = ma7Vals.length ? Math.min(...ma7Vals) : 0;
+		const dataMax = ma7Vals.length ? Math.max(...ma7Vals) : 100;
 		const range = dataMax - dataMin || 1;
 		const padding = range * 0.1;
 
@@ -175,20 +175,23 @@
 			type: 'line',
 			data: {
 				labels: sparkDateLabels(points),
-				datasets: [{
-					data: points.map((p) => p.value),
-					borderColor: color,
-					backgroundColor: color + '12',
-					borderWidth: 1.5,
-					pointRadius: 0,
-					pointHoverRadius: 4,
-					pointHoverBackgroundColor: color,
-					pointHoverBorderColor: '#0d1520',
-					pointHoverBorderWidth: 2,
-					tension: 0.35,
-					spanGaps: true,
-					fill: true
-				}]
+				datasets: [
+					// 7-day moving average only
+					{
+						data: points.map((p) => p.ma7),
+						borderColor: color,
+						backgroundColor: color + '12',
+						borderWidth: 2,
+						pointRadius: 0,
+						pointHoverRadius: 4,
+						pointHoverBackgroundColor: color,
+						pointHoverBorderColor: '#0d1520',
+						pointHoverBorderWidth: 2,
+						tension: 0.35,
+						spanGaps: true,
+						fill: true
+					}
+				]
 			},
 			options: {
 				responsive: true,
@@ -215,7 +218,7 @@
 							},
 							label: function(item) {
 								const v = item.parsed.y;
-								return v != null ? fmt(v) : '-';
+								return v != null ? '7d avg: ' + fmt(v) : '-';
 							}
 						}
 					}

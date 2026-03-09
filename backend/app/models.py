@@ -608,6 +608,7 @@ class TodayVitals(_DefaultsRequired):
 class SparklinePoint(_DefaultsRequired):
     date: str
     value: float | None = None
+    ma7: float | None = None
 
 
 class DashboardSparklines(_DefaultsRequired):
