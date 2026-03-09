@@ -141,11 +141,18 @@
 		{ key: 'stress_avg', label: 'Stress', color: COLORS.stress, getData: (s) => s.stress_avg }
 	];
 
-	function createSparkline(canvas: HTMLCanvasElement, points: Array<{ value: number | null }>, color: string): Chart<'line'> {
+	function sparkDateLabels(points: Array<{ date: string }>): string[] {
+		return points.map((p, i) => {
+			if (i === 0 || i === points.length - 1) return p.date.slice(5); // MM-DD
+			return '';
+		});
+	}
+
+	function createSparkline(canvas: HTMLCanvasElement, points: Array<{ date: string; value: number | null }>, color: string): Chart<'line'> {
 		const config: ChartConfiguration<'line'> = {
 			type: 'line',
 			data: {
-				labels: points.map((_, i) => String(i)),
+				labels: sparkDateLabels(points),
 				datasets: [{
 					data: points.map((p) => p.value),
 					borderColor: color,
@@ -163,7 +170,21 @@
 				maintainAspectRatio: false,
 				plugins: { legend: { display: false }, tooltip: { enabled: false } },
 				scales: {
-					x: { display: false, border: DARK_BORDER },
+					x: {
+						display: true,
+						border: DARK_BORDER,
+						grid: { display: false },
+						ticks: {
+							color: '#4a5c6a',
+							font: { family: 'DM Mono', size: 8 },
+							maxRotation: 0,
+							autoSkip: false,
+							callback: function(_value: string | number, index: number) {
+								const labels = this.chart.data.labels as string[];
+								return labels[index] || null;
+							}
+						}
+					},
 					y: { display: false, border: DARK_BORDER }
 				},
 				animation: false,
@@ -182,7 +203,7 @@
 			const points = sc.getData(sparklines);
 			if (sparkCharts[sc.key]) {
 				const chart = sparkCharts[sc.key];
-				chart.data.labels = points.map((_, i) => String(i));
+				chart.data.labels = sparkDateLabels(points);
 				chart.data.datasets[0].data = points.map((p) => p.value);
 				chart.update();
 			} else {
@@ -305,10 +326,6 @@
 		</div>
 	{/if}
 
-	<!-- Data info line -->
-	<div class="data-info">
-		{data.days.length} days collected &mdash; {data.days[0]} to {data.days[data.days.length - 1]}
-	</div>
 {/if}
 
 <style>
@@ -581,19 +598,8 @@
 	}
 
 	.sparkline-chart {
-		height: 40px;
+		height: 80px;
 		position: relative;
-	}
-
-	/* Data info line */
-	.data-info {
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		color: #4a5c6a;
-		letter-spacing: 2px;
-		text-transform: uppercase;
-		text-align: center;
-		padding: 8px 0;
 	}
 
 	@media (max-width: 768px) {
