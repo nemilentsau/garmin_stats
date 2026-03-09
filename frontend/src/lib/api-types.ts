@@ -682,6 +682,22 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyHrvBox"][];
+            /**
+             * Pattern Windows
+             * @default {}
+             */
+            pattern_windows: {
+                [key: string]: components["schemas"]["HrvPatternWindow"];
+            };
+        };
+        /** HrvPatternWindow - Pre-computed distribution + day-of-week for a time window. */
+        HrvPatternWindow: {
+            distribution: components["schemas"]["HrvDistribution"] | null;
+            /**
+             * Day Of Week
+             * @default []
+             */
+            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
         };
         /** HrvBaselineBands */
         HrvBaselineBands: {

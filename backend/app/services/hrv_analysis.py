@@ -1,15 +1,17 @@
-"""HRV analysis: nightly trend with 7-day MA, weekly boxplots."""
+"""HRV analysis: nightly trend with 7-day MA, weekly boxplots, windowed patterns."""
 
-from datetime import date as date_type
+from datetime import date as date_type, timedelta
 
 from ..infra import cache
 from ..infra.database import load_daily_metrics
 from ..models import (
     DailyMetric,
     HrvAnalysisResponse,
+    HrvPatternWindow,
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
+from .hrv import _compute_day_of_week, _compute_hrv_distribution
 
 
 def _compute_nightly_hrv_trend(
@@ -80,6 +82,40 @@ def _compute_weekly_hrv_boxplots(
     return result
 
 
+def _compute_pattern_window(
+    metrics: list[DailyMetric],
+    selected_nightly: float | None,
+) -> HrvPatternWindow:
+    """Distribution + day-of-week stats for a given slice of metrics."""
+    nightly_vals = [
+        m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
+    ]
+    return HrvPatternWindow(
+        distribution=_compute_hrv_distribution(nightly_vals, selected_nightly),
+        day_of_week=_compute_day_of_week(metrics),
+    )
+
+
+_WINDOW_DAYS: dict[str, int | None] = {"3M": 91, "6M": 182, "All": None}
+
+
+def _compute_pattern_windows(
+    metrics: list[DailyMetric],
+    selected_nightly: float | None,
+) -> dict[str, HrvPatternWindow]:
+    """Pre-compute pattern stats for each time window."""
+    today = date_type.today()
+    windows: dict[str, HrvPatternWindow] = {}
+    for label, days in _WINDOW_DAYS.items():
+        if days is None:
+            subset = metrics
+        else:
+            cutoff = (today - timedelta(days=days)).isoformat()
+            subset = [m for m in metrics if m.date >= cutoff]
+        windows[label] = _compute_pattern_window(subset, selected_nightly)
+    return windows
+
+
 def load_hrv_analysis() -> HrvAnalysisResponse:
     """Load daily metrics and compute HRV analysis features (cached)."""
     return cache.cached(cache.HRV_ANALYSIS, _compute_hrv_analysis)
@@ -87,7 +123,12 @@ def load_hrv_analysis() -> HrvAnalysisResponse:
 
 def _compute_hrv_analysis() -> HrvAnalysisResponse:
     metrics = load_daily_metrics()
+    # selected_nightly = latest day's nightly avg for percentile highlight
+    selected_nightly: float | None = None
+    if metrics and metrics[-1].hrv.nightly_avg is not None:
+        selected_nightly = metrics[-1].hrv.nightly_avg
     return HrvAnalysisResponse(
         nightly_trend=_compute_nightly_hrv_trend(metrics),
         weekly_boxplots=_compute_weekly_hrv_boxplots(metrics),
+        pattern_windows=_compute_pattern_windows(metrics, selected_nightly),
     )

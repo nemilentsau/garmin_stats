@@ -529,9 +529,16 @@ class WeeklyHrvBox(_DefaultsRequired):
     day_count: int = 0
 
 
+class HrvPatternWindow(_DefaultsRequired):
+    """Pre-computed distribution + day-of-week for a time window."""
+    distribution: HrvDistribution | None = None
+    day_of_week: list[HrvDayOfWeekBucket] = []
+
+
 class HrvAnalysisResponse(_DefaultsRequired):
     nightly_trend: list[NightlyHrvTrendPoint] = []
     weekly_boxplots: list[WeeklyHrvBox] = []
+    pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
 
 
 class DaySummaryResponse(_DefaultsRequired):

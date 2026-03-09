@@ -495,8 +495,15 @@
 		};
 	});
 
+	// ── Pattern window (3M floor: 1M→3M, others pass through) ──
+	const PATTERN_KEY_MAP: Record<TrendRange, string> = { '1M': '3M', '3M': '3M', '6M': '6M', 'All': 'All' };
+	let patternWindow = $derived.by(() => {
+		const key = PATTERN_KEY_MAP[trendRange];
+		return analysis?.pattern_windows?.[key] ?? null;
+	});
+
 	// ── Distribution chart ──
-	let distribution = $derived.by(() => latestInsights?.distribution ?? null);
+	let distribution = $derived.by(() => patternWindow?.distribution ?? null);
 
 	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (!distribution || distribution.bins.length === 0) return null;
@@ -545,7 +552,7 @@
 	});
 
 	// ── Day of Week chart ──
-	let dayOfWeek = $derived.by(() => latestInsights?.day_of_week ?? []);
+	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
 	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (dayOfWeek.length === 0) return null;
