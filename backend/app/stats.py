@@ -157,7 +157,10 @@ def flatten_sleep(days: list[DaySleep]) -> SleepResponse:
 def flatten_hrv(days: list[DayHrv]) -> HrvResponse:
     return HrvResponse(
         days=[d.date for d in days],
-        hrv_values=[r for d in days for r in d.hrv_values],
+        hrv_values=sorted(
+            (r for d in days for r in d.hrv_values),
+            key=lambda v: v.timestamp or "",
+        ),
         hrv_summaries=[r for d in days for r in d.hrv_summaries],
     )
 

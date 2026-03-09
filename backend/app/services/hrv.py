@@ -112,6 +112,7 @@ def _build_intraday_segment(
     label: str,
     values: list[HrvValue],
 ) -> HrvIntradaySegment:
+    values = sorted(values, key=lambda v: v.timestamp or "")
     parsed_times = sorted(
         dt for dt in (_parse_iso(value.timestamp) for value in values) if dt is not None
     )
