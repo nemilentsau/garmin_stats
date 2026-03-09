@@ -511,7 +511,6 @@ class HRPatternWindow(_DefaultsRequired):
 
 
 class HeartRateAnalysisResponse(_DefaultsRequired):
-    circadian_profile: list[CircadianHRPoint] = []
     sleeping_hr_trend: list[SleepingHRPoint] = []
     resting_hr_trend: list[RestingHRTrendPoint] = []
     daily_avg_trend: list[DailyAvgHRTrendPoint] = []

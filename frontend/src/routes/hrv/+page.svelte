@@ -171,17 +171,17 @@
 						time: {
 							unit: 'hour',
 							displayFormats: { hour: 'HH:mm' },
-							parser: (v: string) => {
+							parser: (v: unknown) => {
 								// Parse as UTC to avoid browser DST reinterpretation
-								const [y, mo, d, h, mi, s] = v.match(/\d+/g)!.map(Number);
+								const [y, mo, d, h, mi, s] = String(v).match(/\d+/g)!.map(Number);
 								return Date.UTC(y, mo - 1, d, h, mi, s);
 							}
 						},
 						ticks: {
 							font: { size: 10 },
 							...DARK_TICK,
-							callback: (val: number) => {
-								const dt = new Date(val);
+							callback: (val: string | number) => {
+								const dt = new Date(Number(val));
 								return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
 							}
 						},

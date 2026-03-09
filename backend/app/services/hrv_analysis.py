@@ -1,7 +1,6 @@
 """HRV analysis: nightly trend with 7-day MA, weekly boxplots, windowed patterns."""
 
 from datetime import date as date_type
-from datetime import timedelta
 
 from ..infra import cache
 from ..infra.database import load_daily_metrics
@@ -12,7 +11,7 @@ from ..models import (
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
-from ._windows import WINDOW_DAYS
+from ._windows import compute_windows
 from .hrv import _compute_day_of_week, _compute_hrv_distribution
 
 
@@ -103,16 +102,10 @@ def _compute_pattern_windows(
     selected_nightly: float | None,
 ) -> dict[str, HrvPatternWindow]:
     """Pre-compute pattern stats for each time window."""
-    today = date_type.today()
-    windows: dict[str, HrvPatternWindow] = {}
-    for label, days in WINDOW_DAYS.items():
-        if days is None:
-            subset = metrics
-        else:
-            cutoff = (today - timedelta(days=days)).isoformat()
-            subset = [m for m in metrics if m.date >= cutoff]
-        windows[label] = _compute_pattern_window(subset, selected_nightly)
-    return windows
+    return compute_windows(
+        metrics,
+        lambda subset: _compute_pattern_window(subset, selected_nightly),
+    )
 
 
 def load_hrv_analysis() -> HrvAnalysisResponse:

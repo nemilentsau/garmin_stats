@@ -608,11 +608,6 @@ export interface components {
         /** HeartRateAnalysisResponse */
         HeartRateAnalysisResponse: {
             /**
-             * Circadian Profile
-             * @default []
-             */
-            circadian_profile: components["schemas"]["CircadianHRPoint"][];
-            /**
              * Sleeping Hr Trend
              * @default []
              */

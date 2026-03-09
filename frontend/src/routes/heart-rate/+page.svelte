@@ -360,8 +360,7 @@
 	// ── Chart: Daily Avg HR (with 7-day MA) ──
 	let dailyAvgConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.daily_avg_trend.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const t = cutoff ? analysis.daily_avg_trend.filter((p) => p.date >= cutoff) : analysis.daily_avg_trend;
+		const t = filterByRange(analysis.daily_avg_trend, trendRange);
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		const typicalLow = pw?.heart_rate.typical_low ?? null;
 		const typicalHigh = pw?.heart_rate.typical_high ?? null;
@@ -409,8 +408,7 @@
 	// ── Chart: Resting HR (with 7-day MA) ──
 	let restingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.resting_hr_trend.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const t = cutoff ? analysis.resting_hr_trend.filter((p) => p.date >= cutoff) : analysis.resting_hr_trend;
+		const t = filterByRange(analysis.resting_hr_trend, trendRange);
 		return {
 			type: 'line',
 			data: {
@@ -440,8 +438,7 @@
 	// ── Chart: Sleeping HR ──
 	let sleepingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.sleeping_hr_trend.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const trend = cutoff ? analysis.sleeping_hr_trend.filter((p) => p.date >= cutoff) : analysis.sleeping_hr_trend;
+		const trend = filterByRange(analysis.sleeping_hr_trend, trendRange);
 		return {
 			type: 'line',
 			data: {
@@ -470,8 +467,7 @@
 
 	// ── Chart: Circadian (polar area) ──
 	let circadianConfig = $derived.by<ChartConfiguration<'polarArea'> | null>(() => {
-		const windowKey = PERIOD_KEY_MAP[trendRange];
-		const profile = analysis?.pattern_windows?.[windowKey]?.circadian_profile ?? analysis?.circadian_profile ?? [];
+		const profile = analysis?.pattern_windows?.[PERIOD_KEY_MAP[trendRange]]?.circadian_profile ?? [];
 		if (profile.length === 0) return null;
 		const values = profile.map((p) => p.avg_bpm ?? 0);
 		const minBpm = Math.min(...values.filter((v) => v > 0));

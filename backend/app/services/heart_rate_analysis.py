@@ -2,8 +2,7 @@
 
 from bisect import bisect_right
 from collections.abc import Sequence
-from datetime import date as date_type
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from ..infra import cache
 from ..infra.database import load_daily_metrics, load_sleep, load_wellness
@@ -22,7 +21,7 @@ from ..models import (
     WeeklyRestingHRBox,
 )
 from ..utils.timeutil import parse_iso as _parse_iso
-from ._windows import WINDOW_DAYS
+from ._windows import compute_windows
 
 
 def _compute_circadian_profile(
@@ -253,32 +252,19 @@ def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
     all_wellness = load_wellness()
     all_sleep = load_sleep()
     metrics = load_daily_metrics()
+    pattern_windows = compute_windows(
+        all_wellness,
+        lambda subset: HRPatternWindow(
+            circadian_profile=_compute_circadian_profile(subset),
+        ),
+    )
     return HeartRateAnalysisResponse(
-        circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
         resting_hr_trend=_compute_resting_hr_trend(metrics),
         daily_avg_trend=_compute_daily_avg_trend(metrics),
         weekly_boxplots=_compute_weekly_boxplots(metrics),
-        pattern_windows=_compute_pattern_windows(all_wellness),
+        pattern_windows=pattern_windows,
     )
-
-
-def _compute_pattern_windows(
-    all_wellness: list[DayWellness],
-) -> dict[str, HRPatternWindow]:
-    """Pre-compute circadian profiles for each time window."""
-    today = date_type.today()
-    windows: dict[str, HRPatternWindow] = {}
-    for label, days in WINDOW_DAYS.items():
-        if days is None:
-            subset = all_wellness
-        else:
-            cutoff = (today - timedelta(days=days)).isoformat()
-            subset = [w for w in all_wellness if w.date >= cutoff]
-        windows[label] = HRPatternWindow(
-            circadian_profile=_compute_circadian_profile(subset),
-        )
-    return windows
 
 
 def load_hr_distribution(date: str) -> HRDistributionResponse:
