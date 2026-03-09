@@ -15,11 +15,14 @@ from ..models import (
     HeartRateAnalysisResponse,
     HRDistributionResponse,
     HRHistogramBin,
+    HRPatternWindow,
     RestingHRTrendPoint,
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
+from ..stats import trailing_ma7
 from ..utils.timeutil import parse_iso as _parse_iso
+from ._windows import compute_windows
 
 
 def _compute_circadian_profile(
@@ -117,11 +120,9 @@ def _compute_sleeping_hr_trend(
             ))
 
     # Compute 7-day trailing moving average
-    values = [p.avg_sleeping_bpm for p in result]
+    ma7_values = trailing_ma7([p.avg_sleeping_bpm for p in result])
     for i, point in enumerate(result):
-        window_start = max(0, i - 6)
-        window = [v for v in values[window_start : i + 1] if v is not None]
-        point.ma7_bpm = round(sum(window) / len(window), 1) if window else None
+        point.ma7_bpm = ma7_values[i]
 
     return result
 
@@ -130,41 +131,37 @@ def _compute_resting_hr_trend(
     metrics: list[DailyMetric],
 ) -> list[RestingHRTrendPoint]:
     """Raw resting HR + 7-day trailing moving average."""
-    points: list[RestingHRTrendPoint] = []
-    resting_values: list[int | None] = [m.heart_rate.resting for m in metrics]
+    resting_values: list[float | None] = [
+        float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
+        for m in metrics
+    ]
+    ma7_values = trailing_ma7(resting_values)
 
-    for i, m in enumerate(metrics):
-        resting = resting_values[i]
-        # 7-day trailing window: i-6 to i inclusive
-        window_start = max(0, i - 6)
-        window = [v for v in resting_values[window_start:i + 1] if v is not None]
-        ma7 = round(sum(window) / len(window), 1) if window else None
-        points.append(RestingHRTrendPoint(
+    return [
+        RestingHRTrendPoint(
             date=m.date,
-            resting_bpm=resting,
-            ma7_bpm=ma7,
-        ))
-    return points
+            resting_bpm=m.heart_rate.resting,
+            ma7_bpm=ma7_values[i],
+        )
+        for i, m in enumerate(metrics)
+    ]
 
 
 def _compute_daily_avg_trend(
     metrics: list[DailyMetric],
 ) -> list[DailyAvgHRTrendPoint]:
     """Raw daily avg HR + 7-day trailing moving average."""
-    points: list[DailyAvgHRTrendPoint] = []
     avg_values: list[float | None] = [m.heart_rate.avg for m in metrics]
+    ma7_values = trailing_ma7(avg_values)
 
-    for i, m in enumerate(metrics):
-        avg = avg_values[i]
-        window_start = max(0, i - 6)
-        window = [v for v in avg_values[window_start:i + 1] if v is not None]
-        ma7 = round(sum(window) / len(window), 1) if window else None
-        points.append(DailyAvgHRTrendPoint(
+    return [
+        DailyAvgHRTrendPoint(
             date=m.date,
-            avg_bpm=avg,
-            ma7_bpm=ma7,
-        ))
-    return points
+            avg_bpm=avg_values[i],
+            ma7_bpm=ma7_values[i],
+        )
+        for i, m in enumerate(metrics)
+    ]
 
 
 def _compute_hr_distribution(
@@ -250,12 +247,18 @@ def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
     all_wellness = load_wellness()
     all_sleep = load_sleep()
     metrics = load_daily_metrics()
+    pattern_windows = compute_windows(
+        all_wellness,
+        lambda subset: HRPatternWindow(
+            circadian_profile=_compute_circadian_profile(subset),
+        ),
+    )
     return HeartRateAnalysisResponse(
-        circadian_profile=_compute_circadian_profile(all_wellness),
         sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
         resting_hr_trend=_compute_resting_hr_trend(metrics),
         daily_avg_trend=_compute_daily_avg_trend(metrics),
         weekly_boxplots=_compute_weekly_boxplots(metrics),
+        pattern_windows=pattern_windows,
     )
 
 

@@ -18,6 +18,8 @@
 	import { fmt, fmtSigned } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, trendCutoff, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -25,6 +27,7 @@
 	let analysis: HRAnalysis | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let trendRange: TrendRange = $state('3M');
 
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HeartRateInsights | null = $state(null);
@@ -126,8 +129,9 @@
 	let latestRecovery = $derived.by(() => latestInsights?.recovery ?? null);
 
 	let latestStats = $derived.by(() => {
-		if (!agg?.period) return null;
-		const hr = agg.period.heart_rate;
+		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
+		if (!pw) return null;
+		const hr = pw.heart_rate;
 		return { overallAvg: hr.avg, typicalLow: hr.typical_low, typicalHigh: hr.typical_high, avgResting: hr.avg_resting };
 	});
 
@@ -143,7 +147,7 @@
 	let dayRecoveryMap = $derived.by(() => {
 		if (!agg) return new Map<string, string>();
 		const map = new Map<string, string>();
-		const avgResting = agg.period?.heart_rate.avg_resting;
+		const avgResting = agg.period_windows?.[PERIOD_KEY_MAP[trendRange]]?.heart_rate.avg_resting;
 		if (avgResting == null) return map;
 		for (const d of agg.daily) {
 			const rhr = d.heart_rate.resting;
@@ -356,9 +360,10 @@
 	// ── Chart: Daily Avg HR (with 7-day MA) ──
 	let dailyAvgConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.daily_avg_trend.length === 0) return null;
-		const t = analysis.daily_avg_trend;
-		const typicalLow = agg?.period?.heart_rate.typical_low ?? null;
-		const typicalHigh = agg?.period?.heart_rate.typical_high ?? null;
+		const t = filterByRange(analysis.daily_avg_trend, trendRange);
+		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
+		const typicalLow = pw?.heart_rate.typical_low ?? null;
+		const typicalHigh = pw?.heart_rate.typical_high ?? null;
 		const labels = t.map((p) => p.date);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
 
@@ -403,7 +408,7 @@
 	// ── Chart: Resting HR (with 7-day MA) ──
 	let restingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.resting_hr_trend.length === 0) return null;
-		const t = analysis.resting_hr_trend;
+		const t = filterByRange(analysis.resting_hr_trend, trendRange);
 		return {
 			type: 'line',
 			data: {
@@ -433,7 +438,7 @@
 	// ── Chart: Sleeping HR ──
 	let sleepingHRConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.sleeping_hr_trend.length === 0) return null;
-		const trend = analysis.sleeping_hr_trend;
+		const trend = filterByRange(analysis.sleeping_hr_trend, trendRange);
 		return {
 			type: 'line',
 			data: {
@@ -462,8 +467,8 @@
 
 	// ── Chart: Circadian (polar area) ──
 	let circadianConfig = $derived.by<ChartConfiguration<'polarArea'> | null>(() => {
-		if (!analysis || analysis.circadian_profile.length === 0) return null;
-		const profile = analysis.circadian_profile;
+		const profile = analysis?.pattern_windows?.[PERIOD_KEY_MAP[trendRange]]?.circadian_profile ?? [];
+		if (profile.length === 0) return null;
 		const values = profile.map((p) => p.avg_bpm ?? 0);
 		const minBpm = Math.min(...values.filter((v) => v > 0));
 		const maxBpm = Math.max(...values);
@@ -525,7 +530,13 @@
 	// ── Chart: Weekly Boxplot ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
-		const boxes = analysis.weekly_boxplots;
+		const cutoff = trendCutoff(trendRange);
+		const boxes = cutoff
+			? analysis.weekly_boxplots.filter((b) => {
+				const d = isoWeekToMonday(b.iso_week);
+				return d ? d.toISOString().slice(0, 10) >= cutoff : true;
+			})
+			: analysis.weekly_boxplots;
 		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
 		return {
 			type: 'line',
@@ -832,6 +843,7 @@
 
 	<div class="section-header tier3-header">
 		<span class="section-label">Trends</span>
+		<TrendRangePicker bind:value={trendRange} />
 	</div>
 
 	<!-- Heart Rate Trends — side by side -->

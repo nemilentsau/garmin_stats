@@ -18,12 +18,6 @@ from app.models import (
     DaySkinTemp,
     DaySleep,
     DayWellness,
-    PeriodHeartRateStats,
-    PeriodHrvStats,
-    PeriodMetricStats,
-    PeriodSkinTempStats,
-    PeriodSpo2Stats,
-    PeriodSummary,
 )
 
 
@@ -172,31 +166,6 @@ class TestStoreAndLoad:
 # ---------------------------------------------------------------------------
 # Period summary storage
 # ---------------------------------------------------------------------------
-
-class TestPeriodSummary:
-    def test_period_summary_survives_round_trip(self):
-        period = PeriodSummary(
-            heart_rate=PeriodHeartRateStats(avg=70.0, avg_resting=48.0),
-            stress=PeriodMetricStats(avg=25.0),
-            respiration=PeriodMetricStats(avg=14.0),
-            hrv=PeriodHrvStats(avg_nightly=55.0, total_days=30),
-            spo2=PeriodSpo2Stats(avg=96.0, total_days=30),
-            skin_temp=PeriodSkinTempStats(avg_deviation=0.1, days_tracked=28),
-        )
-        with db._connect() as con:
-            con.execute(
-                "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
-                ("period_summary", period.model_dump_json()),
-            )
-            con.commit()
-        loaded = db.load_period_summary()
-        assert loaded is not None
-        assert loaded.heart_rate.avg == 70.0
-        assert loaded.hrv.total_days == 30
-
-    def test_returns_none_when_no_summary_stored(self):
-        assert db.load_period_summary() is None
-
 
 # ---------------------------------------------------------------------------
 # _delete_stale_day_rows

@@ -23,7 +23,6 @@ from ..models import (
     DayWellness,
     IngestResult,
     IngestStatus,
-    PeriodSummary,
 )
 from ..parser import get_files_by_day, parse_all_days
 from ..stats import compute_daily_aggregates
@@ -186,18 +185,11 @@ def ingest_all(data_dir: Path) -> IngestResult:
                     (metric.date, metric.model_dump_json(), now),
                 )
 
-            # Period summary
+            # Metadata
             meta_upsert = (
                 "INSERT OR REPLACE INTO ingest_meta"
                 " (key, value) VALUES (?, ?)"
             )
-            if agg.period:
-                con.execute(
-                    meta_upsert,
-                    ("period_summary", agg.period.model_dump_json()),
-                )
-
-            # Metadata
             fingerprint = compute_data_fingerprint(data_dir)
             duration_ms = int((time.monotonic() - t0) * 1000)
             meta = {
@@ -313,20 +305,6 @@ def load_hrv(date: str | None = None) -> list[DayHrv]:
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
     """Load skin temp data, optionally filtered by date."""
     return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
-
-
-def load_period_summary() -> PeriodSummary | None:
-    """Load the precomputed period summary from DB (cached until next ingest)."""
-    hit = cache.get(cache.PERIOD_SUMMARY)
-    if hit is not None:
-        return hit
-    gen = cache.generation()
-    raw = _get_meta("period_summary")
-    if raw is None:
-        return None
-    result = PeriodSummary.model_validate_json(raw)
-    cache.put(cache.PERIOD_SUMMARY, result, gen)
-    return result
 
 
 def load_available_days() -> list[str]:

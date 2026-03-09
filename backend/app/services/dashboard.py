@@ -7,9 +7,15 @@ from ..models import (
     CorrelationPoint,
     DailyMetric,
     DashboardOverviewResponse,
+    DashboardSparklines,
     MetricCorrelation,
     ReadinessScore,
+    SparklinePoint,
+    SparklineSeries,
+    SparklineSummary,
+    TodayVitals,
 )
+from ..stats import trailing_ma7
 
 
 def _normalize_hrv_status(raw: str | None) -> str:
@@ -137,6 +143,81 @@ def _compute_readiness(
     )
 
 
+def _compute_vitals(
+    metrics: list[DailyMetric], selected_index: int,
+) -> TodayVitals:
+    """Extract today's key vitals with 7-day deltas."""
+    selected = metrics[selected_index]
+
+    # Resting HR delta (reuse existing pattern)
+    resting_delta = _resting_delta(metrics, selected_index)
+
+    # Nightly HRV delta vs 7-day average
+    nightly = selected.hrv.nightly_avg
+    previous_nightly = [
+        m.hrv.nightly_avg
+        for m in metrics[max(0, selected_index - 7):selected_index]
+        if m.hrv.nightly_avg is not None
+    ]
+    hrv_delta: float | None = None
+    if nightly is not None and previous_nightly:
+        hrv_delta = round(nightly - sum(previous_nightly) / len(previous_nightly), 1)
+
+    return TodayVitals(
+        resting_hr=selected.heart_rate.resting,
+        resting_hr_delta_7d=resting_delta,
+        nightly_hrv=nightly,
+        nightly_hrv_delta_7d=hrv_delta,
+        hrv_status=_normalize_hrv_status(selected.hrv.status),
+        sleep_score=selected.sleep.score,
+        stress_avg=selected.stress.avg,
+    )
+
+
+_SPARKLINE_DAYS = 91  # ~3 months
+
+
+def _build_series(
+    window: list[DailyMetric],
+    raw_vals: list[float | None],
+) -> SparklineSeries:
+    """Build a SparklineSeries with points, MA, and summary stats."""
+    ma_vals = trailing_ma7(raw_vals)
+    non_null = [v for v in raw_vals if v is not None]
+    summary = SparklineSummary(
+        avg=round(sum(non_null) / len(non_null), 1) if non_null else None,
+        min=round(min(non_null), 1) if non_null else None,
+        max=round(max(non_null), 1) if non_null else None,
+    )
+    points = [
+        SparklinePoint(date=m.date, value=raw_vals[i], ma7=ma_vals[i])
+        for i, m in enumerate(window)
+    ]
+    return SparklineSeries(points=points, summary=summary)
+
+
+def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
+    """Build 3-month sparkline data for 4 key metrics with 7-day MA."""
+    window = metrics[-_SPARKLINE_DAYS:]
+
+    return DashboardSparklines(
+        resting_hr=_build_series(window, [
+            float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
+            for m in window
+        ]),
+        nightly_hrv=_build_series(window, [
+            m.hrv.nightly_avg for m in window
+        ]),
+        sleep_score=_build_series(window, [
+            float(m.sleep.score) if m.sleep.score is not None else None
+            for m in window
+        ]),
+        stress_avg=_build_series(window, [
+            m.stress.avg for m in window
+        ]),
+    )
+
+
 _MIN_CORRELATION_POINTS = 7
 
 
@@ -196,10 +277,14 @@ def load_dashboard_overview() -> DashboardOverviewResponse:
     rec_status = _recovery_status(metrics, selected_index)
     rest_delta = _resting_delta(metrics, selected_index)
     readiness = _compute_readiness(selected, rec_status, rest_delta)
+    vitals = _compute_vitals(metrics, selected_index)
+    sparklines = _compute_sparklines(metrics)
     correlations = _compute_correlations(metrics)
 
     return DashboardOverviewResponse(
         date=selected.date,
         readiness=readiness,
+        vitals=vitals,
+        sparklines=sparklines,
         correlations=correlations,
     )

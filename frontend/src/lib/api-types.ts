@@ -144,6 +144,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sleep/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sleep Analysis
+         * @description Return period-level sleep analysis (score trend, weekly boxplots).
+         */
+        get: operations["get_sleep_analysis_api_sleep_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/daily-aggregates": {
         parameters: {
             query?: never;
@@ -153,7 +173,7 @@ export interface paths {
         };
         /**
          * Get Daily Agg
-         * @description Get per-day aggregate stats for all metrics, plus period summary.
+         * @description Get per-day aggregate stats for all metrics, plus windowed period summaries.
          */
         get: operations["get_daily_agg_api_daily_aggregates_get"];
         put?: never;
@@ -304,6 +324,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stress/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stress Analysis
+         * @description Return period-level stress analysis (avg trend, weekly boxplots).
+         */
+        get: operations["get_stress_analysis_api_stress_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/body-battery/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Body Battery Analysis
+         * @description Return period-level body battery analysis (trend, weekly boxplots).
+         */
+        get: operations["get_body_battery_analysis_api_body_battery_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -363,12 +423,36 @@ export interface components {
             /** Distance */
             distance: number | null;
         };
+        /** BodyBatteryAnalysisResponse */
+        BodyBatteryAnalysisResponse: {
+            /**
+             * Trend
+             * @default []
+             */
+            trend: components["schemas"]["BodyBatteryTrendPoint"][];
+            /**
+             * Weekly Boxplots
+             * @default []
+             */
+            weekly_boxplots: components["schemas"]["WeeklyBodyBatteryBox"][];
+        };
         /** BodyBatteryReading */
         BodyBatteryReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
+        };
+        /** BodyBatteryTrendPoint */
+        BodyBatteryTrendPoint: {
+            /** Date */
+            date: string;
+            /** Min Val */
+            min_val: number | null;
+            /** Max Val */
+            max_val: number | null;
+            /** Ma7 Min */
+            ma7_min: number | null;
         };
         /** CircadianHRPoint */
         CircadianHRPoint: {
@@ -397,7 +481,13 @@ export interface components {
             days: string[];
             /** Daily */
             daily: components["schemas"]["DailyMetric"][];
-            period: components["schemas"]["PeriodSummary"] | null;
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodSummary"];
+            };
         };
         /** DailyAvgHRTrendPoint */
         DailyAvgHRTrendPoint: {
@@ -507,11 +597,44 @@ export interface components {
             /** Date */
             date: string;
             readiness: components["schemas"]["ReadinessScore"] | null;
+            vitals: components["schemas"]["TodayVitals"] | null;
+            sparklines: components["schemas"]["DashboardSparklines"] | null;
             /**
              * Correlations
              * @default []
              */
             correlations: components["schemas"]["MetricCorrelation"][];
+        };
+        /** DashboardSparklines */
+        DashboardSparklines: {
+            /**
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
+             */
+            resting_hr: components["schemas"]["SparklineSeries"];
+            /**
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
+             */
+            nightly_hrv: components["schemas"]["SparklineSeries"];
+            /**
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
+             */
+            sleep_score: components["schemas"]["SparklineSeries"];
+            /**
+             * @default {
+             *       "points": [],
+             *       "summary": {}
+             *     }
+             */
+            stress_avg: components["schemas"]["SparklineSeries"];
         };
         /** DaySummaryResponse */
         DaySummaryResponse: {
@@ -557,6 +680,17 @@ export interface components {
             /** Count */
             count: number;
         };
+        /**
+         * HRPatternWindow
+         * @description Pre-computed circadian profile for a time window.
+         */
+        HRPatternWindow: {
+            /**
+             * Circadian Profile
+             * @default []
+             */
+            circadian_profile: components["schemas"]["CircadianHRPoint"][];
+        };
         /** HRZoneBucket */
         HRZoneBucket: {
             /** Label */
@@ -591,11 +725,6 @@ export interface components {
         /** HeartRateAnalysisResponse */
         HeartRateAnalysisResponse: {
             /**
-             * Circadian Profile
-             * @default []
-             */
-            circadian_profile: components["schemas"]["CircadianHRPoint"][];
-            /**
              * Sleeping Hr Trend
              * @default []
              */
@@ -615,6 +744,13 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyRestingHRBox"][];
+            /**
+             * Pattern Windows
+             * @default {}
+             */
+            pattern_windows: {
+                [key: string]: components["schemas"]["HRPatternWindow"];
+            };
         };
         /** HeartRateDataQuality */
         HeartRateDataQuality: {
@@ -682,6 +818,13 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyHrvBox"][];
+            /**
+             * Pattern Windows
+             * @default {}
+             */
+            pattern_windows: {
+                [key: string]: components["schemas"]["HrvPatternWindow"];
+            };
         };
         /** HrvBaselineBands */
         HrvBaselineBands: {
@@ -829,6 +972,18 @@ export interface components {
             /** Delta 7D Vs 30D */
             delta_7d_vs_30d: number | null;
         };
+        /**
+         * HrvPatternWindow
+         * @description Pre-computed distribution + day-of-week for a time window.
+         */
+        HrvPatternWindow: {
+            distribution: components["schemas"]["HrvDistribution"] | null;
+            /**
+             * Day Of Week
+             * @default []
+             */
+            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
+        };
         /** HrvRecovery */
         HrvRecovery: {
             /** Baseline Nightly 7D */
@@ -965,6 +1120,18 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
+        /** PeriodBodyBatteryStats */
+        PeriodBodyBatteryStats: {
+            /** Avg Min */
+            avg_min: number | null;
+            /** Avg Max */
+            avg_max: number | null;
+            /**
+             * Days Tracked
+             * @default 0
+             */
+            days_tracked: number;
+        };
         /** PeriodHeartRateStats */
         PeriodHeartRateStats: {
             /** Avg */
@@ -1020,6 +1187,18 @@ export interface components {
              */
             days_tracked: number;
         };
+        /** PeriodSleepStats */
+        PeriodSleepStats: {
+            /** Avg Score */
+            avg_score: number | null;
+            /** Avg Deep Score */
+            avg_deep_score: number | null;
+            /**
+             * Days Tracked
+             * @default 0
+             */
+            days_tracked: number;
+        };
         /** PeriodSpo2Stats */
         PeriodSpo2Stats: {
             /** Avg */
@@ -1045,6 +1224,8 @@ export interface components {
             hrv: components["schemas"]["PeriodHrvStats"];
             spo2: components["schemas"]["PeriodSpo2Stats"];
             skin_temp: components["schemas"]["PeriodSkinTempStats"];
+            sleep: components["schemas"]["PeriodSleepStats"];
+            body_battery: components["schemas"]["PeriodBodyBatteryStats"];
         };
         /** ReadinessScore */
         ReadinessScore: {
@@ -1107,6 +1288,19 @@ export interface components {
             /** Skin Temp Overnight */
             skin_temp_overnight: components["schemas"]["SkinTempOvernight"][];
         };
+        /** SleepAnalysisResponse */
+        SleepAnalysisResponse: {
+            /**
+             * Score Trend
+             * @default []
+             */
+            score_trend: components["schemas"]["SleepTrendPoint"][];
+            /**
+             * Weekly Boxplots
+             * @default []
+             */
+            weekly_boxplots: components["schemas"]["WeeklySleepBox"][];
+        };
         /** SleepAssessment */
         SleepAssessment: {
             /** Date */
@@ -1144,6 +1338,19 @@ export interface components {
             /** Sleep Assessments */
             sleep_assessments: components["schemas"]["SleepAssessment"][];
         };
+        /** SleepTrendPoint */
+        SleepTrendPoint: {
+            /** Date */
+            date: string;
+            /** Score */
+            score: number | null;
+            /** Deep Score */
+            deep_score: number | null;
+            /** Rem Score */
+            rem_score: number | null;
+            /** Ma7 */
+            ma7: number | null;
+        };
         /** SleepingHRPoint */
         SleepingHRPoint: {
             /** Date */
@@ -1169,6 +1376,34 @@ export interface components {
             /** Mode */
             mode: string;
         };
+        /** SparklinePoint */
+        SparklinePoint: {
+            /** Date */
+            date: string;
+            /** Value */
+            value: number | null;
+            /** Ma7 */
+            ma7: number | null;
+        };
+        /** SparklineSeries */
+        SparklineSeries: {
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["SparklinePoint"][];
+            /** @default {} */
+            summary: components["schemas"]["SparklineSummary"];
+        };
+        /** SparklineSummary */
+        SparklineSummary: {
+            /** Avg */
+            avg: number | null;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
+        };
         /** StepsReading */
         StepsReading: {
             /** Timestamp */
@@ -1180,12 +1415,51 @@ export interface components {
             /** Calories */
             calories: number | null;
         };
+        /** StressAnalysisResponse */
+        StressAnalysisResponse: {
+            /**
+             * Avg Trend
+             * @default []
+             */
+            avg_trend: components["schemas"]["StressTrendPoint"][];
+            /**
+             * Weekly Boxplots
+             * @default []
+             */
+            weekly_boxplots: components["schemas"]["WeeklyStressBox"][];
+        };
         /** StressReading */
         StressReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
+        };
+        /** StressTrendPoint */
+        StressTrendPoint: {
+            /** Date */
+            date: string;
+            /** Avg */
+            avg: number | null;
+            /** Ma7 */
+            ma7: number | null;
+        };
+        /** TodayVitals */
+        TodayVitals: {
+            /** Resting Hr */
+            resting_hr: number | null;
+            /** Resting Hr Delta 7D */
+            resting_hr_delta_7d: number | null;
+            /** Nightly Hrv */
+            nightly_hrv: number | null;
+            /** Nightly Hrv Delta 7D */
+            nightly_hrv_delta_7d: number | null;
+            /** Hrv Status */
+            hrv_status: string | null;
+            /** Sleep Score */
+            sleep_score: number | null;
+            /** Stress Avg */
+            stress_avg: number | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1199,6 +1473,26 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeeklyBodyBatteryBox */
+        WeeklyBodyBatteryBox: {
+            /** Iso Week */
+            iso_week: string;
+            /** Min Val */
+            min_val: number | null;
+            /** Q1 Val */
+            q1_val: number | null;
+            /** Median Val */
+            median_val: number | null;
+            /** Q3 Val */
+            q3_val: number | null;
+            /** Max Val */
+            max_val: number | null;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
         };
         /** WeeklyHrvBox */
         WeeklyHrvBox: {
@@ -1234,6 +1528,46 @@ export interface components {
             q3_bpm: number | null;
             /** Max Bpm */
             max_bpm: number | null;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
+        };
+        /** WeeklySleepBox */
+        WeeklySleepBox: {
+            /** Iso Week */
+            iso_week: string;
+            /** Min Score */
+            min_score: number | null;
+            /** Q1 Score */
+            q1_score: number | null;
+            /** Median Score */
+            median_score: number | null;
+            /** Q3 Score */
+            q3_score: number | null;
+            /** Max Score */
+            max_score: number | null;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
+        };
+        /** WeeklyStressBox */
+        WeeklyStressBox: {
+            /** Iso Week */
+            iso_week: string;
+            /** Min Avg */
+            min_avg: number | null;
+            /** Q1 Avg */
+            q1_avg: number | null;
+            /** Median Avg */
+            median_avg: number | null;
+            /** Q3 Avg */
+            q3_avg: number | null;
+            /** Max Avg */
+            max_avg: number | null;
             /**
              * Day Count
              * @default 0
@@ -1441,6 +1775,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sleep_analysis_api_sleep_analysis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SleepAnalysisResponse"];
                 };
             };
         };
@@ -1661,6 +2015,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stress_analysis_api_stress_analysis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StressAnalysisResponse"];
+                };
+            };
+        };
+    };
+    get_body_battery_analysis_api_body_battery_analysis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyBatteryAnalysisResponse"];
                 };
             };
         };

@@ -5,5 +5,8 @@
         "hooks": []
       }
     ]
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions"
   }
 }

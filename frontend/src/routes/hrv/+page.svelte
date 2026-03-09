@@ -4,21 +4,26 @@
 	import {
 		api,
 		type DailyAggregates,
+		type DashboardOverview,
 		type HrvInsights,
 		type HrvAnalysis
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
+	import ScatterChart from '$lib/components/ScatterChart.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
 	let agg: DailyAggregates | null = $state(null);
 	let analysis: HrvAnalysis | null = $state(null);
+	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
@@ -33,12 +38,14 @@
 
 	// ── Data fetching ──
 	async function fetchData() {
-		const [nextAgg, nextAnalysis] = await Promise.all([
+		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
 			api.getDailyAggregates(),
-			api.getHrvAnalysis()
+			api.getHrvAnalysis(),
+			api.getDashboardOverview()
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
+		dashOverview = nextOverview;
 
 		// Always fetch latest day data for Tier 1
 		if (nextAgg.days.length > 0) {
@@ -166,8 +173,23 @@
 				scales: {
 					x: {
 						type: 'time',
-						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, ...DARK_TICK },
+						time: {
+							unit: 'hour',
+							displayFormats: { hour: 'HH:mm' },
+							parser: (v: unknown) => {
+								// Parse as UTC to avoid browser DST reinterpretation
+								const [y, mo, d, h, mi, s] = String(v).match(/\d+/g)!.map(Number);
+								return Date.UTC(y, mo - 1, d, h, mi, s);
+							}
+						},
+						ticks: {
+							font: { size: 10 },
+							...DARK_TICK,
+							callback: (val: string | number) => {
+								const dt = new Date(Number(val));
+								return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
+							}
+						},
 						grid: DARK_GRID,
 						border: DARK_BORDER
 					},
@@ -192,6 +214,9 @@
 		() => historicalInsights?.intraday_segments.find((s) => s.key === 'all') ?? null
 	);
 	let historicalIntradayConfig = $derived.by(() => makeIntradayConfig(historicalIntradaySegment, COLORS.hrv));
+
+	// ── Trend time-window ──
+	let trendRange: TrendRange = $state('3M');
 
 	// ── Trend chart helpers ──
 	const darkPlugins = {
@@ -228,7 +253,8 @@
 	// ── Trend chart: Nightly HRV with 7-day MA ──
 	let nightlyTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.nightly_trend.length === 0) return null;
-		const t = analysis.nightly_trend;
+		const cutoff = trendCutoff(trendRange);
+		const t = cutoff ? analysis.nightly_trend.filter((p) => p.date >= cutoff) : analysis.nightly_trend;
 		const lowBand = latestInsights?.trend_band.nightly_typical_low ?? null;
 		const highBand = latestInsights?.trend_band.nightly_typical_high ?? null;
 		const baseline30d = latestInsights?.long_baseline?.baseline_30d ?? null;
@@ -358,7 +384,13 @@
 	// ── Boxplot chart: Weekly HRV spread ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
-		const boxes = analysis.weekly_boxplots;
+		const cutoff = trendCutoff(trendRange);
+		const boxes = cutoff
+			? analysis.weekly_boxplots.filter((b) => {
+					const mon = isoWeekToMonday(b.iso_week);
+					return mon ? mon.toISOString().slice(0, 10) >= cutoff : true;
+				})
+			: analysis.weekly_boxplots;
 		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
 
 		return {
@@ -460,8 +492,14 @@
 		};
 	});
 
+	// ── Pattern window (3M floor: 1M→3M, others pass through) ──
+	let patternWindow = $derived.by(() => {
+		const key = PERIOD_KEY_MAP[trendRange];
+		return analysis?.pattern_windows?.[key] ?? null;
+	});
+
 	// ── Distribution chart ──
-	let distribution = $derived.by(() => latestInsights?.distribution ?? null);
+	let distribution = $derived.by(() => patternWindow?.distribution ?? null);
 
 	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (!distribution || distribution.bins.length === 0) return null;
@@ -510,7 +548,7 @@
 	});
 
 	// ── Day of Week chart ──
-	let dayOfWeek = $derived.by(() => latestInsights?.day_of_week ?? []);
+	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
 	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (dayOfWeek.length === 0) return null;
@@ -582,6 +620,68 @@
 		if (direction === 'rising') return '#4CAF82';
 		if (direction === 'falling') return '#E85D4A';
 		return '#8a9baa';
+	}
+
+	// ── Correlations (from dashboard overview) ──
+	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
+
+	function makeScatterConfig(corr: CorrelationItem): ChartConfiguration<'scatter'> {
+		return {
+			type: 'scatter',
+			data: {
+				datasets: [
+					{
+						label: corr.label,
+						data: corr.points.map((p) => ({ x: p.hrv_nightly, y: p.other_value })),
+						backgroundColor: withAlpha(COLORS.hrv, '88'),
+						borderColor: withAlpha(COLORS.hrv, 'cc'),
+						borderWidth: 1,
+						pointRadius: 3,
+						pointHoverRadius: 5
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						...chartTooltip(withAlpha(COLORS.hrv, '60')),
+						callbacks: {
+							label: (ctx) => {
+								const raw = ctx.raw as { x: number; y: number };
+								return `HRV ${raw.x} ms · ${corr.label} ${raw.y}`;
+							}
+						}
+					}
+				},
+				scales: {
+					x: {
+						title: {
+							display: true,
+							text: 'HRV (ms)',
+							...DARK_TICK,
+							font: { family: 'DM Mono', size: 10 }
+						},
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
+					},
+					y: {
+						title: {
+							display: true,
+							text: corr.label,
+							...DARK_TICK,
+							font: { family: 'DM Mono', size: 10 }
+						},
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
 	}
 </script>
 
@@ -813,6 +913,7 @@
 
 	<div class="section-header tier3-header">
 		<span class="section-label">Trends</span>
+		<TrendRangePicker bind:value={trendRange} />
 	</div>
 
 	<!-- Nightly HRV Trend + Weekly Boxplot — side by side -->
@@ -860,6 +961,27 @@
 		{/if}
 	</div>
 
+	<!-- Cross-Domain Correlations -->
+	{#if dashOverview && dashOverview.correlations.length > 0}
+		<div class="section-subheader">
+			<span class="section-sublabel">Cross-Domain Correlations</span>
+		</div>
+		<div class="two-col-row">
+			{#each dashOverview.correlations as corr}
+				<div class="card two-col-item">
+					<div class="corr-header">
+						<h2 class="card-title">HRV vs {corr.label}</h2>
+						{#if corr.r_value != null}
+							<span class="corr-r" style="color:{COLORS.hrv}">r = {corr.r_value}</span>
+						{/if}
+					</div>
+					<ScatterChart config={makeScatterConfig(corr)} height={220} />
+					<p class="card-footnote">{corr.sample_count} nights</p>
+				</div>
+			{/each}
+		</div>
+	{/if}
+
 	<!-- Reading Guide -->
 	<MetricDefinition title="How to Read This Dashboard">
 		<div class="reading-guide">
@@ -902,6 +1024,7 @@
 	}
 	.tier3-header {
 		margin-top: 28px;
+		justify-content: space-between;
 	}
 	.section-label {
 		font-family: 'DM Mono', monospace;
@@ -1343,6 +1466,19 @@
 		font-size: 12px;
 		color: #6b7d8e;
 		margin-top: 2px;
+	}
+
+	/* ── Correlation header ── */
+	.corr-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 10px;
+	}
+	.corr-r {
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+		font-weight: 500;
 	}
 
 	/* ── Responsive ── */

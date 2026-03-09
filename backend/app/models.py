@@ -438,6 +438,18 @@ class PeriodSkinTempStats(_DefaultsRequired):
     days_tracked: int = 0
 
 
+class PeriodSleepStats(_DefaultsRequired):
+    avg_score: float | None = None
+    avg_deep_score: float | None = None
+    days_tracked: int = 0
+
+
+class PeriodBodyBatteryStats(_DefaultsRequired):
+    avg_min: float | None = None
+    avg_max: float | None = None
+    days_tracked: int = 0
+
+
 class PeriodSummary(_DefaultsRequired):
     heart_rate: PeriodHeartRateStats
     stress: PeriodMetricStats
@@ -445,12 +457,14 @@ class PeriodSummary(_DefaultsRequired):
     hrv: PeriodHrvStats
     spo2: PeriodSpo2Stats
     skin_temp: PeriodSkinTempStats
+    sleep: PeriodSleepStats
+    body_battery: PeriodBodyBatteryStats
 
 
 class DailyAggregatesResponse(_DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
-    period: PeriodSummary | None = None
+    period_windows: dict[str, PeriodSummary] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -505,12 +519,17 @@ class WeeklyRestingHRBox(_DefaultsRequired):
     day_count: int = 0
 
 
-class HeartRateAnalysisResponse(_DefaultsRequired):
+class HRPatternWindow(_DefaultsRequired):
+    """Pre-computed circadian profile for a time window."""
     circadian_profile: list[CircadianHRPoint] = []
+
+
+class HeartRateAnalysisResponse(_DefaultsRequired):
     sleeping_hr_trend: list[SleepingHRPoint] = []
     resting_hr_trend: list[RestingHRTrendPoint] = []
     daily_avg_trend: list[DailyAvgHRTrendPoint] = []
     weekly_boxplots: list[WeeklyRestingHRBox] = []
+    pattern_windows: dict[str, HRPatternWindow] = {}
 
 
 class NightlyHrvTrendPoint(_DefaultsRequired):
@@ -529,9 +548,97 @@ class WeeklyHrvBox(_DefaultsRequired):
     day_count: int = 0
 
 
+class HrvPatternWindow(_DefaultsRequired):
+    """Pre-computed distribution + day-of-week for a time window."""
+    distribution: HrvDistribution | None = None
+    day_of_week: list[HrvDayOfWeekBucket] = []
+
+
 class HrvAnalysisResponse(_DefaultsRequired):
     nightly_trend: list[NightlyHrvTrendPoint] = []
     weekly_boxplots: list[WeeklyHrvBox] = []
+    pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
+
+
+# ---------------------------------------------------------------------------
+# Sleep analysis models
+# ---------------------------------------------------------------------------
+
+
+class SleepTrendPoint(_DefaultsRequired):
+    date: str
+    score: int | None = None
+    deep_score: int | None = None
+    rem_score: int | None = None
+    ma7: float | None = None  # 7d MA of score
+
+
+class WeeklySleepBox(_DefaultsRequired):
+    iso_week: str
+    min_score: float | None = None
+    q1_score: float | None = None
+    median_score: float | None = None
+    q3_score: float | None = None
+    max_score: float | None = None
+    day_count: int = 0
+
+
+class SleepAnalysisResponse(_DefaultsRequired):
+    score_trend: list[SleepTrendPoint] = []
+    weekly_boxplots: list[WeeklySleepBox] = []
+
+
+# ---------------------------------------------------------------------------
+# Stress analysis models
+# ---------------------------------------------------------------------------
+
+
+class StressTrendPoint(_DefaultsRequired):
+    date: str
+    avg: float | None = None
+    ma7: float | None = None
+
+
+class WeeklyStressBox(_DefaultsRequired):
+    iso_week: str
+    min_avg: float | None = None
+    q1_avg: float | None = None
+    median_avg: float | None = None
+    q3_avg: float | None = None
+    max_avg: float | None = None
+    day_count: int = 0
+
+
+class StressAnalysisResponse(_DefaultsRequired):
+    avg_trend: list[StressTrendPoint] = []
+    weekly_boxplots: list[WeeklyStressBox] = []
+
+
+# ---------------------------------------------------------------------------
+# Body Battery analysis models
+# ---------------------------------------------------------------------------
+
+
+class BodyBatteryTrendPoint(_DefaultsRequired):
+    date: str
+    min_val: int | None = None
+    max_val: int | None = None
+    ma7_min: float | None = None  # 7d MA of daily min
+
+
+class WeeklyBodyBatteryBox(_DefaultsRequired):
+    iso_week: str
+    min_val: float | None = None
+    q1_val: float | None = None
+    median_val: float | None = None
+    q3_val: float | None = None
+    max_val: float | None = None
+    day_count: int = 0
+
+
+class BodyBatteryAnalysisResponse(_DefaultsRequired):
+    trend: list[BodyBatteryTrendPoint] = []
+    weekly_boxplots: list[WeeklyBodyBatteryBox] = []
 
 
 class DaySummaryResponse(_DefaultsRequired):
@@ -583,7 +690,43 @@ class MetricCorrelation(_DefaultsRequired):
     sample_count: int = 0
 
 
+class TodayVitals(_DefaultsRequired):
+    resting_hr: int | None = None
+    resting_hr_delta_7d: float | None = None
+    nightly_hrv: float | None = None
+    nightly_hrv_delta_7d: float | None = None
+    hrv_status: str | None = None
+    sleep_score: int | None = None
+    stress_avg: float | None = None
+
+
+class SparklinePoint(_DefaultsRequired):
+    date: str
+    value: float | None = None
+    ma7: float | None = None
+
+
+class SparklineSummary(_DefaultsRequired):
+    avg: float | None = None
+    min: float | None = None
+    max: float | None = None
+
+
+class SparklineSeries(_DefaultsRequired):
+    points: list[SparklinePoint] = []
+    summary: SparklineSummary = SparklineSummary()
+
+
+class DashboardSparklines(_DefaultsRequired):
+    resting_hr: SparklineSeries = SparklineSeries()
+    nightly_hrv: SparklineSeries = SparklineSeries()
+    sleep_score: SparklineSeries = SparklineSeries()
+    stress_avg: SparklineSeries = SparklineSeries()
+
+
 class DashboardOverviewResponse(_DefaultsRequired):
     date: str
     readiness: ReadinessScore | None = None
+    vitals: TodayVitals | None = None
+    sparklines: DashboardSparklines | None = None
     correlations: list[MetricCorrelation] = []

@@ -29,6 +29,10 @@ export type HeartRateInsights = Schemas['HeartRateInsightsResponse'];
 export type HrvInsights = Schemas['HrvInsightsResponse'];
 export type DashboardOverview = Schemas['DashboardOverviewResponse'];
 
+export type SleepAnalysis = Schemas['SleepAnalysisResponse'];
+export type StressAnalysis = Schemas['StressAnalysisResponse'];
+export type BodyBatteryAnalysis = Schemas['BodyBatteryAnalysisResponse'];
+
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
 	if (!response.ok) {
@@ -56,5 +60,8 @@ export const api = {
 		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
 	getDays: () => fetchJson<Schemas['DaysResponse']>('/api/days'),
 	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
-	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status')
+	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status'),
+	getSleepAnalysis: () => fetchJson<SleepAnalysis>('/api/sleep/analysis'),
+	getStressAnalysis: () => fetchJson<StressAnalysis>('/api/stress/analysis'),
+	getBodyBatteryAnalysis: () => fetchJson<BodyBatteryAnalysis>('/api/body-battery/analysis')
 };
