@@ -3,7 +3,8 @@ Aggregation and flattening — consumes typed parser output, produces API respon
 No FIT file knowledge here.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from datetime import date as date_type
 
 import numpy as np
 
@@ -26,10 +27,12 @@ from .models import (
     HeartRateReading,
     HrvResponse,
     HRZoneBucket,
+    PeriodBodyBatteryStats,
     PeriodHeartRateStats,
     PeriodHrvStats,
     PeriodMetricStats,
     PeriodSkinTempStats,
+    PeriodSleepStats,
     PeriodSpo2Stats,
     PeriodSummary,
     RespirationReading,
@@ -123,6 +126,26 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
         window = [v for v in values[window_start : i + 1] if v is not None]
         result.append(round(sum(window) / len(window), 1) if window else None)
     return result
+
+
+def group_by_iso_week(
+    metrics: list[DailyMetric],
+    value_fn: Callable[[DailyMetric], float | None],
+) -> dict[str, list[float]]:
+    """Group daily metric values by ISO week, skipping None values."""
+    weeks: dict[str, list[float]] = {}
+    for m in metrics:
+        val = value_fn(m)
+        if val is None:
+            continue
+        try:
+            d = date_type.fromisoformat(m.date)
+        except ValueError:
+            continue
+        iso_year, iso_week, _ = d.isocalendar()
+        key = f"{iso_year}-W{iso_week:02d}"
+        weeks.setdefault(key, []).append(val)
+    return weeks
 
 
 # ---------------------------------------------------------------------------
@@ -325,6 +348,25 @@ def compute_period_summary(days: list[DayData]) -> PeriodSummary:
             if r.nightly_value is not None:
                 skin_nightlys.append(r.nightly_value)
 
+    # Sleep: collect scores from assessments
+    sleep_scores: list[float] = []
+    deep_scores: list[float] = []
+    for d in days:
+        for a in d.sleep.sleep_assessments:
+            if a.overall_score is not None:
+                sleep_scores.append(a.overall_score)
+            if a.deep_sleep_score is not None:
+                deep_scores.append(a.deep_sleep_score)
+
+    # Body battery: collect per-day min/max
+    bb_mins: list[float] = []
+    bb_maxes: list[float] = []
+    for d in days:
+        vals = [r.value for r in d.wellness.body_battery]
+        if vals:
+            bb_mins.append(min(vals))
+            bb_maxes.append(max(vals))
+
     balanced = sum(1 for s in hrv_statuses if "balanced" in s.lower())
 
     return PeriodSummary(
@@ -363,6 +405,16 @@ def compute_period_summary(days: list[DayData]) -> PeriodSummary:
             min_deviation=round(min(skin_devs), 2) if skin_devs else None,
             avg_nightly=safe_avg(skin_nightlys),
             days_tracked=len(skin_devs),
+        ),
+        sleep=PeriodSleepStats(
+            avg_score=safe_avg(sleep_scores),
+            avg_deep_score=safe_avg(deep_scores),
+            days_tracked=len(sleep_scores),
+        ),
+        body_battery=PeriodBodyBatteryStats(
+            avg_min=safe_avg(bb_mins),
+            avg_max=safe_avg(bb_maxes),
+            days_tracked=len(bb_mins),
         ),
     )
 

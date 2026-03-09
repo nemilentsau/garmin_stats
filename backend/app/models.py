@@ -438,6 +438,18 @@ class PeriodSkinTempStats(_DefaultsRequired):
     days_tracked: int = 0
 
 
+class PeriodSleepStats(_DefaultsRequired):
+    avg_score: float | None = None
+    avg_deep_score: float | None = None
+    days_tracked: int = 0
+
+
+class PeriodBodyBatteryStats(_DefaultsRequired):
+    avg_min: float | None = None
+    avg_max: float | None = None
+    days_tracked: int = 0
+
+
 class PeriodSummary(_DefaultsRequired):
     heart_rate: PeriodHeartRateStats
     stress: PeriodMetricStats
@@ -445,6 +457,8 @@ class PeriodSummary(_DefaultsRequired):
     hrv: PeriodHrvStats
     spo2: PeriodSpo2Stats
     skin_temp: PeriodSkinTempStats
+    sleep: PeriodSleepStats
+    body_battery: PeriodBodyBatteryStats
 
 
 class DailyAggregatesResponse(_DefaultsRequired):
@@ -544,6 +558,87 @@ class HrvAnalysisResponse(_DefaultsRequired):
     nightly_trend: list[NightlyHrvTrendPoint] = []
     weekly_boxplots: list[WeeklyHrvBox] = []
     pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
+
+
+# ---------------------------------------------------------------------------
+# Sleep analysis models
+# ---------------------------------------------------------------------------
+
+
+class SleepTrendPoint(_DefaultsRequired):
+    date: str
+    score: int | None = None
+    deep_score: int | None = None
+    rem_score: int | None = None
+    ma7: float | None = None  # 7d MA of score
+
+
+class WeeklySleepBox(_DefaultsRequired):
+    iso_week: str
+    min_score: float | None = None
+    q1_score: float | None = None
+    median_score: float | None = None
+    q3_score: float | None = None
+    max_score: float | None = None
+    day_count: int = 0
+
+
+class SleepAnalysisResponse(_DefaultsRequired):
+    score_trend: list[SleepTrendPoint] = []
+    weekly_boxplots: list[WeeklySleepBox] = []
+
+
+# ---------------------------------------------------------------------------
+# Stress analysis models
+# ---------------------------------------------------------------------------
+
+
+class StressTrendPoint(_DefaultsRequired):
+    date: str
+    avg: float | None = None
+    ma7: float | None = None
+
+
+class WeeklyStressBox(_DefaultsRequired):
+    iso_week: str
+    min_avg: float | None = None
+    q1_avg: float | None = None
+    median_avg: float | None = None
+    q3_avg: float | None = None
+    max_avg: float | None = None
+    day_count: int = 0
+
+
+class StressAnalysisResponse(_DefaultsRequired):
+    avg_trend: list[StressTrendPoint] = []
+    weekly_boxplots: list[WeeklyStressBox] = []
+
+
+# ---------------------------------------------------------------------------
+# Body Battery analysis models
+# ---------------------------------------------------------------------------
+
+
+class BodyBatteryTrendPoint(_DefaultsRequired):
+    date: str
+    min_val: int | None = None
+    max_val: int | None = None
+    ma7_min: float | None = None  # 7d MA of daily min
+
+
+class WeeklyBodyBatteryBox(_DefaultsRequired):
+    iso_week: str
+    min_val: float | None = None
+    q1_val: float | None = None
+    median_val: float | None = None
+    q3_val: float | None = None
+    max_val: float | None = None
+    day_count: int = 0
+
+
+class BodyBatteryAnalysisResponse(_DefaultsRequired):
+    trend: list[BodyBatteryTrendPoint] = []
+    weekly_boxplots: list[WeeklyBodyBatteryBox] = []
 
 
 class DaySummaryResponse(_DefaultsRequired):

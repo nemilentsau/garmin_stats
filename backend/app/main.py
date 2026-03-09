@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .infra.database import DATA_DIR, ingest_all, init_db, is_db_empty
 from .infra.watcher import heartbeat_loop, watch_data_directory
+from .routers.body_battery import router as body_battery_router
 from .routers.daily_aggregates import router as daily_aggregates_router
 from .routers.dashboard import router as dashboard_router
 from .routers.days import router as days_router
@@ -20,6 +21,7 @@ from .routers.hrv import router as hrv_router
 from .routers.ingest import router as ingest_router
 from .routers.skin_temp import router as skin_temp_router
 from .routers.sleep import router as sleep_router
+from .routers.stress import router as stress_router
 from .routers.wellness import router as wellness_router
 
 logging.basicConfig(level=logging.INFO)
@@ -83,6 +85,8 @@ app.include_router(daily_aggregates_router)
 app.include_router(skin_temp_router)
 app.include_router(heart_rate_router)
 app.include_router(hrv_router)
+app.include_router(stress_router)
+app.include_router(body_battery_router)
 app.include_router(events_router)
 
 

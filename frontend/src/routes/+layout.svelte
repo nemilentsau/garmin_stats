@@ -9,6 +9,9 @@
 		{ href: '/', label: 'Dashboard' },
 		{ href: '/heart-rate', label: 'Heart Rate' },
 		{ href: '/hrv', label: 'HRV' },
+		{ href: '/sleep', label: 'Sleep' },
+		{ href: '/stress', label: 'Stress' },
+		{ href: '/body-battery', label: 'Body Battery' },
 		{ href: '/respiration', label: 'Respiration' },
 		{ href: '/skin-temp', label: 'Skin Temp' },
 		{ href: '/pulse-ox', label: 'Pulse Ox' }
