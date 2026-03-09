@@ -595,7 +595,31 @@ class MetricCorrelation(_DefaultsRequired):
     sample_count: int = 0
 
 
+class TodayVitals(_DefaultsRequired):
+    resting_hr: int | None = None
+    resting_hr_delta_7d: float | None = None
+    nightly_hrv: float | None = None
+    nightly_hrv_delta_7d: float | None = None
+    hrv_status: str | None = None
+    sleep_score: int | None = None
+    stress_avg: float | None = None
+
+
+class SparklinePoint(_DefaultsRequired):
+    date: str
+    value: float | None = None
+
+
+class DashboardSparklines(_DefaultsRequired):
+    resting_hr: list[SparklinePoint] = []
+    nightly_hrv: list[SparklinePoint] = []
+    sleep_score: list[SparklinePoint] = []
+    stress_avg: list[SparklinePoint] = []
+
+
 class DashboardOverviewResponse(_DefaultsRequired):
     date: str
     readiness: ReadinessScore | None = None
+    vitals: TodayVitals | None = None
+    sparklines: DashboardSparklines | None = None
     correlations: list[MetricCorrelation] = []

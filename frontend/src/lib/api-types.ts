@@ -513,11 +513,36 @@ export interface components {
             /** Date */
             date: string;
             readiness: components["schemas"]["ReadinessScore"] | null;
+            vitals: components["schemas"]["TodayVitals"] | null;
+            sparklines: components["schemas"]["DashboardSparklines"] | null;
             /**
              * Correlations
              * @default []
              */
             correlations: components["schemas"]["MetricCorrelation"][];
+        };
+        /** DashboardSparklines */
+        DashboardSparklines: {
+            /**
+             * Resting Hr
+             * @default []
+             */
+            resting_hr: components["schemas"]["SparklinePoint"][];
+            /**
+             * Nightly Hrv
+             * @default []
+             */
+            nightly_hrv: components["schemas"]["SparklinePoint"][];
+            /**
+             * Sleep Score
+             * @default []
+             */
+            sleep_score: components["schemas"]["SparklinePoint"][];
+            /**
+             * Stress Avg
+             * @default []
+             */
+            stress_avg: components["schemas"]["SparklinePoint"][];
         };
         /** DaySummaryResponse */
         DaySummaryResponse: {
@@ -1207,6 +1232,13 @@ export interface components {
             /** Mode */
             mode: string;
         };
+        /** SparklinePoint */
+        SparklinePoint: {
+            /** Date */
+            date: string;
+            /** Value */
+            value: number | null;
+        };
         /** StepsReading */
         StepsReading: {
             /** Timestamp */
@@ -1224,6 +1256,23 @@ export interface components {
             timestamp: string | null;
             /** Value */
             value: number;
+        };
+        /** TodayVitals */
+        TodayVitals: {
+            /** Resting Hr */
+            resting_hr: number | null;
+            /** Resting Hr Delta 7D */
+            resting_hr_delta_7d: number | null;
+            /** Nightly Hrv */
+            nightly_hrv: number | null;
+            /** Nightly Hrv Delta 7D */
+            nightly_hrv_delta_7d: number | null;
+            /** Hrv Status */
+            hrv_status: string | null;
+            /** Sleep Score */
+            sleep_score: number | null;
+            /** Stress Avg */
+            stress_avg: number | null;
         };
         /** ValidationError */
         ValidationError: {

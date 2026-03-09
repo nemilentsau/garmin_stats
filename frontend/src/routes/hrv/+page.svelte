@@ -4,12 +4,14 @@
 	import {
 		api,
 		type DailyAggregates,
+		type DashboardOverview,
 		type HrvInsights,
 		type HrvAnalysis
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
+	import ScatterChart from '$lib/components/ScatterChart.svelte';
 	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
@@ -21,6 +23,7 @@
 	// ── State ──
 	let agg: DailyAggregates | null = $state(null);
 	let analysis: HrvAnalysis | null = $state(null);
+	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
@@ -35,12 +38,14 @@
 
 	// ── Data fetching ──
 	async function fetchData() {
-		const [nextAgg, nextAnalysis] = await Promise.all([
+		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
 			api.getDailyAggregates(),
-			api.getHrvAnalysis()
+			api.getHrvAnalysis(),
+			api.getDashboardOverview()
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
+		dashOverview = nextOverview;
 
 		// Always fetch latest day data for Tier 1
 		if (nextAgg.days.length > 0) {
@@ -616,6 +621,68 @@
 		if (direction === 'falling') return '#E85D4A';
 		return '#8a9baa';
 	}
+
+	// ── Correlations (from dashboard overview) ──
+	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
+
+	function makeScatterConfig(corr: CorrelationItem): ChartConfiguration<'scatter'> {
+		return {
+			type: 'scatter',
+			data: {
+				datasets: [
+					{
+						label: corr.label,
+						data: corr.points.map((p) => ({ x: p.hrv_nightly, y: p.other_value })),
+						backgroundColor: withAlpha(COLORS.hrv, '88'),
+						borderColor: withAlpha(COLORS.hrv, 'cc'),
+						borderWidth: 1,
+						pointRadius: 3,
+						pointHoverRadius: 5
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						...chartTooltip(withAlpha(COLORS.hrv, '60')),
+						callbacks: {
+							label: (ctx) => {
+								const raw = ctx.raw as { x: number; y: number };
+								return `HRV ${raw.x} ms · ${corr.label} ${raw.y}`;
+							}
+						}
+					}
+				},
+				scales: {
+					x: {
+						title: {
+							display: true,
+							text: 'HRV (ms)',
+							...DARK_TICK,
+							font: { family: 'DM Mono', size: 10 }
+						},
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
+						grid: DARK_GRID,
+						border: DARK_BORDER
+					},
+					y: {
+						title: {
+							display: true,
+							text: corr.label,
+							...DARK_TICK,
+							font: { family: 'DM Mono', size: 10 }
+						},
+						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	}
 </script>
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
@@ -893,6 +960,27 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Cross-Domain Correlations -->
+	{#if dashOverview && dashOverview.correlations.length > 0}
+		<div class="section-subheader">
+			<span class="section-sublabel">Cross-Domain Correlations</span>
+		</div>
+		<div class="two-col-row">
+			{#each dashOverview.correlations as corr}
+				<div class="card two-col-item">
+					<div class="corr-header">
+						<h2 class="card-title">HRV vs {corr.label}</h2>
+						{#if corr.r_value != null}
+							<span class="corr-r" style="color:{COLORS.hrv}">r = {corr.r_value}</span>
+						{/if}
+					</div>
+					<ScatterChart config={makeScatterConfig(corr)} height={220} />
+					<p class="card-footnote">{corr.sample_count} nights</p>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Reading Guide -->
 	<MetricDefinition title="How to Read This Dashboard">
@@ -1378,6 +1466,19 @@
 		font-size: 12px;
 		color: #6b7d8e;
 		margin-top: 2px;
+	}
+
+	/* ── Correlation header ── */
+	.corr-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 10px;
+	}
+	.corr-r {
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+		font-weight: 500;
 	}
 
 	/* ── Responsive ── */

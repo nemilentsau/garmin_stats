@@ -7,8 +7,11 @@ from ..models import (
     CorrelationPoint,
     DailyMetric,
     DashboardOverviewResponse,
+    DashboardSparklines,
     MetricCorrelation,
     ReadinessScore,
+    SparklinePoint,
+    TodayVitals,
 )
 
 
@@ -137,6 +140,67 @@ def _compute_readiness(
     )
 
 
+def _compute_vitals(
+    metrics: list[DailyMetric], selected_index: int,
+) -> TodayVitals:
+    """Extract today's key vitals with 7-day deltas."""
+    selected = metrics[selected_index]
+
+    # Resting HR delta (reuse existing pattern)
+    resting_delta = _resting_delta(metrics, selected_index)
+
+    # Nightly HRV delta vs 7-day average
+    nightly = selected.hrv.nightly_avg
+    previous_nightly = [
+        m.hrv.nightly_avg
+        for m in metrics[max(0, selected_index - 7):selected_index]
+        if m.hrv.nightly_avg is not None
+    ]
+    hrv_delta: float | None = None
+    if nightly is not None and previous_nightly:
+        hrv_delta = round(nightly - sum(previous_nightly) / len(previous_nightly), 1)
+
+    return TodayVitals(
+        resting_hr=selected.heart_rate.resting,
+        resting_hr_delta_7d=resting_delta,
+        nightly_hrv=nightly,
+        nightly_hrv_delta_7d=hrv_delta,
+        hrv_status=_normalize_hrv_status(selected.hrv.status),
+        sleep_score=selected.sleep.score,
+        stress_avg=selected.stress.avg,
+    )
+
+
+_SPARKLINE_DAYS = 91  # ~3 months
+
+
+def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
+    """Build 3-month sparkline data for 4 key metrics."""
+    window = metrics[-_SPARKLINE_DAYS:]
+    return DashboardSparklines(
+        resting_hr=[
+            SparklinePoint(
+                date=m.date,
+                value=float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+            )
+            for m in window
+        ],
+        nightly_hrv=[
+            SparklinePoint(date=m.date, value=m.hrv.nightly_avg) for m in window
+        ],
+        sleep_score=[
+            SparklinePoint(
+                date=m.date,
+                value=float(m.sleep.score) if m.sleep.score is not None else None,
+            )
+            for m in window
+        ],
+        stress_avg=[
+            SparklinePoint(date=m.date, value=m.stress.avg) for m in window
+        ],
+    )
+
+
 _MIN_CORRELATION_POINTS = 7
 
 
@@ -196,10 +260,14 @@ def load_dashboard_overview() -> DashboardOverviewResponse:
     rec_status = _recovery_status(metrics, selected_index)
     rest_delta = _resting_delta(metrics, selected_index)
     readiness = _compute_readiness(selected, rec_status, rest_delta)
+    vitals = _compute_vitals(metrics, selected_index)
+    sparklines = _compute_sparklines(metrics)
     correlations = _compute_correlations(metrics)
 
     return DashboardOverviewResponse(
         date=selected.date,
         readiness=readiness,
+        vitals=vitals,
+        sparklines=sparklines,
         correlations=correlations,
     )
