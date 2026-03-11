@@ -468,6 +468,221 @@ class DailyAggregatesResponse(_DefaultsRequired):
 
 
 # ---------------------------------------------------------------------------
+# Health assistant foundation models
+# ---------------------------------------------------------------------------
+
+
+class Goal(_DefaultsRequired):
+    id: str
+    title: str
+    description: str | None = None
+    status: str = "active"
+    priority: int = 0
+    tags: list[str] = []
+
+
+class UserProfile(_DefaultsRequired):
+    id: str = "default"
+    name: str | None = None
+    birth_year: int | None = None
+    age_range: str | None = None
+    sex: str | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    primary_goals: list[str] = []
+    constraints: list[str] = []
+    injuries: list[str] = []
+    equipment: list[str] = []
+    default_weekly_schedule: list[str] = []
+    sleep_constraints: list[str] = []
+    nutrition_preferences: list[str] = []
+    coaching_style_preferences: list[str] = []
+
+
+class Routine(_DefaultsRequired):
+    id: str
+    name: str
+    category: str
+    status: str = "active"
+    description: str | None = None
+    default_unit: str = "boolean"
+    target_frequency: str | None = None
+    default_time_of_day: str | None = None
+    tags: list[str] = []
+    linked_goal_ids: list[str] = []
+
+
+class RoutineEntry(_DefaultsRequired):
+    id: str
+    routine_id: str
+    date: str
+    timestamp_local: str | None = None
+    value_numeric: float | None = None
+    value_text: str | None = None
+    completion_state: str = "completed"
+    source: str = "manual"
+    notes: str | None = None
+
+
+class DailyCheckIn(_DefaultsRequired):
+    id: str
+    date: str
+    energy: int | None = None
+    mood: int | None = None
+    motivation: int | None = None
+    soreness: int | None = None
+    stress_subjective: int | None = None
+    sleep_quality_subjective: int | None = None
+    workload_subjective: int | None = None
+    illness_flag: bool = False
+    travel_flag: bool = False
+    alcohol_flag: bool = False
+    notes: str | None = None
+
+
+class Note(_DefaultsRequired):
+    id: str
+    date: str
+    category: str
+    title: str
+    content: str
+    tags: list[str] = []
+
+
+class Experiment(_DefaultsRequired):
+    id: str
+    name: str
+    status: str = "draft"
+    start_date: str | None = None
+    end_date: str | None = None
+    goal: str | None = None
+    hypothesis: str | None = None
+    linked_routine_ids: list[str] = []
+    outcome_metrics: list[str] = []
+    expected_lag_days: list[int] = []
+    confounder_notes: str | None = None
+    priority: int = 0
+
+
+class ExperimentExposure(_DefaultsRequired):
+    id: str
+    experiment_id: str
+    date: str
+    exposure_score: float | None = None
+    adherence_state: str = "unknown"
+    linked_routine_entry_ids: list[str] = []
+    notes: str | None = None
+
+
+class ExperimentMetricEffect(_DefaultsRequired):
+    metric: str
+    baseline_value: float | None = None
+    current_value: float | None = None
+    delta_abs: float | None = None
+    delta_pct: float | None = None
+    sample_count: int = 0
+
+
+class ExperimentReport(_DefaultsRequired):
+    id: str
+    experiment_id: str
+    report_date: str
+    summary: str | None = None
+    confidence: str = "insufficient"
+    confounders: list[str] = []
+    effects: list[ExperimentMetricEffect] = []
+
+
+class Plan(_DefaultsRequired):
+    id: str
+    title: str
+    scope: str
+    status: str = "draft"
+    source: str = "manual"
+    goal: str | None = None
+    markdown_body: str | None = None
+    structured_outline_json: dict[str, object] = {}
+    linked_experiment_ids: list[str] = []
+
+
+class PlanItem(_DefaultsRequired):
+    id: str
+    plan_id: str
+    title: str
+    date: str | None = None
+    time_block: str | None = None
+    instructions: str | None = None
+    linked_routine_id: str | None = None
+    completion_state: str = "pending"
+    completion_notes: str | None = None
+
+
+class AssistantThread(_DefaultsRequired):
+    id: str
+    title: str
+    mode: str = "general"
+    model: str = "sonnet"
+    claude_session_id: str | None = None
+    last_context_snapshot_id: str | None = None
+    status: str = "active"
+    last_message_at: str | None = None
+
+
+class AssistantMessage(_DefaultsRequired):
+    id: str
+    thread_id: str
+    role: str
+    content_markdown: str
+    structured_payload_json: dict[str, object] = {}
+    evidence_refs_json: list[str] = []
+    created_at: str | None = None
+
+
+class AssistantRun(_DefaultsRequired):
+    id: str
+    task_type: str
+    status: str
+    thread_id: str | None = None
+    context_snapshot_id: str | None = None
+    claude_session_id: str | None = None
+    command_json: dict[str, object] = {}
+    stdout_path: str | None = None
+    stderr_path: str | None = None
+    usage_json: dict[str, object] = {}
+    started_at: str | None = None
+    finished_at: str | None = None
+
+
+class ContextSnapshot(_DefaultsRequired):
+    id: str
+    date_window_start: str | None = None
+    date_window_end: str | None = None
+    snapshot_json: dict[str, object] = {}
+    summary_markdown: str | None = None
+    created_at: str | None = None
+
+
+class EvidenceCard(_DefaultsRequired):
+    id: str
+    kind: str
+    title: str
+    summary: str
+    metric: str | None = None
+    window: str | None = None
+    sample_count: int = 0
+    confidence: str = "insufficient"
+    caveats: list[str] = []
+    payload_json: dict[str, object] = {}
+
+
+class TargetMetricDefinition(_DefaultsRequired):
+    key: str
+    label: str
+    path: str
+    unit: str
+
+
+# ---------------------------------------------------------------------------
 # Heart Rate Analysis models
 # ---------------------------------------------------------------------------
 
