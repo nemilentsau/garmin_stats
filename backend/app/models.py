@@ -682,6 +682,41 @@ class TargetMetricDefinition(_DefaultsRequired):
     unit: str
 
 
+class GoalsResponse(_DefaultsRequired):
+    goals: list[Goal] = []
+    total: int
+
+
+class RoutinesResponse(_DefaultsRequired):
+    routines: list[Routine] = []
+    total: int
+
+
+class RoutineEntriesResponse(_DefaultsRequired):
+    entries: list[RoutineEntry] = []
+    total: int
+
+
+class DailyCheckInsResponse(_DefaultsRequired):
+    checkins: list[DailyCheckIn] = []
+    total: int
+
+
+class NotesResponse(_DefaultsRequired):
+    notes: list[Note] = []
+    total: int
+
+
+class ExperimentsResponse(_DefaultsRequired):
+    experiments: list[Experiment] = []
+    total: int
+
+
+class TargetMetricsResponse(_DefaultsRequired):
+    metrics: list[TargetMetricDefinition] = []
+    total: int
+
+
 # ---------------------------------------------------------------------------
 # Heart Rate Analysis models
 # ---------------------------------------------------------------------------

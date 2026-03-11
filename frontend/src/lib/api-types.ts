@@ -384,6 +384,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Profile
+         * @description Return the current user profile.
+         */
+        get: operations["get_profile_api_profile_get"];
+        /**
+         * Put Profile
+         * @description Create or replace the user profile.
+         */
+        put: operations["put_profile_api_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/routines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Routines
+         * @description Return all routines.
+         */
+        get: operations["get_routines_api_routines_get"];
+        put?: never;
+        /**
+         * Post Routine
+         * @description Create a routine.
+         */
+        post: operations["post_routine_api_routines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/routines/{routine_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Routine
+         * @description Replace an existing routine.
+         */
+        put: operations["put_routine_api_routines__routine_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/routines/{routine_id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entries
+         * @description Return entries for a routine.
+         */
+        get: operations["get_entries_api_routines__routine_id__entries_get"];
+        put?: never;
+        /**
+         * Post Entry
+         * @description Create an entry for a routine.
+         */
+        post: operations["post_entry_api_routines__routine_id__entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Checkins
+         * @description Return daily check-ins.
+         */
+        get: operations["get_checkins_api_checkins_get"];
+        put?: never;
+        /**
+         * Post Checkin
+         * @description Create or replace a daily check-in.
+         */
+        post: operations["post_checkin_api_checkins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notes
+         * @description Return notes.
+         */
+        get: operations["get_notes_api_notes_get"];
+        put?: never;
+        /**
+         * Post Note
+         * @description Create a note.
+         */
+        post: operations["post_note_api_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Experiments
+         * @description Return all experiments.
+         */
+        get: operations["get_experiments_api_experiments_get"];
+        put?: never;
+        /**
+         * Post Experiment
+         * @description Create an experiment.
+         */
+        post: operations["post_experiment_api_experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/experiments/{experiment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Experiment Detail
+         * @description Return a single experiment.
+         */
+        get: operations["get_experiment_detail_api_experiments__experiment_id__get"];
+        /**
+         * Put Experiment
+         * @description Replace an existing experiment.
+         */
+        put: operations["put_experiment_api_experiments__experiment_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/target-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Target Metrics Route
+         * @description Return the supported target metric registry.
+         */
+        get: operations["list_target_metrics_route_api_target_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -512,6 +720,92 @@ export interface components {
             q1: number | null;
             /** Q3 */
             q3: number | null;
+        };
+        /** DailyCheckIn */
+        "DailyCheckIn-Input": {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Energy */
+            energy?: number | null;
+            /** Mood */
+            mood?: number | null;
+            /** Motivation */
+            motivation?: number | null;
+            /** Soreness */
+            soreness?: number | null;
+            /** Stress Subjective */
+            stress_subjective?: number | null;
+            /** Sleep Quality Subjective */
+            sleep_quality_subjective?: number | null;
+            /** Workload Subjective */
+            workload_subjective?: number | null;
+            /**
+             * Illness Flag
+             * @default false
+             */
+            illness_flag: boolean;
+            /**
+             * Travel Flag
+             * @default false
+             */
+            travel_flag: boolean;
+            /**
+             * Alcohol Flag
+             * @default false
+             */
+            alcohol_flag: boolean;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** DailyCheckIn */
+        "DailyCheckIn-Output": {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Energy */
+            energy: number | null;
+            /** Mood */
+            mood: number | null;
+            /** Motivation */
+            motivation: number | null;
+            /** Soreness */
+            soreness: number | null;
+            /** Stress Subjective */
+            stress_subjective: number | null;
+            /** Sleep Quality Subjective */
+            sleep_quality_subjective: number | null;
+            /** Workload Subjective */
+            workload_subjective: number | null;
+            /**
+             * Illness Flag
+             * @default false
+             */
+            illness_flag: boolean;
+            /**
+             * Travel Flag
+             * @default false
+             */
+            travel_flag: boolean;
+            /**
+             * Alcohol Flag
+             * @default false
+             */
+            alcohol_flag: boolean;
+            /** Notes */
+            notes: string | null;
+        };
+        /** DailyCheckInsResponse */
+        DailyCheckInsResponse: {
+            /**
+             * Checkins
+             * @default []
+             */
+            checkins: components["schemas"]["DailyCheckIn-Output"][];
+            /** Total */
+            total: number;
         };
         /** DailyHeartRateStats */
         DailyHeartRateStats: {
@@ -653,6 +947,100 @@ export interface components {
         DaysResponse: {
             /** Days */
             days: string[];
+            /** Total */
+            total: number;
+        };
+        /** Experiment */
+        "Experiment-Input": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @default draft
+             */
+            status: string;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Goal */
+            goal?: string | null;
+            /** Hypothesis */
+            hypothesis?: string | null;
+            /**
+             * Linked Routine Ids
+             * @default []
+             */
+            linked_routine_ids: string[];
+            /**
+             * Outcome Metrics
+             * @default []
+             */
+            outcome_metrics: string[];
+            /**
+             * Expected Lag Days
+             * @default []
+             */
+            expected_lag_days: number[];
+            /** Confounder Notes */
+            confounder_notes?: string | null;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+        };
+        /** Experiment */
+        "Experiment-Output": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @default draft
+             */
+            status: string;
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            /** Goal */
+            goal: string | null;
+            /** Hypothesis */
+            hypothesis: string | null;
+            /**
+             * Linked Routine Ids
+             * @default []
+             */
+            linked_routine_ids: string[];
+            /**
+             * Outcome Metrics
+             * @default []
+             */
+            outcome_metrics: string[];
+            /**
+             * Expected Lag Days
+             * @default []
+             */
+            expected_lag_days: number[];
+            /** Confounder Notes */
+            confounder_notes: string | null;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+        };
+        /** ExperimentsResponse */
+        ExperimentsResponse: {
+            /**
+             * Experiments
+             * @default []
+             */
+            experiments: components["schemas"]["Experiment-Output"][];
             /** Total */
             total: number;
         };
@@ -1120,6 +1508,52 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
+        /** Note */
+        "Note-Input": {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+        };
+        /** Note */
+        "Note-Output": {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+        };
+        /** NotesResponse */
+        NotesResponse: {
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note-Output"][];
+            /** Total */
+            total: number;
+        };
         /** PeriodBodyBatteryStats */
         PeriodBodyBatteryStats: {
             /** Avg Min */
@@ -1265,6 +1699,150 @@ export interface components {
             resting_bpm: number | null;
             /** Ma7 Bpm */
             ma7_bpm: number | null;
+        };
+        /** Routine */
+        "Routine-Input": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Default Unit
+             * @default boolean
+             */
+            default_unit: string;
+            /** Target Frequency */
+            target_frequency?: string | null;
+            /** Default Time Of Day */
+            default_time_of_day?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Linked Goal Ids
+             * @default []
+             */
+            linked_goal_ids: string[];
+        };
+        /** Routine */
+        "Routine-Output": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Default Unit
+             * @default boolean
+             */
+            default_unit: string;
+            /** Target Frequency */
+            target_frequency: string | null;
+            /** Default Time Of Day */
+            default_time_of_day: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Linked Goal Ids
+             * @default []
+             */
+            linked_goal_ids: string[];
+        };
+        /** RoutineEntriesResponse */
+        RoutineEntriesResponse: {
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["RoutineEntry-Output"][];
+            /** Total */
+            total: number;
+        };
+        /** RoutineEntry */
+        "RoutineEntry-Input": {
+            /** Id */
+            id: string;
+            /** Routine Id */
+            routine_id: string;
+            /** Date */
+            date: string;
+            /** Timestamp Local */
+            timestamp_local?: string | null;
+            /** Value Numeric */
+            value_numeric?: number | null;
+            /** Value Text */
+            value_text?: string | null;
+            /**
+             * Completion State
+             * @default completed
+             */
+            completion_state: string;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** RoutineEntry */
+        "RoutineEntry-Output": {
+            /** Id */
+            id: string;
+            /** Routine Id */
+            routine_id: string;
+            /** Date */
+            date: string;
+            /** Timestamp Local */
+            timestamp_local: string | null;
+            /** Value Numeric */
+            value_numeric: number | null;
+            /** Value Text */
+            value_text: string | null;
+            /**
+             * Completion State
+             * @default completed
+             */
+            completion_state: string;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Notes */
+            notes: string | null;
+        };
+        /** RoutinesResponse */
+        RoutinesResponse: {
+            /**
+             * Routines
+             * @default []
+             */
+            routines: components["schemas"]["Routine-Output"][];
+            /** Total */
+            total: number;
         };
         /** SkinTempOvernight */
         SkinTempOvernight: {
@@ -1444,6 +2022,27 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
+        /** TargetMetricDefinition */
+        TargetMetricDefinition: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Path */
+            path: string;
+            /** Unit */
+            unit: string;
+        };
+        /** TargetMetricsResponse */
+        TargetMetricsResponse: {
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["TargetMetricDefinition"][];
+            /** Total */
+            total: number;
+        };
         /** TodayVitals */
         TodayVitals: {
             /** Resting Hr */
@@ -1461,6 +2060,126 @@ export interface components {
             /** Stress Avg */
             stress_avg: number | null;
         };
+        /** UserProfile */
+        "UserProfile-Input": {
+            /**
+             * Id
+             * @default default
+             */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Birth Year */
+            birth_year?: number | null;
+            /** Age Range */
+            age_range?: string | null;
+            /** Sex */
+            sex?: string | null;
+            /** Height Cm */
+            height_cm?: number | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+            /**
+             * Primary Goals
+             * @default []
+             */
+            primary_goals: string[];
+            /**
+             * Constraints
+             * @default []
+             */
+            constraints: string[];
+            /**
+             * Injuries
+             * @default []
+             */
+            injuries: string[];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: string[];
+            /**
+             * Default Weekly Schedule
+             * @default []
+             */
+            default_weekly_schedule: string[];
+            /**
+             * Sleep Constraints
+             * @default []
+             */
+            sleep_constraints: string[];
+            /**
+             * Nutrition Preferences
+             * @default []
+             */
+            nutrition_preferences: string[];
+            /**
+             * Coaching Style Preferences
+             * @default []
+             */
+            coaching_style_preferences: string[];
+        };
+        /** UserProfile */
+        "UserProfile-Output": {
+            /**
+             * Id
+             * @default default
+             */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Birth Year */
+            birth_year: number | null;
+            /** Age Range */
+            age_range: string | null;
+            /** Sex */
+            sex: string | null;
+            /** Height Cm */
+            height_cm: number | null;
+            /** Weight Kg */
+            weight_kg: number | null;
+            /**
+             * Primary Goals
+             * @default []
+             */
+            primary_goals: string[];
+            /**
+             * Constraints
+             * @default []
+             */
+            constraints: string[];
+            /**
+             * Injuries
+             * @default []
+             */
+            injuries: string[];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: string[];
+            /**
+             * Default Weekly Schedule
+             * @default []
+             */
+            default_weekly_schedule: string[];
+            /**
+             * Sleep Constraints
+             * @default []
+             */
+            sleep_constraints: string[];
+            /**
+             * Nutrition Preferences
+             * @default []
+             */
+            nutrition_preferences: string[];
+            /**
+             * Coaching Style Preferences
+             * @default []
+             */
+            coaching_style_preferences: string[];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1469,10 +2188,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
         /** WeeklyBodyBatteryBox */
         WeeklyBodyBatteryBox: {
@@ -2075,6 +2790,485 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_profile_api_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile-Output"];
+                };
+            };
+        };
+    };
+    put_profile_api_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfile-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProfile-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_routines_api_routines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutinesResponse"];
+                };
+            };
+        };
+    };
+    post_routine_api_routines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Routine-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Routine-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_routine_api_routines__routine_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                routine_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Routine-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Routine-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entries_api_routines__routine_id__entries_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path: {
+                routine_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineEntriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_entry_api_routines__routine_id__entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                routine_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoutineEntry-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineEntry-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_checkins_api_checkins_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyCheckInsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_checkin_api_checkins_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DailyCheckIn-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyCheckIn-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notes_api_notes_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_note_api_notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Note-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_experiments_api_experiments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentsResponse"];
+                };
+            };
+        };
+    };
+    post_experiment_api_experiments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Experiment-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_experiment_detail_api_experiments__experiment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_experiment_api_experiments__experiment_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Experiment-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_target_metrics_route_api_target_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetMetricsResponse"];
                 };
             };
         };

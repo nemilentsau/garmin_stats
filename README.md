@@ -94,6 +94,8 @@ data/
 | Route | Description |
 |-------|-------------|
 | `/` | Dashboard — 7 trend chart panels (HR, Stress, SpO2, Respiration, HRV, Sleep, Skin Temp) |
+| `/routines` | Routine foundation — define repeatable behaviors, log adherence, add daily check-ins and notes |
+| `/experiments` | Experiment foundation — create/edit experiments, link routines, and choose target metrics |
 | `/heart-rate` | Heart rate detail — trend, intraday, zones, resting HR trend (7-day MA), HR distribution histogram, circadian profile, sleeping HR trend, weekly boxplots |
 | `/hrv` | HRV detail — nightly/weekly averages, balanced status tracking |
 | `/respiration` | Respiration detail — trend + intraday, min/max bands |
@@ -107,6 +109,22 @@ data/
 | `GET /api/daily-aggregates` | Per-day stats for all metrics (dashboard data source) |
 | `GET /api/days` | List available days of data |
 | `GET /api/days/{date}` | Summary for a specific day |
+| `GET /api/profile` | Load the user profile (returns an empty default profile if unset) |
+| `PUT /api/profile` | Create or replace the user profile |
+| `GET /api/routines` | List saved routines |
+| `POST /api/routines` | Create a routine |
+| `PUT /api/routines/{id}` | Update a routine |
+| `GET /api/routines/{id}/entries?date=YYYY-MM-DD` | List entries for a routine, optionally filtered by date |
+| `POST /api/routines/{id}/entries` | Create a routine entry |
+| `GET /api/checkins?date=YYYY-MM-DD` | List daily check-ins, optionally filtered by date |
+| `POST /api/checkins` | Create or replace a daily check-in |
+| `GET /api/notes?date=YYYY-MM-DD` | List context notes, optionally filtered by date |
+| `POST /api/notes` | Create a context note |
+| `GET /api/experiments` | List experiments |
+| `GET /api/experiments/{id}` | Load an experiment |
+| `POST /api/experiments` | Create an experiment |
+| `PUT /api/experiments/{id}` | Update an experiment |
+| `GET /api/target-metrics` | List supported target metrics for experiments |
 | `GET /api/heart-rate/analysis` | HR analysis (circadian profile, sleeping HR, resting trend, weekly boxplots) |
 | `GET /api/heart-rate/distribution?date=YYYY-MM-DD` | HR histogram for a single day (5-bpm bins) |
 | `GET /api/wellness?date=YYYY-MM-DD` | Wellness data (HR, stress, SpO2, respiration) |
@@ -163,6 +181,8 @@ garmin_stats/
 │   │   └── routes/
 │   │       ├── +layout.svelte      # App shell + tab navigation
 │   │       ├── +page.svelte        # Dashboard with trend charts
+│   │       ├── routines/+page.svelte
+│   │       ├── experiments/+page.svelte
 │   │       ├── heart-rate/+page.svelte
 │   │       ├── hrv/+page.svelte
 │   │       ├── respiration/+page.svelte
