@@ -8,6 +8,7 @@
 		type TargetMetricDefinition
 	} from '$lib/api';
 	import { COLORS } from '$lib/colors';
+	import { errorMessage, makeId } from '$lib/utils';
 
 	const statusAccent: Record<string, string> = {
 		draft: COLORS.skinTemp,
@@ -41,10 +42,6 @@
 		priority: 0
 	});
 
-	function makeId(prefix: string): string {
-		return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-	}
-
 	async function loadPage() {
 		error = null;
 		const [experimentsResponse, routinesResponse, metricsResponse] = await Promise.all([
@@ -60,7 +57,7 @@
 	onMount(() => {
 		void loadPage()
 			.catch((e: unknown) => {
-				error = e instanceof Error ? e.message : String(e);
+				error = errorMessage(e);
 			})
 			.finally(() => {
 				loading = false;
@@ -130,16 +127,15 @@
 			};
 
 			if (editingId) {
-				await api.updateExperiment(editingId, payload);
+				const updated = await api.updateExperiment(editingId, payload);
+				experiments = experiments.map((item) => (item.id === editingId ? updated : item));
 			} else {
-				await api.createExperiment(payload);
+				const created = await api.createExperiment(payload);
+				experiments = [...experiments, created];
 			}
-
-			const response = await api.getExperiments();
-			experiments = response.experiments;
 			resetForm();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		} finally {
 			saving = false;
 		}

@@ -12,6 +12,7 @@
 		type RoutineInput
 	} from '$lib/api';
 	import { COLORS } from '$lib/colors';
+	import { errorMessage, makeId } from '$lib/utils';
 
 	type RoutineCategory = 'mindfulness' | 'nutrition' | 'strength' | 'mobility' | 'sleep' | 'recovery' | 'custom';
 
@@ -98,10 +99,6 @@
 		tags: []
 	});
 
-	function makeId(prefix: string): string {
-		return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-	}
-
 	function resetCheckinForm(date: string) {
 		checkinForm.id = `checkin-${date}`;
 		checkinForm.date = date;
@@ -166,7 +163,7 @@
 	onMount(() => {
 		void loadPageData()
 			.catch((e: unknown) => {
-				error = e instanceof Error ? e.message : String(e);
+				error = errorMessage(e);
 			})
 			.finally(() => {
 				loading = false;
@@ -183,7 +180,7 @@
 		if (loading) return;
 		resetCheckinForm(selectedDate);
 		void loadDailySidecars().catch((e: unknown) => {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		});
 	});
 
@@ -194,7 +191,7 @@
 				entries = response.entries;
 			})
 			.catch((e: unknown) => {
-				error = e instanceof Error ? e.message : String(e);
+				error = errorMessage(e);
 			});
 	});
 
@@ -231,7 +228,7 @@
 			selectedRoutineId = created.id;
 			resetRoutineForm();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		} finally {
 			saving = false;
 		}
@@ -251,15 +248,14 @@
 				value_text: entryForm.value_text || null,
 				notes: entryForm.notes || null
 			};
-			await api.createRoutineEntry(selectedRoutineId, payload);
-			const response = await api.getRoutineEntries(selectedRoutineId, selectedDate);
-			entries = response.entries;
+			const created = await api.createRoutineEntry(selectedRoutineId, payload);
+			entries = [...entries, created];
 			entryForm.value_numeric = null;
 			entryForm.value_text = '';
 			entryForm.timestamp_local = '';
 			entryForm.notes = '';
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		} finally {
 			saving = false;
 		}
@@ -277,7 +273,7 @@
 			});
 			checkinExists = true;
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		} finally {
 			saving = false;
 		}
@@ -287,19 +283,18 @@
 		saving = true;
 		error = null;
 		try {
-			await api.createNote({
+			const created = await api.createNote({
 				...noteForm,
 				id: makeId('note'),
 				date: selectedDate,
 				content: noteForm.content.trim(),
 				tags: noteForm.tags
 			});
-			const response = await api.getNotes(selectedDate);
-			notes = response.notes;
+			notes = [...notes, created];
 			noteForm.title = '';
 			noteForm.content = '';
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			error = errorMessage(e);
 		} finally {
 			saving = false;
 		}

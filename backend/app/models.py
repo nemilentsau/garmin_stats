@@ -472,6 +472,9 @@ class DailyAggregatesResponse(_DefaultsRequired):
 # ---------------------------------------------------------------------------
 
 
+DEFAULT_PROFILE_ID = "default"
+
+
 class Goal(_DefaultsRequired):
     id: str
     title: str
@@ -482,7 +485,7 @@ class Goal(_DefaultsRequired):
 
 
 class UserProfile(_DefaultsRequired):
-    id: str = "default"
+    id: str = DEFAULT_PROFILE_ID
     name: str | None = None
     birth_year: int | None = None
     age_range: str | None = None

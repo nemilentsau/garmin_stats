@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..models import (
+    DEFAULT_PROFILE_ID,
     AssistantMessage,
     AssistantRun,
     AssistantThread,
@@ -213,23 +214,23 @@ def _save_json_record(
         raise ValueError(f"Invalid table name: {table}")
 
     extra_columns = extra_columns or {}
-    existing_created_at: str | None = None
-    if created_at is None:
-        with _connect() as con:
+    updated_value = updated_at or _now_iso()
+
+    with _connect() as con, con:
+        existing_created_at: str | None = None
+        if created_at is None:
             row = con.execute(
                 f"SELECT created_at FROM {table} WHERE id = ?",  # noqa: S608
                 (record_id,),
             ).fetchone()
-        existing_created_at = row["created_at"] if row is not None else None
+            existing_created_at = row["created_at"] if row is not None else None
 
-    created_value = created_at or existing_created_at or _now_iso()
-    updated_value = updated_at or _now_iso()
+        created_value = created_at or existing_created_at or _now_iso()
 
-    columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
-    placeholders = ", ".join("?" for _ in columns)
-    values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
+        columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
+        placeholders = ", ".join("?" for _ in columns)
+        values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
 
-    with _connect() as con, con:
         con.execute(
             f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608
             values,
@@ -242,6 +243,18 @@ def _model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
         if payload.get(key) is None and row[key] is not None:
             payload[key] = row[key]
     return model.model_validate(payload)  # type: ignore[union-attr]
+
+
+def _record_exists(table: str, record_id: str) -> bool:
+    """Check whether a record with the given id exists (without loading JSON)."""
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+    with _connect() as con:
+        row = con.execute(
+            f"SELECT 1 FROM {table} WHERE id = ? LIMIT 1",  # noqa: S608
+            (record_id,),
+        ).fetchone()
+    return row is not None
 
 
 def _load_json_record[M](
@@ -528,7 +541,7 @@ def save_user_profile(profile: UserProfile) -> None:
     _save_json_record("user_profile", profile.id, profile.model_dump_json())
 
 
-def load_user_profile(profile_id: str = "default") -> UserProfile | None:
+def load_user_profile(profile_id: str = DEFAULT_PROFILE_ID) -> UserProfile | None:
     return _load_json_record("user_profile", UserProfile, profile_id)
 
 
@@ -538,6 +551,10 @@ def save_goal(goal: Goal) -> None:
 
 def load_goals() -> list[Goal]:
     return _load_json_records("goals", Goal)
+
+
+def routine_exists(routine_id: str) -> bool:
+    return _record_exists("routines", routine_id)
 
 
 def save_routine(routine: Routine) -> None:
@@ -621,6 +638,14 @@ def load_notes(date: str | None = None) -> list[Note]:
         params=params,
         order_by="entry_date, created_at, id",
     )
+
+
+def experiment_exists(experiment_id: str) -> bool:
+    return _record_exists("experiments", experiment_id)
+
+
+def load_experiment(experiment_id: str) -> Experiment | None:
+    return _load_json_record("experiments", Experiment, experiment_id)
 
 
 def save_experiment(experiment: Experiment) -> None:
