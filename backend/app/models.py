@@ -629,6 +629,7 @@ class AssistantThread(_DefaultsRequired):
     last_context_snapshot_id: str | None = None
     status: str = "active"
     last_message_at: str | None = None
+    created_at: str | None = None
 
 
 class AssistantMessage(_DefaultsRequired):
@@ -717,6 +718,28 @@ class ExperimentsResponse(_DefaultsRequired):
 
 class TargetMetricsResponse(_DefaultsRequired):
     metrics: list[TargetMetricDefinition] = []
+    total: int
+
+
+class AssistantThreadCreateRequest(_DefaultsRequired):
+    id: str
+    title: str
+    mode: str = "general"
+    model: str = "sonnet"
+
+
+class AssistantMessageCreateRequest(_DefaultsRequired):
+    id: str
+    content: str
+
+
+class AssistantThreadsResponse(_DefaultsRequired):
+    threads: list[AssistantThread] = []
+    total: int
+
+
+class AssistantMessagesResponse(_DefaultsRequired):
+    messages: list[AssistantMessage] = []
     total: int
 
 

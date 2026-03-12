@@ -51,6 +51,12 @@ export type ExperimentInput = Schemas['Experiment-Input'];
 export type ExperimentsResponse = Schemas['ExperimentsResponse'];
 export type TargetMetricDefinition = Schemas['TargetMetricDefinition'];
 export type TargetMetricsResponse = Schemas['TargetMetricsResponse'];
+export type AssistantThread = Schemas['AssistantThread'];
+export type AssistantThreadInput = Schemas['AssistantThreadCreateRequest'];
+export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
+export type AssistantMessage = Schemas['AssistantMessage'];
+export type AssistantMessageInput = Schemas['AssistantMessageCreateRequest'];
+export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
@@ -115,5 +121,10 @@ export const api = {
 		sendJson<Experiment>('/api/experiments', 'POST', experiment),
 	updateExperiment: (experimentId: string, experiment: ExperimentInput) =>
 		sendJson<Experiment>(`/api/experiments/${experimentId}`, 'PUT', experiment),
-	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics')
+	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics'),
+	getAssistantThreads: () => fetchJson<AssistantThreadsResponse>('/api/assistant/threads'),
+	createAssistantThread: (thread: AssistantThreadInput) =>
+		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
+	getAssistantThreadMessages: (threadId: string) =>
+		fetchJson<AssistantMessagesResponse>(`/api/assistant/threads/${threadId}/messages`)
 };

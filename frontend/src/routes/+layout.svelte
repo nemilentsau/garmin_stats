@@ -7,6 +7,7 @@
 
 	const tabs = [
 		{ href: '/', label: 'Dashboard' },
+		{ href: '/assistant', label: 'Assistant' },
 		{ href: '/routines', label: 'Routines' },
 		{ href: '/experiments', label: 'Experiments' },
 		{ href: '/heart-rate', label: 'Heart Rate' },

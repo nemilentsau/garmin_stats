@@ -384,6 +384,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Threads
+         * @description Return all assistant threads.
+         */
+        get: operations["get_threads_api_assistant_threads_get"];
+        put?: never;
+        /**
+         * Post Thread
+         * @description Create a new assistant thread.
+         */
+        post: operations["post_thread_api_assistant_threads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/threads/{thread_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Thread Detail
+         * @description Return a single assistant thread.
+         */
+        get: operations["get_thread_detail_api_assistant_threads__thread_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Thread Messages
+         * @description Return the messages for a thread.
+         */
+        get: operations["get_thread_messages_api_assistant_threads__thread_id__messages_get"];
+        put?: never;
+        /**
+         * Post Thread Message
+         * @description Stream an assistant reply as NDJSON.
+         */
+        post: operations["post_thread_message_api_assistant_threads__thread_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile": {
         parameters: {
             query?: never;
@@ -630,6 +698,105 @@ export interface components {
             calories: number | null;
             /** Distance */
             distance: number | null;
+        };
+        /** AssistantMessage */
+        AssistantMessage: {
+            /** Id */
+            id: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Role */
+            role: string;
+            /** Content Markdown */
+            content_markdown: string;
+            /**
+             * Structured Payload Json
+             * @default {}
+             */
+            structured_payload_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Evidence Refs Json
+             * @default []
+             */
+            evidence_refs_json: string[];
+            /** Created At */
+            created_at: string | null;
+        };
+        /** AssistantMessageCreateRequest */
+        AssistantMessageCreateRequest: {
+            /** Id */
+            id: string;
+            /** Content */
+            content: string;
+        };
+        /** AssistantMessagesResponse */
+        AssistantMessagesResponse: {
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["AssistantMessage"][];
+            /** Total */
+            total: number;
+        };
+        /** AssistantThread */
+        AssistantThread: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Mode
+             * @default general
+             */
+            mode: string;
+            /**
+             * Model
+             * @default sonnet
+             */
+            model: string;
+            /** Claude Session Id */
+            claude_session_id: string | null;
+            /** Last Context Snapshot Id */
+            last_context_snapshot_id: string | null;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /** Last Message At */
+            last_message_at: string | null;
+            /** Created At */
+            created_at: string | null;
+        };
+        /** AssistantThreadCreateRequest */
+        AssistantThreadCreateRequest: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Mode
+             * @default general
+             */
+            mode: string;
+            /**
+             * Model
+             * @default sonnet
+             */
+            model: string;
+        };
+        /** AssistantThreadsResponse */
+        AssistantThreadsResponse: {
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["AssistantThread"][];
+            /** Total */
+            total: number;
         };
         /** BodyBatteryAnalysisResponse */
         BodyBatteryAnalysisResponse: {
@@ -2790,6 +2957,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_threads_api_assistant_threads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThreadsResponse"];
+                };
+            };
+        };
+    };
+    post_thread_api_assistant_threads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantThreadCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_thread_detail_api_assistant_threads__thread_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_thread_messages_api_assistant_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_thread_message_api_assistant_threads__thread_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

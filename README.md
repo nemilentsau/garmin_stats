@@ -94,6 +94,7 @@ data/
 | Route | Description |
 |-------|-------------|
 | `/` | Dashboard — 7 trend chart panels (HR, Stress, SpO2, Respiration, HRV, Sleep, Skin Temp) |
+| `/assistant` | Assistant MVP — persisted threads, streamed chat replies, quick prompts for daily briefing and weekly review |
 | `/routines` | Routine foundation — define repeatable behaviors, log adherence, add daily check-ins and notes |
 | `/experiments` | Experiment foundation — create/edit experiments, link routines, and choose target metrics |
 | `/heart-rate` | Heart rate detail — trend, intraday, zones, resting HR trend (7-day MA), HR distribution histogram, circadian profile, sleeping HR trend, weekly boxplots |
@@ -109,6 +110,11 @@ data/
 | `GET /api/daily-aggregates` | Per-day stats for all metrics (dashboard data source) |
 | `GET /api/days` | List available days of data |
 | `GET /api/days/{date}` | Summary for a specific day |
+| `GET /api/assistant/threads` | List assistant threads |
+| `POST /api/assistant/threads` | Create an assistant thread |
+| `GET /api/assistant/threads/{id}` | Load a single assistant thread |
+| `GET /api/assistant/threads/{id}/messages` | List saved messages for a thread |
+| `POST /api/assistant/threads/{id}/messages` | Stream an assistant reply as NDJSON |
 | `GET /api/profile` | Load the user profile (returns an empty default profile if unset) |
 | `PUT /api/profile` | Create or replace the user profile |
 | `GET /api/routines` | List saved routines |
@@ -133,7 +139,7 @@ data/
 | `GET /api/skin-temp?date=YYYY-MM-DD` | Skin temperature data |
 | `POST /api/ingest` | Trigger manual re-ingest of FIT files |
 | `GET /api/ingest/status` | Check if new FIT files exist since last ingest |
-| `GET /api/events` | SSE stream — pushes `data_updated` when new FIT files are ingested |
+| `GET /api/events` | SSE stream — pushes `data_updated` and assistant lifecycle events |
 
 ## Data Explorer Script
 
@@ -153,14 +159,12 @@ garmin_stats/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI application + endpoints + SSE
-│   │   ├── models.py        # Pydantic models (reading atoms, day containers, API responses)
+│   │   ├── models.py        # Pydantic models (Garmin data + assistant foundation)
 │   │   ├── parser.py        # FIT file parsing (wellness, sleep, HRV, skin temp)
 │   │   ├── stats.py         # Aggregation/flattening (daily aggregates, period summaries)
-│   │   ├── database.py      # SQLite persistence (schema, ingest, read, fingerprinting)
-│   │   ├── events.py        # SSE event bus (pub/sub with asyncio.Queue)
-│   │   ├── watcher.py       # File watcher (watchfiles — zip extraction + auto-ingest)
 │   │   ├── routers/         # Domain-specific HTTP route modules
-│   │   └── services/        # Domain services (HR insights, HR analysis, HRV insights)
+│   │   ├── services/        # Domain services (analytics + assistant orchestration)
+│   │   └── infra/           # SQLite persistence, SSE bus, watcher, caching
 │   ├── tests/               # pytest tests (stats, database)
 │   └── requirements.txt
 ├── frontend/
@@ -168,6 +172,7 @@ garmin_stats/
 │   │   ├── lib/
 │   │   │   ├── api.ts              # Typed API client
 │   │   │   ├── api-types.ts        # Generated from OpenAPI spec (never hand-edit)
+│   │   │   ├── assistant-stream.ts # NDJSON streaming helper for assistant replies
 │   │   │   ├── chart-setup.ts      # Chart.js registration (line + bar) + date adapter
 │   │   │   ├── colors.ts           # Chart color palette
 │   │   │   ├── format.ts           # Number formatting utilities
@@ -181,6 +186,7 @@ garmin_stats/
 │   │   └── routes/
 │   │       ├── +layout.svelte      # App shell + tab navigation
 │   │       ├── +page.svelte        # Dashboard with trend charts
+│   │       ├── assistant/+page.svelte
 │   │       ├── routines/+page.svelte
 │   │       ├── experiments/+page.svelte
 │   │       ├── heart-rate/+page.svelte
@@ -205,7 +211,9 @@ garmin_stats/
 - [x] Phase 2: Basic App — FastAPI backend + Svelte dashboard
 - [x] Phase 3: Time Series — Trend charts for all metrics, metric subtab pages with intraday views
 - [x] Phase 4: Database — SQLite persistence with auto-ingest, fingerprinting, period summaries
-- [ ] Phase 5: Advanced Analytics — Trends, correlations, anomaly detection
+- [x] Phase 5: Recovery foundation — routines, check-ins, notes, experiments
+- [x] Phase 6: Assistant MVP — persisted threads, curated context snapshots, streamed chat
+- [ ] Phase 7: Evidence-backed coaching — experiment effects, plans, and training-aware advice
 
 ## Data Privacy
 
