@@ -41,8 +41,8 @@ class TestStreamThreadReply:
 
         monkeypatch.setattr(
             assistant_mod,
-            "load_assistant_threads",
-            lambda: [AssistantThread(id="thread-1", title="Recovery")],
+            "load_assistant_thread",
+            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
         )
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)
@@ -94,8 +94,8 @@ class TestStreamThreadReply:
 
         monkeypatch.setattr(
             assistant_mod,
-            "load_assistant_threads",
-            lambda: [AssistantThread(id="thread-1", title="Recovery")],
+            "load_assistant_thread",
+            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
         )
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)
@@ -140,8 +140,8 @@ class TestStreamThreadReply:
 
         monkeypatch.setattr(
             assistant_mod,
-            "load_assistant_threads",
-            lambda: [AssistantThread(id="thread-1", title="Recovery")],
+            "load_assistant_thread",
+            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
         )
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)

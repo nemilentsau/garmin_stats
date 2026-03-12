@@ -9,6 +9,7 @@ from uuid import uuid4
 from ..infra.database import (
     load_assistant_messages,
     load_assistant_runs,
+    load_assistant_thread,
     load_assistant_threads,
     save_assistant_message,
     save_assistant_run,
@@ -52,10 +53,10 @@ def create_thread(request: AssistantThreadCreateRequest) -> AssistantThread:
 
 
 def get_thread(thread_id: str) -> AssistantThread:
-    for thread in load_assistant_threads():
-        if thread.id == thread_id:
-            return thread
-    raise LookupError(f"Assistant thread {thread_id} not found")
+    thread = load_assistant_thread(thread_id)
+    if thread is None:
+        raise LookupError(f"Assistant thread {thread_id} not found")
+    return thread
 
 
 def list_messages(thread_id: str) -> AssistantMessagesResponse:
@@ -64,36 +65,14 @@ def list_messages(thread_id: str) -> AssistantMessagesResponse:
     return AssistantMessagesResponse(messages=messages, total=len(messages))
 
 
-def _save_thread_update(thread: AssistantThread) -> None:
-    save_assistant_thread(thread)
-
-
-def _replace_thread(
+def _update_thread(
     thread: AssistantThread,
-    *,
-    claude_session_id: str | None = None,
-    last_context_snapshot_id: str | None = None,
-    last_message_at: str | None = None,
+    **updates: str | None,
 ) -> AssistantThread:
-    return AssistantThread(
-        id=thread.id,
-        title=thread.title,
-        mode=thread.mode,
-        model=thread.model,
-        claude_session_id=(
-            claude_session_id
-            if claude_session_id is not None
-            else thread.claude_session_id
-        ),
-        last_context_snapshot_id=(
-            last_context_snapshot_id
-            if last_context_snapshot_id is not None
-            else thread.last_context_snapshot_id
-        ),
-        status=thread.status,
-        last_message_at=last_message_at if last_message_at is not None else thread.last_message_at,
-        created_at=thread.created_at,
-    )
+    """Apply non-None updates to a thread and persist."""
+    updated = thread.model_copy(update={k: v for k, v in updates.items() if v is not None})
+    save_assistant_thread(updated)
+    return updated
 
 
 async def stream_thread_reply(
@@ -110,8 +89,7 @@ async def stream_thread_reply(
         created_at=now,
     )
     save_assistant_message(user_message)
-    thread = _replace_thread(thread, last_message_at=now)
-    _save_thread_update(thread)
+    thread = _update_thread(thread, last_message_at=now)
 
     run = AssistantRun(
         id=f"run-{uuid4().hex}",
@@ -163,29 +141,18 @@ async def stream_thread_reply(
             )
             save_assistant_message(assistant_message)
 
-            updated_thread = _replace_thread(
+            _update_thread(
                 thread,
                 claude_session_id=session_id,
                 last_context_snapshot_id=snapshot.id,
                 last_message_at=assistant_message.created_at,
             )
-            _save_thread_update(updated_thread)
 
-            completed_run = AssistantRun(
-                id=run.id,
-                task_type=run.task_type,
-                status="completed",
-                thread_id=run.thread_id,
-                context_snapshot_id=run.context_snapshot_id,
-                claude_session_id=session_id,
-                command_json=run.command_json,
-                stdout_path=run.stdout_path,
-                stderr_path=run.stderr_path,
-                usage_json=run.usage_json,
-                started_at=run.started_at,
-                finished_at=datetime.now(UTC).isoformat(),
-            )
-            save_assistant_run(completed_run)
+            save_assistant_run(run.model_copy(update={
+                "status": "completed",
+                "claude_session_id": session_id,
+                "finished_at": datetime.now(UTC).isoformat(),
+            }))
             await event_bus.broadcast(
                 "assistant_run_completed",
                 json.dumps(
@@ -207,20 +174,12 @@ async def stream_thread_reply(
                 }
             ) + "\n"
     except Exception as exc:
-        failed_run = AssistantRun(
-            id=run.id,
-            task_type=run.task_type,
-            status="failed",
-            thread_id=run.thread_id,
-            context_snapshot_id=run.context_snapshot_id,
-            claude_session_id=run.claude_session_id,
-            command_json=run.command_json,
-            stderr_path=str(exc),
-            started_at=run.started_at,
-            finished_at=datetime.now(UTC).isoformat(),
-        )
         with suppress(Exception):
-            save_assistant_run(failed_run)
+            save_assistant_run(run.model_copy(update={
+                "status": "failed",
+                "stderr_path": str(exc),
+                "finished_at": datetime.now(UTC).isoformat(),
+            }))
         with suppress(Exception):
             await event_bus.broadcast(
                 "assistant_run_failed",

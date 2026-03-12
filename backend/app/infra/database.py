@@ -749,6 +749,10 @@ def save_assistant_thread(thread: AssistantThread) -> None:
     _save_json_record("assistant_threads", thread.id, thread.model_dump_json())
 
 
+def load_assistant_thread(thread_id: str) -> AssistantThread | None:
+    return _load_json_record("assistant_threads", AssistantThread, thread_id)
+
+
 def load_assistant_threads() -> list[AssistantThread]:
     return _load_json_records("assistant_threads", AssistantThread)
 

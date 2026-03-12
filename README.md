@@ -1,224 +1,224 @@
-# Garmin Stats
+# Garmin Health Assistant
 
-Personal health data analysis tool for Garmin Epix Gen 2 watch data.
+This project is not trying to be another Garmin dashboard.
 
-## Project Vision
+It is trying to become a personal health assistant that uses Garmin data, manual logs, and an AI assistant to help answer questions like:
 
-Build a comprehensive tool to explore, analyze, and visualize health metrics from Garmin FIT file exports. The goal is to gain insights into personal health trends beyond what the Garmin Connect app provides.
+- Why did recovery dip this week?
+- Did meditation help HRV, or did it just coincide with easier days?
+- Is this routine worth keeping?
+- What should tomorrow's recovery plan look like?
 
-## Architecture
+The long-term goal is a data-driven system that can track routines, run messy real-life experiments, and turn all of that into grounded advice instead of generic wellness talk.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Frontend                               │
-│              Svelte 5 + Runes + Tailwind + Chart.js             │
-│       Dashboard, Trend Charts, Metric Subtabs, Intraday         │
-│                    http://localhost:5173                        │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Python Backend                             │
-│                    FastAPI REST API Server                      │
-│         Data Processing, Daily Aggregates, Export               │
-│                    http://localhost:8000                        │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Data Ingestion Layer                       │
-│              Official Garmin FIT SDK (garmin-fit-sdk)           │
-│           Raw FIT files → Structured data models                │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       Raw Data (gitignored)                     │
-│                    Garmin FIT file exports                      │
-│                      data/YYYY-MM-DD/*.fit                      │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Vision
 
-## Quick Start
+Garmin already gives raw numbers. This app is meant to turn those numbers into a usable coaching loop:
+
+- ingest health and recovery data from Garmin FIT exports
+- let you track routines such as mindfulness, nutrition, mobility, balance work, supplements, or training blocks
+- let you run overlapping experiments even when life is messy
+- let you talk to an assistant that can explain patterns, caveats, and next steps
+- generate plans and recommendations from your own context, not from generic templates
+
+The important distinction is this:
+
+- the backend owns the analytics
+- the AI owns synthesis, conversation, prioritization, and writing
+
+That means the app should eventually behave less like a chart collection and more like a personal operating system for health and training decisions.
+
+## Product Direction
+
+Right now the product is **recovery-first**.
+
+That is the correct scope for the current data quality. We already have strong recovery signals such as sleep, HRV, resting heart rate, stress, body battery, respiration, and skin temperature. Those are enough to build a useful health assistant.
+
+We are **not** yet at full workout-performance coaching. Questions like "how does my abs routine affect running?" or "how does nutrition affect lifting?" need better training outcome data than the app currently stores. That expansion is planned, but it should follow the same rule: evidence first, AI interpretation second.
+
+## What We Are Building
+
+### 1. Recovery assistant
+
+A chat-based assistant that can look at recent health context and answer practical questions:
+
+- what changed in the last few days
+- why recovery looks worse or better
+- what signals matter most today
+- what confounders might explain a pattern
+
+### 2. Routine tracking
+
+A place to log behaviors that Garmin does not know about:
+
+- meditation
+- abs work
+- balance drills
+- supplements
+- meal timing
+- mobility
+- sleep routines
+
+### 3. Experiment tracking
+
+A way to test whether routines appear linked to outcomes over time, even when multiple things overlap.
+
+The system should not pretend life is a clean one-variable lab. It should surface:
+
+- likely signal
+- possible signal with heavy confounding
+- not enough data
+
+### 4. Plans and adherence
+
+The assistant should eventually move beyond analysis and help with execution:
+
+- daily recovery plan
+- weekly plan
+- experiment plan
+- adherence tracking
+
+## Core Principles
+
+- **Deterministic backend:** metrics, comparisons, confidence, and experiment analysis live in the backend.
+- **Display-only frontend:** the UI renders results; it does not compute statistics.
+- **Curated AI context:** the assistant works from backend-built snapshots, not broad direct database access.
+- **Explicit uncertainty:** overlapping routines and confounders are normal, so confidence must be visible.
+- **Local-first by default:** data stays local, while assistant requests send a minimized context bundle to Claude.
+
+## Current Status
+
+### Working today
+
+- Garmin FIT ingest and local SQLite storage
+- daily aggregates and metric detail views
+- dashboard for recovery signals
+- manual tracking for routines, check-ins, notes, and experiments
+- assistant MVP with persisted threads and streamed replies
+
+### Not done yet
+
+- evidence-backed experiment engine
+- plan generation and adherence loop
+- strong training-performance attribution
+- serious running/lifting coaching
+
+So the app is already useful as a **personal recovery assistant**. It is not yet a complete performance coach.
+
+## How It Works
+
+1. Garmin exports are dropped into `data/YYYY-MM-DD/*.fit`.
+2. The backend ingests those files and stores normalized data in local SQLite.
+3. Backend services compute daily metrics, insights, and assistant context snapshots.
+4. The assistant runtime sends a curated snapshot to Claude Code and streams the reply back.
+5. Threads, messages, runs, and snapshots are stored so the assistant has memory and an audit trail.
+
+## Main App Areas
+
+- `/`  
+  Recovery dashboard and metric exploration.
+
+- `/assistant`  
+  Chat with the recovery assistant, keep threads, ask for a daily briefing or weekly review.
+
+- `/routines`  
+  Define repeatable behaviors and log adherence, check-ins, and notes.
+
+- `/experiments`  
+  Define experiments, link routines, and choose target metrics.
+
+The metric-specific pages still matter, but they are supporting tools. The main product direction is the assistant plus the routines/experiments loop.
+
+## Running Locally
 
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 20+
-- [uv](https://github.com/astral-sh/uv) for Python environment management
+- `uv`
 
-### 1. Backend Setup
+### Backend
 
 ```bash
-# From project root
 cd backend
 uv venv
 uv pip install -r requirements.txt
-
-# Run the API server
 uv run uvicorn app.main:app --reload
 ```
 
-API will be available at http://localhost:8000
+Backend runs on `http://localhost:8000`.
 
-### 2. Frontend Setup
+### Frontend
 
 ```bash
-# From project root
 cd frontend
 npm install
-
-# Run the dev server
 npm run dev
 ```
 
-Dashboard will be available at http://localhost:5173
+Frontend runs on `http://localhost:5173`.
 
-### 3. Add Your Data
+### Data layout
 
-Export FIT files from Garmin Connect and place them in date-based directories:
-
-```
+```text
 data/
-├── 2026-01-14/
-│   ├── 398995029297_METRICS.fit
-│   ├── 398995072007_WELLNESS.fit
-│   ├── 398995072007_SKIN_TEMP.fit
-│   └── ...
-├── 2026-01-15/
-│   └── ...
+  2026-01-14/
+    *_WELLNESS.fit
+    *_SKIN_TEMP.fit
+    *_METRICS.fit
+  2026-01-15/
+    ...
 ```
 
-## Frontend Pages
+The ingest pipeline handles the Garmin export layout and zip extraction.
 
-| Route | Description |
-|-------|-------------|
-| `/` | Dashboard — 7 trend chart panels (HR, Stress, SpO2, Respiration, HRV, Sleep, Skin Temp) |
-| `/assistant` | Assistant MVP — persisted threads, streamed chat replies, quick prompts for daily briefing and weekly review |
-| `/routines` | Routine foundation — define repeatable behaviors, log adherence, add daily check-ins and notes |
-| `/experiments` | Experiment foundation — create/edit experiments, link routines, and choose target metrics |
-| `/heart-rate` | Heart rate detail — trend, intraday, zones, resting HR trend (7-day MA), HR distribution histogram, circadian profile, sleeping HR trend, weekly boxplots |
-| `/hrv` | HRV detail — nightly/weekly averages, balanced status tracking |
-| `/respiration` | Respiration detail — trend + intraday, min/max bands |
-| `/skin-temp` | Skin temperature — deviation from baseline, 7-day smoothed trend |
-| `/pulse-ox` | Pulse Ox (SpO2) — daily avg + min tracking, low-value flagging |
+## Repo Map
 
-## API Endpoints
+This is the stable mental model, not a file-by-file inventory:
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/daily-aggregates` | Per-day stats for all metrics (dashboard data source) |
-| `GET /api/days` | List available days of data |
-| `GET /api/days/{date}` | Summary for a specific day |
-| `GET /api/assistant/threads` | List assistant threads |
-| `POST /api/assistant/threads` | Create an assistant thread |
-| `GET /api/assistant/threads/{id}` | Load a single assistant thread |
-| `GET /api/assistant/threads/{id}/messages` | List saved messages for a thread |
-| `POST /api/assistant/threads/{id}/messages` | Stream an assistant reply as NDJSON |
-| `GET /api/profile` | Load the user profile (returns an empty default profile if unset) |
-| `PUT /api/profile` | Create or replace the user profile |
-| `GET /api/routines` | List saved routines |
-| `POST /api/routines` | Create a routine |
-| `PUT /api/routines/{id}` | Update a routine |
-| `GET /api/routines/{id}/entries?date=YYYY-MM-DD` | List entries for a routine, optionally filtered by date |
-| `POST /api/routines/{id}/entries` | Create a routine entry |
-| `GET /api/checkins?date=YYYY-MM-DD` | List daily check-ins, optionally filtered by date |
-| `POST /api/checkins` | Create or replace a daily check-in |
-| `GET /api/notes?date=YYYY-MM-DD` | List context notes, optionally filtered by date |
-| `POST /api/notes` | Create a context note |
-| `GET /api/experiments` | List experiments |
-| `GET /api/experiments/{id}` | Load an experiment |
-| `POST /api/experiments` | Create an experiment |
-| `PUT /api/experiments/{id}` | Update an experiment |
-| `GET /api/target-metrics` | List supported target metrics for experiments |
-| `GET /api/heart-rate/analysis` | HR analysis (circadian profile, sleeping HR, resting trend, weekly boxplots) |
-| `GET /api/heart-rate/distribution?date=YYYY-MM-DD` | HR histogram for a single day (5-bpm bins) |
-| `GET /api/wellness?date=YYYY-MM-DD` | Wellness data (HR, stress, SpO2, respiration) |
-| `GET /api/sleep?date=YYYY-MM-DD` | Sleep data (stages, assessment scores) |
-| `GET /api/hrv?date=YYYY-MM-DD` | HRV data (values, summaries) |
-| `GET /api/skin-temp?date=YYYY-MM-DD` | Skin temperature data |
-| `POST /api/ingest` | Trigger manual re-ingest of FIT files |
-| `GET /api/ingest/status` | Check if new FIT files exist since last ingest |
-| `GET /api/events` | SSE stream — pushes `data_updated` and assistant lifecycle events |
+- `backend/app/infra`
+  Storage, ingest, watcher, SSE/event plumbing.
 
-## Data Explorer Script
+- `backend/app/services`
+  Deterministic analytics and assistant orchestration.
 
-For command-line exploration of FIT files:
+- `backend/app/routers`
+  FastAPI route boundaries.
 
-```bash
-# From project root
-uv run python explore_fit_files.py --summary-only
-uv run python explore_fit_files.py --by-day
-uv run python explore_fit_files.py --type WELLNESS
-```
+- `frontend/src/routes`
+  Product pages such as dashboard, assistant, routines, and experiments.
 
-## Project Structure
+- `frontend/src/lib`
+  Typed API client, streaming helpers, shared UI helpers.
 
-```
-garmin_stats/
-├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI application + endpoints + SSE
-│   │   ├── models.py        # Pydantic models (Garmin data + assistant foundation)
-│   │   ├── parser.py        # FIT file parsing (wellness, sleep, HRV, skin temp)
-│   │   ├── stats.py         # Aggregation/flattening (daily aggregates, period summaries)
-│   │   ├── routers/         # Domain-specific HTTP route modules
-│   │   ├── services/        # Domain services (analytics + assistant orchestration)
-│   │   └── infra/           # SQLite persistence, SSE bus, watcher, caching
-│   ├── tests/               # pytest tests (stats, database)
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── api.ts              # Typed API client
-│   │   │   ├── api-types.ts        # Generated from OpenAPI spec (never hand-edit)
-│   │   │   ├── assistant-stream.ts # NDJSON streaming helper for assistant replies
-│   │   │   ├── chart-setup.ts      # Chart.js registration (line + bar) + date adapter
-│   │   │   ├── colors.ts           # Chart color palette
-│   │   │   ├── format.ts           # Number formatting utilities
-│   │   │   ├── sse.ts              # SSE client (EventSource for live updates)
-│   │   │   └── components/
-│   │   │       ├── LineChart.svelte       # Chart.js line chart wrapper
-│   │   │       ├── BarChart.svelte        # Chart.js bar chart wrapper
-│   │   │       ├── StatCard.svelte        # Summary stat card
-│   │   │       ├── MetricDefinition.svelte # Collapsible info box
-│   │   │       └── DateSelector.svelte    # Day picker dropdown
-│   │   └── routes/
-│   │       ├── +layout.svelte      # App shell + tab navigation
-│   │       ├── +page.svelte        # Dashboard with trend charts
-│   │       ├── assistant/+page.svelte
-│   │       ├── routines/+page.svelte
-│   │       ├── experiments/+page.svelte
-│   │       ├── heart-rate/+page.svelte
-│   │       ├── hrv/+page.svelte
-│   │       ├── respiration/+page.svelte
-│   │       ├── skin-temp/+page.svelte
-│   │       ├── pulse-ox/+page.svelte
-│   │       └── design-{1..5}/+page.svelte   # UX design prototypes
-│   └── package.json
-├── storage/                 # SQLite database (gitignored, auto-created)
-├── data/                    # FIT files (gitignored)
-├── scripts/                 # generate-api-types.sh, etc.
-├── explore_fit_files.py     # CLI exploration tool
-├── CLAUDE.md                # Project rules + gotchas for AI assistants
-├── FINDINGS.md              # Data analysis findings
-└── README.md
-```
+- `docs/ARCHITECTURE.md`
+  Current codebase architecture notes.
 
-## Roadmap
+- `chatgpt-architecture.md`
+  Product architecture for the health assistant direction.
 
-- [x] Phase 1: Data Exploration — FIT file parsing with official SDK
-- [x] Phase 2: Basic App — FastAPI backend + Svelte dashboard
-- [x] Phase 3: Time Series — Trend charts for all metrics, metric subtab pages with intraday views
-- [x] Phase 4: Database — SQLite persistence with auto-ingest, fingerprinting, period summaries
-- [x] Phase 5: Recovery foundation — routines, check-ins, notes, experiments
-- [x] Phase 6: Assistant MVP — persisted threads, curated context snapshots, streamed chat
-- [ ] Phase 7: Evidence-backed coaching — experiment effects, plans, and training-aware advice
+- `implementation-plan.md`
+  Delivery phases and build sequence.
 
-## Data Privacy
+- `FINDINGS.md`
+  Actual observations from the Garmin dataset and open analytical questions.
 
-The `data/` directory is gitignored to keep personal health data private. Never commit FIT files or exported health data to version control.
+## What Good Looks Like
+
+If this project succeeds, it should help answer questions in a way that feels specific and grounded:
+
+- "Your sleep and HRV both improved after three consistent low-stress evenings."
+- "Meditation looks promising, but travel and lifting volume are confounding the signal."
+- "Recovery is suppressed today; keep the plan lighter and skip adding another experiment."
+
+That is the bar: not just charts, not just AI chat, but a system that combines both into something genuinely useful.
+
+## Privacy
+
+The `data/` directory is gitignored. Raw personal health data should never be committed.
+
+Assistant features send a curated context bundle to Claude. The product direction is to keep that bundle as small, explicit, and auditable as possible.
 
 ## License
 
-Private project - not for distribution.
+Private project. Not for distribution.
