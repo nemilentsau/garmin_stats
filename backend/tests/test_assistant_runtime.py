@@ -106,4 +106,4 @@ class TestClaudeCodeRuntime:
             )
         )
 
-        assert events[-1]["type"] == "done"
+        assert events[-1] == {"type": "done", "session_id": None}

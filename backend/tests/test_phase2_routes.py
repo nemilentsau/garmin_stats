@@ -72,6 +72,21 @@ class TestAssistantRoutes:
 
         assert response.media_type == "application/x-ndjson"
 
+    def test_post_thread_message_returns_404_when_thread_missing(self, monkeypatch):
+        monkeypatch.setattr(
+            assistant_router_mod,
+            "get_thread",
+            lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
+        )
+
+        with pytest.raises(HTTPException, match="Assistant thread missing"):
+            asyncio.run(
+                assistant_router_mod.post_thread_message(
+                    "thread-1",
+                    AssistantMessageCreateRequest(id="message-1", content="Hi"),
+                )
+            )
+
     def test_get_thread_messages_returns_404_when_missing(self, monkeypatch):
         monkeypatch.setattr(
             assistant_router_mod,

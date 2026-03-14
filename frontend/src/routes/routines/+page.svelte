@@ -48,6 +48,8 @@
 	let notes: Note[] = $state([]);
 	let selectedRoutineId = $state('');
 	let checkinExists = $state(false);
+	let sidecarRequestToken = 0;
+	let entriesRequestToken = 0;
 
 	let routineForm = $state<Required<Pick<RoutineInput, 'id' | 'name' | 'category' | 'status' | 'description' | 'default_unit' | 'target_frequency' | 'default_time_of_day' | 'tags' | 'linked_goal_ids'>>>({
 		id: '',
@@ -149,15 +151,34 @@
 		}
 	}
 
-	async function loadDailySidecars() {
+	async function loadDailySidecars(date: string, requestToken: number) {
 		const [notesResponse, checkinsResponse] = await Promise.all([
-			api.getNotes(selectedDate),
-			api.getCheckins(selectedDate)
+			api.getNotes(date),
+			api.getCheckins(date)
 		]);
+		if (requestToken !== sidecarRequestToken || date !== selectedDate) {
+			return;
+		}
 		notes = notesResponse.notes;
 		const existingCheckin = checkinsResponse.checkins[0] ?? null;
 		checkinExists = existingCheckin !== null;
-		applyCheckinForm(existingCheckin, selectedDate);
+		applyCheckinForm(existingCheckin, date);
+	}
+
+	async function loadRoutineEntriesForSelection(
+		routineId: string,
+		date: string,
+		requestToken: number
+	) {
+		const response = await api.getRoutineEntries(routineId, date);
+		if (
+			requestToken !== entriesRequestToken ||
+			routineId !== selectedRoutineId ||
+			date !== selectedDate
+		) {
+			return;
+		}
+		entries = response.entries;
 	}
 
 	onMount(() => {
@@ -178,21 +199,27 @@
 
 	$effect(() => {
 		if (loading) return;
-		resetCheckinForm(selectedDate);
-		void loadDailySidecars().catch((e: unknown) => {
+		const date = selectedDate;
+		sidecarRequestToken += 1;
+		const requestToken = sidecarRequestToken;
+		notes = [];
+		checkinExists = false;
+		resetCheckinForm(date);
+		void loadDailySidecars(date, requestToken).catch((e: unknown) => {
 			error = errorMessage(e);
 		});
 	});
 
 	$effect(() => {
 		if (!selectedRoutineId || loading) return;
-		void api.getRoutineEntries(selectedRoutineId, selectedDate)
-			.then((response) => {
-				entries = response.entries;
-			})
-			.catch((e: unknown) => {
-				error = errorMessage(e);
-			});
+		const routineId = selectedRoutineId;
+		const date = selectedDate;
+		entriesRequestToken += 1;
+		const requestToken = entriesRequestToken;
+		entries = [];
+		void loadRoutineEntriesForSelection(routineId, date, requestToken).catch((e: unknown) => {
+			error = errorMessage(e);
+		});
 	});
 
 	let activeCount = $derived.by(() => routines.filter((routine) => routine.status === 'active').length);

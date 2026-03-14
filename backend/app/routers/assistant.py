@@ -54,6 +54,11 @@ def get_thread_messages(thread_id: str):
 @router.post("/threads/{thread_id}/messages")
 async def post_thread_message(thread_id: str, request: AssistantMessageCreateRequest):
     """Stream an assistant reply as NDJSON."""
+    try:
+        get_thread(thread_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     return StreamingResponse(
         stream_thread_reply(thread_id, request),
         media_type="application/x-ndjson",

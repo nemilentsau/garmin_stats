@@ -221,6 +221,10 @@ def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
 _MIN_CORRELATION_POINTS = 7
 
 
+def _has_variation(values: list[float]) -> bool:
+    return min(values) != max(values)
+
+
 def _compute_correlations(
     metrics: list[DailyMetric],
 ) -> list[MetricCorrelation]:
@@ -251,8 +255,11 @@ def _compute_correlations(
 
         x = [p.hrv_nightly for p in points]
         y = [p.other_value for p in points]
-        r_raw = float(np.corrcoef(x, y)[0, 1])
-        r_value = None if np.isnan(r_raw) else round(r_raw, 2)
+        if _has_variation(x) and _has_variation(y):
+            r_raw = float(np.corrcoef(x, y)[0, 1])
+            r_value = None if np.isnan(r_raw) else round(r_raw, 2)
+        else:
+            r_value = None
 
         results.append(MetricCorrelation(
             metric=metric_key,

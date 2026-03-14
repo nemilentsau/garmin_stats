@@ -1,5 +1,7 @@
 """Tests for dashboard overview service."""
 
+import warnings
+
 import pytest
 
 import app.infra.database as db
@@ -242,3 +244,30 @@ class TestCorrelations:
             None,
         )
         assert hr_corr is not None
+
+    def test_constant_series_returns_none_without_runtime_warning(self):
+        for i in range(10):
+            _insert(_make_metric(
+                f"2026-01-{i + 1:02d}",
+                nightly_avg=40.0 + i,
+                sleep_score=80,
+                resting_hr=46,
+            ))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            result = load_dashboard_overview()
+
+        sleep_corr = next(
+            (c for c in result.correlations if c.metric == "sleep_score"),
+            None,
+        )
+        hr_corr = next(
+            (c for c in result.correlations if c.metric == "resting_hr"),
+            None,
+        )
+
+        assert sleep_corr is not None
+        assert sleep_corr.r_value is None
+        assert hr_corr is not None
+        assert hr_corr.r_value is None

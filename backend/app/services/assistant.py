@@ -123,10 +123,13 @@ async def stream_thread_reply(
             session_id=thread.claude_session_id,
         ):
             if event["type"] == "delta":
-                assistant_chunks.append(event["text"])
+                text = event.get("text")
+                if not isinstance(text, str):
+                    continue
+                assistant_chunks.append(text)
                 await event_bus.broadcast(
                     "assistant_stream_delta",
-                    json.dumps({"thread_id": thread_id, "run_id": run.id, "delta": event["text"]}),
+                    json.dumps({"thread_id": thread_id, "run_id": run.id, "delta": text}),
                 )
                 yield json.dumps(event) + "\n"
                 continue

@@ -6,7 +6,6 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from pathlib import Path
-from uuid import uuid4
 
 from ..models import ContextSnapshot
 
@@ -81,7 +80,7 @@ class ClaudeCodeRuntime:
         user_message: str,
         model: str,
         session_id: str | None,
-    ) -> AsyncIterator[dict[str, str]]:
+    ) -> AsyncIterator[dict[str, str | None]]:
         prompt = _chat_prompt(user_message)
         workspace = _write_workspace_files(snapshot, prompt)
         cmd = [
@@ -138,7 +137,7 @@ class ClaudeCodeRuntime:
                 raise RuntimeError(stderr or f"Claude exited with status {returncode}")
             yield {
                 "type": "done",
-                "session_id": captured_session_id or f"session-{uuid4().hex}",
+                "session_id": captured_session_id,
             }
         finally:
             if process.returncode is None:
