@@ -9,7 +9,6 @@ from ..infra.database import (
     load_card_overrides,
     load_card_template,
     save_card_log,
-    save_card_override,
 )
 from ..models import (
     CardLog,
@@ -17,7 +16,6 @@ from ..models import (
     ScheduleOccurrence,
     TodayCard,
     TodayCardLogUpdateRequest,
-    TodayCardOverrideCreateRequest,
     TodayResponse,
     TodaySlot,
     TodayStats,
@@ -193,39 +191,3 @@ def upsert_today_card_log(
     )
     save_card_log(log)
     return log
-
-
-def create_today_override(date: str, request: TodayCardOverrideCreateRequest) -> CardOverride:
-    if request.action in {"add", "replace"} and request.card_template_id is None:
-        raise ValueError("card_template_id is required for add/replace overrides")
-    if request.action in {"hide", "replace"} and request.target_occurrence_key is None:
-        raise ValueError("target_occurrence_key is required for hide/replace overrides")
-    if (
-        request.card_template_id is not None
-        and load_card_template(request.card_template_id) is None
-    ):
-        raise LookupError(f"Card template {request.card_template_id} not found")
-
-    override = CardOverride(
-        id=request.id,
-        date=date,
-        action=request.action,
-        target_occurrence_key=request.target_occurrence_key,
-        card_template_id=request.card_template_id,
-        slot=request.slot,
-        position=request.position,
-        notes=request.notes,
-    )
-    save_card_override(override)
-    return override
-
-
-def hide_today_card(date: str, occurrence_key: str) -> CardOverride:
-    override = CardOverride(
-        id=f"hide-{date}-{occurrence_key}",
-        date=date,
-        action="hide",
-        target_occurrence_key=occurrence_key,
-    )
-    save_card_override(override)
-    return override

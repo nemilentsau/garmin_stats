@@ -5,18 +5,10 @@ from app.infra.database import (
     load_card_templates,
     load_routine_assignments,
     load_routine_schedules,
+    save_card_override,
 )
-from app.models import (
-    AssistantArtifactCreateRequest,
-    TodayCardLogUpdateRequest,
-    TodayCardOverrideCreateRequest,
-)
-from app.services.today import (
-    create_today_override,
-    get_today,
-    hide_today_card,
-    upsert_today_card_log,
-)
+from app.models import AssistantArtifactCreateRequest, CardOverride, TodayCardLogUpdateRequest
+from app.services.today import get_today, upsert_today_card_log
 from app.services.training_specs import activate_assistant_artifact, create_assistant_artifact
 
 
@@ -152,15 +144,13 @@ class TestTodayProjection:
         assert {card.routine_id for card in all_cards} == {"routine-weekly", "routine-biweekly"}
         assert {card.card_template_id for card in all_cards} == {"card-live"}
 
-    def test_card_log_and_overrides_round_trip_into_today_projection(self):
+    def test_card_log_round_trips_into_today_projection(self):
         card_artifact = create_assistant_artifact(_card_request("card-main"))
-        extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))
         routine_artifact = create_assistant_artifact(
             _routine_request("routine-main", card_id="card-main")
         )
 
         activate_assistant_artifact(card_artifact.id)
-        activate_assistant_artifact(extra_card_artifact.id)
         activate_assistant_artifact(routine_artifact.id)
 
         today_before = get_today("2026-03-02")
@@ -179,25 +169,79 @@ class TestTodayProjection:
         )
         today_with_log = get_today("2026-03-02")
         logged_card = today_with_log.slots[2].cards[0]
-        create_today_override(
-            "2026-03-02",
-            TodayCardOverrideCreateRequest(
-                id="override-extra",
-                action="add",
-                card_template_id="card-extra",
-                slot="morning",
-                position=5,
-            ),
-        )
-        hide_today_card("2026-03-02", scheduled_card.occurrence_key)
-
-        today_after = get_today("2026-03-02")
-        morning_cards = today_after.slots[0].cards
-        evening_cards = today_after.slots[2].cards
 
         assert logged_card.status == "partial"
         assert logged_card.actual_json["actual_minutes"] == 8
         assert logged_card.notes == "Shortened after the run"
-        assert len(morning_cards) == 1
-        assert morning_cards[0].card_template_id == "card-extra"
-        assert evening_cards == []
+
+    def test_today_applies_persisted_add_and_hide_overrides(self):
+        card_artifact = create_assistant_artifact(_card_request("card-main"))
+        extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))
+        routine_artifact = create_assistant_artifact(
+            _routine_request("routine-main", card_id="card-main")
+        )
+
+        activate_assistant_artifact(card_artifact.id)
+        activate_assistant_artifact(extra_card_artifact.id)
+        activate_assistant_artifact(routine_artifact.id)
+
+        today_before = get_today("2026-03-02")
+        scheduled_card = today_before.slots[2].cards[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-extra",
+                date="2026-03-02",
+                action="add",
+                card_template_id="card-extra",
+                slot="morning",
+                position=5,
+            )
+        )
+        save_card_override(
+            CardOverride(
+                id="override-hide-main",
+                date="2026-03-02",
+                action="hide",
+                target_occurrence_key=scheduled_card.occurrence_key,
+            )
+        )
+
+        today_after = get_today("2026-03-02")
+        all_cards = [card for slot in today_after.slots for card in slot.cards]
+
+        assert [card.card_template_id for card in all_cards] == ["card-extra"]
+        assert all_cards[0].occurrence_key == "override:add:override-extra:2026-03-02"
+        assert all_cards[0].slot == "morning"
+
+    def test_today_applies_persisted_replace_overrides(self):
+        card_artifact = create_assistant_artifact(_card_request("card-main"))
+        extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))
+        routine_artifact = create_assistant_artifact(
+            _routine_request("routine-main", card_id="card-main")
+        )
+
+        activate_assistant_artifact(card_artifact.id)
+        activate_assistant_artifact(extra_card_artifact.id)
+        activate_assistant_artifact(routine_artifact.id)
+
+        today_before = get_today("2026-03-02")
+        scheduled_card = today_before.slots[2].cards[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-replace-main",
+                date="2026-03-02",
+                action="replace",
+                target_occurrence_key=scheduled_card.occurrence_key,
+                card_template_id="card-extra",
+            )
+        )
+
+        today_after = get_today("2026-03-02")
+        all_cards = [card for slot in today_after.slots for card in slot.cards]
+
+        assert [card.card_template_id for card in all_cards] == ["card-extra"]
+        assert all_cards[0].occurrence_key == "override:replace:override-replace-main:2026-03-02"
+        assert all_cards[0].slot == scheduled_card.slot
+        assert all_cards[0].routine_id == scheduled_card.routine_id

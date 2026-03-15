@@ -57,13 +57,11 @@ export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
 export type CardTemplate = Schemas['CardTemplate'];
 export type CardTemplatesResponse = Schemas['CardTemplatesResponse'];
 export type CardLog = Schemas['CardLog'];
-export type CardOverride = Schemas['CardOverride'];
 export type RoutineAssignment = Schemas['RoutineAssignment'];
 export type RoutineAssignmentsResponse = Schemas['RoutineAssignmentsResponse'];
 export type RoutineSchedule = Schemas['RoutineSchedule'];
 export type RoutineSchedulesResponse = Schemas['RoutineSchedulesResponse'];
 export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
-export type TodayCardOverrideInput = Schemas['TodayCardOverrideCreateRequest'];
 export type TodayResponse = Schemas['TodayResponse'];
 export type Program = Schemas['Program'];
 export type ProgramsResponse = Schemas['ProgramsResponse'];
@@ -123,12 +121,6 @@ export const api = {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload)
-		}),
-	createTodayCardOverride: (date: string, payload: TodayCardOverrideInput) =>
-		sendJson<CardOverride>(`/api/today/${date}/cards`, 'POST', payload),
-	hideTodayCard: (date: string, occurrenceKey: string) =>
-		fetchJson<CardOverride>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, {
-			method: 'DELETE'
 		}),
 	getCheckins: (date?: string) =>
 		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),

@@ -132,6 +132,7 @@ Current parsed signals are strong enough for a recovery-first assistant: sleep, 
 
 ### Routine runtime implication
 The product now has a cleaner boundary for manual interventions and future assistant planning: routines are represented as structured card and schedule specs that compile into live runtime records. That makes mindfulness, mobility, and core work extensible without schema churn, while keeping experiments intentionally paused until they can reference the same runtime cleanly.
+Today is now execution-only in its public contract: it logs outcomes against scheduled occurrences. The projection still honors previously persisted date-specific overrides for backward compatibility, but new schedule exceptions are deferred until a dedicated schedule-management flow exists.
 
 ### Raw Sensor Data
 - Unknown type 233 in WELLNESS (~185 records/file) — possibly raw sensor data

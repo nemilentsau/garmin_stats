@@ -131,7 +131,7 @@ The routine system now has two layers:
 1. **Assistant artifacts**  
    Structured drafts authored by the health assistant. Supported kinds are `card_template`, `routine_spec`, and `capability_request`.
 2. **Live runtime records**  
-   Activated cards, routines, assignments, logs, and date-specific overrides that drive `/today`.
+   Activated cards, routines, assignments, and logs that drive `/today`. Persisted date-specific overrides are still read for backward compatibility, but Today no longer authors them.
 
 The app enforces a strict renderer boundary. v1 supports:
 
@@ -251,7 +251,7 @@ This is the stable mental model, not a file-by-file inventory:
 Key API groups exposed by the backend:
 
 - `GET /api/cards`  
-  List live card templates that can be scheduled or added as date overrides.
+  List live card templates that can be scheduled in live routines.
 
 - `GET /api/routines`  
   List live compiled routines.
@@ -263,16 +263,10 @@ Key API groups exposed by the backend:
   Fetch recurring card placements for a live routine.
 
 - `GET /api/today?date=YYYY-MM-DD`  
-  Build the day view from active routines, assignments, overrides, and logs.
+  Build the day view from active routines, assignments, persisted date-specific overrides, and logs.
 
 - `PUT /api/today/{date}/cards/{occurrence_key}`  
   Upsert one-tap or detailed logging for a card occurrence.
-
-- `POST /api/today/{date}/cards`  
-  Add a date-specific card override.
-
-- `DELETE /api/today/{date}/cards/{occurrence_key}`  
-  Hide a card occurrence for that date.
 
 - `GET /api/assistant/artifacts`  
   List assistant-authored drafts and capability requests.

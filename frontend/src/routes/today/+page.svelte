@@ -215,19 +215,6 @@
 		}
 	}
 
-	async function hideCard(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]) {
-		saving = true;
-		error = null;
-		try {
-			await api.hideTodayCard(selectedDate, card.occurrence_key);
-			today = await api.getToday(selectedDate);
-		} catch (e: unknown) {
-			error = errorMessage(e);
-		} finally {
-			saving = false;
-		}
-	}
-
 	function formatSeconds(totalSeconds: number): string {
 		if (totalSeconds < 60) return `${totalSeconds}s`;
 		const minutes = Math.floor(totalSeconds / 60);
@@ -252,8 +239,8 @@
 				<h1>Today is compiled from activated specs, not templates glued into code.</h1>
 				<p class="hero-text">
 					Each card below comes from the live schedule. Tap once to log it, or open the card when you
-					need detail. If the schedule itself is wrong, fix it in routines creation instead of editing
-					Today.
+					need detail. Today records what happened; it does not rewrite the schedule. If the plan is
+					wrong, fix it in routines creation instead.
 				</p>
 			</div>
 
@@ -358,9 +345,6 @@
 											</button>
 											<button class="ghost-btn" onclick={() => toggleDetails(card)}>
 												{expandedOccurrenceKey === card.occurrence_key ? 'Close' : 'Details'}
-											</button>
-											<button class="ghost-btn danger" onclick={() => hideCard(card)} disabled={saving}>
-												Hide
 											</button>
 										</div>
 									</div>
@@ -845,10 +829,6 @@
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.05);
 		color: #d5e2ea;
-	}
-
-	.ghost-btn.danger {
-		color: #f2a399;
 	}
 
 	.payload-strip {

@@ -890,30 +890,6 @@ export interface paths {
          */
         put: operations["put_today_card_log_api_today__date__cards__occurrence_key__put"];
         post?: never;
-        /**
-         * Delete Today Card
-         * @description Hide a single card occurrence for the selected date.
-         */
-        delete: operations["delete_today_card_api_today__date__cards__occurrence_key__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/today/{date}/cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Post Today Override
-         * @description Create a date-specific add/hide/replace override.
-         */
-        post: operations["post_today_override_api_today__date__cards_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1185,28 +1161,6 @@ export interface components {
             actual_json: {
                 [key: string]: unknown;
             };
-            /** Notes */
-            notes: string | null;
-        };
-        /** CardOverride */
-        CardOverride: {
-            /** Id */
-            id: string;
-            /** Date */
-            date: string;
-            /**
-             * Action
-             * @enum {string}
-             */
-            action: "add" | "hide" | "replace";
-            /** Target Occurrence Key */
-            target_occurrence_key: string | null;
-            /** Card Template Id */
-            card_template_id: string | null;
-            /** Slot */
-            slot: ("morning" | "midday" | "evening" | "anytime") | null;
-            /** Position */
-            position: number | null;
             /** Notes */
             notes: string | null;
         };
@@ -2726,27 +2680,6 @@ export interface components {
             actual_json: {
                 [key: string]: unknown;
             };
-            /** Notes */
-            notes?: string | null;
-        };
-        /** TodayCardOverrideCreateRequest */
-        TodayCardOverrideCreateRequest: {
-            /** Id */
-            id: string;
-            /**
-             * Action
-             * @default add
-             * @enum {string}
-             */
-            action: "add" | "hide" | "replace";
-            /** Card Template Id */
-            card_template_id?: string | null;
-            /** Slot */
-            slot?: ("morning" | "midday" | "evening" | "anytime") | null;
-            /** Position */
-            position?: number | null;
-            /** Target Occurrence Key */
-            target_occurrence_key?: string | null;
             /** Notes */
             notes?: string | null;
         };
@@ -4523,73 +4456,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardLog"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_today_card_api_today__date__cards__occurrence_key__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                date: string;
-                occurrence_key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CardOverride"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_today_override_api_today__date__cards_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                date: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TodayCardOverrideCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CardOverride"];
                 };
             };
             /** @description Validation Error */

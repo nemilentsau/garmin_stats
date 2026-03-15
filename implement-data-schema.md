@@ -172,6 +172,11 @@ Make the boundary real, not aspirational.
 - keep only base recurring schedule plus logs
 - revisit exceptions later if truly needed
 
+Chosen for the current implementation pass:
+
+- Today does not write schedule exceptions; it still reads persisted ones for backward compatibility
+- the Today API keeps only logging writes
+
 ### Acceptance criteria
 
 - Today cannot create new cards or date-local plans

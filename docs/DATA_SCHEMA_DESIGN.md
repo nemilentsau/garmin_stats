@@ -187,7 +187,6 @@ It consists of:
 - `RoutineSchedule`
 - `RoutineAssignment`
 - `CardLog`
-- `CardOverride`
 
 This layer is deliberately small.
 
@@ -276,7 +275,7 @@ The schema does not hardcode every possible logged field. Renderer-specific deta
 
 If this concept exists, it belongs to the schedule management layer, not to Today itself.
 
-Today may read these exceptions, but it must not create them.
+For the current pass, Today still reads previously persisted exceptions for backward compatibility, but it does not create them.
 
 Supported actions at the schedule layer in v1:
 
@@ -284,7 +283,7 @@ Supported actions at the schedule layer in v1:
 - `hide`
 - `replace`
 
-This keeps the base schedule clean while still allowing future date-specific schedule editing without polluting normal recurring assignments.
+This keeps the base schedule clean while still allowing future date-specific schedule editing without polluting normal recurring assignments, if we reintroduce it through dedicated schedule management later.
 
 Overrides are intentionally separate from routine assignments because they are exceptions, not schedule definitions.
 

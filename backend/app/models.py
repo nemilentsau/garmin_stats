@@ -940,16 +940,6 @@ class TodayCardLogUpdateRequest(_StrictDefaultsRequired):
     notes: str | None = None
 
 
-class TodayCardOverrideCreateRequest(_StrictDefaultsRequired):
-    id: str
-    action: CardOverrideAction = "add"
-    card_template_id: str | None = None
-    slot: SlotName | None = None
-    position: int | None = None
-    target_occurrence_key: str | None = None
-    notes: str | None = None
-
-
 class TodayStats(_DefaultsRequired):
     total: int = 0
     completed: int = 0
