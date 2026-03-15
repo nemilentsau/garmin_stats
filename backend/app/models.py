@@ -6,6 +6,8 @@ Pydantic models for Garmin Stats — three tiers:
   Tier 3: API response models (match frontend TS interfaces)
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -15,6 +17,15 @@ class _DefaultsRequired(BaseModel):
     openapi-typescript generates `prop: T | null` instead of `prop?: T | null`."""
 
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class _StrictDefaultsRequired(_DefaultsRequired):
+    """Base for models that must reject unknown keys."""
+
+    model_config = ConfigDict(
+        json_schema_serialization_defaults_required=True,
+        extra="forbid",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -719,6 +730,264 @@ class ExperimentsResponse(_DefaultsRequired):
 class TargetMetricsResponse(_DefaultsRequired):
     metrics: list[TargetMetricDefinition] = []
     total: int
+
+
+RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
+RoutineCadence = Literal["weekly", "biweekly"]
+SlotName = Literal["morning", "midday", "evening", "anytime"]
+WeekdayName = Literal[
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
+AssistantArtifactKind = Literal["routine_spec", "card_template", "capability_request"]
+AssistantArtifactStatus = Literal["draft", "validated", "invalid", "activated"]
+CardLogStatus = Literal["pending", "completed", "partial", "skipped"]
+CardOverrideAction = Literal["add", "hide", "replace"]
+
+
+class TimerSegmentSpec(_StrictDefaultsRequired):
+    label: str
+    duration_seconds: int
+
+
+class RatingPromptSpec(_StrictDefaultsRequired):
+    key: str
+    label: str
+    scale_min: int | None = None
+    scale_max: int | None = None
+
+
+class ChecklistItemSpec(_StrictDefaultsRequired):
+    id: str
+    label: str
+    detail: str | None = None
+
+
+class ExerciseItemSpec(_StrictDefaultsRequired):
+    id: str
+    label: str
+    detail: str | None = None
+    reps: str | None = None
+    duration_seconds: int | None = None
+
+
+class TimerSessionPayloadSpec(_StrictDefaultsRequired):
+    duration_minutes: int | None = None
+    pattern: str | None = None
+    instructions: str | None = None
+    segments: list[TimerSegmentSpec] = []
+    rating_prompts: list[RatingPromptSpec] = []
+
+
+class ChecklistBlockPayloadSpec(_StrictDefaultsRequired):
+    instructions: str | None = None
+    items: list[ChecklistItemSpec] = []
+
+
+class ExerciseBlockPayloadSpec(_StrictDefaultsRequired):
+    instructions: str | None = None
+    exercises: list[ExerciseItemSpec] = []
+
+
+class CardTemplateSpec(_StrictDefaultsRequired):
+    id: str
+    name: str
+    renderer: RendererFamily
+    slot_default: SlotName
+    summary: str | None = None
+    tags: list[str] = []
+    payload: dict[str, object] = {}
+
+
+class RoutineAssignmentSpec(_StrictDefaultsRequired):
+    id: str
+    card_template_id: str
+    cycle_week: int = 1
+    weekday: WeekdayName
+    slot: SlotName
+    position: int = 0
+    prescription_override_json: dict[str, object] = {}
+
+
+class RoutineSpec(_StrictDefaultsRequired):
+    id: str
+    name: str
+    cadence: RoutineCadence
+    start_date: str
+    end_date: str | None = None
+    status: str = "active"
+    tags: list[str] = []
+    notes: str | None = None
+    assignments: list[RoutineAssignmentSpec] = []
+
+
+class CapabilityRequestSpec(_StrictDefaultsRequired):
+    requested_renderer: str
+    reason: str
+    source_artifact_id: str | None = None
+    payload_example_json: dict[str, object] = {}
+
+
+class AssistantArtifact(_DefaultsRequired):
+    id: str
+    kind: AssistantArtifactKind
+    schema_version: int
+    status: AssistantArtifactStatus = "draft"
+    source_thread_id: str | None = None
+    source_snapshot_id: str | None = None
+    payload_json: dict[str, object] = {}
+    validation_errors: list[str] = []
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class AssistantArtifactCreateRequest(_StrictDefaultsRequired):
+    id: str
+    kind: AssistantArtifactKind
+    schema_version: int
+    source_thread_id: str | None = None
+    source_snapshot_id: str | None = None
+    payload_json: dict[str, object] = {}
+
+
+class AssistantArtifactsResponse(_DefaultsRequired):
+    artifacts: list[AssistantArtifact] = []
+    total: int
+
+
+class CardTemplate(_DefaultsRequired):
+    id: str
+    name: str
+    renderer: RendererFamily
+    slot_default: SlotName
+    status: str = "active"
+    summary: str | None = None
+    tags: list[str] = []
+    payload_json: dict[str, object] = {}
+    source_artifact_id: str | None = None
+
+
+class CardTemplatesResponse(_DefaultsRequired):
+    cards: list[CardTemplate] = []
+    total: int
+
+
+class RoutineSchedule(_DefaultsRequired):
+    id: str
+    name: str
+    status: str = "active"
+    cadence: RoutineCadence
+    start_date: str
+    end_date: str | None = None
+    tags: list[str] = []
+    notes: str | None = None
+    source_artifact_id: str | None = None
+
+
+class RoutineAssignment(_DefaultsRequired):
+    id: str
+    routine_id: str
+    card_template_id: str
+    cycle_week: int = 1
+    weekday: WeekdayName
+    slot: SlotName
+    position: int = 0
+    prescription_override_json: dict[str, object] = {}
+
+
+class RoutineSchedulesResponse(_DefaultsRequired):
+    routines: list[RoutineSchedule] = []
+    total: int
+
+
+class RoutineAssignmentsResponse(_DefaultsRequired):
+    assignments: list[RoutineAssignment] = []
+    total: int
+
+
+class CardLog(_DefaultsRequired):
+    id: str
+    date: str
+    occurrence_key: str
+    card_template_id: str
+    assignment_id: str | None = None
+    status: CardLogStatus = "pending"
+    actual_json: dict[str, object] = {}
+    notes: str | None = None
+
+
+class CardOverride(_DefaultsRequired):
+    id: str
+    date: str
+    action: CardOverrideAction
+    target_occurrence_key: str | None = None
+    card_template_id: str | None = None
+    slot: SlotName | None = None
+    position: int | None = None
+    notes: str | None = None
+
+
+class TodayCardLogUpdateRequest(_StrictDefaultsRequired):
+    card_template_id: str
+    assignment_id: str | None = None
+    status: CardLogStatus = "completed"
+    actual_json: dict[str, object] = {}
+    notes: str | None = None
+
+
+class TodayCardOverrideCreateRequest(_StrictDefaultsRequired):
+    id: str
+    action: CardOverrideAction = "add"
+    card_template_id: str | None = None
+    slot: SlotName | None = None
+    position: int | None = None
+    target_occurrence_key: str | None = None
+    notes: str | None = None
+
+
+class TodayStats(_DefaultsRequired):
+    total: int = 0
+    completed: int = 0
+    partial: int = 0
+    skipped: int = 0
+    pending: int = 0
+
+
+class TodayCard(_DefaultsRequired):
+    occurrence_key: str
+    date: str
+    slot: SlotName
+    position: int = 0
+    source_kind: str
+    routine_id: str | None = None
+    routine_name: str | None = None
+    assignment_id: str | None = None
+    card_template_id: str
+    name: str
+    renderer: RendererFamily
+    summary: str | None = None
+    tags: list[str] = []
+    payload_json: dict[str, object] = {}
+    status: CardLogStatus = "pending"
+    actual_json: dict[str, object] = {}
+    notes: str | None = None
+
+
+class TodaySlot(_DefaultsRequired):
+    slot: SlotName
+    label: str
+    cards: list[TodayCard] = []
+
+
+class TodayResponse(_DefaultsRequired):
+    date: str
+    stats: TodayStats
+    slots: list[TodaySlot] = []
 
 
 class AssistantThreadCreateRequest(_DefaultsRequired):

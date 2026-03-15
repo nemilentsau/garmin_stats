@@ -22,7 +22,7 @@
 			]
 		},
 		{
-			label: 'Programs',
+			label: 'Training',
 			href: '/today',
 			subtabs: [
 				{ href: '/today', label: 'Today' },

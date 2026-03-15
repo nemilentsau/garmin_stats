@@ -18,9 +18,13 @@ from pathlib import Path
 
 from ..models import (
     DEFAULT_PROFILE_ID,
+    AssistantArtifact,
     AssistantMessage,
     AssistantRun,
     AssistantThread,
+    CardLog,
+    CardOverride,
+    CardTemplate,
     ContextSnapshot,
     DailyCheckIn,
     DailyMetric,
@@ -41,7 +45,9 @@ from ..models import (
     Program,
     ProgramVersion,
     Routine,
+    RoutineAssignment,
     RoutineEntry,
+    RoutineSchedule,
     UserProfile,
 )
 from ..parser import get_files_by_day, parse_all_days
@@ -72,6 +78,8 @@ _VALID_TABLES = frozenset({
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
     "evidence_cards", "programs", "program_versions",
+    "assistant_artifacts", "card_templates", "routine_schedules",
+    "routine_assignments", "card_logs", "card_overrides",
 })
 
 
@@ -99,6 +107,9 @@ CREATE TABLE IF NOT EXISTS plans          ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS assistant_threads ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS context_snapshots ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS evidence_cards ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS assistant_artifacts ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS card_templates ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS routine_schedules ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS routine_entries (
     id TEXT PRIMARY KEY,
     routine_id TEXT NOT NULL,
@@ -159,8 +170,45 @@ CREATE TABLE IF NOT EXISTS assistant_runs (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS routine_assignments (
+    id TEXT PRIMARY KEY,
+    routine_id TEXT NOT NULL,
+    card_template_id TEXT NOT NULL,
+    weekday TEXT NOT NULL,
+    cycle_week INTEGER NOT NULL,
+    slot TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS card_logs (
+    id TEXT PRIMARY KEY,
+    occurrence_key TEXT NOT NULL,
+    log_date TEXT NOT NULL,
+    card_template_id TEXT NOT NULL,
+    assignment_id TEXT,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS card_overrides (
+    id TEXT PRIMARY KEY,
+    override_date TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target_occurrence_key TEXT,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_routine_entries_routine_date
     ON routine_entries (routine_id, entry_date);
+CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_weekday
+    ON routine_assignments (routine_id, weekday, cycle_week, slot, position);
+CREATE INDEX IF NOT EXISTS idx_card_logs_date_occurrence
+    ON card_logs (log_date, occurrence_key);
+CREATE INDEX IF NOT EXISTS idx_card_overrides_date_action
+    ON card_overrides (override_date, action);
 CREATE INDEX IF NOT EXISTS idx_daily_checkins_entry_date
     ON daily_checkins (entry_date);
 CREATE INDEX IF NOT EXISTS idx_notes_entry_date
@@ -216,7 +264,7 @@ def _save_json_record(
     record_id: str,
     data_json: str,
     *,
-    extra_columns: dict[str, str | None] | None = None,
+    extra_columns: dict[str, object | None] | None = None,
     created_at: str | None = None,
     updated_at: str | None = None,
 ) -> None:
@@ -834,6 +882,175 @@ def save_evidence_card(card: EvidenceCard) -> None:
 
 def load_evidence_cards() -> list[EvidenceCard]:
     return _load_json_records("evidence_cards", EvidenceCard)
+
+
+# ---------------------------------------------------------------------------
+# Training spec platform storage
+# ---------------------------------------------------------------------------
+
+
+def save_assistant_artifact(artifact: AssistantArtifact) -> None:
+    _save_json_record(
+        "assistant_artifacts",
+        artifact.id,
+        artifact.model_dump_json(),
+        created_at=artifact.created_at,
+        updated_at=artifact.updated_at,
+    )
+
+
+def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
+    return _load_json_record("assistant_artifacts", AssistantArtifact, artifact_id)
+
+
+def load_assistant_artifacts(
+    *,
+    kind: str | None = None,
+    status: str | None = None,
+) -> list[AssistantArtifact]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if kind is not None:
+        clauses.append("json_extract(data, '$.kind') = ?")
+        params.append(kind)
+    if status is not None:
+        clauses.append("json_extract(data, '$.status') = ?")
+        params.append(status)
+    return _load_json_records(
+        "assistant_artifacts",
+        AssistantArtifact,
+        where_sql=" AND ".join(clauses),
+        params=tuple(params),
+        order_by="created_at DESC, id",
+    )
+
+
+def save_card_template(card: CardTemplate) -> None:
+    _save_json_record("card_templates", card.id, card.model_dump_json())
+
+
+def load_card_template(card_id: str) -> CardTemplate | None:
+    return _load_json_record("card_templates", CardTemplate, card_id)
+
+
+def load_card_templates(status: str | None = None) -> list[CardTemplate]:
+    where_sql = ""
+    params: tuple[object, ...] = ()
+    if status is not None:
+        where_sql = "json_extract(data, '$.status') = ?"
+        params = (status,)
+    return _load_json_records(
+        "card_templates",
+        CardTemplate,
+        where_sql=where_sql,
+        params=params,
+    )
+
+
+def save_routine_schedule(routine: RoutineSchedule) -> None:
+    _save_json_record("routine_schedules", routine.id, routine.model_dump_json())
+
+
+def load_routine_schedule(routine_id: str) -> RoutineSchedule | None:
+    return _load_json_record("routine_schedules", RoutineSchedule, routine_id)
+
+
+def load_routine_schedules(status: str | None = None) -> list[RoutineSchedule]:
+    where_sql = ""
+    params: tuple[object, ...] = ()
+    if status is not None:
+        where_sql = "json_extract(data, '$.status') = ?"
+        params = (status,)
+    return _load_json_records(
+        "routine_schedules",
+        RoutineSchedule,
+        where_sql=where_sql,
+        params=params,
+    )
+
+
+def delete_routine_assignments(routine_id: str) -> None:
+    with _connect() as con, con:
+        con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
+
+
+def save_routine_assignment(assignment: RoutineAssignment) -> None:
+    _save_json_record(
+        "routine_assignments",
+        assignment.id,
+        assignment.model_dump_json(),
+        extra_columns={
+            "routine_id": assignment.routine_id,
+            "card_template_id": assignment.card_template_id,
+            "weekday": assignment.weekday,
+            "cycle_week": assignment.cycle_week,
+            "slot": assignment.slot,
+            "position": assignment.position,
+        },
+    )
+
+
+def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:
+    where_sql = "routine_id = ?" if routine_id is not None else ""
+    params = (routine_id,) if routine_id is not None else ()
+    return _load_json_records(
+        "routine_assignments",
+        RoutineAssignment,
+        where_sql=where_sql,
+        params=params,
+        order_by="routine_id, weekday, cycle_week, position, id",
+    )
+
+
+def save_card_log(log: CardLog) -> None:
+    _save_json_record(
+        "card_logs",
+        log.id,
+        log.model_dump_json(),
+        extra_columns={
+            "occurrence_key": log.occurrence_key,
+            "log_date": log.date,
+            "card_template_id": log.card_template_id,
+            "assignment_id": log.assignment_id,
+        },
+    )
+
+
+def load_card_logs(date: str | None = None) -> list[CardLog]:
+    where_sql = "log_date = ?" if date is not None else ""
+    params = (date,) if date is not None else ()
+    return _load_json_records(
+        "card_logs",
+        CardLog,
+        where_sql=where_sql,
+        params=params,
+        order_by="log_date, created_at, id",
+    )
+
+
+def save_card_override(override: CardOverride) -> None:
+    _save_json_record(
+        "card_overrides",
+        override.id,
+        override.model_dump_json(),
+        extra_columns={
+            "override_date": override.date,
+            "action": override.action,
+            "target_occurrence_key": override.target_occurrence_key,
+        },
+    )
+
+
+def load_card_overrides(date: str | None = None) -> list[CardOverride]:
+    where_sql = "override_date = ?" if date is not None else ""
+    params = (date,) if date is not None else ()
+    return _load_json_records(
+        "card_overrides",
+        CardOverride,
+        where_sql=where_sql,
+        params=params,
+        order_by="override_date, created_at, id",
+    )
 
 
 # ---------------------------------------------------------------------------

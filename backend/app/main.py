@@ -12,7 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .infra.database import DATA_DIR, ingest_all, init_db, is_db_empty
 from .infra.watcher import heartbeat_loop, watch_data_directory
 from .routers.assistant import router as assistant_router
+from .routers.assistant_artifacts import router as assistant_artifacts_router
 from .routers.body_battery import router as body_battery_router
+from .routers.cards import router as cards_router
 from .routers.checkins import router as checkins_router
 from .routers.daily_aggregates import router as daily_aggregates_router
 from .routers.dashboard import router as dashboard_router
@@ -30,6 +32,7 @@ from .routers.skin_temp import router as skin_temp_router
 from .routers.sleep import router as sleep_router
 from .routers.stress import router as stress_router
 from .routers.target_metrics import router as target_metrics_router
+from .routers.today import router as today_router
 from .routers.wellness import router as wellness_router
 
 logging.basicConfig(level=logging.INFO)
@@ -78,7 +81,15 @@ app = FastAPI(
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5180"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5180",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5180",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -97,6 +108,8 @@ app.include_router(stress_router)
 app.include_router(body_battery_router)
 app.include_router(events_router)
 app.include_router(assistant_router)
+app.include_router(assistant_artifacts_router)
+app.include_router(cards_router)
 app.include_router(profile_router)
 app.include_router(routines_router)
 app.include_router(checkins_router)
@@ -104,6 +117,7 @@ app.include_router(notes_router)
 app.include_router(experiments_router)
 app.include_router(target_metrics_router)
 app.include_router(programs_router)
+app.include_router(today_router)
 
 
 @app.get("/")

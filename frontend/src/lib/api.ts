@@ -34,29 +34,37 @@ export type StressAnalysis = Schemas['StressAnalysisResponse'];
 export type BodyBatteryAnalysis = Schemas['BodyBatteryAnalysisResponse'];
 export type UserProfile = Schemas['UserProfile-Output'];
 export type UserProfileInput = Schemas['UserProfile-Input'];
-export type Routine = Schemas['Routine-Output'];
-export type RoutineInput = Schemas['Routine-Input'];
-export type RoutinesResponse = Schemas['RoutinesResponse'];
-export type RoutineEntry = Schemas['RoutineEntry-Output'];
-export type RoutineEntryInput = Schemas['RoutineEntry-Input'];
-export type RoutineEntriesResponse = Schemas['RoutineEntriesResponse'];
 export type DailyCheckIn = Schemas['DailyCheckIn-Output'];
 export type DailyCheckInInput = Schemas['DailyCheckIn-Input'];
 export type DailyCheckInsResponse = Schemas['DailyCheckInsResponse'];
 export type Note = Schemas['Note-Output'];
 export type NoteInput = Schemas['Note-Input'];
 export type NotesResponse = Schemas['NotesResponse'];
+export type TargetMetricDefinition = Schemas['TargetMetricDefinition'];
+export type TargetMetricsResponse = Schemas['TargetMetricsResponse'];
 export type Experiment = Schemas['Experiment-Output'];
 export type ExperimentInput = Schemas['Experiment-Input'];
 export type ExperimentsResponse = Schemas['ExperimentsResponse'];
-export type TargetMetricDefinition = Schemas['TargetMetricDefinition'];
-export type TargetMetricsResponse = Schemas['TargetMetricsResponse'];
+export type AssistantArtifact = Schemas['AssistantArtifact'];
+export type AssistantArtifactInput = Schemas['AssistantArtifactCreateRequest'];
+export type AssistantArtifactsResponse = Schemas['AssistantArtifactsResponse'];
 export type AssistantThread = Schemas['AssistantThread'];
 export type AssistantThreadInput = Schemas['AssistantThreadCreateRequest'];
 export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
 export type AssistantMessage = Schemas['AssistantMessage'];
 export type AssistantMessageInput = Schemas['AssistantMessageCreateRequest'];
 export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
+export type CardTemplate = Schemas['CardTemplate'];
+export type CardTemplatesResponse = Schemas['CardTemplatesResponse'];
+export type CardLog = Schemas['CardLog'];
+export type CardOverride = Schemas['CardOverride'];
+export type RoutineAssignment = Schemas['RoutineAssignment'];
+export type RoutineAssignmentsResponse = Schemas['RoutineAssignmentsResponse'];
+export type RoutineSchedule = Schemas['RoutineSchedule'];
+export type RoutineSchedulesResponse = Schemas['RoutineSchedulesResponse'];
+export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
+export type TodayCardOverrideInput = Schemas['TodayCardOverrideCreateRequest'];
+export type TodayResponse = Schemas['TodayResponse'];
 export type Program = Schemas['Program'];
 export type ProgramsResponse = Schemas['ProgramsResponse'];
 export type ProgramVersion = Schemas['ProgramVersion'];
@@ -103,18 +111,25 @@ export const api = {
 	getBodyBatteryAnalysis: () => fetchJson<BodyBatteryAnalysis>('/api/body-battery/analysis'),
 	getProfile: () => fetchJson<UserProfile>('/api/profile'),
 	updateProfile: (profile: UserProfileInput) => sendJson<UserProfile>('/api/profile', 'PUT', profile),
-	getRoutines: () => fetchJson<RoutinesResponse>('/api/routines'),
-	createRoutine: (routine: RoutineInput) => sendJson<Routine>('/api/routines', 'POST', routine),
-	updateRoutine: (routineId: string, routine: RoutineInput) =>
-		sendJson<Routine>(`/api/routines/${routineId}`, 'PUT', routine),
-	getRoutineEntriesByDate: (date: string) =>
-		fetchJson<RoutineEntriesResponse>(`/api/routines/entries?date=${date}`),
-	getRoutineEntries: (routineId: string, date?: string) =>
-		fetchJson<RoutineEntriesResponse>(
-			`/api/routines/${routineId}/entries${date ? `?date=${date}` : ''}`
-		),
-	createRoutineEntry: (routineId: string, entry: RoutineEntryInput) =>
-		sendJson<RoutineEntry>(`/api/routines/${routineId}/entries`, 'POST', entry),
+	getRoutines: (status?: string) =>
+		fetchJson<RoutineSchedulesResponse>(`/api/routines${status ? `?status=${status}` : ''}`),
+	getRoutineAssignments: (routineId: string) =>
+		fetchJson<RoutineAssignmentsResponse>(`/api/routines/${routineId}/assignments`),
+	getCards: (status?: string) =>
+		fetchJson<CardTemplatesResponse>(`/api/cards${status ? `?status=${status}` : ''}`),
+	getToday: (date: string) => fetchJson<TodayResponse>(`/api/today?date=${date}`),
+	updateTodayCard: (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) =>
+		fetchJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		}),
+	createTodayCardOverride: (date: string, payload: TodayCardOverrideInput) =>
+		sendJson<CardOverride>(`/api/today/${date}/cards`, 'POST', payload),
+	hideTodayCard: (date: string, occurrenceKey: string) =>
+		fetchJson<CardOverride>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, {
+			method: 'DELETE'
+		}),
 	getCheckins: (date?: string) =>
 		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),
 	createCheckin: (checkin: DailyCheckInInput) =>
@@ -129,6 +144,23 @@ export const api = {
 		sendJson<Experiment>(`/api/experiments/${experimentId}`, 'PUT', experiment),
 	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics'),
 	getAssistantThreads: () => fetchJson<AssistantThreadsResponse>('/api/assistant/threads'),
+	getAssistantArtifacts: (params?: { kind?: string; status?: string }) =>
+		fetchJson<AssistantArtifactsResponse>(
+			`/api/assistant/artifacts${
+				params?.kind || params?.status
+					? `?${[
+							params?.kind ? `kind=${encodeURIComponent(params.kind)}` : '',
+							params?.status ? `status=${encodeURIComponent(params.status)}` : ''
+						]
+							.filter(Boolean)
+							.join('&')}`
+					: ''
+			}`
+		),
+	createAssistantArtifact: (artifact: AssistantArtifactInput) =>
+		sendJson<AssistantArtifact>('/api/assistant/artifacts', 'POST', artifact),
+	activateAssistantArtifact: (artifactId: string) =>
+		sendJson<AssistantArtifact>(`/api/assistant/artifacts/${artifactId}/activate`, 'POST', {}),
 	createAssistantThread: (thread: AssistantThreadInput) =>
 		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
 	getAssistantThreadMessages: (threadId: string) =>

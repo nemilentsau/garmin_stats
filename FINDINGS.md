@@ -130,6 +130,9 @@ Training metrics files contain 14+ undocumented message types (IDs: 232, 241, 28
 ### Product implication
 Current parsed signals are strong enough for a recovery-first assistant: sleep, HRV, resting HR, stress, body battery, respiration, routines, and check-ins can support useful day-to-day guidance. They are not yet strong enough for confident workout-performance attribution, because the richer training summary layer is still largely undocumented.
 
+### Routine runtime implication
+The product now has a cleaner boundary for manual interventions and future assistant planning: routines are represented as structured card and schedule specs that compile into live runtime records. That makes mindfulness, mobility, and core work extensible without schema churn, while keeping experiments intentionally paused until they can reference the same runtime cleanly.
+
 ### Raw Sensor Data
 - Unknown type 233 in WELLNESS (~185 records/file) — possibly raw sensor data
 - Unknown type 397 in SKIN_TEMP (~1500 records/file) — likely continuous overnight temperature samples

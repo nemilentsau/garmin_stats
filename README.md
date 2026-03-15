@@ -49,7 +49,7 @@ A chat-based assistant that can look at recent health context and answer practic
 
 ### 2. Routine tracking
 
-A place to log behaviors that Garmin does not know about:
+A place to define and log behaviors that Garmin does not know about:
 
 - meditation
 - abs work
@@ -58,6 +58,15 @@ A place to log behaviors that Garmin does not know about:
 - meal timing
 - mobility
 - sleep routines
+
+The current routine runtime is assistant-spec first:
+
+- an assistant writes structured `card_template` and `routine_spec` drafts
+- the backend validates those drafts against a strict schema
+- the user explicitly activates valid drafts
+- the app compiles them into live cards, schedules, and today-board entries
+
+That boundary is deliberate. New routine content should usually be data, not code. Only a new renderer family should require infrastructure work.
 
 ### 3. Experiment tracking
 
@@ -93,7 +102,8 @@ The assistant should eventually move beyond analysis and help with execution:
 - Garmin FIT ingest and local SQLite storage
 - daily aggregates and metric detail views
 - dashboard for recovery signals
-- manual tracking for routines, check-ins, notes, and experiments
+- assistant-authored routine drafts with validation and explicit activation
+- compiled live card templates, recurring schedules, and a Today board
 - assistant MVP with persisted threads and streamed replies
 
 ### Not done yet
@@ -102,6 +112,7 @@ The assistant should eventually move beyond analysis and help with execution:
 - plan generation and adherence loop
 - strong training-performance attribution
 - serious running/lifting coaching
+- reintroducing programs and experiments on top of the new routine runtime
 
 So the app is already useful as a **personal recovery assistant**. It is not yet a complete performance coach.
 
@@ -113,6 +124,23 @@ So the app is already useful as a **personal recovery assistant**. It is not yet
 4. The assistant runtime sends a curated snapshot to Claude Code and streams the reply back.
 5. Threads, messages, runs, and snapshots are stored so the assistant has memory and an audit trail.
 
+## Routine Runtime
+
+The routine system now has two layers:
+
+1. **Assistant artifacts**  
+   Structured drafts authored by the health assistant. Supported kinds are `card_template`, `routine_spec`, and `capability_request`.
+2. **Live runtime records**  
+   Activated cards, routines, assignments, logs, and date-specific overrides that drive `/today`.
+
+The app enforces a strict renderer boundary. v1 supports:
+
+- `timer_session`
+- `checklist_block`
+- `exercise_block`
+
+If a draft asks for an unsupported renderer family, validation rejects it and records a `capability_request` instead of mutating the schema.
+
 ## Main App Areas
 
 - `/`  
@@ -121,13 +149,19 @@ So the app is already useful as a **personal recovery assistant**. It is not yet
 - `/assistant`  
   Chat with the recovery assistant, keep threads, ask for a daily briefing or weekly review.
 
+- `/today`  
+  Render the active day from compiled live schedules. Log a card with one tap, expand it for detail, or add a date-specific override.
+
 - `/routines`  
-  Define repeatable behaviors and log adherence, check-ins, and notes.
+  Review assistant-authored drafts, validate them, activate them into the live runtime, and inspect current schedules and card templates.
 
 - `/experiments`  
-  Define experiments, link routines, and choose target metrics.
+  Placeholder. Experiments are intentionally parked until they can consume the new routine runtime cleanly.
 
-The metric-specific pages still matter, but they are supporting tools. The main product direction is the assistant plus the routines/experiments loop.
+- `/programs`  
+  Placeholder. The old program-import surface is intentionally offline while routines move to the assistant artifact pipeline.
+
+The metric-specific pages still matter, but they are supporting tools. The main product direction is the assistant plus the draft -> validate -> activate -> execute routine loop.
 
 ## Running Locally
 
@@ -186,7 +220,7 @@ This is the stable mental model, not a file-by-file inventory:
   FastAPI route boundaries.
 
 - `frontend/src/routes`
-  Product pages such as dashboard, assistant, routines, and experiments.
+  Product pages such as dashboard, assistant, today, routines, and the parked programs/experiments placeholders.
 
 - `frontend/src/lib`
   Typed API client, streaming helpers, shared UI helpers.
@@ -202,6 +236,43 @@ This is the stable mental model, not a file-by-file inventory:
 
 - `FINDINGS.md`
   Actual observations from the Garmin dataset and open analytical questions.
+
+## API Surface
+
+Key API groups exposed by the backend:
+
+- `GET /api/cards`  
+  List live card templates that can be scheduled or added as date overrides.
+
+- `GET /api/routines`  
+  List live compiled routines.
+
+- `GET /api/routines/{routine_id}`  
+  Fetch one live routine.
+
+- `GET /api/routines/{routine_id}/assignments`  
+  Fetch recurring card placements for a live routine.
+
+- `GET /api/today?date=YYYY-MM-DD`  
+  Build the day view from active routines, assignments, overrides, and logs.
+
+- `PUT /api/today/{date}/cards/{occurrence_key}`  
+  Upsert one-tap or detailed logging for a card occurrence.
+
+- `POST /api/today/{date}/cards`  
+  Add a date-specific card override.
+
+- `DELETE /api/today/{date}/cards/{occurrence_key}`  
+  Hide a card occurrence for that date.
+
+- `GET /api/assistant/artifacts`  
+  List assistant-authored drafts and capability requests.
+
+- `POST /api/assistant/artifacts`  
+  Create a new assistant artifact draft.
+
+- `POST /api/assistant/artifacts/{artifact_id}/activate`  
+  Validate and compile a draft into the live runtime.
 
 ## What Good Looks Like
 

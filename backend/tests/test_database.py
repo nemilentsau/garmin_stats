@@ -6,8 +6,12 @@ import pytest
 
 import app.infra.database as db
 from app.models import (
+    AssistantArtifact,
     AssistantMessage,
     AssistantThread,
+    CardLog,
+    CardOverride,
+    CardTemplate,
     ContextSnapshot,
     DailyBodyBatteryStats,
     DailyCheckIn,
@@ -29,7 +33,9 @@ from app.models import (
     Plan,
     PlanItem,
     Routine,
+    RoutineAssignment,
     RoutineEntry,
+    RoutineSchedule,
     UserProfile,
 )
 
@@ -49,6 +55,12 @@ class TestInit:
         assert "user_profile" in tables
         assert "routines" in tables
         assert "assistant_threads" in tables
+        assert "assistant_artifacts" in tables
+        assert "card_templates" in tables
+        assert "routine_schedules" in tables
+        assert "routine_assignments" in tables
+        assert "card_logs" in tables
+        assert "card_overrides" in tables
 
     def test_enables_wal_journal_mode(self, tmp_db):
         with db._connect() as con:
@@ -377,6 +389,63 @@ class TestStoreAndLoad:
 
     def test_missing_context_snapshot_returns_none(self):
         assert db.load_context_snapshot("missing") is None
+
+    def test_training_runtime_records_survive_round_trip(self):
+        artifact = AssistantArtifact(
+            id="artifact-1",
+            kind="card_template",
+            schema_version=1,
+            status="validated",
+            payload_json={"id": "card-1"},
+        )
+        card = CardTemplate(
+            id="card-1",
+            name="Open Monitoring",
+            renderer="timer_session",
+            slot_default="evening",
+            payload_json={"duration_minutes": 15},
+        )
+        routine = RoutineSchedule(
+            id="routine-1",
+            name="Mindfulness",
+            cadence="weekly",
+            start_date="2026-03-02",
+        )
+        assignment = RoutineAssignment(
+            id="assignment-1",
+            routine_id="routine-1",
+            card_template_id="card-1",
+            weekday="monday",
+            slot="evening",
+        )
+        log = CardLog(
+            id="log-1",
+            date="2026-03-02",
+            occurrence_key="scheduled:assignment-1:2026-03-02",
+            card_template_id="card-1",
+            assignment_id="assignment-1",
+            status="completed",
+        )
+        override = CardOverride(
+            id="override-1",
+            date="2026-03-02",
+            action="hide",
+            target_occurrence_key="scheduled:assignment-1:2026-03-02",
+        )
+
+        db.save_assistant_artifact(artifact)
+        db.save_card_template(card)
+        db.save_routine_schedule(routine)
+        db.save_routine_assignment(assignment)
+        db.save_card_log(log)
+        db.save_card_override(override)
+
+        assert db.load_assistant_artifact("artifact-1") is not None
+        assert [entry.id for entry in db.load_card_templates()] == ["card-1"]
+        assert [entry.id for entry in db.load_routine_schedules()] == ["routine-1"]
+        assert [entry.id for entry in db.load_routine_assignments("routine-1")] == ["assignment-1"]
+        assert [entry.id for entry in db.load_card_logs("2026-03-02")] == ["log-1"]
+        assert [entry.id for entry in db.load_card_overrides("2026-03-02")] == ["override-1"]
 
 
 # ---------------------------------------------------------------------------

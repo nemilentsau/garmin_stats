@@ -452,6 +452,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Artifacts
+         * @description Return assistant-authored artifacts.
+         */
+        get: operations["get_artifacts_api_assistant_artifacts_get"];
+        put?: never;
+        /**
+         * Post Artifact
+         * @description Create and validate an assistant artifact draft.
+         */
+        post: operations["post_artifact_api_assistant_artifacts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/artifacts/{artifact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Artifact Detail
+         * @description Return a single assistant artifact.
+         */
+        get: operations["get_artifact_detail_api_assistant_artifacts__artifact_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/artifacts/{artifact_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Activate Artifact
+         * @description Compile a validated artifact into live routine/card data.
+         */
+        post: operations["post_activate_artifact_api_assistant_artifacts__artifact_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cards
+         * @description Return compiled live card templates.
+         */
+        get: operations["get_cards_api_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile": {
         parameters: {
             query?: never;
@@ -485,15 +569,11 @@ export interface paths {
         };
         /**
          * Get Routines
-         * @description Return all routines.
+         * @description Return compiled live routines.
          */
         get: operations["get_routines_api_routines_get"];
         put?: never;
-        /**
-         * Post Routine
-         * @description Create a routine.
-         */
-        post: operations["post_routine_api_routines_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -507,31 +587,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /**
-         * Put Routine
-         * @description Replace an existing routine.
+         * Get Routine Detail
+         * @description Return a single compiled live routine.
          */
-        put: operations["put_routine_api_routines__routine_id__put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/routines/entries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Entries By Date
-         * @description Return all routine entries for a given date across all routines.
-         */
-        get: operations["get_entries_by_date_api_routines_entries_get"];
+        get: operations["get_routine_detail_api_routines__routine_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -540,7 +600,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/routines/{routine_id}/entries": {
+    "/api/routines/{routine_id}/assignments": {
         parameters: {
             query?: never;
             header?: never;
@@ -548,16 +608,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Entries
-         * @description Return entries for a routine.
+         * Get Assignments
+         * @description Return recurring card assignments for a routine.
          */
-        get: operations["get_entries_api_routines__routine_id__entries_get"];
+        get: operations["get_assignments_api_routines__routine_id__assignments_get"];
         put?: never;
-        /**
-         * Post Entry
-         * @description Create an entry for a routine.
-         */
-        post: operations["post_entry_api_routines__routine_id__entries_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -800,6 +856,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today View
+         * @description Return compiled cards for a single day.
+         */
+        get: operations["get_today_view_api_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/today/{date}/cards/{occurrence_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Today Card Log
+         * @description Create or replace the log for a single card occurrence.
+         */
+        put: operations["put_today_card_log_api_today__date__cards__occurrence_key__put"];
+        post?: never;
+        /**
+         * Delete Today Card
+         * @description Hide a single card occurrence for the selected date.
+         */
+        delete: operations["delete_today_card_api_today__date__cards__occurrence_key__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/today/{date}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Today Override
+         * @description Create a date-specific add/hide/replace override.
+         */
+        post: operations["post_today_override_api_today__date__cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -838,6 +958,77 @@ export interface components {
             calories: number | null;
             /** Distance */
             distance: number | null;
+        };
+        /** AssistantArtifact */
+        AssistantArtifact: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "routine_spec" | "card_template" | "capability_request";
+            /** Schema Version */
+            schema_version: number;
+            /**
+             * Status
+             * @default draft
+             * @enum {string}
+             */
+            status: "draft" | "validated" | "invalid" | "activated";
+            /** Source Thread Id */
+            source_thread_id: string | null;
+            /** Source Snapshot Id */
+            source_snapshot_id: string | null;
+            /**
+             * Payload Json
+             * @default {}
+             */
+            payload_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Validation Errors
+             * @default []
+             */
+            validation_errors: string[];
+            /** Created At */
+            created_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** AssistantArtifactCreateRequest */
+        AssistantArtifactCreateRequest: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "routine_spec" | "card_template" | "capability_request";
+            /** Schema Version */
+            schema_version: number;
+            /** Source Thread Id */
+            source_thread_id?: string | null;
+            /** Source Snapshot Id */
+            source_snapshot_id?: string | null;
+            /**
+             * Payload Json
+             * @default {}
+             */
+            payload_json: {
+                [key: string]: unknown;
+            };
+        };
+        /** AssistantArtifactsResponse */
+        AssistantArtifactsResponse: {
+            /**
+             * Artifacts
+             * @default []
+             */
+            artifacts: components["schemas"]["AssistantArtifact"][];
+            /** Total */
+            total: number;
         };
         /** AssistantMessage */
         AssistantMessage: {
@@ -968,6 +1159,104 @@ export interface components {
             max_val: number | null;
             /** Ma7 Min */
             ma7_min: number | null;
+        };
+        /** CardLog */
+        CardLog: {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Occurrence Key */
+            occurrence_key: string;
+            /** Card Template Id */
+            card_template_id: string;
+            /** Assignment Id */
+            assignment_id: string | null;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /**
+             * Actual Json
+             * @default {}
+             */
+            actual_json: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes: string | null;
+        };
+        /** CardOverride */
+        CardOverride: {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "add" | "hide" | "replace";
+            /** Target Occurrence Key */
+            target_occurrence_key: string | null;
+            /** Card Template Id */
+            card_template_id: string | null;
+            /** Slot */
+            slot: ("morning" | "midday" | "evening" | "anytime") | null;
+            /** Position */
+            position: number | null;
+            /** Notes */
+            notes: string | null;
+        };
+        /** CardTemplate */
+        CardTemplate: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Renderer
+             * @enum {string}
+             */
+            renderer: "timer_session" | "checklist_block" | "exercise_block";
+            /**
+             * Slot Default
+             * @enum {string}
+             */
+            slot_default: "morning" | "midday" | "evening" | "anytime";
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /** Summary */
+            summary: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Payload Json
+             * @default {}
+             */
+            payload_json: {
+                [key: string]: unknown;
+            };
+            /** Source Artifact Id */
+            source_artifact_id: string | null;
+        };
+        /** CardTemplatesResponse */
+        CardTemplatesResponse: {
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["CardTemplate"][];
+            /** Total */
+            total: number;
         };
         /** CircadianHRPoint */
         CircadianHRPoint: {
@@ -2070,147 +2359,89 @@ export interface components {
             /** Ma7 Bpm */
             ma7_bpm: number | null;
         };
-        /** Routine */
-        "Routine-Input": {
+        /** RoutineAssignment */
+        RoutineAssignment: {
             /** Id */
             id: string;
-            /** Name */
-            name: string;
-            /** Category */
-            category: string;
+            /** Routine Id */
+            routine_id: string;
+            /** Card Template Id */
+            card_template_id: string;
             /**
-             * Status
-             * @default active
+             * Cycle Week
+             * @default 1
              */
-            status: string;
-            /** Description */
-            description?: string | null;
+            cycle_week: number;
             /**
-             * Default Unit
-             * @default boolean
+             * Weekday
+             * @enum {string}
              */
-            default_unit: string;
-            /** Target Frequency */
-            target_frequency?: string | null;
-            /** Default Time Of Day */
-            default_time_of_day?: string | null;
+            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
             /**
-             * Tags
-             * @default []
+             * Slot
+             * @enum {string}
              */
-            tags: string[];
+            slot: "morning" | "midday" | "evening" | "anytime";
             /**
-             * Linked Goal Ids
-             * @default []
+             * Position
+             * @default 0
              */
-            linked_goal_ids: string[];
+            position: number;
+            /**
+             * Prescription Override Json
+             * @default {}
+             */
+            prescription_override_json: {
+                [key: string]: unknown;
+            };
         };
-        /** Routine */
-        "Routine-Output": {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Category */
-            category: string;
+        /** RoutineAssignmentsResponse */
+        RoutineAssignmentsResponse: {
             /**
-             * Status
-             * @default active
-             */
-            status: string;
-            /** Description */
-            description: string | null;
-            /**
-             * Default Unit
-             * @default boolean
-             */
-            default_unit: string;
-            /** Target Frequency */
-            target_frequency: string | null;
-            /** Default Time Of Day */
-            default_time_of_day: string | null;
-            /**
-             * Tags
+             * Assignments
              * @default []
              */
-            tags: string[];
-            /**
-             * Linked Goal Ids
-             * @default []
-             */
-            linked_goal_ids: string[];
-        };
-        /** RoutineEntriesResponse */
-        RoutineEntriesResponse: {
-            /**
-             * Entries
-             * @default []
-             */
-            entries: components["schemas"]["RoutineEntry-Output"][];
+            assignments: components["schemas"]["RoutineAssignment"][];
             /** Total */
             total: number;
         };
-        /** RoutineEntry */
-        "RoutineEntry-Input": {
+        /** RoutineSchedule */
+        RoutineSchedule: {
             /** Id */
             id: string;
-            /** Routine Id */
-            routine_id: string;
-            /** Date */
-            date: string;
-            /** Timestamp Local */
-            timestamp_local?: string | null;
-            /** Value Numeric */
-            value_numeric?: number | null;
-            /** Value Text */
-            value_text?: string | null;
+            /** Name */
+            name: string;
             /**
-             * Completion State
-             * @default completed
+             * Status
+             * @default active
              */
-            completion_state: string;
+            status: string;
             /**
-             * Source
-             * @default manual
+             * Cadence
+             * @enum {string}
              */
-            source: string;
-            /** Notes */
-            notes?: string | null;
-        };
-        /** RoutineEntry */
-        "RoutineEntry-Output": {
-            /** Id */
-            id: string;
-            /** Routine Id */
-            routine_id: string;
-            /** Date */
-            date: string;
-            /** Timestamp Local */
-            timestamp_local: string | null;
-            /** Value Numeric */
-            value_numeric: number | null;
-            /** Value Text */
-            value_text: string | null;
+            cadence: "weekly" | "biweekly";
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string | null;
             /**
-             * Completion State
-             * @default completed
+             * Tags
+             * @default []
              */
-            completion_state: string;
-            /**
-             * Source
-             * @default manual
-             */
-            source: string;
+            tags: string[];
             /** Notes */
             notes: string | null;
+            /** Source Artifact Id */
+            source_artifact_id: string | null;
         };
-        /** RoutinesResponse */
-        RoutinesResponse: {
+        /** RoutineSchedulesResponse */
+        RoutineSchedulesResponse: {
             /**
              * Routines
              * @default []
              */
-            routines: components["schemas"]["Routine-Output"][];
+            routines: components["schemas"]["RoutineSchedule"][];
             /** Total */
             total: number;
         };
@@ -2412,6 +2643,166 @@ export interface components {
             metrics: components["schemas"]["TargetMetricDefinition"][];
             /** Total */
             total: number;
+        };
+        /** TodayCard */
+        TodayCard: {
+            /** Occurrence Key */
+            occurrence_key: string;
+            /** Date */
+            date: string;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Source Kind */
+            source_kind: string;
+            /** Routine Id */
+            routine_id: string | null;
+            /** Routine Name */
+            routine_name: string | null;
+            /** Assignment Id */
+            assignment_id: string | null;
+            /** Card Template Id */
+            card_template_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Renderer
+             * @enum {string}
+             */
+            renderer: "timer_session" | "checklist_block" | "exercise_block";
+            /** Summary */
+            summary: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Payload Json
+             * @default {}
+             */
+            payload_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /**
+             * Actual Json
+             * @default {}
+             */
+            actual_json: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes: string | null;
+        };
+        /** TodayCardLogUpdateRequest */
+        TodayCardLogUpdateRequest: {
+            /** Card Template Id */
+            card_template_id: string;
+            /** Assignment Id */
+            assignment_id?: string | null;
+            /**
+             * Status
+             * @default completed
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /**
+             * Actual Json
+             * @default {}
+             */
+            actual_json: {
+                [key: string]: unknown;
+            };
+            /** Notes */
+            notes?: string | null;
+        };
+        /** TodayCardOverrideCreateRequest */
+        TodayCardOverrideCreateRequest: {
+            /** Id */
+            id: string;
+            /**
+             * Action
+             * @default add
+             * @enum {string}
+             */
+            action: "add" | "hide" | "replace";
+            /** Card Template Id */
+            card_template_id?: string | null;
+            /** Slot */
+            slot?: ("morning" | "midday" | "evening" | "anytime") | null;
+            /** Position */
+            position?: number | null;
+            /** Target Occurrence Key */
+            target_occurrence_key?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** TodayResponse */
+        TodayResponse: {
+            /** Date */
+            date: string;
+            stats: components["schemas"]["TodayStats"];
+            /**
+             * Slots
+             * @default []
+             */
+            slots: components["schemas"]["TodaySlot"][];
+        };
+        /** TodaySlot */
+        TodaySlot: {
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
+            /** Label */
+            label: string;
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["TodayCard"][];
+        };
+        /** TodayStats */
+        TodayStats: {
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Partial
+             * @default 0
+             */
+            partial: number;
+            /**
+             * Skipped
+             * @default 0
+             */
+            skipped: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
         };
         /** TodayVitals */
         TodayVitals: {
@@ -3314,6 +3705,164 @@ export interface operations {
             };
         };
     };
+    get_artifacts_api_assistant_artifacts_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantArtifactsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_artifact_api_assistant_artifacts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantArtifactCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantArtifact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_artifact_detail_api_assistant_artifacts__artifact_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantArtifact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_activate_artifact_api_assistant_artifacts__artifact_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantArtifact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cards_api_cards_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardTemplatesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_profile_api_profile_get: {
         parameters: {
             query?: never;
@@ -3369,130 +3918,38 @@ export interface operations {
     };
     get_routines_api_routines_get: {
         parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutinesResponse"];
-                };
-            };
-        };
-    };
-    post_routine_api_routines_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Routine-Input"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Routine-Output"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_routine_api_routines__routine_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                routine_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Routine-Input"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Routine-Output"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_entries_by_date_api_routines_entries_get: {
-        parameters: {
-            query: {
-                /** @description Date (YYYY-MM-DD) */
-                date: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineEntriesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_entries_api_routines__routine_id__entries_get: {
-        parameters: {
             query?: {
-                /** @description Filter by date (YYYY-MM-DD) */
-                date?: string | null;
+                status?: string | null;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineSchedulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_routine_detail_api_routines__routine_id__get: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 routine_id: string;
@@ -3507,7 +3964,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoutineEntriesResponse"];
+                    "application/json": components["schemas"]["RoutineSchedule"];
                 };
             };
             /** @description Validation Error */
@@ -3521,7 +3978,7 @@ export interface operations {
             };
         };
     };
-    post_entry_api_routines__routine_id__entries_post: {
+    get_assignments_api_routines__routine_id__assignments_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3530,11 +3987,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoutineEntry-Input"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3542,7 +3995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoutineEntry-Output"];
+                    "application/json": components["schemas"]["RoutineAssignmentsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4002,6 +4455,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProgramVersionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_today_view_api_today_get: {
+        parameters: {
+            query: {
+                /** @description Date (YYYY-MM-DD) */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_today_card_log_api_today__date__cards__occurrence_key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                occurrence_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodayCardLogUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_today_card_api_today__date__cards__occurrence_key__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                occurrence_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOverride"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_today_override_api_today__date__cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodayCardOverrideCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardOverride"];
                 };
             };
             /** @description Validation Error */
