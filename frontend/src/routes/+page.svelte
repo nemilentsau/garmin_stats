@@ -42,24 +42,6 @@
 		emptyState = null;
 	}
 
-	function emptyStateTitle(status: IngestStatus): string {
-		return status.days_on_disk === 0
-			? 'No Garmin data is loaded yet.'
-			: 'Garmin files are present, but nothing is ingested yet.';
-	}
-
-	function emptyStateDetail(status: IngestStatus): string {
-		return status.days_on_disk === 0
-			? 'Create the Garmin data directory at data/garmin_health_stats, drop in Garmin export archives named like YYYY-MM-DD.zip, and the watcher will ingest them as they arrive.'
-			: 'The backend is up and the watcher is waiting. Trigger one ingest to build the first dashboard snapshot, then the app will populate automatically.';
-	}
-
-	function emptyStateCommand(status: IngestStatus): string {
-		return status.days_on_disk === 0
-			? 'mkdir -p data/garmin_health_stats\n# copy Garmin export archives like data/garmin_health_stats/2026-03-15.zip\ncurl -X POST http://127.0.0.1:8000/api/ingest'
-			: 'curl -X POST http://127.0.0.1:8000/api/ingest';
-	}
-
 	function formatBannerDate(date: string): string {
 		return bannerDateFormat.format(parseIsoDate(date));
 	}
@@ -365,39 +347,47 @@
 	</div>
 {:else if emptyState}
 	<section class="empty-shell">
-		<div class="empty-hero">
-			<p class="empty-eyebrow">Empty Runtime</p>
-			<h1>{emptyStateTitle(emptyState)}</h1>
-			<p class="empty-copy">{emptyStateDetail(emptyState)}</p>
-		</div>
-
-		<div class="empty-grid">
-			<div class="empty-card">
-				<span>Days in DB</span>
-				<strong>{emptyState.days_in_db}</strong>
-				<small>No daily metrics have been materialized yet.</small>
+		<div class="empty-welcome">
+			<div class="empty-icon">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+				</svg>
 			</div>
-			<div class="empty-card">
-				<span>Days on disk</span>
-				<strong>{emptyState.days_on_disk}</strong>
-				<small>Detected Garmin export days available to ingest.</small>
-			</div>
-			<div class="empty-card accent">
-				<span>Watcher status</span>
-				<strong>{emptyState.days_on_disk === 0 ? 'Idle' : 'Ready'}</strong>
-				<small>{emptyState.needs_ingest ? 'New files will be ingested on update.' : 'Waiting for the first import.'}</small>
+			<div class="empty-text">
+				<h2>Waiting for Garmin data</h2>
+				<p>
+					{#if emptyState.days_on_disk === 0}
+						Drop <code>.zip</code> archives into <code>data/garmin_health_stats/</code> to get started.
+					{:else}
+						{emptyState.days_on_disk} {emptyState.days_on_disk === 1 ? 'day' : 'days'} found on disk — trigger an ingest to build the dashboard.
+					{/if}
+				</p>
 			</div>
 		</div>
 
-		<div class="empty-actions">
-			<div class="empty-panel">
-				<p class="empty-panel-title">Quick start</p>
-				<pre>{emptyStateCommand(emptyState)}</pre>
+		<div class="empty-steps">
+			<div class="empty-step" class:done={emptyState.days_on_disk > 0}>
+				<div class="step-marker">{emptyState.days_on_disk > 0 ? '✓' : '1'}</div>
+				<div class="step-body">
+					<span class="step-title">Add export archives</span>
+					<span class="step-desc">Place Garmin <code>YYYY-MM-DD.zip</code> files in the data directory</span>
+				</div>
 			</div>
-			<div class="empty-panel">
-				<p class="empty-panel-title">Expected layout</p>
-				<p><code>data/garmin_health_stats/YYYY-MM-DD.zip</code> archives are the input. The backend recreates <code>data/garmin_health_stats</code> automatically if it is missing.</p>
-				<p>Once the first ingest completes, this dashboard will swap from the empty state to live recovery cards without a restart.</p>
+			<div class="step-connector"></div>
+			<div class="empty-step">
+				<div class="step-marker">2</div>
+				<div class="step-body">
+					<span class="step-title">Ingest</span>
+					<span class="step-desc">POST to <code>/api/ingest</code> or wait for the watcher to pick them up</span>
+				</div>
+			</div>
+			<div class="step-connector"></div>
+			<div class="empty-step">
+				<div class="step-marker">3</div>
+				<div class="step-body">
+					<span class="step-title">Dashboard populates</span>
+					<span class="step-desc">Recovery scores, vitals, and trends appear automatically</span>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -561,9 +551,132 @@
 	}
 
 	.empty-shell {
-		display: grid;
-		gap: 20px;
-		padding: 20px 0 12px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 32px;
+		padding: 48px 0 24px;
+		max-width: 520px;
+		margin: 0 auto;
+	}
+
+	.empty-welcome {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.empty-icon {
+		width: 44px;
+		height: 44px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 12px;
+		background: rgba(91,181,166,0.10);
+		color: #5BB5A6;
+	}
+
+	.empty-icon svg {
+		width: 22px;
+		height: 22px;
+	}
+
+	.empty-text h2 {
+		margin: 0;
+		font-size: 18px;
+		font-weight: 600;
+		color: #e0eaf0;
+		letter-spacing: -0.01em;
+	}
+
+	.empty-text p {
+		margin: 4px 0 0;
+		font-size: 13px;
+		color: #7e8f9e;
+		line-height: 1.5;
+	}
+
+	.empty-text code {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: #a0b8c8;
+		background: rgba(255,255,255,0.05);
+		padding: 1px 5px;
+		border-radius: 4px;
+	}
+
+	.empty-steps {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		width: 100%;
+		padding: 20px 24px;
+		border: 1px solid rgba(255,255,255,0.06);
+		border-radius: 14px;
+		background: rgba(255,255,255,0.02);
+	}
+
+	.empty-step {
+		display: flex;
+		align-items: flex-start;
+		gap: 14px;
+		padding: 10px 0;
+	}
+
+	.step-marker {
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		background: rgba(255,255,255,0.04);
+		border: 1px solid rgba(255,255,255,0.08);
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: #6b7d8e;
+		font-weight: 500;
+	}
+
+	.empty-step.done .step-marker {
+		background: rgba(91,181,166,0.14);
+		border-color: rgba(91,181,166,0.25);
+		color: #5BB5A6;
+	}
+
+	.step-connector {
+		width: 1px;
+		height: 12px;
+		margin-left: 13.5px;
+		background: rgba(255,255,255,0.06);
+	}
+
+	.step-body {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding-top: 4px;
+	}
+
+	.step-title {
+		font-size: 13px;
+		font-weight: 500;
+		color: #c8d6e0;
+	}
+
+	.step-desc {
+		font-size: 12px;
+		color: #6b7d8e;
+		line-height: 1.45;
+	}
+
+	.step-desc code {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #8fa3b0;
 	}
 
 	.freshness-banner {
@@ -621,109 +734,8 @@
 		color: #b7c5cf;
 	}
 
-	.empty-hero,
-	.empty-card,
-	.empty-panel {
-		border: 1px solid rgba(255,255,255,0.06);
-		background: rgba(255,255,255,0.03);
-		border-radius: 18px;
-		box-shadow: 0 18px 40px rgba(0,0,0,0.18);
-	}
-
-	.empty-hero {
-		padding: 28px;
-		background:
-			radial-gradient(circle at top left, rgba(91,181,166,0.12), transparent 32%),
-			radial-gradient(circle at right, rgba(155,107,205,0.12), transparent 28%),
-			linear-gradient(145deg, rgba(13,21,32,0.96), rgba(17,28,42,0.92));
-	}
-
-	.empty-eyebrow,
-	.empty-card span,
-	.empty-panel-title {
-		margin: 0;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: #8fa3b0;
-	}
-
-	.empty-hero h1 {
-		margin: 10px 0 0;
-		max-width: 12ch;
-		font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
-		font-size: clamp(38px, 6vw, 64px);
-		line-height: 0.94;
-		color: #eef5f8;
-	}
-
-	.empty-copy,
-	.empty-card small,
-	.empty-panel p {
-		color: #aec0cb;
-		line-height: 1.6;
-	}
-
-	.empty-copy {
-		max-width: 64ch;
-		margin: 16px 0 0;
-		font-size: 15px;
-	}
-
-	.empty-grid,
-	.empty-actions {
-		display: grid;
-		gap: 14px;
-	}
-
-	.empty-grid {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-
-	.empty-card,
-	.empty-panel {
-		padding: 18px;
-	}
-
-	.empty-card strong {
-		display: block;
-		margin-top: 10px;
-		font-size: 36px;
-		color: #eef5f8;
-	}
-
-	.empty-card.accent {
-		background: linear-gradient(145deg, rgba(91,181,166,0.12), rgba(155,107,205,0.12));
-	}
-
-	.empty-actions {
-		grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
-	}
-
-	.empty-panel pre {
-		margin: 14px 0 0;
-		padding: 14px;
-		border-radius: 14px;
-		background: rgba(6, 11, 18, 0.72);
-		border: 1px solid rgba(255,255,255,0.06);
-		overflow-x: auto;
-		white-space: pre-wrap;
-		color: #dce9f0;
-		font-family: 'DM Mono', monospace;
-		font-size: 12px;
-		line-height: 1.6;
-	}
-
-	.empty-panel code {
-		font-family: 'DM Mono', monospace;
-		color: #dce9f0;
-	}
-
 	@media (max-width: 900px) {
-		.freshness-banner,
-		.empty-grid,
-		.empty-actions {
+		.freshness-banner {
 			grid-template-columns: 1fr;
 		}
 	}
