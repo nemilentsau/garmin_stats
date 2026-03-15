@@ -21,11 +21,12 @@
 ## Key Constraints
 - API types flow: Pydantic models/routes → OpenAPI → generated TypeScript.
 - Never hand-write `frontend/src/lib/api-types.ts`; always regenerate via script after backend schema changes.
-- Data format: `data/YYYY-MM-DD.zip` → extract → `YYYY-MM-DD/*.fit`. Ingest pipeline handles zip extraction.
+- Data format: `data/garmin_health_stats/YYYY-MM-DD.zip` → extract → `data/garmin_health_stats/YYYY-MM-DD/*.fit`. Ingest pipeline handles zip extraction.
 - Period-level stats come from raw readings, never from averaging daily aggregates.
 - Frontend is display-only: zero statistical computation. All stats, aggregations, derived values, and data transformations (moving averages, smoothing, etc.) come from the backend API. Never compute these in the frontend.
 - **Timestamps are local time.** FIT files store UTC; the parser extracts the per-day UTC offset from `monitoring_info_mesgs` and shifts all timestamps to local time at ingest. `DayData.utc_offset_hours` / `DailyMetric.utc_offset_hours` carry the offset for display. New timestamp fields must go through `_shift_timestamps` in `parser.py`.
 - **Re-ingest after parser changes**: `cd backend && uv run python ../scripts/reingest.py`
+- **Watcher/startup/ingest changes must prove no-op behavior**: if you touch startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution, tests must cover `missing`, `already in sync`, and `stale/changed` states, including an idempotence case where a second run with no file changes does no work. After those changes, do a real local smoke check against the actual data tree before considering the task done.
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
@@ -65,6 +66,7 @@ Five skills support this project. Each owns specific code layers:
 **Owns:** test files in `backend/tests/`, test patterns and conventions
 **Trigger:** writing or reviewing any test, adding test coverage for new features
 - **Read before writing any test** — enforces equivalence-class discipline, branch/boundary coverage, and naming conventions
+- For filesystem/startup code, do not stop at happy-path coverage; include the no-op second-run case.
 - Skill docs: `.claude/skills/testing/SKILL.md`
 
 ## Keeping Docs Current

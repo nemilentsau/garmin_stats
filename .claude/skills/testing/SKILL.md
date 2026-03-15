@@ -39,6 +39,21 @@ If another test already covers the same branch and boundary, delete one.
 
 One test per branch + two tests per boundary. Delete any parametrize case that exercises the same branch as another.
 
+## Filesystem and startup code
+
+For watcher, ingest, cache invalidation, or startup reconciliation code, happy-path tests are not enough.
+
+You must cover these states explicitly:
+
+- **Missing output** — work should run when extracted files or derived state do not exist yet.
+- **Already in sync** — a second run with unchanged inputs must be a no-op.
+- **Stale output** — changed source input must refresh or replace previously derived output.
+- **Error path** — invalid archives, missing directories, or other failure cases must not corrupt state.
+
+For code that runs on app startup or in a file watcher, add an **idempotence** test unless the code is intentionally non-idempotent. "Works once" is insufficient; regressions often show up on the second run.
+
+If a change affects real filesystem layout or startup behavior, do a local smoke check against a realistic data tree before closing the task. Unit tests do not replace that check.
+
 ---
 
 ## Test naming
@@ -70,4 +85,4 @@ cd backend && uv run pytest tests/ -v
 - `backend/tests/test_parser.py` — extractor edge cases (branches: zero-value handling for wellness and HRV)
 - `backend/tests/test_main.py` — API handler tests (branches: 404 not found, filesystem-missing fallback, happy path)
 - `backend/tests/test_database.py` — DB round-trips and schema (branches: init, count rows valid/invalid, fingerprint, store/load, stale deletion)
-- `backend/tests/test_watcher.py` — zip extraction safety (branches: valid archive, path traversal rejection)
+- `backend/tests/test_watcher.py` — archive reconciliation and extraction safety (branches: missing output, already-synced no-op, stale output refresh, path traversal rejection)
