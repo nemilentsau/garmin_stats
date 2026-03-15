@@ -6,7 +6,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .infra.database import DATA_DIR, ingest_all, init_db, is_db_empty
@@ -94,6 +94,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def disable_api_response_caching(request: Request, call_next):
+    """Mark API responses as non-cacheable unless a route sets its own policy."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/") and "Cache-Control" not in response.headers:
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 app.include_router(ingest_router)
 app.include_router(dashboard_router)

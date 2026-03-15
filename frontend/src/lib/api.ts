@@ -72,7 +72,10 @@ export type ProgramVersion = Schemas['ProgramVersion'];
 export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(`${API_BASE}${endpoint}`, init);
+	const response = await fetch(`${API_BASE}${endpoint}`, {
+		cache: 'no-store',
+		...init
+	});
 	if (!response.ok) {
 		throw new Error(`API error: ${response.status} ${response.statusText}`);
 	}
