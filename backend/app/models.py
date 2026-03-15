@@ -990,6 +990,34 @@ class TodayResponse(_DefaultsRequired):
     slots: list[TodaySlot] = []
 
 
+class ScheduleOccurrence(_DefaultsRequired):
+    occurrence_key: str
+    date: str
+    slot: SlotName
+    position: int = 0
+    routine_id: str
+    routine_name: str
+    assignment_id: str
+    card_template_id: str
+    name: str
+    renderer: RendererFamily
+    summary: str | None = None
+    tags: list[str] = []
+    payload_json: dict[str, object] = {}
+
+
+class ScheduleDay(_DefaultsRequired):
+    date: str
+    weekday: WeekdayName
+    occurrences: list[ScheduleOccurrence] = []
+
+
+class ScheduleWindow(_DefaultsRequired):
+    start_date: str
+    end_date: str
+    days: list[ScheduleDay] = []
+
+
 class AssistantThreadCreateRequest(_DefaultsRequired):
     id: str
     title: str

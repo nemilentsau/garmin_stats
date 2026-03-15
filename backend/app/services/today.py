@@ -3,25 +3,18 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date as date_cls
 
 from ..infra.database import (
     load_card_logs,
     load_card_overrides,
     load_card_template,
-    load_card_templates,
-    load_routine_assignments,
-    load_routine_schedules,
     save_card_log,
     save_card_override,
 )
 from ..models import (
     CardLog,
     CardOverride,
-    CardTemplate,
-    RoutineAssignment,
-    RoutineSchedule,
-    SlotName,
+    ScheduleOccurrence,
     TodayCard,
     TodayCardLogUpdateRequest,
     TodayCardOverrideCreateRequest,
@@ -29,109 +22,47 @@ from ..models import (
     TodaySlot,
     TodayStats,
 )
+from .schedule_projection import get_schedule_window
 
-_SLOT_ORDER: tuple[SlotName, ...] = ("morning", "midday", "evening", "anytime")
+_SLOT_ORDER = ("morning", "midday", "evening", "anytime")
 _SLOT_LABELS = {
     "morning": "Morning",
     "midday": "Midday",
     "evening": "Evening",
     "anytime": "Anytime",
 }
-_WEEKDAY_NAMES = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-]
-
-
-def _parse_date(date_str: str) -> date_cls:
-    return date_cls.fromisoformat(date_str)
-
-
-def _routine_is_active_on_date(routine: RoutineSchedule, day: date_cls) -> bool:
-    start_date = _parse_date(routine.start_date)
-    if day < start_date:
-        return False
-    if routine.end_date is not None and day > _parse_date(routine.end_date):
-        return False
-    return routine.status == "active"
-
-
-def _resolve_cycle_week(routine: RoutineSchedule, day: date_cls) -> int:
-    if routine.cadence == "weekly":
-        return 1
-    start_date = _parse_date(routine.start_date)
-    weeks_since_start = (day - start_date).days // 7
-    return (weeks_since_start % 2) + 1
-
-
-def _assignment_matches_date(
-    routine: RoutineSchedule,
-    assignment: RoutineAssignment,
-    day: date_cls,
-) -> bool:
-    if assignment.weekday != _WEEKDAY_NAMES[day.weekday()]:
-        return False
-    return assignment.cycle_week == _resolve_cycle_week(routine, day)
-
-
-def _merge_payload(
-    card: CardTemplate,
-    assignment: RoutineAssignment | None,
-) -> dict[str, object]:
-    payload = dict(card.payload_json)
-    if assignment is not None and assignment.prescription_override_json:
-        payload.update(assignment.prescription_override_json)
-    return payload
-
-
-def _scheduled_occurrence_key(assignment_id: str, date: str) -> str:
-    return f"scheduled:{assignment_id}:{date}"
 
 
 def _override_occurrence_key(override: CardOverride, date: str) -> str:
     return f"override:{override.action}:{override.id}:{date}"
 
 
-def _build_scheduled_cards(date: str) -> dict[str, TodayCard]:
-    target_day = _parse_date(date)
-    card_lookup = {card.id: card for card in load_card_templates(status="active")}
-    assignment_lookup: dict[str, list[RoutineAssignment]] = defaultdict(list)
-    for assignment in load_routine_assignments():
-        assignment_lookup[assignment.routine_id].append(assignment)
+def _today_card_from_occurrence(occurrence: ScheduleOccurrence) -> TodayCard:
+    return TodayCard(
+        occurrence_key=occurrence.occurrence_key,
+        date=occurrence.date,
+        slot=occurrence.slot,
+        position=occurrence.position,
+        source_kind="scheduled",
+        routine_id=occurrence.routine_id,
+        routine_name=occurrence.routine_name,
+        assignment_id=occurrence.assignment_id,
+        card_template_id=occurrence.card_template_id,
+        name=occurrence.name,
+        renderer=occurrence.renderer,
+        summary=occurrence.summary,
+        tags=occurrence.tags,
+        payload_json=occurrence.payload_json,
+    )
 
-    cards: dict[str, TodayCard] = {}
-    for routine in load_routine_schedules(status="active"):
-        if not _routine_is_active_on_date(routine, target_day):
-            continue
-        for assignment in assignment_lookup.get(routine.id, []):
-            if not _assignment_matches_date(routine, assignment, target_day):
-                continue
-            card = card_lookup.get(assignment.card_template_id)
-            if card is None:
-                continue
-            occurrence_key = _scheduled_occurrence_key(assignment.id, date)
-            cards[occurrence_key] = TodayCard(
-                occurrence_key=occurrence_key,
-                date=date,
-                slot=assignment.slot,
-                position=assignment.position,
-                source_kind="scheduled",
-                routine_id=routine.id,
-                routine_name=routine.name,
-                assignment_id=assignment.id,
-                card_template_id=card.id,
-                name=card.name,
-                renderer=card.renderer,
-                summary=card.summary,
-                tags=card.tags,
-                payload_json=_merge_payload(card, assignment),
-            )
-    return cards
+
+def _build_scheduled_cards(date: str) -> dict[str, TodayCard]:
+    window = get_schedule_window(date, duration_days=1)
+    occurrences = window.days[0].occurrences if window.days else []
+    return {
+        occurrence.occurrence_key: _today_card_from_occurrence(occurrence)
+        for occurrence in occurrences
+    }
 
 
 def _card_for_override(
@@ -165,7 +96,7 @@ def _card_for_override(
         renderer=template.renderer,
         summary=template.summary,
         tags=template.tags,
-        payload_json=_merge_payload(template, None),
+        payload_json=dict(template.payload_json),
     )
 
 

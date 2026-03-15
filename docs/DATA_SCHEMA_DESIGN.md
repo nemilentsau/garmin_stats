@@ -60,12 +60,28 @@ Today is built from live runtime data at read time:
 
 - active routines
 - routine assignments
-- date-specific overrides
+- date-specific schedule exceptions, if they exist
 - card logs
 
 We do not persist a separate daily plan table for normal operation.
 
 That keeps Today flexible and avoids duplicating schedule state in another place that can drift out of sync.
+
+Today is an execution surface, not a schedule authoring surface.
+
+That means Today may:
+
+- show cards
+- mark them done
+- mark them partial or skipped
+- store notes and renderer-specific feedback
+
+That means Today must not:
+
+- create new cards
+- create new schedule entries
+- create ad hoc day-local plans
+- become a second source of truth for schedule structure
 
 ### Specs come before runtime
 
@@ -258,13 +274,17 @@ The schema does not hardcode every possible logged field. Renderer-specific deta
 
 `CardOverride` stores date-specific deviations from the compiled schedule.
 
-Supported actions in v1:
+If this concept exists, it belongs to the schedule management layer, not to Today itself.
+
+Today may read these exceptions, but it must not create them.
+
+Supported actions at the schedule layer in v1:
 
 - `add`
 - `hide`
 - `replace`
 
-This keeps the base schedule clean while allowing Today to stay practical.
+This keeps the base schedule clean while still allowing future date-specific schedule editing without polluting normal recurring assignments.
 
 Overrides are intentionally separate from routine assignments because they are exceptions, not schedule definitions.
 
@@ -356,7 +376,7 @@ Today is resolved in this order:
 2. Filter them by date range and cadence.
 3. Resolve which assignments match the selected date.
 4. Materialize scheduled cards.
-5. Apply date-specific overrides.
+5. Apply date-specific schedule exceptions, if any were authored through routine management.
 6. Apply logs.
 7. Group the result into slots for the UI.
 
@@ -384,7 +404,7 @@ These assumptions are intentional and should remain true unless we consciously r
 - Card templates are the smallest reusable live unit.
 - Routines are schedules, not content repositories.
 - Weekly and biweekly cadence are enough for v1.
-- Date-specific exceptions belong in overrides, not in the base routine definition.
+- Date-specific exceptions, if supported, belong in schedule-level exception records, not in Today and not in the base recurring assignment definition.
 - Renderer-specific detail belongs in JSON payloads rather than in dedicated columns for every field.
 
 ### UX assumptions
@@ -393,6 +413,11 @@ These assumptions are intentional and should remain true unless we consciously r
 - One-tap completion is the default interaction.
 - Detailed logging is optional and renderer-specific.
 - Slots such as morning, midday, evening, and anytime are sufficient organizing buckets for now.
+- Today is execution-only: completion, partial/skipped state, and feedback are allowed; schedule mutation is not.
+- Schedule review should be calendar-first.
+- A 2-week schedule view is enough for v1.
+- Schedule review must work both by day and by routine.
+- Manual routine authoring stays JSON-first for now.
 
 ### Operational assumptions
 
@@ -431,6 +456,12 @@ We assume multiple routines can overlap and jointly contribute to Today.
 
 That is important because real life does not fit one monolithic plan.
 
+### Schedule mutation and schedule execution are different jobs
+
+We assume the screen used to review or edit schedule structure is not the screen used to execute the day.
+
+That is why Today should log outcomes, while schedule management should own recurrence and any date-specific schedule exceptions.
+
 ## What We Deliberately Did Not Model Yet
 
 Several things are intentionally out of scope for v1:
@@ -441,6 +472,7 @@ Several things are intentionally out of scope for v1:
 - arbitrary user-defined renderer families
 - precomputed daily instances
 - deep cross-card dependency logic
+- a rich non-JSON manual routine editor
 
 These are not omissions by accident. They were deferred to protect the core abstraction.
 
@@ -463,6 +495,12 @@ If routines define both what something is and when it happens, reuse becomes pai
 ### Today hardcoded to day types
 
 If Today depends on a special taxonomy like hard/easy days, new plan shapes become harder to represent than they should be.
+
+### Today becoming a second schedule editor
+
+If Today can create or restructure work, schedule data becomes split across the recurring routine layer and the day-execution layer.
+
+That destroys the source-of-truth boundary and makes calendar review unreliable.
 
 ### Drafts mutating live state directly
 
@@ -488,8 +526,8 @@ These are the most important unresolved design questions:
 
 - whether weekly and biweekly cadence are still enough once more experiments return
 - whether cards ever need nested sub-card composition or whether renderer payloads are enough
-- whether Today should eventually support temporary ordering changes separate from add/hide/replace overrides
 - how experiments should reference cards, routines, or logged occurrences without leaking old abstractions back in
+- whether schedule exceptions should remain a first-class schedule-management concept or be deferred entirely until later
 
 ## Bottom Line
 
@@ -500,6 +538,7 @@ That means:
 - cards are the reusable behavioral unit
 - routines are schedules
 - Today is a projection
+- Today is for execution and logging, not schedule mutation
 - assistant drafts are not live state
 - renderer families are the real infrastructure boundary
 
