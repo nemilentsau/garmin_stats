@@ -38,6 +38,8 @@ from ..models import (
     Note,
     Plan,
     PlanItem,
+    Program,
+    ProgramVersion,
     Routine,
     RoutineEntry,
     UserProfile,
@@ -69,7 +71,7 @@ _VALID_TABLES = frozenset({
     "daily_checkins", "notes", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
-    "evidence_cards",
+    "evidence_cards", "programs", "program_versions",
 })
 
 
@@ -173,6 +175,15 @@ CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread_created
     ON assistant_messages (thread_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_assistant_runs_thread_created
     ON assistant_runs (thread_id, created_at);
+CREATE TABLE IF NOT EXISTS programs ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS program_versions (
+    program_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (program_id, version)
+);
 """
 
 
@@ -823,3 +834,61 @@ def save_evidence_card(card: EvidenceCard) -> None:
 
 def load_evidence_cards() -> list[EvidenceCard]:
     return _load_json_records("evidence_cards", EvidenceCard)
+
+
+# ---------------------------------------------------------------------------
+# Program storage
+# ---------------------------------------------------------------------------
+
+
+def save_program(program: Program) -> None:
+    _save_json_record("programs", program.id, program.model_dump_json())
+
+
+def load_program(program_id: str) -> Program | None:
+    return _load_json_record("programs", Program, program_id)
+
+
+def load_programs(status: str | None = None) -> list[Program]:
+    where_sql = ""
+    params: tuple[object, ...] = ()
+    if status is not None:
+        where_sql = "json_extract(data, '$.status') = ?"
+        params = (status,)
+    return _load_json_records(
+        "programs",
+        Program,
+        where_sql=where_sql,
+        params=params,
+    )
+
+
+def save_program_version(version: ProgramVersion) -> None:
+    now = _now_iso()
+    data_json = version.model_dump_json()
+    with _connect() as con, con:
+        con.execute(
+            "INSERT OR REPLACE INTO program_versions "
+            "(program_id, version, data, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (version.program_id, version.version, data_json, now, now),
+        )
+
+
+def load_program_versions(program_id: str) -> list[ProgramVersion]:
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT data, created_at, updated_at FROM program_versions "
+            "WHERE program_id = ? ORDER BY version",
+            (program_id,),
+        ).fetchall()
+    return [_model_from_row(ProgramVersion, row) for row in rows]
+
+
+def delete_program(program_id: str) -> None:
+    with _connect() as con, con:
+        con.execute("DELETE FROM programs WHERE id = ?", (program_id,))
+        con.execute(
+            "DELETE FROM program_versions WHERE program_id = ?",
+            (program_id,),
+        )

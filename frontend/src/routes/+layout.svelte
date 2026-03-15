@@ -5,20 +5,46 @@
 
 	let { children } = $props();
 
-	const tabs = [
-		{ href: '/', label: 'Dashboard' },
-		{ href: '/assistant', label: 'Assistant' },
-		{ href: '/routines', label: 'Routines' },
-		{ href: '/experiments', label: 'Experiments' },
-		{ href: '/heart-rate', label: 'Heart Rate' },
-		{ href: '/hrv', label: 'HRV' },
-		{ href: '/sleep', label: 'Sleep' },
-		{ href: '/stress', label: 'Stress' },
-		{ href: '/body-battery', label: 'Body Battery' },
-		{ href: '/respiration', label: 'Respiration' },
-		{ href: '/skin-temp', label: 'Skin Temp' },
-		{ href: '/pulse-ox', label: 'Pulse Ox' }
+	const sections = [
+		{
+			label: 'Dashboard',
+			href: '/',
+			subtabs: [
+				{ href: '/', label: 'Overview' },
+				{ href: '/heart-rate', label: 'Heart Rate' },
+				{ href: '/hrv', label: 'HRV' },
+				{ href: '/sleep', label: 'Sleep' },
+				{ href: '/stress', label: 'Stress' },
+				{ href: '/body-battery', label: 'Body Battery' },
+				{ href: '/respiration', label: 'Respiration' },
+				{ href: '/skin-temp', label: 'Skin Temp' },
+				{ href: '/pulse-ox', label: 'Pulse Ox' }
+			]
+		},
+		{
+			label: 'Programs',
+			href: '/today',
+			subtabs: [
+				{ href: '/today', label: 'Today' },
+				{ href: '/routines', label: 'Routines' },
+				{ href: '/experiments', label: 'Experiments' },
+				{ href: '/programs', label: 'Programs' }
+			]
+		},
+		{
+			label: 'Assistant',
+			href: '/assistant',
+			subtabs: []
+		}
 	];
+
+	const activeSection = $derived(
+		sections.find((s) =>
+			s.subtabs.some((t) => t.href === page.url.pathname)
+		) ??
+			sections.find((s) => s.href === page.url.pathname) ??
+			sections[0]
+	);
 </script>
 
 <svelte:head>
@@ -66,11 +92,22 @@
 			</div>
 		</div>
 		<nav class="header-nav">
-			{#each tabs as tab}
-				<a href={tab.href} class={page.url.pathname === tab.href ? 'active' : ''}>{tab.label}</a>
+			{#each sections as section}
+				<a
+					href={section.href}
+					class={activeSection === section ? 'active' : ''}
+				>{section.label}</a>
 			{/each}
 		</nav>
 	</header>
+
+	{#if activeSection.subtabs.length > 0}
+		<nav class="subtab-bar">
+			{#each activeSection.subtabs as tab}
+				<a href={tab.href} class={page.url.pathname === tab.href ? 'active' : ''}>{tab.label}</a>
+			{/each}
+		</nav>
+	{/if}
 
 	<main class="topo-content">
 		{@render children()}
@@ -159,6 +196,30 @@
 
 	.header-nav a:hover { color: #c8d6e0; background: rgba(255,255,255,0.05); }
 	.header-nav a.active { color: #5BB5A6; background: rgba(91,181,166,0.1); }
+
+	.subtab-bar {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		gap: 2px;
+		padding: 8px 28px;
+		border-bottom: 1px solid rgba(255,255,255,0.04);
+		background: rgba(13,21,32,0.6);
+		backdrop-filter: blur(8px);
+	}
+
+	.subtab-bar a {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		padding: 4px 10px;
+		border-radius: 4px;
+		color: #4a5e6d;
+		text-decoration: none;
+		transition: all 0.2s;
+	}
+
+	.subtab-bar a:hover { color: #8fa3b0; }
+	.subtab-bar a.active { color: #5BB5A6; background: rgba(91,181,166,0.08); }
 
 	.topo-content {
 		position: relative;

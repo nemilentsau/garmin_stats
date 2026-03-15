@@ -7,6 +7,7 @@ from ..services.routines import (
     create_routine,
     create_routine_entry,
     list_routine_entries,
+    list_routine_entries_by_date,
     list_routines,
     update_routine,
 )
@@ -35,6 +36,14 @@ def put_routine(routine_id: str, routine: Routine):
         raise HTTPException(status_code=404, detail=str(err)) from err
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+@router.get("/entries", response_model=RoutineEntriesResponse)
+def get_entries_by_date(
+    date: str = Query(..., description="Date (YYYY-MM-DD)"),
+):
+    """Return all routine entries for a given date across all routines."""
+    return list_routine_entries_by_date(date)
 
 
 @router.get("/{routine_id}/entries", response_model=RoutineEntriesResponse)

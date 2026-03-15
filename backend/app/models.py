@@ -1006,3 +1006,36 @@ class DashboardOverviewResponse(_DefaultsRequired):
     vitals: TodayVitals | None = None
     sparklines: DashboardSparklines | None = None
     correlations: list[MetricCorrelation] = []
+
+
+# ---------------------------------------------------------------------------
+# Program spec models
+# ---------------------------------------------------------------------------
+
+
+class Program(_DefaultsRequired):
+    id: str
+    name: str
+    version: int
+    status: str = "active"
+    spec: dict[str, object] = {}
+    imported_at: str | None = None
+    updated_at: str | None = None
+    retired_at: str | None = None
+
+
+class ProgramVersion(_DefaultsRequired):
+    program_id: str
+    version: int
+    spec: dict[str, object] = {}
+    imported_at: str | None = None
+
+
+class ProgramsResponse(_DefaultsRequired):
+    programs: list[Program] = []
+    total: int
+
+
+class ProgramVersionsResponse(_DefaultsRequired):
+    versions: list[ProgramVersion] = []
+    total: int

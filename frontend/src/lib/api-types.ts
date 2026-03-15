@@ -520,6 +520,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/routines/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entries By Date
+         * @description Return all routine entries for a given date across all routines.
+         */
+        get: operations["get_entries_by_date_api_routines_entries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/routines/{routine_id}/entries": {
         parameters: {
             query?: never;
@@ -652,6 +672,126 @@ export interface paths {
          * @description Return the supported target metric registry.
          */
         get: operations["list_target_metrics_route_api_target_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Programs
+         * @description Return all programs, optionally filtered by status.
+         */
+        get: operations["get_programs_api_programs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{program_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Program Detail
+         * @description Return a single program with its full spec.
+         */
+        get: operations["get_program_detail_api_programs__program_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Import Program
+         * @description Import a program spec JSON. Creates/updates program, routines, and experiments.
+         */
+        post: operations["post_import_program_api_programs_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{program_id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Retire Program
+         * @description Set a program's status to retired, preserving all data.
+         */
+        put: operations["put_retire_program_api_programs__program_id__retire_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{program_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Activate Program
+         * @description Reactivate a retired program.
+         */
+        put: operations["put_activate_program_api_programs__program_id__activate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{program_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Versions
+         * @description Return version history for a program.
+         */
+        get: operations["get_versions_api_programs__program_id__versions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1827,6 +1967,69 @@ export interface components {
             skin_temp: components["schemas"]["PeriodSkinTempStats"];
             sleep: components["schemas"]["PeriodSleepStats"];
             body_battery: components["schemas"]["PeriodBodyBatteryStats"];
+        };
+        /** Program */
+        Program: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /**
+             * Spec
+             * @default {}
+             */
+            spec: {
+                [key: string]: unknown;
+            };
+            /** Imported At */
+            imported_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Retired At */
+            retired_at: string | null;
+        };
+        /** ProgramVersion */
+        ProgramVersion: {
+            /** Program Id */
+            program_id: string;
+            /** Version */
+            version: number;
+            /**
+             * Spec
+             * @default {}
+             */
+            spec: {
+                [key: string]: unknown;
+            };
+            /** Imported At */
+            imported_at: string | null;
+        };
+        /** ProgramVersionsResponse */
+        ProgramVersionsResponse: {
+            /**
+             * Versions
+             * @default []
+             */
+            versions: components["schemas"]["ProgramVersion"][];
+            /** Total */
+            total: number;
+        };
+        /** ProgramsResponse */
+        ProgramsResponse: {
+            /**
+             * Programs
+             * @default []
+             */
+            programs: components["schemas"]["Program"][];
+            /** Total */
+            total: number;
         };
         /** ReadinessScore */
         ReadinessScore: {
@@ -3252,6 +3455,38 @@ export interface operations {
             };
         };
     };
+    get_entries_by_date_api_routines_entries_get: {
+        parameters: {
+            query: {
+                /** @description Date (YYYY-MM-DD) */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineEntriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_entries_api_routines__routine_id__entries_get: {
         parameters: {
             query?: {
@@ -3586,6 +3821,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TargetMetricsResponse"];
+                };
+            };
+        };
+    };
+    get_programs_api_programs_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_program_detail_api_programs__program_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_import_program_api_programs_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_retire_program_api_programs__program_id__retire_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_activate_program_api_programs__program_id__activate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Program"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_versions_api_programs__program_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramVersionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

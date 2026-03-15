@@ -224,28 +224,18 @@
 		class="assistant-shell"
 		style={`--assistant-gradient-a: ${COLORS.respiration}; --assistant-gradient-b: ${COLORS.spo2}; --thread-badge-bg: ${withAlpha(COLORS.hrv, '1f')};`}
 	>
-		<div class="hero-band">
-			<div>
-				<p class="eyebrow">Phase 2 assistant MVP</p>
-				<h1>A health copilot grounded in your Garmin signals, routines, check-ins, and experiments.</h1>
-				<p class="hero-copy">
-					This first version is recovery-first. The backend curates the evidence bundle, Claude writes the
-					narrative, and every reply is tied to a stored context snapshot.
-				</p>
+		<div class="summary-row">
+			<div class="summary-stat">
+				<span>Threads</span>
+				<strong>{threadCount}</strong>
 			</div>
-			<div class="hero-stats">
-				<div class="hero-stat">
-					<span>Threads</span>
-					<strong>{threadCount}</strong>
-				</div>
-				<div class="hero-stat">
-					<span>Active convos</span>
-					<strong>{conversationCount}</strong>
-				</div>
-				<div class="hero-stat accent">
-					<span>Runtime</span>
-					<strong>Claude Code</strong>
-				</div>
+			<div class="summary-stat">
+				<span>Active convos</span>
+				<strong>{conversationCount}</strong>
+			</div>
+			<div class="summary-stat accent">
+				<span>Runtime</span>
+				<strong>Claude</strong>
 			</div>
 		</div>
 
@@ -371,7 +361,6 @@
 
 	.loading-card,
 	.error-banner,
-	.hero-band,
 	.threads-panel,
 	.chat-panel {
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -394,17 +383,40 @@
 			radial-gradient(circle at top right, rgba(232, 93, 74, 0.15), transparent 30%);
 	}
 
-	.hero-band {
+	.summary-row {
 		display: grid;
-		grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
-		gap: 24px;
-		padding: 28px;
-		border-radius: 28px;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 14px;
 	}
 
-	.eyebrow,
+	.summary-stat {
+		padding: 16px 18px;
+		border-radius: 14px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.summary-stat.accent {
+		background: linear-gradient(160deg, rgba(91, 181, 166, 0.12), rgba(74, 144, 217, 0.06));
+	}
+
+	.summary-stat span {
+		display: block;
+		margin-bottom: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #8da0af;
+	}
+
+	.summary-stat strong {
+		display: block;
+		font-size: 1.15rem;
+		color: #edf3f7;
+	}
+
 	.panel-head p,
-	.hero-stat span,
 	.composer-actions p,
 	.message-meta span,
 	.thread-card p,
@@ -417,52 +429,10 @@
 		color: #7e93a4;
 	}
 
-	h1,
 	h2 {
 		margin: 0;
 		color: #edf3f7;
-	}
-
-	h1 {
-		font-size: clamp(2rem, 3vw, 3rem);
-		line-height: 1;
-		max-width: 18ch;
-	}
-
-	h2 {
 		font-size: 1.35rem;
-	}
-
-	.hero-copy {
-		max-width: 62ch;
-		margin: 14px 0 0;
-		color: #b5c4ce;
-		line-height: 1.6;
-	}
-
-	.hero-stats {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 12px;
-		align-content: start;
-	}
-
-	.hero-stat {
-		padding: 18px;
-		border-radius: 20px;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid rgba(255, 255, 255, 0.05);
-	}
-
-	.hero-stat strong {
-		display: block;
-		margin-top: 10px;
-		font-size: 1.15rem;
-		color: #edf3f7;
-	}
-
-	.hero-stat.accent {
-		background: linear-gradient(160deg, rgba(91, 181, 166, 0.16), rgba(74, 144, 217, 0.08));
 	}
 
 	.assistant-grid {
@@ -676,24 +646,20 @@
 	}
 
 	@media (max-width: 1100px) {
-		.hero-band,
+		.summary-row,
 		.assistant-grid {
 			grid-template-columns: 1fr;
 		}
 
-		.hero-stats {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
 	}
 
 	@media (max-width: 720px) {
-		.hero-band,
 		.threads-panel,
 		.chat-panel {
 			padding: 18px;
 		}
 
-		.hero-stats {
+		.summary-row {
 			grid-template-columns: 1fr;
 		}
 

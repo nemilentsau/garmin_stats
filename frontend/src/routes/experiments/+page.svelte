@@ -154,29 +154,18 @@
 	</section>
 {:else}
 	<section class="experiments-shell">
-		<div class="hero-band">
-			<div>
-				<p class="eyebrow">Phase 1 foundation</p>
-				<h1>Turn rough ideas into trackable experiments before the analysis engine arrives.</h1>
-				<p class="hero-copy">
-					Define what you are trying, why you think it might matter, which routines belong to the
-					test, and which recovery metrics should watch it. Phase 1 stops here on purpose: setup now,
-					evidence in Phase 3.
-				</p>
+		<div class="summary-row">
+			<div class="summary-stat">
+				<span>Active</span>
+				<strong>{activeCount}</strong>
 			</div>
-			<div class="hero-stats">
-				<div class="hero-stat">
-					<span>Active</span>
-					<strong>{activeCount}</strong>
-				</div>
-				<div class="hero-stat">
-					<span>Drafts</span>
-					<strong>{draftCount}</strong>
-				</div>
-				<div class="hero-stat">
-					<span>Linked routines</span>
-					<strong>{linkedRoutineCount}</strong>
-				</div>
+			<div class="summary-stat">
+				<span>Drafts</span>
+				<strong>{draftCount}</strong>
+			</div>
+			<div class="summary-stat">
+				<span>Linked routines</span>
+				<strong>{linkedRoutineCount}</strong>
 			</div>
 		</div>
 
@@ -359,20 +348,34 @@
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
 	}
 
-	.hero-band {
+	.summary-row {
 		display: grid;
-		grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
-		gap: 18px;
-		padding: 28px;
-		border-radius: 26px;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background:
-			radial-gradient(circle at top right, rgba(155, 107, 205, 0.18), transparent 35%),
-			radial-gradient(circle at bottom left, rgba(201, 147, 58, 0.16), transparent 32%),
-			linear-gradient(140deg, rgba(11, 19, 31, 0.96), rgba(15, 23, 35, 0.9));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 14px;
 	}
 
-	.eyebrow,
+	.summary-stat {
+		padding: 16px 18px;
+		border-radius: 14px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.summary-stat span {
+		display: block;
+		margin-bottom: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #8da0af;
+	}
+
+	.summary-stat strong {
+		font-size: 1.65rem;
+		color: #f8fbff;
+	}
+
 	.panel-head p,
 	.card-label {
 		margin: 0 0 8px;
@@ -383,20 +386,12 @@
 		color: #c9a47d;
 	}
 
-	h1,
 	h2,
 	h3 {
 		margin: 0;
 		color: #f3f7fb;
 	}
 
-	h1 {
-		font-size: clamp(2rem, 5vw, 3.2rem);
-		line-height: 0.96;
-		max-width: 13ch;
-	}
-
-	.hero-copy,
 	.card-copy,
 	.empty-card {
 		margin: 16px 0 0;
@@ -404,7 +399,6 @@
 		line-height: 1.6;
 	}
 
-	.hero-stats,
 	.experiments-grid,
 	.field-grid,
 	.chip-grid,
@@ -416,18 +410,6 @@
 		display: grid;
 	}
 
-	.hero-stats {
-		grid-template-columns: 1fr;
-		gap: 12px;
-	}
-
-	.hero-stat {
-		padding: 16px 18px;
-		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.04);
-	}
-
-	.hero-stat span,
 	.meta-strip span,
 	.selection-head span,
 	label span {
@@ -440,7 +422,6 @@
 		color: #8da0af;
 	}
 
-	.hero-stat strong,
 	.meta-strip strong {
 		font-size: 1.65rem;
 		color: #f8fbff;
@@ -610,7 +591,7 @@
 	}
 
 	@media (max-width: 980px) {
-		.hero-band,
+		.summary-row,
 		.experiments-grid,
 		.field-grid,
 		.chip-grid,
@@ -619,8 +600,5 @@
 			grid-template-columns: 1fr;
 		}
 
-		h1 {
-			max-width: none;
-		}
 	}
 </style>

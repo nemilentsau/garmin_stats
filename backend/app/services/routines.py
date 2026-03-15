@@ -37,6 +37,12 @@ def update_routine(routine_id: str, routine: Routine) -> Routine:
     return routine
 
 
+def list_routine_entries_by_date(date: str) -> RoutineEntriesResponse:
+    """Return all routine entries for a given date (across all routines)."""
+    entries = load_routine_entries(date=date)
+    return RoutineEntriesResponse(entries=entries, total=len(entries))
+
+
 def list_routine_entries(routine_id: str, date: str | None = None) -> RoutineEntriesResponse:
     """Return entries for a specific routine."""
     _require_routine(routine_id)

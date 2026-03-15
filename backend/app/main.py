@@ -24,6 +24,7 @@ from .routers.hrv import router as hrv_router
 from .routers.ingest import router as ingest_router
 from .routers.notes import router as notes_router
 from .routers.profile import router as profile_router
+from .routers.programs import router as programs_router
 from .routers.routines import router as routines_router
 from .routers.skin_temp import router as skin_temp_router
 from .routers.sleep import router as sleep_router
@@ -102,6 +103,7 @@ app.include_router(checkins_router)
 app.include_router(notes_router)
 app.include_router(experiments_router)
 app.include_router(target_metrics_router)
+app.include_router(programs_router)
 
 
 @app.get("/")

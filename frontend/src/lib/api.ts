@@ -57,6 +57,10 @@ export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
 export type AssistantMessage = Schemas['AssistantMessage'];
 export type AssistantMessageInput = Schemas['AssistantMessageCreateRequest'];
 export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
+export type Program = Schemas['Program'];
+export type ProgramsResponse = Schemas['ProgramsResponse'];
+export type ProgramVersion = Schemas['ProgramVersion'];
+export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${API_BASE}${endpoint}`, init);
@@ -103,6 +107,8 @@ export const api = {
 	createRoutine: (routine: RoutineInput) => sendJson<Routine>('/api/routines', 'POST', routine),
 	updateRoutine: (routineId: string, routine: RoutineInput) =>
 		sendJson<Routine>(`/api/routines/${routineId}`, 'PUT', routine),
+	getRoutineEntriesByDate: (date: string) =>
+		fetchJson<RoutineEntriesResponse>(`/api/routines/entries?date=${date}`),
 	getRoutineEntries: (routineId: string, date?: string) =>
 		fetchJson<RoutineEntriesResponse>(
 			`/api/routines/${routineId}/entries${date ? `?date=${date}` : ''}`
@@ -126,5 +132,16 @@ export const api = {
 	createAssistantThread: (thread: AssistantThreadInput) =>
 		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
 	getAssistantThreadMessages: (threadId: string) =>
-		fetchJson<AssistantMessagesResponse>(`/api/assistant/threads/${threadId}/messages`)
+		fetchJson<AssistantMessagesResponse>(`/api/assistant/threads/${threadId}/messages`),
+	getPrograms: (status?: string) =>
+		fetchJson<ProgramsResponse>(`/api/programs${status ? `?status=${status}` : ''}`),
+	getProgram: (programId: string) => fetchJson<Program>(`/api/programs/${programId}`),
+	importProgram: (spec: Record<string, unknown>) =>
+		sendJson<Program>('/api/programs/import', 'POST', spec),
+	retireProgram: (programId: string) =>
+		sendJson<Program>(`/api/programs/${programId}/retire`, 'PUT', {}),
+	activateProgram: (programId: string) =>
+		sendJson<Program>(`/api/programs/${programId}/activate`, 'PUT', {}),
+	getProgramVersions: (programId: string) =>
+		fetchJson<ProgramVersionsResponse>(`/api/programs/${programId}/versions`)
 };

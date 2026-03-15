@@ -13,6 +13,11 @@
   - **Frontend/TypeScript-only changes**: run `cd frontend && npm run check` (and fix all errors).
   - **If backend API schema changed**: regenerate API types, commit updated `frontend/src/lib/api-types.ts`, then run `npm run check`.
 
+## Visual Verification (non-negotiable)
+- **All UX/frontend changes MUST be visually examined** using browser MCP tools (screenshot, read_page) before considering work complete.
+- Take screenshots of every page/component modified and verify the result looks correct and is usable.
+- Never ship frontend changes based solely on code review — always confirm visually in the running app.
+
 ## Key Constraints
 - API types flow: Pydantic models/routes → OpenAPI → generated TypeScript.
 - Never hand-write `frontend/src/lib/api-types.ts`; always regenerate via script after backend schema changes.
