@@ -1,6 +1,7 @@
 """Tests for parser extractor edge cases."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from app.models import (
     DayData,
@@ -19,6 +20,8 @@ from app.parser import (
     _extract_utc_offset_hours,
     _extract_wellness,
     _shift_timestamps,
+    get_available_days,
+    get_files_by_day,
 )
 
 
@@ -143,3 +146,29 @@ class TestShiftTimestamps:
         )
         _shift_timestamps(day, 5.0)
         assert day.wellness.heart_rate[0].timestamp is None
+
+
+class TestDayDirectoryDiscovery:
+    def test_available_days_ignores_copy_and_malformed_directories(self, tmp_path: Path):
+        for dirname in ["2026-03-01", "2026-03-01 copy", "2026-13-01", "notes"]:
+            (tmp_path / dirname).mkdir()
+
+        assert get_available_days(tmp_path) == ["2026-03-01"]
+
+    def test_files_by_day_ignores_fit_files_under_noncanonical_top_level_dirs(self, tmp_path: Path):
+        canonical_fit = tmp_path / "2026-03-01" / "001_WELLNESS.fit"
+        canonical_fit.parent.mkdir(parents=True)
+        canonical_fit.write_text("ok", encoding="ascii")
+
+        duplicate_fit = tmp_path / "2026-03-01 copy" / "001_WELLNESS.fit"
+        duplicate_fit.parent.mkdir(parents=True)
+        duplicate_fit.write_text("ignore", encoding="ascii")
+
+        malformed_fit = tmp_path / "2026-13-01" / "001_WELLNESS.fit"
+        malformed_fit.parent.mkdir(parents=True)
+        malformed_fit.write_text("ignore", encoding="ascii")
+
+        files_by_day = get_files_by_day(tmp_path)
+
+        assert list(files_by_day) == ["2026-03-01"]
+        assert files_by_day["2026-03-01"]["WELLNESS"] == [canonical_fit]
