@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	import { api, type CardTemplate, type TodayResponse } from '$lib/api';
+	import { api, type TodayResponse } from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { errorMessage, makeId } from '$lib/utils';
+	import { errorMessage } from '$lib/utils';
 
 	type SlotAccent = {
 		color: string;
@@ -40,10 +40,6 @@
 	let error: string | null = $state(null);
 	let selectedDate = $state(new Date().toISOString().slice(0, 10));
 	let today = $state<TodayResponse | null>(null);
-	let cardLibrary = $state<CardTemplate[]>([]);
-	let showAddPanel = $state(false);
-	let addCardId = $state('');
-	let addSlot = $state<'morning' | 'midday' | 'evening' | 'anytime'>('anytime');
 
 	let expandedOccurrenceKey = $state<string | null>(null);
 	let detailStatus = $state<'completed' | 'partial' | 'skipped'>('completed');
@@ -70,14 +66,6 @@
 		return payload as ExercisePayload;
 	}
 
-	function activeCardLibrary(): CardTemplate[] {
-		return cardLibrary.filter((card) => card.status === 'active');
-	}
-
-	function selectedAddTemplate(): CardTemplate | undefined {
-		return activeCardLibrary().find((card) => card.id === addCardId);
-	}
-
 	async function loadToday(date: string, requestToken: number) {
 		const response = await api.getToday(date);
 		if (requestToken !== todayRequestToken || date !== selectedDate) return;
@@ -86,12 +74,9 @@
 
 	async function initializePage() {
 		error = null;
-		const [daysResponse, cardsResponse] = await Promise.all([api.getDays(), api.getCards('active')]);
-		cardLibrary = cardsResponse.cards;
+		const daysResponse = await api.getDays();
 		selectedDate =
 			daysResponse.days[daysResponse.days.length - 1] ?? new Date().toISOString().slice(0, 10);
-		addCardId = cardLibrary[0]?.id ?? '';
-		addSlot = (cardLibrary[0]?.slot_default ?? 'anytime') as typeof addSlot;
 		todayRequestToken += 1;
 		await loadToday(selectedDate, todayRequestToken);
 	}
@@ -243,29 +228,6 @@
 		}
 	}
 
-	async function addCard() {
-		if (!addCardId) return;
-		saving = true;
-		error = null;
-		try {
-			await api.createTodayCardOverride(selectedDate, {
-				id: makeId('override'),
-				action: 'add',
-				card_template_id: addCardId,
-				slot: addSlot,
-				position: 999,
-				target_occurrence_key: null,
-				notes: null
-			});
-			showAddPanel = false;
-			today = await api.getToday(selectedDate);
-		} catch (e: unknown) {
-			error = errorMessage(e);
-		} finally {
-			saving = false;
-		}
-	}
-
 	function formatSeconds(totalSeconds: number): string {
 		if (totalSeconds < 60) return `${totalSeconds}s`;
 		const minutes = Math.floor(totalSeconds / 60);
@@ -289,8 +251,9 @@
 				<p class="eyebrow">Live Routine Board</p>
 				<h1>Today is compiled from activated specs, not templates glued into code.</h1>
 				<p class="hero-text">
-					Each card below comes from active routines plus date-specific overrides. Tap once to log it,
-					or open the card when you need detail.
+					Each card below comes from the live schedule. Tap once to log it, or open the card when you
+					need detail. If the schedule itself is wrong, fix it in routines creation instead of editing
+					Today.
 				</p>
 			</div>
 
@@ -299,9 +262,7 @@
 					<span>Date</span>
 					<input type="date" bind:value={selectedDate} />
 				</label>
-				<button class="add-toggle" onclick={() => (showAddPanel = !showAddPanel)}>
-					{showAddPanel ? 'Close add panel' : 'Add card to today'}
-				</button>
+				<a class="hero-link" href="/routines/creation">Change routines here</a>
 			</div>
 		</div>
 
@@ -326,53 +287,6 @@
 
 		{#if error}
 			<div class="error-banner">{error}</div>
-		{/if}
-
-		{#if showAddPanel}
-			<div class="add-panel">
-				<div class="panel-head">
-					<div>
-						<p>Add Override</p>
-						<h2>Inject a live card into this day without touching the weekly schedule.</h2>
-					</div>
-				</div>
-				<div class="add-grid">
-					<label>
-						<span>Card</span>
-						<select
-							bind:value={addCardId}
-							onchange={() => {
-								const next = selectedAddTemplate();
-								if (next) {
-									addSlot = next.slot_default as typeof addSlot;
-								}
-							}}
-						>
-							{#each activeCardLibrary() as card}
-								<option value={card.id}>{card.name}</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						<span>Slot</span>
-						<select bind:value={addSlot}>
-							{#each ['morning', 'midday', 'evening', 'anytime'] as slot}
-								<option value={slot}>{slot}</option>
-							{/each}
-						</select>
-					</label>
-				</div>
-				{#if selectedAddTemplate()}
-					<div class="card-preview">
-						<strong>{selectedAddTemplate()?.name}</strong>
-						<p>{selectedAddTemplate()?.summary}</p>
-						<small>{selectedAddTemplate()?.renderer} · default {selectedAddTemplate()?.slot_default}</small>
-					</div>
-				{/if}
-				<button class="primary-action" onclick={addCard} disabled={saving || !addCardId}>
-					Add card
-				</button>
-			</div>
 		{/if}
 
 		<div class="bookmark-strip">
@@ -404,7 +318,7 @@
 					</div>
 
 					{#if slot.cards.length === 0}
-						<div class="slot-empty">This slot is open. Use the add panel if you want a one-off card.</div>
+						<div class="slot-empty">This slot is open. If it should be filled, change the routine schedule instead of patching Today.</div>
 					{:else}
 						<div class="card-column">
 							{#each slot.cards as card}
@@ -625,9 +539,7 @@
 
 	.eyebrow,
 	.slot-head p,
-	.panel-head p,
 	.date-control span,
-	.add-grid span,
 	.detail-field span {
 		margin: 0;
 		font-family: 'DM Mono', monospace;
@@ -638,8 +550,7 @@
 	}
 
 	.hero-copy h1,
-	.slot-head h2,
-	.panel-head h2 {
+	.slot-head h2 {
 		margin: 8px 0 0;
 		font-family: 'Instrument Sans', sans-serif;
 		font-size: clamp(28px, 4vw, 40px);
@@ -655,8 +566,7 @@
 		line-height: 1.6;
 	}
 
-	.hero-tools,
-	.add-panel {
+	.hero-tools {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
@@ -667,7 +577,6 @@
 	}
 
 	.date-control,
-	.add-grid label,
 	.detail-field {
 		display: flex;
 		flex-direction: column;
@@ -689,7 +598,7 @@
 		resize: vertical;
 	}
 
-	.add-toggle,
+	.hero-link,
 	.primary-action,
 	.done-btn,
 	.ghost-btn,
@@ -699,14 +608,18 @@
 		font: inherit;
 	}
 
-	.add-toggle,
+	.hero-link,
 	.primary-action,
 	.done-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		padding: 12px 14px;
 		border-radius: 999px;
 		background: linear-gradient(135deg, rgba(91, 181, 166, 0.92), rgba(74, 144, 217, 0.88));
 		color: #08111d;
 		font-weight: 700;
+		text-decoration: none;
 	}
 
 	.summary-row {
@@ -742,26 +655,6 @@
 		background: linear-gradient(140deg, rgba(91, 181, 166, 0.12), rgba(155, 107, 205, 0.12));
 	}
 
-	.add-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 12px;
-	}
-
-	.card-preview {
-		border-radius: 18px;
-		padding: 14px 16px;
-		background: rgba(8, 15, 24, 0.58);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-	}
-
-	.card-preview strong {
-		display: block;
-		margin-bottom: 6px;
-	}
-
-	.card-preview p,
-	.card-preview small,
 	.detail-copy {
 		margin: 0;
 		color: #a7bac6;
@@ -1018,8 +911,7 @@
 
 	@media (max-width: 900px) {
 		.hero,
-		.summary-row,
-		.add-grid {
+		.summary-row {
 			grid-template-columns: 1fr;
 		}
 

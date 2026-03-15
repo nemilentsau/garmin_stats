@@ -11,6 +11,9 @@
   - The watcher/ingest pipeline must handle `.zip` → extract → parse `.fit` files
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
+## Design References
+- `docs/DATA_SCHEMA_DESIGN.md` — routine runtime design, card philosophy, explicit and implicit schema assumptions
+
 ## Backend
 
 ### Data flow: parser → stats → SQLite → API

@@ -5,6 +5,11 @@
 
 	let { children } = $props();
 
+	function pathMatches(pathname: string, href: string): boolean {
+		if (href === '/') return pathname === '/';
+		return pathname === href || pathname.startsWith(`${href}/`);
+	}
+
 	const sections = [
 		{
 			label: 'Dashboard',
@@ -26,7 +31,8 @@
 			href: '/today',
 			subtabs: [
 				{ href: '/today', label: 'Today' },
-				{ href: '/routines', label: 'Routines' },
+				{ href: '/routines/schedule', label: 'Routine Schedule' },
+				{ href: '/routines/creation', label: 'Routine Creation' },
 				{ href: '/experiments', label: 'Experiments' },
 				{ href: '/programs', label: 'Programs' }
 			]
@@ -38,11 +44,10 @@
 		}
 	];
 
-	const activeSection = $derived(
-		sections.find((s) =>
-			s.subtabs.some((t) => t.href === page.url.pathname)
-		) ??
-			sections.find((s) => s.href === page.url.pathname) ??
+	const activeSection = $derived.by(
+		() =>
+			sections.find((section) => section.subtabs.some((tab) => pathMatches(page.url.pathname, tab.href))) ??
+			sections.find((section) => pathMatches(page.url.pathname, section.href)) ??
 			sections[0]
 	);
 </script>
@@ -104,7 +109,7 @@
 	{#if activeSection.subtabs.length > 0}
 		<nav class="subtab-bar">
 			{#each activeSection.subtabs as tab}
-				<a href={tab.href} class={page.url.pathname === tab.href ? 'active' : ''}>{tab.label}</a>
+				<a href={tab.href} class={pathMatches(page.url.pathname, tab.href) ? 'active' : ''}>{tab.label}</a>
 			{/each}
 		</nav>
 	{/if}

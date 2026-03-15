@@ -150,10 +150,16 @@ If a draft asks for an unsupported renderer family, validation rejects it and re
   Chat with the recovery assistant, keep threads, ask for a daily briefing or weekly review.
 
 - `/today`  
-  Render the active day from compiled live schedules. Log a card with one tap, expand it for detail, or add a date-specific override.
+  Render the active day from compiled live schedules and log what actually happened. If the schedule is wrong, fix it through routines creation instead of patching Today.
+
+- `/routines/schedule`  
+  Inspect the live compiled schedule and the live card library that Today is allowed to render.
+
+- `/routines/creation`  
+  Review assistant-authored drafts, create new manual drafts, validate them, and activate them into the live runtime.
 
 - `/routines`  
-  Review assistant-authored drafts, validate them, activate them into the live runtime, and inspect current schedules and card templates.
+  Redirects to `/routines/schedule`.
 
 - `/experiments`  
   Placeholder. Experiments are intentionally parked until they can consume the new routine runtime cleanly.
@@ -227,6 +233,9 @@ This is the stable mental model, not a file-by-file inventory:
 
 - `docs/ARCHITECTURE.md`
   Current codebase architecture notes.
+
+- `docs/DATA_SCHEMA_DESIGN.md`
+  Routine runtime design notes: assistant artifacts, cards, schedules, Today projection, and core assumptions.
 
 - `chatgpt-architecture.md`
   Product architecture for the health assistant direction.

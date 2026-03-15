@@ -6,7 +6,6 @@
 		type AssistantArtifact,
 		type AssistantArtifactInput,
 		type CardTemplate,
-		type RoutineAssignment,
 		type RoutineSchedule
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -74,7 +73,6 @@
 	let artifacts = $state<AssistantArtifact[]>([]);
 	let cards = $state<CardTemplate[]>([]);
 	let routines = $state<RoutineSchedule[]>([]);
-	let assignmentsByRoutine = $state<Record<string, RoutineAssignment[]>>({});
 
 	let artifactKind = $state<ArtifactKind>('card_template');
 	let artifactJson = $state(JSON.stringify(kindStarters.card_template, null, 2));
@@ -82,9 +80,6 @@
 	let sourceSnapshotId = $state('');
 	let showPayloads = $state<Record<string, boolean>>({});
 
-	const cardsById = $derived.by(() =>
-		Object.fromEntries(cards.map((card) => [card.id, card])) as Record<string, CardTemplate>
-	);
 	const inboxArtifacts = $derived.by(() =>
 		artifacts.filter((artifact) => artifact.status !== 'activated')
 	);
@@ -93,6 +88,9 @@
 	);
 	const invalidCount = $derived.by(() =>
 		artifacts.filter((artifact) => artifact.status === 'invalid').length
+	);
+	const capabilityCount = $derived.by(() =>
+		artifacts.filter((artifact) => artifact.kind === 'capability_request').length
 	);
 
 	function artifactTargetId(artifact: AssistantArtifact): string | null {
@@ -127,20 +125,6 @@
 		return String(payload.requested_renderer ?? 'missing capability');
 	}
 
-	function formatDate(date: string | null): string {
-		if (!date) return 'Open-ended';
-		return new Date(date).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
-	function assignmentLabel(assignment: RoutineAssignment): string {
-		const card = cardsById[assignment.card_template_id];
-		return card ? card.name : assignment.card_template_id;
-	}
-
 	async function loadPage() {
 		error = null;
 		const [artifactsResponse, cardsResponse, routinesResponse] = await Promise.all([
@@ -151,16 +135,6 @@
 		artifacts = artifactsResponse.artifacts;
 		cards = cardsResponse.cards;
 		routines = routinesResponse.routines;
-
-		const assignmentResponses = await Promise.all(
-			routinesResponse.routines.map(async (routine) => ({
-				routineId: routine.id,
-				assignments: (await api.getRoutineAssignments(routine.id)).assignments
-			}))
-		);
-		assignmentsByRoutine = Object.fromEntries(
-			assignmentResponses.map((entry) => [entry.routineId, entry.assignments])
-		);
 	}
 
 	onMount(() => {
@@ -219,25 +193,25 @@
 </script>
 
 <svelte:head>
-	<title>Routines - Garmin Stats</title>
+	<title>Routine Creation - Garmin Stats</title>
 </svelte:head>
 
 {#if loading}
 	<section class="loading-shell">
-		<div class="loading-card">Opening routine spec studio...</div>
+		<div class="loading-card">Opening routine creation flow...</div>
 	</section>
 {:else}
-	<section class="routines-shell">
+	<section class="creation-shell">
 		<div
 			class="hero"
 			style={`--hero-a: ${withAlpha(COLORS.respiration, '2f')}; --hero-b: ${withAlpha(COLORS.hrv, '2f')};`}
 		>
 			<div class="hero-copy">
-				<p class="eyebrow">Spec Runtime</p>
-				<h1>The assistant writes drafts. The app validates, previews, and compiles them.</h1>
+				<p class="eyebrow">Routine Creation</p>
+				<h1>Author drafts here. The schedule only changes after validation and activation.</h1>
 				<p>
-					No new schema, route, or UI branch is required for an ordinary new card. The only time code
-					should appear is when a draft asks for a renderer family the app does not already understand.
+					This is the only manual entry point for new cards and new schedules. Today should not invent
+					new work on the fly.
 				</p>
 			</div>
 			<div class="summary-row">
@@ -254,8 +228,8 @@
 					<strong>{invalidCount}</strong>
 				</div>
 				<div class="summary-stat accent">
-					<span>Live runtime</span>
-					<strong>{routines.length + cards.length}</strong>
+					<span>Capability asks</span>
+					<strong>{capabilityCount}</strong>
 				</div>
 			</div>
 		</div>
@@ -268,7 +242,7 @@
 			<section class="panel studio-panel">
 				<div class="panel-head">
 					<p>Draft Studio</p>
-					<h2>Validate a structured artifact before it touches the live runtime.</h2>
+					<h2>Write or paste a structured artifact before it touches the live runtime.</h2>
 				</div>
 
 				<div class="kind-row">
@@ -314,7 +288,9 @@
 				</div>
 
 				{#if inboxArtifacts.length === 0}
-					<div class="empty-card">No draft artifacts are waiting. Create one or ask the assistant to emit a structured spec.</div>
+					<div class="empty-card">
+						No draft artifacts are waiting. Create one or ask the assistant to emit a structured spec.
+					</div>
 				{:else}
 					<div class="artifact-list">
 						{#each inboxArtifacts as artifact}
@@ -366,84 +342,35 @@
 			</section>
 		</div>
 
-		<div class="runtime-grid">
-			<section class="panel">
-				<div class="panel-head">
-					<p>Live Routines</p>
-					<h2>Compiled schedules running right now.</h2>
+		<section class="panel callout-panel">
+			<div class="panel-head">
+				<p>Runtime Boundary</p>
+				<h2>Creation changes drafts. Schedule shows what is actually live.</h2>
+			</div>
+			<div class="callout-grid">
+				<div class="callout-card">
+					<span>Live routines</span>
+					<strong>{routines.length}</strong>
+					<p>These are already compiled. Inspect them on the schedule tab, not here.</p>
 				</div>
-
-				{#if routines.length === 0}
-					<div class="empty-card">No live routines exist yet. Activate a validated routine spec draft.</div>
-				{:else}
-					<div class="runtime-list">
-						{#each routines as routine}
-							<div class="runtime-card">
-								<div class="runtime-head">
-									<div>
-										<h3>{routine.name}</h3>
-										<p>{routine.cadence} · starts {formatDate(routine.start_date)} · {routine.end_date ? `ends ${formatDate(routine.end_date)}` : 'no end date'}</p>
-									</div>
-									<span>{assignmentsByRoutine[routine.id]?.length ?? 0} assignments</span>
-								</div>
-
-								{#if routine.notes}
-									<p class="runtime-note">{routine.notes}</p>
-								{/if}
-
-								<div class="assignment-list">
-									{#each assignmentsByRoutine[routine.id] ?? [] as assignment}
-										<div class="assignment-pill">
-											<strong>{assignment.weekday.slice(0, 3)} · week {assignment.cycle_week}</strong>
-											<span>{assignment.slot}</span>
-											<small>{assignmentLabel(assignment)}</small>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-
-			<section class="panel">
-				<div class="panel-head">
-					<p>Card Library</p>
-					<h2>Renderer-stable cards the assistant can schedule without more code.</h2>
+				<div class="callout-card">
+					<span>Live cards</span>
+					<strong>{cards.length}</strong>
+					<p>Drafts can target existing live cards or create new ones, but the schedule remains the execution layer.</p>
 				</div>
-
-				{#if cards.length === 0}
-					<div class="empty-card">No live cards exist yet. Activate a card template draft first.</div>
-				{:else}
-					<div class="runtime-list">
-						{#each cards as card}
-							<div class="runtime-card compact">
-								<div class="runtime-head">
-									<div>
-										<h3>{card.name}</h3>
-										<p>{card.renderer} · default {card.slot_default}</p>
-									</div>
-									<span>{card.tags.length} tags</span>
-								</div>
-								{#if card.summary}
-									<p class="runtime-note">{card.summary}</p>
-								{/if}
-								<div class="tag-row">
-									{#each card.tags as tag}
-										<span>{tag}</span>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
-		</div>
+				<div class="callout-card action">
+					<span>Next step</span>
+					<strong>Review schedule</strong>
+					<p>After activation, switch back to the schedule tab and confirm the live runtime looks right.</p>
+					<a href="/routines/schedule">Open schedule</a>
+				</div>
+			</div>
+		</section>
 	</section>
 {/if}
 
 <style>
-	.routines-shell {
+	.creation-shell {
 		display: flex;
 		flex-direction: column;
 		gap: 18px;
@@ -481,11 +408,8 @@
 	.eyebrow,
 	.panel-head p,
 	label span,
-	.runtime-head span,
-	.runtime-head p,
 	.artifact-card p:first-child,
-	.assignment-pill span,
-	.assignment-pill small {
+	.callout-card span {
 		margin: 0;
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
@@ -511,8 +435,8 @@
 
 	.summary-row,
 	.studio-grid,
-	.runtime-grid,
-	.input-grid {
+	.input-grid,
+	.callout-grid {
 		display: grid;
 		gap: 12px;
 	}
@@ -524,15 +448,16 @@
 
 	.summary-stat,
 	.panel,
-	.runtime-card,
-	.artifact-card {
+	.artifact-card,
+	.callout-card {
 		padding: 16px;
 		border-radius: 22px;
 		background: rgba(255, 255, 255, 0.035);
 		border: 1px solid rgba(255, 255, 255, 0.08);
 	}
 
-	.summary-stat span {
+	.summary-stat span,
+	.callout-card span {
 		display: block;
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
@@ -541,7 +466,8 @@
 		color: #8fa3b0;
 	}
 
-	.summary-stat strong {
+	.summary-stat strong,
+	.callout-card strong {
 		display: block;
 		margin-top: 10px;
 		font-size: 30px;
@@ -551,8 +477,7 @@
 		background: linear-gradient(140deg, rgba(91, 181, 166, 0.12), rgba(155, 107, 205, 0.12));
 	}
 
-	.studio-grid,
-	.runtime-grid {
+	.studio-grid {
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	}
 
@@ -632,9 +557,6 @@
 
 	.form-actions,
 	.artifact-actions,
-	.runtime-head,
-	.assignment-list,
-	.tag-row,
 	.artifact-meta {
 		display: flex;
 		flex-wrap: wrap;
@@ -642,29 +564,25 @@
 	}
 
 	.form-actions,
-	.artifact-actions,
-	.runtime-head {
+	.artifact-actions {
 		justify-content: space-between;
 		align-items: center;
 	}
 
-	.artifact-list,
-	.runtime-list {
+	.artifact-list {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
 	}
 
-	.artifact-topline,
-	.runtime-head {
+	.artifact-topline {
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 12px;
 	}
 
-	.artifact-topline h3,
-	.runtime-card h3 {
+	.artifact-topline h3 {
 		margin: 8px 0 0;
 		font-size: 22px;
 	}
@@ -681,10 +599,9 @@
 	}
 
 	.artifact-meta span,
-	.runtime-note,
-	.assignment-pill strong,
-	.tag-row span {
+	.callout-card p {
 		color: #a8bac6;
+		line-height: 1.55;
 	}
 
 	.error-list {
@@ -712,32 +629,30 @@
 		overflow-x: auto;
 	}
 
-	.assignment-pill,
-	.tag-row span {
-		padding: 10px 12px;
-		border-radius: 16px;
-		background: rgba(255, 255, 255, 0.04);
+	.callout-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 
-	.assignment-pill strong,
-	.tag-row span {
-		display: block;
+	.callout-card.action {
+		background: linear-gradient(145deg, rgba(91, 181, 166, 0.1), rgba(74, 144, 217, 0.08));
 	}
 
-	.runtime-note {
-		margin: 0;
-		line-height: 1.55;
-	}
-
-	.runtime-card.compact .runtime-note {
-		margin-bottom: 0;
+	.callout-card a {
+		display: inline-flex;
+		margin-top: 10px;
+		padding: 11px 14px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.06);
+		color: #eef5f8;
+		text-decoration: none;
+		font-weight: 700;
 	}
 
 	@media (max-width: 980px) {
 		.hero,
 		.studio-grid,
-		.runtime-grid,
-		.input-grid {
+		.input-grid,
+		.callout-grid {
 			grid-template-columns: 1fr;
 		}
 	}
