@@ -452,6 +452,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/artifact-bundles/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Preview Bundle
+         * @description Validate a structured artifact bundle without persisting anything.
+         */
+        post: operations["post_preview_bundle_api_assistant_artifact_bundles_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/artifact-bundles/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Import Bundle
+         * @description Persist a validated structured artifact bundle as draft artifacts.
+         */
+        post: operations["post_import_bundle_api_assistant_artifact_bundles_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assistant/artifacts": {
         parameters: {
             query?: never;
@@ -955,6 +995,105 @@ export interface components {
             /** Distance */
             distance: number | null;
         };
+        /** ArtifactBundleDelta */
+        ArtifactBundleDelta: {
+            /** Artifact Id */
+            artifact_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "card_template" | "routine_spec";
+            /** Target Id */
+            target_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "create" | "update";
+            /** Summary */
+            summary: string;
+        };
+        /** ArtifactBundleImportResponse */
+        ArtifactBundleImportResponse: {
+            /** Bundle Id */
+            bundle_id: string;
+            /** Bundle Name */
+            bundle_name: string;
+            /**
+             * Imported Artifact Ids
+             * @default []
+             */
+            imported_artifact_ids: string[];
+            /**
+             * Total Imported
+             * @default 0
+             */
+            total_imported: number;
+            /**
+             * Deltas
+             * @default []
+             */
+            deltas: components["schemas"]["ArtifactBundleDelta"][];
+        };
+        /** ArtifactBundleIssue */
+        ArtifactBundleIssue: {
+            /** Path */
+            path: string;
+            /** Message */
+            message: string;
+            /**
+             * Blocking
+             * @default true
+             */
+            blocking: boolean;
+        };
+        /** ArtifactBundlePreviewResponse */
+        ArtifactBundlePreviewResponse: {
+            /** Bundle Id */
+            bundle_id: string;
+            /** Bundle Name */
+            bundle_name: string;
+            /**
+             * Valid
+             * @default false
+             */
+            valid: boolean;
+            /**
+             * Issues
+             * @default []
+             */
+            issues: components["schemas"]["ArtifactBundleIssue"][];
+            /**
+             * Deltas
+             * @default []
+             */
+            deltas: components["schemas"]["ArtifactBundleDelta"][];
+        };
+        /** ArtifactBundleSpec */
+        ArtifactBundleSpec: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /** Description */
+            description?: string | null;
+            /**
+             * Card Templates
+             * @default []
+             */
+            card_templates: components["schemas"]["CardTemplateSpec"][];
+            /**
+             * Routine Specs
+             * @default []
+             */
+            routine_specs: components["schemas"]["RoutineSpec"][];
+        };
         /** AssistantArtifact */
         AssistantArtifact: {
             /** Id */
@@ -1221,6 +1360,37 @@ export interface components {
             };
             /** Source Artifact Id */
             source_artifact_id: string | null;
+        };
+        /** CardTemplateSpec */
+        CardTemplateSpec: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Renderer
+             * @enum {string}
+             */
+            renderer: "timer_session" | "checklist_block" | "exercise_block";
+            /**
+             * Slot Default
+             * @enum {string}
+             */
+            slot_default: "morning" | "midday" | "evening" | "anytime";
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Payload
+             * @default {}
+             */
+            payload: {
+                [key: string]: unknown;
+            };
         };
         /** CardTemplatesResponse */
         CardTemplatesResponse: {
@@ -2369,6 +2539,40 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** RoutineAssignmentSpec */
+        RoutineAssignmentSpec: {
+            /** Id */
+            id: string;
+            /** Card Template Id */
+            card_template_id: string;
+            /**
+             * Cycle Week
+             * @default 1
+             */
+            cycle_week: number;
+            /**
+             * Weekday
+             * @enum {string}
+             */
+            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Prescription Override Json
+             * @default {}
+             */
+            prescription_override_json: {
+                [key: string]: unknown;
+            };
+        };
         /** RoutineAssignmentsResponse */
         RoutineAssignmentsResponse: {
             /**
@@ -2418,6 +2622,39 @@ export interface components {
             routines: components["schemas"]["RoutineSchedule"][];
             /** Total */
             total: number;
+        };
+        /** RoutineSpec */
+        RoutineSpec: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Cadence
+             * @enum {string}
+             */
+            cadence: "weekly" | "biweekly";
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date?: string | null;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Assignments
+             * @default []
+             */
+            assignments: components["schemas"]["RoutineAssignmentSpec"][];
         };
         /** ScheduleDay */
         ScheduleDay: {
@@ -3718,6 +3955,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_preview_bundle_api_assistant_artifact_bundles_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactBundleSpec"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactBundlePreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_import_bundle_api_assistant_artifact_bundles_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtifactBundleSpec"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactBundleImportResponse"];
                 };
             };
             /** @description Validation Error */

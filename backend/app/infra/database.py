@@ -899,6 +899,24 @@ def save_assistant_artifact(artifact: AssistantArtifact) -> None:
     )
 
 
+def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
+    """Persist a batch of assistant artifacts atomically."""
+    with _connect() as con, con:
+        for artifact in artifacts:
+            con.execute(
+                (
+                    "INSERT OR REPLACE INTO assistant_artifacts "
+                    "(id, data, created_at, updated_at) VALUES (?, ?, ?, ?)"
+                ),
+                (
+                    artifact.id,
+                    artifact.model_dump_json(),
+                    artifact.created_at or _now_iso(),
+                    artifact.updated_at or _now_iso(),
+                ),
+            )
+
+
 def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
     return _load_json_record("assistant_artifacts", AssistantArtifact, artifact_id)
 

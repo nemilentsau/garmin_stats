@@ -177,6 +177,27 @@ Fields:
 
 This layer exists so drafts are first-class records, not transient blobs passed directly into runtime writes.
 
+### Bundle import layer
+
+The canonical high-level authoring unit is not one isolated artifact. It is one proper bundle JSON document that contains:
+
+- `card_templates`
+- `routine_specs`
+
+The bundle itself is a preview/import contract, not a live runtime record.
+
+Its job is to let an assistant or user submit one deterministic package, validate cross-references and duplicates, inspect create/update deltas, and then persist the resulting drafts into `AssistantArtifact`.
+
+That gives us a clean boundary:
+
+- source markdown or arbitrary planning docs stay outside the runtime
+- the LLM conversion target is one proper bundle JSON payload
+- preview performs no writes
+- import writes drafts only
+- activation remains the only path into live runtime tables
+
+The documented conversion target for LLMs is [`docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
+
 ### 2. Live runtime layer
 
 The runtime layer is what the app actually executes.
@@ -319,6 +340,27 @@ It includes:
 
 Assignments reference card template ids. That means routines are schedule composition, not embedded content blobs.
 
+### ArtifactBundleSpec
+
+This is the canonical high-level contract for importing routine content into the app.
+
+It includes:
+
+- bundle metadata
+- `card_templates`
+- `routine_specs`
+
+It does not compile anything directly.
+
+Instead it supports this flow:
+
+1. preview the whole bundle
+2. inspect blocking issues and create/update deltas
+3. import validated drafts into `AssistantArtifact`
+4. explicitly activate the resulting artifacts
+
+This is the intended path for LLM-authored routine content.
+
 ### CapabilityRequestSpec
 
 This is the system's escape hatch when the assistant asks for something the app cannot render safely.
@@ -350,22 +392,40 @@ If two cards can use the same renderer family, they should feel like the same in
 
 If they do not, we probably need a new renderer family instead of abusing the payload shape.
 
+## Card Reuse And Assignment Overrides
+
+The runtime does support per-assignment prescription overrides.
+
+That means we do not need one card template per exact session prescription.
+
+The rule is:
+
+- reuse a card template when the renderer family and interaction model are the same
+- use `prescription_override_json` for duration, pattern, instructions, prompts, and dose changes
+- create a new card template only when the interaction model materially changes
+
+This matters because a bundle should model a routine as reusable cards plus scheduled overrides, not as a huge pile of near-duplicate card templates.
+
 ## Activation and Compilation Flow
 
 The assistant/runtime workflow is:
 
-1. An assistant creates a structured artifact.
-2. The backend validates it against the explicit schema version and supported capabilities.
-3. If invalid, the artifact stays stored with validation errors.
-4. If the invalid reason is an unsupported renderer family, the system also creates a `capability_request`.
-5. A user explicitly activates a validated artifact.
-6. Activation compiles the artifact into live runtime records.
-7. Today reads only the live runtime layer, never raw drafts.
+1. A source document is converted into one proper bundle JSON payload.
+2. The backend previews the bundle and validates cross-references, ids, and supported capabilities without writing live runtime data.
+3. If the bundle is clean, the user imports it.
+4. Import writes validated `AssistantArtifact` drafts only.
+5. If a draft is invalid, it stays stored with validation errors.
+6. If the invalid reason is an unsupported renderer family, the system may also create a `capability_request` through the low-level path.
+7. A user explicitly activates a validated artifact.
+8. Activation compiles the artifact into live runtime records.
+9. Today reads only the live runtime layer, never raw drafts.
 
 Two important rules follow from this:
 
 - drafts are first-class but inert
 - activation is the only path into live behavior
+
+The app does not ingest arbitrary markdown directly. That conversion step happens before preview/import.
 
 ## Today Resolution Model
 
@@ -393,7 +453,7 @@ These assumptions are intentional and should remain true unless we consciously r
 
 ### Product assumptions
 
-- The health assistant is expected to author structured specs, not freeform markdown imports.
+- The health assistant is expected to author structured bundle JSON, not freeform markdown imports.
 - Drafts must never go live automatically.
 - Ordinary new cards should not require schema changes.
 - Experiments and programs should consume this runtime later instead of bypassing it.
@@ -403,6 +463,7 @@ These assumptions are intentional and should remain true unless we consciously r
 - Card templates are the smallest reusable live unit.
 - Routines are schedules, not content repositories.
 - Weekly and biweekly cadence are enough for v1.
+- Bundle preview/import is the canonical routine-authoring path.
 - Date-specific exceptions, if supported, belong in schedule-level exception records, not in Today and not in the base recurring assignment definition.
 - Renderer-specific detail belongs in JSON payloads rather than in dedicated columns for every field.
 
@@ -417,6 +478,7 @@ These assumptions are intentional and should remain true unless we consciously r
 - A 2-week schedule view is enough for v1.
 - Schedule review must work both by day and by routine.
 - Manual routine authoring stays JSON-first for now.
+- Source planning docs must be normalized into a deterministic bundle before they reach the app.
 
 ### Operational assumptions
 

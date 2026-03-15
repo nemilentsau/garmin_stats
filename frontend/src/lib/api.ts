@@ -48,6 +48,9 @@ export type ExperimentsResponse = Schemas['ExperimentsResponse'];
 export type AssistantArtifact = Schemas['AssistantArtifact'];
 export type AssistantArtifactInput = Schemas['AssistantArtifactCreateRequest'];
 export type AssistantArtifactsResponse = Schemas['AssistantArtifactsResponse'];
+export type ArtifactBundleSpec = Schemas['ArtifactBundleSpec'];
+export type ArtifactBundlePreviewResponse = Schemas['ArtifactBundlePreviewResponse'];
+export type ArtifactBundleImportResponse = Schemas['ArtifactBundleImportResponse'];
 export type AssistantThread = Schemas['AssistantThread'];
 export type AssistantThreadInput = Schemas['AssistantThreadCreateRequest'];
 export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
@@ -163,6 +166,10 @@ export const api = {
 		sendJson<AssistantArtifact>('/api/assistant/artifacts', 'POST', artifact),
 	activateAssistantArtifact: (artifactId: string) =>
 		sendJson<AssistantArtifact>(`/api/assistant/artifacts/${artifactId}/activate`, 'POST', {}),
+	previewAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
+		sendJson<ArtifactBundlePreviewResponse>('/api/assistant/artifact-bundles/preview', 'POST', bundle),
+	importAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
+		sendJson<ArtifactBundleImportResponse>('/api/assistant/artifact-bundles/import', 'POST', bundle),
 	createAssistantThread: (thread: AssistantThreadInput) =>
 		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
 	getAssistantThreadMessages: (threadId: string) =>

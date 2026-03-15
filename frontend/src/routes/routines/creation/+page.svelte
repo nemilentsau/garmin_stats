@@ -3,15 +3,15 @@
 
 	import {
 		api,
+		type ArtifactBundleImportResponse,
+		type ArtifactBundlePreviewResponse,
+		type ArtifactBundleSpec,
 		type AssistantArtifact,
-		type AssistantArtifactInput,
 		type CardTemplate,
 		type RoutineSchedule
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { errorMessage, makeId } from '$lib/utils';
-
-	type ArtifactKind = 'card_template' | 'routine_spec' | 'capability_request';
+	import { errorMessage } from '$lib/utils';
 
 	const artifactStatusAccent: Record<string, string> = {
 		validated: COLORS.respiration,
@@ -20,50 +20,54 @@
 		draft: COLORS.stress
 	};
 
-	const kindStarters: Record<ArtifactKind, Record<string, unknown>> = {
-		card_template: {
-			id: 'mindfulness-open-monitoring',
-			name: 'Open Monitoring',
-			renderer: 'timer_session',
-			slot_default: 'evening',
-			summary: 'Observe sensations without steering attention.',
-			tags: ['mindfulness', 'hrv'],
-			payload: {
-				duration_minutes: 15,
-				pattern: 'unguided',
-				instructions: 'Let attention widen. Note body and breath without correcting them.',
-				rating_prompts: [
-					{ key: 'attention_stability', label: 'Attention stability', scale_min: 1, scale_max: 5 },
-					{ key: 'mental_clarity', label: 'Mental clarity', scale_min: 1, scale_max: 5 }
+	const bundleStarter: ArtifactBundleSpec = {
+		id: 'proper-routine-bundle',
+		name: 'Proper Routine Bundle',
+		schema_version: 1,
+		description: 'Starter proper-spec bundle. Replace with LLM-authored JSON before previewing.',
+		card_templates: [
+			{
+				id: 'starter-breathing-card',
+				name: 'Starter Breathing Card',
+				renderer: 'timer_session',
+				slot_default: 'morning',
+				summary: 'Reusable breathwork card template.',
+				tags: ['starter', 'breathwork'],
+				payload: {
+					duration_minutes: 8,
+					pattern: '5s in / 5s out',
+					instructions: 'Keep the breath smooth and relaxed.',
+					rating_prompts: [
+						{ key: 'attention_stability', label: 'Attention stability', scale_min: 1, scale_max: 5 }
+					]
+				}
+			}
+		],
+		routine_specs: [
+			{
+				id: 'starter-routine',
+				name: 'Starter Routine',
+				cadence: 'weekly',
+				start_date: '2026-03-16',
+				status: 'active',
+				tags: ['starter'],
+				notes: 'One routine schedule driven by the proper bundle format.',
+				assignments: [
+					{
+						id: 'starter-routine-mon-morning',
+						card_template_id: 'starter-breathing-card',
+						cycle_week: 1,
+						weekday: 'monday',
+						slot: 'morning',
+						position: 10,
+						prescription_override_json: {
+							duration_minutes: 10,
+							instructions: 'Assignment overrides change dose without creating a new card template.'
+						}
+					}
 				]
 			}
-		},
-		routine_spec: {
-			id: 'mindfulness-weekly-cycle',
-			name: 'Mindfulness Weekly Cycle',
-			cadence: 'weekly',
-			start_date: '2026-03-16',
-			status: 'active',
-			tags: ['mindfulness', 'experiment'],
-			notes: 'Builds the evening meditation schedule for HRV tracking.',
-			assignments: [
-				{
-					id: 'mindfulness-open-monitoring-mon',
-					card_template_id: 'mindfulness-open-monitoring',
-					cycle_week: 1,
-					weekday: 'monday',
-					slot: 'evening',
-					position: 10,
-					prescription_override_json: {}
-				}
-			]
-		},
-		capability_request: {
-			requested_renderer: 'guided_journal',
-			reason: 'Need a journaling card with structured text prompts and reflection capture.',
-			source_artifact_id: null,
-			payload_example_json: {}
-		}
+		]
 	};
 
 	let loading = $state(true);
@@ -74,10 +78,10 @@
 	let cards = $state<CardTemplate[]>([]);
 	let routines = $state<RoutineSchedule[]>([]);
 
-	let artifactKind = $state<ArtifactKind>('card_template');
-	let artifactJson = $state(JSON.stringify(kindStarters.card_template, null, 2));
-	let sourceThreadId = $state('');
-	let sourceSnapshotId = $state('');
+	let bundleJson = $state(JSON.stringify(bundleStarter, null, 2));
+	let preview = $state<ArtifactBundlePreviewResponse | null>(null);
+	let importResult = $state<ArtifactBundleImportResponse | null>(null);
+	let lastPreviewSource = $state('');
 	let showPayloads = $state<Record<string, boolean>>({});
 
 	const inboxArtifacts = $derived.by(() =>
@@ -91,6 +95,12 @@
 	);
 	const capabilityCount = $derived.by(() =>
 		artifacts.filter((artifact) => artifact.kind === 'capability_request').length
+	);
+	const previewDeltas = $derived.by(() => preview?.deltas ?? []);
+	const previewIssues = $derived.by(() => preview?.issues ?? []);
+	const previewIsStale = $derived.by(() => lastPreviewSource !== '' && bundleJson !== lastPreviewSource);
+	const canImport = $derived.by(
+		() => !saving && preview?.valid === true && lastPreviewSource === bundleJson
 	);
 
 	function artifactTargetId(artifact: AssistantArtifact): string | null {
@@ -137,8 +147,18 @@
 		routines = routinesResponse.routines;
 	}
 
+	function shouldAutoPreview(): boolean {
+		const value = new URL(window.location.href).searchParams.get('autopreview');
+		return value === '1' || value === 'true';
+	}
+
 	onMount(() => {
-		void loadPage()
+		void (async () => {
+			await loadPage();
+			if (shouldAutoPreview()) {
+				await previewBundle();
+			}
+		})()
 			.catch((e: unknown) => {
 				error = errorMessage(e);
 			})
@@ -147,28 +167,45 @@
 			});
 	});
 
-	function loadStarter(kind: ArtifactKind) {
-		artifactKind = kind;
-		artifactJson = JSON.stringify(kindStarters[kind], null, 2);
+	function resetBundle() {
+		bundleJson = JSON.stringify(bundleStarter, null, 2);
+		preview = null;
+		importResult = null;
+		lastPreviewSource = '';
+		error = null;
 	}
 
-	async function submitArtifact() {
+	async function previewBundle() {
+		saving = true;
+		error = null;
+		importResult = null;
+		try {
+			const payload = JSON.parse(bundleJson) as ArtifactBundleSpec;
+			preview = await api.previewAssistantArtifactBundle(payload);
+			lastPreviewSource = bundleJson;
+		} catch (e: unknown) {
+			error = errorMessage(e);
+			preview = null;
+			lastPreviewSource = '';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function importBundle() {
+		if (!canImport) {
+			return;
+		}
+
 		saving = true;
 		error = null;
 		try {
-			const payload = JSON.parse(artifactJson) as Record<string, unknown>;
-			const request: AssistantArtifactInput = {
-				id: makeId('artifact'),
-				kind: artifactKind,
-				schema_version: 1,
-				source_thread_id: sourceThreadId || null,
-				source_snapshot_id: sourceSnapshotId || null,
-				payload_json: payload
-			};
-			await api.createAssistantArtifact(request);
+			const payload = JSON.parse(bundleJson) as ArtifactBundleSpec;
+			importResult = await api.importAssistantArtifactBundle(payload);
 			await loadPage();
 		} catch (e: unknown) {
 			error = errorMessage(e);
+			importResult = null;
 		} finally {
 			saving = false;
 		}
@@ -208,10 +245,11 @@
 		>
 			<div class="hero-copy">
 				<p class="eyebrow">Routine Creation</p>
-				<h1>Author drafts here. The schedule only changes after validation and activation.</h1>
+				<h1>Paste one proper bundle, preview it cleanly, then import drafts for activation.</h1>
 				<p>
-					This is the only manual entry point for new cards and new schedules. Today should not invent
-					new work on the fly.
+					The app accepts deterministic bundle JSON only. Markdown conversion happens outside the
+					runtime. Nothing touches the live schedule until preview passes, drafts import, and you
+					explicitly activate them.
 				</p>
 			</div>
 			<div class="summary-row">
@@ -241,100 +279,92 @@
 		<div class="studio-grid">
 			<section class="panel studio-panel">
 				<div class="panel-head">
-					<p>Draft Studio</p>
-					<h2>Write or paste a structured artifact before it touches the live runtime.</h2>
+					<p>Bundle Studio</p>
+					<h2>Preview the full card + routine package before any draft hits the database.</h2>
 				</div>
 
-				<div class="kind-row">
-					{#each ['card_template', 'routine_spec', 'capability_request'] as kind}
-						<button
-							class="kind-pill"
-							class:active={artifactKind === kind}
-							onclick={() => loadStarter(kind as ArtifactKind)}
-						>
-							{kind}
-						</button>
-					{/each}
-				</div>
-
-				<div class="input-grid">
-					<label>
-						<span>Source thread</span>
-						<input bind:value={sourceThreadId} placeholder="assistant thread id (optional)" />
-					</label>
-					<label>
-						<span>Source snapshot</span>
-						<input bind:value={sourceSnapshotId} placeholder="context snapshot id (optional)" />
-					</label>
+				<div class="format-banner">
+					<strong>Proper spec only.</strong>
+					<span>
+						Bundle JSON must contain deterministic `card_templates` and `routine_specs`. Resolve any
+						state-dependent branching before preview.
+					</span>
 				</div>
 
 				<label class="wide-field">
-					<span>Payload JSON</span>
-					<textarea bind:value={artifactJson} rows="22"></textarea>
+					<span>Bundle JSON</span>
+					<textarea bind:value={bundleJson} rows="28"></textarea>
 				</label>
 
 				<div class="form-actions">
-					<button class="ghost-btn" onclick={() => loadStarter(artifactKind)}>Reset starter</button>
-					<button class="primary-action" onclick={submitArtifact} disabled={saving}>
-						Create draft
-					</button>
+					<button class="ghost-btn" onclick={resetBundle}>Reset starter</button>
+					<div class="action-row">
+						<button class="ghost-btn" onclick={previewBundle} disabled={saving}>Preview bundle</button>
+						<button class="primary-action" onclick={importBundle} disabled={!canImport}>
+							Import drafts
+						</button>
+					</div>
 				</div>
+
+				{#if previewIsStale}
+					<div class="stale-banner">
+						The JSON changed after the last preview. Preview again before importing.
+					</div>
+				{/if}
+
+				{#if importResult}
+					<div class="import-banner">
+						<strong>Imported {importResult.total_imported} drafts</strong>
+						<span>
+							Drafts are in the inbox now. Activation is still explicit and remains the only step that
+							compiles live runtime records.
+						</span>
+					</div>
+				{/if}
 			</section>
 
-			<section class="panel inbox-panel">
+			<section class="panel preview-panel">
 				<div class="panel-head">
-					<p>Draft Inbox</p>
-					<h2>Activation is explicit. Drafts do nothing until you accept them.</h2>
+					<p>Bundle Preview</p>
+					<h2>See create/update deltas and blocking issues before import.</h2>
 				</div>
 
-				{#if inboxArtifacts.length === 0}
+				{#if preview === null}
 					<div class="empty-card">
-						No draft artifacts are waiting. Create one or ask the assistant to emit a structured spec.
+						No preview yet. Paste a proper bundle and run preview to inspect deltas without writing any
+						drafts.
 					</div>
 				{:else}
-					<div class="artifact-list">
-						{#each inboxArtifacts as artifact}
-							<article class="artifact-card">
-								<div class="artifact-topline">
-									<div>
-										<p>{artifact.kind}</p>
-										<h3>{artifactTargetId(artifact) ?? artifact.id}</h3>
-									</div>
-									<span
-										class="status-badge"
-										style={`--status-accent: ${artifactStatusAccent[artifact.status] ?? '#8fa3b0'};`}
-									>
-										{artifact.status}
+					<div class="preview-status">
+						<span class:ok={preview.valid} class:bad={!preview.valid}>
+							{preview.valid ? 'Ready to import' : 'Blocking issues found'}
+						</span>
+						<strong>{preview.bundle_name}</strong>
+					</div>
+
+					{#if previewIssues.length > 0}
+						<div class="issue-list">
+							{#each previewIssues as issue}
+								<div class="issue-card">
+									<p>{issue.path}</p>
+									<strong>{issue.message}</strong>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					<div class="delta-list">
+						{#each previewDeltas as delta}
+							<article class="delta-card">
+								<div class="delta-topline">
+									<p>{delta.kind}</p>
+									<span class:ok={delta.action === 'create'} class:bad={delta.action === 'update'}>
+										{delta.action}
 									</span>
 								</div>
-
-								<div class="artifact-meta">
-									<span>{artifactSummary(artifact)}</span>
-									<span>{artifactDelta(artifact)}</span>
-								</div>
-
-								{#if artifact.validation_errors.length > 0}
-									<div class="error-list">
-										{#each artifact.validation_errors as validationError}
-											<p>{validationError}</p>
-										{/each}
-									</div>
-								{/if}
-
-								<div class="artifact-actions">
-									<button class="ghost-btn" onclick={() => togglePayload(artifact.id)}>
-										{showPayloads[artifact.id] ? 'Hide payload' : 'Show payload'}
-									</button>
-									{#if artifact.status === 'validated' && artifact.kind !== 'capability_request'}
-										<button class="primary-action" onclick={() => activateArtifact(artifact.id)} disabled={saving}>
-											Activate
-										</button>
-									{/if}
-								</div>
-
-								{#if showPayloads[artifact.id]}
-									<pre class="payload-view">{JSON.stringify(artifact.payload_json, null, 2)}</pre>
-								{/if}
+								<h3>{delta.target_id}</h3>
+								<p>{delta.summary}</p>
+								<code>{delta.artifact_id}</code>
 							</article>
 						{/each}
 					</div>
@@ -342,26 +372,87 @@
 			</section>
 		</div>
 
+		<section class="panel inbox-panel">
+			<div class="panel-head">
+				<p>Draft Inbox</p>
+				<h2>Imported drafts stay inert until activation compiles them into live schedule records.</h2>
+			</div>
+
+			{#if inboxArtifacts.length === 0}
+				<div class="empty-card">
+					No draft artifacts are waiting. Preview and import a proper bundle first, then activate the
+					validated artifacts you want to ship live.
+				</div>
+			{:else}
+				<div class="artifact-list">
+					{#each inboxArtifacts as artifact}
+						<article class="artifact-card">
+							<div class="artifact-topline">
+								<div>
+									<p>{artifact.kind}</p>
+									<h3>{artifactTargetId(artifact) ?? artifact.id}</h3>
+								</div>
+								<span
+									class="status-badge"
+									style={`--status-accent: ${artifactStatusAccent[artifact.status] ?? '#8fa3b0'};`}
+								>
+									{artifact.status}
+								</span>
+							</div>
+
+							<div class="artifact-meta">
+								<span>{artifactSummary(artifact)}</span>
+								<span>{artifactDelta(artifact)}</span>
+							</div>
+
+							{#if artifact.validation_errors.length > 0}
+								<div class="error-list">
+									{#each artifact.validation_errors as validationError}
+										<p>{validationError}</p>
+									{/each}
+								</div>
+							{/if}
+
+							<div class="artifact-actions">
+								<button class="ghost-btn" onclick={() => togglePayload(artifact.id)}>
+									{showPayloads[artifact.id] ? 'Hide payload' : 'Show payload'}
+								</button>
+								{#if artifact.status === 'validated' && artifact.kind !== 'capability_request'}
+									<button class="primary-action" onclick={() => activateArtifact(artifact.id)} disabled={saving}>
+										Activate
+									</button>
+								{/if}
+							</div>
+
+							{#if showPayloads[artifact.id]}
+								<pre class="payload-view">{JSON.stringify(artifact.payload_json, null, 2)}</pre>
+							{/if}
+						</article>
+					{/each}
+				</div>
+			{/if}
+		</section>
+
 		<section class="panel callout-panel">
 			<div class="panel-head">
 				<p>Runtime Boundary</p>
-				<h2>Creation changes drafts. Schedule shows what is actually live.</h2>
+				<h2>Drafts author schedule state. Today and Schedule only execute what is already live.</h2>
 			</div>
 			<div class="callout-grid">
 				<div class="callout-card">
 					<span>Live routines</span>
 					<strong>{routines.length}</strong>
-					<p>These are already compiled. Inspect them on the schedule tab, not here.</p>
+					<p>Compiled routines are reviewed on the schedule page, not edited here.</p>
 				</div>
 				<div class="callout-card">
 					<span>Live cards</span>
 					<strong>{cards.length}</strong>
-					<p>Drafts can target existing live cards or create new ones, but the schedule remains the execution layer.</p>
+					<p>Card templates are reusable. Assignment overrides change dose without duplicating cards.</p>
 				</div>
 				<div class="callout-card action">
 					<span>Next step</span>
 					<strong>Review schedule</strong>
-					<p>After activation, switch back to the schedule tab and confirm the live runtime looks right.</p>
+					<p>After activation, confirm the dated occurrences on the 14-day schedule and in Today.</p>
 					<a href="/routines/schedule">Open schedule</a>
 				</div>
 			</div>
@@ -382,7 +473,9 @@
 
 	.loading-card,
 	.error-banner,
-	.empty-card {
+	.empty-card,
+	.stale-banner,
+	.import-banner {
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
 		color: #95aab7;
@@ -394,7 +487,7 @@
 
 	.hero {
 		display: grid;
-		grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+		grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
 		gap: 18px;
 		padding: 24px;
 		border-radius: 28px;
@@ -409,6 +502,8 @@
 	.panel-head p,
 	label span,
 	.artifact-card p:first-child,
+	.delta-card p,
+	.issue-card p,
 	.callout-card span {
 		margin: 0;
 		font-family: 'DM Mono', monospace;
@@ -428,15 +523,17 @@
 	}
 
 	.hero-copy p:last-child {
-		max-width: 58ch;
+		max-width: 60ch;
 		color: #abc0cb;
 		line-height: 1.6;
 	}
 
 	.summary-row,
 	.studio-grid,
-	.input-grid,
-	.callout-grid {
+	.callout-grid,
+	.action-row,
+	.delta-list,
+	.issue-list {
 		display: grid;
 		gap: 12px;
 	}
@@ -449,7 +546,11 @@
 	.summary-stat,
 	.panel,
 	.artifact-card,
-	.callout-card {
+	.callout-card,
+	.delta-card,
+	.issue-card,
+	.format-banner,
+	.preview-status {
 		padding: 16px;
 		border-radius: 22px;
 		background: rgba(255, 255, 255, 0.035);
@@ -478,7 +579,7 @@
 	}
 
 	.studio-grid {
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
 	}
 
 	.panel {
@@ -489,46 +590,31 @@
 
 	.panel-head h2 {
 		font-size: 24px;
-		max-width: none;
+		max-width: 24ch;
 	}
 
-	.kind-row {
+	.format-banner strong,
+	.preview-status strong,
+	.issue-card strong,
+	.delta-card h3 {
+		display: block;
+		color: #eef5f8;
+	}
+
+	.format-banner {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
 		gap: 8px;
+		background: linear-gradient(145deg, rgba(74, 144, 217, 0.1), rgba(91, 181, 166, 0.08));
 	}
 
-	.kind-pill,
-	.ghost-btn,
-	.primary-action {
-		border: 0;
-		cursor: pointer;
-		font: inherit;
-	}
-
-	.kind-pill,
-	.ghost-btn {
-		padding: 11px 13px;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.05);
-		color: #d3dfe7;
-	}
-
-	.kind-pill.active {
-		background: rgba(91, 181, 166, 0.16);
-		color: #7be0d0;
-	}
-
-	.primary-action {
-		padding: 11px 14px;
-		border-radius: 999px;
-		background: linear-gradient(135deg, rgba(91, 181, 166, 0.92), rgba(74, 144, 217, 0.88));
-		color: #08111d;
-		font-weight: 700;
-	}
-
-	.input-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+	.format-banner span,
+	.import-banner span,
+	.delta-card p:last-child,
+	.callout-card p,
+	.artifact-meta span {
+		color: #a8bac6;
+		line-height: 1.55;
 	}
 
 	label,
@@ -538,7 +624,6 @@
 		gap: 8px;
 	}
 
-	input,
 	textarea {
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(8, 15, 24, 0.88);
@@ -555,24 +640,126 @@
 		line-height: 1.5;
 	}
 
+	.ghost-btn,
+	.primary-action {
+		border: 0;
+		cursor: pointer;
+		font: inherit;
+	}
+
+	.ghost-btn {
+		padding: 11px 13px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.05);
+		color: #d3dfe7;
+	}
+
+	.primary-action {
+		padding: 11px 14px;
+		border-radius: 999px;
+		background: linear-gradient(135deg, rgba(91, 181, 166, 0.92), rgba(74, 144, 217, 0.88));
+		color: #08111d;
+		font-weight: 700;
+	}
+
+	.primary-action:disabled,
+	.ghost-btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
 	.form-actions,
 	.artifact-actions,
-	.artifact-meta {
+	.artifact-meta,
+	.delta-topline {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 10px;
 	}
 
 	.form-actions,
-	.artifact-actions {
+	.artifact-actions,
+	.delta-topline {
 		justify-content: space-between;
 		align-items: center;
 	}
 
+	.action-row {
+		grid-auto-flow: column;
+		justify-content: end;
+	}
+
+	.preview-status {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.preview-status span,
+	.delta-topline span {
+		display: inline-flex;
+		width: fit-content;
+		padding: 7px 10px;
+		border-radius: 999px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.14em;
+	}
+
+	.ok {
+		background: rgba(91, 181, 166, 0.14);
+		color: #7be0d0;
+	}
+
+	.bad {
+		background: rgba(232, 93, 74, 0.12);
+		color: #f2a399;
+	}
+
+	.issue-list,
+	.delta-list,
 	.artifact-list {
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.issue-card {
+		background: rgba(232, 93, 74, 0.08);
+		border-color: rgba(232, 93, 74, 0.18);
+	}
+
+	.issue-card strong,
+	.error-list p {
+		color: #f2a399;
+		line-height: 1.55;
+	}
+
+	.delta-card code {
+		display: inline-flex;
+		margin-top: 10px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #95aab7;
+		word-break: break-all;
+	}
+
+	.import-banner,
+	.stale-banner {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.import-banner {
+		background: linear-gradient(145deg, rgba(91, 181, 166, 0.12), rgba(74, 144, 217, 0.08));
+	}
+
+	.stale-banner {
+		background: rgba(232, 171, 74, 0.08);
+		border-color: rgba(232, 171, 74, 0.18);
+		color: #f1c781;
 	}
 
 	.artifact-topline {
@@ -598,12 +785,6 @@
 		letter-spacing: 0.14em;
 	}
 
-	.artifact-meta span,
-	.callout-card p {
-		color: #a8bac6;
-		line-height: 1.55;
-	}
-
 	.error-list {
 		padding: 12px 14px;
 		border-radius: 16px;
@@ -611,14 +792,12 @@
 		border: 1px solid rgba(232, 93, 74, 0.18);
 	}
 
-	.error-list p {
+	.error-list p,
+	.payload-view {
 		margin: 0;
-		color: #f2a399;
-		line-height: 1.55;
 	}
 
 	.payload-view {
-		margin: 0;
 		padding: 14px;
 		border-radius: 18px;
 		background: rgba(8, 15, 24, 0.88);
@@ -651,9 +830,14 @@
 	@media (max-width: 980px) {
 		.hero,
 		.studio-grid,
-		.input-grid,
-		.callout-grid {
+		.callout-grid,
+		.summary-row {
 			grid-template-columns: 1fr;
+		}
+
+		.action-row {
+			grid-auto-flow: row;
+			justify-content: stretch;
 		}
 	}
 </style>

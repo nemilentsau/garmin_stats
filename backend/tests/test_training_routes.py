@@ -1,11 +1,13 @@
 """Tests for training-runtime route error handling."""
 
 import asyncio
+import json
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from starlette.types import Message
 
+import app.routers.assistant_artifact_bundles as artifact_bundles_mod
 import app.routers.assistant_artifacts as artifacts_mod
 import app.routers.today as today_mod
 
@@ -45,6 +47,47 @@ async def _today_status(method: str, path: str) -> int:
     return int(start["status"])  # type: ignore[arg-type]
 
 
+async def _artifact_bundle_status(path: str, body: dict[str, object]) -> int:
+    app = FastAPI()
+    app.include_router(artifact_bundles_mod.router)
+
+    messages: list[Message] = []
+    payload = json.dumps(body).encode()
+    receive_calls = 0
+
+    async def receive() -> Message:
+        nonlocal receive_calls
+        receive_calls += 1
+        if receive_calls == 1:
+            return {"type": "http.request", "body": payload, "more_body": False}
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        messages.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode(),
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"content-type", b"application/json")],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+        },
+        receive,
+        send,
+    )
+
+    start = next(message for message in messages if message["type"] == "http.response.start")
+    return int(start["status"])  # type: ignore[arg-type]
+
+
 class TestAssistantArtifactRoutes:
     def test_activate_artifact_returns_400_when_service_rejects_activation(self, monkeypatch):
         monkeypatch.setattr(
@@ -55,6 +98,32 @@ class TestAssistantArtifactRoutes:
 
         with pytest.raises(HTTPException, match="Artifact is not ready"):
             artifacts_mod.post_activate_artifact("artifact-1")
+
+
+class TestAssistantArtifactBundleRoutes:
+    def test_import_bundle_returns_400_when_service_rejects_it(self, monkeypatch):
+        monkeypatch.setattr(
+            artifact_bundles_mod,
+            "import_artifact_bundle",
+            lambda *_args: (_ for _ in ()).throw(ValueError("Bundle has blocking issues")),
+        )
+
+        with pytest.raises(HTTPException, match="Bundle has blocking issues"):
+            artifact_bundles_mod.post_import_bundle(
+                artifact_bundles_mod.ArtifactBundleSpec(
+                    id="bundle",
+                    name="Bundle",
+                    card_templates=[],
+                    routine_specs=[],
+                )
+            )
+
+    def test_preview_bundle_returns_422_for_malformed_payload(self):
+        status = asyncio.run(
+            _artifact_bundle_status("/api/assistant/artifact-bundles/preview", {"id": "bundle"})
+        )
+
+        assert status == 422
 
 
 class TestTodayRoutes:

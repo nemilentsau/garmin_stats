@@ -746,6 +746,8 @@ WeekdayName = Literal[
 ]
 AssistantArtifactKind = Literal["routine_spec", "card_template", "capability_request"]
 AssistantArtifactStatus = Literal["draft", "validated", "invalid", "activated"]
+ArtifactBundleItemKind = Literal["card_template", "routine_spec"]
+ArtifactBundleDeltaAction = Literal["create", "update"]
 CardLogStatus = Literal["pending", "completed", "partial", "skipped"]
 CardOverrideAction = Literal["add", "hide", "replace"]
 
@@ -858,6 +860,45 @@ class AssistantArtifactCreateRequest(_StrictDefaultsRequired):
 class AssistantArtifactsResponse(_DefaultsRequired):
     artifacts: list[AssistantArtifact] = []
     total: int
+
+
+class ArtifactBundleSpec(_StrictDefaultsRequired):
+    id: str
+    name: str
+    schema_version: int = 1
+    description: str | None = None
+    card_templates: list[CardTemplateSpec] = []
+    routine_specs: list[RoutineSpec] = []
+
+
+class ArtifactBundleIssue(_DefaultsRequired):
+    path: str
+    message: str
+    blocking: bool = True
+
+
+class ArtifactBundleDelta(_DefaultsRequired):
+    artifact_id: str
+    kind: ArtifactBundleItemKind
+    target_id: str
+    action: ArtifactBundleDeltaAction
+    summary: str
+
+
+class ArtifactBundlePreviewResponse(_DefaultsRequired):
+    bundle_id: str
+    bundle_name: str
+    valid: bool = False
+    issues: list[ArtifactBundleIssue] = []
+    deltas: list[ArtifactBundleDelta] = []
+
+
+class ArtifactBundleImportResponse(_DefaultsRequired):
+    bundle_id: str
+    bundle_name: str
+    imported_artifact_ids: list[str] = []
+    total_imported: int = 0
+    deltas: list[ArtifactBundleDelta] = []
 
 
 class CardTemplate(_DefaultsRequired):

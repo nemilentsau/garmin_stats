@@ -61,8 +61,9 @@ A place to define and log behaviors that Garmin does not know about:
 
 The current routine runtime is assistant-spec first:
 
-- an assistant writes structured `card_template` and `routine_spec` drafts
-- the backend validates those drafts against a strict schema
+- an assistant or user produces one structured artifact bundle JSON payload
+- the backend previews that bundle without writing live runtime data
+- the user imports the clean bundle as inert assistant-artifact drafts
 - the user explicitly activates valid drafts
 - the app compiles them into live cards, schedules, and today-board entries
 
@@ -141,6 +142,13 @@ The app enforces a strict renderer boundary. v1 supports:
 
 If a draft asks for an unsupported renderer family, validation rejects it and records a `capability_request` instead of mutating the schema.
 
+The canonical import unit is now a proper artifact bundle:
+
+- `card_templates[]`
+- `routine_specs[]`
+
+The app accepts deterministic bundle JSON only. It does not convert arbitrary markdown in-app. The external conversion target for an LLM is documented in [`docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md), and the first checked-in example is [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json).
+
 ## Main App Areas
 
 - `/`  
@@ -156,7 +164,7 @@ If a draft asks for an unsupported renderer family, validation rejects it and re
   Review a 14-day resolved schedule through two lenses: by day for agenda review, and by routine for upcoming dated occurrences.
 
 - `/routines/creation`  
-  Review assistant-authored drafts, create new manual drafts, validate them, and activate them into the live runtime.
+  Paste proper bundle JSON, preview create/update deltas without DB writes, import inert drafts, and activate them into the live runtime.
 
 - `/routines`  
   Redirects to `/routines/schedule`.
@@ -165,7 +173,7 @@ If a draft asks for an unsupported renderer family, validation rejects it and re
   Placeholder. Experiments are intentionally parked until they can consume the new routine runtime cleanly.
 
 - `/programs`  
-  Placeholder. The old program-import surface is intentionally offline while routines move to the assistant artifact pipeline.
+  Placeholder. The old program-import surface is intentionally offline while routines use the artifact-bundle pipeline.
 
 The metric-specific pages still matter, but they are supporting tools. The main product direction is the assistant plus the draft -> validate -> activate -> execute routine loop.
 
@@ -279,10 +287,16 @@ Key API groups exposed by the backend:
   List assistant-authored drafts and capability requests.
 
 - `POST /api/assistant/artifacts`  
-  Create a new assistant artifact draft.
+  Create one low-level assistant artifact draft directly.
 
 - `POST /api/assistant/artifacts/{artifact_id}/activate`  
   Validate and compile a draft into the live runtime.
+
+- `POST /api/assistant/artifact-bundles/preview`  
+  Validate one proper bundle, report blocking issues and create/update deltas, and perform no DB writes.
+
+- `POST /api/assistant/artifact-bundles/import`  
+  Persist a valid proper bundle as validated draft artifacts only. This does not compile live runtime records.
 
 ## What Good Looks Like
 

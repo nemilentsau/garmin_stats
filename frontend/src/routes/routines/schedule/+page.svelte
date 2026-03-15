@@ -8,7 +8,7 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { localDateIso } from '$lib/date';
+	import { isIsoDateString, localDateIso } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 
 	type LensMode = 'day' | 'routine';
@@ -63,6 +63,18 @@
 	let scheduleWindow = $state<ScheduleWindow | null>(null);
 	let routines = $state<RoutineSchedule[]>([]);
 	let requestToken = 0;
+
+	function readInitialScheduleState(): { startDate: string; selectedDate: string } {
+		const fallback = localDateIso();
+		const params = new URL(window.location.href).searchParams;
+		const requestedDate = params.get('date');
+		const requestedStartDate = params.get('start_date');
+		const selectedDate =
+			requestedDate && isIsoDateString(requestedDate) ? requestedDate : fallback;
+		const startDate =
+			requestedStartDate && isIsoDateString(requestedStartDate) ? requestedStartDate : selectedDate;
+		return { startDate, selectedDate };
+	}
 
 	const allOccurrences = $derived.by(() =>
 		scheduleWindow ? scheduleWindow.days.flatMap((day) => day.occurrences) : []
@@ -211,10 +223,10 @@
 		error = null;
 		const routinesResponse = await api.getRoutines('active');
 		routines = routinesResponse.routines;
-		const initialDate = localDateIso();
-		selectedDate = initialDate;
-		windowStartDate = initialDate;
-		await loadScheduleWindow(initialDate);
+		const initialState = readInitialScheduleState();
+		selectedDate = initialState.selectedDate;
+		windowStartDate = initialState.startDate;
+		await loadScheduleWindow(initialState.startDate);
 	}
 
 	async function moveWindow(delta: number): Promise<void> {

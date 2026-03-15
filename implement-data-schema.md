@@ -29,8 +29,14 @@ These are no longer open questions for this implementation pass.
 ### Authoring rules
 
 - Manual authoring stays JSON-first for now.
+- The canonical authoring/import unit is one proper artifact bundle JSON payload.
 - We are not building a rich visual routine editor in this pass.
-- The creation surface is for drafts and activation, not for solving schedule review.
+- The app does not accept arbitrary markdown in-app.
+- The creation surface is for bundle preview/import, draft inbox review, and activation, not for solving schedule review.
+
+Canonical flow:
+
+`source doc -> LLM emits proper bundle JSON -> preview -> import drafts -> activate -> Today/Schedule`
 
 ### Engineering rules
 
@@ -258,11 +264,13 @@ Keep creation useful but intentionally small.
 
 ### Scope
 
-- keep JSON-first drafting
+- keep JSON-first authoring
+- make bundle preview/import the documented default path
 - keep draft inbox and activation
 - remove any copy or widgets that imply creation is also schedule review
 - make the relationship explicit:
-  - creation authors drafts
+  - creation previews and imports proper bundles
+  - creation manages drafts and activation
   - schedule reviews live runtime
 
 ### Non-goals
@@ -274,6 +282,9 @@ Keep creation useful but intentionally small.
 ### Acceptance criteria
 
 - creation page is clearly for drafts and activation only
+- creation accepts a proper bundle JSON payload instead of arbitrary markdown
+- preview validates the whole bundle and writes nothing
+- import writes only assistant-artifact drafts
 - it does not try to compete with schedule review
 
 ### Review materials
@@ -325,11 +336,13 @@ Close the loop so the model and implementation stay aligned.
 - update README route descriptions if needed
 - update architecture docs if new schedule API or resolver module exists
 - update `docs/DATA_SCHEMA_DESIGN.md` if any implementation choices changed during review
+- document one LLM-facing proper bundle spec for routine import
 - add tests for final contracts and regressions
 
 ### Acceptance criteria
 
 - docs match behavior
+- bundle spec documentation matches the runtime contract
 - tests cover the shared schedule projection and Today boundary
 - no duplicated recurrence logic remains in frontend code
 
@@ -374,6 +387,7 @@ Must verify in the running app:
 To avoid building another mess, this pass explicitly does not include:
 
 - rich non-JSON manual editors
+- arbitrary markdown ingestion
 - arbitrary recurrence rules beyond weekly and biweekly
 - experiments integration
 - programs reintegration

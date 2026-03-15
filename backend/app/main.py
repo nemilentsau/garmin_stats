@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .infra.database import DATA_DIR, check_ingest_status, ingest_all, init_db
 from .infra.watcher import extract_existing_archives, heartbeat_loop, watch_data_directory
 from .routers.assistant import router as assistant_router
+from .routers.assistant_artifact_bundles import router as assistant_artifact_bundles_router
 from .routers.assistant_artifacts import router as assistant_artifacts_router
 from .routers.body_battery import router as body_battery_router
 from .routers.cards import router as cards_router
@@ -133,6 +134,7 @@ app.include_router(stress_router)
 app.include_router(body_battery_router)
 app.include_router(events_router)
 app.include_router(assistant_router)
+app.include_router(assistant_artifact_bundles_router)
 app.include_router(assistant_artifacts_router)
 app.include_router(cards_router)
 app.include_router(profile_router)

@@ -1,0 +1,668 @@
+{
+  "id": "two-week-meditation-foundation",
+  "name": "Two-Week Meditation Foundation",
+  "schema_version": 1,
+  "description": "Deterministic two-week meditation and breathwork routine starting 2026-03-16.",
+  "card_templates": [
+    {
+      "id": "meditation-resonance-breathing",
+      "name": "Resonance Breathing",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Steady resonance breathing for vagal tone and recovery priming.",
+      "tags": [
+        "meditation",
+        "breathwork",
+        "recovery"
+      ],
+      "payload": {
+        "duration_minutes": 10,
+        "pattern": "5s in / 5s out (~6 breaths per minute)",
+        "instructions": "Find a smooth 5s/5s rhythm and keep the breath relaxed rather than deep.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-extended-exhale",
+      "name": "Extended Exhale",
+      "renderer": "timer_session",
+      "slot_default": "evening",
+      "summary": "Long-exhale breathwork for parasympathetic recovery.",
+      "tags": [
+        "meditation",
+        "breathwork",
+        "recovery"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 7s out",
+        "instructions": "Keep the exhale smooth and complete without rushing the final second.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-box-breathing",
+      "name": "Box Breathing",
+      "renderer": "timer_session",
+      "slot_default": "midday",
+      "summary": "Balanced box breathing for composure and arousal control.",
+      "tags": [
+        "meditation",
+        "breathwork",
+        "composure"
+      ],
+      "payload": {
+        "duration_minutes": 5,
+        "pattern": "4s in / 4s hold / 4s out / 4s hold",
+        "instructions": "Move cleanly through each transition without gasping on the holds.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-co2-tolerance",
+      "name": "CO2 Tolerance",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Post-exhale hold practice for CO2 comfort and breath control.",
+      "tags": [
+        "meditation",
+        "breathwork",
+        "co2"
+      ],
+      "payload": {
+        "duration_minutes": 10,
+        "pattern": "4s in / 6s out / 4s post-exhale hold",
+        "instructions": "Keep the hold calm; shorten to 3s if 4s creates strain or panic.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-focused-attention",
+      "name": "Focused Attention",
+      "renderer": "timer_session",
+      "slot_default": "evening",
+      "summary": "Breath-counting meditation for concentration stability.",
+      "tags": [
+        "meditation",
+        "attention",
+        "mindfulness"
+      ],
+      "payload": {
+        "duration_minutes": 10,
+        "pattern": "Breath counting on each exhale",
+        "instructions": "Count each exhale from 1 to 10 and restart at 1 whenever attention drifts.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-open-monitoring",
+      "name": "Open Monitoring",
+      "renderer": "timer_session",
+      "slot_default": "evening",
+      "summary": "Wide-lens awareness practice without a fixed anchor.",
+      "tags": [
+        "meditation",
+        "awareness",
+        "mindfulness"
+      ],
+      "payload": {
+        "duration_minutes": 12,
+        "pattern": "Open awareness without a fixed anchor",
+        "instructions": "Notice sensations, sounds, and thoughts without following any of them.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "mental_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "two-week-meditation-foundation-routine",
+      "name": "Two-Week Meditation Foundation",
+      "cadence": "biweekly",
+      "start_date": "2026-03-16",
+      "end_date": "2026-03-29",
+      "status": "active",
+      "tags": [
+        "meditation",
+        "breathwork",
+        "foundation"
+      ],
+      "notes": "Deterministic two-week meditation schedule imported from the proper bundle spec. Experiments intentionally excluded.",
+      "assignments": [
+        {
+          "id": "two-week-meditation:week1-mon-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "monday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Do this before your Garmin HRV reading. Focus on finding the 5s/5s rhythm without forcing depth."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-mon-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 1,
+          "weekday": "monday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 6,
+            "instructions": "First exposure. Do this 30-60 minutes before bed and let the long exhale stay smooth."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-tue-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Repeat the morning rhythm to build pattern recognition through consistency rather than intensity."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-tue-evening-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 1,
+          "weekday": "tuesday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "First meditation session. The restart is the training whenever you lose count."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-wed-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "wednesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Increase to 10 minutes. If 5s/5s feels forced, ease toward 4.5s/4.5s and work back up."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-wed-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 1,
+          "weekday": "wednesday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Hard training day recovery. Make the exhale smooth and complete."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-thu-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Same duration as yesterday. Prioritize consistency before progression."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-thu-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 1,
+          "weekday": "thursday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "First open-monitoring exposure. Notice whatever arises without following it."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-fri-morning-box",
+          "card_template_id": "meditation-box-breathing",
+          "cycle_week": 1,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 6,
+            "instructions": "First box-breathing exposure on a fresh nervous system. Keep each transition smooth."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-fri-evening-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 1,
+          "weekday": "friday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Longest focused-attention sit so far. Track how many full 1-10 cycles you complete."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-sat-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "saturday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Use this as the pre-long-run ritual."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-sat-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 1,
+          "weekday": "saturday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Post-long-run recovery. Treat this session as non-negotiable."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-sun-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 1,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Check whether the 5s/5s rhythm now feels natural without constant counting."
+          }
+        },
+        {
+          "id": "two-week-meditation:week1-sun-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 1,
+          "weekday": "sunday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Second open-monitoring exposure. Notice whether the mind settles more quickly than on Day 4."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-mon-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "monday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Full target duration to open Week 2."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-mon-midday-box",
+          "card_template_id": "meditation-box-breathing",
+          "cycle_week": 2,
+          "weekday": "monday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "First midday session. Keep it short so the third slot is easy to establish."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-mon-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 2,
+          "weekday": "monday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Hard day recovery breathwork. Standard Week 2 evening pattern."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-tue-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Easy-day maintenance dose in the morning."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-tue-midday-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "First midday meditation. Log attention stability carefully."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-tue-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Full target duration. Easy days carry the heavier attentional work."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-wed-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "wednesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Full-duration morning priming before the tempo session."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-wed-midday-box",
+          "card_template_id": "meditation-box-breathing",
+          "cycle_week": 2,
+          "weekday": "wednesday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Short hard-day midday reset. Skip only if the tempo session wiped you out."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-wed-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 2,
+          "weekday": "wednesday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Standard hard-day recovery session."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-thu-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Maintenance dose to start the easy day."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-thu-midday-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Compare your attention stability to Tuesday midday."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-thu-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Practice non-reactive observation: notice without following."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-fri-morning-co2",
+          "card_template_id": "meditation-co2-tolerance",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "First CO2 tolerance session. Shorten the post-exhale hold to 3 seconds if needed."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-fri-midday-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Longest midday sit of the program. Rest day is the right time to push duration."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-fri-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Default to Open Monitoring. If you feel activated or restless, switch to an 8-minute Extended Exhale instead."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sat-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "saturday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Full-duration pre-long-run ritual."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sat-midday-box",
+          "card_template_id": "meditation-box-breathing",
+          "cycle_week": 2,
+          "weekday": "saturday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Optional post-long-run recovery tool. Treat it as light recovery rather than hard training."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sat-evening-extended-exhale",
+          "card_template_id": "meditation-extended-exhale",
+          "cycle_week": 2,
+          "weekday": "saturday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Non-negotiable long-run recovery session."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sun-morning-resonance",
+          "card_template_id": "meditation-resonance-breathing",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Maintenance dose to open the last day of the program."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sun-midday-focused-attention",
+          "card_template_id": "meditation-focused-attention",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Compare attention stability against your first focused-attention session."
+          }
+        },
+        {
+          "id": "two-week-meditation:week2-sun-evening-open-monitoring",
+          "card_template_id": "meditation-open-monitoring",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Close the program with an agenda-free sit and note what feels different from Day 4."
+          }
+        }
+      ]
+    }
+  ]
+}

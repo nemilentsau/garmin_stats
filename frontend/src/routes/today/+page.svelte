@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { api, type TodayResponse } from '$lib/api';
-	import { localDateIso } from '$lib/date';
+	import { isIsoDateString, localDateIso } from '$lib/date';
 	import { COLORS, withAlpha } from '$lib/colors';
 	import { errorMessage } from '$lib/utils';
 
@@ -51,6 +51,12 @@
 
 	let todayRequestToken = 0;
 
+	function initialSelectedDate(): string {
+		const fallback = localDateIso();
+		const urlDate = new URL(window.location.href).searchParams.get('date');
+		return urlDate && isIsoDateString(urlDate) ? urlDate : fallback;
+	}
+
 	function isRecord(value: unknown): value is Record<string, unknown> {
 		return typeof value === 'object' && value !== null && !Array.isArray(value);
 	}
@@ -75,7 +81,7 @@
 
 	async function initializePage() {
 		error = null;
-		selectedDate = localDateIso();
+		selectedDate = initialSelectedDate();
 		todayRequestToken += 1;
 		await loadToday(selectedDate, todayRequestToken);
 	}

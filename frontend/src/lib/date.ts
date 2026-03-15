@@ -5,6 +5,10 @@ export function localDateIso(date: Date = new Date()): string {
 	return `${year}-${month}-${day}`;
 }
 
+export function isIsoDateString(value: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 export function parseIsoDate(isoDate: string): Date {
 	const [year, month, day] = isoDate.split('-').map(Number);
 	return new Date(year, month - 1, day, 12, 0, 0, 0);
