@@ -1,0 +1,1285 @@
+{
+  "id": "two-week-core-foundation",
+  "name": "Two-Week Core Foundation",
+  "schema_version": 1,
+  "description": "Deterministic two-week core and supporting-muscle routine starting 2026-03-16.",
+  "card_templates": [
+    {
+      "id": "core-day-a",
+      "name": "Core Day A",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Anti-rotation and contralateral core activation for hard and rest days.",
+      "tags": [
+        "core",
+        "anti-rotation",
+        "running"
+      ],
+      "payload": {
+        "instructions": "Core Day A emphasizes anti-rotation, trunk stiffness, and contralateral coordination. Keep every rep controlled and stop before form degrades.",
+        "exercises": [
+          {
+            "id": "a1",
+            "label": "Cable rotations (horizontal)",
+            "detail": "Hips locked forward. Initiate from obliques and control the return."
+          },
+          {
+            "id": "a2",
+            "label": "Pallof press + overhead reach",
+            "detail": "Press out cleanly and avoid rib flare during the reach."
+          },
+          {
+            "id": "a3",
+            "label": "Dead bugs",
+            "detail": "Keep low back pressed into the floor through every contralateral rep."
+          },
+          {
+            "id": "a4",
+            "label": "Plank shoulder taps",
+            "detail": "Fight hip sway while tapping with control."
+          }
+        ]
+      }
+    },
+    {
+      "id": "core-day-b",
+      "name": "Core Day B",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Anti-extension core work with anterior-chain control.",
+      "tags": [
+        "core",
+        "anti-extension",
+        "running"
+      ],
+      "payload": {
+        "instructions": "Core Day B builds anti-extension strength. Keep your trunk braced and prioritize control over range.",
+        "exercises": [
+          {
+            "id": "b1",
+            "label": "Ab wheel rollouts",
+            "detail": "Roll out only as far as you can return without back sagging."
+          },
+          {
+            "id": "b2",
+            "label": "Hanging leg raises",
+            "detail": "Control the descent and initiate by tilting the pelvis."
+          },
+          {
+            "id": "b3",
+            "label": "Body saw plank",
+            "detail": "Use a small range and keep the core locked as the lever arm lengthens."
+          },
+          {
+            "id": "b4",
+            "label": "Hollow body hold",
+            "detail": "Back stays glued to the floor. Regress before losing position."
+          }
+        ]
+      }
+    },
+    {
+      "id": "core-day-c",
+      "name": "Core Day C",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Oblique and lateral-chain work for single-leg stability.",
+      "tags": [
+        "core",
+        "obliques",
+        "lateral-stability"
+      ],
+      "payload": {
+        "instructions": "Core Day C targets obliques, adductors, and lateral stability. Stay tall and keep the work symmetrical side to side.",
+        "exercises": [
+          {
+            "id": "c1",
+            "label": "Cable rotations (high-to-low woodchop)",
+            "detail": "Pull from high to opposite hip with hips square."
+          },
+          {
+            "id": "c2",
+            "label": "Copenhagen plank",
+            "detail": "Build adductor strength without letting the pelvis collapse."
+          },
+          {
+            "id": "c3",
+            "label": "Suitcase carry",
+            "detail": "Walk tall and resist lateral lean under asymmetric load."
+          },
+          {
+            "id": "c4",
+            "label": "Side plank + hip dip",
+            "detail": "Control the dip and drive back up through the lateral chain."
+          }
+        ]
+      }
+    },
+    {
+      "id": "core-day-d",
+      "name": "Core Day D",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Dynamic rotation and power with full-body stability.",
+      "tags": [
+        "core",
+        "power",
+        "stability"
+      ],
+      "payload": {
+        "instructions": "Core Day D adds dynamic and power-oriented work. Stay explosive on the slams and deliberate on the stability lifts.",
+        "exercises": [
+          {
+            "id": "d1",
+            "label": "Cable rotations (low-to-high)",
+            "detail": "Drive rotation through the trunk while feet stay planted."
+          },
+          {
+            "id": "d2",
+            "label": "Hanging windshield wipers",
+            "detail": "Control the side-to-side rotation instead of swinging."
+          },
+          {
+            "id": "d3",
+            "label": "Med ball slams",
+            "detail": "Use full hip extension up top and aggressive hip flexion on the slam."
+          },
+          {
+            "id": "d4",
+            "label": "Turkish get-up",
+            "detail": "Pause through every checkpoint and own each transition."
+          }
+        ]
+      }
+    },
+    {
+      "id": "supporting-block-1",
+      "name": "Supporting Block 1",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Glutes and hip stability support for distance running.",
+      "tags": [
+        "supporting",
+        "glutes",
+        "hip-stability"
+      ],
+      "payload": {
+        "instructions": "Supporting Block 1 builds glute medius, hip extension, and hip-flexor integration. Treat it as low-friction support work, not a max-effort session.",
+        "exercises": [
+          {
+            "id": "g1",
+            "label": "Banded clamshells",
+            "detail": "Pause at the top without rolling the hips back."
+          },
+          {
+            "id": "g2",
+            "label": "Single-leg glute bridge",
+            "detail": "Drive through the heel and finish with full hip extension."
+          },
+          {
+            "id": "g3",
+            "label": "Lateral band walks",
+            "detail": "Stay low and keep constant band tension."
+          },
+          {
+            "id": "g4",
+            "label": "Banded marching",
+            "detail": "Drive the knee without leaning back."
+          }
+        ]
+      }
+    },
+    {
+      "id": "supporting-block-2",
+      "name": "Supporting Block 2",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Lower-leg stiffness and foot control for running economy.",
+      "tags": [
+        "supporting",
+        "lower-leg",
+        "foot-strength"
+      ],
+      "payload": {
+        "instructions": "Supporting Block 2 builds calf, soleus, tibialis, and foot-intrinsic resilience. Tempo and range matter more than load early on.",
+        "exercises": [
+          {
+            "id": "l1",
+            "label": "Heavy slow calf raises (straight leg)",
+            "detail": "Use full range with a controlled 3s up / 3s down tempo."
+          },
+          {
+            "id": "l2",
+            "label": "Bent-knee calf raises",
+            "detail": "Keep the same tempo to load the soleus."
+          },
+          {
+            "id": "l3",
+            "label": "Tib raises",
+            "detail": "Lift the toes toward the shins without rushing the reps."
+          },
+          {
+            "id": "l4",
+            "label": "Short foot / single-leg balance",
+            "detail": "Build arch control and balance without curling the toes."
+          }
+        ]
+      }
+    },
+    {
+      "id": "supporting-block-3",
+      "name": "Supporting Block 3",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Eccentric hamstring, single-leg hinge, and reactive support work.",
+      "tags": [
+        "supporting",
+        "eccentric",
+        "hamstrings"
+      ],
+      "payload": {
+        "instructions": "Supporting Block 3 is the highest-cost support block. Keep the eccentric work slow and stop short of technical failure.",
+        "exercises": [
+          {
+            "id": "e1",
+            "label": "Nordic hamstring curls",
+            "detail": "Lower as slowly as possible and use the hands to catch as needed."
+          },
+          {
+            "id": "e2",
+            "label": "Single-leg RDL",
+            "detail": "Keep hips square and own the balance challenge."
+          },
+          {
+            "id": "e3",
+            "label": "Standing knee drives (banded)",
+            "detail": "Drive the knee fast without losing posture."
+          },
+          {
+            "id": "e4",
+            "label": "Adductor squeeze",
+            "detail": "Build groin resilience with controlled squeezes."
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "two-week-core-foundation-routine",
+      "name": "Two-Week Core Foundation",
+      "cadence": "biweekly",
+      "start_date": "2026-03-16",
+      "end_date": "2026-03-29",
+      "status": "active",
+      "tags": [
+        "strength",
+        "core",
+        "running"
+      ],
+      "notes": "Deterministic two-week core rotation imported from the proper bundle spec. Breathwork and experiments remain outside this routine.",
+      "assignments": [
+        {
+          "id": "two-week-core:week1-mon:core-day-a",
+          "card_template_id": "core-day-a",
+          "cycle_week": 1,
+          "weekday": "monday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 1 after morning breathwork, before intervals. Activation only at RPE 5-6; skip the fourth exercise on this hard day.",
+            "exercises": [
+              {
+                "id": "a1",
+                "label": "Cable rotations (horizontal)",
+                "reps": "2x8 each side",
+                "detail": "Start light and find the pattern. The eccentric return is where the transfer to running lives."
+              },
+              {
+                "id": "a2",
+                "label": "Pallof press",
+                "reps": "2x6 each side",
+                "detail": "Skip the overhead reach today. Press out, hold 2s, return, and learn the base anti-rotation pattern first."
+              },
+              {
+                "id": "a3",
+                "label": "Dead bugs",
+                "reps": "2x8 each side",
+                "detail": "Press the low back into the floor before moving limbs. Reduce range if the back arches."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-tue:core-day-b",
+          "card_template_id": "core-day-b",
+          "cycle_week": 1,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 2 easy run morning. Full core dose today and keep trunk position strict instead of chasing range.",
+            "exercises": [
+              {
+                "id": "b1",
+                "label": "Ab wheel rollouts",
+                "reps": "2x8",
+                "detail": "From knees. Stop at the furthest point you can return from without back sagging."
+              },
+              {
+                "id": "b2",
+                "label": "Hanging leg raises",
+                "reps": "2x10",
+                "detail": "Start with knee raises if needed. Initiate by posteriorly tilting the pelvis."
+              },
+              {
+                "id": "b3",
+                "label": "Body saw plank",
+                "reps": "2x6",
+                "detail": "Use a tiny range. You should feel the anti-extension demand immediately."
+              },
+              {
+                "id": "b4",
+                "label": "Hollow body hold",
+                "reps": "2x20s",
+                "detail": "Arms by your sides if needed. Bend knees if the back lifts."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-tue:supporting-block-1",
+          "card_template_id": "supporting-block-1",
+          "cycle_week": 1,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 1 Tuesday adds Supporting Block 1 after Core Day B. Keep the support work easy enough to build patterns cleanly.",
+            "exercises": [
+              {
+                "id": "g1",
+                "label": "Banded clamshells",
+                "reps": "2x12 each side",
+                "detail": "Light band, controlled tempo, and a pause at the top."
+              },
+              {
+                "id": "g2",
+                "label": "Single-leg glute bridge",
+                "reps": "2x10 each side",
+                "detail": "Drive through the heel and reset if the hamstring starts cramping."
+              },
+              {
+                "id": "g3",
+                "label": "Lateral band walks",
+                "reps": "2x10 each direction",
+                "detail": "Stay in a quarter squat and keep the band under tension."
+              },
+              {
+                "id": "g4",
+                "label": "Banded marching",
+                "reps": "2x8 each side",
+                "detail": "Fight the urge to lean back as the knee drives up."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-wed:core-day-c",
+          "card_template_id": "core-day-c",
+          "cycle_week": 1,
+          "weekday": "wednesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 3 tempo morning. Reduced hard-day dose; skip the suitcase carry and keep the work crisp.",
+            "exercises": [
+              {
+                "id": "c1",
+                "label": "Cable rotations (high-to-low woodchop)",
+                "reps": "2x8 each side",
+                "detail": "Use the same load as Day 1 horizontal rotations and learn the diagonal vector."
+              },
+              {
+                "id": "c2",
+                "label": "Copenhagen plank",
+                "reps": "2x15s each side",
+                "detail": "Bend the top knee on the bench if needed. Even an 8s hold counts on first exposure."
+              },
+              {
+                "id": "c4",
+                "label": "Side plank + hip dip",
+                "reps": "2x8 each side",
+                "detail": "Prioritize pelvic-drop resistance over speed."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-thu:core-day-d",
+          "card_template_id": "core-day-d",
+          "cycle_week": 1,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 4 easy run morning. Full Core Day D exposure with deliberate setup on every new movement.",
+            "exercises": [
+              {
+                "id": "d1",
+                "label": "Cable rotations (low-to-high)",
+                "reps": "2x8 each side",
+                "detail": "Third cable vector. Let the change in angle shift the feel without rushing the reps."
+              },
+              {
+                "id": "d2",
+                "label": "Hanging windshield wipers",
+                "reps": "2x6",
+                "detail": "Use bent knees if straight legs are not controllable yet."
+              },
+              {
+                "id": "d3",
+                "label": "Med ball slams",
+                "reps": "2x8",
+                "detail": "This is the one explosive drill in the rotation. Be aggressive."
+              },
+              {
+                "id": "d4",
+                "label": "Turkish get-up",
+                "reps": "2x2 each side",
+                "detail": "Use no weight or a very light dumbbell and pause at each checkpoint."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-thu:supporting-block-2",
+          "card_template_id": "supporting-block-2",
+          "cycle_week": 1,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 1 Thursday adds lower-leg and foot support work after Core Day D.",
+            "exercises": [
+              {
+                "id": "l1",
+                "label": "Heavy slow calf raises (straight leg)",
+                "reps": "2x8",
+                "detail": "Bodyweight only this week, 3s up and 3s down through full range."
+              },
+              {
+                "id": "l2",
+                "label": "Bent-knee calf raises",
+                "reps": "2x8",
+                "detail": "Match the tempo to bias the soleus."
+              },
+              {
+                "id": "l3",
+                "label": "Tib raises",
+                "reps": "2x12",
+                "detail": "Stand on the heels and lift the toes without rushing."
+              },
+              {
+                "id": "l4",
+                "label": "Short foot / single-leg balance",
+                "reps": "2x20s each side",
+                "detail": "Just stand on one leg and build arch control without closing the eyes yet."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-fri:core-day-a",
+          "card_template_id": "core-day-a",
+          "cycle_week": 1,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 5 rest day. This is the first full Core Day A with the fourth exercise included.",
+            "exercises": [
+              {
+                "id": "a1",
+                "label": "Cable rotations (horizontal)",
+                "reps": "3x8 each side",
+                "detail": "Second exposure. Add weight next time only if the pattern already feels natural."
+              },
+              {
+                "id": "a2",
+                "label": "Pallof press + overhead reach",
+                "reps": "2x8 each side",
+                "detail": "Add the overhead reach now, but shorten the range if the ribs flare."
+              },
+              {
+                "id": "a3",
+                "label": "Dead bugs",
+                "reps": "2x10 each side",
+                "detail": "Increase reps only if low-back contact stays solid."
+              },
+              {
+                "id": "a4",
+                "label": "Plank shoulder taps",
+                "reps": "2x10 each side",
+                "detail": "Use shoulder-width feet and narrow only when hip sway stays minimal."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-fri:supporting-block-1",
+          "card_template_id": "supporting-block-1",
+          "cycle_week": 1,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Rest day support block 1 progression. Keep it smooth rather than fatiguing.",
+            "exercises": [
+              {
+                "id": "g1",
+                "label": "Banded clamshells",
+                "reps": "2x15 each side",
+                "detail": "Add a 2s pause at the top of every rep."
+              },
+              {
+                "id": "g2",
+                "label": "Single-leg glute bridge",
+                "reps": "2x12 each side",
+                "detail": "Add 3 extra reps on the weaker side if one side clearly lags."
+              },
+              {
+                "id": "g3",
+                "label": "Lateral band walks",
+                "reps": "2x12 each direction",
+                "detail": "Stay low and consistent on every step."
+              },
+              {
+                "id": "g4",
+                "label": "Banded marching",
+                "reps": "2x10 each side",
+                "detail": "Maintain upright posture against the band tension."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-fri:supporting-block-2",
+          "card_template_id": "supporting-block-2",
+          "cycle_week": 1,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "instructions": "Rest day adds the second support block as part of the biggest Week 1 session.",
+            "exercises": [
+              {
+                "id": "l1",
+                "label": "Heavy slow calf raises (straight leg)",
+                "reps": "2x8",
+                "detail": "Same full-range tempo focus as Day 4."
+              },
+              {
+                "id": "l2",
+                "label": "Bent-knee calf raises",
+                "reps": "2x8",
+                "detail": "Same soleus emphasis as Day 4."
+              },
+              {
+                "id": "l3",
+                "label": "Tib raises",
+                "reps": "2x15",
+                "detail": "Increase reps but keep the movement strict."
+              },
+              {
+                "id": "l4",
+                "label": "Short foot / single-leg balance",
+                "reps": "2x25s each side",
+                "detail": "Add 5s to the hold and keep the arch active."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-sat:core-day-b",
+          "card_template_id": "core-day-b",
+          "cycle_week": 1,
+          "weekday": "saturday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 6 long-run morning. Reduced activation dose only; skip the hollow hold.",
+            "exercises": [
+              {
+                "id": "b1",
+                "label": "Ab wheel rollouts",
+                "reps": "2x8",
+                "detail": "Notice whether your rollout range has increased since Day 2."
+              },
+              {
+                "id": "b2",
+                "label": "Hanging leg raises",
+                "reps": "2x10",
+                "detail": "Try straight-leg on the first set if knee raises were necessary on Day 2."
+              },
+              {
+                "id": "b3",
+                "label": "Body saw plank",
+                "reps": "2x6",
+                "detail": "Exhale as you saw forward into the hardest position."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-sun:core-day-c",
+          "card_template_id": "core-day-c",
+          "cycle_week": 1,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 7 easy run morning. Full Core Day C plus the first exposure to Supporting Block 3.",
+            "exercises": [
+              {
+                "id": "c1",
+                "label": "Cable rotations (high-to-low woodchop)",
+                "reps": "2x10 each side",
+                "detail": "Increase reps from Day 3 while keeping hips square."
+              },
+              {
+                "id": "c2",
+                "label": "Copenhagen plank",
+                "reps": "2x15s each side",
+                "detail": "Stay at the same hold and judge whether stability is already improving."
+              },
+              {
+                "id": "c3",
+                "label": "Suitcase carry",
+                "reps": "2x20m each side",
+                "detail": "Use a heavy but walkable dumbbell and move slowly."
+              },
+              {
+                "id": "c4",
+                "label": "Side plank + hip dip",
+                "reps": "2x10 each side",
+                "detail": "Control the 2s down / 1s up tempo."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week1-sun:supporting-block-3",
+          "card_template_id": "supporting-block-3",
+          "cycle_week": 1,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Day 7 introduces the most demanding support block. Keep the eccentrics controlled and stop well before technical failure.",
+            "exercises": [
+              {
+                "id": "e1",
+                "label": "Nordic hamstring curls",
+                "reps": "2x3",
+                "detail": "Lower as slowly as possible, catch with the hands, and push back up."
+              },
+              {
+                "id": "e2",
+                "label": "Single-leg RDL",
+                "reps": "2x6 each side",
+                "detail": "Bodyweight only and keep the hips square to the floor."
+              },
+              {
+                "id": "e3",
+                "label": "Standing knee drives (banded)",
+                "reps": "2x8 each side",
+                "detail": "Drive the knee fast and controlled against the band."
+              },
+              {
+                "id": "e4",
+                "label": "Adductor squeeze",
+                "reps": "2x8",
+                "detail": "Use a ball squeeze or Copenhagen-lite variation and build the pattern."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-mon:core-day-d",
+          "card_template_id": "core-day-d",
+          "cycle_week": 2,
+          "weekday": "monday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 8 hard intervals. Reduced hard-day dose stays in place; skip the Turkish get-up.",
+            "exercises": [
+              {
+                "id": "d1",
+                "label": "Cable rotations (low-to-high)",
+                "reps": "2x10 each side",
+                "detail": "Increase reps from Day 4 while keeping the trunk-driven rotation crisp."
+              },
+              {
+                "id": "d2",
+                "label": "Hanging windshield wipers",
+                "reps": "2x6",
+                "detail": "Try one straight-leg set if bent-knee reps are now under control."
+              },
+              {
+                "id": "d3",
+                "label": "Med ball slams",
+                "reps": "2x10",
+                "detail": "Push aggression on the slam, not sloppiness."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-tue:core-day-a",
+          "card_template_id": "core-day-a",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 9 easy run. Full Core Day A with the first 3-set exposure and more total support volume.",
+            "exercises": [
+              {
+                "id": "a1",
+                "label": "Cable rotations (horizontal)",
+                "reps": "3x10 each side",
+                "detail": "Third exposure. Add 5 lbs if 3x8 already felt comfortable."
+              },
+              {
+                "id": "a2",
+                "label": "Pallof press + overhead reach",
+                "reps": "3x8 each side",
+                "detail": "Move to 3 sets and shorten the overhead range if the ribs still flare."
+              },
+              {
+                "id": "a3",
+                "label": "Dead bugs",
+                "reps": "2x10 each side",
+                "detail": "Hold at 2 sets but slow the tempo to 3s out / 3s back."
+              },
+              {
+                "id": "a4",
+                "label": "Plank shoulder taps",
+                "reps": "2x12 each side",
+                "detail": "Narrow the stance slightly if Day 5 felt stable."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-tue:supporting-block-2",
+          "card_template_id": "supporting-block-2",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 2 Tuesday rotates in Blocks 2 and 3 after Core Day A.",
+            "exercises": [
+              {
+                "id": "l1",
+                "label": "Heavy slow calf raises (straight leg)",
+                "reps": "3x8",
+                "detail": "Move to 3 sets and add light dumbbells if bodyweight is too easy."
+              },
+              {
+                "id": "l2",
+                "label": "Bent-knee calf raises",
+                "reps": "3x8",
+                "detail": "Same 3-set progression for the soleus-focused work."
+              },
+              {
+                "id": "l3",
+                "label": "Tib raises",
+                "reps": "2x15",
+                "detail": "Keep this as maintenance volume."
+              },
+              {
+                "id": "l4",
+                "label": "Short foot / single-leg balance",
+                "reps": "2x30s each side",
+                "detail": "Reach the full target hold time with clean balance."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-tue:supporting-block-3",
+          "card_template_id": "supporting-block-3",
+          "cycle_week": 2,
+          "weekday": "tuesday",
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "instructions": "Week 2 Tuesday adds the eccentric and single-leg support block after lower-leg work.",
+            "exercises": [
+              {
+                "id": "e1",
+                "label": "Nordic hamstring curls",
+                "reps": "2x4",
+                "detail": "Add one rep only if you can keep the eccentric slow."
+              },
+              {
+                "id": "e2",
+                "label": "Single-leg RDL",
+                "reps": "2x8 each side",
+                "detail": "Add 2 reps but keep it bodyweight until balance is solid."
+              },
+              {
+                "id": "e3",
+                "label": "Standing knee drives (banded)",
+                "reps": "2x10 each side",
+                "detail": "Add 2 reps without losing posture."
+              },
+              {
+                "id": "e4",
+                "label": "Adductor squeeze",
+                "reps": "2x10",
+                "detail": "Add 2 reps and keep the squeeze controlled."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-wed:core-day-b",
+          "card_template_id": "core-day-b",
+          "cycle_week": 2,
+          "weekday": "wednesday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 10 tempo morning. Reduced hard-day anti-extension dose continues.",
+            "exercises": [
+              {
+                "id": "b1",
+                "label": "Ab wheel rollouts",
+                "reps": "2x10",
+                "detail": "Your range should now be noticeably better than Day 2."
+              },
+              {
+                "id": "b2",
+                "label": "Hanging leg raises",
+                "reps": "2x12",
+                "detail": "Use straight legs for both sets if possible and control the descent for 2s."
+              },
+              {
+                "id": "b3",
+                "label": "Body saw plank",
+                "reps": "2x8",
+                "detail": "Increase the range slightly while keeping the core locked."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-thu:core-day-c",
+          "card_template_id": "core-day-c",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 11 easy run. Full Core Day C with more total volume and both support blocks 1 and 3.",
+            "exercises": [
+              {
+                "id": "c1",
+                "label": "Cable rotations (high-to-low woodchop)",
+                "reps": "3x10 each side",
+                "detail": "Move to 3 sets and add load if the current weight is comfortable."
+              },
+              {
+                "id": "c2",
+                "label": "Copenhagen plank",
+                "reps": "2x20s each side",
+                "detail": "Add 5s and try one straight-leg set if bent-knee holds are solid."
+              },
+              {
+                "id": "c3",
+                "label": "Suitcase carry",
+                "reps": "2x25m each side",
+                "detail": "Increase distance and walk slower than Day 7."
+              },
+              {
+                "id": "c4",
+                "label": "Side plank + hip dip",
+                "reps": "3x10 each side",
+                "detail": "Move to 3 sets while keeping the tempo controlled."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-thu:supporting-block-1",
+          "card_template_id": "supporting-block-1",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 2 Thursday brings back glute and hip-stability support alongside Core Day C.",
+            "exercises": [
+              {
+                "id": "g1",
+                "label": "Banded clamshells",
+                "reps": "2x15 each side",
+                "detail": "Upgrade the band only if the current resistance feels easy."
+              },
+              {
+                "id": "g2",
+                "label": "Single-leg glute bridge",
+                "reps": "2x12 each side",
+                "detail": "Recheck whether one side still feels weaker."
+              },
+              {
+                "id": "g3",
+                "label": "Lateral band walks",
+                "reps": "2x12 each direction",
+                "detail": "Keep the same controlled pattern as Day 5."
+              },
+              {
+                "id": "g4",
+                "label": "Banded marching",
+                "reps": "2x10 each side",
+                "detail": "Same stable marching pattern as Day 5."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-thu:supporting-block-3",
+          "card_template_id": "supporting-block-3",
+          "cycle_week": 2,
+          "weekday": "thursday",
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "instructions": "Week 2 Thursday keeps Supporting Block 3 at the same prescription while quality catches up to the new reps.",
+            "exercises": [
+              {
+                "id": "e1",
+                "label": "Nordic hamstring curls",
+                "reps": "2x4",
+                "detail": "Do not increase until every rep has at least a 3s eccentric."
+              },
+              {
+                "id": "e2",
+                "label": "Single-leg RDL",
+                "reps": "2x8 each side",
+                "detail": "Repeat the bodyweight hinge with square hips."
+              },
+              {
+                "id": "e3",
+                "label": "Standing knee drives (banded)",
+                "reps": "2x10 each side",
+                "detail": "Repeat the 10-rep dose with posture intact."
+              },
+              {
+                "id": "e4",
+                "label": "Adductor squeeze",
+                "reps": "2x10",
+                "detail": "Repeat the 10-rep dose cleanly."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-fri:core-day-d",
+          "card_template_id": "core-day-d",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 12 rest day is the biggest session in the program. Push volume here, not on training days.",
+            "exercises": [
+              {
+                "id": "d1",
+                "label": "Cable rotations (low-to-high)",
+                "reps": "3x10 each side",
+                "detail": "Move to 3 sets and add load if the current weight is comfortable."
+              },
+              {
+                "id": "d2",
+                "label": "Hanging windshield wipers",
+                "reps": "3x6",
+                "detail": "The third set is where rotational control gets tested."
+              },
+              {
+                "id": "d3",
+                "label": "Med ball slams",
+                "reps": "3x10",
+                "detail": "Stay aggressive and crisp for all 3 sets."
+              },
+              {
+                "id": "d4",
+                "label": "Turkish get-up",
+                "reps": "2x3 each side",
+                "detail": "Add light load only if the bodyweight pattern is already clean."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-fri:supporting-block-1",
+          "card_template_id": "supporting-block-1",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Day 12 includes all three support blocks. Keep Block 1 smooth so fatigue stays budgeted for the whole session.",
+            "exercises": [
+              {
+                "id": "g1",
+                "label": "Banded clamshells",
+                "reps": "2x15 each side",
+                "detail": "Same controlled clamshell pattern as prior exposures."
+              },
+              {
+                "id": "g2",
+                "label": "Single-leg glute bridge",
+                "reps": "2x12 each side",
+                "detail": "Same full hip-extension focus as prior exposures."
+              },
+              {
+                "id": "g3",
+                "label": "Lateral band walks",
+                "reps": "2x12 each direction",
+                "detail": "Same controlled band-walk pattern as prior exposures."
+              },
+              {
+                "id": "g4",
+                "label": "Banded marching",
+                "reps": "2x10 each side",
+                "detail": "Same marching pattern as prior exposures."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-fri:supporting-block-2",
+          "card_template_id": "supporting-block-2",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "instructions": "Day 12 lower-leg block. This is the day to add load and a harder balance variation.",
+            "exercises": [
+              {
+                "id": "l1",
+                "label": "Heavy slow calf raises (straight leg)",
+                "reps": "3x8",
+                "detail": "Add 5 lbs from Day 9 if the earlier load was manageable."
+              },
+              {
+                "id": "l2",
+                "label": "Bent-knee calf raises",
+                "reps": "3x8",
+                "detail": "Match the straight-leg progression for the soleus work."
+              },
+              {
+                "id": "l3",
+                "label": "Tib raises",
+                "reps": "2x15",
+                "detail": "Keep this as maintenance volume."
+              },
+              {
+                "id": "l4",
+                "label": "Short foot / single-leg balance",
+                "reps": "2x30s each side",
+                "detail": "Try closing the eyes for the final 10s of each set."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-fri:supporting-block-3",
+          "card_template_id": "supporting-block-3",
+          "cycle_week": 2,
+          "weekday": "friday",
+          "slot": "morning",
+          "position": 40,
+          "prescription_override_json": {
+            "instructions": "Day 12 is the first 3-set Nordic exposure. Expect soreness tomorrow and stop before losing control.",
+            "exercises": [
+              {
+                "id": "e1",
+                "label": "Nordic hamstring curls",
+                "reps": "3x4",
+                "detail": "This is the first 12-rep total eccentric exposure in the program."
+              },
+              {
+                "id": "e2",
+                "label": "Single-leg RDL",
+                "reps": "2x8 each side",
+                "detail": "Add a light dumbbell only if balance is solid without it."
+              },
+              {
+                "id": "e3",
+                "label": "Standing knee drives (banded)",
+                "reps": "2x10 each side",
+                "detail": "Repeat the 10-rep dose with fast, controlled drives."
+              },
+              {
+                "id": "e4",
+                "label": "Adductor squeeze",
+                "reps": "2x10",
+                "detail": "Repeat the 10-rep dose and keep the squeeze clean."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-sat:core-day-a",
+          "card_template_id": "core-day-a",
+          "cycle_week": 2,
+          "weekday": "saturday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 13 long-run morning. Back to reduced-dose activation using the same weight as Day 9.",
+            "exercises": [
+              {
+                "id": "a1",
+                "label": "Cable rotations (horizontal)",
+                "reps": "2x10 each side",
+                "detail": "Use Day 9's weight and do not add load before the long run."
+              },
+              {
+                "id": "a2",
+                "label": "Pallof press + overhead reach",
+                "reps": "2x8 each side",
+                "detail": "Standard reduced-dose anti-rotation work."
+              },
+              {
+                "id": "a3",
+                "label": "Dead bugs",
+                "reps": "2x10 each side",
+                "detail": "Stay slow and reinforce the contralateral pattern before the run."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-sun:core-day-b",
+          "card_template_id": "core-day-b",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "instructions": "Day 14 easy run. This is the assessment day for how far anti-extension capacity moved in two weeks.",
+            "exercises": [
+              {
+                "id": "b1",
+                "label": "Ab wheel rollouts",
+                "reps": "3x10",
+                "detail": "Compare your rollout range directly to Day 2."
+              },
+              {
+                "id": "b2",
+                "label": "Hanging leg raises",
+                "reps": "3x12",
+                "detail": "Full target dose with straight legs and controlled descent."
+              },
+              {
+                "id": "b3",
+                "label": "Body saw plank",
+                "reps": "3x8",
+                "detail": "Increase range to 6+ inches if the core stays locked."
+              },
+              {
+                "id": "b4",
+                "label": "Hollow body hold",
+                "reps": "2x30s",
+                "detail": "Arms overhead only if the back stays down for the full hold."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-sun:supporting-block-1",
+          "card_template_id": "supporting-block-1",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Day 14 final Supporting Block 1 exposure. Use it to note whether resistance and asymmetry need attention in Weeks 3-4.",
+            "exercises": [
+              {
+                "id": "g1",
+                "label": "Banded clamshells",
+                "reps": "2x15 each side",
+                "detail": "If this is too easy, move up a band next block."
+              },
+              {
+                "id": "g2",
+                "label": "Single-leg glute bridge",
+                "reps": "2x12 each side",
+                "detail": "Make a final left-right comparison and log any asymmetry."
+              },
+              {
+                "id": "g3",
+                "label": "Lateral band walks",
+                "reps": "2x12 each direction",
+                "detail": "Standard controlled band walks."
+              },
+              {
+                "id": "g4",
+                "label": "Banded marching",
+                "reps": "2x10 each side",
+                "detail": "Standard upright marching pattern."
+              }
+            ]
+          }
+        },
+        {
+          "id": "two-week-core:week2-sun:supporting-block-2",
+          "card_template_id": "supporting-block-2",
+          "cycle_week": 2,
+          "weekday": "sunday",
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "instructions": "Day 14 final lower-leg block. Use it to judge whether the next phase should increase load or balance difficulty.",
+            "exercises": [
+              {
+                "id": "l1",
+                "label": "Heavy slow calf raises (straight leg)",
+                "reps": "3x8",
+                "detail": "Final session at this load. Increase load in Weeks 3-4 if this feels stable."
+              },
+              {
+                "id": "l2",
+                "label": "Bent-knee calf raises",
+                "reps": "3x8",
+                "detail": "Same assessment for the soleus-focused work."
+              },
+              {
+                "id": "l3",
+                "label": "Tib raises",
+                "reps": "2x15",
+                "detail": "Maintenance dose."
+              },
+              {
+                "id": "l4",
+                "label": "Short foot / single-leg balance",
+                "reps": "2x30s each side",
+                "detail": "Close the eyes for the full 30s if balance now allows it."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

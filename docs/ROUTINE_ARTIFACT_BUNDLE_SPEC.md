@@ -241,8 +241,9 @@ Activation is where the bundle becomes live behavior.
 
 ## Example
 
-The checked-in example bundle is:
+The checked-in example bundles are:
 
 - [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
+- [`docs/two_week_core_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
 
 That file is the reference implementation of this spec for a two-week meditation routine starting on `2026-03-16`.

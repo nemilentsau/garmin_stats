@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from app.infra.database import (
     load_assistant_artifacts,
@@ -27,6 +28,7 @@ from app.services.training_specs import (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_CORE_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_core_bundle.json"
 _MEDITATION_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
 
 
@@ -119,6 +121,16 @@ def _load_meditation_bundle() -> ArtifactBundleSpec:
     return ArtifactBundleSpec.model_validate(
         json.loads(_MEDITATION_BUNDLE_PATH.read_text(encoding="utf-8"))
     )
+
+
+def _load_core_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_CORE_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _exercise_list(payload_json: dict[str, object]) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], payload_json["exercises"])
 
 
 def _bundle_card_spec(
@@ -456,6 +468,101 @@ class TestArtifactBundles:
 
         assert [card.name for card in all_cards] == ["Resonance Breathing", "Extended Exhale"]
         assert [card.payload_json["duration_minutes"] for card in all_cards] == [8, 6]
+
+    def test_core_bundle_runs_preview_import_activation_schedule_and_today_workflow(self):
+        bundle = _load_core_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(preview.deltas) == 8
+        assert load_assistant_artifacts() == []
+
+        imported = import_artifact_bundle(bundle)
+        routine_artifact_ids = [
+            delta.artifact_id for delta in imported.deltas if delta.kind == "routine_spec"
+        ]
+
+        assert imported.total_imported == 8
+        assert len(routine_artifact_ids) == 1
+
+        activate_assistant_artifact(routine_artifact_ids[0])
+
+        window = get_schedule_window("2026-03-16")
+        day1 = next(day for day in window.days if day.date == "2026-03-16")
+        day2 = next(day for day in window.days if day.date == "2026-03-17")
+        day5 = next(day for day in window.days if day.date == "2026-03-20")
+        day12 = next(day for day in window.days if day.date == "2026-03-27")
+        day14 = next(day for day in window.days if day.date == "2026-03-29")
+
+        assert window.start_date == "2026-03-16"
+        assert window.end_date == "2026-03-29"
+        assert [occurrence.name for occurrence in day1.occurrences] == ["Core Day A"]
+        assert [occurrence.name for occurrence in day2.occurrences] == [
+            "Core Day B",
+            "Supporting Block 1",
+        ]
+        assert [occurrence.name for occurrence in day5.occurrences] == [
+            "Core Day A",
+            "Supporting Block 1",
+            "Supporting Block 2",
+        ]
+        assert [occurrence.name for occurrence in day12.occurrences] == [
+            "Core Day D",
+            "Supporting Block 1",
+            "Supporting Block 2",
+            "Supporting Block 3",
+        ]
+        assert [occurrence.name for occurrence in day14.occurrences] == [
+            "Core Day B",
+            "Supporting Block 1",
+            "Supporting Block 2",
+        ]
+        assert _exercise_list(day1.occurrences[0].payload_json)[0]["reps"] == "2x8 each side"
+        assert _exercise_list(day12.occurrences[0].payload_json)[3]["label"] == "Turkish get-up"
+        assert _exercise_list(day12.occurrences[3].payload_json)[0]["reps"] == "3x4"
+        assert _exercise_list(day14.occurrences[0].payload_json)[3]["reps"] == "2x30s"
+
+        today = get_today("2026-03-27")
+        all_cards = [card for slot in today.slots for card in slot.cards]
+
+        assert [card.name for card in all_cards] == [
+            "Core Day D",
+            "Supporting Block 1",
+            "Supporting Block 2",
+            "Supporting Block 3",
+        ]
+
+        upsert_today_card_log(
+            "2026-03-27",
+            all_cards[0].occurrence_key,
+            TodayCardLogUpdateRequest(
+                card_template_id=all_cards[0].card_template_id,
+                assignment_id=all_cards[0].assignment_id,
+                status="completed",
+                actual_json={
+                    "item_states": {
+                        "d1": True,
+                        "d2": True,
+                        "d3": True,
+                        "d4": False,
+                    }
+                },
+                notes="Core block completed before strength session.",
+            ),
+        )
+
+        updated_today = get_today("2026-03-27")
+        updated_cards = [card for slot in updated_today.slots for card in slot.cards]
+        updated_core = next(
+            card for card in updated_cards if card.occurrence_key == all_cards[0].occurrence_key
+        )
+
+        assert updated_core.status == "completed"
+        item_states = cast(dict[str, bool], updated_core.actual_json["item_states"])
+        assert item_states["d3"] is True
+        assert updated_core.notes == "Core block completed before strength session."
 
 
 class TestTodayProjection:

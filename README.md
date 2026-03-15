@@ -147,7 +147,7 @@ The canonical import unit is now a proper artifact bundle:
 - `card_templates[]`
 - `routine_specs[]`
 
-The app accepts deterministic bundle JSON only. It does not convert arbitrary markdown in-app. The external conversion target for an LLM is documented in [`docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md), and the first checked-in example is [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json).
+The app accepts deterministic bundle JSON only. It does not convert arbitrary markdown in-app. The external conversion target for an LLM is documented in [`docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md), and the checked-in examples are [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json) and [`docs/two_week_core_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json).
 
 ## Main App Areas
 
