@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from ..infra.database import DATA_DIR, check_ingest_status, ingest_all
+from ..infra.watcher import extract_existing_archives
 from ..models import IngestResult, IngestStatus
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 def trigger_ingest():
     """Re-ingest all FIT files into the database."""
     try:
+        extract_existing_archives(DATA_DIR)
         return ingest_all(DATA_DIR)
     except RuntimeError as err:
         raise HTTPException(

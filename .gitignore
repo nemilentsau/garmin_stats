@@ -1,4 +1,5 @@
 # Data & storage
+data_/
 data/
 storage/
 traces.db

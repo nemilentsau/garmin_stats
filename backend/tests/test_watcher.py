@@ -4,10 +4,18 @@ import zipfile
 
 import pytest
 
-from app.infra.watcher import _safe_extract_all
+from app.infra.watcher import _ensure_data_dir, _safe_extract_all, extract_existing_archives
 
 
 class TestSafeExtract:
+    def test_creates_missing_data_directory_before_watching(self, tmp_path):
+        data_dir = tmp_path / "missing-data"
+
+        _ensure_data_dir(data_dir)
+
+        assert data_dir.exists()
+        assert data_dir.is_dir()
+
     def test_extracts_valid_archive(self, tmp_path):
         zip_path = tmp_path / "valid.zip"
         out_dir = tmp_path / "out"
@@ -20,6 +28,19 @@ class TestSafeExtract:
             _safe_extract_all(zf, out_dir)
 
         assert (out_dir / "nested" / "file.fit").exists()
+
+    def test_extract_existing_archives_reads_top_level_day_archives(self, tmp_path):
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        zip_path = data_dir / "2026-01-15.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("nested/file.fit", "ok")
+
+        extracted = extract_existing_archives(data_dir)
+
+        assert extracted == 1
+        assert (data_dir / "2026-01-15" / "nested" / "file.fit").exists()
 
     def test_rejects_path_traversal_archive(self, tmp_path):
         zip_path = tmp_path / "bad.zip"

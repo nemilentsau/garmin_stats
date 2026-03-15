@@ -22,6 +22,24 @@ def _zip_filter(change: Change, path: str) -> bool:
     return path.endswith(".zip")
 
 
+def _ensure_data_dir(data_dir: Path) -> None:
+    """Create the watched data directory if it is missing."""
+    if data_dir.exists():
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    log.info("Created missing data directory at %s", data_dir)
+
+
+def extract_existing_archives(data_dir: Path) -> int:
+    """Extract all top-level day archives already present in data_dir."""
+    _ensure_data_dir(data_dir)
+    zips = sorted(path for path in data_dir.glob("*.zip") if path.is_file())
+    if zips:
+        log.info("Reconciling %d archive(s) already present in %s", len(zips), data_dir)
+    _extract_all(zips)
+    return len(zips)
+
+
 def _extract_zip(zip_path: Path) -> Path:
     """Extract a YYYY-MM-DD.zip into a data/YYYY-MM-DD/ directory. Returns the output dir."""
     date_str = zip_path.stem  # e.g. "2026-01-15"
@@ -46,6 +64,7 @@ def _safe_extract_all(zf: zipfile.ZipFile, out_dir: Path) -> None:
 async def watch_data_directory(data_dir: Path) -> None:
     """Watch data_dir for .zip archives, extract them, ingest, and broadcast updates."""
     global _last_fingerprint
+    _ensure_data_dir(data_dir)
     _last_fingerprint = compute_data_fingerprint(data_dir)
 
     log.info("File watcher started on %s", data_dir)

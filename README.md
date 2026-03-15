@@ -211,6 +211,8 @@ data/
 ```
 
 The ingest pipeline handles the Garmin export layout and zip extraction.
+Top-level `YYYY-MM-DD.zip` archives already present in `data/` are reconciled on startup and before manual re-ingest, so days copied while the backend was down are picked up on the next boot.
+If `data/` is missing, the backend recreates it on startup and the dashboard stays in an empty upload/ingest state until the first files arrive.
 
 ## Repo Map
 

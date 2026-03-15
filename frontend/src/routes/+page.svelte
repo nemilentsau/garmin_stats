@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type DashboardOverview } from '$lib/api';
+	import { api, type DailyAggregates, type DashboardOverview, type IngestStatus } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { Chart, DARK_BORDER, DARK_GRID_Y, DARK_TICK, chartTooltip } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
@@ -9,17 +9,48 @@
 
 	let data: DailyAggregates | null = $state(null);
 	let overview: DashboardOverview | null = $state(null);
+	let ingestStatus: IngestStatus | null = $state(null);
+	let emptyState: IngestStatus | null = $state(null);
 	let error: string | null = $state(null);
 	let sparkCanvases: Record<string, HTMLCanvasElement> = $state({});
 	let sparkCharts: Record<string, Chart<'line'>> = {};
 
 	async function fetchData() {
+		error = null;
+		const status = await api.getIngestStatus();
+		ingestStatus = status;
+		if (status.days_in_db === 0) {
+			data = null;
+			overview = null;
+			emptyState = status;
+			return;
+		}
+
 		const [nextData, nextOverview] = await Promise.all([
 			api.getDailyAggregates(),
 			api.getDashboardOverview()
 		]);
 		data = nextData;
 		overview = nextOverview;
+		emptyState = null;
+	}
+
+	function emptyStateTitle(status: IngestStatus): string {
+		return status.days_on_disk === 0
+			? 'No Garmin data is loaded yet.'
+			: 'Garmin files are present, but nothing is ingested yet.';
+	}
+
+	function emptyStateDetail(status: IngestStatus): string {
+		return status.days_on_disk === 0
+			? 'Create the data directory, drop in Garmin export archives named like YYYY-MM-DD.zip, and the watcher will ingest them as they arrive.'
+			: 'The backend is up and the watcher is waiting. Trigger one ingest to build the first dashboard snapshot, then the app will populate automatically.';
+	}
+
+	function emptyStateCommand(status: IngestStatus): string {
+		return status.days_on_disk === 0
+			? 'mkdir -p data\n# copy Garmin export archives like data/2026-03-15.zip\ncurl -X POST http://127.0.0.1:8000/api/ingest'
+			: 'curl -X POST http://127.0.0.1:8000/api/ingest';
 	}
 
 	onMount(() => {
@@ -295,6 +326,44 @@
 	<div class="topo-error">
 		<p>Error: {error}</p>
 	</div>
+{:else if emptyState}
+	<section class="empty-shell">
+		<div class="empty-hero">
+			<p class="empty-eyebrow">Empty Runtime</p>
+			<h1>{emptyStateTitle(emptyState)}</h1>
+			<p class="empty-copy">{emptyStateDetail(emptyState)}</p>
+		</div>
+
+		<div class="empty-grid">
+			<div class="empty-card">
+				<span>Days in DB</span>
+				<strong>{emptyState.days_in_db}</strong>
+				<small>No daily metrics have been materialized yet.</small>
+			</div>
+			<div class="empty-card">
+				<span>Days on disk</span>
+				<strong>{emptyState.days_on_disk}</strong>
+				<small>Detected Garmin export days available to ingest.</small>
+			</div>
+			<div class="empty-card accent">
+				<span>Watcher status</span>
+				<strong>{emptyState.days_on_disk === 0 ? 'Idle' : 'Ready'}</strong>
+				<small>{emptyState.needs_ingest ? 'New files will be ingested on update.' : 'Waiting for the first import.'}</small>
+			</div>
+		</div>
+
+		<div class="empty-actions">
+			<div class="empty-panel">
+				<p class="empty-panel-title">Quick start</p>
+				<pre>{emptyStateCommand(emptyState)}</pre>
+			</div>
+			<div class="empty-panel">
+				<p class="empty-panel-title">Expected layout</p>
+				<p><code>data/YYYY-MM-DD.zip</code> archives are the input. The backend recreates <code>data/</code> automatically if it is missing.</p>
+				<p>Once the first ingest completes, this dashboard will swap from the empty state to live recovery cards without a restart.</p>
+			</div>
+		</div>
+	</section>
 {:else if !data}
 	<div class="topo-loading">
 		<div class="loading-pulse"></div>
@@ -442,6 +511,118 @@
 	@keyframes pulse {
 		0%, 100% { opacity: 0.3; transform: scale(0.8); }
 		50% { opacity: 1; transform: scale(1.2); }
+	}
+
+	.empty-shell {
+		display: grid;
+		gap: 20px;
+		padding: 20px 0 12px;
+	}
+
+	.empty-hero,
+	.empty-card,
+	.empty-panel {
+		border: 1px solid rgba(255,255,255,0.06);
+		background: rgba(255,255,255,0.03);
+		border-radius: 18px;
+		box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+	}
+
+	.empty-hero {
+		padding: 28px;
+		background:
+			radial-gradient(circle at top left, rgba(91,181,166,0.12), transparent 32%),
+			radial-gradient(circle at right, rgba(155,107,205,0.12), transparent 28%),
+			linear-gradient(145deg, rgba(13,21,32,0.96), rgba(17,28,42,0.92));
+	}
+
+	.empty-eyebrow,
+	.empty-card span,
+	.empty-panel-title {
+		margin: 0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: #8fa3b0;
+	}
+
+	.empty-hero h1 {
+		margin: 10px 0 0;
+		max-width: 12ch;
+		font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
+		font-size: clamp(38px, 6vw, 64px);
+		line-height: 0.94;
+		color: #eef5f8;
+	}
+
+	.empty-copy,
+	.empty-card small,
+	.empty-panel p {
+		color: #aec0cb;
+		line-height: 1.6;
+	}
+
+	.empty-copy {
+		max-width: 64ch;
+		margin: 16px 0 0;
+		font-size: 15px;
+	}
+
+	.empty-grid,
+	.empty-actions {
+		display: grid;
+		gap: 14px;
+	}
+
+	.empty-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.empty-card,
+	.empty-panel {
+		padding: 18px;
+	}
+
+	.empty-card strong {
+		display: block;
+		margin-top: 10px;
+		font-size: 36px;
+		color: #eef5f8;
+	}
+
+	.empty-card.accent {
+		background: linear-gradient(145deg, rgba(91,181,166,0.12), rgba(155,107,205,0.12));
+	}
+
+	.empty-actions {
+		grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+	}
+
+	.empty-panel pre {
+		margin: 14px 0 0;
+		padding: 14px;
+		border-radius: 14px;
+		background: rgba(6, 11, 18, 0.72);
+		border: 1px solid rgba(255,255,255,0.06);
+		overflow-x: auto;
+		white-space: pre-wrap;
+		color: #dce9f0;
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		line-height: 1.6;
+	}
+
+	.empty-panel code {
+		font-family: 'DM Mono', monospace;
+		color: #dce9f0;
+	}
+
+	@media (max-width: 900px) {
+		.empty-grid,
+		.empty-actions {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	/* Readiness hero */
