@@ -6,7 +6,7 @@ from fastapi import HTTPException
 import app.routers.experiments as experiments_mod
 import app.routers.profile as profile_mod
 import app.routers.routines as routines_mod
-from app.models import Experiment, UserProfile
+from app.models import Experiment, ScheduleWindow, UserProfile
 
 
 class TestProfileRoutes:
@@ -19,6 +19,29 @@ class TestProfileRoutes:
 
 
 class TestRoutineRoutes:
+    def test_get_routine_schedule_window_returns_projection(self, monkeypatch):
+        monkeypatch.setattr(
+            routines_mod,
+            "get_schedule_window",
+            lambda start_date: ScheduleWindow(start_date=start_date, end_date="2026-03-15"),
+        )
+
+        window = routines_mod.get_routine_schedule_window("2026-03-02")
+
+        assert window.start_date == "2026-03-02"
+        assert window.end_date == "2026-03-15"
+
+    def test_get_routine_schedule_window_returns_400_for_invalid_date(self, monkeypatch):
+        error = ValueError("Invalid isoformat string: 'bad-date'")
+        monkeypatch.setattr(
+            routines_mod,
+            "get_schedule_window",
+            lambda *_args: (_ for _ in ()).throw(error),
+        )
+
+        with pytest.raises(HTTPException, match="Invalid isoformat string: 'bad-date'"):
+            routines_mod.get_routine_schedule_window("bad-date")
+
     def test_get_routine_detail_returns_404_when_service_raises_lookup_error(self, monkeypatch):
         monkeypatch.setattr(
             routines_mod,

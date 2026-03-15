@@ -580,6 +580,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/routines/schedule-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Routine Schedule Window
+         * @description Return resolved dated occurrences for the next 14 days.
+         */
+        get: operations["get_routine_schedule_window_api_routines_schedule_window_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/routines/{routine_id}": {
         parameters: {
             query?: never;
@@ -2399,6 +2419,79 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ScheduleDay */
+        ScheduleDay: {
+            /** Date */
+            date: string;
+            /**
+             * Weekday
+             * @enum {string}
+             */
+            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /**
+             * Occurrences
+             * @default []
+             */
+            occurrences: components["schemas"]["ScheduleOccurrence"][];
+        };
+        /** ScheduleOccurrence */
+        ScheduleOccurrence: {
+            /** Occurrence Key */
+            occurrence_key: string;
+            /** Date */
+            date: string;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Routine Id */
+            routine_id: string;
+            /** Routine Name */
+            routine_name: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /** Card Template Id */
+            card_template_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Renderer
+             * @enum {string}
+             */
+            renderer: "timer_session" | "checklist_block" | "exercise_block";
+            /** Summary */
+            summary: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Payload Json
+             * @default {}
+             */
+            payload_json: {
+                [key: string]: unknown;
+            };
+        };
+        /** ScheduleWindow */
+        ScheduleWindow: {
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /**
+             * Days
+             * @default []
+             */
+            days: components["schemas"]["ScheduleDay"][];
+        };
         /** SkinTempOvernight */
         SkinTempOvernight: {
             /** Date */
@@ -3867,6 +3960,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoutineSchedulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_routine_schedule_window_api_routines_schedule_window_get: {
+        parameters: {
+            query: {
+                /** @description Start date for the 14-day schedule window */
+                start_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleWindow"];
                 };
             };
             /** @description Validation Error */

@@ -61,6 +61,9 @@ export type RoutineAssignment = Schemas['RoutineAssignment'];
 export type RoutineAssignmentsResponse = Schemas['RoutineAssignmentsResponse'];
 export type RoutineSchedule = Schemas['RoutineSchedule'];
 export type RoutineSchedulesResponse = Schemas['RoutineSchedulesResponse'];
+export type ScheduleDay = Schemas['ScheduleDay'];
+export type ScheduleOccurrence = Schemas['ScheduleOccurrence'];
+export type ScheduleWindow = Schemas['ScheduleWindow'];
 export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
 export type TodayResponse = Schemas['TodayResponse'];
 export type Program = Schemas['Program'];
@@ -111,6 +114,10 @@ export const api = {
 	updateProfile: (profile: UserProfileInput) => sendJson<UserProfile>('/api/profile', 'PUT', profile),
 	getRoutines: (status?: string) =>
 		fetchJson<RoutineSchedulesResponse>(`/api/routines${status ? `?status=${status}` : ''}`),
+	getRoutineScheduleWindow: (startDate: string) =>
+		fetchJson<ScheduleWindow>(
+			`/api/routines/schedule-window?start_date=${encodeURIComponent(startDate)}`
+		),
 	getRoutineAssignments: (routineId: string) =>
 		fetchJson<RoutineAssignmentsResponse>(`/api/routines/${routineId}/assignments`),
 	getCards: (status?: string) =>

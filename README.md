@@ -153,7 +153,7 @@ If a draft asks for an unsupported renderer family, validation rejects it and re
   Render the active day from compiled live schedules and log what actually happened. If the schedule is wrong, fix it through routines creation instead of patching Today.
 
 - `/routines/schedule`  
-  Inspect the live compiled schedule and the live card library that Today is allowed to render.
+  Review a 14-day resolved schedule through two lenses: by day for agenda review, and by routine for upcoming dated occurrences.
 
 - `/routines/creation`  
   Review assistant-authored drafts, create new manual drafts, validate them, and activate them into the live runtime.
@@ -261,6 +261,9 @@ Key API groups exposed by the backend:
 
 - `GET /api/routines/{routine_id}/assignments`  
   Fetch recurring card placements for a live routine.
+
+- `GET /api/routines/schedule-window?start_date=YYYY-MM-DD`  
+  Resolve the next 14 days of dated schedule occurrences for schedule review.
 
 - `GET /api/today?date=YYYY-MM-DD`  
   Build the day view from active routines, assignments, persisted date-specific overrides, and logs.
