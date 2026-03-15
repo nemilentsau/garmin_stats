@@ -6,6 +6,7 @@
 	import type { ChartConfiguration } from 'chart.js';
 	import { fmt, fmtSigned } from '$lib/format';
 	import { COLORS } from '$lib/colors';
+	import { calendarDayDiff, localDateIso, parseIsoDate } from '$lib/date';
 
 	let data: DailyAggregates | null = $state(null);
 	let overview: DashboardOverview | null = $state(null);
@@ -14,6 +15,12 @@
 	let error: string | null = $state(null);
 	let sparkCanvases: Record<string, HTMLCanvasElement> = $state({});
 	let sparkCharts: Record<string, Chart<'line'>> = {};
+
+	const bannerDateFormat = new Intl.DateTimeFormat('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	});
 
 	async function fetchData() {
 		error = null;
@@ -43,14 +50,18 @@
 
 	function emptyStateDetail(status: IngestStatus): string {
 		return status.days_on_disk === 0
-			? 'Create the data directory, drop in Garmin export archives named like YYYY-MM-DD.zip, and the watcher will ingest them as they arrive.'
+			? 'Create the Garmin data directory at data/garmin_health_stats, drop in Garmin export archives named like YYYY-MM-DD.zip, and the watcher will ingest them as they arrive.'
 			: 'The backend is up and the watcher is waiting. Trigger one ingest to build the first dashboard snapshot, then the app will populate automatically.';
 	}
 
 	function emptyStateCommand(status: IngestStatus): string {
 		return status.days_on_disk === 0
-			? 'mkdir -p data\n# copy Garmin export archives like data/2026-03-15.zip\ncurl -X POST http://127.0.0.1:8000/api/ingest'
+			? 'mkdir -p data/garmin_health_stats\n# copy Garmin export archives like data/garmin_health_stats/2026-03-15.zip\ncurl -X POST http://127.0.0.1:8000/api/ingest'
 			: 'curl -X POST http://127.0.0.1:8000/api/ingest';
+	}
+
+	function formatBannerDate(date: string): string {
+		return bannerDateFormat.format(parseIsoDate(date));
 	}
 
 	onMount(() => {
@@ -59,6 +70,32 @@
 			setError: (message) => { error = message; },
 			setLoading: () => {}
 		});
+	});
+
+	const latestIngestedDate = $derived.by(() => data?.days[data.days.length - 1] ?? null);
+
+	const freshnessNotice = $derived.by(() => {
+		if (!ingestStatus || ingestStatus.days_in_db === 0 || !latestIngestedDate) return null;
+
+		const today = localDateIso();
+		const daysBehind = calendarDayDiff(latestIngestedDate, today);
+		if (daysBehind > 0) {
+			return {
+				tone: 'stale' as const,
+				headline: `Garmin data is ${daysBehind} ${daysBehind === 1 ? 'day' : 'days'} behind the laptop date.`,
+				detail: `Data is current through ${formatBannerDate(latestIngestedDate)}. This laptop is on ${formatBannerDate(today)}. Update exports before trusting current-day planning or experiment context.`
+			};
+		}
+
+		if (ingestStatus.needs_ingest) {
+			return {
+				tone: 'pending' as const,
+				headline: 'New Garmin files are waiting to ingest.',
+				detail: `Current data is through ${formatBannerDate(latestIngestedDate)}. Run an ingest after the next device sync if you need the newest recovery signals.`
+			};
+		}
+
+		return null;
 	});
 
 	function readinessColor(score: number | null | undefined): string {
@@ -359,7 +396,7 @@
 			</div>
 			<div class="empty-panel">
 				<p class="empty-panel-title">Expected layout</p>
-				<p><code>data/YYYY-MM-DD.zip</code> archives are the input. The backend recreates <code>data/</code> automatically if it is missing.</p>
+				<p><code>data/garmin_health_stats/YYYY-MM-DD.zip</code> archives are the input. The backend recreates <code>data/garmin_health_stats</code> automatically if it is missing.</p>
 				<p>Once the first ingest completes, this dashboard will swap from the empty state to live recovery cards without a restart.</p>
 			</div>
 		</div>
@@ -370,6 +407,16 @@
 		<span>Mapping terrain data...</span>
 	</div>
 {:else}
+	{#if freshnessNotice}
+		<section class:pending={freshnessNotice.tone === 'pending'} class="freshness-banner">
+			<div class="freshness-label">Data freshness</div>
+			<div class="freshness-copy">
+				<strong>{freshnessNotice.headline}</strong>
+				<p>{freshnessNotice.detail}</p>
+			</div>
+		</section>
+	{/if}
+
 	<!-- Readiness hero -->
 	{#if overview?.readiness}
 		{@const r = overview.readiness}
@@ -519,6 +566,61 @@
 		padding: 20px 0 12px;
 	}
 
+	.freshness-banner {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 14px;
+		align-items: start;
+		margin: 0 0 18px;
+		padding: 14px 16px;
+		border: 1px solid rgba(228,164,72,0.28);
+		border-radius: 16px;
+		background:
+			linear-gradient(135deg, rgba(228,164,72,0.16), rgba(228,93,74,0.08)),
+			rgba(255,255,255,0.03);
+		box-shadow: 0 18px 36px rgba(0,0,0,0.16);
+	}
+
+	.freshness-banner.pending {
+		border-color: rgba(91,181,166,0.24);
+		background:
+			linear-gradient(135deg, rgba(91,181,166,0.14), rgba(74,144,217,0.08)),
+			rgba(255,255,255,0.03);
+	}
+
+	.freshness-label {
+		padding: 5px 8px;
+		border-radius: 999px;
+		background: rgba(255,255,255,0.08);
+		color: #f3c47b;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+	}
+
+	.freshness-banner.pending .freshness-label {
+		color: #7fc9bc;
+	}
+
+	.freshness-copy {
+		display: grid;
+		gap: 4px;
+	}
+
+	.freshness-copy strong {
+		font-size: 14px;
+		line-height: 1.35;
+		color: #f4f7f9;
+	}
+
+	.freshness-copy p {
+		margin: 0;
+		font-size: 13px;
+		line-height: 1.55;
+		color: #b7c5cf;
+	}
+
 	.empty-hero,
 	.empty-card,
 	.empty-panel {
@@ -619,6 +721,7 @@
 	}
 
 	@media (max-width: 900px) {
+		.freshness-banner,
 		.empty-grid,
 		.empty-actions {
 			grid-template-columns: 1fr;

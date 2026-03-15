@@ -36,7 +36,10 @@ except ImportError:
     pass
 
 TOKEN_DIR = os.environ.get("GARMINTOKENS", "~/.garminconnect")
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(os.environ.get(
+    "GARMIN_DATA_DIR",
+    str(Path(__file__).resolve().parent.parent / "data" / "garmin_health_stats"),
+))
 DOWNLOAD_SERVICE_URL = "/download-service/files"
 
 

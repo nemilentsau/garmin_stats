@@ -8,6 +8,7 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { localDateIso } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 
 	type LensMode = 'day' | 'routine';
@@ -56,8 +57,8 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let lens = $state<LensMode>('day');
-	let windowStartDate = $state(new Date().toISOString().slice(0, 10));
-	let selectedDate = $state(new Date().toISOString().slice(0, 10));
+	let windowStartDate = $state(localDateIso());
+	let selectedDate = $state(localDateIso());
 	let selectedRoutineId = $state<string | null>(null);
 	let scheduleWindow = $state<ScheduleWindow | null>(null);
 	let routines = $state<RoutineSchedule[]>([]);
@@ -141,7 +142,7 @@
 	function addDays(date: string, delta: number): string {
 		const next = toDate(date);
 		next.setDate(next.getDate() + delta);
-		return next.toISOString().slice(0, 10);
+		return localDateIso(next);
 	}
 
 	function formatLongDate(date: string): string {
@@ -208,13 +209,9 @@
 
 	async function loadPage(): Promise<void> {
 		error = null;
-		const [daysResponse, routinesResponse] = await Promise.all([
-			api.getDays(),
-			api.getRoutines('active')
-		]);
+		const routinesResponse = await api.getRoutines('active');
 		routines = routinesResponse.routines;
-		const initialDate =
-			daysResponse.days[daysResponse.days.length - 1] ?? new Date().toISOString().slice(0, 10);
+		const initialDate = localDateIso();
 		selectedDate = initialDate;
 		windowStartDate = initialDate;
 		await loadScheduleWindow(initialDate);

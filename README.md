@@ -118,7 +118,7 @@ So the app is already useful as a **personal recovery assistant**. It is not yet
 
 ## How It Works
 
-1. Garmin exports are dropped into `data/YYYY-MM-DD/*.fit`.
+1. Garmin exports are dropped into `data/garmin_health_stats/YYYY-MM-DD/*.fit`.
 2. The backend ingests those files and stores normalized data in local SQLite.
 3. Backend services compute daily metrics, insights, and assistant context snapshots.
 4. The assistant runtime sends a curated snapshot to Claude Code and streams the reply back.
@@ -202,17 +202,19 @@ Frontend runs on `http://localhost:5173`.
 
 ```text
 data/
-  2026-01-14/
-    *_WELLNESS.fit
-    *_SKIN_TEMP.fit
-    *_METRICS.fit
-  2026-01-15/
-    ...
+  garmin_health_stats/
+    2026-01-14/
+      *_WELLNESS.fit
+      *_SKIN_TEMP.fit
+      *_METRICS.fit
+    2026-01-15/
+      ...
 ```
 
 The ingest pipeline handles the Garmin export layout and zip extraction.
-Top-level `YYYY-MM-DD.zip` archives already present in `data/` are reconciled on startup and before manual re-ingest, so days copied while the backend was down are picked up on the next boot.
-If `data/` is missing, the backend recreates it on startup and the dashboard stays in an empty upload/ingest state until the first files arrive.
+Top-level `YYYY-MM-DD.zip` archives already present in `data/garmin_health_stats/` are reconciled on startup and before manual re-ingest, so days copied while the backend was down are picked up on the next boot.
+Calendar-driven pages use the laptop's local date as "today". The dashboard overview surfaces a stale-data warning if Garmin data lags behind that date instead of silently treating the latest ingested day as current.
+If `data/garmin_health_stats/` is missing, the backend recreates it on startup and the dashboard stays in an empty upload/ingest state until the first files arrive.
 
 ## Repo Map
 
@@ -294,7 +296,7 @@ That is the bar: not just charts, not just AI chat, but a system that combines b
 
 ## Privacy
 
-The `data/` directory is gitignored. Raw personal health data should never be committed.
+The `data/` directory is gitignored. Raw personal health data under `data/garmin_health_stats/` should never be committed.
 
 Assistant features send a curated context bundle to Claude. The product direction is to keep that bundle as small, explicit, and auditable as possible.
 

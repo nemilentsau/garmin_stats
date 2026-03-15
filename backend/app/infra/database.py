@@ -65,7 +65,7 @@ DB_PATH = Path(os.environ.get(
 
 DATA_DIR = Path(os.environ.get(
     "GARMIN_DATA_DIR",
-    str(_PROJECT_ROOT / "data"),
+    str(_PROJECT_ROOT / "data" / "garmin_health_stats"),
 ))
 
 _ingest_lock = threading.Lock()

@@ -5,9 +5,9 @@
 - `backend/tests/` — pytest tests for stats and database
 - `frontend/` — SvelteKit 2 + Svelte 5 + TailwindCSS 4 + TypeScript 5
 - `storage/` — SQLite database (gitignored, auto-created on startup)
-- `data/` — Garmin health data. Raw input is `.zip` archives, unpacked form is `YYYY-MM-DD/*.fit`
-  - **Input format:** `data/YYYY-MM-DD.zip` — flat zip containing `.fit` files (no subdirectory inside)
-  - **Unpacked format:** `data/YYYY-MM-DD/*.fit` — created by extracting the zip into a same-named directory
+- `data/garmin_health_stats/` — Garmin health data. Raw input is `.zip` archives, unpacked form is `YYYY-MM-DD/*.fit`
+  - **Input format:** `data/garmin_health_stats/YYYY-MM-DD.zip` — flat zip containing `.fit` files (no subdirectory inside)
+  - **Unpacked format:** `data/garmin_health_stats/YYYY-MM-DD/*.fit` — created by extracting the zip into a same-named directory
   - The watcher/ingest pipeline must handle `.zip` → extract → parse `.fit` files
 - FIT file naming: `{timestamp}_{TYPE}.fit` (e.g., `399375386464_SKIN_TEMP.fit`)
 
@@ -58,7 +58,7 @@ Utilities (`utils/`):
 
 ### SQLite details
 - DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`
-- Configurable via env vars: `GARMIN_DB_PATH`, `GARMIN_DATA_DIR` (defaults: `storage/garmin_stats.db`, `data/`)
+- Configurable via env vars: `GARMIN_DB_PATH`, `GARMIN_DATA_DIR` (defaults: `storage/garmin_stats.db`, `data/garmin_health_stats/`)
 - JSON blobs per day (Pydantic `.model_dump_json()` / `.model_validate_json()` round-trips)
 - Tables: `wellness_data`, `sleep_data`, `hrv_data`, `skin_temp_data`, `daily_metrics`, `ingest_meta`
 - `ingest_meta` also stores `period_summary` (precomputed period-level stats from raw data)

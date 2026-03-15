@@ -1,3 +1,5 @@
+import { localDateIso } from './date';
+
 /** Shared trend-range utilities for time-window filtering across all tabs. */
 
 export type TrendRange = '1M' | '3M' | '6M' | 'All';
@@ -17,7 +19,7 @@ export function trendCutoff(range: TrendRange): string | null {
 	const d = new Date();
 	const months = range === '1M' ? 1 : range === '3M' ? 3 : 6;
 	d.setMonth(d.getMonth() - months);
-	return d.toISOString().slice(0, 10);
+	return localDateIso(d);
 }
 
 /** Filter items with a `date` field by the given trend range. */

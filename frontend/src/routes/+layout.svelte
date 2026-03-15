@@ -233,4 +233,17 @@
 		margin: 0 auto;
 		padding: 24px 28px;
 	}
+
+	@media (max-width: 720px) {
+		.topo-header {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 14px;
+		}
+
+		.header-nav,
+		.subtab-bar {
+			flex-wrap: wrap;
+		}
+	}
 </style>

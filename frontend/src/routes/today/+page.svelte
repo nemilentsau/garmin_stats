@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 
 	import { api, type TodayResponse } from '$lib/api';
+	import { localDateIso } from '$lib/date';
 	import { COLORS, withAlpha } from '$lib/colors';
 	import { errorMessage } from '$lib/utils';
 
@@ -38,7 +39,7 @@
 	let loading = $state(true);
 	let saving = $state(false);
 	let error: string | null = $state(null);
-	let selectedDate = $state(new Date().toISOString().slice(0, 10));
+	let selectedDate = $state(localDateIso());
 	let today = $state<TodayResponse | null>(null);
 
 	let expandedOccurrenceKey = $state<string | null>(null);
@@ -74,9 +75,7 @@
 
 	async function initializePage() {
 		error = null;
-		const daysResponse = await api.getDays();
-		selectedDate =
-			daysResponse.days[daysResponse.days.length - 1] ?? new Date().toISOString().slice(0, 10);
+		selectedDate = localDateIso();
 		todayRequestToken += 1;
 		await loadToday(selectedDate, todayRequestToken);
 	}

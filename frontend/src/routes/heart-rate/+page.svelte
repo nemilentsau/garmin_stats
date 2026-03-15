@@ -19,6 +19,7 @@
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import { localDateIso } from '$lib/date';
 	import { type TrendRange, trendCutoff, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 
@@ -534,7 +535,7 @@
 		const boxes = cutoff
 			? analysis.weekly_boxplots.filter((b) => {
 				const d = isoWeekToMonday(b.iso_week);
-				return d ? d.toISOString().slice(0, 10) >= cutoff : true;
+				return d ? localDateIso(d) >= cutoff : true;
 			})
 			: analysis.weekly_boxplots;
 		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));

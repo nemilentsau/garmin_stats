@@ -1,5 +1,5 @@
 """
-File watcher — monitors data/ for new .zip archives, extracts them, and triggers auto-ingest.
+File watcher — monitors the configured Garmin data directory for new archives.
 """
 
 import asyncio
@@ -41,7 +41,7 @@ def extract_existing_archives(data_dir: Path) -> int:
 
 
 def _extract_zip(zip_path: Path) -> Path:
-    """Extract a YYYY-MM-DD.zip into a data/YYYY-MM-DD/ directory. Returns the output dir."""
+    """Extract a YYYY-MM-DD.zip into a sibling YYYY-MM-DD/ directory. Returns the output dir."""
     date_str = zip_path.stem  # e.g. "2026-01-15"
     out_dir = zip_path.parent / date_str
     out_dir.mkdir(exist_ok=True)
