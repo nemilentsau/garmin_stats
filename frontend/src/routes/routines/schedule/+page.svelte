@@ -82,6 +82,7 @@
 	const routineOccurrenceCount = $derived.by(() => {
 		const counts: Record<string, number> = {};
 		for (const occurrence of allOccurrences) {
+			if (!occurrence.routine_id) continue;
 			counts[occurrence.routine_id] = (counts[occurrence.routine_id] ?? 0) + 1;
 		}
 		return counts;
@@ -93,7 +94,7 @@
 		() => scheduleWindow?.days.filter((day) => day.occurrences.length > 1).length ?? 0
 	);
 	const routinesRepresented = $derived.by(
-		() => new Set(allOccurrences.map((occurrence) => occurrence.routine_id)).size
+		() => routines.filter((routine) => (routineOccurrenceCount[routine.id] ?? 0) > 0).length
 	);
 	const selectedDay = $derived.by(() => {
 		if (!scheduleWindow) return null;
@@ -208,6 +209,21 @@
 	function openRoutineLens(routineId: string): void {
 		selectedRoutineId = routineId;
 		lens = 'routine';
+	}
+
+	function focusOccurrenceRoutine(occurrence: ScheduleOccurrence): void {
+		if (!occurrence.routine_id) return;
+		openRoutineLens(occurrence.routine_id);
+	}
+
+	function occurrenceRoutineLabel(occurrence: ScheduleOccurrence): string {
+		return occurrence.routine_name ?? 'Schedule override';
+	}
+
+	function occurrenceExceptionLabel(occurrence: ScheduleOccurrence): string | null {
+		if (occurrence.schedule_override_action === 'add') return 'One-off add';
+		if (occurrence.schedule_override_action === 'replace') return 'Replaces base card';
+		return null;
 	}
 
 	async function loadScheduleWindow(startDate: string): Promise<void> {
@@ -393,12 +409,13 @@
 												<button
 													type="button"
 													class="occurrence-card"
-													onclick={() => openRoutineLens(occurrence.routine_id)}
+													class:orphan={!occurrence.routine_id}
+													onclick={() => focusOccurrenceRoutine(occurrence)}
 												>
 													<div class="occurrence-topline">
 														<div>
 															<p>{occurrence.name}</p>
-															<strong>{occurrence.routine_name}</strong>
+															<strong>{occurrenceRoutineLabel(occurrence)}</strong>
 														</div>
 														<span>{rendererLabel(occurrence.renderer)}</span>
 													</div>
@@ -410,6 +427,9 @@
 													<div class="occurrence-meta">
 														<small>{SLOT_LABELS[occurrence.slot]} slot</small>
 														<small>Position {occurrence.position}</small>
+														{#if occurrenceExceptionLabel(occurrence)}
+															<small>{occurrenceExceptionLabel(occurrence)}</small>
+														{/if}
 													</div>
 												</button>
 											{/each}
@@ -501,6 +521,9 @@
 												<small>{SLOT_LABELS[occurrence.slot]}</small>
 												<small>{rendererLabel(occurrence.renderer)}</small>
 												<small>Position {occurrence.position}</small>
+												{#if occurrenceExceptionLabel(occurrence)}
+													<small>{occurrenceExceptionLabel(occurrence)}</small>
+												{/if}
 											</div>
 
 											{#if occurrence.summary}
@@ -932,6 +955,14 @@
 		background: rgba(255, 255, 255, 0.03);
 		text-align: left;
 		cursor: pointer;
+	}
+
+	.occurrence-card.orphan {
+		cursor: default;
+	}
+
+	.occurrence-card.orphan:hover {
+		transform: none;
 	}
 
 	.occurrence-topline {

@@ -750,6 +750,7 @@ ArtifactBundleItemKind = Literal["card_template", "routine_spec"]
 ArtifactBundleDeltaAction = Literal["create", "update"]
 CardLogStatus = Literal["pending", "completed", "partial", "skipped"]
 CardOverrideAction = Literal["add", "hide", "replace"]
+ScheduleOccurrenceSourceKind = Literal["scheduled", "override_add", "override_replace"]
 
 
 class TimerSegmentSpec(_StrictDefaultsRequired):
@@ -994,7 +995,9 @@ class TodayCard(_DefaultsRequired):
     date: str
     slot: SlotName
     position: int = 0
-    source_kind: str
+    source_kind: ScheduleOccurrenceSourceKind
+    schedule_override_action: CardOverrideAction | None = None
+    target_occurrence_key: str | None = None
     routine_id: str | None = None
     routine_name: str | None = None
     assignment_id: str | None = None
@@ -1026,9 +1029,12 @@ class ScheduleOccurrence(_DefaultsRequired):
     date: str
     slot: SlotName
     position: int = 0
-    routine_id: str
-    routine_name: str
-    assignment_id: str
+    source_kind: ScheduleOccurrenceSourceKind = "scheduled"
+    schedule_override_action: CardOverrideAction | None = None
+    target_occurrence_key: str | None = None
+    routine_id: str | None = None
+    routine_name: str | None = None
+    assignment_id: str | None = None
     card_template_id: str
     name: str
     renderer: RendererFamily

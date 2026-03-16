@@ -4,7 +4,8 @@ from importlib import import_module
 
 import pytest
 
-from app.models import AssistantArtifactCreateRequest
+from app.infra.database import save_card_override
+from app.models import AssistantArtifactCreateRequest, CardOverride
 from app.services.training_specs import activate_assistant_artifact, create_assistant_artifact
 
 
@@ -358,6 +359,95 @@ class TestScheduleProjection:
             ("morning", 30, "card-morning-late"),
             ("evening", 5, "card-evening"),
         ]
+
+    def test_persisted_add_and_hide_overrides_are_applied_to_schedule_window(self):
+        _activate_card("card-main", name="Main Card", slot_default="evening")
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+        _activate_routine(
+            "routine-main",
+            assignments=[
+                _assignment(
+                    "assignment-main",
+                    card_template_id="card-main",
+                    weekday="monday",
+                    slot="evening",
+                    position=20,
+                )
+            ],
+        )
+
+        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-extra",
+                date="2026-03-02",
+                action="add",
+                card_template_id="card-extra",
+                slot="morning",
+                position=5,
+            )
+        )
+        save_card_override(
+            CardOverride(
+                id="override-hide-main",
+                date="2026-03-02",
+                action="hide",
+                target_occurrence_key=scheduled_occurrence.occurrence_key,
+            )
+        )
+
+        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
+
+        assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
+        assert day_occurrences[0].occurrence_key == "override:add:override-extra:2026-03-02"
+        assert day_occurrences[0].source_kind == "override_add"
+        assert day_occurrences[0].schedule_override_action == "add"
+        assert day_occurrences[0].routine_id is None
+
+    def test_persisted_replace_override_is_applied_to_schedule_window(self):
+        _activate_card("card-main", name="Main Card", slot_default="evening")
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+        _activate_routine(
+            "routine-main",
+            assignments=[
+                _assignment(
+                    "assignment-main",
+                    card_template_id="card-main",
+                    weekday="monday",
+                    slot="evening",
+                    position=20,
+                )
+            ],
+        )
+
+        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-replace-main",
+                date="2026-03-02",
+                action="replace",
+                target_occurrence_key=scheduled_occurrence.occurrence_key,
+                card_template_id="card-extra",
+            )
+        )
+
+        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
+
+        assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
+        assert (
+            day_occurrences[0].occurrence_key
+            == "override:replace:override-replace-main:2026-03-02"
+        )
+        assert day_occurrences[0].source_kind == "override_replace"
+        assert day_occurrences[0].schedule_override_action == "replace"
+        assert day_occurrences[0].routine_id == "routine-main"
+        assert day_occurrences[0].target_occurrence_key == scheduled_occurrence.occurrence_key
 
     def test_invalid_start_date_raises_value_error(self):
         with pytest.raises(ValueError):

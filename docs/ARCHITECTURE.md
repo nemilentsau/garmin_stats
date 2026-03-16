@@ -54,7 +54,7 @@ Utilities (`utils/`):
   - `heart_rate.py` — day-level HR insights: recovery, zone durations, quality metrics
   - `heart_rate_analysis.py` — period-level HR analysis: circadian profile, sleeping HR trend (cross-date sleep-stage correlation), resting HR trend (7-day MA), HR distribution (5-bpm histogram), weekly boxplots (5-number summary by ISO week)
   - `hrv.py` — day-level HRV insights: recovery, intraday segments (day/night split), status mix, trend bands
-  - `schedule_projection.py` — backend-owned recurrence resolution for 14-day dated schedule windows shared by Schedule and Today
+  - `schedule_projection.py` — backend-owned recurrence resolution for 14-day dated schedule windows shared by Schedule and Today, including persisted schedule overrides still read for backward compatibility
 
 ### SQLite details
 - DB at `storage/garmin_stats.db` (gitignored), WAL mode, plain `sqlite3`

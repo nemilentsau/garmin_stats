@@ -6,13 +6,10 @@ from collections import defaultdict
 
 from ..infra.database import (
     load_card_logs,
-    load_card_overrides,
-    load_card_template,
     save_card_log,
 )
 from ..models import (
     CardLog,
-    CardOverride,
     ScheduleOccurrence,
     TodayCard,
     TodayCardLogUpdateRequest,
@@ -31,17 +28,15 @@ _SLOT_LABELS = {
 }
 
 
-def _override_occurrence_key(override: CardOverride, date: str) -> str:
-    return f"override:{override.action}:{override.id}:{date}"
-
-
 def _today_card_from_occurrence(occurrence: ScheduleOccurrence) -> TodayCard:
     return TodayCard(
         occurrence_key=occurrence.occurrence_key,
         date=occurrence.date,
         slot=occurrence.slot,
         position=occurrence.position,
-        source_kind="scheduled",
+        source_kind=occurrence.source_kind,
+        schedule_override_action=occurrence.schedule_override_action,
+        target_occurrence_key=occurrence.target_occurrence_key,
         routine_id=occurrence.routine_id,
         routine_name=occurrence.routine_name,
         assignment_id=occurrence.assignment_id,
@@ -61,70 +56,6 @@ def _build_scheduled_cards(date: str) -> dict[str, TodayCard]:
         occurrence.occurrence_key: _today_card_from_occurrence(occurrence)
         for occurrence in occurrences
     }
-
-
-def _card_for_override(
-    *,
-    override: CardOverride,
-    date: str,
-    target_card: TodayCard | None,
-) -> TodayCard | None:
-    if override.card_template_id is None:
-        return None
-    template = load_card_template(override.card_template_id)
-    if template is None:
-        return None
-    slot = override.slot or (target_card.slot if target_card is not None else template.slot_default)
-    position = (
-        override.position
-        if override.position is not None
-        else (target_card.position if target_card is not None else 999)
-    )
-    return TodayCard(
-        occurrence_key=_override_occurrence_key(override, date),
-        date=date,
-        slot=slot,
-        position=position,
-        source_kind=f"override_{override.action}",
-        routine_id=target_card.routine_id if target_card is not None else None,
-        routine_name=target_card.routine_name if target_card is not None else None,
-        assignment_id=target_card.assignment_id if target_card is not None else None,
-        card_template_id=template.id,
-        name=template.name,
-        renderer=template.renderer,
-        summary=template.summary,
-        tags=template.tags,
-        payload_json=dict(template.payload_json),
-    )
-
-
-def _apply_overrides(cards: dict[str, TodayCard], date: str) -> dict[str, TodayCard]:
-    updated = dict(cards)
-    for override in load_card_overrides(date):
-        target_card = (
-            updated.get(override.target_occurrence_key or "")
-            if override.target_occurrence_key is not None
-            else None
-        )
-        if override.action == "hide":
-            if override.target_occurrence_key is not None:
-                updated.pop(override.target_occurrence_key, None)
-            continue
-        if override.action == "replace":
-            if override.target_occurrence_key is not None:
-                updated.pop(override.target_occurrence_key, None)
-            override_card = _card_for_override(
-                override=override,
-                date=date,
-                target_card=target_card,
-            )
-            if override_card is not None:
-                updated[override_card.occurrence_key] = override_card
-            continue
-        override_card = _card_for_override(override=override, date=date, target_card=None)
-        if override_card is not None:
-            updated[override_card.occurrence_key] = override_card
-    return updated
 
 
 def _apply_logs(cards: dict[str, TodayCard], date: str) -> None:
@@ -168,7 +99,6 @@ def _build_stats(slots: list[TodaySlot]) -> TodayStats:
 
 def get_today(date: str) -> TodayResponse:
     cards = _build_scheduled_cards(date)
-    cards = _apply_overrides(cards, date)
     _apply_logs(cards, date)
     slots = _group_slots(cards)
     return TodayResponse(date=date, stats=_build_stats(slots), slots=slots)

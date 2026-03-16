@@ -132,7 +132,7 @@ The routine system now has two layers:
 1. **Assistant artifacts**  
    Structured drafts authored by the health assistant. Supported kinds are `card_template`, `routine_spec`, and `capability_request`.
 2. **Live runtime records**  
-   Activated cards, routines, assignments, and logs that drive `/today`. Persisted date-specific overrides are still read for backward compatibility, but Today no longer authors them.
+   Activated cards, routines, assignments, and logs that drive `/today` and `/routines/schedule`. Persisted date-specific overrides are still read for backward compatibility by the shared schedule projection, but Today no longer authors them.
 
 The app enforces a strict renderer boundary. v1 supports:
 
@@ -289,7 +289,7 @@ Key API groups exposed by the backend:
   Fetch recurring card placements for a live routine.
 
 - `GET /api/routines/schedule-window?start_date=YYYY-MM-DD`  
-  Resolve the next 14 days of dated schedule occurrences for schedule review.
+  Resolve the next 14 days of dated schedule occurrences for schedule review, including persisted date-specific overrides still kept for backward compatibility.
 
 - `GET /api/today?date=YYYY-MM-DD`  
   Build the day view from active routines, assignments, persisted date-specific overrides, and logs.

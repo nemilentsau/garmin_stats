@@ -787,3 +787,48 @@ class TestTodayProjection:
         assert all_cards[0].occurrence_key == "override:replace:override-replace-main:2026-03-02"
         assert all_cards[0].slot == scheduled_card.slot
         assert all_cards[0].routine_id == scheduled_card.routine_id
+
+    def test_today_matches_schedule_projection_when_overrides_exist(self):
+        card_artifact = create_assistant_artifact(_card_request("card-main"))
+        extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))
+        routine_artifact = create_assistant_artifact(
+            _routine_request("routine-main", card_id="card-main")
+        )
+
+        activate_assistant_artifact(card_artifact.id)
+        activate_assistant_artifact(extra_card_artifact.id)
+        activate_assistant_artifact(routine_artifact.id)
+
+        today_before = get_today("2026-03-02")
+        scheduled_card = today_before.slots[2].cards[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-extra",
+                date="2026-03-02",
+                action="add",
+                card_template_id="card-extra",
+                slot="morning",
+                position=5,
+            )
+        )
+        save_card_override(
+            CardOverride(
+                id="override-hide-main",
+                date="2026-03-02",
+                action="hide",
+                target_occurrence_key=scheduled_card.occurrence_key,
+            )
+        )
+
+        schedule_day = get_schedule_window("2026-03-02", duration_days=1).days[0]
+        today_after = get_today("2026-03-02")
+
+        schedule_keys = [occurrence.occurrence_key for occurrence in schedule_day.occurrences]
+        today_keys = [
+            card.occurrence_key
+            for slot in today_after.slots
+            for card in slot.cards
+        ]
+
+        assert schedule_keys == today_keys

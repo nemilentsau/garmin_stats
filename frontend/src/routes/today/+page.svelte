@@ -226,6 +226,12 @@
 		const seconds = totalSeconds % 60;
 		return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 	}
+
+	function cardContextLabel(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): string | null {
+		if (card.routine_name) return card.routine_name;
+		if (card.schedule_override_action) return 'Schedule override';
+		return null;
+	}
 </script>
 
 <svelte:head>
@@ -319,8 +325,8 @@
 										<div class="card-meta">
 											<div class="status-dot" class:done={card.status === 'completed'} class:partial={card.status === 'partial'} class:skipped={card.status === 'skipped'}></div>
 											<span>{card.renderer.replace('_', ' ')}</span>
-											{#if card.routine_name}
-												<small>{card.routine_name}</small>
+											{#if cardContextLabel(card)}
+												<small>{cardContextLabel(card)}</small>
 											{/if}
 										</div>
 										<span class="status-pill" class:done={card.status === 'completed'} class:partial={card.status === 'partial'} class:skipped={card.status === 'skipped'}>

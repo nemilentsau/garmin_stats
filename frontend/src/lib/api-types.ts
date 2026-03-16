@@ -2687,12 +2687,22 @@ export interface components {
              * @default 0
              */
             position: number;
+            /**
+             * Source Kind
+             * @default scheduled
+             * @enum {string}
+             */
+            source_kind: "scheduled" | "override_add" | "override_replace";
+            /** Schedule Override Action */
+            schedule_override_action: ("add" | "hide" | "replace") | null;
+            /** Target Occurrence Key */
+            target_occurrence_key: string | null;
             /** Routine Id */
-            routine_id: string;
+            routine_id: string | null;
             /** Routine Name */
-            routine_name: string;
+            routine_name: string | null;
             /** Assignment Id */
-            assignment_id: string;
+            assignment_id: string | null;
             /** Card Template Id */
             card_template_id: string;
             /** Name */
@@ -2944,8 +2954,15 @@ export interface components {
              * @default 0
              */
             position: number;
-            /** Source Kind */
-            source_kind: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "scheduled" | "override_add" | "override_replace";
+            /** Schedule Override Action */
+            schedule_override_action: ("add" | "hide" | "replace") | null;
+            /** Target Occurrence Key */
+            target_occurrence_key: string | null;
             /** Routine Id */
             routine_id: string | null;
             /** Routine Name */
