@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
+
 from app.infra.database import (
     load_assistant_artifacts,
     load_card_template,
@@ -126,6 +128,71 @@ def _load_meditation_bundle() -> ArtifactBundleSpec:
 def _load_core_bundle() -> ArtifactBundleSpec:
     return ArtifactBundleSpec.model_validate(
         json.loads(_CORE_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _starter_bundle_spec() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        {
+            "id": "proper-routine-bundle",
+            "name": "Proper Routine Bundle",
+            "schema_version": 1,
+            "description": (
+                "Starter proper-spec bundle. Replace with LLM-authored JSON before "
+                "previewing."
+            ),
+            "card_templates": [
+                {
+                    "id": "starter-breathing-card",
+                    "name": "Starter Breathing Card",
+                    "renderer": "timer_session",
+                    "slot_default": "morning",
+                    "summary": "Reusable breathwork card template.",
+                    "tags": ["starter", "breathwork"],
+                    "payload": {
+                        "duration_minutes": 8,
+                        "pattern": "5s in / 5s out",
+                        "instructions": "Keep the breath smooth and relaxed.",
+                        "rating_prompts": [
+                            {
+                                "key": "attention_stability",
+                                "label": "Attention stability",
+                                "scale_min": 1,
+                                "scale_max": 5,
+                            }
+                        ],
+                    },
+                }
+            ],
+            "routine_specs": [
+                {
+                    "id": "starter-routine",
+                    "name": "Starter Routine",
+                    "cadence": "weekly",
+                    "start_date": "2026-03-16",
+                    "status": "active",
+                    "tags": ["starter"],
+                    "notes": "One routine schedule driven by the proper bundle format.",
+                    "assignments": [
+                        {
+                            "id": "starter-routine-mon-morning",
+                            "card_template_id": "starter-breathing-card",
+                            "cycle_week": 1,
+                            "weekday": "monday",
+                            "slot": "morning",
+                            "position": 10,
+                            "prescription_override_json": {
+                                "duration_minutes": 10,
+                                "instructions": (
+                                    "Assignment overrides change dose without creating a new "
+                                    "card template."
+                                ),
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
     )
 
 
@@ -268,6 +335,30 @@ class TestArtifactBundles:
         assert {artifact.kind for artifact in artifacts} == {"routine_spec", "card_template"}
         assert load_card_templates() == []
         assert load_routine_schedules() == []
+
+    def test_preview_bundle_rejects_reserved_placeholder_content(self):
+        preview = preview_artifact_bundle(_starter_bundle_spec())
+
+        assert preview.valid is False
+        assert load_assistant_artifacts() == []
+        assert {issue.path for issue in preview.issues} >= {
+            "bundle.id",
+            "bundle.name",
+            "bundle.description",
+            "card_templates.0.id",
+            "card_templates.0.tags",
+            "routine_specs.0.id",
+            "routine_specs.0.tags",
+            "routine_specs.0.assignments.0.id",
+        }
+        assert any("placeholder/demo content" in issue.message for issue in preview.issues)
+
+    def test_import_bundle_rejects_reserved_placeholder_content(self):
+        with pytest.raises(
+            ValueError,
+            match="Bundle has blocking issues; preview and resolve them before import",
+        ):
+            import_artifact_bundle(_starter_bundle_spec())
 
     def test_activating_older_bundle_routine_uses_matching_card_revision(self):
         first_bundle = _bundle_spec(

@@ -19,56 +19,13 @@
 		activated: COLORS.bodyBattery,
 		draft: COLORS.stress
 	};
+	const bundlePlaceholder = `Paste a real bundle JSON document here.
 
-	const bundleStarter: ArtifactBundleSpec = {
-		id: 'proper-routine-bundle',
-		name: 'Proper Routine Bundle',
-		schema_version: 1,
-		description: 'Starter proper-spec bundle. Replace with LLM-authored JSON before previewing.',
-		card_templates: [
-			{
-				id: 'starter-breathing-card',
-				name: 'Starter Breathing Card',
-				renderer: 'timer_session',
-				slot_default: 'morning',
-				summary: 'Reusable breathwork card template.',
-				tags: ['starter', 'breathwork'],
-				payload: {
-					duration_minutes: 8,
-					pattern: '5s in / 5s out',
-					instructions: 'Keep the breath smooth and relaxed.',
-					rating_prompts: [
-						{ key: 'attention_stability', label: 'Attention stability', scale_min: 1, scale_max: 5 }
-					]
-				}
-			}
-		],
-		routine_specs: [
-			{
-				id: 'starter-routine',
-				name: 'Starter Routine',
-				cadence: 'weekly',
-				start_date: '2026-03-16',
-				status: 'active',
-				tags: ['starter'],
-				notes: 'One routine schedule driven by the proper bundle format.',
-				assignments: [
-					{
-						id: 'starter-routine-mon-morning',
-						card_template_id: 'starter-breathing-card',
-						cycle_week: 1,
-						weekday: 'monday',
-						slot: 'morning',
-						position: 10,
-						prescription_override_json: {
-							duration_minutes: 10,
-							instructions: 'Assignment overrides change dose without creating a new card template.'
-						}
-					}
-				]
-			}
-		]
-	};
+Reference examples:
+- docs/two_week_meditation_bundle.json
+- docs/two_week_core_bundle.json
+
+Starter/demo placeholders are rejected by preview and import.`;
 
 	let loading = $state(true);
 	let saving = $state(false);
@@ -78,7 +35,7 @@
 	let cards = $state<CardTemplate[]>([]);
 	let routines = $state<RoutineSchedule[]>([]);
 
-	let bundleJson = $state(JSON.stringify(bundleStarter, null, 2));
+	let bundleJson = $state('');
 	let preview = $state<ArtifactBundlePreviewResponse | null>(null);
 	let importResult = $state<ArtifactBundleImportResponse | null>(null);
 	let lastPreviewSource = $state('');
@@ -167,8 +124,8 @@
 			});
 	});
 
-	function resetBundle() {
-		bundleJson = JSON.stringify(bundleStarter, null, 2);
+	function clearBundle() {
+		bundleJson = '';
 		preview = null;
 		importResult = null;
 		lastPreviewSource = '';
@@ -245,11 +202,11 @@
 		>
 			<div class="hero-copy">
 				<p class="eyebrow">Routine Creation</p>
-				<h1>Paste one proper bundle, preview it cleanly, then import drafts for activation.</h1>
+				<h1>Paste one real bundle, preview it cleanly, then import drafts for activation.</h1>
 				<p>
 					The app accepts deterministic bundle JSON only. Markdown conversion happens outside the
-					runtime. Nothing touches the live schedule until preview passes, drafts import, and you
-					explicitly activate them.
+					runtime. Placeholder/demo bundles are blocked. Nothing touches the live schedule until
+					preview passes, drafts import, and you explicitly activate them.
 				</p>
 			</div>
 			<div class="summary-row">
@@ -284,20 +241,20 @@
 				</div>
 
 				<div class="format-banner">
-					<strong>Proper spec only.</strong>
+					<strong>Real spec only.</strong>
 					<span>
 						Bundle JSON must contain deterministic `card_templates` and `routine_specs`. Resolve any
-						state-dependent branching before preview.
+						state-dependent branching before preview. Starter/demo placeholders are rejected.
 					</span>
 				</div>
 
 				<label class="wide-field">
 					<span>Bundle JSON</span>
-					<textarea bind:value={bundleJson} rows="28"></textarea>
+					<textarea bind:value={bundleJson} rows="28" placeholder={bundlePlaceholder}></textarea>
 				</label>
 
 				<div class="form-actions">
-					<button class="ghost-btn" onclick={resetBundle}>Reset starter</button>
+					<button class="ghost-btn" onclick={clearBundle}>Clear editor</button>
 					<div class="action-row">
 						<button class="ghost-btn" onclick={previewBundle} disabled={saving}>Preview bundle</button>
 						<button class="primary-action" onclick={importBundle} disabled={!canImport}>
@@ -331,7 +288,7 @@
 
 				{#if preview === null}
 					<div class="empty-card">
-						No preview yet. Paste a proper bundle and run preview to inspect deltas without writing any
+						No preview yet. Paste a real bundle and run preview to inspect deltas without writing any
 						drafts.
 					</div>
 				{:else}
@@ -380,7 +337,7 @@
 
 			{#if inboxArtifacts.length === 0}
 				<div class="empty-card">
-					No draft artifacts are waiting. Preview and import a proper bundle first, then activate the
+					No draft artifacts are waiting. Preview and import a real bundle first, then activate the
 					validated artifacts you want to ship live.
 				</div>
 			{:else}

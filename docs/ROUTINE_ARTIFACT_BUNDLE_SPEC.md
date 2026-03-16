@@ -218,6 +218,7 @@ If that normalization cannot be done faithfully, stop and return an issue instea
 Preview should reject:
 
 - malformed bundle shape
+- placeholder/demo starter content
 - duplicate card ids inside the bundle
 - duplicate routine ids inside the bundle
 - duplicate assignment ids inside the bundle

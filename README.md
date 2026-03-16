@@ -164,7 +164,7 @@ The app accepts deterministic bundle JSON only. It does not convert arbitrary ma
   Review a 14-day resolved schedule through two lenses: by day for agenda review, and by routine for upcoming dated occurrences.
 
 - `/routines/creation`  
-  Paste proper bundle JSON, preview create/update deltas without DB writes, import inert drafts, and activate them into the live runtime.
+  Paste real bundle JSON, preview create/update deltas without DB writes, import inert drafts, and activate them into the live runtime. Placeholder/demo starter content is rejected at preview/import time.
 
 - `/routines`  
   Redirects to `/routines/schedule`.
@@ -195,6 +195,20 @@ uv run uvicorn app.main:app --reload
 ```
 
 Backend runs on `http://localhost:8000`.
+
+### Manual smoke runs
+
+Automated backend tests already isolate the database with pytest fixtures.
+
+Ad hoc `python`, `uv run python`, and `uvicorn` commands do not. If you run them without overrides, they will use the default local runtime DB at `storage/garmin_stats.db`.
+
+For any manual repro or smoke run, use the isolated helper:
+
+```bash
+bash scripts/run_isolated_backend.sh
+```
+
+That script creates a temporary workspace, exports `GARMIN_DB_PATH` and `GARMIN_DATA_DIR`, prints the temp paths on startup, and removes them on exit. Set `KEEP_TMP=1` if you want to inspect the temp DB after the run.
 
 ### Frontend
 

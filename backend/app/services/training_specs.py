@@ -80,6 +80,14 @@ _BUNDLE_ARTIFACT_ID_RE = re.compile(
     r"(?P<kind>card_template|routine_spec):"
     r"(?P<target_id>.+):r(?P<revision>\d+)$"
 )
+_RESERVED_PLACEHOLDER_BUNDLE_IDS = frozenset({"proper-routine-bundle"})
+_RESERVED_PLACEHOLDER_BUNDLE_NAMES = frozenset({"Proper Routine Bundle"})
+_RESERVED_PLACEHOLDER_ID_PREFIXES = ("starter-",)
+_RESERVED_PLACEHOLDER_TAGS = frozenset({"starter"})
+_RESERVED_PLACEHOLDER_PHRASES = (
+    "replace with llm-authored json",
+    "starter proper-spec bundle",
+)
 
 
 def _now_iso() -> str:
@@ -359,6 +367,129 @@ def _existing_assignment_routine_ids() -> dict[str, set[str]]:
     return routine_ids_by_assignment_id
 
 
+def _starts_with_reserved_placeholder_prefix(value: str) -> bool:
+    return any(value.startswith(prefix) for prefix in _RESERVED_PLACEHOLDER_ID_PREFIXES)
+
+
+def _contains_reserved_placeholder_phrase(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.casefold()
+    return any(phrase in normalized for phrase in _RESERVED_PLACEHOLDER_PHRASES)
+
+
+def _validate_placeholder_bundle_content(bundle: ArtifactBundleSpec) -> list[ArtifactBundleIssue]:
+    issues: list[ArtifactBundleIssue] = []
+
+    if bundle.id in _RESERVED_PLACEHOLDER_BUNDLE_IDS:
+        issues.append(
+            ArtifactBundleIssue(
+                path="bundle.id",
+                message=(
+                    f"Bundle id '{bundle.id}' is reserved for placeholder/demo content and "
+                    "cannot be imported"
+                ),
+            )
+        )
+    if bundle.name in _RESERVED_PLACEHOLDER_BUNDLE_NAMES:
+        issues.append(
+            ArtifactBundleIssue(
+                path="bundle.name",
+                message=(
+                    f"Bundle name '{bundle.name}' is reserved for placeholder/demo content "
+                    "and cannot be imported"
+                ),
+            )
+        )
+    if _contains_reserved_placeholder_phrase(bundle.description):
+        issues.append(
+            ArtifactBundleIssue(
+                path="bundle.description",
+                message=(
+                    "Bundle description still contains placeholder authoring instructions; "
+                    "paste a real bundle before preview/import"
+                ),
+            )
+        )
+
+    for index, card in enumerate(bundle.card_templates):
+        if _starts_with_reserved_placeholder_prefix(card.id):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"card_templates.{index}.id",
+                    message=(
+                        f"card_template id '{card.id}' is reserved for placeholder/demo "
+                        "content and cannot be imported"
+                    ),
+                )
+            )
+        if _contains_reserved_placeholder_phrase(card.summary):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"card_templates.{index}.summary",
+                    message=(
+                        "card_template summary still contains placeholder authoring "
+                        "instructions; replace it with real bundle metadata"
+                    ),
+                )
+            )
+        if reserved_tags := sorted(set(card.tags) & _RESERVED_PLACEHOLDER_TAGS):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"card_templates.{index}.tags",
+                    message=(
+                        f"Reserved placeholder/demo tag(s) {', '.join(reserved_tags)} found; "
+                        "remove them before import"
+                    ),
+                )
+            )
+
+    for index, routine in enumerate(bundle.routine_specs):
+        if _starts_with_reserved_placeholder_prefix(routine.id):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"routine_specs.{index}.id",
+                    message=(
+                        f"routine_spec id '{routine.id}' is reserved for placeholder/demo "
+                        "content and cannot be imported"
+                    ),
+                )
+            )
+        if _contains_reserved_placeholder_phrase(routine.notes):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"routine_specs.{index}.notes",
+                    message=(
+                        "routine_spec notes still contain placeholder authoring instructions; "
+                        "replace them with real bundle metadata"
+                    ),
+                )
+            )
+        if reserved_tags := sorted(set(routine.tags) & _RESERVED_PLACEHOLDER_TAGS):
+            issues.append(
+                ArtifactBundleIssue(
+                    path=f"routine_specs.{index}.tags",
+                    message=(
+                        f"Reserved placeholder/demo tag(s) {', '.join(reserved_tags)} found; "
+                        "remove them before import"
+                    ),
+                )
+            )
+        for assignment_index, assignment in enumerate(routine.assignments):
+            if _starts_with_reserved_placeholder_prefix(assignment.id):
+                issues.append(
+                    ArtifactBundleIssue(
+                        path=f"routine_specs.{index}.assignments.{assignment_index}.id",
+                        message=(
+                            f"Assignment id '{assignment.id}' is reserved for placeholder/demo "
+                            "content and cannot be imported"
+                        ),
+                    )
+                )
+
+    return issues
+
+
 def _build_bundle_plan(
     bundle: ArtifactBundleSpec,
 ) -> tuple[list[ArtifactBundleIssue], list[_PreparedBundleArtifact]]:
@@ -373,6 +504,8 @@ def _build_bundle_plan(
             )
         )
         return issues, prepared
+
+    issues.extend(_validate_placeholder_bundle_content(bundle))
 
     card_ids_seen: set[str] = set()
     routine_ids_seen: set[str] = set()
