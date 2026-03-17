@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -49,6 +48,7 @@ from ..models import (
     RoutineSpec,
     TimerSessionPayloadSpec,
 )
+from ..utils.timeutil import now_iso
 
 _PAYLOAD_MODELS = {
     "timer_session": TimerSessionPayloadSpec,
@@ -88,10 +88,6 @@ _RESERVED_PLACEHOLDER_PHRASES = (
     "replace with llm-authored json",
     "starter proper-spec bundle",
 )
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 def _format_validation_errors(exc: ValidationError) -> list[str]:
@@ -189,7 +185,7 @@ def _system_capability_request(
     requested_renderer: str,
     source_artifact: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
-    now = _now_iso()
+    now = now_iso()
     artifact = AssistantArtifact(
         id=f"capreq-{uuid4().hex}",
         kind="capability_request",
@@ -214,7 +210,7 @@ def _system_capability_request(
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:
-    now = _now_iso()
+    now = now_iso()
     errors: list[str] = []
     requested_renderer: str | None = None
 
@@ -646,7 +642,7 @@ def import_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundleImportRe
     if issues:
         raise ValueError("Bundle has blocking issues; preview and resolve them before import")
 
-    now = _now_iso()
+    now = now_iso()
     artifacts = [
         AssistantArtifact(
             id=item.artifact_id,
@@ -822,7 +818,7 @@ def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
     else:
         raise ValueError("Capability requests cannot be activated")
 
-    updated = artifact.model_copy(update={"status": "activated", "updated_at": _now_iso()})
+    updated = artifact.model_copy(update={"status": "activated", "updated_at": now_iso()})
     save_assistant_artifact(updated)
     return updated
 

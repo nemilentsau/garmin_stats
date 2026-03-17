@@ -1,7 +1,5 @@
 """Program spec import and management service."""
 
-from datetime import UTC, datetime
-
 from ..infra.database import (
     delete_experiment,
     delete_routine,
@@ -21,10 +19,7 @@ from ..models import (
     ProgramVersionsResponse,
     Routine,
 )
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
+from ..utils.timeutil import now_iso
 
 
 def _protocol_to_routine(program_id: str, protocol: dict) -> Routine:
@@ -116,7 +111,7 @@ def import_program(spec: dict) -> Program:
     program_info = spec["program"]
     program_id: str = program_info["id"]
     version: int = program_info["version"]
-    now = _now_iso()
+    now = now_iso()
 
     existing = load_program(program_id)
     existing_routine_ids, existing_experiment_ids = (
@@ -182,7 +177,7 @@ def retire_program(program_id: str) -> Program:
     """Set a program's status to retired."""
     program = get_program(program_id)
     program.status = "retired"
-    program.retired_at = _now_iso()
+    program.retired_at = now_iso()
     save_program(program)
     return program
 

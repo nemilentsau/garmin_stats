@@ -1,6 +1,5 @@
 """Context snapshot builder for assistant runs."""
 
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from ..infra.database import (
@@ -13,6 +12,7 @@ from ..infra.database import (
     save_context_snapshot,
 )
 from ..models import ContextSnapshot, DailyMetric
+from ..utils.timeutil import now_iso
 from .dashboard import load_dashboard_overview
 
 
@@ -64,7 +64,7 @@ def build_context_snapshot(window_days: int = 14) -> ContextSnapshot:
         id=f"snapshot-{uuid4().hex}",
         date_window_start=recent_metrics[0].date if recent_metrics else None,
         date_window_end=latest_date,
-        created_at=datetime.now(UTC).isoformat(),
+        created_at=now_iso(),
         snapshot_json={
             "profile": profile.model_dump() if profile is not None else None,
             "overview": overview.model_dump() if overview is not None else None,

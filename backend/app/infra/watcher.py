@@ -26,10 +26,10 @@ def _zip_filter(change: Change, path: str) -> bool:
 
 def _ensure_data_dir(data_dir: Path) -> None:
     """Create the watched data directory if it is missing."""
-    if data_dir.exists():
-        return
+    created = not data_dir.exists()
     data_dir.mkdir(parents=True, exist_ok=True)
-    log.info("Created missing data directory at %s", data_dir)
+    if created:
+        log.info("Created missing data directory at %s", data_dir)
 
 
 def extract_existing_archives(data_dir: Path) -> int:

@@ -17,9 +17,8 @@ from ..models import (
     TodaySlot,
     TodayStats,
 )
-from .schedule_projection import get_schedule_window
+from .schedule_projection import _SLOT_ORDER, get_schedule_window
 
-_SLOT_ORDER = ("morning", "midday", "evening", "anytime")
 _SLOT_LABELS = {
     "morning": "Morning",
     "midday": "Midday",
@@ -29,24 +28,7 @@ _SLOT_LABELS = {
 
 
 def _today_card_from_occurrence(occurrence: ScheduleOccurrence) -> TodayCard:
-    return TodayCard(
-        occurrence_key=occurrence.occurrence_key,
-        date=occurrence.date,
-        slot=occurrence.slot,
-        position=occurrence.position,
-        source_kind=occurrence.source_kind,
-        schedule_override_action=occurrence.schedule_override_action,
-        target_occurrence_key=occurrence.target_occurrence_key,
-        routine_id=occurrence.routine_id,
-        routine_name=occurrence.routine_name,
-        assignment_id=occurrence.assignment_id,
-        card_template_id=occurrence.card_template_id,
-        name=occurrence.name,
-        renderer=occurrence.renderer,
-        summary=occurrence.summary,
-        tags=occurrence.tags,
-        payload_json=occurrence.payload_json,
-    )
+    return TodayCard(**occurrence.model_dump())
 
 
 def _build_scheduled_cards(date: str) -> dict[str, TodayCard]:

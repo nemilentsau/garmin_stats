@@ -130,11 +130,7 @@ export const api = {
 		fetchJson<CardTemplatesResponse>(`/api/cards${status ? `?status=${status}` : ''}`),
 	getToday: (date: string) => fetchJson<TodayResponse>(`/api/today?date=${date}`),
 	updateTodayCard: (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) =>
-		fetchJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		}),
+		sendJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, 'PUT', payload),
 	getCheckins: (date?: string) =>
 		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),
 	createCheckin: (checkin: DailyCheckInInput) =>

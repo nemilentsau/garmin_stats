@@ -52,6 +52,7 @@ from ..models import (
 )
 from ..parser import get_files_by_day, parse_all_days
 from ..stats import compute_daily_aggregates
+from ..utils.timeutil import now_iso
 from . import cache
 
 log = logging.getLogger(__name__)
@@ -255,10 +256,6 @@ def init_db() -> None:
         con.commit()
 
 
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
-
-
 def _save_json_record(
     table: str,
     record_id: str,
@@ -273,7 +270,7 @@ def _save_json_record(
         raise ValueError(f"Invalid table name: {table}")
 
     extra_columns = extra_columns or {}
-    updated_value = updated_at or _now_iso()
+    updated_value = updated_at or now_iso()
 
     with _connect() as con, con:
         existing_created_at: str | None = None
@@ -284,7 +281,7 @@ def _save_json_record(
             ).fetchone()
             existing_created_at = row["created_at"] if row is not None else None
 
-        created_value = created_at or existing_created_at or _now_iso()
+        created_value = created_at or existing_created_at or now_iso()
 
         columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
         placeholders = ", ".join("?" for _ in columns)
@@ -930,8 +927,8 @@ def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
                 (
                     artifact.id,
                     artifact.model_dump_json(),
-                    artifact.created_at or _now_iso(),
-                    artifact.updated_at or _now_iso(),
+                    artifact.created_at or now_iso(),
+                    artifact.updated_at or now_iso(),
                 ),
             )
 
@@ -1118,7 +1115,7 @@ def load_programs(status: str | None = None) -> list[Program]:
 
 
 def save_program_version(version: ProgramVersion) -> None:
-    now = _now_iso()
+    now = now_iso()
     data_json = version.model_dump_json()
     with _connect() as con, con:
         con.execute(

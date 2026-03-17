@@ -3,7 +3,6 @@
 import json
 from collections.abc import AsyncIterator
 from contextlib import suppress
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from ..infra.database import (
@@ -25,6 +24,7 @@ from ..models import (
     AssistantThreadCreateRequest,
     AssistantThreadsResponse,
 )
+from ..utils.timeutil import now_iso
 from .assistant_context import build_context_snapshot
 from .assistant_runtime import ClaudeCodeRuntime
 
@@ -46,7 +46,7 @@ def create_thread(request: AssistantThreadCreateRequest) -> AssistantThread:
         title=request.title,
         mode=request.mode,
         model=request.model,
-        created_at=datetime.now(UTC).isoformat(),
+        created_at=now_iso(),
     )
     save_assistant_thread(thread)
     return thread
@@ -80,7 +80,7 @@ async def stream_thread_reply(
     request: AssistantMessageCreateRequest,
 ) -> AsyncIterator[str]:
     thread = get_thread(thread_id)
-    now = datetime.now(UTC).isoformat()
+    now = now_iso()
     user_message = AssistantMessage(
         id=request.id,
         thread_id=thread_id,
@@ -140,7 +140,7 @@ async def stream_thread_reply(
                 thread_id=thread_id,
                 role="assistant",
                 content_markdown="".join(assistant_chunks).strip(),
-                created_at=datetime.now(UTC).isoformat(),
+                created_at=now_iso(),
             )
             save_assistant_message(assistant_message)
 
@@ -154,7 +154,7 @@ async def stream_thread_reply(
             save_assistant_run(run.model_copy(update={
                 "status": "completed",
                 "claude_session_id": session_id,
-                "finished_at": datetime.now(UTC).isoformat(),
+                "finished_at": now_iso(),
             }))
             await event_bus.broadcast(
                 "assistant_run_completed",
@@ -181,7 +181,7 @@ async def stream_thread_reply(
             save_assistant_run(run.model_copy(update={
                 "status": "failed",
                 "stderr_path": str(exc),
-                "finished_at": datetime.now(UTC).isoformat(),
+                "finished_at": now_iso(),
             }))
         with suppress(Exception):
             await event_bus.broadcast(
