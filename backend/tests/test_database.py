@@ -38,6 +38,7 @@ from app.models import (
     RoutineSchedule,
     UserProfile,
 )
+from app.utils.timeutil import now_iso
 
 # ---------------------------------------------------------------------------
 # init & schema
@@ -532,3 +533,108 @@ class TestDeleteStaleRows:
                     f"SELECT COUNT(*) AS cnt FROM {table}"
                 ).fetchone()["cnt"]
                 assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# Card override range query (Task 3)
+# ---------------------------------------------------------------------------
+
+class TestCardOverridesRange:
+    def test_range_query_matches_individual_date_queries(self):
+        dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
+        for i, date in enumerate(dates):
+            db.save_card_override(CardOverride(
+                id=f"override-{i}",
+                date=date,
+                action="hide",
+                target_occurrence_key=f"key-{i}",
+            ))
+
+        range_result = db.load_card_overrides_range("2026-03-02", "2026-03-04")
+        individual_results = []
+        for date in dates:
+            individual_results.extend(db.load_card_overrides(date=date))
+
+        assert [o.id for o in range_result] == [o.id for o in individual_results]
+
+
+# ---------------------------------------------------------------------------
+# Targeted artifact DB queries (Task 4)
+# ---------------------------------------------------------------------------
+
+class TestArtifactQueryFunctions:
+    def test_load_artifact_by_payload_id_finds_matching_artifact(self):
+        now = now_iso()
+        artifact = AssistantArtifact(
+            id="bundle:test-bundle:card_template:card-1:r1",
+            kind="card_template",
+            schema_version=1,
+            status="validated",
+            payload_json={"id": "card-1", "name": "Test"},
+            created_at=now,
+            updated_at=now,
+        )
+        db.save_assistant_artifact(artifact)
+
+        result = db.load_assistant_artifact_by_payload_id(
+            "card_template", "card-1", ("validated", "activated"),
+        )
+
+        assert result is not None
+        assert result.id == artifact.id
+
+    def test_load_max_artifact_revision_returns_highest(self):
+        now = now_iso()
+        prefix = "bundle:test:card_template:card-1:r"
+        for rev in [1, 2, 5]:
+            db.save_assistant_artifact(AssistantArtifact(
+                id=f"{prefix}{rev}",
+                kind="card_template",
+                schema_version=1,
+                status="validated",
+                payload_json={"id": "card-1"},
+                created_at=now,
+                updated_at=now,
+            ))
+
+        result = db.load_max_artifact_revision("card_template", prefix)
+
+        assert result == 5
+
+
+# ---------------------------------------------------------------------------
+# last_n query parameter (Task 5)
+# ---------------------------------------------------------------------------
+
+class TestLastNQuery:
+    def test_last_n_returns_correct_tail_in_ascending_order(self):
+        for i in range(10):
+            date = f"2026-03-{i + 1:02d}"
+            db.save_daily_checkin(DailyCheckIn(id=f"checkin-{i}", date=date))
+
+        result = db.load_daily_checkins(last_n=3)
+
+        assert len(result) == 3
+        assert result[0].date == "2026-03-08"
+        assert result[1].date == "2026-03-09"
+        assert result[2].date == "2026-03-10"
+
+
+# ---------------------------------------------------------------------------
+# Auto-total response model (Task 2)
+# ---------------------------------------------------------------------------
+
+class TestAutoTotal:
+    def test_auto_total_computed_from_items(self):
+        from app.models import GoalsResponse
+
+        response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")])
+
+        assert response.total == 1
+
+    def test_explicit_total_is_respected(self):
+        from app.models import GoalsResponse
+
+        response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")], total=42)
+
+        assert response.total == 42

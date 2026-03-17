@@ -162,7 +162,7 @@ def import_program(spec: dict) -> Program:
 def list_programs(status: str | None = None) -> ProgramsResponse:
     """Return all programs, optionally filtered by status."""
     programs = load_programs(status=status)
-    return ProgramsResponse(programs=programs, total=len(programs))
+    return ProgramsResponse(programs=programs)
 
 
 def get_program(program_id: str) -> Program:
@@ -196,4 +196,4 @@ def get_program_versions(program_id: str) -> ProgramVersionsResponse:
     # Ensure program exists
     get_program(program_id)
     versions = load_program_versions(program_id)
-    return ProgramVersionsResponse(versions=versions, total=len(versions))
+    return ProgramVersionsResponse(versions=versions)

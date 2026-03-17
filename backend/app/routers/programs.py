@@ -24,10 +24,7 @@ def get_programs(status: str | None = None):
 @router.get("/{program_id}", response_model=Program)
 def get_program_detail(program_id: str):
     """Return a single program with its full spec."""
-    try:
-        return get_program(program_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return get_program(program_id)
 
 
 @router.post("/import", response_model=Program)
@@ -47,25 +44,16 @@ def post_import_program(spec: dict):
 @router.put("/{program_id}/retire", response_model=Program)
 def put_retire_program(program_id: str):
     """Set a program's status to retired, preserving all data."""
-    try:
-        return retire_program(program_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return retire_program(program_id)
 
 
 @router.put("/{program_id}/activate", response_model=Program)
 def put_activate_program(program_id: str):
     """Reactivate a retired program."""
-    try:
-        return activate_program(program_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return activate_program(program_id)
 
 
 @router.get("/{program_id}/versions", response_model=ProgramVersionsResponse)
 def get_versions(program_id: str):
     """Return version history for a program."""
-    try:
-        return get_program_versions(program_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return get_program_versions(program_id)

@@ -69,12 +69,12 @@ class TestBuildContextSnapshot:
         monkeypatch.setattr(
             context_mod,
             "load_daily_checkins",
-            lambda: [DailyCheckIn(id="checkin-1", date="2026-03-10", energy=4)],
+            lambda **_kw: [DailyCheckIn(id="checkin-1", date="2026-03-10", energy=4)],
         )
         monkeypatch.setattr(
             context_mod,
             "load_notes",
-            lambda: [
+            lambda **_kw: [
                 Note(
                     id="note-1",
                     date="2026-03-10",
@@ -121,8 +121,8 @@ class TestBuildContextSnapshot:
         monkeypatch.setattr(context_mod, "load_user_profile", lambda: None)
         monkeypatch.setattr(context_mod, "load_routine_schedules", lambda status=None: [])
         monkeypatch.setattr(context_mod, "load_experiments", lambda: [])
-        monkeypatch.setattr(context_mod, "load_daily_checkins", lambda: [])
-        monkeypatch.setattr(context_mod, "load_notes", lambda: [])
+        monkeypatch.setattr(context_mod, "load_daily_checkins", lambda **_kw: [])
+        monkeypatch.setattr(context_mod, "load_notes", lambda **_kw: [])
         monkeypatch.setattr(
             context_mod,
             "load_dashboard_overview",

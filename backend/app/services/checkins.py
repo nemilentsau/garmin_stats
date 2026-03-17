@@ -7,7 +7,7 @@ from ..models import DailyCheckIn, DailyCheckInsResponse
 def list_checkins(date: str | None = None) -> DailyCheckInsResponse:
     """Return daily check-ins, optionally filtered by date."""
     checkins = load_daily_checkins(date=date)
-    return DailyCheckInsResponse(checkins=checkins, total=len(checkins))
+    return DailyCheckInsResponse(checkins=checkins)
 
 
 def create_checkin(checkin: DailyCheckIn) -> DailyCheckIn:

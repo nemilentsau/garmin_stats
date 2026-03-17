@@ -1,6 +1,7 @@
-"""Application-level middleware tests."""
+"""Application-level middleware and exception handler tests."""
 
 import asyncio
+import json
 
 from starlette.types import Message
 
@@ -10,7 +11,16 @@ from app.models import IngestResult, IngestStatus
 app = main_mod.app
 
 
-async def _response_headers(path: str) -> dict[str, str]:
+async def _asgi_request(
+    path: str,
+    *,
+    method: str = "GET",
+) -> tuple[int, dict[str, str], bytes]:
+    """Perform a raw ASGI request and return (status, headers, body)."""
+    if "?" in path:
+        path_part, qs = path.split("?", 1)
+    else:
+        path_part, qs = path, ""
     messages: list[Message] = []
     receive_calls = 0
 
@@ -29,11 +39,11 @@ async def _response_headers(path: str) -> dict[str, str]:
             "type": "http",
             "asgi": {"version": "3.0"},
             "http_version": "1.1",
-            "method": "GET",
+            "method": method,
             "scheme": "http",
-            "path": path,
-            "raw_path": path.encode(),
-            "query_string": b"",
+            "path": path_part,
+            "raw_path": path_part.encode(),
+            "query_string": qs.encode(),
             "root_path": "",
             "headers": [],
             "client": ("testclient", 50000),
@@ -44,10 +54,21 @@ async def _response_headers(path: str) -> dict[str, str]:
     )
 
     start = next(message for message in messages if message["type"] == "http.response.start")
-    return {
+    headers = {
         key.decode(): value.decode()
         for key, value in start["headers"]  # type: ignore[index]
     }
+    body_parts = [
+        message.get("body", b"")
+        for message in messages
+        if message["type"] == "http.response.body"
+    ]
+    return int(start["status"]), headers, b"".join(body_parts)  # type: ignore[arg-type]
+
+
+async def _response_headers(path: str) -> dict[str, str]:
+    _status, headers, _body = await _asgi_request(path)
+    return headers
 
 
 class TestCacheHeaders:
@@ -120,3 +141,29 @@ class TestStartupIngest:
         )
 
         main_mod._run_startup_ingest_if_needed()
+
+
+class TestExceptionHandlers:
+    def test_lookup_error_returns_404(self, monkeypatch):
+        monkeypatch.setattr(
+            "app.routers.dashboard.load_dashboard_overview",
+            lambda: (_ for _ in ()).throw(LookupError("No dashboard data")),
+        )
+
+        status, _headers, body = asyncio.run(_asgi_request("/api/dashboard"))
+
+        assert status == 404
+        assert json.loads(body)["detail"] == "No dashboard data"
+
+    def test_value_error_returns_400(self, monkeypatch):
+        monkeypatch.setattr(
+            "app.routers.routines.get_schedule_window",
+            lambda *_args: (_ for _ in ()).throw(ValueError("duration_days must be > 0")),
+        )
+
+        status, _headers, body = asyncio.run(
+            _asgi_request("/api/routines/schedule-window?start_date=2026-03-02")
+        )
+
+        assert status == 400
+        assert json.loads(body)["detail"] == "duration_days must be > 0"

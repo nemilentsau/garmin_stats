@@ -350,10 +350,30 @@ def _load_json_records[M](
     where_sql: str = "",
     params: tuple[object, ...] = (),
     order_by: str = "created_at, id",
+    last_n: int | None = None,
 ) -> list[M]:
-    """Load JSON-backed records with optional filtering."""
+    """Load JSON-backed records with optional filtering.
+
+    When *last_n* is set the query returns only the last N rows (by
+    *order_by*) while preserving ascending order in the result.
+    """
     if table not in _VALID_TABLES:
         raise ValueError(f"Invalid table name: {table}")
+
+    if last_n is not None and last_n > 0:
+        # Reverse each column in order_by for the inner DESC query.
+        desc_cols = ", ".join(f"{col.strip()} DESC" for col in order_by.split(","))
+        inner = f"SELECT * FROM {table}"  # noqa: S608
+        if where_sql:
+            inner += f" WHERE {where_sql}"  # noqa: S608
+        inner += f" ORDER BY {desc_cols} LIMIT ?"  # noqa: S608
+        query = (
+            f"SELECT data, created_at, updated_at FROM ({inner}) "  # noqa: S608
+            f"ORDER BY {order_by}"  # noqa: S608
+        )
+        with _connect() as con:
+            rows = con.execute(query, (*params, last_n)).fetchall()
+        return [_model_from_row(model, row) for row in rows]
 
     query = f"SELECT data, created_at, updated_at FROM {table}"  # noqa: S608
     if where_sql:
@@ -678,7 +698,11 @@ def save_daily_checkin(checkin: DailyCheckIn) -> None:
     )
 
 
-def load_daily_checkins(date: str | None = None) -> list[DailyCheckIn]:
+def load_daily_checkins(
+    date: str | None = None,
+    *,
+    last_n: int | None = None,
+) -> list[DailyCheckIn]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _load_json_records(
@@ -687,6 +711,7 @@ def load_daily_checkins(date: str | None = None) -> list[DailyCheckIn]:
         where_sql=where_sql,
         params=params,
         order_by="entry_date, id",
+        last_n=last_n,
     )
 
 
@@ -699,7 +724,11 @@ def save_note(note: Note) -> None:
     )
 
 
-def load_notes(date: str | None = None) -> list[Note]:
+def load_notes(
+    date: str | None = None,
+    *,
+    last_n: int | None = None,
+) -> list[Note]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _load_json_records(
@@ -708,6 +737,7 @@ def load_notes(date: str | None = None) -> list[Note]:
         where_sql=where_sql,
         params=params,
         order_by="entry_date, created_at, id",
+        last_n=last_n,
     )
 
 
@@ -959,6 +989,44 @@ def load_assistant_artifacts(
     )
 
 
+def load_assistant_artifact_by_payload_id(
+    kind: str,
+    payload_id: str,
+    statuses: tuple[str, ...],
+) -> AssistantArtifact | None:
+    """Find an artifact whose payload_json.id matches, filtered by kind+statuses."""
+    if not statuses:
+        return None
+    placeholders = ", ".join("?" for _ in statuses)
+    rows_query = (
+        "SELECT data, created_at, updated_at FROM assistant_artifacts "
+        f"WHERE json_extract(data, '$.kind') = ? "
+        f"AND json_extract(data, '$.payload_json.id') = ? "
+        f"AND json_extract(data, '$.status') IN ({placeholders}) "
+        "ORDER BY created_at DESC LIMIT 1"
+    )
+    with _connect() as con:
+        row = con.execute(rows_query, (kind, payload_id, *statuses)).fetchone()
+    if row is None:
+        return None
+    return _model_from_row(AssistantArtifact, row)
+
+
+def load_max_artifact_revision(kind: str, id_prefix: str) -> int:
+    """Return the highest revision number for artifacts matching a bundle id prefix."""
+    query = (
+        "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) AS max_rev "
+        "FROM assistant_artifacts "
+        "WHERE json_extract(data, '$.kind') = ? AND id LIKE ? || '%'"
+    )
+    prefix_len = len(id_prefix) + 1  # +1 for 1-based SUBSTR
+    with _connect() as con:
+        row = con.execute(query, (prefix_len, kind, id_prefix)).fetchone()
+    if row is None or row["max_rev"] is None:
+        return 0
+    return int(row["max_rev"])
+
+
 def save_card_template(card: CardTemplate) -> None:
     _save_json_record("card_templates", card.id, card.model_dump_json())
 
@@ -1083,6 +1151,20 @@ def load_card_overrides(date: str | None = None) -> list[CardOverride]:
         CardOverride,
         where_sql=where_sql,
         params=params,
+        order_by="override_date, created_at, id",
+    )
+
+
+def load_card_overrides_range(
+    start_date: str,
+    end_date: str,
+) -> list[CardOverride]:
+    """Load card overrides for a contiguous date range (inclusive)."""
+    return _load_json_records(
+        "card_overrides",
+        CardOverride,
+        where_sql="override_date >= ? AND override_date <= ?",
+        params=(start_date, end_date),
         order_by="override_date, created_at, id",
     )
 

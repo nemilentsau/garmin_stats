@@ -1,6 +1,6 @@
 """Experiment HTTP routes."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ..models import Experiment, ExperimentsResponse
 from ..services.experiments import (
@@ -22,10 +22,7 @@ def get_experiments():
 @router.get("/{experiment_id}", response_model=Experiment)
 def get_experiment_detail(experiment_id: str):
     """Return a single experiment."""
-    try:
-        return get_experiment(experiment_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return get_experiment(experiment_id)
 
 
 @router.post("", response_model=Experiment)
@@ -37,9 +34,4 @@ def post_experiment(experiment: Experiment):
 @router.put("/{experiment_id}", response_model=Experiment)
 def put_experiment(experiment_id: str, experiment: Experiment):
     """Replace an existing experiment."""
-    try:
-        return update_experiment(experiment_id, experiment)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+    return update_experiment(experiment_id, experiment)

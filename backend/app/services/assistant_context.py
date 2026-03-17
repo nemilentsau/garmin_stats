@@ -37,8 +37,8 @@ def build_context_snapshot(window_days: int = 14) -> ContextSnapshot:
     active_experiments = [
         experiment for experiment in load_experiments() if experiment.status in {"active", "draft"}
     ]
-    recent_checkins = load_daily_checkins()[-7:]
-    recent_notes = load_notes()[-10:]
+    recent_checkins = load_daily_checkins(last_n=7)
+    recent_notes = load_notes(last_n=10)
 
     try:
         overview = load_dashboard_overview()

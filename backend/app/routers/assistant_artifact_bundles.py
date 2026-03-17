@@ -1,6 +1,6 @@
 """Assistant artifact bundle HTTP routes."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ..models import (
     ArtifactBundleImportResponse,
@@ -21,7 +21,4 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
 @router.post("/import", response_model=ArtifactBundleImportResponse)
 def post_import_bundle(bundle: ArtifactBundleSpec):
     """Persist a validated structured artifact bundle as draft artifacts."""
-    try:
-        return import_artifact_bundle(bundle)
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+    return import_artifact_bundle(bundle)

@@ -3,7 +3,6 @@
 import asyncio
 
 import pytest
-from fastapi import HTTPException
 
 import app.routers.assistant as assistant_router_mod
 from app.models import (
@@ -29,14 +28,14 @@ class TestAssistantRoutes:
 
         assert response.total == 1
 
-    def test_get_thread_detail_returns_404_when_missing(self, monkeypatch):
+    def test_get_thread_detail_raises_lookup_error_when_missing(self, monkeypatch):
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
             lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
         )
 
-        with pytest.raises(HTTPException, match="Assistant thread missing"):
+        with pytest.raises(LookupError, match="Assistant thread missing"):
             assistant_router_mod.get_thread_detail("thread-1")
 
     def test_post_thread_creates_thread(self, monkeypatch):
@@ -72,14 +71,14 @@ class TestAssistantRoutes:
 
         assert response.media_type == "application/x-ndjson"
 
-    def test_post_thread_message_returns_404_when_thread_missing(self, monkeypatch):
+    def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
             lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
         )
 
-        with pytest.raises(HTTPException, match="Assistant thread missing"):
+        with pytest.raises(LookupError, match="Assistant thread missing"):
             asyncio.run(
                 assistant_router_mod.post_thread_message(
                     "thread-1",
@@ -87,12 +86,12 @@ class TestAssistantRoutes:
                 )
             )
 
-    def test_get_thread_messages_returns_404_when_missing(self, monkeypatch):
+    def test_get_thread_messages_raises_lookup_error_when_missing(self, monkeypatch):
         monkeypatch.setattr(
             assistant_router_mod,
             "list_messages",
             lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
         )
 
-        with pytest.raises(HTTPException, match="Assistant thread missing"):
+        with pytest.raises(LookupError, match="Assistant thread missing"):
             assistant_router_mod.get_thread_messages("thread-1")

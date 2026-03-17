@@ -12,7 +12,7 @@ from ..models import Experiment, ExperimentsResponse
 def list_experiments() -> ExperimentsResponse:
     """Return all experiments."""
     experiments = load_experiments()
-    return ExperimentsResponse(experiments=experiments, total=len(experiments))
+    return ExperimentsResponse(experiments=experiments)
 
 
 def get_experiment(experiment_id: str) -> Experiment:

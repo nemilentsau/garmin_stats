@@ -1,6 +1,6 @@
 """Assistant artifact HTTP routes."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ..models import AssistantArtifact, AssistantArtifactCreateRequest, AssistantArtifactsResponse
 from ..services.training_specs import (
@@ -22,10 +22,7 @@ def get_artifacts(kind: str | None = None, status: str | None = None):
 @router.get("/{artifact_id}", response_model=AssistantArtifact)
 def get_artifact_detail(artifact_id: str):
     """Return a single assistant artifact."""
-    try:
-        return get_assistant_artifact(artifact_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return get_assistant_artifact(artifact_id)
 
 
 @router.post("", response_model=AssistantArtifact)
@@ -37,9 +34,4 @@ def post_artifact(request: AssistantArtifactCreateRequest):
 @router.post("/{artifact_id}/activate", response_model=AssistantArtifact)
 def post_activate_artifact(artifact_id: str):
     """Compile a validated artifact into live routine/card data."""
-    try:
-        return activate_assistant_artifact(artifact_id)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
-    except ValueError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
+    return activate_assistant_artifact(artifact_id)

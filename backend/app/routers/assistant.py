@@ -1,6 +1,6 @@
 """Assistant HTTP routes."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from ..models import (
@@ -36,29 +36,19 @@ def post_thread(request: AssistantThreadCreateRequest):
 @router.get("/threads/{thread_id}", response_model=AssistantThread)
 def get_thread_detail(thread_id: str):
     """Return a single assistant thread."""
-    try:
-        return get_thread(thread_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return get_thread(thread_id)
 
 
 @router.get("/threads/{thread_id}/messages", response_model=AssistantMessagesResponse)
 def get_thread_messages(thread_id: str):
     """Return the messages for a thread."""
-    try:
-        return list_messages(thread_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return list_messages(thread_id)
 
 
 @router.post("/threads/{thread_id}/messages")
 async def post_thread_message(thread_id: str, request: AssistantMessageCreateRequest):
     """Stream an assistant reply as NDJSON."""
-    try:
-        get_thread(thread_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
+    get_thread(thread_id)
     return StreamingResponse(
         stream_thread_reply(thread_id, request),
         media_type="application/x-ndjson",

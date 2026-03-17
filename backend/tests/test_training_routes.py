@@ -4,7 +4,7 @@ import asyncio
 import json
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from starlette.types import Message
 
 import app.routers.assistant_artifact_bundles as artifact_bundles_mod
@@ -89,26 +89,26 @@ async def _artifact_bundle_status(path: str, body: dict[str, object]) -> int:
 
 
 class TestAssistantArtifactRoutes:
-    def test_activate_artifact_returns_400_when_service_rejects_activation(self, monkeypatch):
+    def test_activate_artifact_raises_value_error_when_rejected(self, monkeypatch):
         monkeypatch.setattr(
             artifacts_mod,
             "activate_assistant_artifact",
             lambda *_args: (_ for _ in ()).throw(ValueError("Artifact is not ready")),
         )
 
-        with pytest.raises(HTTPException, match="Artifact is not ready"):
+        with pytest.raises(ValueError, match="Artifact is not ready"):
             artifacts_mod.post_activate_artifact("artifact-1")
 
 
 class TestAssistantArtifactBundleRoutes:
-    def test_import_bundle_returns_400_when_service_rejects_it(self, monkeypatch):
+    def test_import_bundle_raises_value_error_when_service_rejects_it(self, monkeypatch):
         monkeypatch.setattr(
             artifact_bundles_mod,
             "import_artifact_bundle",
             lambda *_args: (_ for _ in ()).throw(ValueError("Bundle has blocking issues")),
         )
 
-        with pytest.raises(HTTPException, match="Bundle has blocking issues"):
+        with pytest.raises(ValueError, match="Bundle has blocking issues"):
             artifact_bundles_mod.post_import_bundle(
                 artifact_bundles_mod.ArtifactBundleSpec(
                     id="bundle",

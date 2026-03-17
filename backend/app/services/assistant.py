@@ -37,7 +37,7 @@ def list_threads() -> AssistantThreadsResponse:
         key=lambda thread: thread.last_message_at or thread.created_at or "",
         reverse=True,
     )
-    return AssistantThreadsResponse(threads=threads, total=len(threads))
+    return AssistantThreadsResponse(threads=threads)
 
 
 def create_thread(request: AssistantThreadCreateRequest) -> AssistantThread:
@@ -62,7 +62,7 @@ def get_thread(thread_id: str) -> AssistantThread:
 def list_messages(thread_id: str) -> AssistantMessagesResponse:
     get_thread(thread_id)
     messages = load_assistant_messages(thread_id)
-    return AssistantMessagesResponse(messages=messages, total=len(messages))
+    return AssistantMessagesResponse(messages=messages)
 
 
 def _update_thread(

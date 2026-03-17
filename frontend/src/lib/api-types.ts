@@ -1162,7 +1162,10 @@ export interface components {
              * @default []
              */
             artifacts: components["schemas"]["AssistantArtifact"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** AssistantMessage */
@@ -1171,8 +1174,11 @@ export interface components {
             id: string;
             /** Thread Id */
             thread_id: string;
-            /** Role */
-            role: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "system";
             /** Content Markdown */
             content_markdown: string;
             /**
@@ -1204,7 +1210,10 @@ export interface components {
              * @default []
              */
             messages: components["schemas"]["AssistantMessage"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** AssistantThread */
@@ -1230,8 +1239,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "archived";
             /** Last Message At */
             last_message_at: string | null;
             /** Created At */
@@ -1261,7 +1271,10 @@ export interface components {
              * @default []
              */
             threads: components["schemas"]["AssistantThread"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** BodyBatteryAnalysisResponse */
@@ -1342,8 +1355,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "retired" | "paused";
             /** Summary */
             summary: string | null;
             /**
@@ -1399,7 +1413,10 @@ export interface components {
              * @default []
              */
             cards: components["schemas"]["CardTemplate"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** CircadianHRPoint */
@@ -1544,7 +1561,10 @@ export interface components {
              * @default []
              */
             checkins: components["schemas"]["DailyCheckIn-Output"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** DailyHeartRateStats */
@@ -1687,7 +1707,10 @@ export interface components {
         DaysResponse: {
             /** Days */
             days: string[];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** Experiment */
@@ -1699,8 +1722,9 @@ export interface components {
             /**
              * Status
              * @default draft
+             * @enum {string}
              */
-            status: string;
+            status: "draft" | "active" | "completed";
             /** Start Date */
             start_date?: string | null;
             /** End Date */
@@ -1741,8 +1765,9 @@ export interface components {
             /**
              * Status
              * @default draft
+             * @enum {string}
              */
-            status: string;
+            status: "draft" | "active" | "completed";
             /** Start Date */
             start_date: string | null;
             /** End Date */
@@ -1781,7 +1806,10 @@ export interface components {
              * @default []
              */
             experiments: components["schemas"]["Experiment-Output"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** HRDistributionResponse */
@@ -2291,7 +2319,10 @@ export interface components {
              * @default []
              */
             notes: components["schemas"]["Note-Output"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** PeriodBodyBatteryStats */
@@ -2412,8 +2443,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "retired";
             /**
              * Spec
              * @default {}
@@ -2451,7 +2483,10 @@ export interface components {
              * @default []
              */
             versions: components["schemas"]["ProgramVersion"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** ProgramsResponse */
@@ -2461,7 +2496,10 @@ export interface components {
              * @default []
              */
             programs: components["schemas"]["Program"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** ReadinessScore */
@@ -2580,7 +2618,10 @@ export interface components {
              * @default []
              */
             assignments: components["schemas"]["RoutineAssignment"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** RoutineSchedule */
@@ -2592,8 +2633,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "retired" | "paused";
             /**
              * Cadence
              * @enum {string}
@@ -2620,7 +2662,10 @@ export interface components {
              * @default []
              */
             routines: components["schemas"]["RoutineSchedule"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** RoutineSpec */
@@ -2641,8 +2686,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "retired" | "paused";
             /**
              * Tags
              * @default []
@@ -2935,7 +2981,10 @@ export interface components {
              * @default []
              */
             metrics: components["schemas"]["TargetMetricDefinition"][];
-            /** Total */
+            /**
+             * Total
+             * @default 0
+             */
             total: number;
         };
         /** TodayCard */

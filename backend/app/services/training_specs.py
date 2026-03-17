@@ -12,9 +12,11 @@ from pydantic import ValidationError
 from ..infra.database import (
     delete_routine_assignments,
     load_assistant_artifact,
+    load_assistant_artifact_by_payload_id,
     load_assistant_artifacts,
     load_card_template,
     load_card_templates,
+    load_max_artifact_revision,
     load_routine_assignments,
     load_routine_schedule,
     load_routine_schedules,
@@ -100,11 +102,9 @@ def _format_validation_errors(exc: ValidationError) -> list[str]:
 
 
 def _card_spec_artifact_by_card_id(card_id: str) -> AssistantArtifact | None:
-    for artifact in load_assistant_artifacts(kind="card_template"):
-        spec = artifact.payload_json
-        if spec.get("id") == card_id and artifact.status in {"validated", "activated"}:
-            return artifact
-    return None
+    return load_assistant_artifact_by_payload_id(
+        "card_template", card_id, ("validated", "activated"),
+    )
 
 
 def _validate_card_template_payload(
@@ -256,14 +256,7 @@ def _next_bundle_artifact_revision(
     target_id: str,
 ) -> int:
     prefix = _bundle_artifact_prefix(bundle_id, kind, target_id)
-    revision = 0
-    for artifact in load_assistant_artifacts(kind=kind):
-        if not artifact.id.startswith(prefix):
-            continue
-        suffix = artifact.id[len(prefix):]
-        if suffix.isdigit():
-            revision = max(revision, int(suffix))
-    return revision + 1
+    return load_max_artifact_revision(kind, prefix) + 1
 
 
 def _bundle_artifact_id(
@@ -681,7 +674,7 @@ def list_assistant_artifacts(
     status: str | None = None,
 ) -> AssistantArtifactsResponse:
     artifacts = load_assistant_artifacts(kind=kind, status=status)
-    return AssistantArtifactsResponse(artifacts=artifacts, total=len(artifacts))
+    return AssistantArtifactsResponse(artifacts=artifacts)
 
 
 def get_assistant_artifact(artifact_id: str) -> AssistantArtifact:
@@ -825,12 +818,12 @@ def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
 
 def list_cards(status: str | None = None) -> CardTemplatesResponse:
     cards = load_card_templates(status=status)
-    return CardTemplatesResponse(cards=cards, total=len(cards))
+    return CardTemplatesResponse(cards=cards)
 
 
 def list_routines(status: str | None = None) -> RoutineSchedulesResponse:
     routines = load_routine_schedules(status=status)
-    return RoutineSchedulesResponse(routines=routines, total=len(routines))
+    return RoutineSchedulesResponse(routines=routines)
 
 
 def get_routine(routine_id: str) -> RoutineSchedule:
@@ -843,4 +836,4 @@ def get_routine(routine_id: str) -> RoutineSchedule:
 def list_routine_assignments(routine_id: str) -> RoutineAssignmentsResponse:
     get_routine(routine_id)
     assignments = load_routine_assignments(routine_id=routine_id)
-    return RoutineAssignmentsResponse(assignments=assignments, total=len(assignments))
+    return RoutineAssignmentsResponse(assignments=assignments)

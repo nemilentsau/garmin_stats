@@ -19,7 +19,7 @@ def _require_routine(routine_id: str) -> None:
 def list_routines() -> RoutinesResponse:
     """Return all saved routines."""
     routines = load_routines()
-    return RoutinesResponse(routines=routines, total=len(routines))
+    return RoutinesResponse(routines=routines)
 
 
 def create_routine(routine: Routine) -> Routine:
@@ -40,14 +40,14 @@ def update_routine(routine_id: str, routine: Routine) -> Routine:
 def list_routine_entries_by_date(date: str) -> RoutineEntriesResponse:
     """Return all routine entries for a given date (across all routines)."""
     entries = load_routine_entries(date=date)
-    return RoutineEntriesResponse(entries=entries, total=len(entries))
+    return RoutineEntriesResponse(entries=entries)
 
 
 def list_routine_entries(routine_id: str, date: str | None = None) -> RoutineEntriesResponse:
     """Return entries for a specific routine."""
     _require_routine(routine_id)
     entries = load_routine_entries(routine_id=routine_id, date=date)
-    return RoutineEntriesResponse(entries=entries, total=len(entries))
+    return RoutineEntriesResponse(entries=entries)
 
 
 def create_routine_entry(routine_id: str, entry: RoutineEntry) -> RoutineEntry:

@@ -6,9 +6,9 @@ Pydantic models for Garmin Stats — three tiers:
   Tier 3: API response models (match frontend TS interfaces)
 """
 
-from typing import Literal
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class _DefaultsRequired(BaseModel):
@@ -19,6 +19,36 @@ class _DefaultsRequired(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
+class _AutoTotalResponse(_DefaultsRequired):
+    """Response base that auto-computes ``total`` from the items list field.
+
+    Subclasses declare which field holds the items via ``__init_subclass__``:
+
+        class FoosResponse(_AutoTotalResponse, items_field="foos"):
+            foos: list[Foo] = []
+            total: int = 0
+
+    If ``total`` is supplied explicitly it is respected; otherwise it is set
+    to ``len(items_field)``.
+    """
+
+    _items_field: ClassVar[str]
+
+    def __init_subclass__(cls, items_field: str = "", **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if items_field:
+            cls._items_field = items_field
+
+    @model_validator(mode="before")
+    @classmethod
+    def _auto_fill_total(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "total" not in data:
+            items = data.get(cls._items_field)
+            if isinstance(items, list):
+                data["total"] = len(items)
+        return data
+
+
 class _StrictDefaultsRequired(_DefaultsRequired):
     """Base for models that must reject unknown keys."""
 
@@ -26,6 +56,25 @@ class _StrictDefaultsRequired(_DefaultsRequired):
         json_schema_serialization_defaults_required=True,
         extra="forbid",
     )
+
+
+# ---------------------------------------------------------------------------
+# Shared Literal type aliases
+# ---------------------------------------------------------------------------
+
+EntityStatus = Literal["active", "retired", "paused"]
+ExperimentStatus = Literal["draft", "active", "completed"]
+PlanStatus = Literal["draft", "active", "completed"]
+ProgramStatus = Literal["active", "retired"]
+ThreadStatus = Literal["active", "archived"]
+PlanItemCompletionState = Literal["pending", "in_progress", "completed", "skipped"]
+RoutineEntryCompletionState = Literal["completed", "partial", "skipped"]
+ExperimentAdherenceState = Literal["full", "partial", "missed", "completed", "unknown"]
+ExperimentReportConfidence = Literal["insufficient", "low", "moderate", "high"]
+EvidenceConfidence = Literal["insufficient", "low", "moderate", "high"]
+AssistantMessageRole = Literal["user", "assistant", "system"]
+AssistantRunStatus = Literal["running", "completed", "failed"]
+AssistantRunTaskType = Literal["chat", "analysis", "planning"]
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +539,7 @@ class Goal(_DefaultsRequired):
     id: str
     title: str
     description: str | None = None
-    status: str = "active"
+    status: EntityStatus = "active"
     priority: int = 0
     tags: list[str] = []
 
@@ -517,7 +566,7 @@ class Routine(_DefaultsRequired):
     id: str
     name: str
     category: str
-    status: str = "active"
+    status: EntityStatus = "active"
     description: str | None = None
     default_unit: str = "boolean"
     target_frequency: str | None = None
@@ -533,7 +582,7 @@ class RoutineEntry(_DefaultsRequired):
     timestamp_local: str | None = None
     value_numeric: float | None = None
     value_text: str | None = None
-    completion_state: str = "completed"
+    completion_state: RoutineEntryCompletionState = "completed"
     source: str = "manual"
     notes: str | None = None
 
@@ -566,7 +615,7 @@ class Note(_DefaultsRequired):
 class Experiment(_DefaultsRequired):
     id: str
     name: str
-    status: str = "draft"
+    status: ExperimentStatus = "draft"
     start_date: str | None = None
     end_date: str | None = None
     goal: str | None = None
@@ -583,7 +632,7 @@ class ExperimentExposure(_DefaultsRequired):
     experiment_id: str
     date: str
     exposure_score: float | None = None
-    adherence_state: str = "unknown"
+    adherence_state: ExperimentAdherenceState = "unknown"
     linked_routine_entry_ids: list[str] = []
     notes: str | None = None
 
@@ -602,7 +651,7 @@ class ExperimentReport(_DefaultsRequired):
     experiment_id: str
     report_date: str
     summary: str | None = None
-    confidence: str = "insufficient"
+    confidence: ExperimentReportConfidence = "insufficient"
     confounders: list[str] = []
     effects: list[ExperimentMetricEffect] = []
 
@@ -611,7 +660,7 @@ class Plan(_DefaultsRequired):
     id: str
     title: str
     scope: str
-    status: str = "draft"
+    status: PlanStatus = "draft"
     source: str = "manual"
     goal: str | None = None
     markdown_body: str | None = None
@@ -627,7 +676,7 @@ class PlanItem(_DefaultsRequired):
     time_block: str | None = None
     instructions: str | None = None
     linked_routine_id: str | None = None
-    completion_state: str = "pending"
+    completion_state: PlanItemCompletionState = "pending"
     completion_notes: str | None = None
 
 
@@ -638,7 +687,7 @@ class AssistantThread(_DefaultsRequired):
     model: str = "sonnet"
     claude_session_id: str | None = None
     last_context_snapshot_id: str | None = None
-    status: str = "active"
+    status: ThreadStatus = "active"
     last_message_at: str | None = None
     created_at: str | None = None
 
@@ -646,7 +695,7 @@ class AssistantThread(_DefaultsRequired):
 class AssistantMessage(_DefaultsRequired):
     id: str
     thread_id: str
-    role: str
+    role: AssistantMessageRole
     content_markdown: str
     structured_payload_json: dict[str, object] = {}
     evidence_refs_json: list[str] = []
@@ -655,8 +704,8 @@ class AssistantMessage(_DefaultsRequired):
 
 class AssistantRun(_DefaultsRequired):
     id: str
-    task_type: str
-    status: str
+    task_type: AssistantRunTaskType
+    status: AssistantRunStatus
     thread_id: str | None = None
     context_snapshot_id: str | None = None
     claude_session_id: str | None = None
@@ -685,7 +734,7 @@ class EvidenceCard(_DefaultsRequired):
     metric: str | None = None
     window: str | None = None
     sample_count: int = 0
-    confidence: str = "insufficient"
+    confidence: EvidenceConfidence = "insufficient"
     caveats: list[str] = []
     payload_json: dict[str, object] = {}
 
@@ -697,39 +746,39 @@ class TargetMetricDefinition(_DefaultsRequired):
     unit: str
 
 
-class GoalsResponse(_DefaultsRequired):
+class GoalsResponse(_AutoTotalResponse, items_field="goals"):
     goals: list[Goal] = []
-    total: int
+    total: int = 0
 
 
-class RoutinesResponse(_DefaultsRequired):
+class RoutinesResponse(_AutoTotalResponse, items_field="routines"):
     routines: list[Routine] = []
-    total: int
+    total: int = 0
 
 
-class RoutineEntriesResponse(_DefaultsRequired):
+class RoutineEntriesResponse(_AutoTotalResponse, items_field="entries"):
     entries: list[RoutineEntry] = []
-    total: int
+    total: int = 0
 
 
-class DailyCheckInsResponse(_DefaultsRequired):
+class DailyCheckInsResponse(_AutoTotalResponse, items_field="checkins"):
     checkins: list[DailyCheckIn] = []
-    total: int
+    total: int = 0
 
 
-class NotesResponse(_DefaultsRequired):
+class NotesResponse(_AutoTotalResponse, items_field="notes"):
     notes: list[Note] = []
-    total: int
+    total: int = 0
 
 
-class ExperimentsResponse(_DefaultsRequired):
+class ExperimentsResponse(_AutoTotalResponse, items_field="experiments"):
     experiments: list[Experiment] = []
-    total: int
+    total: int = 0
 
 
-class TargetMetricsResponse(_DefaultsRequired):
+class TargetMetricsResponse(_AutoTotalResponse, items_field="metrics"):
     metrics: list[TargetMetricDefinition] = []
-    total: int
+    total: int = 0
 
 
 RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
@@ -823,7 +872,7 @@ class RoutineSpec(_StrictDefaultsRequired):
     cadence: RoutineCadence
     start_date: str
     end_date: str | None = None
-    status: str = "active"
+    status: EntityStatus = "active"
     tags: list[str] = []
     notes: str | None = None
     assignments: list[RoutineAssignmentSpec] = []
@@ -858,9 +907,9 @@ class AssistantArtifactCreateRequest(_StrictDefaultsRequired):
     payload_json: dict[str, object] = {}
 
 
-class AssistantArtifactsResponse(_DefaultsRequired):
+class AssistantArtifactsResponse(_AutoTotalResponse, items_field="artifacts"):
     artifacts: list[AssistantArtifact] = []
-    total: int
+    total: int = 0
 
 
 class ArtifactBundleSpec(_StrictDefaultsRequired):
@@ -907,22 +956,22 @@ class CardTemplate(_DefaultsRequired):
     name: str
     renderer: RendererFamily
     slot_default: SlotName
-    status: str = "active"
+    status: EntityStatus = "active"
     summary: str | None = None
     tags: list[str] = []
     payload_json: dict[str, object] = {}
     source_artifact_id: str | None = None
 
 
-class CardTemplatesResponse(_DefaultsRequired):
+class CardTemplatesResponse(_AutoTotalResponse, items_field="cards"):
     cards: list[CardTemplate] = []
-    total: int
+    total: int = 0
 
 
 class RoutineSchedule(_DefaultsRequired):
     id: str
     name: str
-    status: str = "active"
+    status: EntityStatus = "active"
     cadence: RoutineCadence
     start_date: str
     end_date: str | None = None
@@ -942,14 +991,14 @@ class RoutineAssignment(_DefaultsRequired):
     prescription_override_json: dict[str, object] = {}
 
 
-class RoutineSchedulesResponse(_DefaultsRequired):
+class RoutineSchedulesResponse(_AutoTotalResponse, items_field="routines"):
     routines: list[RoutineSchedule] = []
-    total: int
+    total: int = 0
 
 
-class RoutineAssignmentsResponse(_DefaultsRequired):
+class RoutineAssignmentsResponse(_AutoTotalResponse, items_field="assignments"):
     assignments: list[RoutineAssignment] = []
-    total: int
+    total: int = 0
 
 
 class CardLog(_DefaultsRequired):
@@ -1067,14 +1116,14 @@ class AssistantMessageCreateRequest(_DefaultsRequired):
     content: str
 
 
-class AssistantThreadsResponse(_DefaultsRequired):
+class AssistantThreadsResponse(_AutoTotalResponse, items_field="threads"):
     threads: list[AssistantThread] = []
-    total: int
+    total: int = 0
 
 
-class AssistantMessagesResponse(_DefaultsRequired):
+class AssistantMessagesResponse(_AutoTotalResponse, items_field="messages"):
     messages: list[AssistantMessage] = []
-    total: int
+    total: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -1258,9 +1307,9 @@ class DaySummaryResponse(_DefaultsRequired):
     total_size_kb: float
 
 
-class DaysResponse(_DefaultsRequired):
+class DaysResponse(_AutoTotalResponse, items_field="days"):
     days: list[str]
-    total: int
+    total: int = 0
 
 
 class IngestResult(_DefaultsRequired):
@@ -1351,7 +1400,7 @@ class Program(_DefaultsRequired):
     id: str
     name: str
     version: int
-    status: str = "active"
+    status: ProgramStatus = "active"
     spec: dict[str, object] = {}
     imported_at: str | None = None
     updated_at: str | None = None
@@ -1365,11 +1414,11 @@ class ProgramVersion(_DefaultsRequired):
     imported_at: str | None = None
 
 
-class ProgramsResponse(_DefaultsRequired):
+class ProgramsResponse(_AutoTotalResponse, items_field="programs"):
     programs: list[Program] = []
-    total: int
+    total: int = 0
 
 
-class ProgramVersionsResponse(_DefaultsRequired):
+class ProgramVersionsResponse(_AutoTotalResponse, items_field="versions"):
     versions: list[ProgramVersion] = []
-    total: int
+    total: int = 0

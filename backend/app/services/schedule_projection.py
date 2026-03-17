@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import cast
 
 from ..infra.database import (
-    load_card_overrides,
+    load_card_overrides_range,
     load_card_template,
     load_card_templates,
     load_routine_assignments,
@@ -199,9 +199,10 @@ def _apply_overrides(
     *,
     date: str,
     card_lookup: dict[str, CardTemplate],
+    overrides: list[CardOverride],
 ) -> list[ScheduleOccurrence]:
     updated = {occurrence.occurrence_key: occurrence for occurrence in occurrences}
-    for override in load_card_overrides(date):
+    for override in overrides:
         target_occurrence = (
             updated.get(override.target_occurrence_key or "")
             if override.target_occurrence_key is not None
@@ -240,6 +241,7 @@ def _build_occurrences_for_day(
     routines: list[RoutineSchedule],
     card_lookup: dict[str, CardTemplate],
     assignment_lookup: dict[str, list[RoutineAssignment]],
+    overrides: list[CardOverride],
 ) -> list[ScheduleOccurrence]:
     base_occurrences = _base_occurrences_for_day(
         day,
@@ -247,7 +249,12 @@ def _build_occurrences_for_day(
         card_lookup=card_lookup,
         assignment_lookup=assignment_lookup,
     )
-    return _apply_overrides(base_occurrences, date=day.isoformat(), card_lookup=card_lookup)
+    return _apply_overrides(
+        base_occurrences,
+        date=day.isoformat(),
+        card_lookup=card_lookup,
+        overrides=overrides,
+    )
 
 
 def get_schedule_window(start_date: str, duration_days: int = 14) -> ScheduleWindow:
@@ -263,18 +270,27 @@ def get_schedule_window(start_date: str, duration_days: int = 14) -> ScheduleWin
     for assignment in load_routine_assignments():
         assignment_lookup[assignment.routine_id].append(assignment)
 
+    all_overrides = load_card_overrides_range(
+        window_start.isoformat(), window_end.isoformat(),
+    )
+    overrides_by_date: dict[str, list[CardOverride]] = defaultdict(list)
+    for override in all_overrides:
+        overrides_by_date[override.date].append(override)
+
     days: list[ScheduleDay] = []
     for offset in range(duration_days):
         current_day = window_start + timedelta(days=offset)
+        date_str = current_day.isoformat()
         days.append(
             ScheduleDay(
-                date=current_day.isoformat(),
+                date=date_str,
                 weekday=_WEEKDAY_NAMES[current_day.weekday()],
                 occurrences=_build_occurrences_for_day(
                     current_day,
                     routines=routines,
                     card_lookup=card_lookup,
                     assignment_lookup=assignment_lookup,
+                    overrides=overrides_by_date.get(date_str, []),
                 ),
             )
         )
