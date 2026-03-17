@@ -287,23 +287,28 @@ def _artifact_target_exists(kind: ArtifactBundleItemKind, target_id: str) -> boo
     return load_routine_schedule(target_id) is not None
 
 
-def _artifact_has_existing_draft(kind: ArtifactBundleItemKind, target_id: str) -> bool:
-    for artifact in load_assistant_artifacts(kind=kind):
-        if artifact.payload_json.get("id") == target_id:
-            return True
-    return False
+def _build_existing_draft_ids(kinds: set[ArtifactBundleItemKind]) -> set[str]:
+    ids: set[str] = set()
+    for kind in kinds:
+        for artifact in load_assistant_artifacts(kind=kind):
+            target_id = artifact.payload_json.get("id")
+            if isinstance(target_id, str):
+                ids.add(f"{kind}:{target_id}")
+    return ids
 
 
 def _bundle_delta_summary(
     kind: ArtifactBundleItemKind,
     target_id: str,
     payload_json: dict[str, object],
+    *,
+    existing_draft_ids: set[str],
 ) -> tuple[ArtifactBundleDeltaAction, str]:
     action: ArtifactBundleDeltaAction = (
         "update"
         if (
             _artifact_target_exists(kind, target_id)
-            or _artifact_has_existing_draft(kind, target_id)
+            or f"{kind}:{target_id}" in existing_draft_ids
         )
         else "create"
     )
@@ -325,8 +330,11 @@ def _bundle_delta_for_artifact(
     kind: ArtifactBundleItemKind,
     target_id: str,
     payload_json: dict[str, object],
+    existing_draft_ids: set[str],
 ) -> ArtifactBundleDelta:
-    action, summary = _bundle_delta_summary(kind, target_id, payload_json)
+    action, summary = _bundle_delta_summary(
+        kind, target_id, payload_json, existing_draft_ids=existing_draft_ids,
+    )
     revision = _next_bundle_artifact_revision(bundle_id, kind, target_id)
     return ArtifactBundleDelta(
         artifact_id=_bundle_artifact_id(bundle_id, kind, target_id, revision),
@@ -501,6 +509,7 @@ def _build_bundle_plan(
     assignment_ids_seen: set[str] = set()
     existing_assignment_routine_ids = _existing_assignment_routine_ids()
     bundled_card_ids = {card.id for card in bundle.card_templates}
+    existing_draft_ids = _build_existing_draft_ids({"card_template", "routine_spec"})
 
     for index, card in enumerate(bundle.card_templates):
         payload = card.model_dump()
@@ -528,6 +537,7 @@ def _build_bundle_plan(
             kind="card_template",
             target_id=card.id,
             payload_json=payload,
+            existing_draft_ids=existing_draft_ids,
         )
         prepared.append(
             _PreparedBundleArtifact(
@@ -594,6 +604,7 @@ def _build_bundle_plan(
             kind="routine_spec",
             target_id=routine.id,
             payload_json=payload,
+            existing_draft_ids=existing_draft_ids,
         )
         prepared.append(
             _PreparedBundleArtifact(
@@ -609,9 +620,8 @@ def _build_bundle_plan(
     return issues, prepared
 
 
-def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreviewResponse:
-    issues, prepared = _build_bundle_plan(bundle)
-    deltas = [
+def _deltas_from_prepared(prepared: list[_PreparedBundleArtifact]) -> list[ArtifactBundleDelta]:
+    return [
         ArtifactBundleDelta(
             artifact_id=item.artifact_id,
             kind=item.kind,
@@ -621,12 +631,16 @@ def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreview
         )
         for item in prepared
     ]
+
+
+def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreviewResponse:
+    issues, prepared = _build_bundle_plan(bundle)
     return ArtifactBundlePreviewResponse(
         bundle_id=bundle.id,
         bundle_name=bundle.name,
         valid=not issues,
         issues=issues,
-        deltas=deltas,
+        deltas=_deltas_from_prepared(prepared),
     )
 
 
@@ -655,16 +669,7 @@ def import_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundleImportRe
         bundle_name=bundle.name,
         imported_artifact_ids=[artifact.id for artifact in artifacts],
         total_imported=len(artifacts),
-        deltas=[
-            ArtifactBundleDelta(
-                artifact_id=item.artifact_id,
-                kind=item.kind,
-                target_id=item.target_id,
-                action=item.action,
-                summary=item.summary,
-            )
-            for item in prepared
-        ],
+        deltas=_deltas_from_prepared(prepared),
     )
 
 

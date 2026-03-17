@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	import { api, type AssistantMessage, type AssistantThread, type AssistantThreadInput } from '$lib/api';
 	import { streamAssistantReply, type AssistantStreamEvent } from '$lib/assistant-stream';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { renderMarkdown } from '$lib/markdown';
 	import { errorMessage, makeId } from '$lib/utils';
 
 	const quickPrompts = [
@@ -40,6 +41,14 @@
 	let composer = $state('');
 	let newThreadTitle = $state('Recovery coach');
 	let newThreadModel = $state('sonnet');
+	let streamEl: HTMLDivElement | undefined = $state();
+
+	async function scrollToBottom() {
+		await tick();
+		if (streamEl) {
+			streamEl.scrollTop = streamEl.scrollHeight;
+		}
+	}
 
 	let activeThread = $derived.by(
 		() => threads.find((thread) => thread.id === selectedThreadId) ?? null
@@ -58,6 +67,7 @@
 	async function loadMessages(threadId: string) {
 		const response = await api.getAssistantThreadMessages(threadId);
 		messages = response.messages;
+		void scrollToBottom();
 	}
 
 	async function ensureThread(): Promise<AssistantThread> {
@@ -139,6 +149,7 @@
 					? { ...message, content_markdown: message.content_markdown + event.text }
 					: message
 			);
+			void scrollToBottom();
 			return;
 		}
 
@@ -146,6 +157,7 @@
 			messages = messages.map((message) => (message.id === placeholderId ? event.message : message));
 			await loadThreads();
 			selectedThreadId = threadId;
+			void scrollToBottom();
 			return;
 		}
 
@@ -187,6 +199,7 @@
 				messages = [...messages, userMessage, placeholder];
 				optimisticMessageIds = [userMessage.id, placeholderId];
 				composer = '';
+				void scrollToBottom();
 
 				await streamAssistantReply(
 					thread.id,
@@ -209,6 +222,13 @@
 				sending = false;
 			}
 		}
+
+	function handleComposerKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			void submitComposer();
+		}
+	}
 
 	async function submitComposer() {
 		await sendPrompt(composer);
@@ -300,7 +320,7 @@
 					{/each}
 				</div>
 
-				<div class="message-stream">
+				<div class="message-stream" bind:this={streamEl}>
 					{#if messages.length === 0}
 						<div class="empty-conversation">
 							<p>Ask for a briefing, compare a routine to recovery, or request a plan draft.</p>
@@ -317,7 +337,13 @@
 								<strong>{message.role === 'assistant' ? 'Assistant' : 'You'}</strong>
 								<span>{message.created_at ? new Date(message.created_at).toLocaleTimeString() : 'now'}</span>
 							</div>
-							<div class="message-body">{message.content_markdown || 'Thinking...'}</div>
+							<div class="message-body">
+								{#if message.content_markdown}
+									{@html renderMarkdown(message.content_markdown)}
+								{:else}
+									<p class="thinking">Thinking...</p>
+								{/if}
+							</div>
 						</article>
 					{/each}
 				</div>
@@ -334,9 +360,10 @@
 						rows="4"
 						placeholder="Ask about recovery, routine impact, or what experiment to run next..."
 						disabled={sending}
+						onkeydown={handleComposerKeydown}
 					></textarea>
 					<div class="composer-actions">
-						<p>Assistant requests send a curated health context bundle to Claude.</p>
+						<p>Enter to send · Shift+Enter for newline</p>
 						<button type="submit" disabled={sending || !composer.trim()}>
 							{sending ? 'Streaming...' : 'Send'}
 						</button>
@@ -603,7 +630,93 @@
 	.message-body {
 		color: #d7e2ea;
 		line-height: 1.6;
-		white-space: pre-wrap;
+	}
+
+	.message-body :global(p) {
+		margin: 0 0 0.6em;
+	}
+
+	.message-body :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.message-body :global(h1),
+	.message-body :global(h2),
+	.message-body :global(h3) {
+		margin: 0.8em 0 0.4em;
+		color: #edf3f7;
+	}
+
+	.message-body :global(h1) {
+		font-size: 1.2rem;
+	}
+
+	.message-body :global(h2) {
+		font-size: 1.1rem;
+	}
+
+	.message-body :global(h3) {
+		font-size: 1rem;
+	}
+
+	.message-body :global(ul),
+	.message-body :global(ol) {
+		margin: 0 0 0.6em;
+		padding-left: 1.4em;
+	}
+
+	.message-body :global(li) {
+		margin-bottom: 0.25em;
+	}
+
+	.message-body :global(code) {
+		padding: 0.15em 0.4em;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.06);
+		font-family: 'DM Mono', monospace;
+		font-size: 0.9em;
+	}
+
+	.message-body :global(pre) {
+		margin: 0.6em 0;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: rgba(0, 0, 0, 0.3);
+		overflow-x: auto;
+	}
+
+	.message-body :global(pre code) {
+		padding: 0;
+		background: none;
+	}
+
+	.message-body :global(strong) {
+		color: #edf3f7;
+	}
+
+	.message-body :global(blockquote) {
+		margin: 0.6em 0;
+		padding-left: 12px;
+		border-left: 3px solid rgba(91, 181, 166, 0.5);
+		color: #a8bac7;
+	}
+
+	.message-body :global(hr) {
+		border: none;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+		margin: 0.8em 0;
+	}
+
+	.message-body :global(a) {
+		color: #5bb5a6;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.thinking {
+		color: #7e93a4;
+		font-style: italic;
+		margin: 0;
 	}
 
 	.empty-conversation,

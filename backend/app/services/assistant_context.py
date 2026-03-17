@@ -34,9 +34,7 @@ def build_context_snapshot(window_days: int = 14) -> ContextSnapshot:
     recent_metrics = metrics[-window_days:]
     profile = load_user_profile()
     active_routines = load_routine_schedules(status="active")
-    active_experiments = [
-        experiment for experiment in load_experiments() if experiment.status in {"active", "draft"}
-    ]
+    active_experiments = load_experiments(statuses=("active", "draft"))
     recent_checkins = load_daily_checkins(last_n=7)
     recent_notes = load_notes(last_n=10)
 

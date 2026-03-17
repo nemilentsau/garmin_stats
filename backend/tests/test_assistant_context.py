@@ -61,9 +61,8 @@ class TestBuildContextSnapshot:
         monkeypatch.setattr(
             context_mod,
             "load_experiments",
-            lambda: [
+            lambda **_kw: [
                 Experiment(id="exp-1", name="Meditation", status="active"),
-                Experiment(id="exp-2", name="Cold shower", status="completed"),
             ],
         )
         monkeypatch.setattr(
@@ -120,7 +119,7 @@ class TestBuildContextSnapshot:
         monkeypatch.setattr(context_mod, "load_daily_metrics", lambda: [])
         monkeypatch.setattr(context_mod, "load_user_profile", lambda: None)
         monkeypatch.setattr(context_mod, "load_routine_schedules", lambda status=None: [])
-        monkeypatch.setattr(context_mod, "load_experiments", lambda: [])
+        monkeypatch.setattr(context_mod, "load_experiments", lambda **_kw: [])
         monkeypatch.setattr(context_mod, "load_daily_checkins", lambda **_kw: [])
         monkeypatch.setattr(context_mod, "load_notes", lambda **_kw: [])
         monkeypatch.setattr(

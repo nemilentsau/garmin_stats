@@ -781,8 +781,21 @@ def delete_experiment(experiment_id: str) -> None:
     _delete_json_record("experiments", experiment_id)
 
 
-def load_experiments() -> list[Experiment]:
-    return _load_json_records("experiments", Experiment)
+def load_experiments(
+    *,
+    status: str | None = None,
+    statuses: tuple[str, ...] | None = None,
+) -> list[Experiment]:
+    where_sql = ""
+    params: tuple[object, ...] = ()
+    if status is not None:
+        where_sql = "json_extract(data, '$.status') = ?"
+        params = (status,)
+    elif statuses is not None:
+        placeholders = ", ".join("?" for _ in statuses)
+        where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
+        params = statuses
+    return _load_json_records("experiments", Experiment, where_sql=where_sql, params=params)
 
 
 def save_experiment_exposure(exposure: ExperimentExposure) -> None:

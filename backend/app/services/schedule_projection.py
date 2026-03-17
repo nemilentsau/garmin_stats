@@ -148,7 +148,10 @@ def _card_template_for_override(
     template = card_lookup.get(override.card_template_id)
     if template is not None:
         return template
-    return load_card_template(override.card_template_id)
+    template = load_card_template(override.card_template_id)
+    if template is not None:
+        card_lookup[override.card_template_id] = template
+    return template
 
 
 def _occurrence_for_override(
