@@ -735,26 +735,40 @@ def _activate_card_template_dependency(
     *,
     source_artifact: AssistantArtifact | None = None,
 ) -> None:
+    live_card = load_card_template(card_id)
     bundle_dependency = (
         _bundle_card_artifact_for_routine_artifact(source_artifact, card_id)
         if source_artifact is not None
         else None
     )
     if bundle_dependency is not None:
-        if bundle_dependency.status == "activated":
+        if (
+            bundle_dependency.status == "activated"
+            and live_card is not None
+            and live_card.source_artifact_id == bundle_dependency.id
+        ):
             return
         if bundle_dependency.status != "validated":
+            if bundle_dependency.status == "activated":
+                _compile_card_template_artifact(bundle_dependency)
+                return
             raise ValueError(f"Card template {card_id} is not ready for activation")
         activate_assistant_artifact(bundle_dependency.id)
         return
 
-    if load_card_template(card_id) is not None:
+    dependency = _card_spec_artifact_by_card_id(card_id)
+    if dependency is not None:
+        if dependency.status == "validated":
+            activate_assistant_artifact(dependency.id)
+            return
+        if live_card is None or live_card.source_artifact_id != dependency.id:
+            _compile_card_template_artifact(dependency)
         return
 
-    dependency = _card_spec_artifact_by_card_id(card_id)
-    if dependency is None:
-        raise LookupError(f"Card template {card_id} is not available for activation")
-    activate_assistant_artifact(dependency.id)
+    if live_card is not None:
+        return
+
+    raise LookupError(f"Card template {card_id} is not available for activation")
 
 
 def _compile_routine_spec_artifact(artifact: AssistantArtifact) -> RoutineSchedule:

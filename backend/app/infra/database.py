@@ -316,6 +316,17 @@ def _record_exists(table: str, record_id: str) -> bool:
     return row is not None
 
 
+def _delete_json_record(table: str, record_id: str) -> None:
+    """Delete a single JSON-backed record by id."""
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+    with _connect() as con, con:
+        con.execute(
+            f"DELETE FROM {table} WHERE id = ?",  # noqa: S608
+            (record_id,),
+        )
+
+
 def _load_json_record[M](
     table: str,
     model: type[M],
@@ -620,6 +631,10 @@ def save_routine(routine: Routine) -> None:
     _save_json_record("routines", routine.id, routine.model_dump_json())
 
 
+def delete_routine(routine_id: str) -> None:
+    _delete_json_record("routines", routine_id)
+
+
 def load_routines() -> list[Routine]:
     return _load_json_records("routines", Routine)
 
@@ -709,6 +724,10 @@ def load_experiment(experiment_id: str) -> Experiment | None:
 
 def save_experiment(experiment: Experiment) -> None:
     _save_json_record("experiments", experiment.id, experiment.model_dump_json())
+
+
+def delete_experiment(experiment_id: str) -> None:
+    _delete_json_record("experiments", experiment_id)
 
 
 def load_experiments() -> list[Experiment]:

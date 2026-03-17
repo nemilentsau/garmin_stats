@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 
 from ..infra.database import (
+    delete_experiment,
+    delete_routine,
     load_program,
     load_program_versions,
     load_programs,
@@ -95,6 +97,20 @@ def _spec_experiment_to_model(program_id: str, exp: dict) -> Experiment:
     )
 
 
+def _spec_child_ids(spec: dict, program_id: str) -> tuple[set[str], set[str]]:
+    routine_ids = {
+        f"{program_id}:{protocol['id']}"
+        for protocol in spec.get("protocols", [])
+        if isinstance(protocol, dict) and isinstance(protocol.get("id"), str)
+    }
+    experiment_ids = {
+        f"{program_id}:{exp['id']}"
+        for exp in spec.get("experiments", [])
+        if isinstance(exp, dict) and isinstance(exp.get("id"), str)
+    }
+    return routine_ids, experiment_ids
+
+
 def import_program(spec: dict) -> Program:
     """Import a program spec, creating/updating routines and experiments."""
     program_info = spec["program"]
@@ -103,6 +119,10 @@ def import_program(spec: dict) -> Program:
     now = _now_iso()
 
     existing = load_program(program_id)
+    existing_routine_ids, existing_experiment_ids = (
+        _spec_child_ids(existing.spec, program_id) if existing is not None else (set(), set())
+    )
+    current_routine_ids, current_experiment_ids = _spec_child_ids(spec, program_id)
 
     # Archive current version before overwriting
     if existing is not None:
@@ -135,6 +155,11 @@ def import_program(spec: dict) -> Program:
     for exp in spec.get("experiments", []):
         experiment = _spec_experiment_to_model(program_id, exp)
         save_experiment(experiment)
+
+    for routine_id in sorted(existing_routine_ids - current_routine_ids):
+        delete_routine(routine_id)
+    for experiment_id in sorted(existing_experiment_ids - current_experiment_ids):
+        delete_experiment(experiment_id)
 
     return program
 

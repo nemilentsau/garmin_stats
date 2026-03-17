@@ -8,7 +8,7 @@ from ..infra.database import (
     load_daily_metrics,
     load_experiments,
     load_notes,
-    load_routines,
+    load_routine_schedules,
     load_user_profile,
     save_context_snapshot,
 )
@@ -33,7 +33,7 @@ def build_context_snapshot(window_days: int = 14) -> ContextSnapshot:
     metrics = load_daily_metrics()
     recent_metrics = metrics[-window_days:]
     profile = load_user_profile()
-    active_routines = [routine for routine in load_routines() if routine.status == "active"]
+    active_routines = load_routine_schedules(status="active")
     active_experiments = [
         experiment for experiment in load_experiments() if experiment.status in {"active", "draft"}
     ]

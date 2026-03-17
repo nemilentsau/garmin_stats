@@ -291,6 +291,35 @@ class TestArtifactActivation:
         assert len(assignments) == 1
         assert assignments[0].card_template_id == "card-compile"
 
+    def test_activating_routine_refreshes_live_card_from_newer_validated_draft(self):
+        first_card_artifact = create_assistant_artifact(_card_request("card-refresh"))
+        activate_assistant_artifact(first_card_artifact.id)
+
+        updated_card_request = _card_request("card-refresh")
+        updated_card_request.payload_json["name"] = "Card refreshed"
+        updated_payload = cast(
+            dict[str, object],
+            updated_card_request.payload_json["payload"],
+        )
+        updated_payload["duration_minutes"] = 14
+        updated_card_request = updated_card_request.model_copy(
+            update={"id": "artifact-card-refresh-v2"}
+        )
+        create_assistant_artifact(updated_card_request)
+
+        routine_artifact = create_assistant_artifact(
+            _routine_request("routine-refresh", card_id="card-refresh")
+        )
+
+        activate_assistant_artifact(routine_artifact.id)
+
+        card = load_card_template("card-refresh")
+
+        assert card is not None
+        assert card.name == "Card refreshed"
+        assert card.payload_json["duration_minutes"] == 14
+        assert card.source_artifact_id == "artifact-card-refresh-v2"
+
 
 class TestArtifactBundles:
     def test_preview_bundle_returns_create_deltas_without_persisting(self):

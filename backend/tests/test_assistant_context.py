@@ -12,7 +12,7 @@ from app.models import (
     DailySleepStats,
     Experiment,
     Note,
-    Routine,
+    RoutineSchedule,
     UserProfile,
 )
 
@@ -47,10 +47,15 @@ class TestBuildContextSnapshot:
         )
         monkeypatch.setattr(
             context_mod,
-            "load_routines",
-            lambda: [
-                Routine(id="routine-1", name="Meditation", category="mindfulness", status="active"),
-                Routine(id="routine-2", name="Abs", category="strength", status="paused"),
+            "load_routine_schedules",
+            lambda status=None: [
+                RoutineSchedule(
+                    id="routine-1",
+                    name="Meditation",
+                    status="active",
+                    cadence="weekly",
+                    start_date="2026-03-01",
+                ),
             ],
         )
         monkeypatch.setattr(
@@ -106,6 +111,7 @@ class TestBuildContextSnapshot:
         assert isinstance(active_routines, list)
         assert isinstance(active_experiments, list)
         assert len(active_routines) == 1
+        assert active_routines[0]["cadence"] == "weekly"
         assert len(active_experiments) == 1
         assert snapshot.created_at is not None
         assert saved_snapshots[0].id == snapshot.id
@@ -113,7 +119,7 @@ class TestBuildContextSnapshot:
     def test_falls_back_when_dashboard_overview_is_unavailable(self, monkeypatch):
         monkeypatch.setattr(context_mod, "load_daily_metrics", lambda: [])
         monkeypatch.setattr(context_mod, "load_user_profile", lambda: None)
-        monkeypatch.setattr(context_mod, "load_routines", lambda: [])
+        monkeypatch.setattr(context_mod, "load_routine_schedules", lambda status=None: [])
         monkeypatch.setattr(context_mod, "load_experiments", lambda: [])
         monkeypatch.setattr(context_mod, "load_daily_checkins", lambda: [])
         monkeypatch.setattr(context_mod, "load_notes", lambda: [])
