@@ -1,7 +1,9 @@
 """Tests for program import service behavior."""
 
+import pytest
+
 from app.services.experiments import list_experiments
-from app.services.programs import import_program
+from app.services.programs import import_program, list_programs
 from app.services.routines import list_routines
 
 
@@ -23,6 +25,23 @@ def _program_spec(
 
 
 class TestImportProgram:
+    def test_invalid_protocol_rolls_back_entire_import(self):
+        with pytest.raises(KeyError, match="name"):
+            import_program(
+                _program_spec(
+                    version=1,
+                    protocols=[
+                        {"id": "protocol-1", "name": "Walk"},
+                        {"id": "protocol-2"},
+                    ],
+                    experiments=[],
+                )
+            )
+
+        assert list_programs().programs == []
+        assert list_routines().routines == []
+        assert list_experiments().experiments == []
+
     def test_reimport_removes_deleted_protocols_and_experiments(self):
         import_program(
             _program_spec(

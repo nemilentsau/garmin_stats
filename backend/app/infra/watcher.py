@@ -6,6 +6,7 @@ import asyncio
 import logging
 import shutil
 import zipfile
+import zlib
 from pathlib import Path
 
 from watchfiles import Change, awatch
@@ -118,7 +119,10 @@ def _matches_archive_members(zip_path: Path, out_dir: Path) -> bool:
         return False
 
     extracted_members = {
-        file_path.relative_to(out_dir).as_posix(): file_path.stat().st_size
+        file_path.relative_to(out_dir).as_posix(): (
+            file_path.stat().st_size,
+            _file_crc32(file_path),
+        )
         for file_path in out_dir.rglob("*")
         if file_path.is_file() and file_path.name != _ARCHIVE_STAMP_NAME
     }
@@ -127,12 +131,20 @@ def _matches_archive_members(zip_path: Path, out_dir: Path) -> bool:
 
     with zipfile.ZipFile(zip_path, "r") as zf:
         archived_members = {
-            Path(member.filename).as_posix(): member.file_size
+            Path(member.filename).as_posix(): (member.file_size, member.CRC)
             for member in zf.infolist()
             if not member.is_dir()
         }
 
     return extracted_members == archived_members
+
+
+def _file_crc32(path: Path) -> int:
+    checksum = 0
+    with path.open("rb") as handle:
+        while chunk := handle.read(65536):
+            checksum = zlib.crc32(chunk, checksum)
+    return checksum & 0xFFFFFFFF
 
 
 def _safe_extract_all(zf: zipfile.ZipFile, out_dir: Path) -> None:

@@ -269,28 +269,52 @@ def _save_json_record(
     if table not in _VALID_TABLES:
         raise ValueError(f"Invalid table name: {table}")
 
+    with _connect() as con, con:
+        _save_json_record_in_connection(
+            con,
+            table,
+            record_id,
+            data_json,
+            extra_columns=extra_columns,
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+
+
+def _save_json_record_in_connection(
+    con: sqlite3.Connection,
+    table: str,
+    record_id: str,
+    data_json: str,
+    *,
+    extra_columns: dict[str, object | None] | None = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+) -> None:
+    """Store a JSON-backed record using an existing transaction/connection."""
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+
     extra_columns = extra_columns or {}
     updated_value = updated_at or now_iso()
+    existing_created_at: str | None = None
+    if created_at is None:
+        row = con.execute(
+            f"SELECT created_at FROM {table} WHERE id = ?",  # noqa: S608
+            (record_id,),
+        ).fetchone()
+        existing_created_at = row["created_at"] if row is not None else None
 
-    with _connect() as con, con:
-        existing_created_at: str | None = None
-        if created_at is None:
-            row = con.execute(
-                f"SELECT created_at FROM {table} WHERE id = ?",  # noqa: S608
-                (record_id,),
-            ).fetchone()
-            existing_created_at = row["created_at"] if row is not None else None
+    created_value = created_at or existing_created_at or now_iso()
 
-        created_value = created_at or existing_created_at or now_iso()
+    columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
+    placeholders = ", ".join("?" for _ in columns)
+    values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
 
-        columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
-        placeholders = ", ".join("?" for _ in columns)
-        values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
-
-        con.execute(
-            f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608
-            values,
-        )
+    con.execute(
+        f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608
+        values,
+    )
 
 
 def _model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
@@ -1225,3 +1249,58 @@ def delete_program(program_id: str) -> None:
             "DELETE FROM program_versions WHERE program_id = ?",
             (program_id,),
         )
+
+
+def replace_program_import(
+    *,
+    program: Program,
+    previous_version: ProgramVersion | None,
+    routines: list[Routine],
+    experiments: list[Experiment],
+    stale_routine_ids: set[str],
+    stale_experiment_ids: set[str],
+) -> None:
+    """Apply a program import atomically after the spec has been validated."""
+    timestamp = now_iso()
+    with _connect() as con, con:
+        if previous_version is not None:
+            con.execute(
+                "INSERT OR REPLACE INTO program_versions "
+                "(program_id, version, data, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    previous_version.program_id,
+                    previous_version.version,
+                    previous_version.model_dump_json(),
+                    timestamp,
+                    timestamp,
+                ),
+            )
+
+        _save_json_record_in_connection(
+            con,
+            "programs",
+            program.id,
+            program.model_dump_json(),
+        )
+
+        for routine in routines:
+            _save_json_record_in_connection(
+                con,
+                "routines",
+                routine.id,
+                routine.model_dump_json(),
+            )
+
+        for experiment in experiments:
+            _save_json_record_in_connection(
+                con,
+                "experiments",
+                experiment.id,
+                experiment.model_dump_json(),
+            )
+
+        for routine_id in sorted(stale_routine_ids):
+            con.execute("DELETE FROM routines WHERE id = ?", (routine_id,))
+        for experiment_id in sorted(stale_experiment_ids):
+            con.execute("DELETE FROM experiments WHERE id = ?", (experiment_id,))

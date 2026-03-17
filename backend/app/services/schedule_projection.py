@@ -213,8 +213,9 @@ def _apply_overrides(
                 updated.pop(override.target_occurrence_key, None)
             continue
         if override.action == "replace":
-            if override.target_occurrence_key is not None:
-                updated.pop(override.target_occurrence_key, None)
+            if override.target_occurrence_key is None or target_occurrence is None:
+                continue
+            updated.pop(override.target_occurrence_key, None)
             occurrence = _occurrence_for_override(
                 override=override,
                 date=date,

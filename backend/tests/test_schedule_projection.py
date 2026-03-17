@@ -449,6 +449,23 @@ class TestScheduleProjection:
         assert day_occurrences[0].routine_id == "routine-main"
         assert day_occurrences[0].target_occurrence_key == scheduled_occurrence.occurrence_key
 
+    def test_replace_override_without_target_occurrence_is_ignored(self):
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+
+        save_card_override(
+            CardOverride(
+                id="override-replace-missing",
+                date="2026-03-02",
+                action="replace",
+                target_occurrence_key="scheduled:missing:2026-03-02",
+                card_template_id="card-extra",
+            )
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02", duration_days=1)
+
+        assert window.days[0].occurrences == []
+
     def test_invalid_start_date_raises_value_error(self):
         with pytest.raises(ValueError):
             _schedule_mod().get_schedule_window("03-02-2026")

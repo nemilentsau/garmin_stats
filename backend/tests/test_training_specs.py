@@ -745,6 +745,46 @@ class TestTodayProjection:
         assert logged_card.actual_json["actual_minutes"] == 8
         assert logged_card.notes == "Shortened after the run"
 
+    def test_today_log_rejects_missing_occurrence(self):
+        with pytest.raises(LookupError, match="Today occurrence scheduled:missing:2026-03-02"):
+            upsert_today_card_log(
+                "2026-03-02",
+                "scheduled:missing:2026-03-02",
+                TodayCardLogUpdateRequest(
+                    card_template_id="card-main",
+                    status="completed",
+                ),
+            )
+
+    def test_today_log_rejects_card_template_mismatch(self):
+        card_artifact = create_assistant_artifact(_card_request("card-main"))
+        extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))
+        routine_artifact = create_assistant_artifact(
+            _routine_request("routine-main", card_id="card-main")
+        )
+
+        activate_assistant_artifact(card_artifact.id)
+        activate_assistant_artifact(extra_card_artifact.id)
+        activate_assistant_artifact(routine_artifact.id)
+
+        today_before = get_today("2026-03-02")
+        scheduled_card = today_before.slots[2].cards[0]
+
+        with pytest.raises(ValueError, match="Card template does not match"):
+            upsert_today_card_log(
+                "2026-03-02",
+                scheduled_card.occurrence_key,
+                TodayCardLogUpdateRequest(
+                    card_template_id="card-extra",
+                    assignment_id=scheduled_card.assignment_id,
+                    status="completed",
+                ),
+            )
+
+        today_after = get_today("2026-03-02")
+
+        assert today_after.slots[2].cards[0].status == "pending"
+
     def test_today_applies_persisted_add_and_hide_overrides(self):
         card_artifact = create_assistant_artifact(_card_request("card-main"))
         extra_card_artifact = create_assistant_artifact(_card_request("card-extra"))

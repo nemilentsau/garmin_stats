@@ -1,15 +1,11 @@
 """Program spec import and management service."""
 
 from ..infra.database import (
-    delete_experiment,
-    delete_routine,
     load_program,
     load_program_versions,
     load_programs,
-    save_experiment,
+    replace_program_import,
     save_program,
-    save_program_version,
-    save_routine,
 )
 from ..models import (
     Experiment,
@@ -112,6 +108,14 @@ def import_program(spec: dict) -> Program:
     program_id: str = program_info["id"]
     version: int = program_info["version"]
     now = now_iso()
+    routines = [
+        _protocol_to_routine(program_id, protocol)
+        for protocol in spec.get("protocols", [])
+    ]
+    experiments = [
+        _spec_experiment_to_model(program_id, exp)
+        for exp in spec.get("experiments", [])
+    ]
 
     existing = load_program(program_id)
     existing_routine_ids, existing_experiment_ids = (
@@ -119,16 +123,17 @@ def import_program(spec: dict) -> Program:
     )
     current_routine_ids, current_experiment_ids = _spec_child_ids(spec, program_id)
 
-    # Archive current version before overwriting
-    if existing is not None:
-        save_program_version(ProgramVersion(
+    previous_version = (
+        ProgramVersion(
             program_id=existing.id,
             version=existing.version,
             spec=existing.spec,
             imported_at=existing.imported_at,
-        ))
+        )
+        if existing is not None
+        else None
+    )
 
-    # Create/update the program record
     program = Program(
         id=program_id,
         name=program_info["name"],
@@ -139,22 +144,14 @@ def import_program(spec: dict) -> Program:
         updated_at=now,
         retired_at=existing.retired_at if existing else None,
     )
-    save_program(program)
-
-    # Create routines from protocols
-    for protocol in spec.get("protocols", []):
-        routine = _protocol_to_routine(program_id, protocol)
-        save_routine(routine)
-
-    # Create experiments
-    for exp in spec.get("experiments", []):
-        experiment = _spec_experiment_to_model(program_id, exp)
-        save_experiment(experiment)
-
-    for routine_id in sorted(existing_routine_ids - current_routine_ids):
-        delete_routine(routine_id)
-    for experiment_id in sorted(existing_experiment_ids - current_experiment_ids):
-        delete_experiment(experiment_id)
+    replace_program_import(
+        program=program,
+        previous_version=previous_version,
+        routines=routines,
+        experiments=experiments,
+        stale_routine_ids=existing_routine_ids - current_routine_ids,
+        stale_experiment_ids=existing_experiment_ids - current_experiment_ids,
+    )
 
     return program
 

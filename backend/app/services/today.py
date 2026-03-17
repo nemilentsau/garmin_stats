@@ -91,12 +91,24 @@ def upsert_today_card_log(
     occurrence_key: str,
     request: TodayCardLogUpdateRequest,
 ) -> CardLog:
+    scheduled_cards = _build_scheduled_cards(date)
+    scheduled_card = scheduled_cards.get(occurrence_key)
+    if scheduled_card is None:
+        raise LookupError(f"Today occurrence {occurrence_key} not found for {date}")
+    if request.card_template_id != scheduled_card.card_template_id:
+        raise ValueError("Card template does not match the scheduled occurrence")
+    if (
+        request.assignment_id is not None
+        and request.assignment_id != scheduled_card.assignment_id
+    ):
+        raise ValueError("Assignment id does not match the scheduled occurrence")
+
     log = CardLog(
         id=f"card-log:{date}:{occurrence_key}",
         date=date,
         occurrence_key=occurrence_key,
-        card_template_id=request.card_template_id,
-        assignment_id=request.assignment_id,
+        card_template_id=scheduled_card.card_template_id,
+        assignment_id=scheduled_card.assignment_id,
         status=request.status,
         actual_json=request.actual_json,
         notes=request.notes,
