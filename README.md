@@ -196,6 +196,14 @@ uv run uvicorn app.main:app --reload
 
 Backend runs on `http://localhost:8000`.
 
+To use a different port, also pass the frontend origin so CORS is allowed:
+
+```bash
+BACKEND_CORS_ORIGINS=http://localhost:3000 uv run uvicorn app.main:app --reload --port 7000
+```
+
+`BACKEND_CORS_ORIGINS` accepts a comma-separated list. The defaults cover `localhost:3000/5173/5174/5180`; only set this if you use a port outside that set.
+
 ### Manual smoke runs
 
 Automated backend tests already isolate the database with pytest fixtures.
@@ -219,6 +227,18 @@ npm run dev
 ```
 
 Frontend runs on `http://localhost:5173`.
+
+To use a different port:
+
+```bash
+npm run dev -- --port 5174
+```
+
+If the backend is also on a non-default port, tell the frontend where to find it:
+
+```bash
+PUBLIC_API_BASE_URL=http://localhost:8001 npm run dev -- --port 5174
+```
 
 ### Data layout
 

@@ -4,6 +4,7 @@ Garmin Stats API - FastAPI backend for health data analysis.
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -96,17 +97,28 @@ app = FastAPI(
 )
 
 # CORS for frontend
+# Override by setting BACKEND_CORS_ORIGINS to a comma-separated list of allowed origins.
+# Example: BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+_default_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5180",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5180",
+]
+_cors_origins_env = os.environ.get("BACKEND_CORS_ORIGINS", "")
+_cors_origins = (
+    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    if _cors_origins_env
+    else _default_cors_origins
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5180",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5180",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
