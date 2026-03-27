@@ -88,7 +88,9 @@
 		}
 		return { total: cards.length, completed, pending, partial, skipped };
 	});
-	const rendererTypes = $derived([...new Set(allCards.map((c) => c.renderer))].sort());
+	const routineNames = $derived(
+		[...new Set(allCards.map((c) => c.routine_name).filter(Boolean))].sort() as string[]
+	);
 
 	type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
 
@@ -100,7 +102,7 @@
 		cards: NonNullable<TodayResponse>['slots'][number]['cards']
 	): NonNullable<TodayResponse>['slots'][number]['cards'] {
 		if (!typeFilter) return cards;
-		return cards.filter((c) => c.renderer === typeFilter);
+		return cards.filter((c) => c.routine_name === typeFilter);
 	}
 
 	function isSlotVisible(slot: string): boolean {
@@ -399,26 +401,18 @@
 			<div class="error-banner">{error}</div>
 		{/if}
 
-		<!-- Filter chips -->
+		<!-- Filter row -->
 		<div class="filter-row">
-			<button
-				class="filter-chip"
-				class:active={typeFilter === null}
-				onclick={() => (typeFilter = null)}
+			<select
+				class="routine-select"
+				value={typeFilter ?? ''}
+				onchange={(e) => (typeFilter = e.currentTarget.value || null)}
 			>
-				All <span class="chip-count">{stats.total}</span>
-			</button>
-			{#each rendererTypes as rt}
-				<button
-					class="filter-chip"
-					class:active={typeFilter === rt}
-					onclick={() => (typeFilter = typeFilter === rt ? null : rt)}
-				>
-					<span class="chip-icon">{rendererIcon[rt] ?? ''}</span>
-					{rendererLabel[rt] ?? rt}
-					<span class="chip-count">{allCards.filter((c) => c.renderer === rt).length}</span>
-				</button>
-			{/each}
+				<option value="">All routines ({stats.total})</option>
+				{#each routineNames as rn}
+					<option value={rn}>{rn} ({allCards.filter((c) => c.routine_name === rn).length})</option>
+				{/each}
+			</select>
 
 			<span class="filter-sep"></span>
 
@@ -837,42 +831,32 @@
 		flex-wrap: wrap;
 	}
 
-	.filter-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 5px 12px;
+	.routine-select {
+		padding: 5px 28px 5px 12px;
 		border-radius: 8px;
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: transparent;
-		color: #8fa3b0;
+		background: rgba(255, 255, 255, 0.04);
+		color: #c8d6df;
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		letter-spacing: 0.04em;
 		cursor: pointer;
-		transition:
-			background 0.15s,
-			border-color 0.15s,
-			color 0.15s;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238fa3b0'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 10px center;
+		transition: border-color 0.15s, background 0.15s;
 	}
-
-	.filter-chip:hover {
-		background: rgba(255, 255, 255, 0.04);
+	.routine-select:hover {
+		border-color: rgba(255, 255, 255, 0.15);
 	}
-
-	.filter-chip.active {
-		background: rgba(91, 181, 166, 0.12);
-		border-color: rgba(91, 181, 166, 0.3);
-		color: #7be0d0;
+	.routine-select:focus {
+		outline: none;
+		border-color: rgba(91, 181, 166, 0.4);
 	}
-
-	.chip-count {
-		font-weight: 700;
-		opacity: 0.7;
-	}
-
-	.chip-icon {
-		font-size: 13px;
+	.routine-select option {
+		background: #1a2632;
+		color: #c8d6df;
 	}
 
 	.filter-sep {
