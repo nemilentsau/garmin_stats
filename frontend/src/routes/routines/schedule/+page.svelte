@@ -99,6 +99,40 @@
 			.map(([date, occurrences]) => ({ date, occurrences }));
 	});
 
+	type RoutineGroup = { routineName: string; occurrences: ScheduleOccurrence[] };
+	type TimelineDay = { date: string; groups: RoutineGroup[] };
+
+	/** Combined timeline — grouped by routine within each day. */
+	const combinedTimelineDays = $derived.by((): TimelineDay[] => {
+		const sorted = [...allOccurrences].sort(sortOccurrences);
+		const byDate = new Map<string, Map<string, ScheduleOccurrence[]>>();
+		for (const occ of sorted) {
+			const rName = occ.routine_name ?? 'Schedule override';
+			if (!byDate.has(occ.date)) byDate.set(occ.date, new Map());
+			const dateMap = byDate.get(occ.date)!;
+			if (!dateMap.has(rName)) dateMap.set(rName, []);
+			dateMap.get(rName)!.push(occ);
+		}
+		return [...byDate.entries()]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([date, routineMap]) => ({
+				date,
+				groups: [...routineMap.entries()].map(([routineName, occurrences]) => ({ routineName, occurrences }))
+			}));
+	});
+
+	/** Single routine timeline — one group per day. */
+	const singleRoutineTimelineDays = $derived.by((): TimelineDay[] => {
+		return routineTimelineDays.map((day) => ({
+			date: day.date,
+			groups: [{ routineName: '', occurrences: day.occurrences }]
+		}));
+	});
+
+	/** Which timeline days to show. */
+	const timelineDays = $derived(selectedRoutineId ? singleRoutineTimelineDays : combinedTimelineDays);
+	const showRoutineLabel = $derived(!selectedRoutineId);
+
 	function sortOccurrences(a: ScheduleOccurrence, b: ScheduleOccurrence): number {
 		return (
 			a.date.localeCompare(b.date) ||
@@ -264,36 +298,8 @@
 		</div>
 
 		<!-- Content -->
-		{#if !selectedRoutineId}
-			<!-- All Routines Overview -->
-			<div class="overview-list">
-				{#each routines as routine}
-					{@const count = routineOccurrenceCount[routine.id] ?? 0}
-					<button type="button" class="overview-row" onclick={() => (selectedRoutineId = routine.id)}>
-						<div class="overview-left">
-							<span class="overview-name">{routine.name}</span>
-							<span class="overview-sub">
-								<span class="cadence-badge">{routine.cadence}</span>
-								<span>{formatShortDate(routine.start_date)}{routine.end_date ? ` \u2013 ${formatShortDate(routine.end_date)}` : ' \u2013 ongoing'}</span>
-							</span>
-						</div>
-						<div class="overview-right">
-							{#if routine.tags.length > 0}
-								<div class="tag-row">
-									{#each routine.tags.slice(0, 3) as tag}
-										<span class="mini-tag">{tag}</span>
-									{/each}
-								</div>
-							{/if}
-							<span class="overview-count">{count} in window</span>
-						</div>
-					</button>
-				{:else}
-					<div class="empty-state">No active routines. Create one from the routines inbox.</div>
-				{/each}
-			</div>
-		{:else if selectedRoutine}
-			<!-- Routine Timeline -->
+		{#if selectedRoutine}
+			<!-- Routine header (single routine selected) -->
 			<div class="routine-header">
 				<div class="routine-header-left">
 					<h2>{selectedRoutine.name}</h2>
@@ -314,21 +320,30 @@
 					<p class="routine-notes">{selectedRoutine.notes}</p>
 				{/if}
 			</div>
+		{/if}
 
-			{#if routineTimelineDays.length === 0}
-				<div class="empty-state">
+		{#if timelineDays.length === 0}
+			<div class="empty-state">
+				{#if selectedRoutine}
 					{selectedRoutine.name} has no occurrences in this 14-day window. Shift the window to find it.
-				</div>
-			{:else}
-				<div class="timeline-list">
-					{#each routineTimelineDays as day}
-						<div class="timeline-day">
-							<div class="timeline-date">
-								<span class="timeline-weekday">{formatWeekday(day.date)}</span>
-								<span class="timeline-day-num">{formatShortDate(day.date)}</span>
-							</div>
-							<div class="timeline-cards">
-								{#each day.occurrences as occ}
+				{:else}
+					No occurrences in this 14-day window.
+				{/if}
+			</div>
+		{:else}
+			<div class="timeline-list">
+				{#each timelineDays as day}
+					<div class="timeline-day">
+						<div class="timeline-date">
+							<span class="timeline-weekday">{formatWeekday(day.date)}</span>
+							<span class="timeline-day-num">{formatShortDate(day.date)}</span>
+						</div>
+						<div class="timeline-cards">
+							{#each day.groups as group}
+								{#if showRoutineLabel}
+									<div class="routine-divider">{group.routineName}</div>
+								{/if}
+								{#each group.occurrences as occ}
 									{@const accent = SLOT_ACCENTS[occ.slot]}
 									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
 									<div class="timeline-card" class:expanded={isExpanded} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
@@ -340,12 +355,12 @@
 													<span class="card-summary">{occ.summary}</span>
 												{/if}
 											</div>
-											<span class="card-brief">{cardBrief(occ)}</span>
-											<div class="card-badges">
-												<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot]}</span>
-											</div>
-											<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
-												<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										<span class="card-brief">{cardBrief(occ)}</span>
+										<div class="card-badges">
+											<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot]}</span>
+										</div>
+										<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
+											<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 											</svg>
 										</button>
 
@@ -417,12 +432,12 @@
 										{/if}
 									</div>
 								{/each}
+							{/each}
 							</div>
 						</div>
 					{/each}
 				</div>
 			{/if}
-		{/if}
 	</section>
 {/if}
 
@@ -553,68 +568,6 @@
 	.routine-select:focus { outline: none; border-color: rgba(91, 181, 166, 0.4); }
 	.routine-select option { background: #1a2632; color: #c8d6df; }
 
-	/* ── Overview list ── */
-	.overview-list {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.overview-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		padding: 12px 16px;
-		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.025);
-		border: 1px solid rgba(255, 255, 255, 0.05);
-		cursor: pointer;
-		text-align: left;
-		color: inherit;
-		transition: background 0.15s;
-	}
-
-	.overview-row:hover {
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.overview-left {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		min-width: 0;
-	}
-
-	.overview-name {
-		font-family: 'Instrument Sans', sans-serif;
-		font-size: 14px;
-		font-weight: 600;
-		color: #eef5f8;
-	}
-
-	.overview-sub {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: var(--muted);
-	}
-
-	.overview-right {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		flex-shrink: 0;
-	}
-
-	.overview-count {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: var(--muted);
-	}
-
 	.cadence-badge {
 		padding: 2px 7px;
 		border-radius: 4px;
@@ -744,6 +697,20 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+	}
+
+	.routine-divider {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		padding: 8px 0 4px;
+		margin-top: 4px;
+	}
+
+	.routine-divider:first-child {
+		margin-top: 0;
 	}
 
 	.timeline-card {
@@ -923,14 +890,5 @@
 			padding: 8px 0 4px 0;
 		}
 
-		.overview-row {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 8px;
-		}
-
-		.overview-right {
-			flex-wrap: wrap;
-		}
 	}
 </style>
