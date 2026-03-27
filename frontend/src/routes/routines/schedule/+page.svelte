@@ -305,11 +305,11 @@
 
 	/** Shift routine dates so they start from importStartDate. */
 	function shiftBundleDates(bundle: ArtifactBundleSpec): ArtifactBundleSpec {
-		const shifted = JSON.parse(JSON.stringify(bundle)) as ArtifactBundleSpec;
+		const shifted = structuredClone(bundle);
+		const newStart = toDate(importStartDate);
 		for (const routine of shifted.routine_specs ?? []) {
 			if (!routine.start_date) continue;
 			const origStart = toDate(routine.start_date);
-			const newStart = toDate(importStartDate);
 			const deltaMs = newStart.getTime() - origStart.getTime();
 			routine.start_date = importStartDate;
 			if (routine.end_date) {

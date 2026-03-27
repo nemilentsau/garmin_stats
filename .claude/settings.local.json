@@ -67,7 +67,21 @@
       "Bash(git -C /Users/andreinemilentsau/Projects/garmin_stats status --short docs/)",
       "Bash(sqlite3 storage/garmin_stats.db \"SELECT DISTINCT json_extract\\(data, ''$.category''\\) as cat, COUNT\\(*\\) as cnt FROM routines GROUP BY cat ORDER BY cnt DESC\")",
       "Bash(sqlite3 /Users/andreinemilentsau/Projects/garmin_stats/storage/garmin_stats.db \"SELECT DISTINCT json_extract\\(data, ''$.category''\\) as cat, COUNT\\(*\\) as cnt FROM routines GROUP BY cat ORDER BY cnt DESC\")",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(find /Users/andreinemilentsau/Projects/garmin_stats -name *.db -o -name *.sqlite -o -name *.sqlite3)",
+      "Bash(sqlite3 storage/garmin_stats.db \"SELECT id FROM routines WHERE json_extract\\(data, ''$.name''\\) = ''Two-Week Meditation Foundation'' LIMIT 1;\")",
+      "Bash(sqlite3 storage/garmin_stats.db \"SELECT COUNT\\(*\\) FROM routines;\")",
+      "Bash(sqlite3 storage/garmin_stats.db \".tables\")",
+      "Bash(sqlite3 storage/garmin_stats.db \"SELECT id, json_extract\\(data, ''$.name''\\) as name FROM routine_schedules;\")",
+      "Bash(sqlite3 storage/garmin_stats.db \"SELECT id, json_extract\\(data, ''$.name''\\) as name, json_extract\\(data, ''$.status''\\) as status FROM routine_schedules WHERE id = ''two-week-meditation-foundation-routine'';\")",
+      "Bash(sqlite3 storage/garmin_stats.db:*)",
+      "Bash(sqlite3 data/garmin_stats.db \"SELECT id, json_extract\\(data, ''$.kind''\\) as kind, json_extract\\(data, ''$.target_id''\\) as target_id, json_extract\\(data, ''$.status''\\) as status FROM assistant_artifacts ORDER BY id;\")",
+      "Bash(sqlite3 /Users/andreinemilentsau/Projects/garmin_stats/storage/garmin_stats.db \"SELECT id, json_extract\\(data, ''$.kind''\\) as kind, json_extract\\(data, ''$.target_id''\\) as target_id, json_extract\\(data, ''$.status''\\) as status FROM assistant_artifacts ORDER BY created_at DESC LIMIT 20;\")",
+      "Bash(sqlite3 /Users/andreinemilentsau/Projects/garmin_stats/storage/garmin_stats.db \"DELETE FROM assistant_artifacts WHERE id LIKE ''%meditation%'' OR id LIKE ''%test-bundle%'';\")",
+      "Bash(sqlite3 /Users/andreinemilentsau/Projects/garmin_stats/storage/garmin_stats.db \"DELETE FROM assistant_artifacts WHERE id LIKE ''%meditation%''; DELETE FROM card_templates WHERE id LIKE ''%meditation%''; DELETE FROM routine_schedules WHERE id LIKE ''%meditation%''; DELETE FROM routine_assignments WHERE routine_id LIKE ''%meditation%'';\")",
+      "Bash(sqlite3 /Users/andreinemilentsau/Projects/garmin_stats/storage/garmin_stats.db \"SELECT id FROM routine_schedules;\")",
+      "Bash(git push:*)",
+      "Bash(brew list:*)"
     ]
   }
 }
