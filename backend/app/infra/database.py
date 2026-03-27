@@ -1167,6 +1167,17 @@ def load_card_logs(date: str | None = None) -> list[CardLog]:
     )
 
 
+def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
+    """Load card logs for a date range (inclusive on both ends)."""
+    return _load_json_records(
+        "card_logs",
+        CardLog,
+        where_sql="log_date >= ? AND log_date <= ?",
+        params=(start_date, end_date),
+        order_by="log_date, created_at, id",
+    )
+
+
 def save_card_override(override: CardOverride) -> None:
     _save_json_record(
         "card_overrides",

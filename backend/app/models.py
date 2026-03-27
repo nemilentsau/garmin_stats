@@ -1073,6 +1073,19 @@ class TodayResponse(_DefaultsRequired):
     slots: list[TodaySlot] = []
 
 
+class CardLogStatusEntry(_DefaultsRequired):
+    """Lightweight completion status for a single card occurrence."""
+    occurrence_key: str
+    status: CardLogStatus
+
+
+class CardLogRangeResponse(_DefaultsRequired):
+    """Completion statuses for a date range of card occurrences."""
+    start_date: str
+    end_date: str
+    entries: list[CardLogStatusEntry] = []
+
+
 class ScheduleOccurrence(_DefaultsRequired):
     occurrence_key: str
     date: str

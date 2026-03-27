@@ -60,6 +60,7 @@ export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
 export type CardTemplate = Schemas['CardTemplate'];
 export type CardTemplatesResponse = Schemas['CardTemplatesResponse'];
 export type CardLog = Schemas['CardLog'];
+export type CardLogRangeResponse = Schemas['CardLogRangeResponse'];
 export type RoutineAssignment = Schemas['RoutineAssignment'];
 export type RoutineAssignmentsResponse = Schemas['RoutineAssignmentsResponse'];
 export type RoutineSchedule = Schemas['RoutineSchedule'];
@@ -131,6 +132,8 @@ export const api = {
 	getToday: (date: string) => fetchJson<TodayResponse>(`/api/today?date=${date}`),
 	updateTodayCard: (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) =>
 		sendJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, 'PUT', payload),
+	getCardLogsRange: (startDate: string, endDate: string) =>
+		fetchJson<CardLogRangeResponse>(`/api/today/card-logs?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`),
 	getCheckins: (date?: string) =>
 		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),
 	createCheckin: (checkin: DailyCheckInInput) =>

@@ -936,6 +936,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/today/card-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Card Logs Range
+         * @description Return completion statuses for all card occurrences in a date range.
+         */
+        get: operations["get_card_logs_range_api_today_card_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/today/{date}/cards/{occurrence_key}": {
         parameters: {
             query?: never;
@@ -1335,6 +1355,34 @@ export interface components {
             };
             /** Notes */
             notes: string | null;
+        };
+        /**
+         * CardLogRangeResponse
+         * @description Completion statuses for a date range of card occurrences.
+         */
+        CardLogRangeResponse: {
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["CardLogStatusEntry"][];
+        };
+        /**
+         * CardLogStatusEntry
+         * @description Lightweight completion status for a single card occurrence.
+         */
+        CardLogStatusEntry: {
+            /** Occurrence Key */
+            occurrence_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
         };
         /** CardTemplate */
         CardTemplate: {
@@ -4914,6 +4962,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_card_logs_range_api_today_card_logs_get: {
+        parameters: {
+            query: {
+                /** @description Start date (YYYY-MM-DD, inclusive) */
+                start_date: string;
+                /** @description End date (YYYY-MM-DD, inclusive) */
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardLogRangeResponse"];
                 };
             };
             /** @description Validation Error */

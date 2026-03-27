@@ -393,7 +393,7 @@
 						{/if}
 					</div>
 				</div>
-				<a class="routines-link" href="/routines/creation">Routines</a>
+				<a class="routines-link" href="/routines/schedule">Routines</a>
 			</div>
 		</div>
 

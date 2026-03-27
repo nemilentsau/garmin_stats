@@ -32,7 +32,6 @@
 			subtabs: [
 				{ href: '/today', label: 'Today' },
 				{ href: '/routines/schedule', label: 'Routine Schedule' },
-				{ href: '/routines/creation', label: 'Routine Creation' },
 				{ href: '/experiments', label: 'Experiments' },
 				{ href: '/programs', label: 'Programs' }
 			]

@@ -3,6 +3,9 @@
 
 	import {
 		api,
+		type ArtifactBundleSpec,
+		type ArtifactBundlePreviewResponse,
+		type ArtifactBundleImportResponse,
 		type RoutineSchedule,
 		type ScheduleOccurrence,
 		type ScheduleWindow
@@ -59,7 +62,13 @@
 	let scheduleWindow = $state<ScheduleWindow | null>(null);
 	let routines = $state<RoutineSchedule[]>([]);
 	let expandedOccurrenceKey = $state<string | null>(null);
+	/** Map of occurrence_key → completion status from card logs. */
+	let completionMap = $state<Record<string, string>>({});
 	let requestToken = 0;
+
+	function occStatus(occ: ScheduleOccurrence): string {
+		return completionMap[occ.occurrence_key] ?? 'pending';
+	}
 
 	const allOccurrences = $derived.by(() =>
 		scheduleWindow ? scheduleWindow.days.flatMap((day) => day.occurrences) : []
@@ -204,10 +213,18 @@
 	async function loadScheduleWindow(startDate: string): Promise<void> {
 		const token = ++requestToken;
 		error = null;
-		const win = await api.getRoutineScheduleWindow(startDate);
+		const [win, logs] = await Promise.all([
+			api.getRoutineScheduleWindow(startDate),
+			api.getCardLogsRange(startDate, addDays(startDate, 13)),
+		]);
 		if (token !== requestToken) return;
 		scheduleWindow = win;
 		windowStartDate = win.start_date;
+		const map: Record<string, string> = {};
+		for (const entry of logs.entries) {
+			map[entry.occurrence_key] = entry.status;
+		}
+		completionMap = map;
 	}
 
 	async function loadPage(): Promise<void> {
@@ -230,6 +247,83 @@
 	async function submitWindowStart(): Promise<void> {
 		expandedOccurrenceKey = null;
 		await loadScheduleWindow(windowStartDate);
+	}
+
+	/* ── Import modal ── */
+	type ImportStep = 'idle' | 'previewing' | 'preview-ok' | 'preview-error' | 'importing' | 'done';
+	let importModalOpen = $state(false);
+	let importStep = $state<ImportStep>('idle');
+	let importBundle = $state<ArtifactBundleSpec | null>(null);
+	let importPreview = $state<ArtifactBundlePreviewResponse | null>(null);
+	let importResult = $state<ArtifactBundleImportResponse | null>(null);
+	let importError = $state<string | null>(null);
+	let fileInputEl: HTMLInputElement | undefined = $state();
+
+	function openImportModal(): void {
+		importModalOpen = true;
+		importStep = 'idle';
+		importBundle = null;
+		importPreview = null;
+		importResult = null;
+		importError = null;
+	}
+
+	function closeImportModal(): void {
+		importModalOpen = false;
+	}
+
+	async function handleFile(file: File): Promise<void> {
+		importError = null;
+		try {
+			const text = await file.text();
+			const bundle = JSON.parse(text) as ArtifactBundleSpec;
+			importBundle = bundle;
+			importStep = 'previewing';
+			const preview = await api.previewAssistantArtifactBundle(bundle);
+			importPreview = preview;
+			importStep = preview.valid ? 'preview-ok' : 'preview-error';
+		} catch (e: unknown) {
+			importError = errorMessage(e);
+			importStep = 'idle';
+		}
+	}
+
+	function onFileInput(e: Event): void {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (file) void handleFile(file);
+		input.value = '';
+	}
+
+	function onDrop(e: DragEvent): void {
+		e.preventDefault();
+		const file = e.dataTransfer?.files[0];
+		if (file && file.name.endsWith('.json')) void handleFile(file);
+	}
+
+	async function handleImport(): Promise<void> {
+		if (!importBundle) return;
+		importError = null;
+		try {
+			importStep = 'importing';
+			const result = await api.importAssistantArtifactBundle(importBundle);
+			importResult = result;
+			importStep = 'done';
+			// Refresh schedule data
+			const res = await api.getRoutines('active');
+			routines = res.routines;
+			await loadScheduleWindow(windowStartDate);
+		} catch (e: unknown) {
+			importError = errorMessage(e);
+			importStep = 'preview-ok';
+		}
+	}
+
+	function resetImport(): void {
+		importStep = 'idle';
+		importBundle = null;
+		importPreview = null;
+		importError = null;
 	}
 
 	onMount(() => {
@@ -273,6 +367,7 @@
 						<path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 					</svg>
 				</button>
+				<button type="button" class="import-btn" onclick={openImportModal}>Import</button>
 			</div>
 		</div>
 
@@ -346,9 +441,24 @@
 								{#each group.occurrences as occ}
 									{@const accent = SLOT_ACCENTS[occ.slot]}
 									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
-									<div class="timeline-card" class:expanded={isExpanded} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
+									{@const status = occStatus(occ)}
+									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
 										<button type="button" class="timeline-card-main" onclick={() => (expandedOccurrenceKey = isExpanded ? null : occ.occurrence_key)}>
-											<span class="type-icon">{RENDERER_ICONS[occ.renderer] ?? ''}</span>
+											{#if status === 'completed'}
+												<span class="status-check done-check">
+													<svg viewBox="0 0 16 16" width="12" height="12" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+												</span>
+											{:else if status === 'skipped'}
+												<span class="status-check skip-check">
+													<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+												</span>
+											{:else if status === 'partial'}
+												<span class="status-check partial-check">
+													<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+												</span>
+											{:else}
+												<span class="type-icon">{RENDERER_ICONS[occ.renderer] ?? ''}</span>
+											{/if}
 											<div class="card-content">
 												<span class="card-name">{occ.name}</span>
 												{#if occ.summary}
@@ -439,6 +549,113 @@
 				</div>
 			{/if}
 	</section>
+{/if}
+
+<!-- Import modal -->
+{#if importModalOpen}
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions a11y_interactive_supports_focus -->
+	<div class="modal-backdrop" role="dialog" tabindex="-1" onclick={(e) => { if (e.target === e.currentTarget) closeImportModal(); }}>
+		<div class="modal-panel">
+			<div class="modal-header">
+				<h2>Import Routine Bundle</h2>
+				<button type="button" class="modal-close" onclick={closeImportModal} title="Close">
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+						<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				</button>
+			</div>
+
+			{#if importStep === 'idle'}
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
+				<div
+					class="drop-zone"
+					role="button"
+					tabindex="0"
+					ondrop={onDrop}
+					ondragover={(e) => e.preventDefault()}
+					onclick={() => fileInputEl?.click()}
+				>
+					<svg viewBox="0 0 24 24" width="32" height="32" fill="none">
+						<path d="M12 16V4M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						<path d="M20 16V18C20 19.1 19.1 20 18 20H6C4.9 20 4 19.1 4 18V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span>Drop a <strong>.json</strong> bundle here or click to browse</span>
+				</div>
+				<input type="file" accept=".json" class="file-input-hidden" bind:this={fileInputEl} onchange={onFileInput} />
+				{#if importError}
+					<div class="import-error">{importError}</div>
+				{/if}
+
+			{:else if importStep === 'previewing'}
+				<div class="import-status">Validating bundle...</div>
+
+			{:else if importStep === 'preview-ok' && importPreview && importBundle}
+				<div class="preview-summary">
+					<div class="preview-name">{importBundle.name}</div>
+					<div class="preview-stats">
+						<span>{importBundle.card_templates?.length ?? 0} card templates</span>
+						<span>{importBundle.routine_specs?.length ?? 0} routines</span>
+						<span>{importBundle.routine_specs?.reduce((n, r) => n + (r.assignments?.length ?? 0), 0) ?? 0} assignments</span>
+					</div>
+					{#if importPreview.deltas.length > 0}
+						<div class="delta-list">
+							{#each importPreview.deltas as delta}
+								<div class="delta-row">
+									<span class="delta-action" class:create={delta.action === 'create'} class:update={delta.action === 'update'}>{delta.action}</span>
+									<span>{delta.summary}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					{#if importError}
+						<div class="import-error">{importError}</div>
+					{/if}
+				</div>
+				<div class="modal-actions">
+					<button type="button" class="action-btn primary" onclick={() => void handleImport()}>Import</button>
+					<button type="button" class="action-btn ghost" onclick={closeImportModal}>Cancel</button>
+				</div>
+
+			{:else if importStep === 'preview-error' && importPreview}
+				<div class="preview-summary">
+					<div class="preview-name">{importBundle?.name ?? 'Bundle'}</div>
+					<div class="issue-list">
+						{#each importPreview.issues as issue}
+							<div class="issue-row">
+								<span class="issue-path">{issue.path}</span>
+								<span>{issue.message}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+				<div class="modal-actions">
+					<button type="button" class="action-btn ghost" onclick={resetImport}>Try another file</button>
+					<button type="button" class="action-btn ghost" onclick={closeImportModal}>Cancel</button>
+				</div>
+
+			{:else if importStep === 'importing'}
+				<div class="import-status">Importing...</div>
+
+			{:else if importStep === 'done' && importResult}
+				<div class="preview-summary">
+					<div class="import-success">Imported {importResult.total_imported} artifacts</div>
+					{#if importResult.deltas.length > 0}
+						<div class="delta-list">
+							{#each importResult.deltas as delta}
+								<div class="delta-row">
+									<span class="delta-action" class:create={delta.action === 'create'} class:update={delta.action === 'update'}>{delta.action}</span>
+									<span>{delta.summary}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				<div class="modal-actions">
+					<button type="button" class="action-btn primary" onclick={closeImportModal}>Done</button>
+				</div>
+			{/if}
+		</div>
+	</div>
 {/if}
 
 <style>
@@ -725,11 +942,40 @@
 		background: rgba(255, 255, 255, 0.045);
 	}
 
+	.timeline-card.done { opacity: 0.45; }
+	.timeline-card.done:hover { opacity: 0.7; }
+	.timeline-card.skipped { opacity: 0.35; }
+	.timeline-card.skipped:hover { opacity: 0.6; }
+	.timeline-card.partial { opacity: 0.6; }
+
+	.timeline-card.done .card-name {
+		text-decoration: line-through;
+		text-decoration-color: rgba(91, 181, 166, 0.5);
+	}
+	.timeline-card.skipped .card-name {
+		text-decoration: line-through;
+		text-decoration-color: rgba(232, 93, 74, 0.4);
+	}
+
 	.timeline-card.expanded {
+		opacity: 1;
 		background: rgba(255, 255, 255, 0.04);
 		border-color: rgba(255, 255, 255, 0.1);
 		border-left-color: var(--tc-color);
 	}
+
+	.status-check {
+		flex-shrink: 0;
+		width: 22px;
+		height: 22px;
+		border-radius: 5px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.done-check { background: rgba(91, 181, 166, 0.2); color: #7be0d0; }
+	.skip-check { background: rgba(232, 93, 74, 0.12); color: #f2a399; }
+	.partial-check { background: rgba(212, 148, 76, 0.15); color: #f3bf81; }
 
 	.timeline-card-main {
 		display: flex;
@@ -864,6 +1110,227 @@
 		color: var(--muted);
 		flex-shrink: 0;
 	}
+
+	/* ── Import button ── */
+	.import-btn {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #5bb5a6;
+		padding: 6px 12px;
+		border-radius: 8px;
+		border: 1px solid rgba(91, 181, 166, 0.25);
+		background: transparent;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.import-btn:hover { background: rgba(91, 181, 166, 0.1); }
+
+	/* ── Modal ── */
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 100;
+	}
+
+	.modal-panel {
+		width: 520px;
+		max-width: 90vw;
+		max-height: 80vh;
+		overflow-y: auto;
+		border-radius: 14px;
+		background: #1a2632;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		padding: 20px;
+	}
+
+	.modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 16px;
+		font-weight: 600;
+		color: #eef5f8;
+	}
+
+	.modal-close {
+		width: 30px;
+		height: 30px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: transparent;
+		color: #6b8292;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.15s, color 0.15s;
+	}
+	.modal-close:hover { background: rgba(255, 255, 255, 0.06); color: #c3d3dd; }
+
+	.drop-zone {
+		border: 2px dashed rgba(255, 255, 255, 0.12);
+		border-radius: 12px;
+		padding: 40px 20px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 12px;
+		color: #6b8292;
+		cursor: pointer;
+		transition: border-color 0.15s, background 0.15s;
+		text-align: center;
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+	}
+	.drop-zone:hover { border-color: rgba(91, 181, 166, 0.4); background: rgba(91, 181, 166, 0.04); }
+	.drop-zone strong { color: #c3d3dd; }
+
+	.file-input-hidden { display: none; }
+
+	.import-status {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: #8fa3b0;
+		text-align: center;
+		padding: 24px 0;
+	}
+
+	.import-error {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #f2a399;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: rgba(232, 93, 74, 0.08);
+		border: 1px solid rgba(232, 93, 74, 0.2);
+	}
+
+	.preview-summary {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.preview-name {
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 14px;
+		font-weight: 600;
+		color: #eef5f8;
+	}
+
+	.preview-stats {
+		display: flex;
+		gap: 12px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.delta-list {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.delta-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 8px;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.03);
+		font-size: 12px;
+		color: #a7bac6;
+	}
+
+	.delta-action {
+		flex-shrink: 0;
+		padding: 1px 6px;
+		border-radius: 3px;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+	.delta-action.create { background: rgba(91, 181, 166, 0.15); color: #5bb5a6; }
+	.delta-action.update { background: rgba(212, 148, 76, 0.15); color: #d4944c; }
+
+	.issue-list {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.issue-row {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 6px 8px;
+		border-radius: 6px;
+		background: rgba(232, 93, 74, 0.06);
+		font-size: 12px;
+		color: #f2a399;
+	}
+
+	.issue-path {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: #6b8292;
+	}
+
+	.import-success {
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 14px;
+		font-weight: 600;
+		color: #5bb5a6;
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 8px;
+	}
+
+	.action-btn {
+		padding: 8px 16px;
+		border-radius: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.06em;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.action-btn.primary {
+		background: rgba(91, 181, 166, 0.15);
+		border: 1px solid rgba(91, 181, 166, 0.3);
+		color: #5bb5a6;
+	}
+	.action-btn.primary:hover { background: rgba(91, 181, 166, 0.25); }
+
+	.action-btn.ghost {
+		background: transparent;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		color: #8fa3b0;
+	}
+	.action-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); }
 
 	/* ── Responsive ── */
 	@media (max-width: 768px) {
