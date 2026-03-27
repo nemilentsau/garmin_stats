@@ -7,7 +7,11 @@ from ..models import (
     ArtifactBundlePreviewResponse,
     ArtifactBundleSpec,
 )
-from ..services.training_specs import import_artifact_bundle, preview_artifact_bundle
+from ..services.training_specs import (
+    activate_assistant_artifact,
+    import_artifact_bundle,
+    preview_artifact_bundle,
+)
 
 router = APIRouter(prefix="/api/assistant/artifact-bundles", tags=["assistant-artifact-bundles"])
 
@@ -20,5 +24,11 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
 
 @router.post("/import", response_model=ArtifactBundleImportResponse)
 def post_import_bundle(bundle: ArtifactBundleSpec):
-    """Persist a validated structured artifact bundle as draft artifacts."""
-    return import_artifact_bundle(bundle)
+    """Import a validated bundle and auto-activate all artifacts."""
+    result = import_artifact_bundle(bundle)
+    # Activate card templates first (routines depend on them), then routines.
+    card_ids = [d.artifact_id for d in result.deltas if d.kind == "card_template"]
+    routine_ids = [d.artifact_id for d in result.deltas if d.kind == "routine_spec"]
+    for artifact_id in card_ids + routine_ids:
+        activate_assistant_artifact(artifact_id)
+    return result

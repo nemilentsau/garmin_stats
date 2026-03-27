@@ -109,6 +109,23 @@
 		return !slotFilter || slotFilter === slot;
 	}
 
+	type CardType = NonNullable<TodayResponse>['slots'][number]['cards'][number];
+	type RoutineGroup = { routine: string; cards: CardType[] };
+
+	function groupByRoutine(cards: CardType[]): RoutineGroup[] {
+		const groups: RoutineGroup[] = [];
+		let current: RoutineGroup | null = null;
+		for (const card of cards) {
+			const name = card.routine_name ?? 'Other';
+			if (!current || current.routine !== name) {
+				current = { routine: name, cards: [] };
+				groups.push(current);
+			}
+			current.cards.push(card);
+		}
+		return groups;
+	}
+
 	function initialSelectedDate(): string {
 		const fallback = localDateIso();
 		const urlDate = new URL(window.location.href).searchParams.get('date');
@@ -435,6 +452,7 @@
 		<div class="activity-list">
 			{#each today?.slots ?? [] as slot}
 				{@const cards = filteredCards(slot.cards)}
+				{@const routineGroups = groupByRoutine(cards)}
 				{#if cards.length > 0 && isSlotVisible(slot.slot)}
 					<div
 						class="slot-divider"
@@ -445,7 +463,11 @@
 						<span class="slot-count">{cards.length}</span>
 					</div>
 
-					{#each cards as card}
+					{#each routineGroups as group}
+						{#if routineGroups.length > 1}
+							<div class="routine-group-label">{group.routine}</div>
+						{/if}
+					{#each group.cards as card}
 						{@const isExpanded = expandedOccurrenceKey === card.occurrence_key}
 						{@const status = effectiveStatus(card)}
 						{@const isDone = status === 'completed'}
@@ -498,11 +520,6 @@
 										</svg>
 									{/if}
 								</button>
-
-								<!-- Type icon -->
-								<span class="type-icon" title={rendererLabel[card.renderer] ?? card.renderer}>
-									{rendererIcon[card.renderer] ?? ''}
-								</span>
 
 								<!-- Name + summary -->
 								<div class="row-content">
@@ -670,6 +687,7 @@
 								</div>
 							{/if}
 						</div>
+					{/each}
 					{/each}
 				{/if}
 			{/each}
@@ -932,6 +950,15 @@
 		color: var(--muted);
 	}
 
+	.routine-group-label {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #6b8292;
+		padding: 8px 0 2px;
+	}
+
 	.slot-empty-text {
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
@@ -1030,14 +1057,6 @@
 		background: rgba(232, 93, 74, 0.12);
 		border-color: rgba(232, 93, 74, 0.4);
 		color: #f2a399;
-	}
-
-	.type-icon {
-		flex-shrink: 0;
-		width: 22px;
-		text-align: center;
-		font-size: 15px;
-		filter: grayscale(0.3);
 	}
 
 	.row-content {

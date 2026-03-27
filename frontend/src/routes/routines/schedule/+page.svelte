@@ -257,6 +257,7 @@
 	let importPreview = $state<ArtifactBundlePreviewResponse | null>(null);
 	let importResult = $state<ArtifactBundleImportResponse | null>(null);
 	let importError = $state<string | null>(null);
+	let importStartDate = $state(localDateIso());
 	let fileInputEl: HTMLInputElement | undefined = $state();
 
 	function openImportModal(): void {
@@ -266,6 +267,7 @@
 		importPreview = null;
 		importResult = null;
 		importError = null;
+		importStartDate = localDateIso();
 	}
 
 	function closeImportModal(): void {
@@ -301,12 +303,31 @@
 		if (file && file.name.endsWith('.json')) void handleFile(file);
 	}
 
+	/** Shift routine dates so they start from importStartDate. */
+	function shiftBundleDates(bundle: ArtifactBundleSpec): ArtifactBundleSpec {
+		const shifted = JSON.parse(JSON.stringify(bundle)) as ArtifactBundleSpec;
+		for (const routine of shifted.routine_specs ?? []) {
+			if (!routine.start_date) continue;
+			const origStart = toDate(routine.start_date);
+			const newStart = toDate(importStartDate);
+			const deltaMs = newStart.getTime() - origStart.getTime();
+			routine.start_date = importStartDate;
+			if (routine.end_date) {
+				const origEnd = toDate(routine.end_date);
+				const newEnd = new Date(origEnd.getTime() + deltaMs);
+				routine.end_date = localDateIso(newEnd);
+			}
+		}
+		return shifted;
+	}
+
 	async function handleImport(): Promise<void> {
 		if (!importBundle) return;
 		importError = null;
 		try {
 			importStep = 'importing';
-			const result = await api.importAssistantArtifactBundle(importBundle);
+			const bundleToImport = shiftBundleDates(importBundle);
+			const result = await api.importAssistantArtifactBundle(bundleToImport);
 			importResult = result;
 			importStep = 'done';
 			// Refresh schedule data
@@ -456,8 +477,6 @@
 												<span class="status-check partial-check">
 													<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
 												</span>
-											{:else}
-												<span class="type-icon">{RENDERER_ICONS[occ.renderer] ?? ''}</span>
 											{/if}
 											<div class="card-content">
 												<span class="card-name">{occ.name}</span>
@@ -596,6 +615,10 @@
 						<span>{importBundle.card_templates?.length ?? 0} card templates</span>
 						<span>{importBundle.routine_specs?.length ?? 0} routines</span>
 						<span>{importBundle.routine_specs?.reduce((n, r) => n + (r.assignments?.length ?? 0), 0) ?? 0} assignments</span>
+					</div>
+					<div class="start-date-field">
+						<span>Start date</span>
+						<input type="date" class="date-input" bind:value={importStartDate} />
 					</div>
 					{#if importPreview.deltas.length > 0}
 						<div class="delta-list">
@@ -990,14 +1013,6 @@
 		text-align: left;
 	}
 
-	.type-icon {
-		flex-shrink: 0;
-		width: 22px;
-		text-align: center;
-		font-size: 15px;
-		filter: grayscale(0.3);
-	}
-
 	.card-content {
 		flex: 1;
 		min-width: 0;
@@ -1238,6 +1253,19 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		color: var(--muted);
+	}
+
+	.start-date-field {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.start-date-field span {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: #8fa3b0;
 	}
 
 	.delta-list {
