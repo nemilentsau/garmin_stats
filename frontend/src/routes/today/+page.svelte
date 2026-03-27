@@ -55,18 +55,20 @@
 	};
 
 	let loading = $state(true);
-	let saving = $state(false);
 	let error: string | null = $state(null);
 	let selectedDate = $state(localDateIso());
 	let today = $state<TodayResponse | null>(null);
 	let typeFilter = $state<string | null>(null);
+	let slotFilter = $state<string | null>(null);
 
 	let expandedOccurrenceKey = $state<string | null>(null);
-	let detailStatus = $state<'completed' | 'partial' | 'skipped'>('completed');
 	let detailDuration = $state<number | null>(null);
 	let detailNote = $state('');
 	let detailRatings = $state<Record<string, number | null>>({});
 	let detailItemStates = $state<Record<string, boolean>>({});
+
+	/** Local status overrides — updated instantly on user action, drives UI. */
+	let localStatus = $state<Record<string, string>>({});
 
 	let todayRequestToken = 0;
 
@@ -74,11 +76,21 @@
 	const stats = $derived(today?.stats ?? { total: 0, completed: 0, pending: 0, partial: 0, skipped: 0 });
 	const rendererTypes = $derived([...new Set(allCards.map((c) => c.renderer))].sort());
 
+	type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
+
+	function effectiveStatus(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): CardStatus {
+		return (localStatus[card.occurrence_key] ?? card.status) as CardStatus;
+	}
+
 	function filteredCards(
 		cards: NonNullable<TodayResponse>['slots'][number]['cards']
 	): NonNullable<TodayResponse>['slots'][number]['cards'] {
 		if (!typeFilter) return cards;
 		return cards.filter((c) => c.renderer === typeFilter);
+	}
+
+	function isSlotVisible(slot: string): boolean {
+		return !slotFilter || slotFilter === slot;
 	}
 
 	function initialSelectedDate(): string {
@@ -132,6 +144,7 @@
 		todayRequestToken += 1;
 		const requestToken = todayRequestToken;
 		expandedOccurrenceKey = null;
+		localStatus = {};
 		void loadToday(date, requestToken).catch((e: unknown) => {
 			error = errorMessage(e);
 		});
@@ -141,7 +154,6 @@
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
 	) {
 		const actual = isRecord(card.actual_json) ? card.actual_json : {};
-		detailStatus = card.status === 'pending' ? 'completed' : card.status;
 		detailNote = card.notes ?? '';
 		detailRatings = {};
 		detailItemStates = {};
@@ -183,6 +195,14 @@
 		}
 	}
 
+	function findCardByKey(key: string): NonNullable<TodayResponse>['slots'][number]['cards'][number] | null {
+		for (const slot of today?.slots ?? []) {
+			const card = slot.cards.find((c) => c.occurrence_key === key);
+			if (card) return card;
+		}
+		return null;
+	}
+
 	function toggleDetails(
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
 	) {
@@ -194,82 +214,106 @@
 		initializeDetailState(card);
 	}
 
-	async function quickLog(
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+	let lastSavedKey = $state<string | null>(null);
+
+	function buildActualJson(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): Record<string, unknown> {
+		const actual_json: Record<string, unknown> = {};
+		if (card.renderer === 'timer_session') {
+			if (detailDuration !== null) actual_json.actual_minutes = detailDuration;
+			actual_json.ratings = detailRatings;
+		} else {
+			actual_json.item_states = detailItemStates;
+		}
+		return actual_json;
+	}
+
+	function deriveStatusFromItems(): CardStatus {
+		const values = Object.values(detailItemStates);
+		if (values.length === 0) return 'pending';
+		const checked = values.filter(Boolean).length;
+		if (checked === values.length) return 'completed';
+		if (checked > 0) return 'partial';
+		return 'pending';
+	}
+
+	/** Fire-and-forget persist to backend. No data refresh. */
+	async function persistToBackend(
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number],
-		status: 'completed' | 'skipped' = 'completed'
+		status: 'pending' | 'completed' | 'partial' | 'skipped',
+		actual_json?: Record<string, unknown>,
+		notes?: string | null
 	) {
-		saving = true;
 		error = null;
 		try {
 			await api.updateTodayCard(selectedDate, card.occurrence_key, {
 				card_template_id: card.card_template_id,
 				assignment_id: card.assignment_id,
 				status,
-				actual_json: isRecord(card.actual_json) ? card.actual_json : {},
-				notes: card.notes ?? null
+				actual_json: actual_json ?? (isRecord(card.actual_json) ? card.actual_json : {}),
+				notes: notes ?? card.notes ?? null
 			});
-			today = await api.getToday(selectedDate);
+			lastSavedKey = card.occurrence_key;
 		} catch (e: unknown) {
 			error = errorMessage(e);
-		} finally {
-			saving = false;
 		}
 	}
 
-	async function toggleComplete(
+	/** Row checkbox toggle — instant local update + background persist. */
+	function toggleComplete(
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
 	) {
-		const newStatus = card.status === 'completed' ? 'pending' : 'completed';
-		if (newStatus === 'pending') {
-			saving = true;
-			error = null;
-			try {
-				await api.updateTodayCard(selectedDate, card.occurrence_key, {
-					card_template_id: card.card_template_id,
-					assignment_id: card.assignment_id,
-					status: 'pending',
-					actual_json: isRecord(card.actual_json) ? card.actual_json : {},
-					notes: card.notes ?? null
-				});
-				today = await api.getToday(selectedDate);
-			} catch (e: unknown) {
-				error = errorMessage(e);
-			} finally {
-				saving = false;
+		const current = effectiveStatus(card);
+		const newStatus = current === 'completed' ? 'pending' : 'completed';
+		localStatus[card.occurrence_key] = newStatus;
+
+		// Sync sub-checkboxes if detail panel is open for this card
+		if (expandedOccurrenceKey === card.occurrence_key && card.renderer !== 'timer_session') {
+			const setAll = newStatus === 'completed';
+			for (const key of Object.keys(detailItemStates)) {
+				detailItemStates[key] = setAll;
 			}
+			void persistToBackend(card, newStatus, buildActualJson(card), detailNote.trim() || null);
 		} else {
-			await quickLog(card, 'completed');
+			void persistToBackend(card, newStatus);
 		}
 	}
 
-	async function saveDetails(
+	/** Row skip button — instant local update + background persist. */
+	function quickSkip(
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
 	) {
-		saving = true;
-		error = null;
-		try {
-			const actual_json: Record<string, unknown> = {};
-			if (card.renderer === 'timer_session') {
-				if (detailDuration !== null) actual_json.actual_minutes = detailDuration;
-				actual_json.ratings = detailRatings;
-			} else {
-				actual_json.item_states = detailItemStates;
-			}
+		localStatus[card.occurrence_key] = 'skipped';
+		void persistToBackend(card, 'skipped');
+	}
 
-			await api.updateTodayCard(selectedDate, card.occurrence_key, {
-				card_template_id: card.card_template_id,
-				assignment_id: card.assignment_id,
-				status: detailStatus,
-				actual_json,
-				notes: detailNote.trim() || null
-			});
-			expandedOccurrenceKey = null;
-			today = await api.getToday(selectedDate);
-		} catch (e: unknown) {
-			error = errorMessage(e);
-		} finally {
-			saving = false;
-		}
+	/** Detail checkbox toggle — update local state + derived status instantly, debounced persist. */
+	function onDetailCheckboxChange(
+		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
+	) {
+		const derived = deriveStatusFromItems();
+		localStatus[card.occurrence_key] = derived;
+		debouncedPersistDetail(card);
+	}
+
+	/** Debounced persist for detail panel changes. */
+	function debouncedPersistDetail(
+		card: NonNullable<TodayResponse>['slots'][number]['cards'][number],
+		delay = 500
+	) {
+		if (saveTimeout) clearTimeout(saveTimeout);
+		lastSavedKey = null;
+		saveTimeout = setTimeout(() => {
+			const status = effectiveStatus(card);
+			void persistToBackend(card, status, buildActualJson(card), detailNote.trim() || null);
+		}, delay);
+	}
+
+	/** Notes/duration blur — debounced persist. */
+	function onDetailBlur(
+		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
+	) {
+		debouncedPersistDetail(card, 400);
 	}
 
 	function formatSeconds(totalSeconds: number): string {
@@ -366,15 +410,12 @@
 
 			<!-- Slot jump buttons -->
 			{#each today?.slots ?? [] as slot}
-				{@const count = filteredCards(slot.cards).length}
-				{#if count > 0}
+				{#if slot.cards.length > 0}
 					<button
 						class="slot-jump"
+						class:active={slotFilter === slot.slot}
 						style={`--sj-color: ${slotAccent[slot.slot]?.color ?? '#8a9baa'}`}
-						onclick={() => {
-							const el = document.getElementById(`slot-${slot.slot}`);
-							el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-						}}
+						onclick={() => (slotFilter = slotFilter === slot.slot ? null : slot.slot)}
 					>
 						{slot.label}
 					</button>
@@ -386,7 +427,7 @@
 		<div class="activity-list">
 			{#each today?.slots ?? [] as slot}
 				{@const cards = filteredCards(slot.cards)}
-				{#if cards.length > 0}
+				{#if cards.length > 0 && isSlotVisible(slot.slot)}
 					<div
 						class="slot-divider"
 						id={`slot-${slot.slot}`}
@@ -398,9 +439,10 @@
 
 					{#each cards as card}
 						{@const isExpanded = expandedOccurrenceKey === card.occurrence_key}
-						{@const isDone = card.status === 'completed'}
-						{@const isSkipped = card.status === 'skipped'}
-						{@const isPartial = card.status === 'partial'}
+						{@const status = effectiveStatus(card)}
+						{@const isDone = status === 'completed'}
+						{@const isSkipped = status === 'skipped'}
+						{@const isPartial = status === 'partial'}
 						<div
 							class="activity-row"
 							class:done={isDone}
@@ -416,7 +458,6 @@
 									class:partial-check={isPartial}
 									class:skipped-check={isSkipped}
 									onclick={() => toggleComplete(card)}
-									disabled={saving}
 									title={isDone ? 'Mark pending' : 'Mark done'}
 								>
 									{#if isDone}
@@ -478,8 +519,7 @@
 									{#if !isDone}
 										<button
 											class="skip-btn"
-											onclick={() => quickLog(card, 'skipped')}
-											disabled={saving}
+											onclick={() => quickSkip(card)}
 											title="Skip"
 										>
 											<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
@@ -539,7 +579,7 @@
 										{/if}
 										<label class="detail-field">
 											<span>Actual minutes</span>
-											<input type="number" bind:value={detailDuration} min="0" />
+											<input type="number" bind:value={detailDuration} min="0" onblur={() => onDetailBlur(card)} />
 										</label>
 										{#if (payload.rating_prompts?.length ?? 0) > 0}
 											<div class="ratings-grid">
@@ -551,6 +591,7 @@
 															bind:value={detailRatings[prompt.key]}
 															min={prompt.scale_min ?? 1}
 															max={prompt.scale_max ?? 5}
+															onblur={() => onDetailBlur(card)}
 														/>
 													</label>
 												{/each}
@@ -569,6 +610,7 @@
 													<input
 														type="checkbox"
 														bind:checked={detailItemStates[item.id]}
+														onchange={() => onDetailCheckboxChange(card)}
 													/>
 													<div>
 														<strong>{item.label}</strong>
@@ -592,6 +634,7 @@
 													<input
 														type="checkbox"
 														bind:checked={detailItemStates[exercise.id]}
+														onchange={() => onDetailCheckboxChange(card)}
 													/>
 													<div>
 														<strong>{exercise.label}</strong>
@@ -607,31 +650,18 @@
 										</div>
 									{/if}
 
-									<div class="detail-footer">
-										<label class="detail-field">
-											<span>Completion</span>
-											<select bind:value={detailStatus}>
-												<option value="completed">completed</option>
-												<option value="partial">partial</option>
-												<option value="skipped">skipped</option>
-											</select>
-										</label>
-										<label class="detail-field wide">
-											<span>Notes</span>
-											<textarea
-												bind:value={detailNote}
-												rows="2"
-												placeholder="Only record what matters."
-											></textarea>
-										</label>
-									</div>
-									<button
-										class="save-btn"
-										onclick={() => saveDetails(card)}
-										disabled={saving}
-									>
-										Save
-									</button>
+									<label class="detail-field">
+										<span>Notes</span>
+										<textarea
+											bind:value={detailNote}
+											rows="2"
+											placeholder="Only record what matters."
+											onblur={() => onDetailBlur(card)}
+										></textarea>
+									</label>
+									{#if lastSavedKey === card.occurrence_key}
+										<span class="saved-indicator">Saved</span>
+									{/if}
 								</div>
 							{/if}
 						</div>
@@ -641,7 +671,7 @@
 
 			<!-- Empty slots -->
 			{#each today?.slots ?? [] as slot}
-				{#if slot.cards.length === 0}
+				{#if slot.cards.length === 0 && isSlotVisible(slot.slot)}
 					<div
 						class="slot-divider empty"
 						id={`slot-${slot.slot}`}
@@ -857,6 +887,11 @@
 
 	.slot-jump:hover {
 		background: color-mix(in srgb, var(--sj-color) 10%, transparent);
+	}
+
+	.slot-jump.active {
+		background: color-mix(in srgb, var(--sj-color) 15%, transparent);
+		border-color: color-mix(in srgb, var(--sj-color) 50%, transparent);
 	}
 
 	/* ── Activity list ── */
@@ -1151,7 +1186,6 @@
 	}
 
 	input,
-	select,
 	textarea {
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(8, 15, 24, 0.7);
@@ -1193,36 +1227,12 @@
 		font-size: 11px;
 	}
 
-	.detail-footer {
-		display: flex;
-		align-items: stretch;
-		gap: 10px;
-	}
-
-	.detail-field.wide {
-		flex: 1;
-	}
-
-	.save-btn {
-		align-self: flex-start;
-		padding: 8px 20px;
-		border-radius: 8px;
-		border: 0;
-		background: linear-gradient(135deg, rgba(91, 181, 166, 0.85), rgba(74, 144, 217, 0.8));
-		color: #08111d;
-		font-weight: 700;
-		font-size: 13px;
-		cursor: pointer;
-		transition: opacity 0.15s;
-	}
-
-	.save-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.save-btn:hover:not(:disabled) {
-		opacity: 0.9;
+	.saved-indicator {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #5bb5a6;
+		letter-spacing: 0.06em;
+		opacity: 0.8;
 	}
 
 	@media (max-width: 768px) {
@@ -1250,8 +1260,5 @@
 			display: none;
 		}
 
-		.detail-footer {
-			flex-direction: column;
-		}
 	}
 </style>
