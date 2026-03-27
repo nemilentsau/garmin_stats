@@ -69,11 +69,25 @@
 
 	/** Local status overrides — updated instantly on user action, drives UI. */
 	let localStatus = $state<Record<string, string>>({});
+	/** Bumped on every local status change to trigger derived re-computation. */
+	let statusVersion = $state(0);
 
 	let todayRequestToken = 0;
 
 	const allCards = $derived(today?.slots.flatMap((s) => s.cards) ?? []);
-	const stats = $derived(today?.stats ?? { total: 0, completed: 0, pending: 0, partial: 0, skipped: 0 });
+	const stats = $derived.by(() => {
+		void statusVersion; // track local status changes
+		const cards = allCards;
+		let completed = 0, pending = 0, partial = 0, skipped = 0;
+		for (const c of cards) {
+			const s = effectiveStatus(c);
+			if (s === 'completed') completed++;
+			else if (s === 'partial') partial++;
+			else if (s === 'skipped') skipped++;
+			else pending++;
+		}
+		return { total: cards.length, completed, pending, partial, skipped };
+	});
 	const rendererTypes = $derived([...new Set(allCards.map((c) => c.renderer))].sort());
 
 	type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
@@ -215,7 +229,6 @@
 	}
 
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-	let lastSavedKey = $state<string | null>(null);
 
 	function buildActualJson(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): Record<string, unknown> {
 		const actual_json: Record<string, unknown> = {};
@@ -253,8 +266,7 @@
 				actual_json: actual_json ?? (isRecord(card.actual_json) ? card.actual_json : {}),
 				notes: notes ?? card.notes ?? null
 			});
-			lastSavedKey = card.occurrence_key;
-		} catch (e: unknown) {
+			} catch (e: unknown) {
 			error = errorMessage(e);
 		}
 	}
@@ -266,6 +278,7 @@
 		const current = effectiveStatus(card);
 		const newStatus = current === 'completed' ? 'pending' : 'completed';
 		localStatus[card.occurrence_key] = newStatus;
+		statusVersion++;
 
 		// Sync sub-checkboxes if detail panel is open for this card
 		if (expandedOccurrenceKey === card.occurrence_key && card.renderer !== 'timer_session') {
@@ -284,6 +297,7 @@
 		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
 	) {
 		localStatus[card.occurrence_key] = 'skipped';
+		statusVersion++;
 		void persistToBackend(card, 'skipped');
 	}
 
@@ -293,6 +307,7 @@
 	) {
 		const derived = deriveStatusFromItems();
 		localStatus[card.occurrence_key] = derived;
+		statusVersion++;
 		debouncedPersistDetail(card);
 	}
 
@@ -302,7 +317,6 @@
 		delay = 500
 	) {
 		if (saveTimeout) clearTimeout(saveTimeout);
-		lastSavedKey = null;
 		saveTimeout = setTimeout(() => {
 			const status = effectiveStatus(card);
 			void persistToBackend(card, status, buildActualJson(card), detailNote.trim() || null);
@@ -659,9 +673,6 @@
 											onblur={() => onDetailBlur(card)}
 										></textarea>
 									</label>
-									{#if lastSavedKey === card.occurrence_key}
-										<span class="saved-indicator">Saved</span>
-									{/if}
 								</div>
 							{/if}
 						</div>
@@ -1227,15 +1238,7 @@
 		font-size: 11px;
 	}
 
-	.saved-indicator {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: #5bb5a6;
-		letter-spacing: 0.06em;
-		opacity: 0.8;
-	}
-
-	@media (max-width: 768px) {
+@media (max-width: 768px) {
 		.header-bar {
 			flex-direction: column;
 			align-items: stretch;
