@@ -11,14 +11,23 @@
 	import { isIsoDateString, localDateIso } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 
-	type LensMode = 'day' | 'routine';
 	type SlotName = ScheduleOccurrence['slot'];
-	type SlotSection = {
-		slot: SlotName;
-		label: string;
-		color: string;
-		shadow: string;
-		items: ScheduleOccurrence[];
+
+	type TimerPayload = {
+		duration_minutes?: number;
+		pattern?: string;
+		instructions?: string;
+		segments?: { label: string; duration_seconds: number }[];
+	};
+
+	type ChecklistPayload = {
+		instructions?: string;
+		items?: { id: string; label: string; detail?: string }[];
+	};
+
+	type ExercisePayload = {
+		instructions?: string;
+		exercises?: { id: string; label: string; detail?: string; reps?: string; duration_seconds?: number }[];
 	};
 
 	const SLOT_ORDER: SlotName[] = ['morning', 'midday', 'evening', 'anytime'];
@@ -29,114 +38,65 @@
 		anytime: 'Anytime'
 	};
 	const SLOT_ACCENTS: Record<SlotName, { color: string; shadow: string }> = {
-		morning: { color: COLORS.skinTemp, shadow: withAlpha(COLORS.skinTemp, '26') },
-		midday: { color: COLORS.stress, shadow: withAlpha(COLORS.stress, '26') },
-		evening: { color: COLORS.hrv, shadow: withAlpha(COLORS.hrv, '28') },
-		anytime: { color: COLORS.respiration, shadow: withAlpha(COLORS.respiration, '26') }
+		morning: { color: COLORS.respiration, shadow: withAlpha(COLORS.respiration, '30') },
+		midday: { color: COLORS.spo2, shadow: withAlpha(COLORS.spo2, '30') },
+		evening: { color: COLORS.hrv, shadow: withAlpha(COLORS.hrv, '30') },
+		anytime: { color: COLORS.stress, shadow: withAlpha(COLORS.stress, '30') }
 	};
 	const SLOT_INDEX = Object.fromEntries(
 		SLOT_ORDER.map((slot, index) => [slot, index])
 	) as Record<SlotName, number>;
-	const RENDERER_LABELS: Record<ScheduleOccurrence['renderer'], string> = {
-		timer_session: 'Timer session',
-		checklist_block: 'Checklist block',
-		exercise_block: 'Exercise block'
+	const RENDERER_ICONS: Record<ScheduleOccurrence['renderer'], string> = {
+		exercise_block: '\u{1F4AA}',
+		timer_session: '\u{23F1}',
+		checklist_block: '\u{2611}'
 	};
-
-	const longDateFormat = new Intl.DateTimeFormat('en-US', {
-		weekday: 'long',
-		month: 'short',
-		day: 'numeric'
-	});
-	const shortDateFormat = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric'
-	});
-	const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
-	let lens = $state<LensMode>('day');
 	let windowStartDate = $state(localDateIso());
-	let selectedDate = $state(localDateIso());
 	let selectedRoutineId = $state<string | null>(null);
 	let scheduleWindow = $state<ScheduleWindow | null>(null);
 	let routines = $state<RoutineSchedule[]>([]);
+	let expandedOccurrenceKey = $state<string | null>(null);
 	let requestToken = 0;
-
-	function readInitialScheduleState(): { startDate: string; selectedDate: string } {
-		const fallback = localDateIso();
-		const params = new URL(window.location.href).searchParams;
-		const requestedDate = params.get('date');
-		const requestedStartDate = params.get('start_date');
-		const selectedDate =
-			requestedDate && isIsoDateString(requestedDate) ? requestedDate : fallback;
-		const startDate =
-			requestedStartDate && isIsoDateString(requestedStartDate) ? requestedStartDate : selectedDate;
-		return { startDate, selectedDate };
-	}
 
 	const allOccurrences = $derived.by(() =>
 		scheduleWindow ? scheduleWindow.days.flatMap((day) => day.occurrences) : []
 	);
+
 	const routineOccurrenceCount = $derived.by(() => {
 		const counts: Record<string, number> = {};
-		for (const occurrence of allOccurrences) {
-			if (!occurrence.routine_id) continue;
-			counts[occurrence.routine_id] = (counts[occurrence.routine_id] ?? 0) + 1;
+		for (const occ of allOccurrences) {
+			if (!occ.routine_id) continue;
+			counts[occ.routine_id] = (counts[occ.routine_id] ?? 0) + 1;
 		}
 		return counts;
 	});
-	const activeDays = $derived.by(
-		() => scheduleWindow?.days.filter((day) => day.occurrences.length > 0).length ?? 0
-	);
-	const overlapDays = $derived.by(
-		() => scheduleWindow?.days.filter((day) => day.occurrences.length > 1).length ?? 0
-	);
-	const routinesRepresented = $derived.by(
-		() => routines.filter((routine) => (routineOccurrenceCount[routine.id] ?? 0) > 0).length
-	);
-	const selectedDay = $derived.by(() => {
-		if (!scheduleWindow) return null;
-		return scheduleWindow.days.find((day) => day.date === selectedDate) ?? scheduleWindow.days[0] ?? null;
+
+	const selectedRoutine = $derived.by(() => {
+		if (!selectedRoutineId) return null;
+		return routines.find((r) => r.id === selectedRoutineId) ?? null;
 	});
-	const selectedDaySections = $derived.by(() => groupOccurrencesBySlot(selectedDay?.occurrences ?? []));
-	const selectedRoutine = $derived.by(
-		() => routines.find((routine) => routine.id === selectedRoutineId) ?? routines[0] ?? null
-	);
+
 	const selectedRoutineOccurrences = $derived.by(() => {
 		if (!selectedRoutine) return [];
 		return allOccurrences
-			.filter((occurrence) => occurrence.routine_id === selectedRoutine.id)
+			.filter((occ) => occ.routine_id === selectedRoutine.id)
 			.sort(sortOccurrences);
 	});
 
-	$effect(() => {
-		if (!scheduleWindow?.days.length) return;
-		if (scheduleWindow.days.some((day) => day.date === selectedDate)) return;
-		selectedDate = scheduleWindow.days[0].date;
-	});
-
-	$effect(() => {
-		if (!routines.length) {
-			selectedRoutineId = null;
-			return;
+	const routineTimelineDays = $derived.by(() => {
+		if (!selectedRoutine) return [];
+		const byDate = new Map<string, ScheduleOccurrence[]>();
+		for (const occ of selectedRoutineOccurrences) {
+			const list = byDate.get(occ.date) ?? [];
+			list.push(occ);
+			byDate.set(occ.date, list);
 		}
-		if (selectedRoutineId && routines.some((routine) => routine.id === selectedRoutineId)) {
-			return;
-		}
-		selectedRoutineId = routines[0].id;
-	});
-
-	$effect(() => {
-		if (!routines.length || !selectedRoutineId) return;
-		if ((routineOccurrenceCount[selectedRoutineId] ?? 0) > 0) return;
-		const nextVisibleRoutine = routines.find(
-			(routine) => (routineOccurrenceCount[routine.id] ?? 0) > 0
-		);
-		if (nextVisibleRoutine) {
-			selectedRoutineId = nextVisibleRoutine.id;
-		}
+		return [...byDate.entries()]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([date, occurrences]) => ({ date, occurrences }));
 	});
 
 	function sortOccurrences(a: ScheduleOccurrence, b: ScheduleOccurrence): number {
@@ -158,101 +118,83 @@
 		return localDateIso(next);
 	}
 
-	function formatLongDate(date: string): string {
-		return longDateFormat.format(toDate(date));
-	}
+	const shortDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+	const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+	const weekdayLongFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 
 	function formatShortDate(date: string): string {
 		return shortDateFormat.format(toDate(date));
 	}
-
 	function formatWeekday(date: string): string {
 		return weekdayFormat.format(toDate(date));
 	}
-
-	function formatDayNumber(date: string): string {
-		return String(toDate(date).getDate());
+	function formatWeekdayLong(date: string): string {
+		return weekdayLongFormat.format(toDate(date));
+	}
+	function formatWindowRange(start: string, end: string): string {
+		return `${formatShortDate(start)} \u2013 ${formatShortDate(end)}`;
 	}
 
-	function formatWindowRange(startDate: string, endDate: string): string {
-		return `${formatShortDate(startDate)} to ${formatShortDate(endDate)}`;
-	}
-
-	function groupOccurrencesBySlot(occurrences: ScheduleOccurrence[]): SlotSection[] {
-		const grouped: Record<SlotName, ScheduleOccurrence[]> = {
-			morning: [],
-			midday: [],
-			evening: [],
-			anytime: []
-		};
-		for (const occurrence of occurrences) {
-			grouped[occurrence.slot].push(occurrence);
+	function cardBrief(occ: ScheduleOccurrence): string {
+		const p = occ.payload_json as Record<string, unknown>;
+		if (occ.renderer === 'timer_session') {
+			const dur = p?.duration_minutes as number | undefined;
+			return dur ? `${dur} min` : '';
 		}
-		return SLOT_ORDER.map((slot) => ({
-			slot,
-			label: SLOT_LABELS[slot],
-			color: SLOT_ACCENTS[slot].color,
-			shadow: SLOT_ACCENTS[slot].shadow,
-			items: grouped[slot].sort(sortOccurrences)
-		}));
+		if (occ.renderer === 'exercise_block') {
+			const ex = (p?.exercises as unknown[]) ?? [];
+			return ex.length ? `${ex.length} exercises` : '';
+		}
+		const items = (p?.items as unknown[]) ?? [];
+		return items.length ? `${items.length} items` : '';
 	}
 
-	function rendererLabel(renderer: ScheduleOccurrence['renderer']): string {
-		return RENDERER_LABELS[renderer];
+	function timerPayload(p: Record<string, unknown>): TimerPayload {
+		return p as unknown as TimerPayload;
+	}
+	function exercisePayload(p: Record<string, unknown>): ExercisePayload {
+		return p as unknown as ExercisePayload;
+	}
+	function checklistPayload(p: Record<string, unknown>): ChecklistPayload {
+		return p as unknown as ChecklistPayload;
 	}
 
-	function selectDay(date: string): void {
-		selectedDate = date;
-		lens = 'day';
-	}
-
-	function openRoutineLens(routineId: string): void {
-		selectedRoutineId = routineId;
-		lens = 'routine';
-	}
-
-	function focusOccurrenceRoutine(occurrence: ScheduleOccurrence): void {
-		if (!occurrence.routine_id) return;
-		openRoutineLens(occurrence.routine_id);
-	}
-
-	function occurrenceRoutineLabel(occurrence: ScheduleOccurrence): string {
-		return occurrence.routine_name ?? 'Schedule override';
-	}
-
-	function occurrenceExceptionLabel(occurrence: ScheduleOccurrence): string | null {
-		if (occurrence.schedule_override_action === 'add') return 'One-off add';
-		if (occurrence.schedule_override_action === 'replace') return 'Replaces base card';
-		return null;
+	function readInitialState(): { startDate: string; routineId: string | null } {
+		const params = new URL(window.location.href).searchParams;
+		const reqStart = params.get('start_date');
+		const startDate = reqStart && isIsoDateString(reqStart) ? reqStart : localDateIso();
+		const routineId = params.get('routine') ?? null;
+		return { startDate, routineId };
 	}
 
 	async function loadScheduleWindow(startDate: string): Promise<void> {
 		const token = ++requestToken;
 		error = null;
-		const window = await api.getRoutineScheduleWindow(startDate);
+		const win = await api.getRoutineScheduleWindow(startDate);
 		if (token !== requestToken) return;
-		scheduleWindow = window;
-		windowStartDate = window.start_date;
+		scheduleWindow = win;
+		windowStartDate = win.start_date;
 	}
 
 	async function loadPage(): Promise<void> {
 		error = null;
-		const routinesResponse = await api.getRoutines('active');
-		routines = routinesResponse.routines;
-		const initialState = readInitialScheduleState();
-		selectedDate = initialState.selectedDate;
-		windowStartDate = initialState.startDate;
-		await loadScheduleWindow(initialState.startDate);
+		const res = await api.getRoutines('active');
+		routines = res.routines;
+		const initial = readInitialState();
+		windowStartDate = initial.startDate;
+		if (initial.routineId && routines.some((r) => r.id === initial.routineId)) {
+			selectedRoutineId = initial.routineId;
+		}
+		await loadScheduleWindow(initial.startDate);
 	}
 
 	async function moveWindow(delta: number): Promise<void> {
-		const nextDate = addDays(windowStartDate, delta);
-		selectedDate = nextDate;
-		await loadScheduleWindow(nextDate);
+		expandedOccurrenceKey = null;
+		await loadScheduleWindow(addDays(windowStartDate, delta));
 	}
 
 	async function submitWindowStart(): Promise<void> {
-		selectedDate = windowStartDate;
+		expandedOccurrenceKey = null;
 		await loadScheduleWindow(windowStartDate);
 	}
 
@@ -273,45 +215,30 @@
 
 {#if loading}
 	<section class="loading-shell">
-		<div class="loading-card">Resolving the next 14 days of live routine occurrences...</div>
+		<div class="loading-card">Resolving the next 14 days of routine occurrences...</div>
 	</section>
 {:else}
 	<section class="schedule-shell">
-		<div class="hero">
-			<div class="hero-copy">
-				<p class="eyebrow">Phase 3 Schedule Review</p>
-				<h1>Review the next two weeks as dated work, not recurrence metadata.</h1>
-				<p class="hero-text">
-					The day lens answers what lands on a date. The routine lens answers where one routine
-					shows up across the same 14-day window. Both panels read the same resolved schedule.
-				</p>
+		<!-- Header bar -->
+		<div class="header-bar">
+			<div class="header-left">
+				<h1>Routine Schedule</h1>
+				{#if scheduleWindow}
+					<span class="window-range">{formatWindowRange(scheduleWindow.start_date, scheduleWindow.end_date)}</span>
+				{/if}
 			</div>
-
-			<div class="hero-aside">
-				<div class="hero-stat">
-					<span>Window span</span>
-					<strong>{scheduleWindow ? scheduleWindow.days.length : 0}</strong>
-					<small>days resolved by the backend</small>
-				</div>
-				<div class="hero-stat">
-					<span>Scheduled cards</span>
-					<strong>{allOccurrences.length}</strong>
-					<small>dated occurrences in this view</small>
-				</div>
-				<div class="hero-stat">
-					<span>Active days</span>
-					<strong>{activeDays}</strong>
-					<small>days with at least one card</small>
-				</div>
-				<div class="hero-stat accent">
-					<span>Overlap days</span>
-					<strong>{overlapDays}</strong>
-					<small>days carrying more than one card</small>
-				</div>
-				<div class="hero-links">
-					<a class="primary-link" href="/routines/creation">Open creation inbox</a>
-					<a class="ghost-link" href="/today">Open today board</a>
-				</div>
+			<div class="header-right">
+				<button type="button" class="nav-btn" onclick={() => void moveWindow(-7)} title="Back 7 days">
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+						<path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</button>
+				<input type="date" class="date-input" bind:value={windowStartDate} onchange={() => void submitWindowStart()} />
+				<button type="button" class="nav-btn" onclick={() => void moveWindow(7)} title="Forward 7 days">
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+						<path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</button>
 			</div>
 		</div>
 
@@ -319,244 +246,194 @@
 			<div class="error-banner">{error}</div>
 		{/if}
 
-		<div class="control-bar">
-			<div class="window-card">
-				<div>
-					<p class="eyebrow">Window</p>
-					<h2>{scheduleWindow ? formatWindowRange(scheduleWindow.start_date, scheduleWindow.end_date) : 'No schedule loaded'}</h2>
-				</div>
-
-				<div class="window-tools">
-					<button type="button" class="window-button" onclick={() => void moveWindow(-7)}>
-						Back 7 days
-					</button>
-					<label class="date-control">
-						<span>Window starts</span>
-						<input type="date" bind:value={windowStartDate} onchange={() => void submitWindowStart()} />
-					</label>
-					<button type="button" class="window-button" onclick={() => void moveWindow(7)}>
-						Forward 7 days
-					</button>
-				</div>
-			</div>
-
-			<div class="kpi-row">
-				<div class="kpi-card">
-					<span>Routines represented</span>
-					<strong>{routinesRepresented}</strong>
-				</div>
-				<div class="kpi-card">
-					<span>Selected day</span>
-					<strong>{selectedDay?.occurrences.length ?? 0}</strong>
-				</div>
-				<div class="kpi-card">
-					<span>Selected routine</span>
-					<strong>{selectedRoutineOccurrences.length}</strong>
-				</div>
-			</div>
+		<!-- Routine selector -->
+		<div class="filter-row">
+			<select
+				class="routine-select"
+				value={selectedRoutineId ?? ''}
+				onchange={(e) => {
+					selectedRoutineId = e.currentTarget.value || null;
+					expandedOccurrenceKey = null;
+				}}
+			>
+				<option value="">All routines ({routines.length})</option>
+				{#each routines as routine}
+					<option value={routine.id}>{routine.name} ({routineOccurrenceCount[routine.id] ?? 0} in window)</option>
+				{/each}
+			</select>
 		</div>
 
-		<div class="review-grid">
-			<section class:panel={true} class:featured={lens === 'day'}>
-				<div class="section-head">
-					<div>
-						<p class="eyebrow">Lens A</p>
-						<h2>By day</h2>
-					</div>
-					<strong>{selectedDay ? formatLongDate(selectedDay.date) : 'No day selected'}</strong>
-				</div>
-
-				<div class="day-strip">
-					{#each scheduleWindow?.days ?? [] as day}
-						<button
-							type="button"
-							class:day-chip={true}
-							class:selected={day.date === selectedDate}
-							class:active={day.occurrences.length > 0}
-							class:overlap={day.occurrences.length > 1}
-							onclick={() => selectDay(day.date)}
-						>
-							<span>{formatWeekday(day.date)}</span>
-							<strong>{formatDayNumber(day.date)}</strong>
-							<small>{day.occurrences.length === 0 ? 'Clear' : `${day.occurrences.length} cards`}</small>
-						</button>
-					{/each}
-				</div>
-
-				{#if selectedDay}
-					{#if selectedDay.occurrences.length === 0}
-						<div class="empty-card">
-							No cards land on {formatLongDate(selectedDay.date)}. This is a clear day in the current
-							14-day window.
+		<!-- Content -->
+		{#if !selectedRoutineId}
+			<!-- All Routines Overview -->
+			<div class="overview-list">
+				{#each routines as routine}
+					{@const count = routineOccurrenceCount[routine.id] ?? 0}
+					<button type="button" class="overview-row" onclick={() => (selectedRoutineId = routine.id)}>
+						<div class="overview-left">
+							<span class="overview-name">{routine.name}</span>
+							<span class="overview-sub">
+								<span class="cadence-badge">{routine.cadence}</span>
+								<span>{formatShortDate(routine.start_date)}{routine.end_date ? ` \u2013 ${formatShortDate(routine.end_date)}` : ' \u2013 ongoing'}</span>
+							</span>
 						</div>
-					{:else}
-						<div class="slot-grid">
-							{#each selectedDaySections as section}
-								<article class="slot-card">
-									<div class="slot-head" style={`--slot-color: ${section.color}; --slot-shadow: ${section.shadow};`}>
-										<div>
-											<p class="eyebrow">{section.label}</p>
-											<h3>{section.items.length}</h3>
-										</div>
-										<span>{section.items.length === 0 ? 'Open' : 'Scheduled'}</span>
-									</div>
-
-									{#if section.items.length === 0}
-										<p class="slot-empty">No cards placed in this slot.</p>
-									{:else}
-										<div class="occurrence-list">
-											{#each section.items as occurrence}
-												<button
-													type="button"
-													class="occurrence-card"
-													class:orphan={!occurrence.routine_id}
-													onclick={() => focusOccurrenceRoutine(occurrence)}
-												>
-													<div class="occurrence-topline">
-														<div>
-															<p>{occurrence.name}</p>
-															<strong>{occurrenceRoutineLabel(occurrence)}</strong>
-														</div>
-														<span>{rendererLabel(occurrence.renderer)}</span>
-													</div>
-
-													{#if occurrence.summary}
-														<p class="occurrence-summary">{occurrence.summary}</p>
-													{/if}
-
-													<div class="occurrence-meta">
-														<small>{SLOT_LABELS[occurrence.slot]} slot</small>
-														<small>Position {occurrence.position}</small>
-														{#if occurrenceExceptionLabel(occurrence)}
-															<small>{occurrenceExceptionLabel(occurrence)}</small>
-														{/if}
-													</div>
-												</button>
-											{/each}
-										</div>
-									{/if}
-								</article>
-							{/each}
-						</div>
-					{/if}
-				{/if}
-			</section>
-
-			<section class:panel={true} class:featured={lens === 'routine'}>
-				<div class="section-head">
-					<div>
-						<p class="eyebrow">Lens B</p>
-						<h2>By routine</h2>
-					</div>
-					<strong>{selectedRoutine ? selectedRoutine.name : 'No routine selected'}</strong>
-				</div>
-
-				{#if routines.length === 0}
-					<div class="empty-card">
-						No active routines exist yet. Activate a routine from the creation inbox to populate this
-						view.
-					</div>
-				{:else}
-					<div class="routine-switcher">
-						{#each routines as routine}
-							<button
-								type="button"
-								class:routine-pill={true}
-								class:selected={routine.id === selectedRoutine?.id}
-								class:muted={(routineOccurrenceCount[routine.id] ?? 0) === 0}
-								onclick={() => openRoutineLens(routine.id)}
-							>
-								<span>{routine.name}</span>
-								<small>{routineOccurrenceCount[routine.id] ?? 0} dates</small>
-							</button>
-						{/each}
-					</div>
-
-					{#if selectedRoutine}
-						<article class="routine-summary">
-							<div class="routine-topline">
-								<div>
-									<p class="eyebrow">{selectedRoutine.cadence}</p>
-									<h3>{selectedRoutine.name}</h3>
-								</div>
-								<span>{selectedRoutineOccurrences.length === 0 ? 'Off window' : `${selectedRoutineOccurrences.length} stops`}</span>
-							</div>
-
-							<div class="routine-meta">
-								<small>Starts {formatShortDate(selectedRoutine.start_date)}</small>
-								<small>{selectedRoutine.end_date ? `Ends ${formatShortDate(selectedRoutine.end_date)}` : 'No end date'}</small>
-								<small>{selectedRoutine.status}</small>
-							</div>
-
-							{#if selectedRoutine.notes}
-								<p class="routine-note">{selectedRoutine.notes}</p>
-							{/if}
-
-							{#if selectedRoutine.tags.length > 0}
+						<div class="overview-right">
+							{#if routine.tags.length > 0}
 								<div class="tag-row">
-									{#each selectedRoutine.tags as tag}
-										<span>{tag}</span>
+									{#each routine.tags.slice(0, 3) as tag}
+										<span class="mini-tag">{tag}</span>
 									{/each}
 								</div>
 							{/if}
-						</article>
+							<span class="overview-count">{count} in window</span>
+						</div>
+					</button>
+				{:else}
+					<div class="empty-state">No active routines. Create one from the routines inbox.</div>
+				{/each}
+			</div>
+		{:else if selectedRoutine}
+			<!-- Routine Timeline -->
+			<div class="routine-header">
+				<div class="routine-header-left">
+					<h2>{selectedRoutine.name}</h2>
+					<div class="routine-meta">
+						<span class="cadence-badge">{selectedRoutine.cadence}</span>
+						<span>{formatShortDate(selectedRoutine.start_date)}{selectedRoutine.end_date ? ` \u2013 ${formatShortDate(selectedRoutine.end_date)}` : ' \u2013 ongoing'}</span>
+						<span class="status-badge" class:active={selectedRoutine.status === 'active'}>{selectedRoutine.status}</span>
+					</div>
+				</div>
+				{#if selectedRoutine.tags.length > 0}
+					<div class="tag-row">
+						{#each selectedRoutine.tags as tag}
+							<span class="mini-tag">{tag}</span>
+						{/each}
+					</div>
+				{/if}
+				{#if selectedRoutine.notes}
+					<p class="routine-notes">{selectedRoutine.notes}</p>
+				{/if}
+			</div>
 
-						{#if selectedRoutineOccurrences.length === 0}
-							<div class="empty-card">
-								{selectedRoutine.name} does not land inside this window. Shift the 14-day range to
-								inspect where it reappears.
+			{#if routineTimelineDays.length === 0}
+				<div class="empty-state">
+					{selectedRoutine.name} has no occurrences in this 14-day window. Shift the window to find it.
+				</div>
+			{:else}
+				<div class="timeline-list">
+					{#each routineTimelineDays as day}
+						<div class="timeline-day">
+							<div class="timeline-date">
+								<span class="timeline-weekday">{formatWeekday(day.date)}</span>
+								<span class="timeline-day-num">{formatShortDate(day.date)}</span>
 							</div>
-						{:else}
-							<div class="itinerary-list">
-								{#each selectedRoutineOccurrences as occurrence}
-									<article class="itinerary-card">
-										<div class="itinerary-date">
-											<span>{formatWeekday(occurrence.date)}</span>
-											<strong>{formatShortDate(occurrence.date)}</strong>
-										</div>
-
-										<div class="itinerary-body">
-											<p>{occurrence.name}</p>
-											<div class="itinerary-meta">
-												<small>{SLOT_LABELS[occurrence.slot]}</small>
-												<small>{rendererLabel(occurrence.renderer)}</small>
-												<small>Position {occurrence.position}</small>
-												{#if occurrenceExceptionLabel(occurrence)}
-													<small>{occurrenceExceptionLabel(occurrence)}</small>
+							<div class="timeline-cards">
+								{#each day.occurrences as occ}
+									{@const accent = SLOT_ACCENTS[occ.slot]}
+									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
+									<div class="timeline-card" class:expanded={isExpanded} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
+										<button type="button" class="timeline-card-main" onclick={() => (expandedOccurrenceKey = isExpanded ? null : occ.occurrence_key)}>
+											<span class="type-icon">{RENDERER_ICONS[occ.renderer] ?? ''}</span>
+											<div class="card-content">
+												<span class="card-name">{occ.name}</span>
+												{#if occ.summary}
+													<span class="card-summary">{occ.summary}</span>
 												{/if}
 											</div>
+											<span class="card-brief">{cardBrief(occ)}</span>
+											<div class="card-badges">
+												<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot]}</span>
+											</div>
+											<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
+												<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+											</svg>
+										</button>
 
-											{#if occurrence.summary}
-												<p class="itinerary-summary">{occurrence.summary}</p>
-											{/if}
-										</div>
-									</article>
+										{#if isExpanded}
+											<div class="detail-panel">
+												{#if occ.renderer === 'timer_session'}
+													{@const tp = timerPayload(occ.payload_json as Record<string, unknown>)}
+													{#if tp.instructions}
+														<p class="detail-copy">{tp.instructions}</p>
+													{/if}
+													{#if tp.segments?.length}
+														<div class="detail-list">
+															{#each tp.segments as seg}
+																<div class="detail-row">
+																	<span>{seg.label}</span>
+																	<span class="detail-meta">{Math.round(seg.duration_seconds / 60)} min</span>
+																</div>
+															{/each}
+														</div>
+													{/if}
+												{:else if occ.renderer === 'exercise_block'}
+													{@const ep = exercisePayload(occ.payload_json as Record<string, unknown>)}
+													{#if ep.instructions}
+														<p class="detail-copy">{ep.instructions}</p>
+													{/if}
+													{#if ep.exercises?.length}
+														<div class="detail-list">
+															{#each ep.exercises as ex}
+																<div class="detail-row">
+																	<div class="detail-row-content">
+																		<strong>{ex.label}</strong>
+																		{#if ex.detail}
+																			<small>{ex.detail}</small>
+																		{/if}
+																	</div>
+																</div>
+															{/each}
+														</div>
+													{/if}
+												{:else}
+													{@const cp = checklistPayload(occ.payload_json as Record<string, unknown>)}
+													{#if cp.instructions}
+														<p class="detail-copy">{cp.instructions}</p>
+													{/if}
+													{#if cp.items?.length}
+														<div class="detail-list">
+															{#each cp.items as item}
+																<div class="detail-row">
+																	<div class="detail-row-content">
+																		<strong>{item.label}</strong>
+																		{#if item.detail}
+																			<small>{item.detail}</small>
+																		{/if}
+																	</div>
+																</div>
+															{/each}
+														</div>
+													{/if}
+												{/if}
+
+												{#if occ.tags.length > 0}
+													<div class="tag-row">
+														{#each occ.tags as tag}
+															<span class="mini-tag">{tag}</span>
+														{/each}
+													</div>
+												{/if}
+											</div>
+										{/if}
+									</div>
 								{/each}
 							</div>
-						{/if}
-					{/if}
-				{/if}
-			</section>
-		</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{/if}
 	</section>
 {/if}
 
 <style>
-	:global(body) {
-		color: #edf3f6;
-		font-family: 'Avenir Next', 'Segoe UI', sans-serif;
-	}
-
 	.schedule-shell {
-		--shell-bg: #0f1724;
-		--card-bg: rgba(11, 20, 31, 0.72);
-		--card-border: rgba(255, 255, 255, 0.08);
-		--muted: #98abb8;
-		--text: #edf3f6;
+		--paper: rgba(255, 255, 255, 0.035);
+		--paper-border: rgba(255, 255, 255, 0.08);
+		--muted: #7f95a6;
 		display: flex;
 		flex-direction: column;
-		gap: 18px;
-		color: var(--text);
+		gap: 12px;
 	}
 
 	.loading-shell {
@@ -565,558 +442,495 @@
 
 	.loading-card,
 	.error-banner,
-	.empty-card {
-		padding: 16px 18px;
-		border-radius: 22px;
-		border: 1px solid var(--card-border);
-		background: rgba(255, 255, 255, 0.03);
-		color: var(--muted);
+	.empty-state {
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
-		line-height: 1.6;
-	}
-
-	.hero,
-	.window-card,
-	.kpi-card,
-	.panel,
-	.routine-summary,
-	.slot-card,
-	.itinerary-card {
-		border: 1px solid var(--card-border);
-		background: var(--card-bg);
-		backdrop-filter: blur(14px);
-		box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
-	}
-
-	.hero {
-		position: relative;
-		display: grid;
-		grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
-		gap: 18px;
-		padding: 24px;
-		border-radius: 30px;
-		background:
-			radial-gradient(circle at top left, rgba(201, 147, 58, 0.18), transparent 34%),
-			radial-gradient(circle at 90% 12%, rgba(99, 102, 176, 0.2), transparent 28%),
-			radial-gradient(circle at bottom left, rgba(91, 181, 166, 0.12), transparent 38%),
-			linear-gradient(145deg, rgba(10, 18, 28, 0.96), rgba(15, 23, 36, 0.9));
-	}
-
-	.hero::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		background-image:
-			linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-			linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-		background-size: 24px 24px;
-		mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent);
-		pointer-events: none;
-	}
-
-	.hero-copy,
-	.hero-aside,
-	.slot-head,
-	.occurrence-topline,
-	.section-head,
-	.routine-topline,
-	.itinerary-card {
-		position: relative;
-		z-index: 1;
-	}
-
-	.hero-copy h1,
-	.section-head h2,
-	.slot-head h3,
-	.routine-topline h3 {
-		margin: 0;
-		font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
-		font-weight: 700;
-		letter-spacing: -0.03em;
-	}
-
-	.hero-copy h1 {
-		margin-top: 8px;
-		max-width: 13ch;
-		font-size: clamp(2.2rem, 4vw, 4rem);
-		line-height: 0.95;
-	}
-
-	.hero-text {
-		max-width: 60ch;
-		margin: 18px 0 0;
-		color: #b8c7d1;
-		line-height: 1.65;
-		font-size: 1rem;
-	}
-
-	.eyebrow,
-	.hero-stat span,
-	.kpi-card span,
-	.day-chip span,
-	.slot-head span,
-	.occurrence-topline span,
-	.routine-pill small,
-	.itinerary-date span,
-	.routine-topline span {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: #8da0ae;
-	}
-
-	.hero-aside {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 12px;
-		align-content: start;
-	}
-
-	.hero-stat {
-		padding: 16px;
-		border-radius: 22px;
+		color: #8fa3b0;
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.04);
+		background: rgba(255, 255, 255, 0.02);
+		border-radius: 12px;
+		padding: 12px 14px;
 	}
 
-	.hero-stat strong,
-	.kpi-card strong {
-		display: block;
-		margin-top: 10px;
-		font-size: 30px;
-		line-height: 1;
+	.error-banner {
+		color: #f2a399;
+		border-color: rgba(232, 93, 74, 0.3);
+		background: rgba(232, 93, 74, 0.08);
 	}
 
-	.hero-stat small,
-	.slot-empty,
-	.occurrence-summary,
-	.routine-note,
-	.itinerary-summary {
-		color: #a7b8c3;
-		line-height: 1.55;
-	}
-
-	.hero-stat.accent {
-		background: linear-gradient(145deg, rgba(99, 102, 176, 0.22), rgba(201, 147, 58, 0.12));
-	}
-
-	.hero-links {
-		grid-column: 1 / -1;
+	/* ── Header bar ── */
+	.header-bar {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		margin-top: 4px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 12px 16px;
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--paper-border);
 	}
 
-	.primary-link,
-	.ghost-link,
-	.window-button,
-	.day-chip,
-	.routine-pill,
-	.occurrence-card {
-		transition:
-			transform 140ms ease,
-			border-color 140ms ease,
-			background 140ms ease,
-			box-shadow 140ms ease;
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 14px;
 	}
 
-	.primary-link,
-	.ghost-link,
-	.window-button {
-		display: inline-flex;
+	.header-left h1 {
+		margin: 0;
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 20px;
+		font-weight: 600;
+		color: #eef5f8;
+	}
+
+	.window-range {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: var(--muted);
+	}
+
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.nav-btn {
+		width: 30px;
+		height: 30px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: transparent;
+		color: #6b8292;
+		cursor: pointer;
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 11px 14px;
-		border-radius: 999px;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.nav-btn:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: #c3d3dd;
+	}
+
+	.date-input {
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(8, 15, 24, 0.7);
+		color: #c3d3dd;
+		border-radius: 8px;
+		padding: 6px 10px;
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
+	}
+
+	/* ── Filter / selector row ── */
+	.filter-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+
+	.routine-select {
+		padding: 5px 28px 5px 12px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: rgba(255, 255, 255, 0.04);
+		color: #c8d6df;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
 		letter-spacing: 0.04em;
-		text-decoration: none;
-		border: none;
 		cursor: pointer;
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238fa3b0'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 10px center;
+		transition: border-color 0.15s, background 0.15s;
 	}
+	.routine-select:hover { border-color: rgba(255, 255, 255, 0.15); }
+	.routine-select:focus { outline: none; border-color: rgba(91, 181, 166, 0.4); }
+	.routine-select option { background: #1a2632; color: #c8d6df; }
 
-	.primary-link {
-		background: linear-gradient(135deg, rgba(201, 147, 58, 0.98), rgba(99, 102, 176, 0.88));
-		color: #08111c;
-		font-weight: 700;
-	}
-
-	.ghost-link,
-	.window-button {
-		background: rgba(255, 255, 255, 0.05);
-		color: #d6e1e8;
-	}
-
-	.primary-link:hover,
-	.ghost-link:hover,
-	.window-button:hover,
-	.day-chip:hover,
-	.routine-pill:hover,
-	.occurrence-card:hover {
-		transform: translateY(-1px);
-	}
-
-	.control-bar {
-		display: grid;
-		grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-		gap: 14px;
-	}
-
-	.window-card {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 16px;
-		align-items: center;
-		padding: 18px 20px;
-		border-radius: 28px;
-	}
-
-	.window-card h2 {
-		margin: 6px 0 0;
-		font-size: clamp(1.4rem, 2.4vw, 2.1rem);
-		font-family: 'Iowan Old Style', 'Palatino Linotype', serif;
-		letter-spacing: -0.03em;
-	}
-
-	.window-tools,
-	.kpi-row,
-	.routine-meta,
-	.tag-row,
-	.occurrence-meta,
-	.itinerary-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-	}
-
-	.date-control {
-		display: grid;
-		gap: 6px;
-		color: #bfd0da;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-	}
-
-	.date-control input {
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(255, 255, 255, 0.05);
-		color: #edf3f6;
-		padding: 11px 14px;
-		font-family: 'DM Mono', monospace;
-	}
-
-	.kpi-row {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-
-	.kpi-card {
-		padding: 16px 18px;
-		border-radius: 22px;
-	}
-
-	.review-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
-		gap: 16px;
-		align-items: start;
-	}
-
-	.panel {
+	/* ── Overview list ── */
+	.overview-list {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
-		padding: 18px;
-		border-radius: 28px;
-		opacity: 0.84;
+		gap: 2px;
 	}
 
-	.panel.featured {
-		opacity: 1;
-		border-color: rgba(255, 255, 255, 0.12);
-	}
-
-	.section-head {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 14px;
-	}
-
-	.section-head h2 {
-		margin-top: 8px;
-		font-size: 2rem;
-	}
-
-	.section-head strong {
-		color: #dce7ed;
-		font-size: 0.96rem;
-		text-align: right;
-	}
-
-	.day-strip {
-		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
-		gap: 10px;
-	}
-
-	.day-chip {
-		display: grid;
-		gap: 6px;
-		padding: 14px 12px;
-		border-radius: 22px;
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
-			rgba(255, 255, 255, 0.02);
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.day-chip strong {
-		font-size: 26px;
-		line-height: 1;
-	}
-
-	.day-chip small {
-		color: #97a9b6;
-	}
-
-	.day-chip.active {
-		border-color: rgba(201, 147, 58, 0.26);
-		background:
-			radial-gradient(circle at top right, rgba(201, 147, 58, 0.12), transparent 55%),
-			linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
-	}
-
-	.day-chip.overlap {
-		box-shadow: inset 0 0 0 1px rgba(99, 102, 176, 0.2);
-	}
-
-	.day-chip.selected {
-		transform: translateY(-2px);
-		border-color: rgba(99, 102, 176, 0.46);
-		background:
-			radial-gradient(circle at top right, rgba(99, 102, 176, 0.18), transparent 52%),
-			linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
-		box-shadow: 0 14px 30px rgba(6, 10, 18, 0.28);
-	}
-
-	.slot-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 14px;
-	}
-
-	.slot-card {
-		padding: 14px;
-		border-radius: 24px;
-	}
-
-	.slot-head {
+	.overview-row {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 12px;
-		padding: 14px;
-		border-radius: 18px;
-		background:
-			radial-gradient(circle at top right, var(--slot-shadow), transparent 60%),
-			linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+		gap: 16px;
+		padding: 12px 16px;
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.025);
+		border: 1px solid rgba(255, 255, 255, 0.05);
+		cursor: pointer;
+		text-align: left;
+		color: inherit;
+		transition: background 0.15s;
 	}
 
-	.slot-head h3 {
-		margin-top: 6px;
-		font-size: 2rem;
-		color: var(--slot-color);
+	.overview-row:hover {
+		background: rgba(255, 255, 255, 0.05);
 	}
 
-	.occurrence-list {
+	.overview-left {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		margin-top: 12px;
+		gap: 4px;
+		min-width: 0;
 	}
 
-	.occurrence-card {
-		display: grid;
-		gap: 10px;
-		padding: 14px;
-		border-radius: 18px;
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		background: rgba(255, 255, 255, 0.03);
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.occurrence-card.orphan {
-		cursor: default;
-	}
-
-	.occurrence-card.orphan:hover {
-		transform: none;
-	}
-
-	.occurrence-topline {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
-	}
-
-	.occurrence-topline p,
-	.itinerary-body p {
-		margin: 0;
+	.overview-name {
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 14px;
+		font-weight: 600;
 		color: #eef5f8;
-		font-size: 1.05rem;
-		font-weight: 700;
 	}
 
-	.occurrence-topline strong {
-		display: block;
-		margin-top: 5px;
-		color: #bfd0da;
-		font-size: 0.95rem;
-		font-weight: 500;
-	}
-
-	.routine-switcher {
+	.overview-sub {
 		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.overview-right {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-shrink: 0;
+	}
+
+	.overview-count {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.cadence-badge {
+		padding: 2px 7px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.05);
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: #8fa3b0;
+	}
+
+	.mini-tag {
+		padding: 2px 7px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.05);
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: #8fa3b0;
+	}
+
+	.tag-row {
+		display: flex;
+		gap: 4px;
 		flex-wrap: wrap;
-		gap: 10px;
 	}
 
-	.routine-pill {
-		padding: 11px 14px;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.04);
-		color: #e7eef3;
-		cursor: pointer;
-	}
-
-	.routine-pill span {
-		display: block;
-		font-size: 0.95rem;
-		font-weight: 700;
-	}
-
-	.routine-pill.selected {
-		border-color: rgba(91, 181, 166, 0.38);
-		background:
-			radial-gradient(circle at top right, rgba(91, 181, 166, 0.14), transparent 55%),
-			rgba(255, 255, 255, 0.06);
-	}
-
-	.routine-pill.muted {
-		opacity: 0.62;
-	}
-
-	.routine-summary {
-		padding: 18px;
-		border-radius: 22px;
-	}
-
-	.routine-topline,
-	.itinerary-card {
+	/* ── Routine header ── */
+	.routine-header {
+		padding: 12px 16px;
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.025);
+		border: 1px solid rgba(255, 255, 255, 0.05);
 		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.routine-header-left {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.routine-header h2 {
+		margin: 0;
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 16px;
+		font-weight: 600;
+		color: #eef5f8;
+	}
+
+	.routine-meta {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.status-badge {
+		padding: 2px 7px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.05);
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.status-badge.active {
+		color: #5bb5a6;
+		background: rgba(91, 181, 166, 0.12);
+	}
+
+	.routine-notes {
+		margin: 0;
+		font-size: 12px;
+		color: #a7bac6;
+		line-height: 1.4;
+	}
+
+	/* ── Timeline ── */
+	.timeline-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.timeline-day {
+		display: flex;
+		gap: 0;
+		padding-top: 12px;
+	}
+
+	.timeline-day + .timeline-day {
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.timeline-date {
+		flex-shrink: 0;
+		width: 72px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: flex-start;
+		padding: 12px 12px 12px 0;
+		gap: 1px;
+	}
+
+	.timeline-weekday {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--muted);
+	}
+
+	.timeline-day-num {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: #c3d3dd;
+	}
+
+	.timeline-cards {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.timeline-card {
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.025);
+		border: 1px solid rgba(255, 255, 255, 0.05);
+		border-left: 3px solid var(--tc-color);
+		transition: background 0.15s;
+	}
+
+	.timeline-card:hover {
+		background: rgba(255, 255, 255, 0.045);
+	}
+
+	.timeline-card.expanded {
+		background: rgba(255, 255, 255, 0.04);
+		border-color: rgba(255, 255, 255, 0.1);
+		border-left-color: var(--tc-color);
+	}
+
+	.timeline-card-main {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 14px;
+		width: 100%;
+		background: none;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.type-icon {
+		flex-shrink: 0;
+		width: 22px;
+		text-align: center;
+		font-size: 15px;
+		filter: grayscale(0.3);
+	}
+
+	.card-content {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.card-name {
+		font-family: 'Instrument Sans', sans-serif;
+		font-size: 14px;
+		font-weight: 600;
+		color: #eef5f8;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.card-summary {
+		font-size: 12px;
+		color: #8fa3b0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.card-brief {
+		flex-shrink: 0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: #6b8292;
+	}
+
+	.card-badges {
+		display: flex;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+
+	.slot-badge {
+		padding: 2px 7px;
+		border-radius: 4px;
+		background: rgba(255, 255, 255, 0.05);
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		color: var(--sb-color);
+	}
+
+	.expand-chevron {
+		flex-shrink: 0;
+		color: #6b8292;
+		transition: transform 0.2s ease;
+	}
+
+	.expand-chevron.rotated {
+		transform: rotate(180deg);
+	}
+
+	/* ── Detail panel (read-only) ── */
+	.detail-panel {
+		padding: 12px 14px 14px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		display: flex;
+		flex-direction: column;
 		gap: 12px;
 	}
 
-	.routine-topline h3 {
-		margin-top: 8px;
-		font-size: 1.9rem;
+	.detail-copy {
+		margin: 0;
+		color: #a7bac6;
+		font-size: 13px;
+		line-height: 1.5;
 	}
 
-	.routine-topline span {
-		padding: 8px 10px;
-		border-radius: 999px;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		background: rgba(255, 255, 255, 0.04);
-	}
-
-	.routine-meta small,
-	.tag-row span,
-	.occurrence-meta small,
-	.itinerary-meta small {
-		padding: 8px 10px;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.04);
-		color: #bfd0da;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-	}
-
-	.routine-note,
-	.itinerary-summary {
-		margin: 12px 0 0;
-	}
-
-	.itinerary-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.itinerary-card {
-		padding: 14px;
-		border-radius: 20px;
-	}
-
-	.itinerary-date {
-		min-width: 92px;
+	.detail-list {
 		display: grid;
 		gap: 6px;
 	}
 
-	.itinerary-date strong {
-		font-size: 1rem;
-		color: #f1f5f7;
-	}
-
-	.itinerary-body {
-		display: grid;
+	.detail-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		gap: 10px;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.03);
+		font-size: 13px;
 	}
 
-	@media (max-width: 1120px) {
-		.hero,
-		.control-bar,
-		.review-grid {
-			grid-template-columns: 1fr;
-		}
+	.detail-row-content {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 
-	@media (max-width: 760px) {
-		.hero-aside,
-		.kpi-row,
-		.slot-grid {
-			grid-template-columns: 1fr;
+	.detail-row-content strong {
+		font-size: 13px;
+		color: #eef5f8;
+	}
+
+	.detail-row-content small {
+		color: #6b8292;
+		font-size: 11px;
+	}
+
+	.detail-meta {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+		flex-shrink: 0;
+	}
+
+	/* ── Responsive ── */
+	@media (max-width: 768px) {
+		.header-bar {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 10px;
 		}
 
-		.window-card {
-			grid-template-columns: 1fr;
+		.header-left,
+		.header-right {
+			justify-content: space-between;
 		}
 
-		.day-strip {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+		.timeline-day {
+			flex-direction: column;
 		}
 
-		.section-head,
-		.itinerary-card,
-		.routine-topline {
+		.timeline-date {
+			flex-direction: row;
+			width: auto;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 0 4px 0;
+		}
+
+		.overview-row {
 			flex-direction: column;
 			align-items: flex-start;
+			gap: 8px;
+		}
+
+		.overview-right {
+			flex-wrap: wrap;
 		}
 	}
 </style>
