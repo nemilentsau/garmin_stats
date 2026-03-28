@@ -1345,6 +1345,7 @@ class IngestStatus(_DefaultsRequired):
 class ReadinessScore(_DefaultsRequired):
     score: int | None = None
     components: dict[str, float] = {}
+    component_hints: dict[str, str] = {}  # human-readable explanation per component
     label: str | None = None  # "Ready", "Moderate", "Rest"
 
 

@@ -433,8 +433,9 @@
 				{#each componentOrder as key}
 					{@const val = r.components[key] ?? 0}
 					{@const info = componentInfo[key]}
+					{@const hint = r.component_hints?.[key] ?? info.description}
 					{@const vitals = overview?.vitals}
-					<div class="comp-row">
+					<div class="comp-row comp-tooltip-wrap">
 						<div class="comp-header">
 							<div class="comp-dot" style="background:{info.color}"></div>
 							<span class="comp-label">{info.label}</span>
@@ -453,12 +454,14 @@
 							{:else if key === 'hrv_status' && vitals?.hrv_status}
 								<span class="comp-actual">{vitals.hrv_status}</span>
 							{/if}
+							<span class="comp-hint-icon">?</span>
 							<span class="comp-score" style="color:{info.color}">{Math.round(val)}</span>
 							<span class="comp-max">/ 25</span>
 						</div>
 						<div class="comp-bar-track">
 							<div class="comp-bar-fill" style="width:{(val / 25) * 100}%; background:{info.color}"></div>
 						</div>
+						<div class="comp-tooltip">{hint}</div>
 					</div>
 				{/each}
 			</div>
@@ -894,6 +897,53 @@
 		border-radius: 2px;
 		transition: width 0.5s ease;
 		opacity: 0.8;
+	}
+
+	.comp-tooltip-wrap {
+		position: relative;
+	}
+
+	.comp-hint-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		border: 1px solid #5e7282;
+		color: #5e7282;
+		font-size: 10px;
+		font-weight: 600;
+		cursor: help;
+		flex-shrink: 0;
+		transition: border-color 0.15s, color 0.15s;
+	}
+
+	.comp-tooltip-wrap:hover .comp-hint-icon {
+		border-color: #a0b0bc;
+		color: #a0b0bc;
+	}
+
+	.comp-tooltip {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		transform: translateX(-50%);
+		background: #1e2a32;
+		border: 1px solid rgba(255,255,255,0.1);
+		border-radius: 6px;
+		padding: 8px 12px;
+		font-size: 12px;
+		color: #c0ccd4;
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s;
+		z-index: 10;
+	}
+
+	.comp-tooltip-wrap:hover .comp-tooltip {
+		opacity: 1;
 	}
 
 	/* ── Unified Metric Cards ── */
