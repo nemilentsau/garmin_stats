@@ -31,8 +31,35 @@ import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime
 
+from app.infra.database import DATA_DIR
 from app.parser import parse_all_days
 from app.stats import compute_daily_aggregates
+
+
+def _looks_like_day_dir(path: Path) -> bool:
+    return path.is_dir() and len(path.name) == 10 and path.name[4] == "-" and path.name[7] == "-"
+
+
+def resolve_data_dir(data_dir: Path) -> Path:
+    """Accept either the Garmin data root or its parent `data/` directory."""
+    candidates = [data_dir]
+    if data_dir.name == "data":
+        candidates.append(data_dir / "garmin_health_stats")
+
+    for candidate in candidates:
+        if not candidate.exists() or not candidate.is_dir():
+            continue
+        children = list(candidate.iterdir())
+        if any(_looks_like_day_dir(child) for child in children):
+            return candidate
+        if any(child.is_file() and child.suffix == ".zip" for child in children):
+            return candidate
+
+    expected = data_dir / "garmin_health_stats" if data_dir.name == "data" else data_dir
+    raise FileNotFoundError(
+        "Could not find Garmin day folders or day archives. "
+        f"Checked '{data_dir}' and '{expected}'."
+    )
 
 
 def load_aggregates(data_dir: Path) -> dict:
@@ -81,9 +108,8 @@ def plot_metric_with_iqr(
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
 
-def generate_dashboard_charts(data_dir: Path, output_dir: Path):
+def generate_dashboard_charts(agg: dict, output_dir: Path):
     """Generate the main dashboard overview charts using IQR bands from API."""
-    agg = load_aggregates(data_dir)
     dates = parse_dates(agg["days"])
     daily = agg["daily"]
 
@@ -209,9 +235,8 @@ def generate_dashboard_charts(data_dir: Path, output_dir: Path):
     print(f"Saved: {output_path}")
 
 
-def generate_distribution_charts(data_dir: Path, output_dir: Path):
+def generate_distribution_charts(agg: dict, output_dir: Path):
     """Generate distribution charts for key metrics — EDA view."""
-    agg = load_aggregates(data_dir)
     daily = agg["daily"]
 
     fig, axes = plt.subplots(2, 4, figsize=(20, 8))
@@ -258,12 +283,11 @@ def generate_distribution_charts(data_dir: Path, output_dir: Path):
     print(f"Saved: {output_path}")
 
 
-def generate_iqr_vs_minmax_comparison(data_dir: Path, output_dir: Path):
+def generate_iqr_vs_minmax_comparison(agg: dict, output_dir: Path):
     """Side-by-side comparison: min/max bands vs IQR bands for heart rate.
 
     Uses real Q1/Q3 from the API (not simulated).
     """
-    agg = load_aggregates(data_dir)
     dates = parse_dates(agg["days"])
     daily = agg["daily"]
 
@@ -320,9 +344,8 @@ def generate_iqr_vs_minmax_comparison(data_dir: Path, output_dir: Path):
     print(f"Saved: {output_path}")
 
 
-def generate_correlation_matrix(data_dir: Path, output_dir: Path):
+def generate_correlation_matrix(agg: dict, output_dir: Path):
     """Generate cross-metric correlation matrix and scatter plots for EDA."""
-    agg = load_aggregates(data_dir)
     daily = agg["daily"]
 
     metric_defs = [
@@ -405,22 +428,24 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate chart images for visual inspection")
-    parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "data")
+    parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / ".claude" / "chart-inspections")
     parser.add_argument("--chart", choices=["all", "dashboard", "distributions", "minmax", "correlations"],
                         default="all", help="Which charts to generate")
     args = parser.parse_args()
 
+    args.data_dir = resolve_data_dir(args.data_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    agg = load_aggregates(args.data_dir)
 
     if args.chart in ("all", "dashboard"):
-        generate_dashboard_charts(args.data_dir, args.output_dir)
+        generate_dashboard_charts(agg, args.output_dir)
     if args.chart in ("all", "distributions"):
-        generate_distribution_charts(args.data_dir, args.output_dir)
+        generate_distribution_charts(agg, args.output_dir)
     if args.chart in ("all", "minmax"):
-        generate_iqr_vs_minmax_comparison(args.data_dir, args.output_dir)
+        generate_iqr_vs_minmax_comparison(agg, args.output_dir)
     if args.chart in ("all", "correlations"):
-        generate_correlation_matrix(args.data_dir, args.output_dir)
+        generate_correlation_matrix(agg, args.output_dir)
 
     print(f"\nAll charts saved to: {args.output_dir}")
     print("Read the PNG files to visually inspect them.")

@@ -303,7 +303,6 @@
 		if (file && file.name.endsWith('.json')) void handleFile(file);
 	}
 
-	/** Shift routine dates so they start from importStartDate. */
 	function shiftBundleDates(bundle: ArtifactBundleSpec): ArtifactBundleSpec {
 		const shifted = structuredClone(bundle);
 		const newStart = toDate(importStartDate);
@@ -330,7 +329,6 @@
 			const result = await api.importAssistantArtifactBundle(bundleToImport);
 			importResult = result;
 			importStep = 'done';
-			// Refresh schedule data
 			const res = await api.getRoutines('active');
 			routines = res.routines;
 			await loadScheduleWindow(windowStartDate);

@@ -1,188 +1,98 @@
 # Garmin Health Assistant
 
-This project is not trying to be another Garmin dashboard.
+This repo is a local-first health assistant built on Garmin recovery data.
 
-It is trying to become a personal health assistant that uses Garmin data, manual logs, and an AI assistant to help answer questions like:
+The product is currently recovery-first:
 
-- Why did recovery dip this week?
-- Did meditation help HRV, or did it just coincide with easier days?
-- Is this routine worth keeping?
-- What should tomorrow's recovery plan look like?
+- the backend ingests Garmin FIT exports and computes deterministic health metrics
+- the frontend renders dashboards, Today, schedule review, and assistant flows
+- the assistant works from curated snapshots, not raw database access
+- routines run through a structured bundle pipeline instead of ad hoc markdown imports
 
-The long-term goal is a data-driven system that can track routines, run messy real-life experiments, and turn all of that into grounded advice instead of generic wellness talk.
+Experiments are the next product step, but the current foundation is the dashboard + assistant + routine runtime.
 
-## Vision
+## Current Product
 
-Garmin already gives raw numbers. This app is meant to turn those numbers into a usable coaching loop:
+### Recovery dashboard
 
-- ingest health and recovery data from Garmin FIT exports
-- let you track routines such as mindfulness, nutrition, mobility, balance work, supplements, or training blocks
-- let you run overlapping experiments even when life is messy
-- let you talk to an assistant that can explain patterns, caveats, and next steps
-- generate plans and recommendations from your own context, not from generic templates
+- overview and metric drill-downs for heart rate, HRV, sleep, stress, body battery, respiration, skin temperature, and pulse ox
+- backend-owned statistics only; the frontend does not compute analytical values
 
-The important distinction is this:
+### Assistant
 
-- the backend owns the analytics
-- the AI owns synthesis, conversation, prioritization, and writing
+- persistent assistant threads
+- stored runs and context snapshots
+- streamed responses backed by curated health context
 
-That means the app should eventually behave less like a chart collection and more like a personal operating system for health and training decisions.
+### Routine runtime
 
-## Product Direction
+- `/routines/schedule` is the routine surface
+- `/today` is the execution surface
 
-Right now the product is **recovery-first**.
+The intended split is:
 
-That is the correct scope for the current data quality. We already have strong recovery signals such as sleep, HRV, resting heart rate, stress, body battery, respiration, and skin temperature. Those are enough to build a useful health assistant.
+- Schedule: inspect compiled live occurrences over the next 14 days and import bundles
+- Today: log what actually happened for one day
 
-We are **not** yet at full workout-performance coaching. Questions like "how does my abs routine affect running?" or "how does nutrition affect lifting?" need better training outcome data than the app currently stores. That expansion is planned, but it should follow the same rule: evidence first, AI interpretation second.
+Schedule is the only routine-management UI entry point.
 
-## What We Are Building
+### Parked surfaces
 
-### 1. Recovery assistant
+- `/experiments` is intentionally parked until it can sit on top of the current routine runtime cleanly
+- `/programs` is intentionally parked for the same reason
 
-A chat-based assistant that can look at recent health context and answer practical questions:
+## Routine Flow
 
-- what changed in the last few days
-- why recovery looks worse or better
-- what signals matter most today
-- what confounders might explain a pattern
+The routine system accepts deterministic bundle JSON, not arbitrary markdown.
 
-### 2. Routine tracking
+Canonical flow:
 
-A place to define and log behaviors that Garmin does not know about:
+`source note -> bundle JSON -> preview -> import -> auto-activate -> schedule/today`
 
-- meditation
-- abs work
-- balance drills
-- supplements
-- meal timing
-- mobility
-- sleep routines
+Important details:
 
-The current routine runtime is assistant-spec first:
+- preview performs no writes
+- bundle import persists artifacts and auto-activates them in dependency order
+- low-level assistant artifacts still exist for debugging/manual flows, but they are not the normal user path
+- Today only logs execution state; it does not author schedule structure
 
-- an assistant or user produces one structured artifact bundle JSON payload
-- the backend previews that bundle without writing live runtime data
-- the user imports the clean bundle as inert assistant-artifact drafts
-- the user explicitly activates valid drafts
-- the app compiles them into live cards, schedules, and today-board entries
+Bundle examples live in:
 
-That boundary is deliberate. New routine content should usually be data, not code. Only a new renderer family should require infrastructure work.
+- [docs/morning_stretching_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/morning_stretching_bundle.json)
+- [docs/two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
+- [docs/two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
 
-### 3. Experiment tracking
+The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
 
-A way to test whether routines appear linked to outcomes over time, even when multiple things overlap.
+## Main Routes
 
-The system should not pretend life is a clean one-variable lab. It should surface:
+- `/`
+  Recovery dashboard overview.
 
-- likely signal
-- possible signal with heavy confounding
-- not enough data
+- `/assistant`
+  Persistent recovery assistant chat.
 
-### 4. Plans and adherence
+- `/today`
+  One-day execution board built from live compiled routines and logs.
 
-The assistant should eventually move beyond analysis and help with execution:
+- `/routines/schedule`
+  14-day live schedule review plus bundle import.
 
-- daily recovery plan
-- weekly plan
-- experiment plan
-- adherence tracking
-
-## Core Principles
-
-- **Deterministic backend:** metrics, comparisons, confidence, and experiment analysis live in the backend.
-- **Display-only frontend:** the UI renders results; it does not compute statistics.
-- **Curated AI context:** the assistant works from backend-built snapshots, not broad direct database access.
-- **Explicit uncertainty:** overlapping routines and confounders are normal, so confidence must be visible.
-- **Local-first by default:** data stays local, while assistant requests send a minimized context bundle to Claude.
-
-## Current Status
-
-### Working today
-
-- Garmin FIT ingest and local SQLite storage
-- daily aggregates and metric detail views
-- dashboard for recovery signals
-- assistant-authored routine drafts with validation and explicit activation
-- compiled live card templates, recurring schedules, and a Today board
-- assistant MVP with persisted threads and streamed replies
-
-### Not done yet
-
-- evidence-backed experiment engine
-- plan generation and adherence loop
-- strong training-performance attribution
-- serious running/lifting coaching
-- reintroducing programs and experiments on top of the new routine runtime
-
-So the app is already useful as a **personal recovery assistant**. It is not yet a complete performance coach.
-
-## How It Works
-
-1. Garmin exports are dropped into `data/garmin_health_stats/YYYY-MM-DD/*.fit`.
-2. The backend ingests those files and stores normalized data in local SQLite.
-3. Backend services compute daily metrics, insights, and assistant context snapshots.
-4. The assistant runtime sends a curated snapshot to Claude Code and streams the reply back.
-5. Threads, messages, runs, and snapshots are stored so the assistant has memory and an audit trail.
-
-## Routine Runtime
-
-The routine system now has two layers:
-
-1. **Assistant artifacts**  
-   Structured drafts authored by the health assistant. Supported kinds are `card_template`, `routine_spec`, and `capability_request`.
-2. **Live runtime records**  
-   Activated cards, routines, assignments, and logs that drive `/today` and `/routines/schedule`. Persisted date-specific overrides are still read for backward compatibility by the shared schedule projection, but Today no longer authors them.
-
-The app enforces a strict renderer boundary. v1 supports:
-
-- `timer_session`
-- `checklist_block`
-- `exercise_block`
-
-If a draft asks for an unsupported renderer family, validation rejects it and records a `capability_request` instead of mutating the schema.
-
-The canonical import unit is now a proper artifact bundle:
-
-- `card_templates[]`
-- `routine_specs[]`
-
-The app accepts deterministic bundle JSON only. It does not convert arbitrary markdown in-app. The external conversion target for an LLM is documented in [`docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md), and the checked-in examples are [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json) and [`docs/two_week_core_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json).
-
-## Main App Areas
-
-- `/`  
-  Recovery dashboard and metric exploration.
-
-- `/assistant`  
-  Chat with the recovery assistant, keep threads, ask for a daily briefing or weekly review.
-
-- `/today`  
-  Render the active day from compiled live schedules and log what actually happened. If the schedule is wrong, fix it through routines creation instead of patching Today.
-
-- `/routines/schedule`  
-  Review a 14-day resolved schedule through two lenses: by day for agenda review, and by routine for upcoming dated occurrences.
-
-- `/routines/creation`  
-  Paste real bundle JSON, preview create/update deltas without DB writes, import inert drafts, and activate them into the live runtime. Placeholder/demo starter content is rejected at preview/import time.
-
-- `/routines`  
+- `/routines`
   Redirects to `/routines/schedule`.
 
-- `/experiments`  
-  Placeholder. Experiments are intentionally parked until they can consume the new routine runtime cleanly.
+- `/experiments`
+  Parked placeholder.
 
-- `/programs`  
-  Placeholder. The old program-import surface is intentionally offline while routines use the artifact-bundle pipeline.
-
-The metric-specific pages still matter, but they are supporting tools. The main product direction is the assistant plus the draft -> validate -> activate -> execute routine loop.
+- `/programs`
+  Parked placeholder.
 
 ## Running Locally
 
 ### Prerequisites
 
-- Python 3.12+
-- Node.js 20+
+- Python `3.12`
+- Node.js `20+`
 - `uv`
 
 ### Backend
@@ -194,29 +104,7 @@ uv pip install -r requirements.txt
 uv run uvicorn app.main:app --reload
 ```
 
-Backend runs on `http://localhost:8000`.
-
-To use a different port, also pass the frontend origin so CORS is allowed:
-
-```bash
-BACKEND_CORS_ORIGINS=http://localhost:3000 uv run uvicorn app.main:app --reload --port 7000
-```
-
-`BACKEND_CORS_ORIGINS` accepts a comma-separated list. The defaults cover `localhost:3000/5173/5174/5180`; only set this if you use a port outside that set.
-
-### Manual smoke runs
-
-Automated backend tests already isolate the database with pytest fixtures.
-
-Ad hoc `python`, `uv run python`, and `uvicorn` commands do not. If you run them without overrides, they will use the default local runtime DB at `storage/garmin_stats.db`.
-
-For any manual repro or smoke run, use the isolated helper:
-
-```bash
-bash scripts/run_isolated_backend.sh
-```
-
-That script creates a temporary workspace, exports `GARMIN_DB_PATH` and `GARMIN_DATA_DIR`, prints the temp paths on startup, and removes them on exit. Set `KEEP_TMP=1` if you want to inspect the temp DB after the run.
+Backend default: `http://localhost:8000`
 
 ### Frontend
 
@@ -226,128 +114,142 @@ npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`.
+Frontend default: `http://localhost:5173`
 
-To use a different port:
-
-```bash
-npm run dev -- --port 5174
-```
-
-If the backend is also on a non-default port, tell the frontend where to find it:
+### Tests and validation
 
 ```bash
-PUBLIC_API_BASE_URL=http://localhost:8001 npm run dev -- --port 5174
+cd backend && uv run pytest tests/ -v
+cd backend && uv run ruff check
+cd backend && uv run pyright app/ tests/
+cd frontend && npm run check
 ```
 
-### Data layout
+### API type generation
+
+If backend models or route schemas change:
+
+```bash
+bash scripts/generate-api-types.sh
+```
+
+### Re-ingest after parser changes
+
+If `backend/app/parser.py` changes:
+
+```bash
+cd backend
+uv run python ../scripts/reingest.py
+```
+
+## Data Layout
 
 ```text
 data/
   garmin_health_stats/
-    2026-01-14/
+    YYYY-MM-DD.zip
+    YYYY-MM-DD/
       *_WELLNESS.fit
       *_SKIN_TEMP.fit
       *_METRICS.fit
-    2026-01-15/
       ...
 ```
 
-The ingest pipeline handles the Garmin export layout and zip extraction.
-Top-level `YYYY-MM-DD.zip` archives already present in `data/garmin_health_stats/` are reconciled on startup and before manual re-ingest, so days copied while the backend was down are picked up on the next boot.
-Calendar-driven pages use the laptop's local date as "today". The dashboard overview surfaces a stale-data warning if Garmin data lags behind that date instead of silently treating the latest ingested day as current.
-If `data/garmin_health_stats/` is missing, the backend recreates it on startup and the dashboard stays in an empty upload/ingest state until the first files arrive.
+The ingest pipeline handles both the day archives and the extracted day folders.
 
 ## Repo Map
 
-This is the stable mental model, not a file-by-file inventory:
+- `backend/app/models.py`
+  Pydantic contracts for Garmin data, assistant state, routines, and API responses.
 
-- `backend/app/infra`
-  Storage, ingest, watcher, SSE/event plumbing.
+- `backend/app/parser.py`
+  FIT parsing and local-time timestamp normalization.
 
-- `backend/app/services`
-  Deterministic analytics and assistant orchestration.
+- `backend/app/stats.py`
+  Deterministic aggregate/stat computation.
 
-- `backend/app/routers`
+- `backend/app/infra/`
+  SQLite persistence, ingest bookkeeping, cache, SSE bus, watcher.
+
+- `backend/app/services/`
+  Health analysis, assistant orchestration, schedule projection, Today logic, routines runtime.
+
+- `backend/app/routers/`
   FastAPI route boundaries.
 
-- `frontend/src/routes`
-  Product pages such as dashboard, assistant, today, routines, and the parked programs/experiments placeholders.
+- `frontend/src/routes/`
+  SvelteKit routes for dashboard, assistant, Today, routines, and parked placeholders.
 
-- `frontend/src/lib`
-  Typed API client, streaming helpers, shared UI helpers.
+- `frontend/src/lib/`
+  Typed API client, shared formatting, colors, charts, and frontend helpers.
 
-- `docs/ARCHITECTURE.md`
-  Current codebase architecture notes.
+- [docs/ARCHITECTURE.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ARCHITECTURE.md)
+  Current-state code map.
 
-- `docs/DATA_SCHEMA_DESIGN.md`
-  Routine runtime design notes: assistant artifacts, cards, schedules, Today projection, and core assumptions.
+- [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
+  Routine runtime design notes.
 
-- `chatgpt-architecture.md`
-  Product architecture for the health assistant direction.
-
-- `implementation-plan.md`
-  Delivery phases and build sequence.
-
-- `FINDINGS.md`
-  Actual observations from the Garmin dataset and open analytical questions.
+- [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
+  Current analytical observations from the live dataset.
 
 ## API Surface
 
-Key API groups exposed by the backend:
+### Health data
 
-- `GET /api/cards`  
-  List live card templates that can be scheduled in live routines.
+- `GET /api/dashboard`
+- `GET /api/days`
+- `GET /api/wellness`
+- `GET /api/sleep`
+- `GET /api/daily-aggregates`
+- `GET /api/skin-temp`
+- `GET /api/heart-rate`
+- `GET /api/hrv`
+- `GET /api/stress`
+- `GET /api/body-battery`
 
-- `GET /api/routines`  
-  List live compiled routines.
+### Assistant
 
-- `GET /api/routines/{routine_id}`  
-  Fetch one live routine.
+- `GET /api/assistant/threads`
+- `POST /api/assistant/threads`
+- `GET /api/assistant/threads/{thread_id}`
+- `POST /api/assistant/messages`
+- `GET /api/assistant/artifacts`
+- `POST /api/assistant/artifacts`
+- `POST /api/assistant/artifacts/{artifact_id}/activate`
+- `POST /api/assistant/artifact-bundles/preview`
+- `POST /api/assistant/artifact-bundles/import`
 
-- `GET /api/routines/{routine_id}/assignments`  
-  Fetch recurring card placements for a live routine.
+`POST /api/assistant/artifact-bundles/import` is the normal routine import endpoint. It persists the validated bundle artifacts and auto-activates them into live runtime records.
 
-- `GET /api/routines/schedule-window?start_date=YYYY-MM-DD`  
-  Resolve the next 14 days of dated schedule occurrences for schedule review, including persisted date-specific overrides still kept for backward compatibility.
+### Routine runtime
 
-- `GET /api/today?date=YYYY-MM-DD`  
-  Build the day view from active routines, assignments, persisted date-specific overrides, and logs.
+- `GET /api/cards`
+- `GET /api/routines`
+- `GET /api/routines/{routine_id}`
+- `GET /api/routines/{routine_id}/assignments`
+- `GET /api/routines/schedule-window?start_date=YYYY-MM-DD`
+- `GET /api/today?date=YYYY-MM-DD`
+- `PUT /api/today/{date}/cards/{occurrence_key}`
 
-- `PUT /api/today/{date}/cards/{occurrence_key}`  
-  Upsert one-tap or detailed logging for a card occurrence.
+### Parked/manual domains still present in the backend
 
-- `GET /api/assistant/artifacts`  
-  List assistant-authored drafts and capability requests.
+- `GET/PUT /api/profile`
+- `GET/POST /api/checkins`
+- `GET/POST /api/notes`
+- `GET/POST /api/experiments`
+- `GET/POST /api/programs`
+- `GET /api/target-metrics`
 
-- `POST /api/assistant/artifacts`  
-  Create one low-level assistant artifact draft directly.
+The backend carries these surfaces, but the main product flow currently prioritizes assistant + recovery + routines.
 
-- `POST /api/assistant/artifacts/{artifact_id}/activate`  
-  Validate and compile a draft into the live runtime.
+## Current Direction
 
-- `POST /api/assistant/artifact-bundles/preview`  
-  Validate one proper bundle, report blocking issues and create/update deltas, and perform no DB writes.
+The app is already useful as a personal recovery assistant. It is not yet a general training-performance coach.
 
-- `POST /api/assistant/artifact-bundles/import`  
-  Persist a valid proper bundle as validated draft artifacts only. This does not compile live runtime records.
-
-## What Good Looks Like
-
-If this project succeeds, it should help answer questions in a way that feels specific and grounded:
-
-- "Your sleep and HRV both improved after three consistent low-stress evenings."
-- "Meditation looks promising, but travel and lifting volume are confounding the signal."
-- "Recovery is suppressed today; keep the plan lighter and skip adding another experiment."
-
-That is the bar: not just charts, not just AI chat, but a system that combines both into something genuinely useful.
+The next meaningful product layer is experiments built on top of the current routine runtime, not another reset of the routine model.
 
 ## Privacy
 
-The `data/` directory is gitignored. Raw personal health data under `data/garmin_health_stats/` should never be committed.
+The `data/` directory is gitignored. Raw Garmin exports and derived local storage should never be committed.
 
-Assistant features send a curated context bundle to Claude. The product direction is to keep that bundle as small, explicit, and auditable as possible.
-
-## License
-
-Private project. Not for distribution.
+Assistant requests send a curated context bundle, not the entire local dataset.
