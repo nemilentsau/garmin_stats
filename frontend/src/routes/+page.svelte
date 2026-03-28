@@ -435,7 +435,7 @@
 					{@const info = componentInfo[key]}
 					{@const hint = r.component_hints?.[key] ?? info.description}
 					{@const vitals = overview?.vitals}
-					<div class="comp-row comp-tooltip-wrap">
+					<div class="comp-row">
 						<div class="comp-header">
 							<div class="comp-dot" style="background:{info.color}"></div>
 							<span class="comp-label">{info.label}</span>
@@ -454,14 +454,13 @@
 							{:else if key === 'hrv_status' && vitals?.hrv_status}
 								<span class="comp-actual">{vitals.hrv_status}</span>
 							{/if}
-							<span class="comp-hint-icon">?</span>
+							<span class="info-hint" data-tip={hint}>?</span>
 							<span class="comp-score" style="color:{info.color}">{Math.round(val)}</span>
 							<span class="comp-max">/ 25</span>
 						</div>
 						<div class="comp-bar-track">
 							<div class="comp-bar-fill" style="width:{(val / 25) * 100}%; background:{info.color}"></div>
 						</div>
-						<div class="comp-tooltip">{hint}</div>
 					</div>
 				{/each}
 			</div>
@@ -899,51 +898,41 @@
 		opacity: 0.8;
 	}
 
-	.comp-tooltip-wrap {
+	/* ── Info hint icon with CSS tooltip ── */
+	.info-hint {
+		font-size: 11px;
+		color: #4a5c6a;
+		cursor: help;
+		margin-left: 4px;
+		vertical-align: middle;
+		user-select: none;
 		position: relative;
 	}
-
-	.comp-hint-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		border: 1px solid #5e7282;
-		color: #5e7282;
-		font-size: 10px;
-		font-weight: 600;
-		cursor: help;
-		flex-shrink: 0;
-		transition: border-color 0.15s, color 0.15s;
+	.info-hint:hover {
+		color: #8a9baa;
 	}
-
-	.comp-tooltip-wrap:hover .comp-hint-icon {
-		border-color: #a0b0bc;
-		color: #a0b0bc;
-	}
-
-	.comp-tooltip {
+	.info-hint:hover::after {
+		content: attr(data-tip);
 		position: absolute;
-		bottom: calc(100% + 8px);
 		left: 50%;
+		top: calc(100% + 6px);
 		transform: translateX(-50%);
-		background: #1e2a32;
-		border: 1px solid rgba(255,255,255,0.1);
-		border-radius: 6px;
+		background: rgba(13, 21, 32, 0.95);
+		color: #c8d6e0;
+		font-size: 11px;
+		font-weight: 400;
+		letter-spacing: 0;
+		text-transform: none;
+		line-height: 1.4;
 		padding: 8px 12px;
-		font-size: 12px;
-		color: #c0ccd4;
-		white-space: nowrap;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		white-space: normal;
+		width: max-content;
+		max-width: 280px;
+		z-index: 50;
 		pointer-events: none;
-		opacity: 0;
-		transition: opacity 0.15s;
-		z-index: 10;
-	}
-
-	.comp-tooltip-wrap:hover .comp-tooltip {
-		opacity: 1;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 
 	/* ── Unified Metric Cards ── */
