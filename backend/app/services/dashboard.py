@@ -51,13 +51,23 @@ def _recovery_status(
     baseline = sum(previous_nightly) / len(previous_nightly)
     delta = nightly - baseline
     status_text = selected.status.lower() if selected.status else ""
-    if delta <= -10 or "low" in status_text or "unbalanced" in status_text:
-        return "suppressed"
+    if delta <= -10:
+        return "suppressed_delta"
+    if "low" in status_text or "unbalanced" in status_text:
+        return "suppressed_status"
     if delta <= -5:
         return "below_baseline"
     if delta >= 8:
         return "elevated"
     return "stable"
+
+
+def _format_delta_magnitude(value: float) -> str:
+    """Format a delta magnitude with one decimal only when needed."""
+    rounded = round(abs(value), 1)
+    if rounded.is_integer():
+        return str(int(rounded))
+    return f"{rounded:.1f}"
 
 
 def _resting_delta(
@@ -84,44 +94,81 @@ def _compute_readiness(
     if selected.sleep.score is None and selected.hrv.status is None:
         return None
 
-    # HRV recovery (0-25)
-    recovery_map = {
-        "elevated": 25.0,
-        "stable": 20.0,
-        "below_baseline": 10.0,
-        "suppressed": 0.0,
+    # HRV recovery (0-25): score + hint keyed by recovery status
+    _recovery_info: dict[str, tuple[float, str]] = {
+        "elevated": (25.0, "HRV rose 8+ ms above your 7-day average — strong recovery"),
+        "stable": (20.0, "HRV is within normal range of your 7-day average"),
+        "below_baseline": (10.0, "HRV dropped 5—10 ms below your 7-day average"),
+        "suppressed_delta": (
+            0.0, "HRV dropped 10+ ms below your 7-day average — suppressed",
+        ),
     }
-    hrv_recovery = recovery_map.get(recovery_status or "", 12.0)
+    if recovery_status == "suppressed_status":
+        normalized_status = _normalize_hrv_status(selected.hrv.status).lower()
+        hrv_recovery = 0.0
+        hrv_recovery_hint = (
+            f"Garmin HRV status is {normalized_status}, which suppresses recovery "
+            "without a 10+ ms drop vs your 7-day average"
+        )
+    else:
+        hrv_recovery, hrv_recovery_hint = _recovery_info.get(
+            recovery_status or "", (12.0, "Insufficient data for recovery assessment"),
+        )
 
     # Sleep (0-25), linear from score 40→0 to 90→25
     if selected.sleep.score is not None:
         clamped = max(40, min(90, selected.sleep.score))
         sleep = round((clamped - 40) / 50 * 25, 1)
+        sleep_score = selected.sleep.score
+        if sleep_score >= 80:
+            sleep_hint = f"Sleep score {sleep_score} — excellent quality"
+        elif sleep_score >= 60:
+            sleep_hint = f"Sleep score {sleep_score} — moderate quality"
+        else:
+            sleep_hint = f"Sleep score {sleep_score} — poor quality"
     else:
         sleep = 12.0
+        sleep_hint = "No sleep data available"
 
     # Resting HR delta (0-25): ≤-3→25, 0→20, ≥6→5, linear between
     if resting_delta is not None:
+        abs_delta_text = _format_delta_magnitude(resting_delta)
         if resting_delta <= -3:
             rhr = 25.0
+            rhr_hint = (
+                f"Resting HR is {abs_delta_text} bpm below "
+                "7-day average — great recovery"
+            )
         elif resting_delta <= 0:
             rhr = round(25 - (resting_delta + 3) / 3 * 5, 1)
+            rhr_hint = "Resting HR is near your 7-day average"
         elif resting_delta <= 6:
             rhr = round(20 - resting_delta / 6 * 15, 1)
+            rhr_hint = (
+                f"Resting HR is {abs_delta_text} bpm above "
+                "7-day average — possible stress"
+            )
         else:
             rhr = 5.0
+            rhr_hint = (
+                f"Resting HR is {abs_delta_text} bpm above "
+                "7-day average — significant elevation"
+            )
     else:
         rhr = 12.0
+        rhr_hint = "No resting HR baseline available"
 
-    # HRV status (0-25)
-    status_map = {
-        "Balanced": 25.0,
-        "High": 20.0,
-        "Low": 5.0,
-        "Unbalanced": 0.0,
+    # HRV status (0-25): score + hint keyed by normalized status
+    _status_info: dict[str, tuple[float, str]] = {
+        "Balanced": (25.0, "Autonomic nervous system is well-balanced"),
+        "High": (20.0, "HRV is elevated — good recovery or detraining"),
+        "Low": (5.0, "HRV is persistently low — may indicate fatigue"),
+        "Unbalanced": (0.0, "Autonomic nervous system shows imbalance"),
     }
     normalized = _normalize_hrv_status(selected.hrv.status)
-    hrv_status = status_map.get(normalized, 12.0)
+    hrv_status, hrv_status_hint = _status_info.get(
+        normalized, (12.0, "HRV status unavailable"),
+    )
 
     total = round(hrv_recovery + sleep + rhr + hrv_status)
     if total >= 75:
@@ -138,6 +185,12 @@ def _compute_readiness(
             "sleep": sleep,
             "resting_hr": rhr,
             "hrv_status": hrv_status,
+        },
+        component_hints={
+            "hrv_recovery": hrv_recovery_hint,
+            "sleep": sleep_hint,
+            "resting_hr": rhr_hint,
+            "hrv_status": hrv_status_hint,
         },
         label=label,
     )

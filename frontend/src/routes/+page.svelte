@@ -433,6 +433,7 @@
 				{#each componentOrder as key}
 					{@const val = r.components[key] ?? 0}
 					{@const info = componentInfo[key]}
+					{@const hint = r.component_hints?.[key] ?? info.description}
 					{@const vitals = overview?.vitals}
 					<div class="comp-row">
 						<div class="comp-header">
@@ -453,6 +454,7 @@
 							{:else if key === 'hrv_status' && vitals?.hrv_status}
 								<span class="comp-actual">{vitals.hrv_status}</span>
 							{/if}
+							<span class="info-hint" data-tip={hint}>?</span>
 							<span class="comp-score" style="color:{info.color}">{Math.round(val)}</span>
 							<span class="comp-max">/ 25</span>
 						</div>
@@ -894,6 +896,43 @@
 		border-radius: 2px;
 		transition: width 0.5s ease;
 		opacity: 0.8;
+	}
+
+	/* ── Info hint icon with CSS tooltip ── */
+	.info-hint {
+		font-size: 11px;
+		color: #4a5c6a;
+		cursor: help;
+		margin-left: 4px;
+		vertical-align: middle;
+		user-select: none;
+		position: relative;
+	}
+	.info-hint:hover {
+		color: #8a9baa;
+	}
+	.info-hint:hover::after {
+		content: attr(data-tip);
+		position: absolute;
+		left: 50%;
+		top: calc(100% + 6px);
+		transform: translateX(-50%);
+		background: rgba(13, 21, 32, 0.95);
+		color: #c8d6e0;
+		font-size: 11px;
+		font-weight: 400;
+		letter-spacing: 0;
+		text-transform: none;
+		line-height: 1.4;
+		padding: 8px 12px;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		white-space: normal;
+		width: max-content;
+		max-width: 280px;
+		z-index: 50;
+		pointer-events: none;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 
 	/* ── Unified Metric Cards ── */

@@ -483,7 +483,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import Bundle
-         * @description Persist a validated structured artifact bundle as draft artifacts.
+         * @description Import a validated bundle and auto-activate all artifacts.
          */
         post: operations["post_import_bundle_api_assistant_artifact_bundles_import_post"];
         delete?: never;
@@ -2560,6 +2560,13 @@ export interface components {
              */
             components: {
                 [key: string]: number;
+            };
+            /**
+             * Component Hints
+             * @default {}
+             */
+            component_hints: {
+                [key: string]: string;
             };
             /** Label */
             label: string | null;
