@@ -155,6 +155,43 @@ class TestReadiness:
         assert result.readiness is not None
         assert result.readiness.components["resting_hr"] == 12.0
 
+    def test_status_driven_suppression_hint_does_not_claim_large_drop(self):
+        _insert(_make_metric(
+            "2026-01-14", nightly_avg=50.0, hrv_status="balanced", resting_hr=46,
+        ))
+        _insert(_make_metric(
+            "2026-01-15", nightly_avg=70.0, hrv_status="unbalanced",
+            sleep_score=80, resting_hr=46,
+        ))
+
+        result = load_dashboard_overview()
+        assert result.readiness is not None
+        assert result.readiness.components["hrv_recovery"] == 0.0
+        assert result.readiness.component_hints["hrv_recovery"] == (
+            "Garmin HRV status is unbalanced, which suppresses recovery "
+            "without a 10+ ms drop vs your 7-day average"
+        )
+
+    def test_resting_hr_hint_keeps_sub_bpm_positive_delta(self):
+        for i, resting_hr in enumerate([50, 50, 49, 49, 50], start=10):
+            _insert(_make_metric(
+                f"2026-01-{i:02d}",
+                nightly_avg=50.0,
+                hrv_status="balanced",
+                sleep_score=80,
+                resting_hr=resting_hr,
+            ))
+        _insert(_make_metric(
+            "2026-01-15", nightly_avg=50.0, hrv_status="balanced",
+            sleep_score=80, resting_hr=50,
+        ))
+
+        result = load_dashboard_overview()
+        assert result.readiness is not None
+        assert result.readiness.component_hints["resting_hr"] == (
+            "Resting HR is 0.4 bpm above 7-day average — possible stress"
+        )
+
 
 class TestCorrelations:
     def _insert_days(

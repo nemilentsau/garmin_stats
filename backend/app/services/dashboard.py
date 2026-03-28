@@ -51,13 +51,23 @@ def _recovery_status(
     baseline = sum(previous_nightly) / len(previous_nightly)
     delta = nightly - baseline
     status_text = selected.status.lower() if selected.status else ""
-    if delta <= -10 or "low" in status_text or "unbalanced" in status_text:
-        return "suppressed"
+    if delta <= -10:
+        return "suppressed_delta"
+    if "low" in status_text or "unbalanced" in status_text:
+        return "suppressed_status"
     if delta <= -5:
         return "below_baseline"
     if delta >= 8:
         return "elevated"
     return "stable"
+
+
+def _format_delta_magnitude(value: float) -> str:
+    """Format a delta magnitude with one decimal only when needed."""
+    rounded = round(abs(value), 1)
+    if rounded.is_integer():
+        return str(int(rounded))
+    return f"{rounded:.1f}"
 
 
 def _resting_delta(
@@ -89,11 +99,21 @@ def _compute_readiness(
         "elevated": (25.0, "HRV rose 8+ ms above your 7-day average — strong recovery"),
         "stable": (20.0, "HRV is within normal range of your 7-day average"),
         "below_baseline": (10.0, "HRV dropped 5—10 ms below your 7-day average"),
-        "suppressed": (0.0, "HRV dropped 10+ ms below your 7-day average — suppressed"),
+        "suppressed_delta": (
+            0.0, "HRV dropped 10+ ms below your 7-day average — suppressed",
+        ),
     }
-    hrv_recovery, hrv_recovery_hint = _recovery_info.get(
-        recovery_status or "", (12.0, "Insufficient data for recovery assessment"),
-    )
+    if recovery_status == "suppressed_status":
+        normalized_status = _normalize_hrv_status(selected.hrv.status).lower()
+        hrv_recovery = 0.0
+        hrv_recovery_hint = (
+            f"Garmin HRV status is {normalized_status}, which suppresses recovery "
+            "without a 10+ ms drop vs your 7-day average"
+        )
+    else:
+        hrv_recovery, hrv_recovery_hint = _recovery_info.get(
+            recovery_status or "", (12.0, "Insufficient data for recovery assessment"),
+        )
 
     # Sleep (0-25), linear from score 40→0 to 90→25
     if selected.sleep.score is not None:
@@ -112,11 +132,11 @@ def _compute_readiness(
 
     # Resting HR delta (0-25): ≤-3→25, 0→20, ≥6→5, linear between
     if resting_delta is not None:
-        abs_delta = abs(resting_delta)
+        abs_delta_text = _format_delta_magnitude(resting_delta)
         if resting_delta <= -3:
             rhr = 25.0
             rhr_hint = (
-                f"Resting HR is {abs_delta:.0f} bpm below "
+                f"Resting HR is {abs_delta_text} bpm below "
                 "7-day average — great recovery"
             )
         elif resting_delta <= 0:
@@ -125,13 +145,13 @@ def _compute_readiness(
         elif resting_delta <= 6:
             rhr = round(20 - resting_delta / 6 * 15, 1)
             rhr_hint = (
-                f"Resting HR is {abs_delta:.0f} bpm above "
+                f"Resting HR is {abs_delta_text} bpm above "
                 "7-day average — possible stress"
             )
         else:
             rhr = 5.0
             rhr_hint = (
-                f"Resting HR is {abs_delta:.0f} bpm above "
+                f"Resting HR is {abs_delta_text} bpm above "
                 "7-day average — significant elevation"
             )
     else:
