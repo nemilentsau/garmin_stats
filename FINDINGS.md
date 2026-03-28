@@ -1,149 +1,120 @@
-# Garmin Health Data — Analysis Findings
+# Garmin Health Data Findings
 
-Data schemas and field documentation live in `.claude/skills/garmin-data/references/`. This file is for **analytical observations** — what the data tells us, not how it's structured.
+This file records analytical observations from the current local dataset, not product plans or schema notes.
 
-**Device:** Garmin Epix Gen 2 Pro | **Period:** 2026-01-01 to 2026-02-06 (~37 days) | **SDK:** garmin-fit-sdk 21.188.0
+Snapshot date: `2026-03-28`  
+Device: Garmin Epix Gen 2 Pro  
+Coverage: `2025-06-01` through `2026-03-27` (`297` days)
 
----
+The numbers below were refreshed from live `daily_metrics` data and from the repaired chart-inspection workflow in `.claude/skills/data-analysis/scripts/inspect_charts.py`.
 
 ## Data Quality
 
-### Missingness
-- **SpO2: 16% missing days** (6 of 37). **Explained:** SpO2 sensor was recently enabled — early days in the dataset predate activation. Not a sensor failure. The remaining values cluster tightly (92.5-95.5%, sd=0.7).
-- **HRV: 3% missing** (1 day). Likely device not worn overnight.
-- **Skin Temp: 3% missing** (1 day). Same likely cause.
-- **Body Battery: 0% missing.** Complete coverage.
-- **Sleep Score: 0% missing.** Complete coverage.
-- **HR, Stress, Respiration: 0% missing.** Complete coverage across all 37 days.
+### Coverage and missingness
 
-### Sensor Artifacts
-- **Zero-BPM readings:** The Garmin sensor emits HR=0 when it loses skin contact (wrist lifted, poor fit, etc.). These were contaminating stats — MIN showed 0 bpm, pulling averages down. Fixed by filtering `hr_value > 0` at ingest and as defense-in-depth in aggregation/zone computation. Same pattern already existed for respiration (filtered at `value > 0`).
-- HR min values dip to ~40 bpm on some days — could be legitimate resting HR during deep sleep, or sensor artifact during low-motion periods. Cross-referencing with sleeping HR analysis confirms many low values coincide with deep sleep stages.
-- HR max hits 160+ bpm — likely exercise peaks. Not artifacts, but they dominate min/max visualizations.
+- Heart rate, resting heart rate, stress, body battery, and respiration have full daily coverage across all `297` days.
+- HRV nightly is missing on `12` days (`4.0%`).
+- Sleep score and skin temperature deviation are each missing on `9` days (`3.0%`).
+- SpO2 average and minimum are missing on `68` days (`22.9%`).
 
----
+### Missingness pattern
 
-## Distribution Observations (from EDA)
+- SpO2 missingness is front-loaded, not random. The first non-null SpO2 day is `2025-07-13`, the last missing SpO2 day is `2026-01-06`, and the most recent `14` days have complete SpO2 coverage.
+- HRV, sleep, and skin-temperature gaps cluster around a small set of dates, especially `2025-11-05` through `2025-11-20`, plus `2025-12-12` and `2026-01-24`. That pattern looks more like non-wear or overnight capture failure than sensor drift.
+- The zero-BPM heart-rate artifact fix remains important. Garmin emits `0` when wrist contact is lost; filtering those values keeps minima and averages usable.
 
-| Metric | Mean | Median | SD | Shape | Notes |
-|--------|------|--------|-----|-------|-------|
-| HR Avg (bpm) | 64.3 | 64.3 | 3.3 | Normal, symmetric | Mean = median, safe to use mean |
-| Stress Avg | 28.6 | 28.0 | 5.6 | Slight right skew | Low baseline stress, some high-stress days |
-| Body Battery Avg | 45.0 | 44.6 | 14.6 | Roughly symmetric | Wide spread reflects large intraday swings |
-| SpO2 Avg (%) | 93.8 | 93.9 | 0.7 | Tight cluster | Very little variation day-to-day |
-| Respiration (br/min) | 12.6 | 12.4 | 0.6 | Possibly bimodal | Peaks near 12.2 and 14.2 — may reflect sleep vs wake patterns |
-| HRV Nightly (ms) | 57.8 | 61.0 | 11.8 | Left skew | Median > mean suggests low-HRV outlier days pulling down |
-| Sleep Score | 69.5 | 72.5 | 15.8 | Left skew | Median > mean; a few bad nights drag the average down |
-| Skin Temp Dev (C) | -0.0 | -0.1 | 0.3 | Centered at 0 | Deviation from baseline, as expected |
+## Distribution Snapshot
 
-### Key Observations
-1. **Respiration may be bimodal** — the distribution shows two peaks. If confirmed, reporting a single average is misleading. Should investigate whether the two modes correspond to sleep vs awake breathing rates.
-2. **HRV is left-skewed** — median (61) is higher than mean (57.8). A few low-HRV nights are dragging the average down. Median is more representative for this metric.
-3. **SpO2 has very low variance** (sd=0.7) — daily averages barely move. The interesting analysis for SpO2 is in the *minimums*, not the averages. A day with avg 94% but min 78% is very different from avg 94% min 92%.
-4. **Sleep Score is left-skewed** like HRV — median (72.5) > mean (69.5). Both are overnight recovery metrics that share this pattern: a few bad nights pull the mean down while the typical night is better than the average suggests.
-5. **Body Battery has the widest relative spread** (sd=14.6 on mean 45.0, CV=32%). This is expected — body battery swings heavily intraday (drains during activity, recharges during rest). The daily average captures the center of that swing.
+| Metric | Mean | Median | SD | IQR | Min | Max | Notes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Resting HR | 50.6 | 50.0 | 4.8 | 47.0-54.0 | 41.0 | 69.0 | Moderate spread with a clear high-stress period in November |
+| HR Avg | 67.2 | 66.6 | 5.5 | 63.4-69.9 | 54.6 | 85.6 | Strongly tracks stress |
+| Stress Avg | 33.8 | 32.2 | 9.8 | 26.9-38.8 | 14.7 | 70.7 | Broad range, with a distinct suppression/rebound story over time |
+| Body Battery Avg | 31.6 | 30.8 | 17.6 | 17.4-44.3 | 5.0 | 76.1 | Widest day-level spread; average alone hides large swings |
+| SpO2 Avg | 93.1 | 93.2 | 1.0 | 92.5-93.8 | 88.7 | 95.7 | Average is stable; minimum is the more interesting signal |
+| SpO2 Min | 79.9 | 80.0 | 3.6 | 77.0-83.0 | 72.0 | 89.0 | Meaningful overnight dips exist despite flat averages |
+| Respiration Avg | 13.0 | 12.9 | 0.8 | 12.4-13.5 | 11.4 | 15.5 | Sensitive stress-side metric |
+| HRV Nightly | 52.2 | 53.0 | 13.8 | 41.0-62.0 | 22.0 | 85.0 | Slight left skew; bad nights drag the mean down |
+| Sleep Score | 61.4 | 65.0 | 19.3 | 46.0-77.0 | 12.0 | 93.0 | Also left skewed; typical nights are better than the mean suggests |
+| Skin Temp Dev | -0.01 | -0.06 | 0.37 | -0.25-0.22 | -1.37 | 1.22 | Centered near baseline as expected |
 
----
+### Interpretation
 
-## Visualization Status (from chart inspection)
+- HRV nightly and sleep score remain left-skewed. Median is a better "typical night" summary than mean for both.
+- Body battery average has the largest relative spread and behaves more like a recovery-state index than a stable baseline metric.
+- SpO2 average barely moves day to day. The useful daily SpO2 story is in the minimum values, not the mean.
 
-### IQR Bands — Implemented and Validated
-The min/max band readability problem has been fixed. All applicable dashboard panels now use IQR (25th-75th percentile) bands. Quantitative comparison for Heart Rate:
-- **Old (min/max):** Band = 135 bpm, avg variation = 16 bpm, **ratio: 8.3x** — average looked flat
-- **New (IQR):** Band = 33 bpm, avg variation = 16 bpm, **ratio: 2.0x** — average trend clearly visible
+## Temporal Observations
 
-The actual IQR ratio (2.0x) is better than the pre-implementation estimate (3.7x). IQR bands now used on: Heart Rate, Stress, Body Battery, SpO2, Respiration.
+### One major suppression block dominates the dataset
 
-### Charts That Work Well
-- **HRV:** Nightly avg + weekly avg (two lines, no bands) — clean, shows real variability
-- **Skin Temp:** Deviation + 7-day smoothed + zero reference line — good use of smoothing
-- **SpO2:** Avg + min line + IQR band + 90% concern threshold — combines trend with clinically relevant context
-- **Body Battery:** IQR band with daily avg — wide daily swings are well captured by the band
-- **Respiration:** IQR band + 14 br/min "elevated" reference line — provides context for the bimodal distribution
-- **Sleep Score:** Raw daily values + 7-day rolling average — smoothing reveals trends hidden by day-to-day volatility
+- The worst `14`-day recovery window is `2025-11-05` through `2025-11-18`.
+- The five worst composite recovery days are `2025-11-17`, `2025-11-18`, `2025-11-12`, `2025-11-08`, and `2025-12-07`.
+- November 2025 is the clearest system-wide stress month in the data:
+  - Resting HR: `57.3`
+  - Stress: `47.2`
+  - Body Battery: `15.1`
+  - HRV nightly: `41.7`
+  - Sleep score: `38.8`
+  - Respiration: `13.5`
 
----
+### Recovery materially improves after that block
 
-## Cross-Metric Correlations
+- The best `14`-day window is `2026-02-19` through `2026-03-04`.
+- January and February 2026 are the strongest recovery months in the current sample:
+  - January: resting HR `47.9`, HRV `58.6`, sleep `72.1`, body battery `46.6`
+  - February: resting HR `46.0`, HRV `60.7`, sleep `72.6`, body battery `46.2`
+- The last `30` days are still better than the full-period average:
+  - Resting HR: `-4.05`
+  - Stress: `-2.89`
+  - Body Battery: `+4.77`
+  - HRV nightly: `+7.16`
+  - Sleep score: `+6.57`
+  - Respiration: `-0.45`
 
-Pearson correlations computed across all available days. Strong correlations (|r| > 0.5) form two coherent clusters.
+## Cross-Metric Relationships
 
-### Recovery Cluster (positively correlated with each other)
-| Pair | r | Interpretation |
-|------|---|----------------|
-| Body Battery ↔ HRV Nightly | **0.85** | Higher body battery on nights with higher HRV |
-| HRV Nightly ↔ Sleep Score | **0.75** | Better HRV predicts better sleep scores |
-| Body Battery ↔ Sleep Score | **0.64** | Recovery metrics move together |
+The dataset still resolves into one stress-side cluster and one recovery-side cluster.
 
-### Stress Cluster (inversely correlated with recovery)
-| Pair | r | Interpretation |
-|------|---|----------------|
-| Respiration ↔ HRV Nightly | **-0.87** | Strongest correlation — elevated breathing rate tracks with suppressed HRV |
-| Stress ↔ Body Battery | **-0.78** | Higher stress days drain body battery |
-| Body Battery ↔ Respiration | **-0.71** | Elevated respiration on low-battery days |
-| Stress ↔ HRV Nightly | **-0.65** | Stress suppresses overnight HRV |
-| HR Avg ↔ Stress | **0.73** | Higher average HR on higher stress days |
-| Stress ↔ Sleep Score | **-0.55** | High-stress days precede worse sleep |
-| HR Avg ↔ Body Battery | **-0.57** | Higher HR associated with lower recovery |
-| Respiration ↔ Sleep Score | **-0.62** | Elevated respiration tracks with worse sleep |
+### Strong positive relationships
 
-### Weakly Correlated: SpO2
-SpO2 shows no strong correlation with any other metric (all |r| < 0.5). This is consistent with its very low daily variance (sd=0.7) — there isn't enough signal to correlate.
+- HR Avg ↔ Stress: `0.881`
+- Body Battery ↔ HRV Nightly: `0.796`
+- Body Battery ↔ Sleep Score: `0.796`
+- HRV Nightly ↔ Sleep Score: `0.647`
 
-### Key Takeaway
-The data tells a consistent physiological story: stress, elevated HR, and elevated respiration form one axis; HRV, body battery, and sleep score form the opposing recovery axis. Respiration ↔ HRV (-0.87) is the single strongest link, suggesting respiration rate may be the most sensitive daily indicator of autonomic stress load.
+### Strong inverse relationships
 
----
+- Respiration ↔ HRV Nightly: `-0.836`
+- Resting HR ↔ HRV Nightly: `-0.750`
+- Stress ↔ Body Battery: `-0.747`
+- HR Avg ↔ Body Battery: `-0.693`
+- Stress ↔ HRV Nightly: `-0.674`
 
-## Heart Rate Analysis Features
+### Weak signal: SpO2
 
-Five analysis views were added to the heart rate tab, moving beyond simple daily averages into physiologically meaningful patterns.
+- SpO2 Avg ↔ Sleep Score: `0.151`
+- SpO2 Avg ↔ HRV Nightly: `0.096`
 
-### Resting HR Trend (7-Day Moving Average)
-Raw daily resting HR overlaid with a trailing 7-day moving average. The MA smooths out day-to-day noise (e.g., a single bad night) so gradual drift becomes visible. A sustained upward MA trend — even 2-3 bpm over two weeks — can indicate overtraining, accumulated stress, or the early stages of illness, often days before subjective symptoms appear.
+Daily SpO2 average still behaves like a weakly varying background signal rather than a main recovery driver.
 
-### HR Distribution (per-day histogram)
-Each day's ~1800 HR readings bucketed into 5-bpm bins. Shape tells the story: a unimodal cluster around 55-65 bpm is a quiet day; a bimodal distribution with a second peak at 120+ reveals a distinct exercise bout. Wide, flat distributions indicate constant mode-switching. Comparing histograms across days reveals behavioral patterns invisible to a single "avg HR" number.
+## Visualization Status
 
-### Circadian HR Profile
-Average HR for each hour (0-23) aggregated across the entire data period. The characteristic U-shaped curve — nadir at 3-5 AM (deep sleep), rise through the morning, plateau at midday, gradual decline in the evening — reflects the body's circadian autonomic rhythm. Changes in the curve's shape (e.g., an elevated overnight floor, a blunted morning rise) can indicate disrupted sleep patterns, shift changes, or chronic stress.
+- The chart-inspection script now works against the current repo state. The fix was to resolve the actual Garmin data root and reuse the parsed aggregate payload instead of reparsing from the wrong default path four times.
+- The refreshed charts are in `.claude/chart-inspections/findings-refresh-20260328/`.
+- The dashboard overview confirms the same story as the direct query pass: a strong suppression block in November 2025, a rebound through January and February 2026, and much cleaner recent recovery.
+- The IQR-band charts remain the right choice. They preserve day-to-day trend readability without letting extreme min/max spikes flatten the useful signal.
 
-### Sleeping HR Trend
-Average HR during actual sleep stages (light, deep, REM), with awake periods excluded. Uses cross-date correlation: sleep data for date D spans the evening of D-1 through the morning of D, so HR readings from both dates are matched against sleep-stage timestamps. This yields the purest resting signal — unlike "resting HR" which can include sitting at a desk, sleeping HR removes all waking physiology. A rising sleeping HR trend warrants attention even if daytime metrics look normal.
+## Analytical Takeaways
 
-### Weekly Resting HR Boxplot
-Five-number summary (min, Q1, median, Q3, max) of daily resting HR grouped by ISO week. Visualized as filled bands with a bold median line. Shows both the central tendency and *variability* of resting HR within each week. A tightening box (Q1 and Q3 converging) means the body is settling into a consistent rhythm; a widening box suggests disrupted recovery patterns. Comparing median lines across weeks provides the clearest long-term resting HR trend.
-
----
-
-## Undocumented Data Sources (not yet parsed)
-
-### SLEEP_DISRUPTIONS
-Discovered: `sleep_disruption_overnight_severity_mesgs` with severity enum (none, low) and `sleep_disruption_severity_period_mesgs` with per-period breakdowns. Could add value to sleep analysis.
-
-### NAP
-A `NAP` file type exists in some days. Not yet explored.
-
-### METRICS (14+ unknown message types)
-Training metrics files contain 14+ undocumented message types (IDs: 232, 241, 281, 284, 294, 330, 339, 356, 357, 369, 378, 384, 402, 403, 404, 410). Type 369 has 30 fields — likely a comprehensive training summary. Type 403 may contain VO2 max data (values ~5686 which could be 56.86 mL/kg/min scaled by 100). Worth investigating when training analysis is needed.
-
-### Product implication
-Current parsed signals are strong enough for a recovery-first assistant: sleep, HRV, resting HR, stress, body battery, respiration, routines, and check-ins can support useful day-to-day guidance. They are not yet strong enough for confident workout-performance attribution, because the richer training summary layer is still largely undocumented.
-
-### Routine runtime implication
-The product now has a cleaner boundary for manual interventions and future assistant planning: routines are represented as structured card and schedule specs that compile into live runtime records. That makes mindfulness, mobility, and core work extensible without schema churn, while keeping experiments intentionally paused until they can reference the same runtime cleanly.
-Today is now execution-only in its public contract: it logs outcomes against scheduled occurrences. The projection still honors previously persisted date-specific overrides for backward compatibility, but new schedule exceptions are deferred until a dedicated schedule-management flow exists.
-
-### Raw Sensor Data
-- Unknown type 233 in WELLNESS (~185 records/file) — possibly raw sensor data
-- Unknown type 397 in SKIN_TEMP (~1500 records/file) — likely continuous overnight temperature samples
-
----
+- This is a strong recovery dataset, not yet a strong training-performance dataset.
+- The most reliable daily recovery indicators remain HRV nightly, resting HR, sleep score, body battery, stress, and respiration.
+- Respiration continues to be one of the most sensitive stress-side signals. It moves strongly against HRV and rises during the same low-recovery windows.
+- Experiments should build on this recovery stack first. The data does not yet justify strong performance-attribution claims for training outcomes.
 
 ## Open Questions
 
-1. ~~Why is SpO2 missing for 16% of days?~~ **Resolved:** sensor was recently enabled; early days predate activation.
-2. Is the respiration bimodality real (sleep vs wake) or an artifact of the daily aggregation method?
-3. Can we reconstruct per-reading timestamps for HR data? `monitoring_info_mesgs` contains a base timestamp that may allow decompressing `timestamp_16` offsets.
-4. What are the METRICS file message types? Correlating with Garmin Connect API data could decode them.
-5. What does the raw sensor data in type 233 contain? At ~185 records per WELLNESS file, it's substantial.
+1. What caused the concentrated November 2025 suppression block, and do manual logs already capture it somewhere else in the product?
+2. Should SpO2 minimum, not SpO2 average, become the default surfaced oxygen metric in the recovery context?
+3. Should HRV and sleep defaults favor median or rolling median summaries instead of mean-heavy summaries?
+4. Which undocumented `METRICS` message types matter for the next phase, once experiments begin to ask training-adjacent questions?

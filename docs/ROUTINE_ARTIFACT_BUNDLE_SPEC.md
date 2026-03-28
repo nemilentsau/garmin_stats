@@ -1,29 +1,23 @@
 # Routine Artifact Bundle Spec
 
-This document defines the only supported high-level routine import contract for the app.
+This is the only supported high-level routine import contract.
 
-If you are converting a freeform source document, markdown note, or program outline into something the app can use, this is the target format.
-
-The app does not ingest arbitrary markdown. It ingests one structured JSON bundle, previews it without writes, imports it as inert drafts, and only then allows explicit activation into the live runtime.
+The app does not ingest arbitrary markdown. It accepts one deterministic JSON bundle, previews it without writes, then imports and auto-activates it into the live runtime.
 
 ## Canonical Flow
 
-The supported flow is:
-
-`source document -> LLM emits proper bundle JSON -> preview -> import drafts -> activate -> Today/Schedule`
+`source document -> bundle JSON -> preview -> import -> auto-activate -> schedule/today`
 
 Important implications:
 
-- the LLM conversion step happens outside the runtime
-- preview must not write to live tables
-- import writes only `assistant_artifacts`
-- activation is the only step that compiles live `card_templates`, `routine_schedules`, and `routine_assignments`
+- markdown-to-bundle conversion happens outside the runtime
+- preview performs no writes
+- bundle import persists artifacts and auto-activates them in dependency order
+- Schedule and Today only read live compiled runtime records
 
-`/programs` is not part of this workflow. It is intentionally parked while routines use the assistant artifact runtime.
+## Accepted Shape
 
-## What The App Accepts
-
-The app accepts one top-level JSON object with this shape:
+The app accepts one top-level object:
 
 ```json
 {
@@ -36,94 +30,50 @@ The app accepts one top-level JSON object with this shape:
 }
 ```
 
-Field requirements:
+Rules:
 
-- `id`: stable bundle identifier
-- `name`: human-readable bundle name
-- `schema_version`: currently `1`
-- `description`: optional plain-language summary
-- `card_templates`: reusable card template specs
-- `routine_specs`: deterministic routine schedule specs
-
-At least one of `card_templates` or `routine_specs` must be present.
+- `id` must be stable
+- `name` must be human-readable
+- `schema_version` is currently `1`
+- at least one of `card_templates` or `routine_specs` must be present
 
 ## Determinism Rule
 
-The bundle must be deterministic before it reaches preview.
+The bundle must already be deterministic before preview.
 
 Allowed:
 
-- fixed weekly or biweekly cadence
-- explicit start and optional end dates
+- explicit cadence
+- explicit start date and optional end date
 - explicit weekday, slot, and position
-- fixed card references
+- explicit card references
 - assignment-level prescription overrides
 
-Not allowed inside the bundle:
+Not allowed:
 
-- conditional branching such as "do A or B depending on how you feel"
-- runtime decisions such as "skip this if tired"
-- open-ended recurrence like "every few days"
-- experiments, hypotheses, or analysis instructions mixed into schedule records
-- requests for a new renderer family disguised as payload fields
+- runtime branching such as "do A or B depending on how you feel"
+- vague recurrence such as "every few days"
+- experiments or analysis instructions mixed into schedule specs
+- payload hacks for unsupported renderer families
 
-If the source material contains conditionals, resolve them before emitting bundle JSON.
+If the source material is ambiguous, normalize it before producing the bundle.
 
-Example:
+## IDs
 
-- Source: "Open Monitoring, or Extended Exhale if activated/restless"
-- Bundle output: schedule `Open Monitoring`
-- Add fallback text to assignment instructions: "If you feel activated or restless, switch to Extended Exhale."
+Use stable lowercase kebab-case ids.
 
-The bundle must describe one schedule the runtime can project without guessing.
+Recommended pattern:
 
-## Card Reuse vs New Card Creation
+- bundle: `two-week-meditation-foundation`
+- card: `meditation-focused-attention`
+- routine: `two-week-meditation-foundation-routine`
+- assignment: `two-week-meditation:week2-thu-midday-focused-attention`
 
-This is the most important modeling rule.
+Stable ids matter because preview/import distinguishes create vs update behavior by identity.
 
-Reuse a card template when the renderer family and interaction model are the same.
+## Card Templates
 
-Use `prescription_override_json` on the assignment when the difference is only:
-
-- duration
-- breathing pattern
-- instructions
-- prompts
-- progression dose
-- notes specific to one scheduled occurrence pattern
-
-Create a new card template only when the user-facing interaction model changes.
-
-Examples:
-
-- `Focused Attention` at 10 minutes and `Focused Attention` at 12 minutes should usually be one card template plus assignment overrides.
-- `Resonance Breathing` and `Focused Attention` should usually be separate card templates because the protocol and instructions are materially different, even if both use `timer_session`.
-- A protocol that needs a brand-new UI interaction is not another card template. It is a new renderer capability and is out of scope for bundle import.
-
-## ID Conventions
-
-Use stable, lowercase, kebab-case ids.
-
-Recommended conventions:
-
-- bundle id: `two-week-meditation-foundation`
-- card template id: `meditation-focused-attention`
-- routine id: `two-week-meditation-foundation-routine`
-- assignment id: `two-week-meditation:week2-thu-midday-focused-attention`
-
-Guidelines:
-
-- ids must be stable across revisions when the conceptual object is the same
-- assignment ids must be unique within the bundle
-- do not use random UUIDs unless you truly cannot derive a stable semantic id
-
-Stable ids matter because preview/import needs to distinguish create vs update behavior.
-
-## Bundle Components
-
-### `card_templates`
-
-Each entry must match the runtime `CardTemplateSpec`.
+Each `card_templates[]` entry must match the runtime `CardTemplateSpec`.
 
 Required fields:
 
@@ -144,11 +94,11 @@ Supported renderer families in v1:
 - `checklist_block`
 - `exercise_block`
 
-If the source routine needs something outside those families, stop and create a capability request through the single-artifact flow instead of forcing it into a bundle.
+If the source needs another interaction model, return a capability request instead of forcing it into the bundle.
 
-### `routine_specs`
+## Routine Specs
 
-Each entry must match the runtime `RoutineSpec`.
+Each `routine_specs[]` entry must match the runtime `RoutineSpec`.
 
 Required fields:
 
@@ -165,14 +115,14 @@ Optional fields:
 - `tags`
 - `notes`
 
-Supported cadence values in v1:
+Supported cadence values:
 
 - `weekly`
 - `biweekly`
 
-### `assignments`
+## Assignments
 
-Each assignment links a reusable card template into a recurring schedule slot.
+Each assignment places one reusable card into one recurring slot.
 
 Required fields:
 
@@ -189,62 +139,56 @@ Optional fields:
 
 Rules:
 
-- weekly routines must use `cycle_week = 1`
-- biweekly routines must use `cycle_week = 1` or `2`
-- every `card_template_id` must resolve either to a bundled `card_template` or an already-existing live/validated card template
+- weekly routines use `cycle_week = 1`
+- biweekly routines use `cycle_week = 1` or `2`
+- every `card_template_id` must resolve either to a bundled card template or an already-existing live card template
 
-## Unsupported Source Structures
+## Card Reuse vs New Cards
 
-The LLM must not pass these through directly:
+Reuse a card template when the interaction model is the same.
 
-- branching schedules
-- state-machine logic
-- "if missed, make up tomorrow" rules
-- experiment protocols mixed with routines
-- multiple alternative programs in one bundle
-- prose-only instructions without structured assignments
+Use assignment overrides when the difference is only:
 
-When the source contains unsupported structures, normalize it first:
+- duration
+- instructions
+- prompts
+- pattern
+- dose
 
-- split experiments out entirely
-- collapse branches into one deterministic path plus notes
-- split multiple programs into multiple bundles
-- translate prose schedules into explicit assignments
+Create a new card template only when the interaction model itself changes.
 
-If that normalization cannot be done faithfully, stop and return an issue instead of fabricating schedule data.
-
-## Validation Expectations
+## Preview Expectations
 
 Preview should reject:
 
 - malformed bundle shape
-- placeholder/demo starter content
-- duplicate card ids inside the bundle
-- duplicate routine ids inside the bundle
-- duplicate assignment ids inside the bundle
+- placeholder or demo content
+- duplicate card ids
+- duplicate routine ids
+- duplicate assignment ids
 - unknown card references
 - invalid cadence/week combinations
 - unsupported renderer families
 
-Import should only succeed when preview is clean.
+Preview is the validation boundary. It must not write live runtime data.
 
-Import does not create live runtime records. It only creates validated draft artifacts.
+## Import Expectations
 
-## Activation Expectations
+If preview is clean, import should:
 
-After import:
+1. persist the validated artifacts
+2. auto-activate card templates first
+3. auto-activate routines after their card dependencies exist
+4. leave the live result visible in `/routines/schedule` and `/today`
 
-- activate card/routine drafts explicitly from `/routines/creation`
-- routine activation compiles dependent cards as needed
-- live runtime data then appears in `/routines/schedule` and `/today`
+The normal bundle flow does not require a separate manual activation step.
 
-Activation is where the bundle becomes live behavior.
+Low-level assistant-artifact APIs may still expose manual activation for debugging or one-off flows, but that is not the canonical path.
 
-## Example
+## Example Bundles
 
-The checked-in example bundles are:
+Checked-in examples:
 
-- [`docs/two_week_meditation_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
-- [`docs/two_week_core_bundle.json`](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
-
-That file is the reference implementation of this spec for a two-week meditation routine starting on `2026-03-16`.
+- [docs/morning_stretching_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/morning_stretching_bundle.json)
+- [docs/two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
+- [docs/two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
