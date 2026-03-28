@@ -32,13 +32,66 @@ export type DashboardOverview = Schemas['DashboardOverviewResponse'];
 export type SleepAnalysis = Schemas['SleepAnalysisResponse'];
 export type StressAnalysis = Schemas['StressAnalysisResponse'];
 export type BodyBatteryAnalysis = Schemas['BodyBatteryAnalysisResponse'];
+export type UserProfile = Schemas['UserProfile-Output'];
+export type UserProfileInput = Schemas['UserProfile-Input'];
+export type DailyCheckIn = Schemas['DailyCheckIn-Output'];
+export type DailyCheckInInput = Schemas['DailyCheckIn-Input'];
+export type DailyCheckInsResponse = Schemas['DailyCheckInsResponse'];
+export type Note = Schemas['Note-Output'];
+export type NoteInput = Schemas['Note-Input'];
+export type NotesResponse = Schemas['NotesResponse'];
+export type TargetMetricDefinition = Schemas['TargetMetricDefinition'];
+export type TargetMetricsResponse = Schemas['TargetMetricsResponse'];
+export type Experiment = Schemas['Experiment-Output'];
+export type ExperimentInput = Schemas['Experiment-Input'];
+export type ExperimentsResponse = Schemas['ExperimentsResponse'];
+export type AssistantArtifact = Schemas['AssistantArtifact'];
+export type AssistantArtifactInput = Schemas['AssistantArtifactCreateRequest'];
+export type AssistantArtifactsResponse = Schemas['AssistantArtifactsResponse'];
+export type ArtifactBundleSpec = Schemas['ArtifactBundleSpec'];
+export type ArtifactBundlePreviewResponse = Schemas['ArtifactBundlePreviewResponse'];
+export type ArtifactBundleImportResponse = Schemas['ArtifactBundleImportResponse'];
+export type AssistantThread = Schemas['AssistantThread'];
+export type AssistantThreadInput = Schemas['AssistantThreadCreateRequest'];
+export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
+export type AssistantMessage = Schemas['AssistantMessage'];
+export type AssistantMessageInput = Schemas['AssistantMessageCreateRequest'];
+export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
+export type CardTemplate = Schemas['CardTemplate'];
+export type CardTemplatesResponse = Schemas['CardTemplatesResponse'];
+export type CardLog = Schemas['CardLog'];
+export type CardLogRangeResponse = Schemas['CardLogRangeResponse'];
+export type RoutineAssignment = Schemas['RoutineAssignment'];
+export type RoutineAssignmentsResponse = Schemas['RoutineAssignmentsResponse'];
+export type RoutineSchedule = Schemas['RoutineSchedule'];
+export type RoutineSchedulesResponse = Schemas['RoutineSchedulesResponse'];
+export type ScheduleDay = Schemas['ScheduleDay'];
+export type ScheduleOccurrence = Schemas['ScheduleOccurrence'];
+export type ScheduleWindow = Schemas['ScheduleWindow'];
+export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
+export type TodayResponse = Schemas['TodayResponse'];
+export type Program = Schemas['Program'];
+export type ProgramsResponse = Schemas['ProgramsResponse'];
+export type ProgramVersion = Schemas['ProgramVersion'];
+export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
 
 async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(`${API_BASE}${endpoint}`, init);
+	const response = await fetch(`${API_BASE}${endpoint}`, {
+		cache: 'no-store',
+		...init
+	});
 	if (!response.ok) {
 		throw new Error(`API error: ${response.status} ${response.statusText}`);
 	}
 	return response.json();
+}
+
+async function sendJson<T>(endpoint: string, method: 'POST' | 'PUT', body: unknown): Promise<T> {
+	return fetchJson<T>(endpoint, {
+		method,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
 }
 
 export const api = {
@@ -63,5 +116,72 @@ export const api = {
 	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status'),
 	getSleepAnalysis: () => fetchJson<SleepAnalysis>('/api/sleep/analysis'),
 	getStressAnalysis: () => fetchJson<StressAnalysis>('/api/stress/analysis'),
-	getBodyBatteryAnalysis: () => fetchJson<BodyBatteryAnalysis>('/api/body-battery/analysis')
+	getBodyBatteryAnalysis: () => fetchJson<BodyBatteryAnalysis>('/api/body-battery/analysis'),
+	getProfile: () => fetchJson<UserProfile>('/api/profile'),
+	updateProfile: (profile: UserProfileInput) => sendJson<UserProfile>('/api/profile', 'PUT', profile),
+	getRoutines: (status?: string) =>
+		fetchJson<RoutineSchedulesResponse>(`/api/routines${status ? `?status=${status}` : ''}`),
+	getRoutineScheduleWindow: (startDate: string) =>
+		fetchJson<ScheduleWindow>(
+			`/api/routines/schedule-window?start_date=${encodeURIComponent(startDate)}`
+		),
+	getRoutineAssignments: (routineId: string) =>
+		fetchJson<RoutineAssignmentsResponse>(`/api/routines/${routineId}/assignments`),
+	getCards: (status?: string) =>
+		fetchJson<CardTemplatesResponse>(`/api/cards${status ? `?status=${status}` : ''}`),
+	getToday: (date: string) => fetchJson<TodayResponse>(`/api/today?date=${date}`),
+	updateTodayCard: (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) =>
+		sendJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, 'PUT', payload),
+	getCardLogsRange: (startDate: string, endDate: string) =>
+		fetchJson<CardLogRangeResponse>(`/api/today/card-logs?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`),
+	getCheckins: (date?: string) =>
+		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),
+	createCheckin: (checkin: DailyCheckInInput) =>
+		sendJson<DailyCheckIn>('/api/checkins', 'POST', checkin),
+	getNotes: (date?: string) => fetchJson<NotesResponse>(`/api/notes${date ? `?date=${date}` : ''}`),
+	createNote: (note: NoteInput) => sendJson<Note>('/api/notes', 'POST', note),
+	getExperiments: () => fetchJson<ExperimentsResponse>('/api/experiments'),
+	getExperiment: (experimentId: string) => fetchJson<Experiment>(`/api/experiments/${experimentId}`),
+	createExperiment: (experiment: ExperimentInput) =>
+		sendJson<Experiment>('/api/experiments', 'POST', experiment),
+	updateExperiment: (experimentId: string, experiment: ExperimentInput) =>
+		sendJson<Experiment>(`/api/experiments/${experimentId}`, 'PUT', experiment),
+	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics'),
+	getAssistantThreads: () => fetchJson<AssistantThreadsResponse>('/api/assistant/threads'),
+	getAssistantArtifacts: (params?: { kind?: string; status?: string }) =>
+		fetchJson<AssistantArtifactsResponse>(
+			`/api/assistant/artifacts${
+				params?.kind || params?.status
+					? `?${[
+							params?.kind ? `kind=${encodeURIComponent(params.kind)}` : '',
+							params?.status ? `status=${encodeURIComponent(params.status)}` : ''
+						]
+							.filter(Boolean)
+							.join('&')}`
+					: ''
+			}`
+		),
+	createAssistantArtifact: (artifact: AssistantArtifactInput) =>
+		sendJson<AssistantArtifact>('/api/assistant/artifacts', 'POST', artifact),
+	activateAssistantArtifact: (artifactId: string) =>
+		sendJson<AssistantArtifact>(`/api/assistant/artifacts/${artifactId}/activate`, 'POST', {}),
+	previewAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
+		sendJson<ArtifactBundlePreviewResponse>('/api/assistant/artifact-bundles/preview', 'POST', bundle),
+	importAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
+		sendJson<ArtifactBundleImportResponse>('/api/assistant/artifact-bundles/import', 'POST', bundle),
+	createAssistantThread: (thread: AssistantThreadInput) =>
+		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
+	getAssistantThreadMessages: (threadId: string) =>
+		fetchJson<AssistantMessagesResponse>(`/api/assistant/threads/${threadId}/messages`),
+	getPrograms: (status?: string) =>
+		fetchJson<ProgramsResponse>(`/api/programs${status ? `?status=${status}` : ''}`),
+	getProgram: (programId: string) => fetchJson<Program>(`/api/programs/${programId}`),
+	importProgram: (spec: Record<string, unknown>) =>
+		sendJson<Program>('/api/programs/import', 'POST', spec),
+	retireProgram: (programId: string) =>
+		sendJson<Program>(`/api/programs/${programId}/retire`, 'PUT', {}),
+	activateProgram: (programId: string) =>
+		sendJson<Program>(`/api/programs/${programId}/activate`, 'PUT', {}),
+	getProgramVersions: (programId: string) =>
+		fetchJson<ProgramVersionsResponse>(`/api/programs/${programId}/versions`)
 };

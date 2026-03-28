@@ -31,7 +31,4 @@ def get_hrv_insights(
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    try:
-        return load_hrv_insights(date)
-    except LookupError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+    return load_hrv_insights(date)

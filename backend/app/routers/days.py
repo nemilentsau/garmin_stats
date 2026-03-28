@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/days", tags=["days"])
 def list_days():
     """List available days of data."""
     days = load_available_days()
-    return DaysResponse(days=days, total=len(days))
+    return DaysResponse(days=days)
 
 
 @router.get("/{date}", response_model=DaySummaryResponse)

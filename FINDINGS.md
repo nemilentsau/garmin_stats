@@ -127,6 +127,13 @@ A `NAP` file type exists in some days. Not yet explored.
 ### METRICS (14+ unknown message types)
 Training metrics files contain 14+ undocumented message types (IDs: 232, 241, 281, 284, 294, 330, 339, 356, 357, 369, 378, 384, 402, 403, 404, 410). Type 369 has 30 fields — likely a comprehensive training summary. Type 403 may contain VO2 max data (values ~5686 which could be 56.86 mL/kg/min scaled by 100). Worth investigating when training analysis is needed.
 
+### Product implication
+Current parsed signals are strong enough for a recovery-first assistant: sleep, HRV, resting HR, stress, body battery, respiration, routines, and check-ins can support useful day-to-day guidance. They are not yet strong enough for confident workout-performance attribution, because the richer training summary layer is still largely undocumented.
+
+### Routine runtime implication
+The product now has a cleaner boundary for manual interventions and future assistant planning: routines are represented as structured card and schedule specs that compile into live runtime records. That makes mindfulness, mobility, and core work extensible without schema churn, while keeping experiments intentionally paused until they can reference the same runtime cleanly.
+Today is now execution-only in its public contract: it logs outcomes against scheduled occurrences. The projection still honors previously persisted date-specific overrides for backward compatibility, but new schedule exceptions are deferred until a dedicated schedule-management flow exists.
+
 ### Raw Sensor Data
 - Unknown type 233 in WELLNESS (~185 records/file) — possibly raw sensor data
 - Unknown type 397 in SKIN_TEMP (~1500 records/file) — likely continuous overnight temperature samples

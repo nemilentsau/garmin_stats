@@ -15,6 +15,7 @@ converted to local time.
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from datetime import date as date_cls
 from pathlib import Path
 from typing import Any
 
@@ -84,11 +85,25 @@ def _resolve_timestamp_16(ts16: int, ref_garmin: int) -> datetime:
     return datetime.fromtimestamp(resolved + _GARMIN_EPOCH_UNIX, tz=UTC)
 
 
+def _is_canonical_day_dir_name(name: str) -> bool:
+    """Return True only for exact YYYY-MM-DD day directory names."""
+    if len(name) != 10:
+        return False
+    try:
+        return date_cls.fromisoformat(name).isoformat() == name
+    except ValueError:
+        return False
+
+
 def get_available_days(data_dir: Path) -> list[str]:
     """Get list of available date directories."""
     if not data_dir.exists():
         return []
-    return sorted([d.name for d in data_dir.iterdir() if d.is_dir() and d.name.startswith("20")])
+    return sorted([
+        d.name
+        for d in data_dir.iterdir()
+        if d.is_dir() and _is_canonical_day_dir_name(d.name)
+    ])
 
 
 def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
@@ -96,7 +111,12 @@ def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
     files_by_day: dict[str, dict[str, list[Path]]] = defaultdict(lambda: defaultdict(list))
 
     for fit_file in data_dir.rglob("*.fit"):
-        date_dir = fit_file.parent.name
+        rel_parts = fit_file.relative_to(data_dir).parts
+        if not rel_parts:
+            continue
+        date_dir = rel_parts[0]
+        if not _is_canonical_day_dir_name(date_dir):
+            continue
         name_parts = fit_file.stem.split("_")
         file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
         files_by_day[date_dir][file_type].append(fit_file)

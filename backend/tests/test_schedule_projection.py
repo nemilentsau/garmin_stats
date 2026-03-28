@@ -1,0 +1,471 @@
+"""Tests that define the Phase 1 shared schedule projection contract."""
+
+from importlib import import_module
+
+import pytest
+
+from app.infra.database import save_card_override
+from app.models import AssistantArtifactCreateRequest, CardOverride
+from app.services.training_specs import activate_assistant_artifact, create_assistant_artifact
+
+
+def _schedule_mod():
+    return import_module("app.services.schedule_projection")
+
+
+def _card_request(
+    card_id: str,
+    *,
+    name: str | None = None,
+    slot_default: str = "morning",
+) -> AssistantArtifactCreateRequest:
+    return AssistantArtifactCreateRequest(
+        id=f"artifact-{card_id}",
+        kind="card_template",
+        schema_version=1,
+        payload_json={
+            "id": card_id,
+            "name": name or f"Card {card_id}",
+            "renderer": "timer_session",
+            "slot_default": slot_default,
+            "summary": f"Summary for {card_id}",
+            "tags": ["training"],
+            "payload": {
+                "duration_minutes": 10,
+                "pattern": "5s in / 5s out",
+                "instructions": "Stay relaxed.",
+            },
+        },
+    )
+
+
+def _routine_request(
+    routine_id: str,
+    *,
+    assignments: list[dict[str, object]],
+    cadence: str = "weekly",
+    start_date: str = "2026-03-02",
+    end_date: str | None = None,
+    status: str = "active",
+) -> AssistantArtifactCreateRequest:
+    return AssistantArtifactCreateRequest(
+        id=f"artifact-{routine_id}",
+        kind="routine_spec",
+        schema_version=1,
+        payload_json={
+            "id": routine_id,
+            "name": f"Routine {routine_id}",
+            "cadence": cadence,
+            "start_date": start_date,
+            "end_date": end_date,
+            "status": status,
+            "tags": ["training"],
+            "notes": f"Schedule for {routine_id}",
+            "assignments": assignments,
+        },
+    )
+
+
+def _activate_card(card_id: str, *, name: str | None = None, slot_default: str = "morning") -> None:
+    artifact = create_assistant_artifact(
+        _card_request(card_id, name=name, slot_default=slot_default)
+    )
+    activate_assistant_artifact(artifact.id)
+
+
+def _activate_routine(
+    routine_id: str,
+    *,
+    assignments: list[dict[str, object]],
+    cadence: str = "weekly",
+    start_date: str = "2026-03-02",
+    end_date: str | None = None,
+    status: str = "active",
+) -> None:
+    artifact = create_assistant_artifact(
+        _routine_request(
+            routine_id,
+            assignments=assignments,
+            cadence=cadence,
+            start_date=start_date,
+            end_date=end_date,
+            status=status,
+        )
+    )
+    activate_assistant_artifact(artifact.id)
+
+
+def _assignment(
+    assignment_id: str,
+    *,
+    card_template_id: str,
+    weekday: str,
+    slot: str,
+    position: int,
+    cycle_week: int = 1,
+) -> dict[str, object]:
+    return {
+        "id": assignment_id,
+        "card_template_id": card_template_id,
+        "cycle_week": cycle_week,
+        "weekday": weekday,
+        "slot": slot,
+        "position": position,
+        "prescription_override_json": {},
+    }
+
+
+def _days_by_date(window):
+    return {day.date: day for day in window.days}
+
+
+def _all_occurrences(window):
+    return [occurrence for day in window.days for occurrence in day.occurrences]
+
+
+class TestScheduleProjection:
+    def test_two_week_window_includes_empty_days_and_weekly_matches(self):
+        _activate_card("card-weekly", name="Weekly Card", slot_default="evening")
+        _activate_routine(
+            "routine-weekly",
+            assignments=[
+                _assignment(
+                    "assignment-weekly",
+                    card_template_id="card-weekly",
+                    weekday="monday",
+                    slot="evening",
+                    position=20,
+                )
+            ],
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        days = _days_by_date(window)
+        occurrence_dates = [
+            occurrence.date
+            for occurrence in _all_occurrences(window)
+            if occurrence.card_template_id == "card-weekly"
+        ]
+
+        assert window.start_date == "2026-03-02"
+        assert window.end_date == "2026-03-15"
+        assert len(window.days) == 14
+        assert window.days[0].date == "2026-03-02"
+        assert window.days[-1].date == "2026-03-15"
+        assert occurrence_dates == ["2026-03-02", "2026-03-09"]
+        assert days["2026-03-03"].occurrences == []
+
+    def test_inactive_routines_do_not_contribute_occurrences(self):
+        _activate_card("card-active", name="Active Card")
+        _activate_card("card-paused", name="Paused Card")
+        _activate_routine(
+            "routine-active",
+            assignments=[
+                _assignment(
+                    "assignment-active",
+                    card_template_id="card-active",
+                    weekday="monday",
+                    slot="morning",
+                    position=10,
+                )
+            ],
+            status="active",
+        )
+        _activate_routine(
+            "routine-paused",
+            assignments=[
+                _assignment(
+                    "assignment-paused",
+                    card_template_id="card-paused",
+                    weekday="monday",
+                    slot="morning",
+                    position=20,
+                )
+            ],
+            status="paused",
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        card_ids = {occurrence.card_template_id for occurrence in _all_occurrences(window)}
+
+        assert card_ids == {"card-active"}
+
+    def test_biweekly_routine_skips_the_off_week_within_window(self):
+        _activate_card("card-biweekly", name="Biweekly Card")
+        _activate_routine(
+            "routine-biweekly",
+            cadence="biweekly",
+            assignments=[
+                _assignment(
+                    "assignment-biweekly",
+                    card_template_id="card-biweekly",
+                    weekday="monday",
+                    slot="morning",
+                    position=10,
+                    cycle_week=1,
+                )
+            ],
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        occurrence_dates = [
+            occurrence.date
+            for occurrence in _all_occurrences(window)
+            if occurrence.card_template_id == "card-biweekly"
+        ]
+
+        assert occurrence_dates == ["2026-03-02"]
+
+    def test_start_and_end_dates_clip_occurrences_at_boundaries(self):
+        _activate_card("card-start-boundary", name="Start Boundary Card")
+        _activate_card("card-end-inclusive", name="End Inclusive Card")
+        _activate_card("card-end-clipped", name="End Clipped Card")
+
+        _activate_routine(
+            "routine-start-boundary",
+            start_date="2026-03-11",
+            assignments=[
+                _assignment(
+                    "assignment-start-boundary",
+                    card_template_id="card-start-boundary",
+                    weekday="wednesday",
+                    slot="morning",
+                    position=10,
+                )
+            ],
+        )
+        _activate_routine(
+            "routine-end-inclusive",
+            start_date="2026-03-02",
+            end_date="2026-03-11",
+            assignments=[
+                _assignment(
+                    "assignment-end-inclusive",
+                    card_template_id="card-end-inclusive",
+                    weekday="wednesday",
+                    slot="midday",
+                    position=10,
+                )
+            ],
+        )
+        _activate_routine(
+            "routine-end-clipped",
+            start_date="2026-03-02",
+            end_date="2026-03-10",
+            assignments=[
+                _assignment(
+                    "assignment-end-clipped",
+                    card_template_id="card-end-clipped",
+                    weekday="wednesday",
+                    slot="evening",
+                    position=10,
+                )
+            ],
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        dates_by_card = {
+            card_id: [
+                occurrence.date
+                for occurrence in _all_occurrences(window)
+                if occurrence.card_template_id == card_id
+            ]
+            for card_id in {
+                "card-start-boundary",
+                "card-end-inclusive",
+                "card-end-clipped",
+            }
+        }
+
+        assert dates_by_card["card-start-boundary"] == ["2026-03-11"]
+        assert dates_by_card["card-end-inclusive"] == ["2026-03-04", "2026-03-11"]
+        assert dates_by_card["card-end-clipped"] == ["2026-03-04"]
+
+    def test_overlapping_routines_both_appear_on_the_same_day(self):
+        _activate_card("card-overlap-a", name="Overlap A")
+        _activate_card("card-overlap-b", name="Overlap B")
+        _activate_routine(
+            "routine-overlap-a",
+            assignments=[
+                _assignment(
+                    "assignment-overlap-a",
+                    card_template_id="card-overlap-a",
+                    weekday="monday",
+                    slot="morning",
+                    position=10,
+                )
+            ],
+        )
+        _activate_routine(
+            "routine-overlap-b",
+            assignments=[
+                _assignment(
+                    "assignment-overlap-b",
+                    card_template_id="card-overlap-b",
+                    weekday="monday",
+                    slot="morning",
+                    position=20,
+                )
+            ],
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        day_occurrences = _days_by_date(window)["2026-03-02"].occurrences
+
+        assert {occurrence.routine_id for occurrence in day_occurrences} == {
+            "routine-overlap-a",
+            "routine-overlap-b",
+        }
+
+    def test_occurrences_are_sorted_by_slot_then_position_within_a_day(self):
+        _activate_card("card-morning-late", name="Morning Late")
+        _activate_card("card-morning-early", name="Morning Early")
+        _activate_card("card-evening", name="Evening Card", slot_default="evening")
+        _activate_routine(
+            "routine-ordered",
+            assignments=[
+                _assignment(
+                    "assignment-morning-late",
+                    card_template_id="card-morning-late",
+                    weekday="monday",
+                    slot="morning",
+                    position=30,
+                ),
+                _assignment(
+                    "assignment-evening",
+                    card_template_id="card-evening",
+                    weekday="monday",
+                    slot="evening",
+                    position=5,
+                ),
+                _assignment(
+                    "assignment-morning-early",
+                    card_template_id="card-morning-early",
+                    weekday="monday",
+                    slot="morning",
+                    position=10,
+                ),
+            ],
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02")
+        ordered = [
+            (occurrence.slot, occurrence.position, occurrence.card_template_id)
+            for occurrence in _days_by_date(window)["2026-03-02"].occurrences
+        ]
+
+        assert ordered == [
+            ("morning", 10, "card-morning-early"),
+            ("morning", 30, "card-morning-late"),
+            ("evening", 5, "card-evening"),
+        ]
+
+    def test_persisted_add_and_hide_overrides_are_applied_to_schedule_window(self):
+        _activate_card("card-main", name="Main Card", slot_default="evening")
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+        _activate_routine(
+            "routine-main",
+            assignments=[
+                _assignment(
+                    "assignment-main",
+                    card_template_id="card-main",
+                    weekday="monday",
+                    slot="evening",
+                    position=20,
+                )
+            ],
+        )
+
+        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-extra",
+                date="2026-03-02",
+                action="add",
+                card_template_id="card-extra",
+                slot="morning",
+                position=5,
+            )
+        )
+        save_card_override(
+            CardOverride(
+                id="override-hide-main",
+                date="2026-03-02",
+                action="hide",
+                target_occurrence_key=scheduled_occurrence.occurrence_key,
+            )
+        )
+
+        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
+
+        assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
+        assert day_occurrences[0].occurrence_key == "override:add:override-extra:2026-03-02"
+        assert day_occurrences[0].source_kind == "override_add"
+        assert day_occurrences[0].schedule_override_action == "add"
+        assert day_occurrences[0].routine_id is None
+
+    def test_persisted_replace_override_is_applied_to_schedule_window(self):
+        _activate_card("card-main", name="Main Card", slot_default="evening")
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+        _activate_routine(
+            "routine-main",
+            assignments=[
+                _assignment(
+                    "assignment-main",
+                    card_template_id="card-main",
+                    weekday="monday",
+                    slot="evening",
+                    position=20,
+                )
+            ],
+        )
+
+        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
+
+        save_card_override(
+            CardOverride(
+                id="override-replace-main",
+                date="2026-03-02",
+                action="replace",
+                target_occurrence_key=scheduled_occurrence.occurrence_key,
+                card_template_id="card-extra",
+            )
+        )
+
+        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
+
+        assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
+        assert (
+            day_occurrences[0].occurrence_key
+            == "override:replace:override-replace-main:2026-03-02"
+        )
+        assert day_occurrences[0].source_kind == "override_replace"
+        assert day_occurrences[0].schedule_override_action == "replace"
+        assert day_occurrences[0].routine_id == "routine-main"
+        assert day_occurrences[0].target_occurrence_key == scheduled_occurrence.occurrence_key
+
+    def test_replace_override_without_target_occurrence_is_ignored(self):
+        _activate_card("card-extra", name="Extra Card", slot_default="morning")
+
+        save_card_override(
+            CardOverride(
+                id="override-replace-missing",
+                date="2026-03-02",
+                action="replace",
+                target_occurrence_key="scheduled:missing:2026-03-02",
+                card_template_id="card-extra",
+            )
+        )
+
+        window = _schedule_mod().get_schedule_window("2026-03-02", duration_days=1)
+
+        assert window.days[0].occurrences == []
+
+    def test_invalid_start_date_raises_value_error(self):
+        with pytest.raises(ValueError):
+            _schedule_mod().get_schedule_window("03-02-2026")

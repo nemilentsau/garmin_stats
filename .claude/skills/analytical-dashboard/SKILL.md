@@ -1,3 +1,8 @@
+---
+name: analytical-dashboard
+description: Comprehensive reference for designing health/wellness data dashboards that prioritize readability, information hierarchy, and human comprehension over aesthetics. Synthesizes principles from Edward Tufte, Stephen Few, Cole Nussbaumer Knaflic, Nielsen Norman Group, Apple HIG, Material Design, and leading health wearable platforms (Garmin, Oura, Whoop, Apple Health). Every rule below is actionable and directly applicable when coding a dashboard.
+---
+
 # Analytical Dashboard Design System
 
 Comprehensive reference for designing health/wellness data dashboards that prioritize readability, information hierarchy, and human comprehension over aesthetics. Synthesizes principles from Edward Tufte, Stephen Few, Cole Nussbaumer Knaflic, Nielsen Norman Group, Apple HIG, Material Design, and leading health wearable platforms (Garmin, Oura, Whoop, Apple Health).
