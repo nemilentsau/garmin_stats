@@ -191,6 +191,16 @@ async def watch_data_directory(data_dir: Path) -> None:
                 result.days_ingested,
                 result.duration_ms,
             )
+            # Refresh experiment analyses after successful ingest.
+            try:
+                from ..services.experiment_analysis import refresh_active_experiments
+
+                refreshed = await asyncio.to_thread(refresh_active_experiments)
+                if refreshed:
+                    log.info("Refreshed %d active experiment analyses", refreshed)
+            except Exception:
+                log.exception("Experiment analysis refresh failed")
+
             await event_bus.broadcast("data_updated", "new_data")
         except RuntimeError:
             log.info("Ingest already in progress — skipping")

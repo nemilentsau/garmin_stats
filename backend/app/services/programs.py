@@ -9,6 +9,7 @@ from ..infra.database import (
 )
 from ..models import (
     Experiment,
+    OutcomeMetric,
     Program,
     ProgramsResponse,
     ProgramVersion,
@@ -83,7 +84,10 @@ def _spec_experiment_to_model(program_id: str, exp: dict) -> Experiment:
         goal=exp.get("goal"),
         hypothesis=exp.get("hypothesis"),
         linked_routine_ids=linked_routine_ids,
-        outcome_metrics=exp.get("outcome_metrics", []),
+        outcome_metrics=[
+            OutcomeMetric(path=m) if isinstance(m, str) else OutcomeMetric(**m)
+            for m in exp.get("outcome_metrics", [])
+        ],
         expected_lag_days=exp.get("expected_lag_days", []),
     )
 

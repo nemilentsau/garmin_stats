@@ -612,18 +612,38 @@ class Note(_DefaultsRequired):
     tags: list[str] = []
 
 
+OutcomeMetricDirection = Literal["higher_is_better", "lower_is_better"]
+ExperimentDesignType = Literal["ab_intervention"]
+
+
+class OutcomeMetric(_DefaultsRequired):
+    path: str
+    direction: OutcomeMetricDirection = "higher_is_better"
+    min_effect_size: float = 0.2
+
+
+class ExperimentDesign(_DefaultsRequired):
+    type: ExperimentDesignType = "ab_intervention"
+    baseline_start_date: str
+    baseline_end_date: str
+    treatment_start_date: str
+    treatment_end_date: str | None = None
+    expected_lag_days: list[int] = [0]
+    min_adherence_pct: float = 0.70
+
+
 class Experiment(_DefaultsRequired):
     id: str
     name: str
     status: ExperimentStatus = "draft"
-    start_date: str | None = None
-    end_date: str | None = None
     goal: str | None = None
     hypothesis: str | None = None
+    design: ExperimentDesign | None = None
     linked_routine_ids: list[str] = []
-    outcome_metrics: list[str] = []
-    expected_lag_days: list[int] = []
+    outcome_metrics: list[OutcomeMetric] = []
+    confounder_watch: list[str] = []
     confounder_notes: str | None = None
+    expected_lag_days: list[int] = []
     priority: int = 0
 
 
@@ -654,6 +674,92 @@ class ExperimentReport(_DefaultsRequired):
     confidence: ExperimentReportConfidence = "insufficient"
     confounders: list[str] = []
     effects: list[ExperimentMetricEffect] = []
+
+
+class MetricLagResult(_DefaultsRequired):
+    lag_days: int
+    treatment_start_effective: str
+    baseline_mean: float
+    baseline_sd: float
+    baseline_n: int
+    treatment_mean: float
+    treatment_sd: float
+    treatment_n: int
+    delta_abs: float
+    delta_pct: float
+    cohens_d: float
+    hedges_g: float
+    nap: float
+    nap_interpretation: str
+    p_value_permutation: float
+    p_value_welch: float
+    baseline_trend_slope: float
+    baseline_trend_p: float
+    autocorrelation_lag1_baseline: float
+    autocorrelation_lag1_treatment: float
+    direction_correct: bool
+
+
+class MetricAnalysis(_DefaultsRequired):
+    path: str
+    direction: str
+    lag_results: list[MetricLagResult]
+    best_lag: int
+    best_result: MetricLagResult
+
+
+class ConfounderCheck(_DefaultsRequired):
+    path: str
+    source: str
+    baseline_mean: float | None = None
+    treatment_mean: float | None = None
+    delta_pct: float | None = None
+    is_significant: bool = False
+    note: str = ""
+    baseline_flag_days: int | None = None
+    treatment_flag_days: int | None = None
+    baseline_total_days: int | None = None
+    treatment_total_days: int | None = None
+
+
+class AdherenceDayEntry(_DefaultsRequired):
+    date: str
+    state: ExperimentAdherenceState
+    exposure_score: float | None = None
+
+
+class ExperimentAnalysis(_DefaultsRequired):
+    experiment_id: str
+    analysis_date: str
+    phase: str
+    days_in_baseline: int
+    days_in_treatment: int
+    adherence_rate: float
+    adherence_by_day: list[AdherenceDayEntry]
+    metrics: list[MetricAnalysis]
+    confounders: list[ConfounderCheck]
+    overall_confidence: ExperimentReportConfidence
+    summary: str
+
+
+class ExperimentWithAnalysis(_DefaultsRequired):
+    experiment: Experiment
+    analysis: ExperimentAnalysis | None = None
+
+
+class ExperimentPreviewIssue(_DefaultsRequired):
+    level: Literal["error", "warning"]
+    message: str
+
+
+class ExperimentPreviewResponse(_DefaultsRequired):
+    valid: bool
+    issues: list[ExperimentPreviewIssue] = []
+    experiment: Experiment | None = None
+
+
+class ExperimentAnalysisRefreshResponse(_DefaultsRequired):
+    refreshed: int
 
 
 class Plan(_DefaultsRequired):
@@ -772,7 +878,7 @@ class NotesResponse(_AutoTotalResponse, items_field="notes"):
 
 
 class ExperimentsResponse(_AutoTotalResponse, items_field="experiments"):
-    experiments: list[Experiment] = []
+    experiments: list[ExperimentWithAnalysis] = []
     total: int = 0
 
 

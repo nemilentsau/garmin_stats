@@ -30,6 +30,7 @@ from app.models import (
     ExperimentExposure,
     Goal,
     Note,
+    OutcomeMetric,
     Plan,
     PlanItem,
     Routine,
@@ -302,7 +303,7 @@ class TestStoreAndLoad:
             id="exp-1",
             name="Evening meditation",
             linked_routine_ids=["routine-1"],
-            outcome_metrics=["hrv_nightly"],
+            outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
         )
         exposure = ExperimentExposure(
             id="exposure-1",

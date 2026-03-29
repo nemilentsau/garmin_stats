@@ -45,6 +45,13 @@ export type TargetMetricsResponse = Schemas['TargetMetricsResponse'];
 export type Experiment = Schemas['Experiment-Output'];
 export type ExperimentInput = Schemas['Experiment-Input'];
 export type ExperimentsResponse = Schemas['ExperimentsResponse'];
+export type ExperimentWithAnalysis = Schemas['ExperimentWithAnalysis'];
+export type ExperimentAnalysis = Schemas['ExperimentAnalysis'];
+export type ExperimentPreviewResponse = Schemas['ExperimentPreviewResponse'];
+export type MetricAnalysis = Schemas['MetricAnalysis'];
+export type MetricLagResult = Schemas['MetricLagResult'];
+export type ConfounderCheck = Schemas['ConfounderCheck'];
+export type AdherenceDayEntry = Schemas['AdherenceDayEntry'];
 export type AssistantArtifact = Schemas['AssistantArtifact'];
 export type AssistantArtifactInput = Schemas['AssistantArtifactCreateRequest'];
 export type AssistantArtifactsResponse = Schemas['AssistantArtifactsResponse'];
@@ -141,11 +148,20 @@ export const api = {
 	getNotes: (date?: string) => fetchJson<NotesResponse>(`/api/notes${date ? `?date=${date}` : ''}`),
 	createNote: (note: NoteInput) => sendJson<Note>('/api/notes', 'POST', note),
 	getExperiments: () => fetchJson<ExperimentsResponse>('/api/experiments'),
-	getExperiment: (experimentId: string) => fetchJson<Experiment>(`/api/experiments/${experimentId}`),
+	getExperiment: (experimentId: string) =>
+		fetchJson<ExperimentWithAnalysis>(`/api/experiments/${experimentId}`),
+	getExperimentAnalysis: (experimentId: string) =>
+		fetchJson<ExperimentAnalysis | null>(`/api/experiments/${experimentId}/analysis`),
+	previewExperiment: (experiment: ExperimentInput) =>
+		sendJson<ExperimentPreviewResponse>('/api/experiments/preview', 'POST', experiment),
+	importExperiment: (experiment: ExperimentInput) =>
+		sendJson<ExperimentWithAnalysis>('/api/experiments/import', 'POST', experiment),
 	createExperiment: (experiment: ExperimentInput) =>
 		sendJson<Experiment>('/api/experiments', 'POST', experiment),
 	updateExperiment: (experimentId: string, experiment: ExperimentInput) =>
 		sendJson<Experiment>(`/api/experiments/${experimentId}`, 'PUT', experiment),
+	refreshExperimentAnalyses: () =>
+		sendJson<{ refreshed: number }>('/api/experiments/refresh-analyses', 'POST', {}),
 	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics'),
 	getAssistantThreads: () => fetchJson<AssistantThreadsResponse>('/api/assistant/threads'),
 	getAssistantArtifacts: (params?: { kind?: string; status?: string }) =>

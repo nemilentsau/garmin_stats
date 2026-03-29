@@ -74,5 +74,5 @@ class TestImportProgram:
 
         assert [routine.id for routine in routines] == ["program-1:protocol-1"]
         assert routines[0].name == "Walk updated"
-        assert [experiment.id for experiment in experiments] == ["program-1:experiment-1"]
-        assert experiments[0].name == "Walk test updated"
+        assert [e.experiment.id for e in experiments] == ["program-1:experiment-1"]
+        assert experiments[0].experiment.name == "Walk test updated"
