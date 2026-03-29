@@ -34,6 +34,7 @@ from ..models import (
     DayWellness,
     EvidenceCard,
     Experiment,
+    ExperimentAnalysis,
     ExperimentExposure,
     ExperimentReport,
     Goal,
@@ -224,6 +225,12 @@ CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread_created
     ON assistant_messages (thread_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_assistant_runs_thread_created
     ON assistant_runs (thread_id, created_at);
+CREATE TABLE IF NOT EXISTS experiment_analyses (
+    experiment_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS programs ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS program_versions (
     program_id TEXT NOT NULL,
@@ -853,6 +860,41 @@ def load_experiment_reports(experiment_id: str | None = None) -> list[Experiment
         params=params,
         order_by="report_date, created_at, id",
     )
+
+
+def save_experiment_analysis(experiment_id: str, analysis: ExperimentAnalysis) -> None:
+    """Upsert computed analysis for an experiment (keyed by experiment_id)."""
+    now = now_iso()
+    data_json = analysis.model_dump_json()
+    with _connect() as con, con:
+        con.execute(
+            "INSERT OR REPLACE INTO experiment_analyses "
+            "(experiment_id, data, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            (experiment_id, data_json, now, now),
+        )
+
+
+def load_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
+    """Load the latest computed analysis for an experiment."""
+    with _connect() as con:
+        row = con.execute(
+            "SELECT data FROM experiment_analyses WHERE experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return ExperimentAnalysis.model_validate_json(row["data"])
+
+
+def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
+    """Load all experiment analyses, keyed by experiment_id."""
+    with _connect() as con:
+        rows = con.execute("SELECT experiment_id, data FROM experiment_analyses").fetchall()
+    return {
+        row["experiment_id"]: ExperimentAnalysis.model_validate_json(row["data"])
+        for row in rows
+    }
 
 
 def save_plan(plan: Plan) -> None:

@@ -1,0 +1,252 @@
+"""Integration tests for experiment analysis service."""
+
+from datetime import date, timedelta
+
+import pytest
+
+import app.infra.database as db
+from app.models import (
+    DailyBodyBatteryStats,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
+    Experiment,
+    ExperimentDesign,
+    OutcomeMetric,
+)
+from app.services.experiment_analysis import compute_experiment_analysis
+
+
+def _make_metric(d: str, hrv_nightly: float, sleep_score: int = 80) -> DailyMetric:
+    return DailyMetric(
+        date=d,
+        heart_rate=DailyHeartRateStats(resting=55),
+        stress=DailyMetricStats(avg=30.0),
+        body_battery=DailyBodyBatteryStats(),
+        spo2=DailyMetricStats(),
+        respiration=DailyMetricStats(),
+        hrv=DailyHrvStats(nightly_avg=hrv_nightly, weekly_avg=hrv_nightly - 2),
+        sleep=DailySleepStats(score=sleep_score),
+        skin_temp=DailySkinTempStats(),
+    )
+
+
+def _seed_metrics(baseline_vals: list[float], treatment_vals: list[float]):
+    """Insert synthetic daily metrics for a baseline + treatment window."""
+    start = date(2026, 1, 1)
+    now_str = "2026-03-01T00:00:00+00:00"
+    from app.infra import cache
+
+    with db._connect() as con:
+        for i, val in enumerate(baseline_vals):
+            d = (start + timedelta(days=i)).isoformat()
+            m = _make_metric(d, val)
+            con.execute(
+                "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
+                (d, m.model_dump_json(), now_str),
+            )
+        treatment_start = start + timedelta(days=len(baseline_vals))
+        for i, val in enumerate(treatment_vals):
+            d = (treatment_start + timedelta(days=i)).isoformat()
+            m = _make_metric(d, val)
+            con.execute(
+                "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
+                (d, m.model_dump_json(), now_str),
+            )
+        con.commit()
+    cache.invalidate()
+
+
+def _make_experiment(
+    baseline_n: int,
+    treatment_n: int,
+    lag_days: list[int] | None = None,
+) -> Experiment:
+    start = date(2026, 1, 1)
+    baseline_end = start + timedelta(days=baseline_n - 1)
+    treatment_start = baseline_end + timedelta(days=1)
+    treatment_end = treatment_start + timedelta(days=treatment_n - 1)
+
+    return Experiment(
+        id="test-experiment",
+        name="Test → HRV",
+        status="active",
+        hypothesis="Testing improves HRV",
+        design=ExperimentDesign(
+            baseline_start_date=start.isoformat(),
+            baseline_end_date=baseline_end.isoformat(),
+            treatment_start_date=treatment_start.isoformat(),
+            treatment_end_date=treatment_end.isoformat(),
+            expected_lag_days=lag_days or [0],
+            min_adherence_pct=0.70,
+        ),
+        outcome_metrics=[
+            OutcomeMetric(path="hrv.nightly_avg", direction="higher_is_better"),
+        ],
+        confounder_watch=["sleep.score", "stress.avg"],
+    )
+
+
+class TestComputeExperimentAnalysis:
+    def test_clear_improvement(self):
+        """Treatment HRV clearly higher than baseline → large effect."""
+        baseline = [40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0,
+                    40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0]
+        treatment = [50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0,
+                     50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0]
+        _seed_metrics(baseline, treatment)
+
+        exp = _make_experiment(len(baseline), len(treatment))
+        result = compute_experiment_analysis(exp)
+
+        assert result.experiment_id == "test-experiment"
+        assert result.phase == "completed"
+        assert result.days_in_baseline == 14
+        assert result.days_in_treatment == 14
+        assert len(result.metrics) == 1
+
+        metric = result.metrics[0]
+        assert metric.path == "hrv.nightly_avg"
+        assert metric.best_result.direction_correct is True
+        assert metric.best_result.delta_abs > 8
+        assert metric.best_result.nap > 0.9
+        assert metric.best_result.p_value_permutation < 0.05
+
+    def test_no_effect(self):
+        """Same data in both windows → no significant effect."""
+        values = [40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0]
+        _seed_metrics(values, values)
+
+        exp = _make_experiment(len(values), len(values))
+        result = compute_experiment_analysis(exp)
+
+        metric = result.metrics[0]
+        assert abs(metric.best_result.delta_abs) < 1.0
+        assert metric.best_result.nap == pytest.approx(0.5, abs=0.05)
+        assert metric.best_result.p_value_permutation > 0.3
+
+    def test_multi_lag_selects_best(self):
+        """With lag offset, delayed treatment data should show stronger signal."""
+        # Baseline: low
+        baseline = [40.0] * 14
+        # Treatment: first 5 days still low (lag), then high
+        treatment = [40.0, 40.0, 40.0, 40.0, 40.0,
+                     55.0, 55.0, 55.0, 55.0, 55.0, 55.0, 55.0, 55.0, 55.0]
+        _seed_metrics(baseline, treatment)
+
+        exp = _make_experiment(14, 14, lag_days=[0, 5])
+        result = compute_experiment_analysis(exp)
+
+        metric = result.metrics[0]
+        # The lag=5 result should be better than lag=0
+        lag0 = next(r for r in metric.lag_results if r.lag_days == 0)
+        lag5 = next(r for r in metric.lag_results if r.lag_days == 5)
+        assert lag5.nap > lag0.nap
+        assert metric.best_lag == 5
+
+    def test_no_design_returns_draft(self):
+        """Experiment without design gets a draft analysis."""
+        exp = Experiment(id="no-design", name="No Design", status="draft")
+        result = compute_experiment_analysis(exp)
+        assert result.phase == "draft"
+        assert result.overall_confidence == "insufficient"
+
+    def test_confounders_detected(self):
+        """Check confounder analysis runs for numeric paths."""
+        baseline = [40.0] * 14
+        treatment = [50.0] * 14
+        _seed_metrics(baseline, treatment)
+
+        exp = _make_experiment(14, 14)
+        result = compute_experiment_analysis(exp)
+
+        # We watch sleep.score and stress.avg — both should have checks
+        assert len(result.confounders) == 2
+        paths = {c.path for c in result.confounders}
+        assert "sleep.score" in paths
+        assert "stress.avg" in paths
+
+    def test_confidence_insufficient_small_sample(self):
+        """Very small samples → insufficient confidence."""
+        baseline = [40.0, 41.0, 42.0]
+        treatment = [50.0, 51.0, 52.0]
+        _seed_metrics(baseline, treatment)
+
+        exp = _make_experiment(3, 3)
+        result = compute_experiment_analysis(exp)
+        assert result.overall_confidence == "insufficient"
+
+
+class TestExperimentPreviewAndImport:
+    def test_preview_validates_metric_path(self):
+        """Preview should reject invalid metric paths."""
+        from app.services.experiments import preview_experiment
+
+        # Seed some data so baseline check passes
+        _seed_metrics([40.0] * 14, [50.0] * 14)
+
+        exp = Experiment(
+            id="bad-path",
+            name="Bad Path",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="nonexistent.metric")],
+        )
+        result = preview_experiment(exp)
+        assert not result.valid
+        error_msgs = [i.message for i in result.issues if i.level == "error"]
+        assert any("nonexistent.metric" in msg for msg in error_msgs)
+
+    def test_preview_validates_dates(self):
+        """Preview should catch invalid date ordering."""
+        from app.services.experiments import preview_experiment
+
+        exp = Experiment(
+            id="bad-dates",
+            name="Bad Dates",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-15",
+                baseline_end_date="2026-01-01",  # End before start
+                treatment_start_date="2026-02-01",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+        result = preview_experiment(exp)
+        assert not result.valid
+
+    def test_import_persists_and_analyses(self):
+        """Import should create experiment and run analysis."""
+        from app.services.experiments import import_experiment
+
+        _seed_metrics([40.0] * 14, [50.0] * 14)
+
+        exp = Experiment(
+            id="import-test",
+            name="Import Test",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+        result = import_experiment(exp)
+        assert result.experiment.status == "active"
+        assert result.analysis is not None
+        assert result.analysis.days_in_baseline > 0
+
+        # Verify persisted
+        loaded = db.load_experiment("import-test")
+        assert loaded is not None
+        assert loaded.status == "active"
