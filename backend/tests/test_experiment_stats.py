@@ -1,6 +1,8 @@
 """Unit tests for experiment statistical functions."""
 
 
+import warnings
+
 import pytest
 
 from app.models import (
@@ -204,8 +206,16 @@ class TestWelchT:
         assert p > 0.05
 
     def test_constant_identical_series_returns_non_significant(self):
-        p = welch_t_test([10.0, 10.0, 10.0], [10.0, 10.0, 10.0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            p = welch_t_test([10.0, 10.0, 10.0], [10.0, 10.0, 10.0])
         assert p == 1.0
+
+    def test_constant_separated_series_returns_significant_without_warning(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            p = welch_t_test([10.0, 10.0, 10.0], [20.0, 20.0, 20.0])
+        assert p == 0.0
 
     def test_insufficient_data(self):
         assert welch_t_test([1.0], [2.0]) == 1.0
@@ -225,7 +235,9 @@ class TestLinearTrend:
 
     def test_flat(self):
         values = [5.0, 5.0, 5.0, 5.0, 5.0]
-        slope, p = linear_trend(values)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            slope, p = linear_trend(values)
         assert slope == pytest.approx(0.0, abs=0.01)
         assert p == 1.0
 
@@ -249,7 +261,10 @@ class TestAutocorrelation:
         assert ac < -0.5
 
     def test_constant_series_returns_zero(self):
-        assert autocorrelation_lag1([4.0, 4.0, 4.0, 4.0, 4.0]) == 0.0
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            value = autocorrelation_lag1([4.0, 4.0, 4.0, 4.0, 4.0])
+        assert value == 0.0
 
     def test_too_few(self):
         assert autocorrelation_lag1([1.0, 2.0]) == 0.0

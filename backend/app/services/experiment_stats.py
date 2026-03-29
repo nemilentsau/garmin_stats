@@ -6,6 +6,7 @@ All functions accept plain arrays of floats — no experiment-specific logic.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 from pydantic import BaseModel
@@ -67,6 +68,11 @@ _NAP_THRESHOLDS = [
     (0.66, "medium"),
     (0.51, "weak"),
 ]
+
+
+def _is_constant(values: list[float]) -> bool:
+    """Return True when every observation is exactly the same."""
+    return len(values) > 0 and min(values) == max(values)
 
 
 def interpret_nap(nap: float) -> str:
@@ -153,7 +159,11 @@ def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
     """Welch's t-test p-value (two-sided)."""
     if len(baseline) < 2 or len(treatment) < 2:
         return 1.0
-    result = sp_stats.ttest_ind(treatment, baseline, equal_var=False)
+    if _is_constant(baseline) and _is_constant(treatment):
+        return 1.0 if baseline[0] == treatment[0] else 0.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        result = sp_stats.ttest_ind(treatment, baseline, equal_var=False)
     pvalue = float(result.pvalue)  # type: ignore[union-attr]
     if not math.isfinite(pvalue):
         return 1.0
@@ -169,6 +179,8 @@ def linear_trend(values: list[float]) -> tuple[float, float]:
     """OLS slope and p-value on integer index. Returns (slope, p_value)."""
     if len(values) < 3:
         return 0.0, 1.0
+    if _is_constant(values):
+        return 0.0, 1.0
     x = np.arange(len(values), dtype=float)
     result = sp_stats.linregress(x, values)
     slope = float(result.slope)  # type: ignore[union-attr]
@@ -181,6 +193,8 @@ def linear_trend(values: list[float]) -> tuple[float, float]:
 def autocorrelation_lag1(values: list[float]) -> float:
     """Lag-1 autocorrelation coefficient."""
     if len(values) < 4:
+        return 0.0
+    if _is_constant(values):
         return 0.0
     arr = np.array(values)
     corr = np.corrcoef(arr[:-1], arr[1:])
