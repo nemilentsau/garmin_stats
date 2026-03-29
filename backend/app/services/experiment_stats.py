@@ -69,6 +69,14 @@ _NAP_THRESHOLDS = [
 ]
 
 
+def interpret_nap(nap: float) -> str:
+    """Map a NAP score onto the qualitative labels used in reports."""
+    for threshold, label in _NAP_THRESHOLDS:
+        if nap >= threshold:
+            return label
+    return "no_effect"
+
+
 def compute_nap(baseline: list[float], treatment: list[float]) -> tuple[float, str]:
     """Non-overlap of All Pairs.
 
@@ -83,13 +91,8 @@ def compute_nap(baseline: list[float], treatment: list[float]) -> tuple[float, s
     comparisons = t_arr[:, None] > b_arr[None, :]
     ties = t_arr[:, None] == b_arr[None, :]
     nap = float((comparisons.sum() + 0.5 * ties.sum()) / (len(baseline) * len(treatment)))
-
-    interpretation = "no_effect"
-    for threshold, label in _NAP_THRESHOLDS:
-        if nap >= threshold:
-            interpretation = label
-            break
-    return round(nap, 4), interpretation
+    nap = round(nap, 4)
+    return nap, interpret_nap(nap)
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +154,10 @@ def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
     if len(baseline) < 2 or len(treatment) < 2:
         return 1.0
     result = sp_stats.ttest_ind(treatment, baseline, equal_var=False)
-    return round(float(result.pvalue), 4)  # type: ignore[union-attr]
+    pvalue = float(result.pvalue)  # type: ignore[union-attr]
+    if not math.isfinite(pvalue):
+        return 1.0
+    return round(pvalue, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +171,11 @@ def linear_trend(values: list[float]) -> tuple[float, float]:
         return 0.0, 1.0
     x = np.arange(len(values), dtype=float)
     result = sp_stats.linregress(x, values)
-    return round(float(result.slope), 6), round(float(result.pvalue), 4)  # type: ignore[union-attr]
+    slope = float(result.slope)  # type: ignore[union-attr]
+    pvalue = float(result.pvalue)  # type: ignore[union-attr]
+    if not math.isfinite(slope) or not math.isfinite(pvalue):
+        return 0.0, 1.0
+    return round(slope, 6), round(pvalue, 4)
 
 
 def autocorrelation_lag1(values: list[float]) -> float:
@@ -174,4 +184,7 @@ def autocorrelation_lag1(values: list[float]) -> float:
         return 0.0
     arr = np.array(values)
     corr = np.corrcoef(arr[:-1], arr[1:])
-    return round(float(corr[0, 1]), 4)
+    value = float(corr[0, 1])
+    if not math.isfinite(value):
+        return 0.0
+    return round(value, 4)

@@ -203,6 +203,10 @@ class TestWelchT:
         p = welch_t_test(baseline, treatment)
         assert p > 0.05
 
+    def test_constant_identical_series_returns_non_significant(self):
+        p = welch_t_test([10.0, 10.0, 10.0], [10.0, 10.0, 10.0])
+        assert p == 1.0
+
     def test_insufficient_data(self):
         assert welch_t_test([1.0], [2.0]) == 1.0
 
@@ -223,6 +227,7 @@ class TestLinearTrend:
         values = [5.0, 5.0, 5.0, 5.0, 5.0]
         slope, p = linear_trend(values)
         assert slope == pytest.approx(0.0, abs=0.01)
+        assert p == 1.0
 
     def test_too_few(self):
         slope, p = linear_trend([1.0, 2.0])
@@ -242,6 +247,9 @@ class TestAutocorrelation:
         values = [1.0, 10.0, 1.0, 10.0, 1.0, 10.0, 1.0, 10.0]
         ac = autocorrelation_lag1(values)
         assert ac < -0.5
+
+    def test_constant_series_returns_zero(self):
+        assert autocorrelation_lag1([4.0, 4.0, 4.0, 4.0, 4.0]) == 0.0
 
     def test_too_few(self):
         assert autocorrelation_lag1([1.0, 2.0]) == 0.0

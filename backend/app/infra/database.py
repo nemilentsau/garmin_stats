@@ -875,6 +875,15 @@ def save_experiment_analysis(experiment_id: str, analysis: ExperimentAnalysis) -
         )
 
 
+def delete_experiment_analysis(experiment_id: str) -> None:
+    """Delete any persisted analysis for an experiment."""
+    with _connect() as con, con:
+        con.execute(
+            "DELETE FROM experiment_analyses WHERE experiment_id = ?",
+            (experiment_id,),
+        )
+
+
 def load_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
     """Load the latest computed analysis for an experiment."""
     with _connect() as con:

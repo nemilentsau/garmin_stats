@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date as date_type
 
 from ..infra.database import (
+    delete_experiment_analysis,
     experiment_exists,
     load_all_experiment_analyses,
     load_daily_metrics,
@@ -78,6 +79,7 @@ def update_experiment(experiment_id: str, experiment: Experiment) -> Experiment:
     if not experiment_exists(experiment_id):
         raise LookupError(f"Experiment {experiment_id} not found")
     save_experiment(experiment)
+    _persist_experiment_analysis(experiment)
     return experiment
 
 
@@ -86,9 +88,30 @@ def update_experiment(experiment_id: str, experiment: Experiment) -> Experiment:
 # ---------------------------------------------------------------------------
 
 
-def _validate_metric_path(metrics: list[DailyMetric], path: str) -> bool:
-    """Check that a metric path resolves to at least one non-None value."""
-    return any(resolve_metric_path(m, path) is not None for m in metrics[-30:])
+def _persist_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
+    """Refresh the saved analysis so reads stay aligned with the experiment spec."""
+    if experiment.design is None:
+        delete_experiment_analysis(experiment.id)
+        return None
+
+    analysis = compute_experiment_analysis(experiment)
+    save_experiment_analysis(experiment.id, analysis)
+    return analysis
+
+
+def _validate_metric_path(
+    metrics: list[DailyMetric],
+    path: str,
+    *,
+    start_date: str,
+    end_date: str,
+) -> bool:
+    """Check that a metric path resolves inside the configured experiment window."""
+    return any(
+        resolve_metric_path(metric, path) is not None
+        for metric in metrics
+        if start_date <= metric.date <= end_date
+    )
 
 
 _VALID_CHECKIN_FIELDS = {
@@ -170,16 +193,28 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
                     f"At least 14 recommended for reliable analysis.",
         ))
 
+    validation_end = design.treatment_end_date or design.baseline_end_date
+    if all_metrics:
+        validation_end = max(validation_end, all_metrics[-1].date)
+
     # Validate outcome metric paths
     if not experiment.outcome_metrics:
         issues.append(ExperimentPreviewIssue(
             level="error", message="At least one outcome metric is required.",
         ))
     for om in experiment.outcome_metrics:
-        if not _validate_metric_path(all_metrics, om.path):
+        if not _validate_metric_path(
+            all_metrics,
+            om.path,
+            start_date=design.baseline_start_date,
+            end_date=validation_end,
+        ):
             issues.append(ExperimentPreviewIssue(
                 level="error",
-                message=f"Metric path '{om.path}' does not resolve to any data.",
+                message=(
+                    f"Metric path '{om.path}' does not resolve to any data in the "
+                    "configured experiment window."
+                ),
             ))
 
     # Validate confounder paths
@@ -190,10 +225,18 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
                     level="error",
                     message=f"Unknown checkin field: '{path}'.",
                 ))
-        elif not _validate_metric_path(all_metrics, path):
+        elif not _validate_metric_path(
+            all_metrics,
+            path,
+            start_date=design.baseline_start_date,
+            end_date=validation_end,
+        ):
             issues.append(ExperimentPreviewIssue(
                 level="warning",
-                message=f"Confounder path '{path}' has no recent data.",
+                message=(
+                    f"Confounder path '{path}' has no data in the configured "
+                    "experiment window."
+                ),
             ))
 
     # Lag days
@@ -229,10 +272,7 @@ def import_experiment(experiment: Experiment) -> ExperimentWithAnalysis:
     save_experiment(experiment)
 
     # Run initial analysis
-    analysis: ExperimentAnalysis | None = None
-    if experiment.design is not None:
-        analysis = compute_experiment_analysis(experiment)
-        save_experiment_analysis(experiment.id, analysis)
+    analysis = _persist_experiment_analysis(experiment)
 
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
 

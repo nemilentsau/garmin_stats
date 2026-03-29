@@ -34,6 +34,7 @@ from .experiment_stats import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,
+    interpret_nap,
     linear_trend,
     permutation_test,
     resolve_metric_path,
@@ -131,6 +132,9 @@ def _analyse_metric_lag(
 
     cohens_d, hedges_g = compute_hedges_g(baseline_vals, treatment_vals)
     nap, nap_interp = compute_nap(baseline_vals, treatment_vals)
+    if direction == "lower_is_better":
+        nap = round(1 - nap, 4)
+        nap_interp = interpret_nap(nap)
     p_perm = permutation_test(baseline_vals, treatment_vals)
     p_welch = welch_t_test(baseline_vals, treatment_vals)
     b_slope, b_slope_p = linear_trend(baseline_vals)

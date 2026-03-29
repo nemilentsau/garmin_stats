@@ -20,44 +20,57 @@ from app.models import (
 from app.services.experiment_analysis import compute_experiment_analysis
 
 
-def _make_metric(d: str, hrv_nightly: float, sleep_score: int = 80) -> DailyMetric:
+def _make_metric(
+    d: str,
+    hrv_nightly: float | None,
+    sleep_score: int = 80,
+    resting_hr: int = 55,
+) -> DailyMetric:
     return DailyMetric(
         date=d,
-        heart_rate=DailyHeartRateStats(resting=55),
+        heart_rate=DailyHeartRateStats(resting=resting_hr),
         stress=DailyMetricStats(avg=30.0),
         body_battery=DailyBodyBatteryStats(),
         spo2=DailyMetricStats(),
         respiration=DailyMetricStats(),
-        hrv=DailyHrvStats(nightly_avg=hrv_nightly, weekly_avg=hrv_nightly - 2),
+        hrv=DailyHrvStats(
+            nightly_avg=hrv_nightly,
+            weekly_avg=hrv_nightly - 2 if hrv_nightly is not None else None,
+        ),
         sleep=DailySleepStats(score=sleep_score),
         skin_temp=DailySkinTempStats(),
     )
 
 
-def _seed_metrics(baseline_vals: list[float], treatment_vals: list[float]):
-    """Insert synthetic daily metrics for a baseline + treatment window."""
-    start = date(2026, 1, 1)
+def _store_metrics(metrics: list[DailyMetric]) -> None:
+    """Insert synthetic daily metrics and invalidate the cached reads."""
     now_str = "2026-03-01T00:00:00+00:00"
     from app.infra import cache
 
     with db._connect() as con:
-        for i, val in enumerate(baseline_vals):
-            d = (start + timedelta(days=i)).isoformat()
-            m = _make_metric(d, val)
+        for metric in metrics:
             con.execute(
                 "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                (d, m.model_dump_json(), now_str),
-            )
-        treatment_start = start + timedelta(days=len(baseline_vals))
-        for i, val in enumerate(treatment_vals):
-            d = (treatment_start + timedelta(days=i)).isoformat()
-            m = _make_metric(d, val)
-            con.execute(
-                "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                (d, m.model_dump_json(), now_str),
+                (metric.date, metric.model_dump_json(), now_str),
             )
         con.commit()
     cache.invalidate()
+
+
+def _seed_metrics(baseline_vals: list[float], treatment_vals: list[float]):
+    """Insert synthetic daily metrics for a baseline + treatment window."""
+    start = date(2026, 1, 1)
+    metrics: list[DailyMetric] = []
+    for i, val in enumerate(baseline_vals):
+        d = (start + timedelta(days=i)).isoformat()
+        metrics.append(_make_metric(d, val))
+
+    treatment_start = start + timedelta(days=len(baseline_vals))
+    for i, val in enumerate(treatment_vals):
+        d = (treatment_start + timedelta(days=i)).isoformat()
+        metrics.append(_make_metric(d, val))
+
+    _store_metrics(metrics)
 
 
 def _make_experiment(
@@ -179,6 +192,37 @@ class TestComputeExperimentAnalysis:
         result = compute_experiment_analysis(exp)
         assert result.overall_confidence == "insufficient"
 
+    def test_lower_is_better_uses_direction_correct_nap(self):
+        """Decreases in lower-is-better metrics should score as improvements."""
+        start = date(2026, 1, 1)
+        metrics: list[DailyMetric] = []
+        for i in range(14):
+            metrics.append(_make_metric(
+                (start + timedelta(days=i)).isoformat(),
+                hrv_nightly=45.0,
+                resting_hr=72,
+            ))
+        for i in range(14):
+            metrics.append(_make_metric(
+                (start + timedelta(days=14 + i)).isoformat(),
+                hrv_nightly=45.0,
+                resting_hr=60,
+            ))
+        _store_metrics(metrics)
+
+        exp = _make_experiment(14, 14)
+        exp.outcome_metrics = [
+            OutcomeMetric(path="heart_rate.resting", direction="lower_is_better"),
+        ]
+        exp.confounder_watch = []
+
+        result = compute_experiment_analysis(exp)
+
+        metric = result.metrics[0]
+        assert metric.best_result.direction_correct is True
+        assert metric.best_result.nap > 0.9
+        assert metric.best_result.nap_interpretation == "large"
+
 
 class TestExperimentPreviewAndImport:
     def test_preview_validates_metric_path(self):
@@ -250,3 +294,104 @@ class TestExperimentPreviewAndImport:
         loaded = db.load_experiment("import-test")
         assert loaded is not None
         assert loaded.status == "active"
+
+    def test_imported_analysis_with_flat_windows_round_trips_from_storage(self):
+        """Persisted analyses should remain loadable for constant windows."""
+        from app.services.experiments import import_experiment
+
+        _seed_metrics([40.0] * 14, [50.0] * 14)
+
+        exp = Experiment(
+            id="flat-series",
+            name="Flat Series",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+        import_experiment(exp)
+
+        loaded = db.load_experiment_analysis("flat-series")
+
+        assert loaded is not None
+        result = loaded.metrics[0].best_result
+        assert result.baseline_trend_p == 1.0
+        assert result.autocorrelation_lag1_baseline == 0.0
+        assert result.autocorrelation_lag1_treatment == 0.0
+
+    def test_update_experiment_refreshes_saved_analysis(self):
+        """Updating an experiment should refresh the persisted analysis payload."""
+        from app.services.experiments import (
+            get_experiment_with_analysis,
+            import_experiment,
+            update_experiment,
+        )
+
+        _seed_metrics(
+            [40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0, 40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0],
+            [50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0, 50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0],
+        )
+
+        exp = Experiment(
+            id="refresh-test",
+            name="Refresh Test",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+        import_experiment(exp)
+
+        updated = Experiment(
+            id="refresh-test",
+            name="Refresh Test",
+            status="active",
+            design=exp.design,
+            outcome_metrics=[OutcomeMetric(path="sleep.score")],
+        )
+        update_experiment("refresh-test", updated)
+
+        detail = get_experiment_with_analysis("refresh-test")
+
+        assert detail.analysis is not None
+        assert detail.experiment.outcome_metrics[0].path == "sleep.score"
+        assert detail.analysis.metrics[0].path == "sleep.score"
+
+    def test_preview_validates_metric_path_within_experiment_window(self):
+        """Historical metrics inside the experiment window should still validate."""
+        from app.services.experiments import preview_experiment
+
+        start = date(2026, 1, 1)
+        metrics: list[DailyMetric] = []
+        for i in range(14):
+            metrics.append(
+                _make_metric((start + timedelta(days=i)).isoformat(), hrv_nightly=40.0 + i),
+            )
+        for i in range(14, 60):
+            metrics.append(_make_metric((start + timedelta(days=i)).isoformat(), hrv_nightly=None))
+        _store_metrics(metrics)
+
+        exp = Experiment(
+            id="window-validation",
+            name="Window Validation",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+
+        result = preview_experiment(exp)
+
+        assert result.valid is True
