@@ -78,15 +78,11 @@ def compute_nap(baseline: list[float], treatment: list[float]) -> tuple[float, s
     if not baseline or not treatment:
         return 0.5, "no_effect"
 
-    score = 0.0
-    total = len(baseline) * len(treatment)
-    for b in baseline:
-        for t in treatment:
-            if t > b:
-                score += 1.0
-            elif t == b:
-                score += 0.5
-    nap = score / total
+    b_arr = np.array(baseline)
+    t_arr = np.array(treatment)
+    comparisons = t_arr[:, None] > b_arr[None, :]
+    ties = t_arr[:, None] == b_arr[None, :]
+    nap = float((comparisons.sum() + 0.5 * ties.sum()) / (len(baseline) * len(treatment)))
 
     interpretation = "no_effect"
     for threshold, label in _NAP_THRESHOLDS:

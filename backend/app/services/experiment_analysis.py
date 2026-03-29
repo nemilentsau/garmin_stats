@@ -49,12 +49,15 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _metrics_by_date(metrics: list[DailyMetric]) -> dict[str, DailyMetric]:
-    return {m.date: m for m in metrics}
-
-
-def _checkins_by_date(checkins: list[DailyCheckIn]) -> dict[str, DailyCheckIn]:
-    return {c.date: c for c in checkins}
+def _date_range(start: str, end: str) -> list[str]:
+    """Return all ISO date strings from start to end inclusive."""
+    d = date_type.fromisoformat(start)
+    end_d = date_type.fromisoformat(end)
+    days: list[str] = []
+    while d <= end_d:
+        days.append(d.isoformat())
+        d += timedelta(days=1)
+    return days
 
 
 def _extract_metric_values(
@@ -65,15 +68,12 @@ def _extract_metric_values(
 ) -> list[float]:
     """Extract non-None numeric values for a metric path within a date range."""
     values: list[float] = []
-    d = date_type.fromisoformat(start)
-    end_d = date_type.fromisoformat(end)
-    while d <= end_d:
-        m = metrics_map.get(d.isoformat())
+    for ds in _date_range(start, end):
+        m = metrics_map.get(ds)
         if m is not None:
             val = resolve_metric_path(m, path)
             if val is not None:
                 values.append(val)
-        d += timedelta(days=1)
     return values
 
 
@@ -90,35 +90,21 @@ def _extract_confounder(
     For numeric paths: returns list[float].
     """
     is_checkin_bool = path.startswith("checkin.") and path.split(".")[-1].endswith("_flag")
+    days = _date_range(start, end)
 
     if is_checkin_bool:
         field = path.removeprefix("checkin.")
-        flag_count = 0
-        total = 0
-        d = date_type.fromisoformat(start)
-        end_d = date_type.fromisoformat(end)
-        while d <= end_d:
-            c = checkins_map.get(d.isoformat())
-            if c is not None:
-                total += 1
-                if getattr(c, field, False):
-                    flag_count += 1
-            else:
-                total += 1
-            d += timedelta(days=1)
-        return (flag_count, total)
+        flag_count = sum(
+            1 for ds in days
+            if getattr(checkins_map.get(ds), field, False)
+        )
+        return (flag_count, len(days))
 
     values: list[float] = []
-    d = date_type.fromisoformat(start)
-    end_d = date_type.fromisoformat(end)
-    while d <= end_d:
-        ds = d.isoformat()
-        m = metrics_map.get(ds)
-        c = checkins_map.get(ds)
-        val = resolve_path(m, c, path)
+    for ds in days:
+        val = resolve_path(metrics_map.get(ds), checkins_map.get(ds), path)
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             values.append(float(val))
-        d += timedelta(days=1)
     return values
 
 
@@ -265,7 +251,7 @@ def _check_confounders(
             b_rate = b_flags / b_total if b_total else 0
             t_rate = t_flags / t_total if t_total else 0
             delta = t_rate - b_rate
-            is_sig = abs(delta) > 0.15  # >15 percentage points
+            is_sig = abs(delta) > _CONFOUNDER_FLAG_THRESHOLD
             field_name = path.split(".")[-1].replace("_flag", "").replace("_", " ")
             note = (
                 f"{field_name}: {t_flags}/{t_total} days in treatment "
@@ -292,10 +278,9 @@ def _check_confounders(
             if b_mean is not None and t_mean is not None and b_mean != 0:
                 delta_pct = round((t_mean - b_mean) / b_mean * 100, 1)
                 # Significant if >10% change or Welch's p < 0.1
-                is_sig = abs(delta_pct) > 10
+                is_sig = abs(delta_pct) > _CONFOUNDER_NUMERIC_THRESHOLD
                 if len(b_data) >= 2 and len(t_data) >= 2:
-                    _, p = (0, welch_t_test(b_data, t_data))
-                    is_sig = is_sig or p < 0.1
+                    is_sig = is_sig or welch_t_test(b_data, t_data) < _P_MODERATE
 
             note = f"{path}: " + (
                 f"{round(t_mean, 1)} vs {round(b_mean, 1)} baseline"
@@ -329,15 +314,12 @@ def _compute_adherence(
     exposures = load_experiment_exposures(experiment_id=experiment.id)
     exposure_map = {e.date: e for e in exposures}
 
+    today = date_type.today().isoformat()
+    capped_end = min(treatment_end, today)
     entries: list[AdherenceDayEntry] = []
-    d = date_type.fromisoformat(treatment_start)
-    end_d = date_type.fromisoformat(treatment_end)
-    today = date_type.today()
     full_count = 0
-    total_count = 0
 
-    while d <= end_d and d <= today:
-        ds = d.isoformat()
+    for ds in _date_range(treatment_start, capped_end):
         exp = exposure_map.get(ds)
         if exp is not None:
             entries.append(AdherenceDayEntry(
@@ -349,16 +331,27 @@ def _compute_adherence(
                 full_count += 1
         else:
             entries.append(AdherenceDayEntry(date=ds, state="unknown"))
-        total_count += 1
-        d += timedelta(days=1)
 
-    rate = full_count / total_count if total_count > 0 else 0.0
+    rate = full_count / len(entries) if entries else 0.0
     return round(rate, 3), entries
 
 
 # ---------------------------------------------------------------------------
 # Confidence classification
 # ---------------------------------------------------------------------------
+
+_MIN_DAYS_INSUFFICIENT = 7
+_MIN_ADHERENCE_INSUFFICIENT = 0.50
+_NAP_HIGH = 0.93
+_NAP_MODERATE = 0.66
+_P_HIGH = 0.05
+_P_MODERATE = 0.10
+_ADHERENCE_HIGH = 0.85
+_ADHERENCE_MODERATE = 0.70
+_BASELINE_HIGH = 21
+_BASELINE_MODERATE = 14
+_CONFOUNDER_FLAG_THRESHOLD = 0.15
+_CONFOUNDER_NUMERIC_THRESHOLD = 10
 
 
 def _classify_confidence(
@@ -368,7 +361,9 @@ def _classify_confidence(
     baseline_n: int,
     treatment_n: int,
 ) -> ExperimentReportConfidence:
-    if baseline_n < 7 or treatment_n < 7 or adherence_rate < 0.50:
+    if baseline_n < _MIN_DAYS_INSUFFICIENT or treatment_n < _MIN_DAYS_INSUFFICIENT:
+        return "insufficient"
+    if adherence_rate < _MIN_ADHERENCE_INSUFFICIENT:
         return "insufficient"
 
     best_results = [m.best_result for m in metrics]
@@ -376,16 +371,17 @@ def _classify_confidence(
     best_nap = max((r.nap for r in best_results), default=0.5)
     best_p = min((r.p_value_permutation for r in best_results), default=1.0)
 
-    is_high = (
-        best_nap >= 0.93 and best_p < 0.05 and adherence_rate >= 0.85
-        and not has_major_confounder and baseline_n >= 21
-    )
-    if is_high:
+    if (
+        best_nap >= _NAP_HIGH and best_p < _P_HIGH
+        and adherence_rate >= _ADHERENCE_HIGH
+        and not has_major_confounder and baseline_n >= _BASELINE_HIGH
+    ):
         return "high"
-    if best_nap >= 0.66 and best_p < 0.10 and adherence_rate >= 0.70 and not has_major_confounder:
+    if (
+        best_nap >= _NAP_MODERATE and best_p < _P_MODERATE
+        and adherence_rate >= _ADHERENCE_MODERATE and not has_major_confounder
+    ):
         return "moderate"
-    if best_nap < 0.66 or best_p > 0.10 or has_major_confounder or baseline_n < 14:
-        return "low"
     return "low"
 
 
@@ -447,10 +443,8 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
             summary=f"Experiment '{experiment.name}' has no design configured.",
         )
 
-    all_metrics = load_daily_metrics()
-    all_checkins = load_daily_checkins()
-    metrics_map = _metrics_by_date(all_metrics)
-    checkins_map = _checkins_by_date(all_checkins)
+    metrics_map = {m.date: m for m in load_daily_metrics()}
+    checkins_map = {c.date: c for c in load_daily_checkins()}
 
     today = date_type.today().isoformat()
     treatment_end = design.treatment_end_date or today
@@ -498,19 +492,14 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
         experiment, design.treatment_start_date, treatment_end,
     )
 
-    # Days counts
-    baseline_n = len(_extract_metric_values(
-        metrics_map,
-        experiment.outcome_metrics[0].path if experiment.outcome_metrics else "hrv.nightly_avg",
-        design.baseline_start_date,
-        design.baseline_end_date,
-    ))
-    treatment_n = len(_extract_metric_values(
-        metrics_map,
-        experiment.outcome_metrics[0].path if experiment.outcome_metrics else "hrv.nightly_avg",
-        design.treatment_start_date,
-        treatment_end,
-    ))
+    # Days counts — reuse from primary metric analysis to avoid redundant extraction
+    if metric_analyses:
+        primary = metric_analyses[0].best_result
+        baseline_n = primary.baseline_n
+        treatment_n = primary.treatment_n
+    else:
+        baseline_n = 0
+        treatment_n = 0
 
     # Confidence
     confidence = _classify_confidence(
