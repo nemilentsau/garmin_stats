@@ -304,7 +304,7 @@
 	}
 
 	function shiftBundleDates(bundle: ArtifactBundleSpec): ArtifactBundleSpec {
-		const shifted = structuredClone(bundle);
+		const shifted = $state.snapshot(bundle) as ArtifactBundleSpec;
 		const newStart = toDate(importStartDate);
 		for (const routine of shifted.routine_specs ?? []) {
 			if (!routine.start_date) continue;
