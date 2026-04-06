@@ -189,6 +189,9 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
   Routine runtime design notes.
 
+- [docs/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
+  Planned analytical foundation for activity sessions, activity-derived daily features, and experiment joins.
+
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
   Current analytical observations from the live dataset.
 
