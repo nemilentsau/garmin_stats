@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Sync
+         * @description Download new data from Garmin Connect and ingest.
+         */
+        post: operations["trigger_sync_api_ingest_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dashboard": {
         parameters: {
             query?: never;
@@ -3423,6 +3443,21 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
+        /** SyncResult */
+        SyncResult: {
+            /** Downloaded */
+            downloaded: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** Deleted Latest */
+            deleted_latest: string | null;
+            /** Days Ingested */
+            days_ingested: number;
+            /** Duration Ms */
+            duration_ms: number;
+        };
         /** TargetMetricDefinition */
         TargetMetricDefinition: {
             /** Key */
@@ -3905,6 +3940,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestStatus"];
+                };
+            };
+        };
+    };
+    trigger_sync_api_ingest_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResult"];
                 };
             };
         };

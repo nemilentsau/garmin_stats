@@ -4,7 +4,8 @@ from fastapi import APIRouter, HTTPException
 
 from ..infra.database import DATA_DIR, check_ingest_status, ingest_all
 from ..infra.watcher import extract_existing_archives
-from ..models import IngestResult, IngestStatus
+from ..models import IngestResult, IngestStatus, SyncResult
+from ..services.garmin_sync import sync_garmin
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
@@ -25,3 +26,12 @@ def trigger_ingest():
 def get_ingest_status():
     """Check whether new data needs ingesting."""
     return check_ingest_status(DATA_DIR)
+
+
+@router.post("/sync", response_model=SyncResult)
+def trigger_sync():
+    """Download new data from Garmin Connect and ingest."""
+    try:
+        return sync_garmin(DATA_DIR)
+    except RuntimeError as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err

@@ -19,6 +19,7 @@ export type DailyAggregates = Schemas['DailyAggregatesResponse'];
 export type DailyMetric = Schemas['DailyMetric'];
 export type IngestResult = Schemas['IngestResult'];
 export type IngestStatus = Schemas['IngestStatus'];
+export type SyncResult = Schemas['SyncResult'];
 export type DailyHeartRateStats = Schemas['DailyHeartRateStats'];
 
 export type HRAnalysis = Schemas['HeartRateAnalysisResponse'];
@@ -120,6 +121,7 @@ export const api = {
 		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
 	getDays: () => fetchJson<Schemas['DaysResponse']>('/api/days'),
 	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
+	triggerSync: () => sendJson<SyncResult>('/api/ingest/sync', 'POST', {}),
 	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status'),
 	getSleepAnalysis: () => fetchJson<SleepAnalysis>('/api/sleep/analysis'),
 	getStressAnalysis: () => fetchJson<StressAnalysis>('/api/stress/analysis'),

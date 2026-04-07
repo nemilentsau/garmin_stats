@@ -1443,6 +1443,15 @@ class IngestStatus(_DefaultsRequired):
     days_on_disk: int
 
 
+class SyncResult(_DefaultsRequired):
+    downloaded: int
+    skipped: int
+    failed: int
+    deleted_latest: str | None = None
+    days_ingested: int
+    duration_ms: int
+
+
 # ---------------------------------------------------------------------------
 # Dashboard overview models
 # ---------------------------------------------------------------------------

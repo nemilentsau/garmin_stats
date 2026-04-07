@@ -18,6 +18,21 @@ log = logging.getLogger(__name__)
 
 _last_fingerprint: str | None = None
 _ARCHIVE_STAMP_NAME = ".archive-source"
+_suspended = False
+
+
+def suspend_watcher() -> None:
+    """Temporarily suspend the file watcher (e.g. during bulk downloads)."""
+    global _suspended
+    _suspended = True
+    log.info("File watcher suspended")
+
+
+def resume_watcher() -> None:
+    """Resume the file watcher after suspension."""
+    global _suspended
+    _suspended = False
+    log.info("File watcher resumed")
 
 
 def _zip_filter(change: Change, path: str) -> bool:
@@ -165,6 +180,9 @@ async def watch_data_directory(data_dir: Path) -> None:
 
     log.info("File watcher started on %s", data_dir)
     async for changes in awatch(data_dir, watch_filter=_zip_filter, debounce=3000):
+        if _suspended:
+            log.debug("Watcher suspended — skipping %d change(s)", len(changes))
+            continue
         new_zips = [
             Path(path)
             for change, path in changes
