@@ -447,6 +447,31 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
             summary=f"Experiment '{experiment.name}' has no design configured.",
         )
 
+    dates_missing = (
+        not design.baseline_start_date
+        or not design.baseline_end_date
+        or not design.treatment_start_date
+    )
+    if dates_missing:
+        return ExperimentAnalysis(
+            experiment_id=experiment.id,
+            analysis_date=date_type.today().isoformat(),
+            phase="draft",
+            days_in_baseline=0,
+            days_in_treatment=0,
+            adherence_rate=0.0,
+            adherence_by_day=[],
+            metrics=[],
+            confounders=[],
+            overall_confidence="insufficient",
+            summary=f"Experiment '{experiment.name}' has unresolved design dates.",
+        )
+
+    # After the guard above, all date fields are guaranteed non-None.
+    assert design.baseline_start_date is not None
+    assert design.baseline_end_date is not None
+    assert design.treatment_start_date is not None
+
     metrics_map = {m.date: m for m in load_daily_metrics()}
     checkins_map = {c.date: c for c in load_daily_checkins()}
 

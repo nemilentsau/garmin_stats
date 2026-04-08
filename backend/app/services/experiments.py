@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date as date_type
+from datetime import timedelta
 
 from ..infra.database import (
     delete_experiment_analysis,
@@ -12,6 +13,7 @@ from ..infra.database import (
     load_experiment,
     load_experiment_analysis,
     load_experiments,
+    load_routine_schedule,
     save_experiment,
     save_experiment_analysis,
 )
@@ -19,6 +21,7 @@ from ..models import (
     DailyMetric,
     Experiment,
     ExperimentAnalysis,
+    ExperimentDesign,
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
     ExperimentsResponse,
@@ -128,6 +131,68 @@ _VALID_CHECKIN_FIELDS = {
 }
 
 
+def _resolve_design_dates(
+    design: ExperimentDesign,
+    linked_routine_ids: list[str],
+) -> list[ExperimentPreviewIssue]:
+    """Fill in design dates from linked routine when using baseline_duration_days.
+
+    Mutates design in place and returns any issues encountered.
+    """
+    issues: list[ExperimentPreviewIssue] = []
+
+    has_dates = (
+        design.baseline_start_date
+        and design.baseline_end_date
+        and design.treatment_start_date
+    )
+    if has_dates:
+        return issues
+
+    if design.baseline_duration_days is None:
+        issues.append(ExperimentPreviewIssue(
+            level="error",
+            message="Either provide explicit dates or baseline_duration_days.",
+        ))
+        return issues
+
+    if design.baseline_duration_days < 1:
+        issues.append(ExperimentPreviewIssue(
+            level="error",
+            message="baseline_duration_days must be at least 1.",
+        ))
+        return issues
+
+    if not linked_routine_ids:
+        issues.append(ExperimentPreviewIssue(
+            level="error",
+            message="baseline_duration_days requires a linked routine to derive dates.",
+        ))
+        return issues
+
+    routine = load_routine_schedule(linked_routine_ids[0])
+    if routine is None:
+        issues.append(ExperimentPreviewIssue(
+            level="error",
+            message=f"Linked routine '{linked_routine_ids[0]}' not found. "
+                    "Import and activate the routine before the experiment.",
+        ))
+        return issues
+
+    treatment_start = date_type.fromisoformat(routine.start_date)
+    baseline_end = treatment_start - timedelta(days=1)
+    baseline_start = baseline_end - timedelta(days=design.baseline_duration_days - 1)
+
+    design.baseline_start_date = baseline_start.isoformat()
+    design.baseline_end_date = baseline_end.isoformat()
+    design.treatment_start_date = treatment_start.isoformat()
+
+    if routine.end_date and design.treatment_end_date is None:
+        design.treatment_end_date = routine.end_date
+
+    return issues
+
+
 def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
     """Validate an experiment spec without persisting."""
     issues: list[ExperimentPreviewIssue] = []
@@ -142,11 +207,17 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
         ))
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
 
+    # Resolve dates from linked routine if using baseline_duration_days
+    resolve_issues = _resolve_design_dates(design, experiment.linked_routine_ids)
+    issues.extend(resolve_issues)
+    if any(i.level == "error" for i in resolve_issues):
+        return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
+
     # Date validation
     try:
-        b_start = date_type.fromisoformat(design.baseline_start_date)
-        b_end = date_type.fromisoformat(design.baseline_end_date)
-        t_start = date_type.fromisoformat(design.treatment_start_date)
+        b_start = date_type.fromisoformat(design.baseline_start_date)  # type: ignore[arg-type]
+        b_end = date_type.fromisoformat(design.baseline_end_date)  # type: ignore[arg-type]
+        t_start = date_type.fromisoformat(design.treatment_start_date)  # type: ignore[arg-type]
     except ValueError as e:
         issues.append(ExperimentPreviewIssue(level="error", message=f"Invalid date: {e}"))
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
@@ -175,16 +246,19 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
             ))
 
     # Check baseline data availability
+    b_start_str = b_start.isoformat()
+    b_end_str = b_end.isoformat()
+
     all_metrics = load_daily_metrics()
     metrics_in_baseline = [
         m for m in all_metrics
-        if design.baseline_start_date <= m.date <= design.baseline_end_date
+        if b_start_str <= m.date <= b_end_str
     ]
     if not metrics_in_baseline:
         issues.append(ExperimentPreviewIssue(
             level="error",
             message=f"No health data found for baseline period "
-                    f"{design.baseline_start_date} to {design.baseline_end_date}.",
+                    f"{b_start_str} to {b_end_str}.",
         ))
     elif len(metrics_in_baseline) < 7:
         issues.append(ExperimentPreviewIssue(
@@ -193,7 +267,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
                     f"At least 14 recommended for reliable analysis.",
         ))
 
-    validation_end = design.treatment_end_date or design.baseline_end_date
+    validation_end = design.treatment_end_date or b_end_str
     if all_metrics:
         validation_end = max(validation_end, all_metrics[-1].date)
 
@@ -206,7 +280,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
         if not _validate_metric_path(
             all_metrics,
             om.path,
-            start_date=design.baseline_start_date,
+            start_date=b_start_str,
             end_date=validation_end,
         ):
             issues.append(ExperimentPreviewIssue(
@@ -228,7 +302,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
         elif not _validate_metric_path(
             all_metrics,
             path,
-            start_date=design.baseline_start_date,
+            start_date=b_start_str,
             end_date=validation_end,
         ):
             issues.append(ExperimentPreviewIssue(

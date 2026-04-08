@@ -193,7 +193,7 @@
 				<p class="text-sm text-[#b8c8d4]">{analysis.summary}</p>
 			</div>
 
-			{#if exp.design}
+			{#if exp.design && exp.design.baseline_start_date && exp.design.baseline_end_date && exp.design.treatment_start_date}
 				<ExperimentTimeline
 					baselineStart={exp.design.baseline_start_date}
 					baselineEnd={exp.design.baseline_end_date}
@@ -330,8 +330,16 @@
 					</div>
 					{#if importSpec.design}
 						<div class="preview-dates">
-							<span>Baseline: {importSpec.design.baseline_start_date} to {importSpec.design.baseline_end_date}</span>
-							<span>Treatment: {importSpec.design.treatment_start_date}{importSpec.design.treatment_end_date ? ` to ${importSpec.design.treatment_end_date}` : ' (ongoing)'}</span>
+							{#if importSpec.design.baseline_start_date && importSpec.design.baseline_end_date}
+								<span>Baseline: {importSpec.design.baseline_start_date} to {importSpec.design.baseline_end_date}</span>
+							{:else if importSpec.design.baseline_duration_days}
+								<span>Baseline: {importSpec.design.baseline_duration_days} days before routine start</span>
+							{/if}
+							{#if importSpec.design.treatment_start_date}
+								<span>Treatment: {importSpec.design.treatment_start_date}{importSpec.design.treatment_end_date ? ` to ${importSpec.design.treatment_end_date}` : ' (ongoing)'}</span>
+							{:else}
+								<span>Treatment: starts with linked routine</span>
+							{/if}
 						</div>
 					{/if}
 					{#if importPreview.issues.length > 0}

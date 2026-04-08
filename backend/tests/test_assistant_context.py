@@ -53,7 +53,6 @@ class TestBuildContextSnapshot:
                     id="routine-1",
                     name="Meditation",
                     status="active",
-                    cadence="weekly",
                     start_date="2026-03-01",
                 ),
             ],
@@ -110,7 +109,7 @@ class TestBuildContextSnapshot:
         assert isinstance(active_routines, list)
         assert isinstance(active_experiments, list)
         assert len(active_routines) == 1
-        assert active_routines[0]["cadence"] == "weekly"
+        assert active_routines[0]["start_date"] == "2026-03-01"
         assert len(active_experiments) == 1
         assert snapshot.created_at is not None
         assert saved_snapshots[0].id == snapshot.id

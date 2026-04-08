@@ -66,9 +66,7 @@ def _routine_request(
     routine_id: str,
     *,
     card_id: str,
-    cadence: str = "weekly",
-    cycle_week: int = 1,
-    weekday: str = "monday",
+    day: int = 1,
 ) -> AssistantArtifactCreateRequest:
     return AssistantArtifactCreateRequest(
         id=f"artifact-{routine_id}",
@@ -77,7 +75,6 @@ def _routine_request(
         payload_json={
             "id": routine_id,
             "name": f"Routine {routine_id}",
-            "cadence": cadence,
             "start_date": "2026-03-02",
             "status": "active",
             "tags": ["training"],
@@ -86,8 +83,7 @@ def _routine_request(
                 {
                     "id": f"{routine_id}-assignment",
                     "card_template_id": card_id,
-                    "cycle_week": cycle_week,
-                    "weekday": weekday,
+                    "day": day,
                     "slot": "evening",
                     "position": 20,
                     "prescription_override_json": {},
@@ -168,17 +164,15 @@ def _starter_bundle_spec() -> ArtifactBundleSpec:
                 {
                     "id": "starter-routine",
                     "name": "Starter Routine",
-                    "cadence": "weekly",
                     "start_date": "2026-03-16",
                     "status": "active",
                     "tags": ["starter"],
                     "notes": "One routine schedule driven by the proper bundle format.",
                     "assignments": [
                         {
-                            "id": "starter-routine-mon-morning",
+                            "id": "starter-routine-day1-morning",
                             "card_template_id": "starter-breathing-card",
-                            "cycle_week": 1,
-                            "weekday": "monday",
+                            "day": 1,
                             "slot": "morning",
                             "position": 10,
                             "prescription_override_json": {
@@ -229,12 +223,11 @@ def _bundle_routine_spec(
     *,
     card_id: str,
     assignment_id: str,
-    weekday: str = "monday",
+    day: int = 1,
 ) -> dict[str, object]:
     return {
         "id": routine_id,
         "name": f"Routine {routine_id}",
-        "cadence": "weekly",
         "start_date": "2026-03-02",
         "status": "active",
         "tags": ["training"],
@@ -243,8 +236,7 @@ def _bundle_routine_spec(
             {
                 "id": assignment_id,
                 "card_template_id": card_id,
-                "cycle_week": 1,
-                "weekday": weekday,
+                "day": day,
                 "slot": "evening",
                 "position": 20,
                 "prescription_override_json": {},
@@ -502,7 +494,7 @@ class TestArtifactBundles:
                         "bundle-routine",
                         card_id="bundle-card",
                         assignment_id="existing-routine-assignment",
-                        weekday="tuesday",
+                        day=2,
                     )
                 ],
             )
@@ -531,7 +523,7 @@ class TestArtifactBundles:
                         "bundle-routine",
                         card_id="bundle-card",
                         assignment_id="draft-routine-assignment",
-                        weekday="wednesday",
+                        day=3,
                     )
                 ],
             )
@@ -689,30 +681,25 @@ class TestTodayProjection:
     def test_today_uses_only_activated_routines_and_supports_overlap(self):
         create_assistant_artifact(_card_request("card-live"))
         create_assistant_artifact(_card_request("card-draft"))
-        live_weekly = create_assistant_artifact(
-            _routine_request("routine-weekly", card_id="card-live", cadence="weekly")
+        live_routine_a = create_assistant_artifact(
+            _routine_request("routine-a", card_id="card-live", day=1)
         )
-        live_biweekly = create_assistant_artifact(
-            _routine_request(
-                "routine-biweekly",
-                card_id="card-live",
-                cadence="biweekly",
-                cycle_week=1,
-            )
+        live_routine_b = create_assistant_artifact(
+            _routine_request("routine-b", card_id="card-live", day=1)
         )
         create_assistant_artifact(
-            _routine_request("routine-draft", card_id="card-draft", cadence="weekly")
+            _routine_request("routine-draft", card_id="card-draft", day=1)
         )
 
         activate_assistant_artifact("artifact-card-live")
-        activate_assistant_artifact(live_weekly.id)
-        activate_assistant_artifact(live_biweekly.id)
+        activate_assistant_artifact(live_routine_a.id)
+        activate_assistant_artifact(live_routine_b.id)
 
         today = get_today("2026-03-02")
         all_cards = [card for slot in today.slots for card in slot.cards]
 
         assert len(all_cards) == 2
-        assert {card.routine_id for card in all_cards} == {"routine-weekly", "routine-biweekly"}
+        assert {card.routine_id for card in all_cards} == {"routine-a", "routine-b"}
         assert {card.card_template_id for card in all_cards} == {"card-live"}
 
     def test_card_log_round_trips_into_today_projection(self):

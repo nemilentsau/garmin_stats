@@ -43,7 +43,6 @@ def _routine_request(
     routine_id: str,
     *,
     assignments: list[dict[str, object]],
-    cadence: str = "weekly",
     start_date: str = "2026-03-02",
     end_date: str | None = None,
     status: str = "active",
@@ -55,7 +54,6 @@ def _routine_request(
         payload_json={
             "id": routine_id,
             "name": f"Routine {routine_id}",
-            "cadence": cadence,
             "start_date": start_date,
             "end_date": end_date,
             "status": status,
@@ -77,7 +75,6 @@ def _activate_routine(
     routine_id: str,
     *,
     assignments: list[dict[str, object]],
-    cadence: str = "weekly",
     start_date: str = "2026-03-02",
     end_date: str | None = None,
     status: str = "active",
@@ -86,7 +83,6 @@ def _activate_routine(
         _routine_request(
             routine_id,
             assignments=assignments,
-            cadence=cadence,
             start_date=start_date,
             end_date=end_date,
             status=status,
@@ -99,16 +95,14 @@ def _assignment(
     assignment_id: str,
     *,
     card_template_id: str,
-    weekday: str,
+    day: int,
     slot: str,
     position: int,
-    cycle_week: int = 1,
 ) -> dict[str, object]:
     return {
         "id": assignment_id,
         "card_template_id": card_template_id,
-        "cycle_week": cycle_week,
-        "weekday": weekday,
+        "day": day,
         "slot": slot,
         "position": position,
         "prescription_override_json": {},
@@ -124,18 +118,26 @@ def _all_occurrences(window):
 
 
 class TestScheduleProjection:
-    def test_two_week_window_includes_empty_days_and_weekly_matches(self):
+    def test_two_week_window_includes_empty_days_and_day_based_matches(self):
+        """Day 1 and day 8 should both appear in a 14-day window starting on the start date."""
         _activate_card("card-weekly", name="Weekly Card", slot_default="evening")
         _activate_routine(
             "routine-weekly",
             assignments=[
                 _assignment(
-                    "assignment-weekly",
+                    "assignment-day1",
                     card_template_id="card-weekly",
-                    weekday="monday",
+                    day=1,
                     slot="evening",
                     position=20,
-                )
+                ),
+                _assignment(
+                    "assignment-day8",
+                    card_template_id="card-weekly",
+                    day=8,
+                    slot="evening",
+                    position=20,
+                ),
             ],
         )
 
@@ -164,7 +166,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-active",
                     card_template_id="card-active",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=10,
                 )
@@ -177,7 +179,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-paused",
                     card_template_id="card-paused",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=20,
                 )
@@ -190,37 +192,12 @@ class TestScheduleProjection:
 
         assert card_ids == {"card-active"}
 
-    def test_biweekly_routine_skips_the_off_week_within_window(self):
-        _activate_card("card-biweekly", name="Biweekly Card")
-        _activate_routine(
-            "routine-biweekly",
-            cadence="biweekly",
-            assignments=[
-                _assignment(
-                    "assignment-biweekly",
-                    card_template_id="card-biweekly",
-                    weekday="monday",
-                    slot="morning",
-                    position=10,
-                    cycle_week=1,
-                )
-            ],
-        )
-
-        window = _schedule_mod().get_schedule_window("2026-03-02")
-        occurrence_dates = [
-            occurrence.date
-            for occurrence in _all_occurrences(window)
-            if occurrence.card_template_id == "card-biweekly"
-        ]
-
-        assert occurrence_dates == ["2026-03-02"]
-
     def test_start_and_end_dates_clip_occurrences_at_boundaries(self):
         _activate_card("card-start-boundary", name="Start Boundary Card")
         _activate_card("card-end-inclusive", name="End Inclusive Card")
         _activate_card("card-end-clipped", name="End Clipped Card")
 
+        # Routine starting on day 10 of the window (2026-03-11)
         _activate_routine(
             "routine-start-boundary",
             start_date="2026-03-11",
@@ -228,38 +205,54 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-start-boundary",
                     card_template_id="card-start-boundary",
-                    weekday="wednesday",
+                    day=1,
                     slot="morning",
                     position=10,
                 )
             ],
         )
+        # end_date 2026-03-11 — day 3 and day 10 should both appear
         _activate_routine(
             "routine-end-inclusive",
             start_date="2026-03-02",
             end_date="2026-03-11",
             assignments=[
                 _assignment(
-                    "assignment-end-inclusive",
+                    "assignment-end-day3",
                     card_template_id="card-end-inclusive",
-                    weekday="wednesday",
+                    day=3,
                     slot="midday",
                     position=10,
-                )
+                ),
+                _assignment(
+                    "assignment-end-day10",
+                    card_template_id="card-end-inclusive",
+                    day=10,
+                    slot="midday",
+                    position=10,
+                ),
             ],
         )
+        # Routine with end_date 2026-03-10 — day 3 appears, day 10 clipped
         _activate_routine(
             "routine-end-clipped",
             start_date="2026-03-02",
             end_date="2026-03-10",
             assignments=[
                 _assignment(
-                    "assignment-end-clipped",
+                    "assignment-clip-day3",
                     card_template_id="card-end-clipped",
-                    weekday="wednesday",
+                    day=3,
                     slot="evening",
                     position=10,
-                )
+                ),
+                _assignment(
+                    "assignment-clip-day10",
+                    card_template_id="card-end-clipped",
+                    day=10,
+                    slot="evening",
+                    position=10,
+                ),
             ],
         )
 
@@ -290,7 +283,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-overlap-a",
                     card_template_id="card-overlap-a",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=10,
                 )
@@ -302,7 +295,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-overlap-b",
                     card_template_id="card-overlap-b",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=20,
                 )
@@ -327,21 +320,21 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-morning-late",
                     card_template_id="card-morning-late",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=30,
                 ),
                 _assignment(
                     "assignment-evening",
                     card_template_id="card-evening",
-                    weekday="monday",
+                    day=1,
                     slot="evening",
                     position=5,
                 ),
                 _assignment(
                     "assignment-morning-early",
                     card_template_id="card-morning-early",
-                    weekday="monday",
+                    day=1,
                     slot="morning",
                     position=10,
                 ),
@@ -369,7 +362,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-main",
                     card_template_id="card-main",
-                    weekday="monday",
+                    day=1,
                     slot="evening",
                     position=20,
                 )
@@ -416,7 +409,7 @@ class TestScheduleProjection:
                 _assignment(
                     "assignment-main",
                     card_template_id="card-main",
-                    weekday="monday",
+                    day=1,
                     slot="evening",
                     position=20,
                 )

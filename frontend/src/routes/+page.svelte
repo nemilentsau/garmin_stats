@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type DashboardOverview, type IngestStatus } from '$lib/api';
+	import { api, type DailyAggregates, type DashboardOverview, type IngestStatus, type SyncResult } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { Chart, DARK_BORDER, DARK_GRID_Y, DARK_TICK, chartTooltip } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
@@ -13,6 +13,8 @@
 	let ingestStatus: IngestStatus | null = $state(null);
 	let emptyState: IngestStatus | null = $state(null);
 	let error: string | null = $state(null);
+	let syncing = $state(false);
+	let syncResult = $state<SyncResult | null>(null);
 	let sparkCanvases: Record<string, HTMLCanvasElement> = $state({});
 	let sparkCharts: Record<string, Chart<'line'>> = {};
 
@@ -79,6 +81,21 @@
 
 		return null;
 	});
+
+	async function handleSync(): Promise<void> {
+		if (syncing) return;
+		syncing = true;
+		syncResult = null;
+		error = null;
+		try {
+			syncResult = await api.triggerSync();
+			await fetchData();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			syncing = false;
+		}
+	}
 
 	function readinessColor(score: number | null | undefined): string {
 		if (score == null) return '#8a9baa';
@@ -404,7 +421,34 @@
 				<strong>{freshnessNotice.headline}</strong>
 				<p>{freshnessNotice.detail}</p>
 			</div>
+			<button class="sync-btn" onclick={handleSync} disabled={syncing}>
+				{#if syncing}
+					<span class="sync-spinner"></span> Syncing…
+				{:else}
+					Sync Garmin
+				{/if}
+			</button>
 		</section>
+	{:else if ingestStatus && ingestStatus.days_in_db > 0}
+		<div class="sync-bar">
+			<button class="sync-btn compact" onclick={handleSync} disabled={syncing}>
+				{#if syncing}
+					<span class="sync-spinner"></span> Syncing…
+				{:else}
+					Sync Garmin
+				{/if}
+			</button>
+			{#if syncResult}
+				<span class="sync-result">
+					{syncResult.downloaded} downloaded, {syncResult.days_ingested} days ingested
+				</span>
+			{/if}
+		</div>
+	{/if}
+	{#if syncResult && freshnessNotice}
+		<div class="sync-result-banner">
+			{syncResult.downloaded} downloaded, {syncResult.days_ingested} days ingested
+		</div>
 	{/if}
 
 	<!-- Readiness hero -->
@@ -683,9 +727,9 @@
 
 	.freshness-banner {
 		display: grid;
-		grid-template-columns: auto 1fr;
+		grid-template-columns: auto 1fr auto;
 		gap: 14px;
-		align-items: start;
+		align-items: center;
 		margin: 0 0 18px;
 		padding: 14px 16px;
 		border: 1px solid rgba(228,164,72,0.28);
@@ -734,6 +778,73 @@
 		font-size: 13px;
 		line-height: 1.55;
 		color: #b7c5cf;
+	}
+
+	.sync-btn {
+		align-self: center;
+		padding: 7px 16px;
+		border: 1px solid rgba(255,255,255,0.12);
+		border-radius: 8px;
+		background: rgba(255,255,255,0.06);
+		color: #d0dce4;
+		font-family: 'DM Sans', sans-serif;
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background 0.15s, border-color 0.15s;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.sync-btn:hover:not(:disabled) {
+		background: rgba(255,255,255,0.10);
+		border-color: rgba(255,255,255,0.20);
+	}
+
+	.sync-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.sync-btn.compact {
+		padding: 5px 12px;
+		font-size: 12px;
+	}
+
+	.sync-spinner {
+		display: inline-block;
+		width: 12px;
+		height: 12px;
+		border: 2px solid rgba(255,255,255,0.2);
+		border-top-color: #d0dce4;
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.sync-bar {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin: 0 0 18px;
+		justify-content: flex-end;
+	}
+
+	.sync-result,
+	.sync-result-banner {
+		font-size: 12px;
+		color: #7fc9bc;
+		font-family: 'DM Mono', monospace;
+	}
+
+	.sync-result-banner {
+		margin: -10px 0 14px;
+		text-align: right;
 	}
 
 	@media (max-width: 900px) {

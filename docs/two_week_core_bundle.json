@@ -268,7 +268,6 @@
     {
       "id": "two-week-core-foundation-routine",
       "name": "Two-Week Core Foundation",
-      "cadence": "biweekly",
       "start_date": "2026-03-16",
       "end_date": "2026-03-29",
       "status": "active",
@@ -280,10 +279,8 @@
       "notes": "Deterministic two-week core rotation imported from the proper bundle spec. Breathwork and experiments remain outside this routine.",
       "assignments": [
         {
-          "id": "two-week-core:week1-mon:core-day-a",
+          "id": "two-week-core:day1:core-day-a",
           "card_template_id": "core-day-a",
-          "cycle_week": 1,
-          "weekday": "monday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -308,13 +305,12 @@
                 "detail": "Press the low back into the floor before moving limbs. Reduce range if the back arches."
               }
             ]
-          }
+          },
+          "day": 1
         },
         {
-          "id": "two-week-core:week1-tue:core-day-b",
+          "id": "two-week-core:day2:core-day-b",
           "card_template_id": "core-day-b",
-          "cycle_week": 1,
-          "weekday": "tuesday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -345,13 +341,12 @@
                 "detail": "Arms by your sides if needed. Bend knees if the back lifts."
               }
             ]
-          }
+          },
+          "day": 2
         },
         {
-          "id": "two-week-core:week1-tue:supporting-block-1",
+          "id": "two-week-core:day2:supporting-block-1",
           "card_template_id": "supporting-block-1",
-          "cycle_week": 1,
-          "weekday": "tuesday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -382,13 +377,12 @@
                 "detail": "Fight the urge to lean back as the knee drives up."
               }
             ]
-          }
+          },
+          "day": 2
         },
         {
-          "id": "two-week-core:week1-wed:core-day-c",
+          "id": "two-week-core:day3:core-day-c",
           "card_template_id": "core-day-c",
-          "cycle_week": 1,
-          "weekday": "wednesday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -413,13 +407,12 @@
                 "detail": "Prioritize pelvic-drop resistance over speed."
               }
             ]
-          }
+          },
+          "day": 3
         },
         {
-          "id": "two-week-core:week1-thu:core-day-d",
+          "id": "two-week-core:day4:core-day-d",
           "card_template_id": "core-day-d",
-          "cycle_week": 1,
-          "weekday": "thursday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -450,13 +443,12 @@
                 "detail": "Use no weight or a very light dumbbell and pause at each checkpoint."
               }
             ]
-          }
+          },
+          "day": 4
         },
         {
-          "id": "two-week-core:week1-thu:supporting-block-2",
+          "id": "two-week-core:day4:supporting-block-2",
           "card_template_id": "supporting-block-2",
-          "cycle_week": 1,
-          "weekday": "thursday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -487,13 +479,12 @@
                 "detail": "Just stand on one leg and build arch control without closing the eyes yet."
               }
             ]
-          }
+          },
+          "day": 4
         },
         {
-          "id": "two-week-core:week1-fri:core-day-a",
+          "id": "two-week-core:day5:core-day-a",
           "card_template_id": "core-day-a",
-          "cycle_week": 1,
-          "weekday": "friday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -524,13 +515,12 @@
                 "detail": "Use shoulder-width feet and narrow only when hip sway stays minimal."
               }
             ]
-          }
+          },
+          "day": 5
         },
         {
-          "id": "two-week-core:week1-fri:supporting-block-1",
+          "id": "two-week-core:day5:supporting-block-1",
           "card_template_id": "supporting-block-1",
-          "cycle_week": 1,
-          "weekday": "friday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -561,13 +551,12 @@
                 "detail": "Maintain upright posture against the band tension."
               }
             ]
-          }
+          },
+          "day": 5
         },
         {
-          "id": "two-week-core:week1-fri:supporting-block-2",
+          "id": "two-week-core:day5:supporting-block-2",
           "card_template_id": "supporting-block-2",
-          "cycle_week": 1,
-          "weekday": "friday",
           "slot": "morning",
           "position": 30,
           "prescription_override_json": {
@@ -598,13 +587,12 @@
                 "detail": "Add 5s to the hold and keep the arch active."
               }
             ]
-          }
+          },
+          "day": 5
         },
         {
-          "id": "two-week-core:week1-sat:core-day-b",
+          "id": "two-week-core:day6:core-day-b",
           "card_template_id": "core-day-b",
-          "cycle_week": 1,
-          "weekday": "saturday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -629,13 +617,12 @@
                 "detail": "Exhale as you saw forward into the hardest position."
               }
             ]
-          }
+          },
+          "day": 6
         },
         {
-          "id": "two-week-core:week1-sun:core-day-c",
+          "id": "two-week-core:day7:core-day-c",
           "card_template_id": "core-day-c",
-          "cycle_week": 1,
-          "weekday": "sunday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -666,13 +653,12 @@
                 "detail": "Control the 2s down / 1s up tempo."
               }
             ]
-          }
+          },
+          "day": 7
         },
         {
-          "id": "two-week-core:week1-sun:supporting-block-3",
+          "id": "two-week-core:day7:supporting-block-3",
           "card_template_id": "supporting-block-3",
-          "cycle_week": 1,
-          "weekday": "sunday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -703,13 +689,12 @@
                 "detail": "Use a ball squeeze or Copenhagen-lite variation and build the pattern."
               }
             ]
-          }
+          },
+          "day": 7
         },
         {
-          "id": "two-week-core:week2-mon:core-day-d",
+          "id": "two-week-core:day8:core-day-d",
           "card_template_id": "core-day-d",
-          "cycle_week": 2,
-          "weekday": "monday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -734,13 +719,12 @@
                 "detail": "Push aggression on the slam, not sloppiness."
               }
             ]
-          }
+          },
+          "day": 8
         },
         {
-          "id": "two-week-core:week2-tue:core-day-a",
+          "id": "two-week-core:day9:core-day-a",
           "card_template_id": "core-day-a",
-          "cycle_week": 2,
-          "weekday": "tuesday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -771,13 +755,12 @@
                 "detail": "Narrow the stance slightly if Day 5 felt stable."
               }
             ]
-          }
+          },
+          "day": 9
         },
         {
-          "id": "two-week-core:week2-tue:supporting-block-2",
+          "id": "two-week-core:day9:supporting-block-2",
           "card_template_id": "supporting-block-2",
-          "cycle_week": 2,
-          "weekday": "tuesday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -808,13 +791,12 @@
                 "detail": "Reach the full target hold time with clean balance."
               }
             ]
-          }
+          },
+          "day": 9
         },
         {
-          "id": "two-week-core:week2-tue:supporting-block-3",
+          "id": "two-week-core:day9:supporting-block-3",
           "card_template_id": "supporting-block-3",
-          "cycle_week": 2,
-          "weekday": "tuesday",
           "slot": "morning",
           "position": 30,
           "prescription_override_json": {
@@ -845,13 +827,12 @@
                 "detail": "Add 2 reps and keep the squeeze controlled."
               }
             ]
-          }
+          },
+          "day": 9
         },
         {
-          "id": "two-week-core:week2-wed:core-day-b",
+          "id": "two-week-core:day10:core-day-b",
           "card_template_id": "core-day-b",
-          "cycle_week": 2,
-          "weekday": "wednesday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -876,13 +857,12 @@
                 "detail": "Increase the range slightly while keeping the core locked."
               }
             ]
-          }
+          },
+          "day": 10
         },
         {
-          "id": "two-week-core:week2-thu:core-day-c",
+          "id": "two-week-core:day11:core-day-c",
           "card_template_id": "core-day-c",
-          "cycle_week": 2,
-          "weekday": "thursday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -913,13 +893,12 @@
                 "detail": "Move to 3 sets while keeping the tempo controlled."
               }
             ]
-          }
+          },
+          "day": 11
         },
         {
-          "id": "two-week-core:week2-thu:supporting-block-1",
+          "id": "two-week-core:day11:supporting-block-1",
           "card_template_id": "supporting-block-1",
-          "cycle_week": 2,
-          "weekday": "thursday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -950,13 +929,12 @@
                 "detail": "Same stable marching pattern as Day 5."
               }
             ]
-          }
+          },
+          "day": 11
         },
         {
-          "id": "two-week-core:week2-thu:supporting-block-3",
+          "id": "two-week-core:day11:supporting-block-3",
           "card_template_id": "supporting-block-3",
-          "cycle_week": 2,
-          "weekday": "thursday",
           "slot": "morning",
           "position": 30,
           "prescription_override_json": {
@@ -987,13 +965,12 @@
                 "detail": "Repeat the 10-rep dose cleanly."
               }
             ]
-          }
+          },
+          "day": 11
         },
         {
-          "id": "two-week-core:week2-fri:core-day-d",
+          "id": "two-week-core:day12:core-day-d",
           "card_template_id": "core-day-d",
-          "cycle_week": 2,
-          "weekday": "friday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -1024,13 +1001,12 @@
                 "detail": "Add light load only if the bodyweight pattern is already clean."
               }
             ]
-          }
+          },
+          "day": 12
         },
         {
-          "id": "two-week-core:week2-fri:supporting-block-1",
+          "id": "two-week-core:day12:supporting-block-1",
           "card_template_id": "supporting-block-1",
-          "cycle_week": 2,
-          "weekday": "friday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -1061,13 +1037,12 @@
                 "detail": "Same marching pattern as prior exposures."
               }
             ]
-          }
+          },
+          "day": 12
         },
         {
-          "id": "two-week-core:week2-fri:supporting-block-2",
+          "id": "two-week-core:day12:supporting-block-2",
           "card_template_id": "supporting-block-2",
-          "cycle_week": 2,
-          "weekday": "friday",
           "slot": "morning",
           "position": 30,
           "prescription_override_json": {
@@ -1098,13 +1073,12 @@
                 "detail": "Try closing the eyes for the final 10s of each set."
               }
             ]
-          }
+          },
+          "day": 12
         },
         {
-          "id": "two-week-core:week2-fri:supporting-block-3",
+          "id": "two-week-core:day12:supporting-block-3",
           "card_template_id": "supporting-block-3",
-          "cycle_week": 2,
-          "weekday": "friday",
           "slot": "morning",
           "position": 40,
           "prescription_override_json": {
@@ -1135,13 +1109,12 @@
                 "detail": "Repeat the 10-rep dose and keep the squeeze clean."
               }
             ]
-          }
+          },
+          "day": 12
         },
         {
-          "id": "two-week-core:week2-sat:core-day-a",
+          "id": "two-week-core:day13:core-day-a",
           "card_template_id": "core-day-a",
-          "cycle_week": 2,
-          "weekday": "saturday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -1166,13 +1139,12 @@
                 "detail": "Stay slow and reinforce the contralateral pattern before the run."
               }
             ]
-          }
+          },
+          "day": 13
         },
         {
-          "id": "two-week-core:week2-sun:core-day-b",
+          "id": "two-week-core:day14:core-day-b",
           "card_template_id": "core-day-b",
-          "cycle_week": 2,
-          "weekday": "sunday",
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
@@ -1203,13 +1175,12 @@
                 "detail": "Arms overhead only if the back stays down for the full hold."
               }
             ]
-          }
+          },
+          "day": 14
         },
         {
-          "id": "two-week-core:week2-sun:supporting-block-1",
+          "id": "two-week-core:day14:supporting-block-1",
           "card_template_id": "supporting-block-1",
-          "cycle_week": 2,
-          "weekday": "sunday",
           "slot": "morning",
           "position": 20,
           "prescription_override_json": {
@@ -1240,13 +1211,12 @@
                 "detail": "Standard upright marching pattern."
               }
             ]
-          }
+          },
+          "day": 14
         },
         {
-          "id": "two-week-core:week2-sun:supporting-block-2",
+          "id": "two-week-core:day14:supporting-block-2",
           "card_template_id": "supporting-block-2",
-          "cycle_week": 2,
-          "weekday": "sunday",
           "slot": "morning",
           "position": 30,
           "prescription_override_json": {
@@ -1277,7 +1247,8 @@
                 "detail": "Close the eyes for the full 30s if balance now allows it."
               }
             ]
-          }
+          },
+          "day": 14
         }
       ]
     }

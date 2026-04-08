@@ -6,10 +6,7 @@
   "goal": "Determine whether the two-week meditation foundation routine causally improves parasympathetic recovery as measured by nightly HRV",
   "design": {
     "type": "ab_intervention",
-    "baseline_start_date": "2026-02-16",
-    "baseline_end_date": "2026-03-15",
-    "treatment_start_date": "2026-03-16",
-    "treatment_end_date": null,
+    "baseline_duration_days": 28,
     "expected_lag_days": [0, 3, 5, 7],
     "min_adherence_pct": 0.70
   },

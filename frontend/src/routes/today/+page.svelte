@@ -305,7 +305,11 @@
 			for (const key of Object.keys(detailItemStates)) {
 				detailItemStates[key] = setAll;
 			}
-			void persistToBackend(card, newStatus, buildActualJson(card), detailNote.trim() || null);
+			const actual = buildActualJson(card);
+			const notes = detailNote.trim() || null;
+			card.actual_json = actual as Record<string, object>;
+			card.notes = notes;
+			void persistToBackend(card, newStatus, actual, notes);
 		} else {
 			void persistToBackend(card, newStatus);
 		}
@@ -338,7 +342,11 @@
 		if (saveTimeout) clearTimeout(saveTimeout);
 		saveTimeout = setTimeout(() => {
 			const status = effectiveStatus(card);
-			void persistToBackend(card, status, buildActualJson(card), detailNote.trim() || null);
+			const actual = buildActualJson(card);
+			const notes = detailNote.trim() || null;
+			card.actual_json = actual as Record<string, object>;
+			card.notes = notes;
+			void persistToBackend(card, status, actual, notes);
 		}, delay);
 	}
 
@@ -589,6 +597,9 @@
 										{@const payload = timerPayload(
 											card.payload_json as Record<string, unknown>
 										)}
+										{#if payload.pattern}
+											<p class="detail-pattern">{payload.pattern}</p>
+										{/if}
 										{#if payload.instructions}
 											<p class="detail-copy">{payload.instructions}</p>
 										{/if}
@@ -616,6 +627,7 @@
 															bind:value={detailRatings[prompt.key]}
 															min={prompt.scale_min ?? 1}
 															max={prompt.scale_max ?? 5}
+															placeholder="{prompt.scale_min ?? 1}–{prompt.scale_max ?? 5}"
 															onblur={() => onDetailBlur(card)}
 														/>
 													</label>
@@ -1159,6 +1171,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.detail-pattern {
+		margin: 0 0 4px;
+		color: #d0dce4;
+		font-size: 14px;
+		font-weight: 600;
+		letter-spacing: 0.01em;
 	}
 
 	.detail-copy {

@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Sync
+         * @description Download new data from Garmin Connect and ingest.
+         */
+        post: operations["trigger_sync_api_ingest_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dashboard": {
         parameters: {
             query?: never;
@@ -2040,13 +2060,15 @@ export interface components {
              */
             type: "ab_intervention";
             /** Baseline Start Date */
-            baseline_start_date: string;
+            baseline_start_date?: string | null;
             /** Baseline End Date */
-            baseline_end_date: string;
+            baseline_end_date?: string | null;
             /** Treatment Start Date */
-            treatment_start_date: string;
+            treatment_start_date?: string | null;
             /** Treatment End Date */
             treatment_end_date?: string | null;
+            /** Baseline Duration Days */
+            baseline_duration_days?: number | null;
             /**
              * Expected Lag Days
              * @default [
@@ -2069,13 +2091,15 @@ export interface components {
              */
             type: "ab_intervention";
             /** Baseline Start Date */
-            baseline_start_date: string;
+            baseline_start_date: string | null;
             /** Baseline End Date */
-            baseline_end_date: string;
+            baseline_end_date: string | null;
             /** Treatment Start Date */
-            treatment_start_date: string;
+            treatment_start_date: string | null;
             /** Treatment End Date */
             treatment_end_date: string | null;
+            /** Baseline Duration Days */
+            baseline_duration_days: number | null;
             /**
              * Expected Lag Days
              * @default [
@@ -3009,16 +3033,8 @@ export interface components {
             routine_id: string;
             /** Card Template Id */
             card_template_id: string;
-            /**
-             * Cycle Week
-             * @default 1
-             */
-            cycle_week: number;
-            /**
-             * Weekday
-             * @enum {string}
-             */
-            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /** Date */
+            date: string;
             /**
              * Slot
              * @enum {string}
@@ -3043,16 +3059,8 @@ export interface components {
             id: string;
             /** Card Template Id */
             card_template_id: string;
-            /**
-             * Cycle Week
-             * @default 1
-             */
-            cycle_week: number;
-            /**
-             * Weekday
-             * @enum {string}
-             */
-            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /** Day */
+            day: number;
             /**
              * Slot
              * @enum {string}
@@ -3096,11 +3104,6 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "retired" | "paused";
-            /**
-             * Cadence
-             * @enum {string}
-             */
-            cadence: "weekly" | "biweekly";
             /** Start Date */
             start_date: string;
             /** End Date */
@@ -3134,11 +3137,6 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /**
-             * Cadence
-             * @enum {string}
-             */
-            cadence: "weekly" | "biweekly";
             /** Start Date */
             start_date: string;
             /** End Date */
@@ -3422,6 +3420,21 @@ export interface components {
             avg: number | null;
             /** Ma7 */
             ma7: number | null;
+        };
+        /** SyncResult */
+        SyncResult: {
+            /** Downloaded */
+            downloaded: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** Deleted Latest */
+            deleted_latest: string | null;
+            /** Days Ingested */
+            days_ingested: number;
+            /** Duration Ms */
+            duration_ms: number;
         };
         /** TargetMetricDefinition */
         TargetMetricDefinition: {
@@ -3905,6 +3918,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestStatus"];
+                };
+            };
+        };
+    };
+    trigger_sync_api_ingest_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResult"];
                 };
             };
         };
