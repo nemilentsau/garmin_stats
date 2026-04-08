@@ -624,10 +624,11 @@ class OutcomeMetric(_DefaultsRequired):
 
 class ExperimentDesign(_DefaultsRequired):
     type: ExperimentDesignType = "ab_intervention"
-    baseline_start_date: str
-    baseline_end_date: str
-    treatment_start_date: str
+    baseline_start_date: str | None = None
+    baseline_end_date: str | None = None
+    treatment_start_date: str | None = None
     treatment_end_date: str | None = None
+    baseline_duration_days: int | None = None
     expected_lag_days: list[int] = [0]
     min_adherence_pct: float = 0.70
 

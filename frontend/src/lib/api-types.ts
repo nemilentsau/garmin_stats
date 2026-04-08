@@ -2060,13 +2060,15 @@ export interface components {
              */
             type: "ab_intervention";
             /** Baseline Start Date */
-            baseline_start_date: string;
+            baseline_start_date?: string | null;
             /** Baseline End Date */
-            baseline_end_date: string;
+            baseline_end_date?: string | null;
             /** Treatment Start Date */
-            treatment_start_date: string;
+            treatment_start_date?: string | null;
             /** Treatment End Date */
             treatment_end_date?: string | null;
+            /** Baseline Duration Days */
+            baseline_duration_days?: number | null;
             /**
              * Expected Lag Days
              * @default [
@@ -2089,13 +2091,15 @@ export interface components {
              */
             type: "ab_intervention";
             /** Baseline Start Date */
-            baseline_start_date: string;
+            baseline_start_date: string | null;
             /** Baseline End Date */
-            baseline_end_date: string;
+            baseline_end_date: string | null;
             /** Treatment Start Date */
-            treatment_start_date: string;
+            treatment_start_date: string | null;
             /** Treatment End Date */
             treatment_end_date: string | null;
+            /** Baseline Duration Days */
+            baseline_duration_days: number | null;
             /**
              * Expected Lag Days
              * @default [
