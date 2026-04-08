@@ -1,7 +1,7 @@
 # Project Rules
 
 ## Tooling & Commands
-- **Python**: `uv` only (never bare `pip`). Single venv at `backend/.venv`, Python 3.12.
+- **Python**: `uv` only (never bare `pip`). Single venv at `backend/.venv`, Python 3.14.
 - **Backend**: `cd backend && uv run uvicorn app.main:app --reload`
 - **Frontend**: `cd frontend && npm run dev`
 - **Tests**: `cd backend && uv run pytest tests/ -v`

@@ -91,7 +91,7 @@ The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Use
 
 ### Prerequisites
 
-- Python `3.12`
+- Python `3.14`
 - Node.js `20+`
 - `uv`
 
@@ -99,8 +99,7 @@ The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Use
 
 ```bash
 cd backend
-uv venv
-uv pip install -r requirements.txt
+uv sync --python 3.14
 uv run uvicorn app.main:app --reload
 ```
 
