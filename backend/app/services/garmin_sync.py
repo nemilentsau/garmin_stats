@@ -14,7 +14,7 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
-from ..infra.database import DATA_DIR, ingest_all
+from ..infra.database import DATA_DIR, ingest_dates
 from ..infra.watcher import extract_existing_archives, resume_watcher, suspend_watcher
 from ..models import SyncResult
 
@@ -129,11 +129,18 @@ def sync_garmin(data_dir: Path | None = None) -> SyncResult:
         downloaded = 0
         skipped = 0
         failed = 0
+        affected_dates: list[str] = []
+
+        # The previously-latest date was deleted above (partial data) —
+        # it will be re-downloaded, but we always need to re-ingest it.
+        if deleted_latest is not None:
+            affected_dates.append(deleted_latest)
 
         for i, day in enumerate(dates):
             result = _download_day(client, day, data_dir)
             if result == "downloaded":
                 downloaded += 1
+                affected_dates.append(day.isoformat())
             elif result == "skipped":
                 skipped += 1
             else:
@@ -143,9 +150,11 @@ def sync_garmin(data_dir: Path | None = None) -> SyncResult:
             if i < len(dates) - 1:
                 time.sleep(1)
 
-        # Extract and ingest
+        # Extract and ingest only the affected dates
         extract_existing_archives(data_dir)
-        ingest_result = ingest_all(data_dir)
+        # Deduplicate (deleted_latest overlaps with downloaded dates)
+        unique_dates = sorted(set(affected_dates))
+        ingest_result = ingest_dates(data_dir, unique_dates)
     finally:
         resume_watcher()
 

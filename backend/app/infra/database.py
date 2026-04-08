@@ -51,7 +51,7 @@ from ..models import (
     RoutineSchedule,
     UserProfile,
 )
-from ..parser import get_files_by_day, parse_all_days
+from ..parser import get_files_by_day, parse_all_days, parse_day
 from ..stats import compute_daily_aggregates
 from ..utils.timeutil import now_iso
 from . import cache
@@ -535,6 +535,74 @@ def ingest_all(data_dir: Path) -> IngestResult:
         duration_ms = int((time.monotonic() - t0) * 1000)
         log.info("Ingested %d days in %d ms", len(all_days), duration_ms)
         return IngestResult(days_ingested=len(all_days), duration_ms=duration_ms)
+    finally:
+        _ingest_lock.release()
+
+
+def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
+    """Parse and upsert only the specified dates.
+
+    Much faster than ingest_all when only a few days changed.
+    """
+    if not dates:
+        return IngestResult(days_ingested=0, duration_ms=0)
+
+    acquired = _ingest_lock.acquire(blocking=False)
+    if not acquired:
+        raise RuntimeError("Ingest already in progress")
+
+    try:
+        t0 = time.monotonic()
+        date_set = set(dates)
+        files_by_day = get_files_by_day(data_dir)
+
+        parsed_days = [
+            parse_day(d, files)
+            for d, files in sorted(files_by_day.items())
+            if d in date_set
+        ]
+
+        now = datetime.now(UTC).isoformat()
+        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
+        with _connect() as con, con:
+            for day in parsed_days:
+                con.execute(
+                    upsert.format("wellness_data"),
+                    (day.date, day.wellness.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("sleep_data"),
+                    (day.date, day.sleep.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("hrv_data"),
+                    (day.date, day.hrv.model_dump_json(), now),
+                )
+                con.execute(
+                    upsert.format("skin_temp_data"),
+                    (day.date, day.skin_temp.model_dump_json(), now),
+                )
+
+            for day in parsed_days:
+                metric = compute_daily_aggregates([day]).daily[0]
+                con.execute(
+                    upsert.format("daily_metrics"),
+                    (metric.date, metric.model_dump_json(), now),
+                )
+
+            # Update fingerprint so startup check stays in sync
+            meta_upsert = (
+                "INSERT OR REPLACE INTO ingest_meta"
+                " (key, value) VALUES (?, ?)"
+            )
+            fingerprint = compute_data_fingerprint(data_dir)
+            con.execute(meta_upsert, ("data_fingerprint", fingerprint))
+            con.execute(meta_upsert, ("last_ingest_time", now))
+
+        cache.invalidate()
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        log.info("Ingested %d days (incremental) in %d ms", len(parsed_days), duration_ms)
+        return IngestResult(days_ingested=len(parsed_days), duration_ms=duration_ms)
     finally:
         _ingest_lock.release()
 

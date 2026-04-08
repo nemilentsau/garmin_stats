@@ -522,24 +522,24 @@ def parse_skin_temp(data_dir: Path, date: str | None = None) -> list[DaySkinTemp
     ]
 
 
+def parse_day(date_str: str, day_files: dict[str, list[Path]]) -> DayData:
+    """Parse a single day's FIT files into a DayData."""
+    wellness_files = day_files.get("WELLNESS", [])
+    offset = _extract_offset_from_files(wellness_files)
+    day = DayData(
+        date=date_str,
+        utc_offset_hours=offset,
+        wellness=parse_wellness_day(wellness_files, date_str),
+        sleep=parse_sleep_day(day_files.get("SLEEP_DATA", []), date_str),
+        hrv=parse_hrv_day(day_files.get("HRV_STATUS", []), date_str),
+        skin_temp=parse_skin_temp_day(day_files.get("SKIN_TEMP", []), date_str),
+    )
+    if offset is not None:
+        _shift_timestamps(day, offset)
+    return day
+
+
 def parse_all_days(data_dir: Path) -> list[DayData]:
     """Parse all metric types for all days — single directory scan."""
     files_by_day = get_files_by_day(data_dir)
-    result: list[DayData] = []
-
-    for date, day_files in sorted(files_by_day.items()):
-        wellness_files = day_files.get("WELLNESS", [])
-        offset = _extract_offset_from_files(wellness_files)
-        day = DayData(
-            date=date,
-            utc_offset_hours=offset,
-            wellness=parse_wellness_day(wellness_files, date),
-            sleep=parse_sleep_day(day_files.get("SLEEP_DATA", []), date),
-            hrv=parse_hrv_day(day_files.get("HRV_STATUS", []), date),
-            skin_temp=parse_skin_temp_day(day_files.get("SKIN_TEMP", []), date),
-        )
-        if offset is not None:
-            _shift_timestamps(day, offset)
-        result.append(day)
-
-    return result
+    return [parse_day(d, f) for d, f in sorted(files_by_day.items())]
