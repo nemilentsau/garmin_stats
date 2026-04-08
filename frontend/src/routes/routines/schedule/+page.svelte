@@ -418,7 +418,6 @@
 				<div class="routine-header-left">
 					<h2>{selectedRoutine.name}</h2>
 					<div class="routine-meta">
-						<span class="cadence-badge">{selectedRoutine.cadence}</span>
 						<span>{formatShortDate(selectedRoutine.start_date)}{selectedRoutine.end_date ? ` \u2013 ${formatShortDate(selectedRoutine.end_date)}` : ' \u2013 ongoing'}</span>
 						<span class="status-badge" class:active={selectedRoutine.status === 'active'}>{selectedRoutine.status}</span>
 					</div>
@@ -806,18 +805,7 @@
 	.routine-select:focus { outline: none; border-color: rgba(91, 181, 166, 0.4); }
 	.routine-select option { background: #1a2632; color: #c8d6df; }
 
-	.cadence-badge {
-		padding: 2px 7px;
-		border-radius: 4px;
-		background: rgba(255, 255, 255, 0.05);
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: #8fa3b0;
-	}
-
-	.mini-tag {
+.mini-tag {
 		padding: 2px 7px;
 		border-radius: 4px;
 		background: rgba(255, 255, 255, 0.05);

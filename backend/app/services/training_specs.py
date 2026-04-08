@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, timedelta
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -148,14 +149,9 @@ def _validate_routine_spec_payload_with_available_ids(
     errors: list[str] = []
     additional_card_ids = additional_card_ids or set()
     for assignment in spec.assignments:
-        if spec.cadence == "weekly" and assignment.cycle_week != 1:
+        if assignment.day < 1:
             errors.append(
-                f"assignments.{assignment.id}.cycle_week: weekly routines must use cycle_week=1"
-            )
-        if spec.cadence == "biweekly" and assignment.cycle_week not in {1, 2}:
-            errors.append(
-                "assignments."
-                f"{assignment.id}.cycle_week: biweekly routines must use cycle_week 1 or 2"
+                f"assignments.{assignment.id}.day: must be >= 1"
             )
         if (
             assignment.card_template_id not in additional_card_ids
@@ -777,7 +773,6 @@ def _compile_routine_spec_artifact(artifact: AssistantArtifact) -> RoutineSchedu
         id=spec.id,
         name=spec.name,
         status=spec.status,
-        cadence=spec.cadence,
         start_date=spec.start_date,
         end_date=spec.end_date,
         tags=spec.tags,
@@ -786,14 +781,15 @@ def _compile_routine_spec_artifact(artifact: AssistantArtifact) -> RoutineSchedu
     )
     save_routine_schedule(routine)
     delete_routine_assignments(routine.id)
+    start = date.fromisoformat(spec.start_date)
     for assignment in spec.assignments:
+        assignment_date = (start + timedelta(days=assignment.day - 1)).isoformat()
         save_routine_assignment(
             RoutineAssignment(
                 id=assignment.id,
                 routine_id=routine.id,
                 card_template_id=assignment.card_template_id,
-                cycle_week=assignment.cycle_week,
-                weekday=assignment.weekday,
+                date=assignment_date,
                 slot=assignment.slot,
                 position=assignment.position,
                 prescription_override_json=assignment.prescription_override_json,

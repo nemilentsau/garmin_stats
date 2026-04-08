@@ -888,7 +888,6 @@ class TargetMetricsResponse(_AutoTotalResponse, items_field="metrics"):
 
 
 RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
-RoutineCadence = Literal["weekly", "biweekly"]
 SlotName = Literal["morning", "midday", "evening", "anytime"]
 WeekdayName = Literal[
     "monday",
@@ -965,8 +964,7 @@ class CardTemplateSpec(_StrictDefaultsRequired):
 class RoutineAssignmentSpec(_StrictDefaultsRequired):
     id: str
     card_template_id: str
-    cycle_week: int = 1
-    weekday: WeekdayName
+    day: int
     slot: SlotName
     position: int = 0
     prescription_override_json: dict[str, object] = {}
@@ -975,7 +973,6 @@ class RoutineAssignmentSpec(_StrictDefaultsRequired):
 class RoutineSpec(_StrictDefaultsRequired):
     id: str
     name: str
-    cadence: RoutineCadence
     start_date: str
     end_date: str | None = None
     status: EntityStatus = "active"
@@ -1078,7 +1075,6 @@ class RoutineSchedule(_DefaultsRequired):
     id: str
     name: str
     status: EntityStatus = "active"
-    cadence: RoutineCadence
     start_date: str
     end_date: str | None = None
     tags: list[str] = []
@@ -1090,8 +1086,7 @@ class RoutineAssignment(_DefaultsRequired):
     id: str
     routine_id: str
     card_template_id: str
-    cycle_week: int = 1
-    weekday: WeekdayName
+    date: str
     slot: SlotName
     position: int = 0
     prescription_override_json: dict[str, object] = {}

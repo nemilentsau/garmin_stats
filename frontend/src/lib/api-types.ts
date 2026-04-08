@@ -3029,16 +3029,8 @@ export interface components {
             routine_id: string;
             /** Card Template Id */
             card_template_id: string;
-            /**
-             * Cycle Week
-             * @default 1
-             */
-            cycle_week: number;
-            /**
-             * Weekday
-             * @enum {string}
-             */
-            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /** Date */
+            date: string;
             /**
              * Slot
              * @enum {string}
@@ -3063,16 +3055,8 @@ export interface components {
             id: string;
             /** Card Template Id */
             card_template_id: string;
-            /**
-             * Cycle Week
-             * @default 1
-             */
-            cycle_week: number;
-            /**
-             * Weekday
-             * @enum {string}
-             */
-            weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+            /** Day */
+            day: number;
             /**
              * Slot
              * @enum {string}
@@ -3116,11 +3100,6 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "retired" | "paused";
-            /**
-             * Cadence
-             * @enum {string}
-             */
-            cadence: "weekly" | "biweekly";
             /** Start Date */
             start_date: string;
             /** End Date */
@@ -3154,11 +3133,6 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /**
-             * Cadence
-             * @enum {string}
-             */
-            cadence: "weekly" | "biweekly";
             /** Start Date */
             start_date: string;
             /** End Date */

@@ -410,14 +410,13 @@ class TestStoreAndLoad:
         routine = RoutineSchedule(
             id="routine-1",
             name="Mindfulness",
-            cadence="weekly",
             start_date="2026-03-02",
         )
         assignment = RoutineAssignment(
             id="assignment-1",
             routine_id="routine-1",
             card_template_id="card-1",
-            weekday="monday",
+            date="2026-03-02",
             slot="evening",
         )
         log = CardLog(

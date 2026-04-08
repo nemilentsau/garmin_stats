@@ -76,24 +76,12 @@ def routine_is_active_on_date(routine: RoutineSchedule, day: date_cls) -> bool:
     return routine.status == "active"
 
 
-def resolve_cycle_week(routine: RoutineSchedule, day: date_cls) -> int:
-    """Resolve the recurrence cycle week for a routine on a specific date."""
-    if routine.cadence == "weekly":
-        return 1
-    start_date = parse_schedule_date(routine.start_date)
-    weeks_since_start = (day - start_date).days // 7
-    return (weeks_since_start % 2) + 1
-
-
 def assignment_matches_date(
-    routine: RoutineSchedule,
     assignment: RoutineAssignment,
     day: date_cls,
 ) -> bool:
     """Return whether an assignment should occur on a specific date."""
-    if assignment.weekday != _WEEKDAY_NAMES[day.weekday()]:
-        return False
-    return assignment.cycle_week == resolve_cycle_week(routine, day)
+    return assignment.date == day.isoformat()
 
 
 def _sort_occurrences_key(occurrence: ScheduleOccurrence) -> tuple[int, int, str]:
@@ -113,7 +101,7 @@ def _base_occurrences_for_day(
         if not routine_is_active_on_date(routine, day):
             continue
         for assignment in assignment_lookup.get(routine.id, []):
-            if not assignment_matches_date(routine, assignment, day):
+            if not assignment_matches_date(assignment, day):
                 continue
             card = card_lookup.get(assignment.card_template_id)
             if card is None:

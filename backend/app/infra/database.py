@@ -176,8 +176,7 @@ CREATE TABLE IF NOT EXISTS routine_assignments (
     id TEXT PRIMARY KEY,
     routine_id TEXT NOT NULL,
     card_template_id TEXT NOT NULL,
-    weekday TEXT NOT NULL,
-    cycle_week INTEGER NOT NULL,
+    assignment_date TEXT NOT NULL,
     slot TEXT NOT NULL,
     position INTEGER NOT NULL,
     data TEXT NOT NULL,
@@ -205,8 +204,8 @@ CREATE TABLE IF NOT EXISTS card_overrides (
 );
 CREATE INDEX IF NOT EXISTS idx_routine_entries_routine_date
     ON routine_entries (routine_id, entry_date);
-CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_weekday
-    ON routine_assignments (routine_id, weekday, cycle_week, slot, position);
+CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_date
+    ON routine_assignments (routine_id, assignment_date, slot, position);
 CREATE INDEX IF NOT EXISTS idx_card_logs_date_occurrence
     ON card_logs (log_date, occurrence_key);
 CREATE INDEX IF NOT EXISTS idx_card_overrides_date_action
@@ -1172,8 +1171,7 @@ def save_routine_assignment(assignment: RoutineAssignment) -> None:
         extra_columns={
             "routine_id": assignment.routine_id,
             "card_template_id": assignment.card_template_id,
-            "weekday": assignment.weekday,
-            "cycle_week": assignment.cycle_week,
+            "assignment_date": assignment.date,
             "slot": assignment.slot,
             "position": assignment.position,
         },
@@ -1188,7 +1186,7 @@ def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssig
         RoutineAssignment,
         where_sql=where_sql,
         params=params,
-        order_by="routine_id, weekday, cycle_week, position, id",
+        order_by="routine_id, assignment_date, slot, position, id",
     )
 
 
