@@ -1,4 +1,4 @@
-"""Repository contracts for routines use cases."""
+"""Repository contracts for routines schedule and today use cases."""
 
 from __future__ import annotations
 
