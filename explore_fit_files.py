@@ -6,7 +6,10 @@ This script analyzes Garmin FIT files using the official Garmin FIT SDK.
 Designed for Garmin Epix Gen 2 watch health data exports.
 
 Usage:
-    uv run python explore_fit_files.py [--data-dir DATA_DIR] [--summary-only] [--by-day] [--type TYPE]
+    # Prepare backend-managed env once:
+    #   cd backend && uv sync --python 3.14
+    # Run from backend so dependencies come from backend/pyproject.toml:
+    #   cd backend && uv run python ../explore_fit_files.py [--data-dir DATA_DIR] [--summary-only] [--by-day] [--type TYPE]
 """
 
 import argparse
@@ -18,7 +21,8 @@ try:
     from garmin_fit_sdk import Decoder, Stream
 except ImportError:
     print("Error: garmin-fit-sdk library not installed.")
-    print("Install it with: uv pip install garmin-fit-sdk")
+    print("Sync backend deps with: cd backend && uv sync --python 3.14")
+    print("Then run with: cd backend && uv run python ../explore_fit_files.py ...")
     exit(1)
 
 
