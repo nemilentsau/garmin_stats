@@ -173,3 +173,24 @@ def test_replace_assignments_rejects_assignments_for_other_routines():
     assert [item.id for item in db.load_routine_assignments("routine-guard")] == [
         "existing-assignment"
     ]
+
+
+def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
+    repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-target"))
+    repo.save_routine(_live_routine("routine-owner"))
+    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
+    db.save_routine_assignment(_assignment("shared-assignment", routine_id="routine-owner"))
+
+    with pytest.raises(ValueError, match="already belongs to routine routine-owner"):
+        repo.replace_assignments(
+            routine_id="routine-target",
+            assignments=[_assignment("shared-assignment", routine_id="routine-target")],
+        )
+
+    assert [item.id for item in db.load_routine_assignments("routine-target")] == [
+        "target-existing"
+    ]
+    owner_assignments = db.load_routine_assignments("routine-owner")
+    assert [item.id for item in owner_assignments] == ["shared-assignment"]
+    assert owner_assignments[0].routine_id == "routine-owner"

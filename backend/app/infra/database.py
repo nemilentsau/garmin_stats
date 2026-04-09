@@ -1268,6 +1268,21 @@ def replace_routine_assignments(
             )
 
 
+def load_routine_assignment_routine_ids(assignment_ids: list[str]) -> dict[str, str]:
+    if not assignment_ids:
+        return {}
+
+    placeholders = ", ".join("?" for _ in assignment_ids)
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT id, routine_id FROM routine_assignments WHERE id IN "
+            f"({placeholders})",
+            assignment_ids,
+        ).fetchall()
+
+    return {str(row["id"]): str(row["routine_id"]) for row in rows}
+
+
 def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:
     where_sql = "routine_id = ?" if routine_id is not None else ""
     params = (routine_id,) if routine_id is not None else ()
