@@ -1,34 +1,31 @@
-"""Today projection HTTP routes."""
+"""Compatibility wrapper for today routes."""
 
-from fastapi import APIRouter, Query
-
-from ..models import (
-    CardLog,
-    CardLogRangeResponse,
-    TodayCardLogUpdateRequest,
-    TodayResponse,
-)
-from ..services.today import get_card_log_range, get_today, upsert_today_card_log
-
-router = APIRouter(prefix="/api/today", tags=["today"])
+from app.domains.routines.api.today import router
+from app.services.today import get_card_log_range, get_today, upsert_today_card_log
 
 
-@router.get("", response_model=TodayResponse)
-def get_today_view(date: str = Query(..., description="Date (YYYY-MM-DD)")):
-    """Return compiled cards for a single day."""
+def get_today_view(date: str):
     return get_today(date)
 
 
-@router.get("/card-logs", response_model=CardLogRangeResponse)
-def get_card_logs_range(
-    start_date: str = Query(..., description="Start date (YYYY-MM-DD, inclusive)"),
-    end_date: str = Query(..., description="End date (YYYY-MM-DD, inclusive)"),
-):
-    """Return completion statuses for all card occurrences in a date range."""
+def get_today_card_logs(start_date: str, end_date: str):
     return get_card_log_range(start_date, end_date)
 
 
-@router.put("/{date}/cards/{occurrence_key}", response_model=CardLog)
-def put_today_card_log(date: str, occurrence_key: str, request: TodayCardLogUpdateRequest):
-    """Create or replace the log for a single card occurrence."""
+def get_card_logs_range(start_date: str, end_date: str):
+    return get_today_card_logs(start_date, end_date)
+
+
+def put_today_card_log(date: str, occurrence_key: str, request):
     return upsert_today_card_log(date, occurrence_key, request)
+
+__all__ = [
+    "router",
+    "get_card_log_range",
+    "get_today",
+    "upsert_today_card_log",
+    "get_today_view",
+    "get_today_card_logs",
+    "get_card_logs_range",
+    "put_today_card_log",
+]

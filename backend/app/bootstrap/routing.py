@@ -2,6 +2,9 @@
 
 from fastapi import FastAPI
 
+from app.domains.routines.api.routines import router as routines_router
+from app.domains.routines.api.today import router as today_router
+
 from ..routers.assistant import router as assistant_router
 from ..routers.assistant_artifact_bundles import router as assistant_artifact_bundles_router
 from ..routers.assistant_artifacts import router as assistant_artifacts_router
@@ -19,12 +22,10 @@ from ..routers.ingest import router as ingest_router
 from ..routers.notes import router as notes_router
 from ..routers.profile import router as profile_router
 from ..routers.programs import router as programs_router
-from ..routers.routines import router as routines_router
 from ..routers.skin_temp import router as skin_temp_router
 from ..routers.sleep import router as sleep_router
 from ..routers.stress import router as stress_router
 from ..routers.target_metrics import router as target_metrics_router
-from ..routers.today import router as today_router
 from ..routers.wellness import router as wellness_router
 
 

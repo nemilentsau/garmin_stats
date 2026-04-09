@@ -162,8 +162,10 @@ class TestExceptionHandlers:
 
     def test_value_error_returns_400(self, monkeypatch):
         monkeypatch.setattr(
-            "app.routers.routines.get_schedule_window",
-            lambda *_args: (_ for _ in ()).throw(ValueError("duration_days must be > 0")),
+            "app.domains.routines.api.routines.get_schedule_window",
+            lambda *_args, **_kwargs: (
+                _ for _ in ()
+            ).throw(ValueError("duration_days must be > 0")),
         )
 
         status, _headers, body = asyncio.run(

@@ -5,13 +5,23 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, timedelta
 from uuid import uuid4
 
 from pydantic import ValidationError
 
+from app.bootstrap.container import build_container
+from app.domains.routines.application.activation import compile_routine_artifact
+from app.domains.routines.application.catalog import (
+    get_routine as get_domain_routine,
+)
+from app.domains.routines.application.catalog import (
+    list_routine_assignments as list_domain_routine_assignments,
+)
+from app.domains.routines.application.catalog import (
+    list_routines as list_domain_routines,
+)
+
 from ..infra.database import (
-    delete_routine_assignments,
     load_assistant_artifact,
     load_assistant_artifact_by_payload_id,
     load_assistant_artifacts,
@@ -20,12 +30,9 @@ from ..infra.database import (
     load_max_artifact_revision,
     load_routine_assignments,
     load_routine_schedule,
-    load_routine_schedules,
     save_assistant_artifact,
     save_assistant_artifacts_batch,
     save_card_template,
-    save_routine_assignment,
-    save_routine_schedule,
 )
 from ..models import (
     ArtifactBundleDelta,
@@ -44,7 +51,6 @@ from ..models import (
     CardTemplatesResponse,
     ChecklistBlockPayloadSpec,
     ExerciseBlockPayloadSpec,
-    RoutineAssignment,
     RoutineAssignmentsResponse,
     RoutineSchedule,
     RoutineSchedulesResponse,
@@ -53,6 +59,7 @@ from ..models import (
 )
 from ..utils.timeutil import now_iso
 
+_routine_repo = build_container().routines_repo
 _PAYLOAD_MODELS = {
     "timer_session": TimerSessionPayloadSpec,
     "checklist_block": ChecklistBlockPayloadSpec,
@@ -762,40 +769,13 @@ def _activate_card_template_dependency(
 
 
 def _compile_routine_spec_artifact(artifact: AssistantArtifact) -> RoutineSchedule:
-    spec = RoutineSpec.model_validate(artifact.payload_json)
-    for assignment in spec.assignments:
-        _activate_card_template_dependency(
-            assignment.card_template_id,
-            source_artifact=artifact,
-        )
-
-    routine = RoutineSchedule(
-        id=spec.id,
-        name=spec.name,
-        status=spec.status,
-        start_date=spec.start_date,
-        end_date=spec.end_date,
-        tags=spec.tags,
-        notes=spec.notes,
-        source_artifact_id=artifact.id,
+    return compile_routine_artifact(
+        _routine_repo,
+        artifact,
+        activate_card_template_dependency=lambda card_id, source_artifact: (
+            _activate_card_template_dependency(card_id, source_artifact=source_artifact)
+        ),
     )
-    save_routine_schedule(routine)
-    delete_routine_assignments(routine.id)
-    start = date.fromisoformat(spec.start_date)
-    for assignment in spec.assignments:
-        assignment_date = (start + timedelta(days=assignment.day - 1)).isoformat()
-        save_routine_assignment(
-            RoutineAssignment(
-                id=assignment.id,
-                routine_id=routine.id,
-                card_template_id=assignment.card_template_id,
-                date=assignment_date,
-                slot=assignment.slot,
-                position=assignment.position,
-                prescription_override_json=assignment.prescription_override_json,
-            )
-        )
-    return routine
 
 
 def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
@@ -823,18 +803,12 @@ def list_cards(status: str | None = None) -> CardTemplatesResponse:
 
 
 def list_routines(status: str | None = None) -> RoutineSchedulesResponse:
-    routines = load_routine_schedules(status=status)
-    return RoutineSchedulesResponse(routines=routines)
+    return list_domain_routines(_routine_repo, status=status)
 
 
 def get_routine(routine_id: str) -> RoutineSchedule:
-    routine = load_routine_schedule(routine_id)
-    if routine is None:
-        raise LookupError(f"Routine {routine_id} not found")
-    return routine
+    return get_domain_routine(_routine_repo, routine_id)
 
 
 def list_routine_assignments(routine_id: str) -> RoutineAssignmentsResponse:
-    get_routine(routine_id)
-    assignments = load_routine_assignments(routine_id=routine_id)
-    return RoutineAssignmentsResponse(assignments=assignments)
+    return list_domain_routine_assignments(_routine_repo, routine_id)
