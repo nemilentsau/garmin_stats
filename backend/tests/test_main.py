@@ -5,6 +5,7 @@ import json
 
 from starlette.types import Message
 
+import app.bootstrap.lifespan as lifespan_mod
 import app.main as main_mod
 from app.models import IngestResult, IngestStatus
 
@@ -114,18 +115,22 @@ class TestStartupIngest:
             order.append("ingest")
             return expected
 
-        monkeypatch.setattr(main_mod, "extract_existing_archives", fake_extract_existing_archives)
-        monkeypatch.setattr(main_mod, "check_ingest_status", fake_check_ingest_status)
-        monkeypatch.setattr(main_mod, "ingest_all", fake_ingest_all)
+        monkeypatch.setattr(
+            lifespan_mod,
+            "extract_existing_archives",
+            fake_extract_existing_archives,
+        )
+        monkeypatch.setattr(lifespan_mod, "check_ingest_status", fake_check_ingest_status)
+        monkeypatch.setattr(lifespan_mod, "ingest_all", fake_ingest_all)
 
-        main_mod._run_startup_ingest_if_needed()
+        lifespan_mod._run_startup_ingest_if_needed()
 
         assert order == ["extract", "ingest"]
 
     def test_skips_ingest_when_disk_state_matches_database(self, monkeypatch):
-        monkeypatch.setattr(main_mod, "extract_existing_archives", lambda _data_dir: 0)
+        monkeypatch.setattr(lifespan_mod, "extract_existing_archives", lambda _data_dir: 0)
         monkeypatch.setattr(
-            main_mod,
+            lifespan_mod,
             "check_ingest_status",
             lambda _data_dir: IngestStatus(
                 needs_ingest=False,
@@ -135,12 +140,12 @@ class TestStartupIngest:
             ),
         )
         monkeypatch.setattr(
-            main_mod,
+            lifespan_mod,
             "ingest_all",
             lambda _data_dir: (_ for _ in ()).throw(AssertionError("ingest_all should not run")),
         )
 
-        main_mod._run_startup_ingest_if_needed()
+        lifespan_mod._run_startup_ingest_if_needed()
 
 
 class TestExceptionHandlers:
