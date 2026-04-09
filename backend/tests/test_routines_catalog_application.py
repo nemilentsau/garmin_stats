@@ -2,6 +2,7 @@
 
 import pytest
 
+import app.domains.routines.infra.sqlite_repository as routines_repo_mod
 import app.infra.database as db
 from app.domains.routines.application.catalog import (
     get_routine,
@@ -92,10 +93,12 @@ def _assignment(assignment_id: str, *, routine_id: str) -> RoutineAssignment:
 
 def test_list_routines_reads_live_schedules():
     repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-active"))
+    repo.save_routine(_live_routine("routine-paused").model_copy(update={"status": "paused"}))
 
     response = list_routines(repo, status="active")
 
-    assert response.routines == []
+    assert [routine.id for routine in response.routines] == ["routine-active"]
 
 
 def test_get_routine_and_assignments_read_same_routine():
@@ -194,3 +197,33 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
     owner_assignments = db.load_routine_assignments("routine-owner")
     assert [item.id for item in owner_assignments] == ["shared-assignment"]
     assert owner_assignments[0].routine_id == "routine-owner"
+
+
+def test_replace_assignments_rechecks_ownership_inside_write_transaction(monkeypatch):
+    repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-target"))
+    repo.save_routine(_live_routine("routine-owner"))
+    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
+    original_replace = routines_repo_mod.replace_routine_assignments
+
+    def insert_conflict_before_replace(routine_id: str, assignments: list[RoutineAssignment]):
+        db.save_routine_assignment(_assignment("raced-assignment", routine_id="routine-owner"))
+        return original_replace(routine_id, assignments)
+
+    monkeypatch.setattr(
+        routines_repo_mod,
+        "replace_routine_assignments",
+        insert_conflict_before_replace,
+    )
+
+    with pytest.raises(ValueError, match="already belongs to routine routine-owner"):
+        repo.replace_assignments(
+            routine_id="routine-target",
+            assignments=[_assignment("raced-assignment", routine_id="routine-target")],
+        )
+
+    assert [item.id for item in db.load_routine_assignments("routine-target")] == [
+        "target-existing"
+    ]
+    owner_assignments = db.load_routine_assignments("routine-owner")
+    assert [item.id for item in owner_assignments] == ["raced-assignment"]

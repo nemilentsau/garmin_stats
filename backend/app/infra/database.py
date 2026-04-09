@@ -1250,37 +1250,47 @@ def replace_routine_assignments(
     routine_id: str,
     assignments: list[RoutineAssignment],
 ) -> None:
-    with _connect() as con, con:
-        con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
-        for assignment in assignments:
-            _save_json_record_in_connection(
-                con,
-                "routine_assignments",
-                assignment.id,
-                assignment.model_dump_json(),
-                extra_columns={
-                    "routine_id": assignment.routine_id,
-                    "card_template_id": assignment.card_template_id,
-                    "assignment_date": assignment.date,
-                    "slot": assignment.slot,
-                    "position": assignment.position,
-                },
-            )
-
-
-def load_routine_assignment_routine_ids(assignment_ids: list[str]) -> dict[str, str]:
-    if not assignment_ids:
-        return {}
-
-    placeholders = ", ".join("?" for _ in assignment_ids)
     with _connect() as con:
-        rows = con.execute(
-            "SELECT id, routine_id FROM routine_assignments WHERE id IN "
-            f"({placeholders})",
-            assignment_ids,
-        ).fetchall()
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            if assignments:
+                placeholders = ", ".join("?" for _ in assignments)
+                rows = con.execute(
+                    "SELECT id, routine_id FROM routine_assignments WHERE id IN "
+                    f"({placeholders})",
+                    [assignment.id for assignment in assignments],
+                ).fetchall()
+                existing_routine_ids = {
+                    str(row["id"]): str(row["routine_id"]) for row in rows
+                }
+                for assignment in assignments:
+                    owner_routine_id = existing_routine_ids.get(assignment.id)
+                    if owner_routine_id is not None and owner_routine_id != routine_id:
+                        raise ValueError(
+                            f"Assignment id '{assignment.id}' already belongs to routine "
+                            f"{owner_routine_id}"
+                        )
 
-    return {str(row["id"]): str(row["routine_id"]) for row in rows}
+            con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
+            for assignment in assignments:
+                _save_json_record_in_connection(
+                    con,
+                    "routine_assignments",
+                    assignment.id,
+                    assignment.model_dump_json(),
+                    extra_columns={
+                        "routine_id": assignment.routine_id,
+                        "card_template_id": assignment.card_template_id,
+                        "assignment_date": assignment.date,
+                        "slot": assignment.slot,
+                        "position": assignment.position,
+                    },
+                )
+        except Exception:
+            con.rollback()
+            raise
+        else:
+            con.commit()
 
 
 def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:

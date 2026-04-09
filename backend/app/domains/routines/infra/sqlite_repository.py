@@ -8,7 +8,6 @@ from app.infra.database import (
     load_card_overrides_range,
     load_card_template,
     load_card_templates,
-    load_routine_assignment_routine_ids,
     load_routine_assignments,
     load_routine_schedule,
     load_routine_schedules,
@@ -58,16 +57,5 @@ class SqliteRoutineRepository:
     ) -> None:
         if any(assignment.routine_id != routine_id for assignment in assignments):
             raise ValueError("All assignments must match the provided routine_id")
-
-        existing_routine_ids = load_routine_assignment_routine_ids(
-            [assignment.id for assignment in assignments]
-        )
-        for assignment in assignments:
-            owner_routine_id = existing_routine_ids.get(assignment.id)
-            if owner_routine_id is not None and owner_routine_id != routine_id:
-                raise ValueError(
-                    f"Assignment id '{assignment.id}' already belongs to routine "
-                    f"{owner_routine_id}"
-                )
 
         replace_routine_assignments(routine_id, assignments)
