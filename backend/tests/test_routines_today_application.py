@@ -8,7 +8,11 @@ from app.domains.routines.application.today import (
     upsert_today_card_log,
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import AssistantArtifactCreateRequest, TodayCardLogUpdateRequest
+from app.models import (
+    AssistantArtifactCreateRequest,
+    CardLog,
+    TodayCardLogUpdateRequest,
+)
 from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
@@ -80,8 +84,36 @@ def test_get_today_returns_grouped_slots_and_stats():
 
 def test_get_card_log_range_excludes_pending_entries():
     repo = SqliteRoutineRepository()
+    repo.save_card_log(
+        CardLog(
+            id="card-log:2026-03-02:pending",
+            date="2026-03-02",
+            occurrence_key="scheduled:pending:2026-03-02",
+            card_template_id="card-pending",
+            assignment_id="assignment-pending",
+            status="pending",
+            actual_json={},
+            notes=None,
+        )
+    )
+    repo.save_card_log(
+        CardLog(
+            id="card-log:2026-03-02:completed",
+            date="2026-03-02",
+            occurrence_key="scheduled:completed:2026-03-02",
+            card_template_id="card-completed",
+            assignment_id="assignment-completed",
+            status="completed",
+            actual_json={"actual_minutes": 10},
+            notes="Done",
+        )
+    )
+
     response = get_card_log_range(repo, start_date="2026-03-02", end_date="2026-03-02")
-    assert response.entries == []
+
+    assert len(response.entries) == 1
+    assert response.entries[0].occurrence_key == "scheduled:completed:2026-03-02"
+    assert response.entries[0].status == "completed"
 
 
 def test_upsert_today_card_log_validates_occurrence_identity():
@@ -96,3 +128,30 @@ def test_upsert_today_card_log_validates_occurrence_identity():
 
     with pytest.raises(LookupError, match="Today occurrence missing not found"):
         upsert_today_card_log(repo, date="2026-03-02", occurrence_key="missing", request=request)
+
+
+def test_upsert_today_card_log_rejects_assignment_mismatch():
+    card_artifact = create_assistant_artifact(_card_request("card-assignment"))
+    activate_assistant_artifact(card_artifact.id)
+    routine_artifact = create_assistant_artifact(
+        _routine_request("routine-assignment", card_id="card-assignment")
+    )
+    activate_assistant_artifact(routine_artifact.id)
+
+    repo = SqliteRoutineRepository()
+    today = get_today(repo, date="2026-03-02")
+    scheduled_card = today.slots[2].cards[0]
+
+    with pytest.raises(ValueError, match="Assignment id does not match"):
+        upsert_today_card_log(
+            repo,
+            date="2026-03-02",
+            occurrence_key=scheduled_card.occurrence_key,
+            request=TodayCardLogUpdateRequest(
+                card_template_id=scheduled_card.card_template_id,
+                assignment_id="wrong-assignment",
+                status="completed",
+                actual_json={},
+                notes=None,
+            ),
+        )

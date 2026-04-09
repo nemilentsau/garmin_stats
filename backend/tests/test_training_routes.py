@@ -10,6 +10,7 @@ from starlette.types import Message
 import app.routers.assistant_artifact_bundles as artifact_bundles_mod
 import app.routers.assistant_artifacts as artifacts_mod
 import app.routers.today as today_mod
+from app.models import CardLogRangeResponse, CardLogStatusEntry
 
 
 async def _today_status(method: str, path: str) -> int:
@@ -127,6 +128,36 @@ class TestAssistantArtifactBundleRoutes:
 
 
 class TestTodayRoutes:
+    def test_get_card_logs_range_delegates_through_today_service(self, monkeypatch):
+        def _service_response(*_args, **_kwargs):
+            return CardLogRangeResponse(
+                start_date="2026-03-02",
+                end_date="2026-03-03",
+                entries=[
+                    CardLogStatusEntry(
+                        occurrence_key="scheduled:assignment-1:2026-03-02",
+                        status="completed",
+                    )
+                ],
+            )
+
+        def _db_leak(*_args, **_kwargs):
+            raise AssertionError("Route should delegate through app.services.today")
+
+        monkeypatch.setattr(today_mod, "get_card_log_range", _service_response, raising=False)
+        monkeypatch.setattr(today_mod, "load_card_logs_range", _db_leak, raising=False)
+
+        response = today_mod.get_card_logs_range("2026-03-02", "2026-03-03")
+
+        assert response.start_date == "2026-03-02"
+        assert response.end_date == "2026-03-03"
+        assert response.entries == [
+            CardLogStatusEntry(
+                occurrence_key="scheduled:assignment-1:2026-03-02",
+                status="completed",
+            )
+        ]
+
     def test_post_today_cards_returns_404(self):
         status = asyncio.run(_today_status("POST", "/api/today/2026-03-02/cards"))
 
