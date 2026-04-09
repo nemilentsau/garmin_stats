@@ -1,8 +1,9 @@
 """Tests for routines catalog use cases."""
 
+from contextlib import contextmanager
+
 import pytest
 
-import app.domains.routines.infra.sqlite_repository as routines_repo_mod
 import app.infra.database as db
 from app.domains.routines.application.catalog import (
     get_routine,
@@ -199,31 +200,56 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
     assert owner_assignments[0].routine_id == "routine-owner"
 
 
-def test_replace_assignments_rechecks_ownership_inside_write_transaction(monkeypatch):
+def test_replace_assignments_replaces_existing_assignments_for_target_routine():
     repo = SqliteRoutineRepository()
-    repo.save_routine(_live_routine("routine-target"))
-    repo.save_routine(_live_routine("routine-owner"))
-    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
-    original_replace = routines_repo_mod.replace_routine_assignments
+    repo.save_routine(_live_routine("routine-replace"))
+    db.save_routine_assignment(_assignment("old-assignment-1", routine_id="routine-replace"))
+    db.save_routine_assignment(_assignment("old-assignment-2", routine_id="routine-replace"))
 
-    def insert_conflict_before_replace(routine_id: str, assignments: list[RoutineAssignment]):
-        db.save_routine_assignment(_assignment("raced-assignment", routine_id="routine-owner"))
-        return original_replace(routine_id, assignments)
-
-    monkeypatch.setattr(
-        routines_repo_mod,
-        "replace_routine_assignments",
-        insert_conflict_before_replace,
+    repo.replace_assignments(
+        routine_id="routine-replace",
+        assignments=[
+            _assignment("new-assignment-1", routine_id="routine-replace"),
+            _assignment("new-assignment-2", routine_id="routine-replace"),
+        ],
     )
 
-    with pytest.raises(ValueError, match="already belongs to routine routine-owner"):
-        repo.replace_assignments(
-            routine_id="routine-target",
-            assignments=[_assignment("raced-assignment", routine_id="routine-target")],
-        )
-
-    assert [item.id for item in db.load_routine_assignments("routine-target")] == [
-        "target-existing"
+    assert [item.id for item in db.load_routine_assignments("routine-replace")] == [
+        "new-assignment-1",
+        "new-assignment-2",
     ]
-    owner_assignments = db.load_routine_assignments("routine-owner")
-    assert [item.id for item in owner_assignments] == ["raced-assignment"]
+
+
+def test_replace_routine_assignments_begins_transaction_before_ownership_query(monkeypatch):
+    repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-target"))
+    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
+    original_connect = db._connect
+    executed_sql: list[str] = []
+
+    class SpyConnection:
+        def __init__(self, con):
+            self._con = con
+
+        def execute(self, sql: str, params=()):
+            executed_sql.append(sql)
+            return self._con.execute(sql, params)
+
+        def __getattr__(self, name):
+            return getattr(self._con, name)
+
+    @contextmanager
+    def spy_connect():
+        with original_connect() as con:
+            yield SpyConnection(con)
+
+    monkeypatch.setattr(db, "_connect", spy_connect)
+
+    db.replace_routine_assignments(
+        "routine-target",
+        [_assignment("new-assignment", routine_id="routine-target")],
+    )
+
+    assert executed_sql[0] == "BEGIN IMMEDIATE"
+    assert executed_sql[1].startswith("SELECT id, routine_id FROM routine_assignments WHERE id IN")
+    assert executed_sql[2] == "DELETE FROM routine_assignments WHERE routine_id = ?"
