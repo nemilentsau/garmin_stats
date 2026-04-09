@@ -17,6 +17,9 @@ from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_DATA_DIR = SCRIPT_DIR / "data"
+
 try:
     from garmin_fit_sdk import Decoder, Stream
 except ImportError:
@@ -204,8 +207,8 @@ def main():
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path("data"),
-        help="Directory containing FIT files (default: data)",
+        default=DEFAULT_DATA_DIR,
+        help=f"Directory containing FIT files (default: {DEFAULT_DATA_DIR})",
     )
     parser.add_argument(
         "--summary-only",
