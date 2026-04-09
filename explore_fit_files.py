@@ -13,12 +13,60 @@ Usage:
 """
 
 import argparse
-from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
+import subprocess
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_DATA_DIR = SCRIPT_DIR / "data"
+
+
+def _derive_shared_checkout_root(repo_root: Path) -> Path | None:
+    """Derive the shared checkout root from git metadata, if available."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+    common_dir_raw = proc.stdout.strip()
+    if not common_dir_raw:
+        return None
+
+    common_dir = Path(common_dir_raw).resolve()
+
+    # Standard non-bare repo: git-common-dir ends with ".git".
+    if common_dir.name == ".git":
+        return common_dir.parent
+
+    # Defensive fallback for unusual layouts that still contain a ".git" segment.
+    for parent in [common_dir, *common_dir.parents]:
+        if parent.name == ".git":
+            return parent.parent
+
+    return None
+
+
+def resolve_default_data_dir() -> tuple[Path, list[Path]]:
+    """Resolve a sensible default data path for normal checkouts and worktrees."""
+    local_data = SCRIPT_DIR / "data"
+    candidates = [local_data]
+    if local_data.exists():
+        return local_data, candidates
+
+    shared_root = _derive_shared_checkout_root(SCRIPT_DIR)
+    if shared_root and shared_root != SCRIPT_DIR:
+        shared_data = shared_root / "data"
+        candidates.append(shared_data)
+        if shared_data.exists():
+            return shared_data, candidates
+
+    return local_data, candidates
 
 try:
     from garmin_fit_sdk import Decoder, Stream
@@ -203,12 +251,14 @@ def generate_summary(files_by_day: dict, all_analyses: dict):
 
 
 def main():
+    default_data_dir, default_candidates = resolve_default_data_dir()
+
     parser = argparse.ArgumentParser(description="Explore Garmin FIT files")
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=DEFAULT_DATA_DIR,
-        help=f"Directory containing FIT files (default: {DEFAULT_DATA_DIR})",
+        default=default_data_dir,
+        help=f"Directory containing FIT files (default: {default_data_dir})",
     )
     parser.add_argument(
         "--summary-only",
@@ -228,7 +278,11 @@ def main():
     args = parser.parse_args()
 
     if not args.data_dir.exists():
-        print(f"Error: Data directory '{args.data_dir}' not found")
+        if args.data_dir == default_data_dir and len(default_candidates) > 1:
+            checked = ", ".join(str(path) for path in default_candidates)
+            print(f"Error: Data directory not found. Checked: {checked}")
+        else:
+            print(f"Error: Data directory '{args.data_dir}' not found")
         return 1
 
     print("🔍 Scanning for FIT files (using official Garmin SDK)...")
