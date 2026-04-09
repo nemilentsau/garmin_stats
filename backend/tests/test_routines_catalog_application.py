@@ -1,12 +1,15 @@
 """Tests for routines catalog use cases."""
 
+import pytest
+
+import app.infra.database as db
 from app.domains.routines.application.catalog import (
     get_routine,
     list_routine_assignments,
     list_routines,
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import AssistantArtifactCreateRequest
+from app.models import AssistantArtifactCreateRequest, RoutineAssignment, RoutineSchedule
 from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
@@ -64,6 +67,29 @@ def _routine_request(
     )
 
 
+def _live_routine(routine_id: str) -> RoutineSchedule:
+    return RoutineSchedule(
+        id=routine_id,
+        name=f"Routine {routine_id}",
+        start_date="2026-03-02",
+        status="active",
+        tags=["training"],
+        notes="Catalog fixture",
+    )
+
+
+def _assignment(assignment_id: str, *, routine_id: str) -> RoutineAssignment:
+    return RoutineAssignment(
+        id=assignment_id,
+        routine_id=routine_id,
+        card_template_id="card-catalog",
+        date="2026-03-02",
+        slot="morning",
+        position=10,
+        prescription_override_json={},
+    )
+
+
 def test_list_routines_reads_live_schedules():
     repo = SqliteRoutineRepository()
 
@@ -86,3 +112,64 @@ def test_get_routine_and_assignments_read_same_routine():
 
     assert routine.id == "routine-catalog"
     assert assignments.assignments[0].routine_id == "routine-catalog"
+
+
+def test_get_routine_raises_lookup_error_for_missing_routine():
+    repo = SqliteRoutineRepository()
+
+    with pytest.raises(LookupError, match="Routine missing-routine not found"):
+        get_routine(repo, "missing-routine")
+
+
+def test_list_routine_assignments_raises_lookup_error_for_missing_routine():
+    repo = SqliteRoutineRepository()
+
+    with pytest.raises(LookupError, match="Routine missing-routine not found"):
+        list_routine_assignments(repo, "missing-routine")
+
+
+def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
+    repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-atomic"))
+    db.save_routine_assignment(_assignment("existing-assignment", routine_id="routine-atomic"))
+    original_save = db._save_json_record_in_connection
+    save_calls = 0
+
+    def fail_on_second_assignment_write(*args, **kwargs):
+        nonlocal save_calls
+        if args[1] == "routine_assignments":
+            save_calls += 1
+            if save_calls == 2:
+                raise RuntimeError("simulated write failure")
+        return original_save(*args, **kwargs)
+
+    monkeypatch.setattr(db, "_save_json_record_in_connection", fail_on_second_assignment_write)
+
+    with pytest.raises(RuntimeError, match="simulated write failure"):
+        repo.replace_assignments(
+            routine_id="routine-atomic",
+            assignments=[
+                _assignment("new-assignment-1", routine_id="routine-atomic"),
+                _assignment("new-assignment-2", routine_id="routine-atomic"),
+            ],
+        )
+
+    assert [item.id for item in db.load_routine_assignments("routine-atomic")] == [
+        "existing-assignment"
+    ]
+
+
+def test_replace_assignments_rejects_assignments_for_other_routines():
+    repo = SqliteRoutineRepository()
+    repo.save_routine(_live_routine("routine-guard"))
+    db.save_routine_assignment(_assignment("existing-assignment", routine_id="routine-guard"))
+
+    with pytest.raises(ValueError, match="routine_id"):
+        repo.replace_assignments(
+            routine_id="routine-guard",
+            assignments=[_assignment("wrong-routine-assignment", routine_id="other-routine")],
+        )
+
+    assert [item.id for item in db.load_routine_assignments("routine-guard")] == [
+        "existing-assignment"
+    ]

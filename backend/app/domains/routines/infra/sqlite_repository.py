@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from app.infra.database import (
-    delete_routine_assignments,
     load_card_logs,
     load_card_logs_range,
     load_card_overrides_range,
@@ -12,8 +11,8 @@ from app.infra.database import (
     load_routine_assignments,
     load_routine_schedule,
     load_routine_schedules,
+    replace_routine_assignments,
     save_card_log,
-    save_routine_assignment,
     save_routine_schedule,
 )
 from app.models import CardLog, RoutineAssignment, RoutineSchedule
@@ -56,6 +55,7 @@ class SqliteRoutineRepository:
         routine_id: str,
         assignments: list[RoutineAssignment],
     ) -> None:
-        delete_routine_assignments(routine_id)
-        for assignment in assignments:
-            save_routine_assignment(assignment)
+        if any(assignment.routine_id != routine_id for assignment in assignments):
+            raise ValueError("All assignments must match the provided routine_id")
+
+        replace_routine_assignments(routine_id, assignments)

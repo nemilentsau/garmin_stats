@@ -1246,6 +1246,28 @@ def save_routine_assignment(assignment: RoutineAssignment) -> None:
     )
 
 
+def replace_routine_assignments(
+    routine_id: str,
+    assignments: list[RoutineAssignment],
+) -> None:
+    with _connect() as con, con:
+        con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
+        for assignment in assignments:
+            _save_json_record_in_connection(
+                con,
+                "routine_assignments",
+                assignment.id,
+                assignment.model_dump_json(),
+                extra_columns={
+                    "routine_id": assignment.routine_id,
+                    "card_template_id": assignment.card_template_id,
+                    "assignment_date": assignment.date,
+                    "slot": assignment.slot,
+                    "position": assignment.position,
+                },
+            )
+
+
 def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:
     where_sql = "routine_id = ?" if routine_id is not None else ""
     params = (routine_id,) if routine_id is not None else ()
