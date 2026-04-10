@@ -36,12 +36,18 @@ Experiments and programs are not removed from the backend, but they are intentio
 There are two major paths:
 
 - Ingest path: FIT files -> `parser.py` -> `stats.py` -> SQLite
-- Read path: SQLite -> services/routers -> JSON API -> frontend
+- Read path: SQLite -> domain application or legacy services -> JSON API -> frontend
 
 ### Core modules
 
 - `backend/app/models.py`
   Pydantic contracts for Garmin metrics, assistant state, routine runtime, and API responses.
+
+- `backend/app/bootstrap/`
+  App factory, lifespan wiring, router registration, and the current composition root.
+
+- `backend/app/core/`
+  Shared cross-cutting modules being extracted out of the flat app root.
 
 - `backend/app/parser.py`
   FIT parsing and timestamp normalization into local time.
@@ -50,7 +56,7 @@ There are two major paths:
   Deterministic aggregations and response shaping.
 
 - `backend/app/main.py`
-  FastAPI app setup, CORS, lifespan tasks, and router registration.
+  Compatibility entrypoint that exposes the assembled FastAPI app.
 
 ### Infrastructure
 
@@ -71,6 +77,9 @@ There are two major paths:
 - `assistant.py`, `assistant_context.py`, `assistant_runtime.py`
   Assistant orchestration and prompt/runtime integration.
 
+- `domains/routines/`
+  The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
+
 - `dashboard.py`
   Recovery dashboard summaries.
 
@@ -82,13 +91,13 @@ There are two major paths:
   Metric-specific analysis and drill-down logic.
 
 - `training_specs.py`
-  Assistant artifact validation/import/activation and live runtime compilation.
+  Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.
 
 - `schedule_projection.py`
-  Backend-owned 14-day schedule resolution shared by Schedule and Today.
+  Compatibility wrapper over `domains/routines/application/schedule_window.py`.
 
 - `today.py`
-  Day execution/read model plus logging writes.
+  Compatibility wrapper over `domains/routines/application/today.py`.
 
 - `profile.py`, `checkins.py`, `notes.py`, `experiments.py`, `programs.py`, `target_metrics.py`
   Secondary/parked domain services still present in the backend.
@@ -135,6 +144,8 @@ There are two major paths:
 
 This is the most important current product boundary.
 
+- Domain routes now mount from `backend/app/domains/routines/api/`.
+- `backend/app/routers/routines.py` and `backend/app/routers/today.py` remain import-compatible wrappers while callers migrate.
 - `/routines/schedule` handles routine review and bundle import
 - `/today` reads one day of live compiled occurrences and writes logs only
 

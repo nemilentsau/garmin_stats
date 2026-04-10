@@ -147,6 +147,50 @@ class TestStartupIngest:
 
         lifespan_mod._run_startup_ingest_if_needed()
 
+    def test_second_startup_run_is_a_no_op_after_initial_ingest(self, monkeypatch):
+        order: list[str] = []
+        statuses = iter(
+            [
+                IngestStatus(
+                    needs_ingest=True,
+                    last_ingest_time="2026-03-15T00:00:00Z",
+                    days_in_db=0,
+                    days_on_disk=72,
+                ),
+                IngestStatus(
+                    needs_ingest=False,
+                    last_ingest_time="2026-03-15T00:05:21Z",
+                    days_in_db=72,
+                    days_on_disk=72,
+                ),
+            ]
+        )
+
+        def fake_extract_existing_archives(_data_dir):
+            order.append("extract")
+            return 0
+
+        def fake_check_ingest_status(_data_dir):
+            order.append("status")
+            return next(statuses)
+
+        def fake_ingest_all(_data_dir):
+            order.append("ingest")
+            return IngestResult(days_ingested=72, duration_ms=321)
+
+        monkeypatch.setattr(
+            lifespan_mod,
+            "extract_existing_archives",
+            fake_extract_existing_archives,
+        )
+        monkeypatch.setattr(lifespan_mod, "check_ingest_status", fake_check_ingest_status)
+        monkeypatch.setattr(lifespan_mod, "ingest_all", fake_ingest_all)
+
+        lifespan_mod._run_startup_ingest_if_needed()
+        lifespan_mod._run_startup_ingest_if_needed()
+
+        assert order == ["extract", "status", "ingest", "extract", "status"]
+
 
 class TestExceptionHandlers:
     def test_lookup_error_returns_404(self, monkeypatch):

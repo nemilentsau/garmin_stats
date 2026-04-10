@@ -2,10 +2,12 @@
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
+import app.services.training_specs as training_specs_mod
 from app.infra.database import (
     load_assistant_artifacts,
     load_card_template,
@@ -26,6 +28,7 @@ from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
     import_artifact_bundle,
+    list_routines,
     preview_artifact_bundle,
 )
 
@@ -192,6 +195,26 @@ def _starter_bundle_spec() -> ArtifactBundleSpec:
 
 def _exercise_list(payload_json: dict[str, object]) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], payload_json["exercises"])
+
+
+def test_list_routines_uses_current_container_repo(monkeypatch):
+    observed_statuses: list[str | None] = []
+
+    class FakeRoutineRepo:
+        def list_routines(self, *, status: str | None = None):
+            observed_statuses.append(status)
+            return []
+
+    monkeypatch.setattr(
+        training_specs_mod,
+        "build_container",
+        lambda: SimpleNamespace(routines_repo=FakeRoutineRepo()),
+    )
+
+    response = list_routines(status="active")
+
+    assert observed_statuses == ["active"]
+    assert response.routines == []
 
 
 def _bundle_card_spec(

@@ -14,6 +14,7 @@ from app.infra.database import (
     replace_routine_assignments,
     save_card_log,
     save_routine_schedule,
+    save_routine_schedule_with_assignments,
 )
 from app.models import CardLog, RoutineAssignment, RoutineSchedule
 
@@ -48,6 +49,14 @@ class SqliteRoutineRepository:
 
     def save_routine(self, routine: RoutineSchedule) -> None:
         save_routine_schedule(routine)
+
+    def save_routine_with_assignments(
+        self,
+        *,
+        routine: RoutineSchedule,
+        assignments: list[RoutineAssignment],
+    ) -> None:
+        save_routine_schedule_with_assignments(routine, assignments)
 
     def replace_assignments(
         self,

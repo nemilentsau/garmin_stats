@@ -30,8 +30,6 @@ def compile_routine_artifact(
         notes=spec.notes,
         source_artifact_id=artifact.id,
     )
-    repo.save_routine(routine)
-
     start = date.fromisoformat(spec.start_date)
     compiled_assignments = [
         RoutineAssignment(
@@ -45,5 +43,8 @@ def compile_routine_artifact(
         )
         for assignment in spec.assignments
     ]
-    repo.replace_assignments(routine_id=routine.id, assignments=compiled_assignments)
+    repo.save_routine_with_assignments(
+        routine=routine,
+        assignments=compiled_assignments,
+    )
     return routine

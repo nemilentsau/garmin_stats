@@ -1246,6 +1246,83 @@ def save_routine_assignment(assignment: RoutineAssignment) -> None:
     )
 
 
+def _validate_routine_assignment_ids(
+    routine_id: str,
+    assignments: list[RoutineAssignment],
+) -> None:
+    if any(assignment.routine_id != routine_id for assignment in assignments):
+        raise ValueError("All assignments must match the provided routine_id")
+
+
+def _guard_assignment_ownership(
+    con: sqlite3.Connection,
+    routine_id: str,
+    assignments: list[RoutineAssignment],
+) -> None:
+    if not assignments:
+        return
+
+    placeholders = ", ".join("?" for _ in assignments)
+    rows = con.execute(
+        "SELECT id, routine_id FROM routine_assignments WHERE id IN "
+        f"({placeholders})",
+        [assignment.id for assignment in assignments],
+    ).fetchall()
+    existing_routine_ids = {str(row["id"]): str(row["routine_id"]) for row in rows}
+    for assignment in assignments:
+        owner_routine_id = existing_routine_ids.get(assignment.id)
+        if owner_routine_id is not None and owner_routine_id != routine_id:
+            raise ValueError(
+                f"Assignment id '{assignment.id}' already belongs to routine "
+                f"{owner_routine_id}"
+            )
+
+
+def _replace_routine_assignments_in_connection(
+    con: sqlite3.Connection,
+    routine_id: str,
+    assignments: list[RoutineAssignment],
+) -> None:
+    _validate_routine_assignment_ids(routine_id, assignments)
+    _guard_assignment_ownership(con, routine_id, assignments)
+    con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
+    for assignment in assignments:
+        _save_json_record_in_connection(
+            con,
+            "routine_assignments",
+            assignment.id,
+            assignment.model_dump_json(),
+            extra_columns={
+                "routine_id": assignment.routine_id,
+                "card_template_id": assignment.card_template_id,
+                "assignment_date": assignment.date,
+                "slot": assignment.slot,
+                "position": assignment.position,
+            },
+        )
+
+
+def save_routine_schedule_with_assignments(
+    routine: RoutineSchedule,
+    assignments: list[RoutineAssignment],
+) -> None:
+    with _connect() as con:
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            _save_json_record_in_connection(
+                con,
+                "routine_schedules",
+                routine.id,
+                routine.model_dump_json(),
+            )
+            _replace_routine_assignments_in_connection(con, routine.id, assignments)
+        except Exception:
+            con.rollback()
+            raise
+        else:
+            con.commit()
+
+
 def replace_routine_assignments(
     routine_id: str,
     assignments: list[RoutineAssignment],
@@ -1253,39 +1330,7 @@ def replace_routine_assignments(
     with _connect() as con:
         con.execute("BEGIN IMMEDIATE")
         try:
-            if assignments:
-                placeholders = ", ".join("?" for _ in assignments)
-                rows = con.execute(
-                    "SELECT id, routine_id FROM routine_assignments WHERE id IN "
-                    f"({placeholders})",
-                    [assignment.id for assignment in assignments],
-                ).fetchall()
-                existing_routine_ids = {
-                    str(row["id"]): str(row["routine_id"]) for row in rows
-                }
-                for assignment in assignments:
-                    owner_routine_id = existing_routine_ids.get(assignment.id)
-                    if owner_routine_id is not None and owner_routine_id != routine_id:
-                        raise ValueError(
-                            f"Assignment id '{assignment.id}' already belongs to routine "
-                            f"{owner_routine_id}"
-                        )
-
-            con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
-            for assignment in assignments:
-                _save_json_record_in_connection(
-                    con,
-                    "routine_assignments",
-                    assignment.id,
-                    assignment.model_dump_json(),
-                    extra_columns={
-                        "routine_id": assignment.routine_id,
-                        "card_template_id": assignment.card_template_id,
-                        "assignment_date": assignment.date,
-                        "slot": assignment.slot,
-                        "position": assignment.position,
-                    },
-                )
+            _replace_routine_assignments_in_connection(con, routine_id, assignments)
         except Exception:
             con.rollback()
             raise
