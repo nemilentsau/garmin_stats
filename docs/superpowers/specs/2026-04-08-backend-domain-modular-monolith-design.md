@@ -1,7 +1,7 @@
 # Backend Domain-Modular Monolith Refactor Design
 
 Date: 2026-04-08
-Status: Approved design for planning
+Status: In progress - routines slice completed on 2026-04-10
 
 ## Summary
 
@@ -14,6 +14,43 @@ The refactor optimizes for these priorities in order:
 3. Strict dependency enforcement
 
 This is a whole-backend target architecture with phased implementation. It is not a big-bang rewrite.
+
+## Implementation Status
+
+### Completed on `refactor`
+
+The first implementation milestone is now merged into `refactor`.
+
+What landed:
+
+- app assembly was split out of `backend/app/main.py` into `backend/app/bootstrap/{app,lifespan,routing,container}.py`
+- initial shared-core extraction started with `backend/app/core/config.py`
+- the first domain package was introduced under `backend/app/domains/routines/`
+- routines catalog, schedule window, today, and activation logic now live in domain-local `api`, `application`, `domain`, and `infra` modules
+- old flat `routers/routines.py`, `routers/today.py`, `services/schedule_projection.py`, and `services/today.py` now act as compatibility seams
+- routines activation now persists the live schedule and assignments atomically
+- startup ingest coverage now includes the second-run no-op case
+- architecture guard tests now defend the routines slice from falling back into router-to-database shortcuts
+- backend packaging was normalized around `pyproject.toml` and `uv.lock`, and the backend now targets Python 3.14
+
+Verification on the merged branch:
+
+- `cd backend && uv run ruff check`
+- `cd backend && uv run pyright app/ tests/`
+- `cd backend && uv run pytest tests/ -v`
+
+All three passed on the merged `refactor` branch, with `pytest` at `308 passed`.
+
+### Current state of the target architecture
+
+The codebase is now in the expected transitional state:
+
+- `bootstrap/` is real and owns app assembly
+- `domains/routines/` is real and owns one vertical slice
+- `main.py` and several flat routes/services remain as explicit compatibility entrypoints
+- the rest of the backend still needs migration into domain-local packages
+
+This is the intended halfway shape for a phased modular-monolith migration.
 
 ## Current Problems
 
@@ -291,7 +328,7 @@ The goal is not test bulk. The goal is regression tripwires around public behavi
 
 Recommended order:
 
-1. `routines`
+1. `routines` - completed on 2026-04-10
 2. `assistant`
 3. `garmin_analytics`
 4. secondary domains such as `experiments`, `programs`, and `profile`
@@ -426,6 +463,22 @@ The first implementation milestone should deliver:
 - first vertical migration of the `routines` domain behind unchanged HTTP routes
 
 This is the smallest milestone that proves the architecture is real rather than aspirational.
+
+This milestone is complete and has been merged into `refactor`.
+
+## Next Recommended Milestones
+
+### Milestone 2: `assistant`
+
+Move assistant thread, message, run, context, and runtime orchestration into `domains/assistant/` while keeping the current `/api/assistant` HTTP contract stable. Keep assistant artifact and bundle routes externally stable during this slice; they can remain on the existing `training_specs.py` seam until artifact ownership is intentionally revisited.
+
+### Milestone 3: `garmin_analytics`
+
+Move dashboard and Garmin metric read paths into `domains/garmin_analytics/`, starting with read-oriented endpoints that already have strong test coverage. Split `stats.py` by ownership as this migration progresses, but do not fold ingest or watcher logic into the analytics domain.
+
+### Milestone 4: secondary domains and cleanup
+
+Migrate `experiments`, `programs`, and `profile` out of the flat buckets, then remove obsolete compatibility wrappers, continue shrinking `models.py` and `stats.py`, and tighten import enforcement once each migrated domain is stable.
 
 ## Final Recommendation
 

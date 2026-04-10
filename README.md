@@ -161,6 +161,12 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `backend/app/models.py`
   Pydantic contracts for Garmin data, assistant state, routines, and API responses.
 
+- `backend/app/bootstrap/`
+  FastAPI app assembly, lifespan wiring, router registration, and dependency container.
+
+- `backend/app/domains/routines/`
+  First migrated backend domain slice for routines catalog, schedule window, today, and activation.
+
 - `backend/app/parser.py`
   FIT parsing and local-time timestamp normalization.
 
@@ -171,10 +177,10 @@ The ingest pipeline handles both the day archives and the extracted day folders.
   SQLite persistence, ingest bookkeeping, cache, SSE bus, watcher.
 
 - `backend/app/services/`
-  Health analysis, assistant orchestration, schedule projection, Today logic, routines runtime.
+  Remaining flat service modules plus compatibility wrappers during the backend migration.
 
 - `backend/app/routers/`
-  FastAPI route boundaries.
+  Remaining flat route modules plus compatibility wrappers during the backend migration.
 
 - `frontend/src/routes/`
   SvelteKit routes for dashboard, assistant, Today, routines, and parked placeholders.
@@ -214,7 +220,8 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `GET /api/assistant/threads`
 - `POST /api/assistant/threads`
 - `GET /api/assistant/threads/{thread_id}`
-- `POST /api/assistant/messages`
+- `GET /api/assistant/threads/{thread_id}/messages`
+- `POST /api/assistant/threads/{thread_id}/messages`
 - `GET /api/assistant/artifacts`
 - `POST /api/assistant/artifacts`
 - `POST /api/assistant/artifacts/{artifact_id}/activate`
