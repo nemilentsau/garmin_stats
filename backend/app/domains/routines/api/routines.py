@@ -1,7 +1,16 @@
 """Domain-local routines routes."""
 
+from functools import lru_cache
+
 from fastapi import APIRouter, Query
 
+from app.bootstrap.container import build_container
+from app.domains.routines.application.catalog import (
+    get_routine,
+    list_routine_assignments,
+    list_routines,
+)
+from app.domains.routines.application.schedule_window import get_schedule_window
 from app.models import (
     RoutineAssignmentsResponse,
     RoutineSchedule,
@@ -14,29 +23,26 @@ router = APIRouter(prefix="/api/routines", tags=["routines"])
 
 @router.get("", response_model=RoutineSchedulesResponse)
 def get_routines(status: str | None = None):
-    from app.routers import routines as compat_routines
-
-    return compat_routines.list_routines(status=status)
+    return list_routines(_repo(), status=status)
 
 
 @router.get("/schedule-window", response_model=ScheduleWindow)
 def get_routine_schedule_window(
     start_date: str = Query(..., description="Start date for the 14-day schedule window"),
 ):
-    from app.routers import routines as compat_routines
-
-    return compat_routines.get_schedule_window(start_date)
+    return get_schedule_window(_repo(), start_date=start_date)
 
 
 @router.get("/{routine_id}", response_model=RoutineSchedule)
 def get_routine_detail(routine_id: str):
-    from app.routers import routines as compat_routines
-
-    return compat_routines.get_routine(routine_id)
+    return get_routine(_repo(), routine_id)
 
 
 @router.get("/{routine_id}/assignments", response_model=RoutineAssignmentsResponse)
 def get_assignments(routine_id: str):
-    from app.routers import routines as compat_routines
+    return list_routine_assignments(_repo(), routine_id=routine_id)
 
-    return compat_routines.list_routine_assignments(routine_id)
+
+@lru_cache(maxsize=1)
+def _repo():
+    return build_container().routines_repo

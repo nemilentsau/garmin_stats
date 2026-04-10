@@ -80,10 +80,10 @@ def test_router_modules_import_in_clean_interpreter():
     assert result.stdout.strip() == "ok"
 
 
-def test_monkeypatching_legacy_routines_router_changes_live_http_behavior(monkeypatch):
+def test_monkeypatching_domain_routines_api_changes_live_http_behavior(monkeypatch):
     monkeypatch.setattr(
-        "app.routers.routines.get_schedule_window",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("legacy route patch hit")),
+        "app.domains.routines.api.routines.get_schedule_window",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("domain route patch hit")),
     )
 
     status, body = asyncio.run(
@@ -91,4 +91,4 @@ def test_monkeypatching_legacy_routines_router_changes_live_http_behavior(monkey
     )
 
     assert status == 400
-    assert json.loads(body)["detail"] == "legacy route patch hit"
+    assert json.loads(body)["detail"] == "domain route patch hit"

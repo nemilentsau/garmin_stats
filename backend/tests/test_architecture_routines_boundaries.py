@@ -17,6 +17,7 @@ def test_routines_api_modules_do_not_import_flat_database_or_services():
         source = _read(path)
         assert "app.infra.database" not in source
         assert "app.services." not in source
+        assert "app.routers" not in source
 
 
 def test_routines_application_modules_are_fastapi_free():
@@ -32,4 +33,10 @@ def test_routines_application_modules_are_fastapi_free():
 def test_flat_routines_routers_are_compatibility_wrappers():
     source = _read("backend/app/routers/routines.py")
     assert "domains.routines.api.routines" in source
+    assert "APIRouter(" not in source
+
+
+def test_flat_today_router_is_a_compatibility_wrapper():
+    source = _read("backend/app/routers/today.py")
+    assert "domains.routines.api.today" in source
     assert "APIRouter(" not in source
