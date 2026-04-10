@@ -20,8 +20,8 @@ from app.models import (
     CardOverride,
     TodayCardLogUpdateRequest,
 )
-from app.services.schedule_projection import get_schedule_window
-from app.services.today import get_today, upsert_today_card_log
+from app.routers.routines import get_schedule_window
+from app.routers.today import get_today, upsert_today_card_log
 from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
