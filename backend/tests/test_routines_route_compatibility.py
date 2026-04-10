@@ -1,0 +1,94 @@
+"""Regression tests for routines route compatibility seams."""
+
+import asyncio
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from starlette.types import Message
+
+import app.main as main_mod
+
+app = main_mod.app
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+
+
+async def _asgi_request(path: str) -> tuple[int, bytes]:
+    if "?" in path:
+        path_part, qs = path.split("?", 1)
+    else:
+        path_part, qs = path, ""
+
+    messages: list[Message] = []
+    receive_calls = 0
+
+    async def receive() -> Message:
+        nonlocal receive_calls
+        receive_calls += 1
+        if receive_calls == 1:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        messages.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": path_part,
+            "raw_path": path_part.encode(),
+            "query_string": qs.encode(),
+            "root_path": "",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+        },
+        receive,
+        send,
+    )
+
+    start = next(message for message in messages if message["type"] == "http.response.start")
+    body_parts = [
+        message.get("body", b"")
+        for message in messages
+        if message["type"] == "http.response.body"
+    ]
+    return int(start["status"]), b"".join(body_parts)  # type: ignore[arg-type]
+
+
+def test_router_modules_import_in_clean_interpreter():
+    script = (
+        "import app.routers.routines\n"
+        "import app.routers.today\n"
+        "print('ok')\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
+
+
+def test_monkeypatching_legacy_routines_router_changes_live_http_behavior(monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.routines.get_schedule_window",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("legacy route patch hit")),
+    )
+
+    status, body = asyncio.run(
+        _asgi_request("/api/routines/schedule-window?start_date=2026-03-02")
+    )
+
+    assert status == 400
+    assert json.loads(body)["detail"] == "legacy route patch hit"
