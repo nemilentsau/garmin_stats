@@ -23,6 +23,12 @@ class _AssistantInternalModel(BaseModel):
     )
 
 
+class AssistantRouteDecision(_AssistantInternalModel):
+    intent: AssistantIntent
+    confidence: float = Field(ge=0.0, le=1.0)
+    matched_signals: list[str] = Field(default_factory=list)
+
+
 class AssistantResolvedEntity(_AssistantInternalModel):
     kind: AssistantResolvedEntityKind
     entity_id: str
@@ -57,4 +63,3 @@ class AssistantMemoryRecord(_AssistantInternalModel):
     payload_json: dict[str, Any] = Field(default_factory=dict)
     created_at: str | None = None
     updated_at: str | None = None
-
