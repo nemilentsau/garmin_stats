@@ -1,19 +1,28 @@
 """Tests for assistant routes."""
 
 import asyncio
+import importlib
 import json
 import sys
 import types
 
 import pytest
 
-import app.routers.assistant as assistant_router_mod
 from app.models import (
     AssistantMessageCreateRequest,
     AssistantThread,
     AssistantThreadCreateRequest,
     AssistantThreadsResponse,
 )
+
+
+def _load_assistant_router(monkeypatch, stream_reply=None):
+    if stream_reply is not None:
+        _install_future_chat_owner(monkeypatch, stream_reply)
+    if "app.routers.assistant" in sys.modules:
+        del sys.modules["app.routers.assistant"]
+    importlib.invalidate_caches()
+    return importlib.import_module("app.routers.assistant")
 
 
 def _install_future_chat_owner(monkeypatch, stream_reply):
@@ -43,6 +52,8 @@ def _install_future_chat_owner(monkeypatch, stream_reply):
 
 class TestAssistantRoutes:
     def test_get_threads_returns_service_response(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router(monkeypatch)
+
         monkeypatch.setattr(
             assistant_router_mod,
             "list_threads",
@@ -57,6 +68,8 @@ class TestAssistantRoutes:
         assert response.total == 1
 
     def test_get_thread_detail_raises_lookup_error_when_missing(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router(monkeypatch)
+
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
@@ -67,6 +80,8 @@ class TestAssistantRoutes:
             assistant_router_mod.get_thread_detail("thread-1")
 
     def test_post_thread_creates_thread(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router(monkeypatch)
+
         monkeypatch.setattr(
             assistant_router_mod,
             "create_thread",
@@ -88,13 +103,15 @@ class TestAssistantRoutes:
                 yield ""
             raise AssertionError("legacy stream owner is still used by the route")
 
+        assistant_router_mod = _load_assistant_router(
+            monkeypatch, stream_reply=fake_stream_reply
+        )
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
             lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
         )
         monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
-        _install_future_chat_owner(monkeypatch, fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -126,13 +143,15 @@ class TestAssistantRoutes:
                 yield ""
             raise AssertionError("legacy stream owner is still used by the route")
 
+        assistant_router_mod = _load_assistant_router(
+            monkeypatch, stream_reply=fake_stream_reply
+        )
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
             lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
         )
         monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
-        _install_future_chat_owner(monkeypatch, fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -165,6 +184,8 @@ class TestAssistantRoutes:
         assert payloads[-1]["run_id"] == "run-1"
 
     def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router(monkeypatch)
+
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
@@ -180,6 +201,8 @@ class TestAssistantRoutes:
             )
 
     def test_get_thread_messages_raises_lookup_error_when_missing(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router(monkeypatch)
+
         monkeypatch.setattr(
             assistant_router_mod,
             "list_messages",
