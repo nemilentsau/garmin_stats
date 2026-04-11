@@ -152,7 +152,13 @@ def test_entity_resolver_prefers_exact_overlapping_experiment_id_match() -> None
 
 def test_entity_resolver_handles_trial_synonym_route_for_experiment_matching() -> None:
     store = _FakeReadStore(
-        experiments=[Experiment(id="meditation-hrv-2026-03", name="Meditation to HRV", status="active")]
+        experiments=[
+            Experiment(
+                id="meditation-hrv-2026-03",
+                name="Meditation to HRV",
+                status="active",
+            )
+        ]
     )
     route = route_user_query("How is the meditation trial going?")
 
@@ -184,7 +190,13 @@ def test_entity_resolver_returns_no_match_when_only_generic_experiment_words_ove
 
 def test_entity_resolver_uses_alias_memory_for_experiment_matching() -> None:
     store = _FakeReadStore(
-        experiments=[Experiment(id="meditation-hrv-2026-03", name="Meditation to HRV", status="active")]
+        experiments=[
+            Experiment(
+                id="meditation-hrv-2026-03",
+                name="Meditation to HRV",
+                status="active",
+            )
+        ]
     )
     memory = [
         AssistantMemoryRecord(

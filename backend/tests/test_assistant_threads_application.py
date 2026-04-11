@@ -1,5 +1,7 @@
 """Tests for assistant thread and message catalog use cases."""
 
+from typing import Any
+
 import pytest
 
 from app.domains.assistant.application.threads import create_thread, list_messages, list_threads
@@ -46,6 +48,21 @@ class _FakeConversationStore:
 
     def save_run(self, run: AssistantRun) -> None:
         _ = run
+
+    def finalize_reply(
+        self,
+        *,
+        assistant_message: AssistantMessage,
+        updated_thread: AssistantThread | dict[str, Any],
+        completed_run: AssistantRun,
+    ) -> None:
+        self._messages.append(assistant_message)
+        if isinstance(updated_thread, dict):
+            thread = AssistantThread.model_validate(updated_thread)
+        else:
+            thread = updated_thread
+        self._threads[thread.id] = thread
+        _ = completed_run
 
     def save_evidence_bundle(self, bundle: AssistantEvidenceBundle) -> None:
         _ = bundle
