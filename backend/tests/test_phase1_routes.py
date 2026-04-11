@@ -6,6 +6,7 @@ from fastapi import HTTPException
 import app.routers.experiments as experiments_mod
 import app.routers.profile as profile_mod
 import app.routers.routines as routines_mod
+import app.services.training_specs as training_specs_mod
 from app.models import (
     Experiment,
     OutcomeMetric,
@@ -24,19 +25,19 @@ class TestProfileRoutes:
 
 
 class TestRoutineRoutes:
-    def test_get_routine_schedule_window_returns_projection(self, monkeypatch):
+    def test_get_schedule_window_returns_projection(self, monkeypatch):
         monkeypatch.setattr(
             routines_mod,
             "get_schedule_window",
             lambda start_date: ScheduleWindow(start_date=start_date, end_date="2026-03-15"),
         )
 
-        window = routines_mod.get_routine_schedule_window("2026-03-02")
+        window = routines_mod.get_schedule_window("2026-03-02")
 
         assert window.start_date == "2026-03-02"
         assert window.end_date == "2026-03-15"
 
-    def test_get_routine_schedule_window_raises_value_error_for_invalid_date(self, monkeypatch):
+    def test_get_schedule_window_raises_value_error_for_invalid_date(self, monkeypatch):
         error = ValueError("Invalid isoformat string: 'bad-date'")
         monkeypatch.setattr(
             routines_mod,
@@ -45,17 +46,17 @@ class TestRoutineRoutes:
         )
 
         with pytest.raises(ValueError, match="Invalid isoformat string: 'bad-date'"):
-            routines_mod.get_routine_schedule_window("bad-date")
+            routines_mod.get_schedule_window("bad-date")
 
-    def test_get_routine_detail_raises_lookup_error_when_missing(self, monkeypatch):
+    def test_get_routine_raises_lookup_error_when_missing(self, monkeypatch):
         monkeypatch.setattr(
-            routines_mod,
+            training_specs_mod,
             "get_routine",
             lambda *_args: (_ for _ in ()).throw(LookupError("Routine routine-1 not found")),
         )
 
         with pytest.raises(LookupError, match="Routine routine-1 not found"):
-            routines_mod.get_routine_detail("routine-1")
+            training_specs_mod.get_routine("routine-1")
 
 
 class TestExperimentRoutes:

@@ -2,19 +2,22 @@
 """Download daily wellness FIT files from Garmin Connect.
 
 Usage:
+    # Prepare backend-managed env once:
+    #   cd backend && uv sync --python 3.14
+    # Then run this script from backend so dependencies come from backend/pyproject.toml:
+    #   cd backend && uv run python ../scripts/download_garmin.py [options]
+    #
     # First-time login (saves tokens to ~/.garminconnect):
-    python scripts/download_garmin.py --login
+    cd backend && uv run python ../scripts/download_garmin.py --login
 
     # Download a specific date:
-    python scripts/download_garmin.py --date 2026-02-08
+    cd backend && uv run python ../scripts/download_garmin.py --date 2026-02-08
 
     # Download a date range:
-    python scripts/download_garmin.py --from 2026-02-08 --to 2026-02-15
+    cd backend && uv run python ../scripts/download_garmin.py --from 2026-02-08 --to 2026-02-15
 
     # Download yesterday (default):
-    python scripts/download_garmin.py
-
-Requires: pip install garminconnect
+    cd backend && uv run python ../scripts/download_garmin.py
 """
 
 from __future__ import annotations

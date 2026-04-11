@@ -6,6 +6,7 @@ traces.db
 
 # Claude Code artifacts
 .claude/chart-inspections/
+.worktrees/
 
 # Frontend
 frontend/node_modules/

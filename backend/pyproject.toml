@@ -1,11 +1,30 @@
+[project]
+name = "garmin-stats-backend"
+version = "0.1.0"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi>=0.115.0",
+    "garmin-fit-sdk>=21.188.0",
+    "garminconnect==0.2.38",
+    "numpy>=2.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "scipy>=1.14.0",
+    "uvicorn[standard]>=0.32.0",
+    "watchfiles>=1.0.0",
+]
+
+[tool.uv]
+package = false
+
 [tool.pyright]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]
@@ -13,5 +32,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [dependency-groups]
 dev = [
+    "pyright>=1.1.400",
     "pytest>=9.0.2",
+    "ruff>=0.15.0",
 ]

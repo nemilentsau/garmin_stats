@@ -55,6 +55,7 @@ Important details:
 - bundle import persists artifacts and auto-activates them in dependency order
 - low-level assistant artifacts still exist for debugging/manual flows, but they are not the normal user path
 - Today only logs execution state; it does not author schedule structure
+- Today card logs now auto-derive linked experiment exposure rows for routine-linked experiments, so adherence comes from the live routine runtime instead of a separate manual logging path
 
 Bundle examples live in:
 
@@ -91,7 +92,7 @@ The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Use
 
 ### Prerequisites
 
-- Python `3.12`
+- Python `3.14`
 - Node.js `20+`
 - `uv`
 
@@ -99,8 +100,7 @@ The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Use
 
 ```bash
 cd backend
-uv venv
-uv pip install -r requirements.txt
+uv sync --python 3.14
 uv run uvicorn app.main:app --reload
 ```
 
@@ -162,6 +162,12 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `backend/app/models.py`
   Pydantic contracts for Garmin data, assistant state, routines, and API responses.
 
+- `backend/app/bootstrap/`
+  FastAPI app assembly, lifespan wiring, router registration, and dependency container.
+
+- `backend/app/domains/routines/`
+  First migrated backend domain slice for routines catalog, schedule window, today, and activation.
+
 - `backend/app/parser.py`
   FIT parsing and local-time timestamp normalization.
 
@@ -172,10 +178,10 @@ The ingest pipeline handles both the day archives and the extracted day folders.
   SQLite persistence, ingest bookkeeping, cache, SSE bus, watcher.
 
 - `backend/app/services/`
-  Health analysis, assistant orchestration, schedule projection, Today logic, routines runtime.
+  Remaining flat service modules plus compatibility wrappers during the backend migration.
 
 - `backend/app/routers/`
-  FastAPI route boundaries.
+  Remaining flat route modules plus compatibility wrappers during the backend migration.
 
 - `frontend/src/routes/`
   SvelteKit routes for dashboard, assistant, Today, routines, and parked placeholders.
@@ -215,7 +221,8 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `GET /api/assistant/threads`
 - `POST /api/assistant/threads`
 - `GET /api/assistant/threads/{thread_id}`
-- `POST /api/assistant/messages`
+- `GET /api/assistant/threads/{thread_id}/messages`
+- `POST /api/assistant/threads/{thread_id}/messages`
 - `GET /api/assistant/artifacts`
 - `POST /api/assistant/artifacts`
 - `POST /api/assistant/artifacts/{artifact_id}/activate`
@@ -240,6 +247,9 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `GET/POST /api/checkins`
 - `GET/POST /api/notes`
 - `GET/POST /api/experiments`
+- `GET /api/experiments/{experiment_id}`
+- `GET /api/experiments/{experiment_id}/analysis`
+- `GET/POST /api/experiments/{experiment_id}/exposures`
 - `GET/POST /api/programs`
 - `GET /api/target-metrics`
 
