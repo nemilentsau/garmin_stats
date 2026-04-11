@@ -30,15 +30,16 @@ async def _collect(stream):
 
 
 class _FakeRuntime:
-    def __init__(self, deltas: list[str]):
+    def __init__(self, deltas: list[str], *, done_session_id: str | None = None):
         self._deltas = list(deltas)
+        self._done_session_id = done_session_id
         self.stream_chat_kwargs: list[dict[str, object]] = []
 
     async def stream_chat(self, **_kwargs):
         self.stream_chat_kwargs.append(dict(_kwargs))
         for delta in self._deltas:
             yield {"type": "delta", "text": delta}
-        yield {"type": "done", "session_id": None}
+        yield {"type": "done", "session_id": self._done_session_id}
 
 
 class _FakeConversationStore:
@@ -51,15 +52,25 @@ class _FakeConversationStore:
         prior_messages: list[dict[str, Any]] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
         prior_evidence_bundles: list[AssistantEvidenceBundle] | None = None,
+        fail_on_save_evidence_bundle: bool = False,
+        fail_on_save_assistant_message: bool = False,
     ) -> None:
         self.thread_id = thread_id
         self.claude_session_id = claude_session_id
         self.model = model
+        self.fail_on_save_evidence_bundle = fail_on_save_evidence_bundle
+        self.fail_on_save_assistant_message = fail_on_save_assistant_message
+        self.thread_state: dict[str, Any] = {
+            "id": thread_id,
+            "model": model,
+            "claude_session_id": claude_session_id,
+        }
         self.messages: list[object] = list(prior_messages or [])
         self.memory_records: list[AssistantMemoryRecord] = list(memory_records or [])
         self.prior_evidence_bundles: list[AssistantEvidenceBundle] = list(
             prior_evidence_bundles or []
         )
+        self.saved_threads: list[dict[str, Any]] = []
         self.saved_evidence_bundles: list[AssistantEvidenceBundle] = []
         self.saved_runs: list[AssistantRun] = []
 
@@ -72,6 +83,8 @@ class _FakeConversationStore:
         model: str = "sonnet",
         prior_messages: list[dict[str, Any]] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
+        fail_on_save_evidence_bundle: bool = False,
+        fail_on_save_assistant_message: bool = False,
     ):
         return cls(
             thread_id=thread_id,
@@ -79,16 +92,14 @@ class _FakeConversationStore:
             model=model,
             prior_messages=prior_messages,
             memory_records=memory_records,
+            fail_on_save_evidence_bundle=fail_on_save_evidence_bundle,
+            fail_on_save_assistant_message=fail_on_save_assistant_message,
         )
 
     def get_thread(self, thread_id: str):
         if thread_id != self.thread_id:
             return None
-        return {
-            "id": thread_id,
-            "model": self.model,
-            "claude_session_id": self.claude_session_id,
-        }
+        return dict(self.thread_state)
 
     def list_messages(self, thread_id: str):
         if thread_id != self.thread_id:
@@ -96,12 +107,22 @@ class _FakeConversationStore:
         return list(self.messages)
 
     def save_message(self, message):
+        if getattr(message, "role", None) == "assistant" and self.fail_on_save_assistant_message:
+            raise RuntimeError("assistant save failed")
         self.messages.append(message)
+
+    def save_thread(self, thread):
+        if not isinstance(thread, dict):
+            raise TypeError("expected dict-backed thread in test fake")
+        self.thread_state = dict(thread)
+        self.saved_threads.append(dict(thread))
 
     def save_run(self, run):
         self.saved_runs.append(run)
 
     def save_evidence_bundle(self, bundle):
+        if self.fail_on_save_evidence_bundle:
+            raise RuntimeError("evidence save failed")
         self.saved_evidence_bundles.append(bundle)
 
     def list_evidence_bundles(
@@ -263,7 +284,10 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
             )
         ],
     )
-    runtime = _FakeRuntime(deltas=["I see adherence consistency across your recent days."])
+    runtime = _FakeRuntime(
+        deltas=["I see adherence consistency across your recent days."],
+        done_session_id="session-1",
+    )
 
     lines = asyncio.run(
         _collect(
@@ -286,7 +310,7 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert payloads[-1]["type"] == "done"
     assert payloads[-1]["snapshot_id"] == repo.saved_evidence_bundles[0].id
     assert payloads[-1]["run_id"].startswith("run-")
-    assert payloads[-1]["session_id"] is None
+    assert payloads[-1]["session_id"] == "session-1"
     assert repo.saved_evidence_bundles[0].intent == "experiment_review"
     assert len(runtime.stream_chat_kwargs) == 1
     evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
@@ -298,6 +322,12 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert isinstance(memory_records[0], AssistantMemoryRecord)
     assert memory_records[0].kind == "entity_alias"
     assert repo.saved_runs[-1].status == "completed"
+    user_message = cast(Any, repo.messages[0])
+    assistant_message = cast(Any, repo.messages[-1])
+    assert repo.saved_threads[0]["last_message_at"] == user_message.created_at
+    assert repo.saved_threads[-1]["last_message_at"] == assistant_message.created_at
+    assert repo.saved_threads[-1]["last_context_snapshot_id"] == repo.saved_evidence_bundles[0].id
+    assert repo.saved_threads[-1]["claude_session_id"] == "session-1"
 
 
 def test_follow_up_works_without_claude_resume():
@@ -347,3 +377,60 @@ def test_follow_up_works_without_claude_resume():
     assert "claude_session_id" not in runtime.stream_chat_kwargs[0]
     assert "session_id" not in runtime.stream_chat_kwargs[0]
     assert not any("resume" in str(key).lower() for key in runtime.stream_chat_kwargs[0])
+
+
+def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_failed():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        fail_on_save_evidence_bundle=True,
+    )
+    runtime = _FakeRuntime(deltas=["should not stream"])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-3",
+                    content="How does our meditation experiment look like so far?",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "error"
+    assert payloads[-1]["run_id"].startswith("run-")
+    assert repo.saved_runs[-1].status == "failed"
+    assert runtime.stream_chat_kwargs == []
+
+
+def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        fail_on_save_assistant_message=True,
+    )
+    runtime = _FakeRuntime(deltas=["runtime answer"], done_session_id="session-final")
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-4",
+                    content="How does our meditation experiment look like so far?",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "error"
+    assert payloads[-1]["run_id"].startswith("run-")
+    assert repo.saved_runs[-1].status == "failed"

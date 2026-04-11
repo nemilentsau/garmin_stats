@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from typing import cast
+from contextlib import suppress
+from typing import Any, cast
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -81,6 +82,48 @@ def _message_to_dict(message: object) -> dict[str, object]:
     return {}
 
 
+def _thread_id(thread: object) -> str:
+    if isinstance(thread, dict):
+        value = thread.get("id")
+        if isinstance(value, str):
+            return value
+    value = getattr(thread, "id", None)
+    if isinstance(value, str):
+        return value
+    raise ValueError("thread id is missing")
+
+
+def _save_thread_state(
+    *,
+    repo: AssistantConversationStore,
+    thread: object,
+    last_message_at: str,
+    snapshot_id: str | None = None,
+    session_id: str | None = None,
+) -> object:
+    if isinstance(thread, dict):
+        updated = dict(thread)
+        updated["last_message_at"] = last_message_at
+        if snapshot_id is not None:
+            updated["last_context_snapshot_id"] = snapshot_id
+        if session_id is not None:
+            updated["claude_session_id"] = session_id
+        cast(Any, repo).save_thread(updated)
+        return updated
+
+    if isinstance(thread, BaseModel):
+        updates: dict[str, object] = {"last_message_at": last_message_at}
+        if snapshot_id is not None:
+            updates["last_context_snapshot_id"] = snapshot_id
+        if session_id is not None:
+            updates["claude_session_id"] = session_id
+        updated_model = thread.model_copy(update=updates)
+        cast(Any, repo).save_thread(updated_model)
+        return updated_model
+
+    raise TypeError("unsupported thread type for state persistence")
+
+
 def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
     experiment_name: str | None = None
     exposure_count: int | None = None
@@ -113,65 +156,73 @@ async def stream_reply(
     thread_id: str,
     request: AssistantMessageCreateRequest,
 ) -> AsyncIterator[str]:
-    thread = repo.get_thread(thread_id)
-    if thread is None:
-        raise LookupError(f"Assistant thread '{thread_id}' not found")
-
-    prior_messages = [_message_to_dict(message) for message in repo.list_messages(thread_id)]
-    now = now_iso()
-    user_message = AssistantMessage(
-        id=request.id,
-        thread_id=thread_id,
-        role="user",
-        content_markdown=request.content,
-        created_at=now,
-    )
-    repo.save_message(user_message)
-
-    memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
-    route = route_user_query(request.content)
-    entities = resolve_entities(
-        store=read_store,
-        memory=memory_records,
-        route=route,
-        query=request.content,
-    )
-    evidence_bundle = build_evidence_bundle(
-        store=cast(
-            AssistantRetrievalStore,
-            _RetrievalStoreAdapter(read_store=read_store, conversation_store=repo),
-        ),
-        route=route,
-        entities=entities,
-        thread_id=thread_id,
-        user_message_id=request.id,
-    )
-    repo.save_evidence_bundle(evidence_bundle)
-
-    run = AssistantRun(
-        id=f"run-{uuid4().hex}",
-        task_type="chat",
-        status="running",
-        thread_id=thread_id,
-        context_snapshot_id=evidence_bundle.id,
-        command_json={
-            "model": _model_for_thread(thread),
-            "intent": route.intent,
-            "confidence": route.confidence,
-            "matched_signals": list(route.matched_signals),
-        },
-        started_at=now_iso(),
-    )
-    repo.save_run(run)
-
+    run: AssistantRun | None = None
+    thread: object | None = None
+    evidence_bundle: AssistantEvidenceBundle | None = None
     assistant_chunks: list[str] = []
-    fast_delta = _grounded_first_delta(evidence_bundle)
-    if fast_delta:
-        assistant_chunks.append(fast_delta)
-        yield _json_line({"type": "delta", "text": fast_delta})
-
     session_id: str | None = None
+
     try:
+        thread = repo.get_thread(thread_id)
+        if thread is None:
+            raise LookupError(f"Assistant thread '{thread_id}' not found")
+
+        prior_messages = [_message_to_dict(message) for message in repo.list_messages(thread_id)]
+        user_message = AssistantMessage(
+            id=request.id,
+            thread_id=thread_id,
+            role="user",
+            content_markdown=request.content,
+            created_at=now_iso(),
+        )
+        repo.save_message(user_message)
+        thread = _save_thread_state(
+            repo=repo,
+            thread=thread,
+            last_message_at=user_message.created_at or now_iso(),
+        )
+
+        memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
+        route = route_user_query(request.content)
+        entities = resolve_entities(
+            store=read_store,
+            memory=memory_records,
+            route=route,
+            query=request.content,
+        )
+        evidence_bundle = build_evidence_bundle(
+            store=cast(
+                AssistantRetrievalStore,
+                _RetrievalStoreAdapter(read_store=read_store, conversation_store=repo),
+            ),
+            route=route,
+            entities=entities,
+            thread_id=_thread_id(thread),
+            user_message_id=request.id,
+        )
+
+        run = AssistantRun(
+            id=f"run-{uuid4().hex}",
+            task_type="chat",
+            status="running",
+            thread_id=_thread_id(thread),
+            context_snapshot_id=evidence_bundle.id,
+            command_json={
+                "model": _model_for_thread(thread),
+                "intent": route.intent,
+                "confidence": route.confidence,
+                "matched_signals": list(route.matched_signals),
+            },
+            started_at=now_iso(),
+        )
+        repo.save_run(run)
+        repo.save_evidence_bundle(evidence_bundle)
+
+        fast_delta = _grounded_first_delta(evidence_bundle)
+        if fast_delta:
+            assistant_chunks.append(fast_delta)
+            yield _json_line({"type": "delta", "text": fast_delta})
+
         async for event in runtime.stream_chat(
             evidence_bundle=evidence_bundle,
             prior_messages=prior_messages,
@@ -190,43 +241,55 @@ async def stream_reply(
                 candidate_session_id = event.get("session_id")
                 if isinstance(candidate_session_id, str):
                     session_id = candidate_session_id
-    except Exception as exc:
+
+        assistant_message = AssistantMessage(
+            id=f"assistant-{uuid4().hex}",
+            thread_id=thread_id,
+            role="assistant",
+            content_markdown="".join(assistant_chunks).strip(),
+            evidence_refs_json=[evidence_bundle.id],
+            created_at=now_iso(),
+        )
+        repo.save_message(assistant_message)
+        thread = _save_thread_state(
+            repo=repo,
+            thread=thread,
+            last_message_at=assistant_message.created_at or now_iso(),
+            snapshot_id=evidence_bundle.id,
+            session_id=session_id,
+        )
         repo.save_run(
             run.model_copy(
                 update={
-                    "status": "failed",
-                    "stderr_path": str(exc),
+                    "status": "completed",
+                    "claude_session_id": session_id,
                     "finished_at": now_iso(),
                 }
             )
         )
-        yield _json_line({"type": "error", "message": str(exc), "run_id": run.id})
-        return
-
-    assistant_message = AssistantMessage(
-        id=f"assistant-{uuid4().hex}",
-        thread_id=thread_id,
-        role="assistant",
-        content_markdown="".join(assistant_chunks).strip(),
-        evidence_refs_json=[evidence_bundle.id],
-        created_at=now_iso(),
-    )
-    repo.save_message(assistant_message)
-    repo.save_run(
-        run.model_copy(
-            update={
-                "status": "completed",
-                "claude_session_id": session_id,
-                "finished_at": now_iso(),
+        yield _json_line(
+            {
+                "type": "done",
+                "message": assistant_message.model_dump(mode="json"),
+                "session_id": session_id,
+                "snapshot_id": evidence_bundle.id,
+                "run_id": run.id,
             }
         )
-    )
-    yield _json_line(
-        {
-            "type": "done",
-            "message": assistant_message.model_dump(mode="json"),
-            "session_id": session_id,
-            "snapshot_id": evidence_bundle.id,
-            "run_id": run.id,
-        }
-    )
+    except Exception as exc:
+        if run is not None:
+            with suppress(Exception):
+                repo.save_run(
+                    run.model_copy(
+                        update={
+                            "status": "failed",
+                            "stderr_path": str(exc),
+                            "finished_at": now_iso(),
+                        }
+                    )
+                )
+        payload: dict[str, object] = {"type": "error", "message": str(exc)}
+        if run is not None:
+            payload["run_id"] = run.id
+        yield _json_line(payload)
+        return
