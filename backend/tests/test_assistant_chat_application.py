@@ -1,8 +1,9 @@
 """Tests for assistant chat application orchestration."""
 
 import json
+import importlib
+import asyncio
 
-from app.domains.assistant.application.chat import stream_reply
 from app.models import AssistantMessageCreateRequest
 
 
@@ -16,8 +17,10 @@ async def _collect(stream):
 class _FakeRuntime:
     def __init__(self, deltas: list[str]):
         self._deltas = list(deltas)
+        self.stream_chat_kwargs: list[dict[str, object]] = []
 
     async def stream_chat(self, **_kwargs):
+        self.stream_chat_kwargs.append(dict(_kwargs))
         for delta in self._deltas:
             yield {"type": "delta", "text": delta}
         yield {
@@ -68,14 +71,18 @@ class _FakeReadStore:
         return cls()
 
 
-async def test_follow_up_works_without_claude_resume():
+def test_follow_up_works_without_claude_resume():
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
         claude_session_id="stale-session-id",
     )
     runtime = _FakeRuntime(deltas=["You should keep going."])
+    stream_reply = importlib.import_module(
+        "app.domains.assistant.application.chat"
+    ).stream_reply
 
-    lines = await _collect(
+    lines = asyncio.run(
+        _collect(
         stream_reply(
             repo=repo,
             read_store=_FakeReadStore.for_experiment_review(),
@@ -87,8 +94,15 @@ async def test_follow_up_works_without_claude_resume():
             ),
         )
     )
+    )
 
     payloads = [json.loads(line) for line in lines]
     assert payloads[-1]["type"] == "done"
     assert "keep going" in payloads[-1]["message"]["content_markdown"].lower()
-
+    assert len(runtime.stream_chat_kwargs) == 1
+    assert "claude_session_id" not in runtime.stream_chat_kwargs[0]
+    assert "session_id" not in runtime.stream_chat_kwargs[0]
+    assert not any(
+        "resume" in str(key).lower()
+        for key in runtime.stream_chat_kwargs[0]
+    )

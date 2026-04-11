@@ -53,15 +53,26 @@ class TestAssistantRoutes:
         assert response.id == "thread-1"
 
     def test_post_thread_message_returns_ndjson_stream(self, monkeypatch):
-        async def fake_stream(*_args, **_kwargs):
+        async def fake_stream_reply(*_args, **_kwargs):
             yield '{"type":"done"}\n'
+
+        async def legacy_stream_used(*_args, **_kwargs):
+            if False:
+                yield ""
+            raise AssertionError("legacy stream owner is still used by the route")
 
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
             lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
         )
-        monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", fake_stream)
+        monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
+        monkeypatch.setattr(
+            assistant_router_mod,
+            "stream_reply",
+            fake_stream_reply,
+            raising=False,
+        )
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
