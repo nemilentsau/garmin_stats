@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import sys
+import types
 
 import pytest
 
@@ -12,6 +14,31 @@ from app.models import (
     AssistantThreadCreateRequest,
     AssistantThreadsResponse,
 )
+
+
+def _install_future_chat_owner(monkeypatch, stream_reply):
+    application_module = types.ModuleType("app.domains.assistant.application")
+    chat_module = types.ModuleType("app.domains.assistant.application.chat")
+    chat_module.stream_reply = stream_reply
+    application_module.chat = chat_module
+
+    assistant_module = types.ModuleType("app.domains.assistant")
+    assistant_module.application = application_module
+
+    domains_module = types.ModuleType("app.domains")
+    domains_module.assistant = assistant_module
+
+    for module_name, module in {
+        "app.domains": domains_module,
+        "app.domains.assistant": assistant_module,
+        "app.domains.assistant.application": application_module,
+        "app.domains.assistant.application.chat": chat_module,
+    }.items():
+        monkeypatch.setitem(sys.modules, module_name, module)
+
+    application_module.__path__ = []  # type: ignore[attr-defined]
+    assistant_module.__path__ = []  # type: ignore[attr-defined]
+    domains_module.__path__ = []  # type: ignore[attr-defined]
 
 
 class TestAssistantRoutes:
@@ -67,12 +94,7 @@ class TestAssistantRoutes:
             lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
         )
         monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
-        monkeypatch.setattr(
-            assistant_router_mod,
-            "stream_reply",
-            fake_stream_reply,
-            raising=False,
-        )
+        _install_future_chat_owner(monkeypatch, fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -110,12 +132,7 @@ class TestAssistantRoutes:
             lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
         )
         monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
-        monkeypatch.setattr(
-            assistant_router_mod,
-            "stream_reply",
-            fake_stream_reply,
-            raising=False,
-        )
+        _install_future_chat_owner(monkeypatch, fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -143,6 +160,9 @@ class TestAssistantRoutes:
         assert payloads[-1]["message"]["thread_id"] == "thread-1"
         assert payloads[-1]["message"]["role"] == "assistant"
         assert payloads[-1]["message"]["content_markdown"] == "hello"
+        assert payloads[-1]["session_id"] is None
+        assert payloads[-1]["snapshot_id"] == "evidence-1"
+        assert payloads[-1]["run_id"] == "run-1"
 
     def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
         monkeypatch.setattr(

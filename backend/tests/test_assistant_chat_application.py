@@ -1,8 +1,8 @@
 """Tests for assistant chat application orchestration."""
 
+import asyncio
 import json
 import importlib
-import asyncio
 
 from app.models import AssistantMessageCreateRequest
 
@@ -45,8 +45,15 @@ class _FakeConversationStore:
         self.evidence_bundles: list[object] = []
 
     @classmethod
-    def with_thread(cls, thread_id: str, claude_session_id: str | None = None):
-        return cls(thread_id=thread_id, claude_session_id=claude_session_id)
+    def with_thread(
+        cls,
+        thread_id: str,
+        claude_session_id: str | None = None,
+        prior_messages: list[object] | None = None,
+    ):
+        thread = cls(thread_id=thread_id, claude_session_id=claude_session_id)
+        thread.messages = list(prior_messages or [])
+        return thread
 
     def get_thread(self, thread_id: str):
         if thread_id != self.thread_id:
@@ -75,6 +82,20 @@ def test_follow_up_works_without_claude_resume():
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
         claude_session_id="stale-session-id",
+        prior_messages=[
+            {
+                "id": "message-1",
+                "role": "user",
+                "content_markdown": "Let's keep me moving this week.",
+                "created_at": "2026-04-10T09:00:00Z",
+            },
+            {
+                "id": "assistant-1",
+                "role": "assistant",
+                "content_markdown": "Try 20-minute walks.",
+                "created_at": "2026-04-10T09:05:00Z",
+            },
+        ],
     )
     runtime = _FakeRuntime(deltas=["You should keep going."])
     stream_reply = importlib.import_module(
@@ -100,6 +121,8 @@ def test_follow_up_works_without_claude_resume():
     assert payloads[-1]["type"] == "done"
     assert "keep going" in payloads[-1]["message"]["content_markdown"].lower()
     assert len(runtime.stream_chat_kwargs) == 1
+    assert runtime.stream_chat_kwargs[0]["prior_messages"]
+    assert len(runtime.stream_chat_kwargs[0]["prior_messages"]) == len(repo.messages)
     assert "claude_session_id" not in runtime.stream_chat_kwargs[0]
     assert "session_id" not in runtime.stream_chat_kwargs[0]
     assert not any(
