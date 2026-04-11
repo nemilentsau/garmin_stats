@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.infra.database import (
+    create_assistant_thread,
     load_assistant_evidence_bundles,
     load_assistant_memory_records,
     load_assistant_messages,
@@ -48,6 +49,9 @@ class SqliteAssistantRepository:
 
     def get_thread(self, thread_id: str) -> AssistantThread | None:
         return load_assistant_thread(thread_id)
+
+    def create_thread(self, thread: AssistantThread) -> None:
+        create_assistant_thread(thread)
 
     def save_thread(self, thread: AssistantThread) -> None:
         save_assistant_thread(thread)

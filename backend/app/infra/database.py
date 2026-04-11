@@ -1079,6 +1079,22 @@ def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
     )
 
 
+def create_assistant_thread(thread: AssistantThread) -> None:
+    created_at = thread.created_at or now_iso()
+    payload = thread.model_copy(update={"created_at": created_at}).model_dump_json()
+    with _connect() as con, con:
+        try:
+            con.execute(
+                (
+                    "INSERT INTO assistant_threads "
+                    "(id, data, created_at, updated_at) VALUES (?, ?, ?, ?)"
+                ),
+                (thread.id, payload, created_at, created_at),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(f"Assistant thread {thread.id} already exists") from exc
+
+
 def save_assistant_thread(thread: AssistantThread) -> None:
     _save_json_record("assistant_threads", thread.id, thread.model_dump_json())
 

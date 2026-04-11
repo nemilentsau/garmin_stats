@@ -33,6 +33,11 @@ class _FakeConversationStore:
     def list_messages(self, thread_id: str) -> list[AssistantMessage]:
         return [message for message in self._messages if message.thread_id == thread_id]
 
+    def create_thread(self, thread: AssistantThread) -> None:
+        if thread.id in self._threads:
+            raise ValueError(f"Assistant thread {thread.id} already exists")
+        self._threads[thread.id] = thread
+
     def save_thread(self, thread: AssistantThread) -> None:
         self._threads[thread.id] = thread
 
@@ -131,5 +136,6 @@ def test_create_thread_rejects_duplicate_id() -> None:
             ),
         )
 
-    assert repo.get_thread("thread-1") is not None
-    assert repo.get_thread("thread-1").title == "Original"
+    thread = repo.get_thread("thread-1")
+    assert thread is not None
+    assert thread.title == "Original"
