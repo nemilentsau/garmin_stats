@@ -20,3 +20,9 @@ def test_router_classifies_routine_adherence_questions() -> None:
     decision = route_user_query("Did I stick to my routine this week?")
 
     assert decision.intent == "routine_adherence"
+
+
+def test_router_classifies_trial_questions_as_experiment_review() -> None:
+    decision = route_user_query("How is the meditation trial going?")
+
+    assert decision.intent == "experiment_review"

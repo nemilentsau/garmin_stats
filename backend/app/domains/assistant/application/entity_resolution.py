@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 from app.domains.assistant.application.ports import AssistantReadModelStore
 from app.domains.assistant.application.types import (
+    EXPERIMENT_REVIEW_TERMS,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
@@ -15,6 +16,7 @@ from app.domains.assistant.application.types import (
 from app.models import Experiment
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {
     "a",
     "an",
@@ -104,16 +106,31 @@ def _experiment_match_score(
         return 0.0
 
     score = _overlap_score(query_tokens, name_tokens)
-    if experiment.id.lower() in query_text:
-        score = max(score, 0.95)
+    if _query_mentions_experiment_id(query_text, experiment.id):
+        score += 0.40
 
     if alias_tokens:
         score = max(score, max(_overlap_score(query_tokens, alias) for alias in alias_tokens))
 
-    if "experiment" in query_tokens:
+    if query_tokens.intersection(EXPERIMENT_REVIEW_TERMS):
         score += 0.08
 
-    return min(score, 1.0)
+    return score
+
+
+def _query_mentions_experiment_id(query_text: str, experiment_id: str) -> bool:
+    normalized_id = _normalize_id(experiment_id)
+    if not normalized_id:
+        return False
+    for segment in _ID_SEGMENT_PATTERN.findall(query_text.lower()):
+        if _normalize_id(segment) == normalized_id:
+            return True
+    return False
+
+
+def _normalize_id(value: str) -> str:
+    parts = _TOKEN_PATTERN.findall(value.lower())
+    return "-".join(parts)
 
 
 def _alias_tokens_by_entity(memory: Sequence[AssistantMemoryRecord]) -> dict[str, list[set[str]]]:

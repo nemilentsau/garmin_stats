@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.domains.assistant.application.types import AssistantIntent, AssistantRouteDecision
+from app.domains.assistant.application.types import (
+    EXPERIMENT_REVIEW_TERMS,
+    AssistantIntent,
+    AssistantRouteDecision,
+)
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _INTENT_ORDER: tuple[AssistantIntent, ...] = (
@@ -25,7 +29,7 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         scores[intent] += weight
         signals[intent].append(signal)
 
-    if tokens.intersection({"experiment", "trial", "study"}):
+    if tokens.intersection(EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.55, "mentions_experiment")
     if any(phrase in text for phrase in ("so far", "look like", "results", "effect")):
         add_signal("experiment_review", 0.25, "review_phrase")

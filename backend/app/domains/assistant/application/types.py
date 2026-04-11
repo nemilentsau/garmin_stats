@@ -10,6 +10,7 @@ AssistantIntent = Literal[
     "recovery_briefing",
     "open_ended_coaching",
 ]
+EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 AssistantResolvedEntityKind = Literal["experiment", "routine", "metric", "memory"]
 AssistantMemoryRecordKind = Literal["entity_alias", "evidence_summary"]
 

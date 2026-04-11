@@ -1,7 +1,8 @@
 """Tests for deterministic assistant entity resolution."""
 
 from app.domains.assistant.application.entity_resolution import resolve_entities
-from app.domains.assistant.application.types import AssistantRouteDecision
+from app.domains.assistant.application.router import route_user_query
+from app.domains.assistant.application.types import AssistantMemoryRecord, AssistantRouteDecision
 from app.models import (
     CardLog,
     DailyCheckIn,
@@ -127,3 +128,76 @@ def test_entity_resolver_skips_resolution_for_non_experiment_routes() -> None:
     )
 
     assert resolved == []
+
+
+def test_entity_resolver_prefers_exact_overlapping_experiment_id_match() -> None:
+    store = _FakeReadStore(
+        experiments=[
+            Experiment(id="sleep", name="Sleep", status="active"),
+            Experiment(id="sleep-quality", name="Sleep Quality", status="active"),
+        ]
+    )
+
+    resolved = resolve_entities(
+        store=store,
+        memory=[],
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        query="Can you review sleep-quality so far?",
+    )
+
+    assert resolved[0].entity_id == "sleep-quality"
+
+
+def test_entity_resolver_handles_trial_synonym_route_for_experiment_matching() -> None:
+    store = _FakeReadStore(
+        experiments=[Experiment(id="meditation-hrv-2026-03", name="Meditation to HRV", status="active")]
+    )
+    route = route_user_query("How is the meditation trial going?")
+
+    resolved = resolve_entities(
+        store=store,
+        memory=[],
+        route=route,
+        query="How is the meditation trial going?",
+    )
+
+    assert route.intent == "experiment_review"
+    assert resolved[0].entity_id == "meditation-hrv-2026-03"
+
+
+def test_entity_resolver_returns_no_match_when_only_generic_experiment_words_overlap() -> None:
+    store = _FakeReadStore(
+        experiments=[Experiment(id="cold-plunge", name="Cold Plunge", status="active")]
+    )
+
+    resolved = resolve_entities(
+        store=store,
+        memory=[],
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        query="How is the experiment going?",
+    )
+
+    assert resolved == []
+
+
+def test_entity_resolver_uses_alias_memory_for_experiment_matching() -> None:
+    store = _FakeReadStore(
+        experiments=[Experiment(id="meditation-hrv-2026-03", name="Meditation to HRV", status="active")]
+    )
+    memory = [
+        AssistantMemoryRecord(
+            id="memory-1",
+            kind="entity_alias",
+            entity_id="meditation-hrv-2026-03",
+            alias_text="mindfulness protocol",
+        )
+    ]
+
+    resolved = resolve_entities(
+        store=store,
+        memory=memory,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        query="How is my mindfulness protocol doing?",
+    )
+
+    assert resolved[0].entity_id == "meditation-hrv-2026-03"
