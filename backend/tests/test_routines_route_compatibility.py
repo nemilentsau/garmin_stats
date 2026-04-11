@@ -92,3 +92,12 @@ def test_monkeypatching_domain_routines_api_changes_live_http_behavior(monkeypat
 
     assert status == 400
     assert json.loads(body)["detail"] == "domain route patch hit"
+
+
+def test_today_card_logs_openapi_metadata_stays_compatible():
+    operation = app.openapi()["paths"]["/api/today/card-logs"]["get"]
+
+    assert operation["operationId"] == "get_card_logs_range_api_today_card_logs_get"
+    assert operation["description"] == (
+        "Return completion statuses for all card occurrences in a date range."
+    )
