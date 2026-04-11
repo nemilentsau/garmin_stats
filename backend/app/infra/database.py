@@ -16,6 +16,10 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..domains.assistant.application.types import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
+)
 from ..models import (
     DEFAULT_PROFILE_ID,
     AssistantArtifact,
@@ -79,6 +83,7 @@ _VALID_TABLES = frozenset({
     "daily_checkins", "notes", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
+    "assistant_evidence_bundles", "assistant_memory_records",
     "evidence_cards", "programs", "program_versions",
     "assistant_artifacts", "card_templates", "routine_schedules",
     "routine_assignments", "card_logs", "card_overrides",
@@ -172,6 +177,24 @@ CREATE TABLE IF NOT EXISTS assistant_runs (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS assistant_evidence_bundles (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    user_message_id TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assistant_memory_records (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    entity_id TEXT,
+    alias_text TEXT,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS routine_assignments (
     id TEXT PRIMARY KEY,
     routine_id TEXT NOT NULL,
@@ -224,6 +247,10 @@ CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread_created
     ON assistant_messages (thread_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_assistant_runs_thread_created
     ON assistant_runs (thread_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_evidence_bundles_thread_created
+    ON assistant_evidence_bundles (thread_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_created
+    ON assistant_memory_records (kind, created_at);
 CREATE TABLE IF NOT EXISTS experiment_analyses (
     experiment_id TEXT PRIMARY KEY,
     data TEXT NOT NULL,
@@ -1104,6 +1131,70 @@ def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
         where_sql=where_sql,
         params=params,
         order_by="created_at, id",
+    )
+
+
+def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
+    _save_json_record(
+        "assistant_evidence_bundles",
+        bundle.id,
+        bundle.model_dump_json(),
+        extra_columns={
+            "thread_id": bundle.thread_id,
+            "user_message_id": bundle.user_message_id,
+            "intent": bundle.intent,
+        },
+        created_at=bundle.created_at,
+        updated_at=bundle.updated_at,
+    )
+
+
+def load_assistant_evidence_bundles(
+    thread_id: str | None = None,
+    *,
+    last_n: int | None = None,
+) -> list[AssistantEvidenceBundle]:
+    where_sql = "thread_id = ?" if thread_id is not None else ""
+    params = (thread_id,) if thread_id is not None else ()
+    return _load_json_records(
+        "assistant_evidence_bundles",
+        AssistantEvidenceBundle,
+        where_sql=where_sql,
+        params=params,
+        order_by="created_at, id",
+        last_n=last_n,
+    )
+
+
+def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
+    _save_json_record(
+        "assistant_memory_records",
+        record.id,
+        record.model_dump_json(),
+        extra_columns={
+            "kind": record.kind,
+            "entity_id": record.entity_id,
+            "alias_text": record.alias_text,
+        },
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def load_assistant_memory_records(
+    kind: str | None = None,
+    *,
+    last_n: int | None = None,
+) -> list[AssistantMemoryRecord]:
+    where_sql = "kind = ?" if kind is not None else ""
+    params = (kind,) if kind is not None else ()
+    return _load_json_records(
+        "assistant_memory_records",
+        AssistantMemoryRecord,
+        where_sql=where_sql,
+        params=params,
+        order_by="created_at, id",
+        last_n=last_n,
     )
 
 

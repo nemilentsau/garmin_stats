@@ -5,6 +5,12 @@ import os
 import pytest
 
 import app.infra.database as db
+from app.domains.assistant.application.types import (
+    AssistantEvidenceBundle,
+    AssistantEvidenceItem,
+    AssistantMemoryRecord,
+    AssistantResolvedEntity,
+)
 from app.models import (
     AssistantArtifact,
     AssistantMessage,
@@ -57,6 +63,8 @@ class TestInit:
         assert "user_profile" in tables
         assert "routines" in tables
         assert "assistant_threads" in tables
+        assert "assistant_evidence_bundles" in tables
+        assert "assistant_memory_records" in tables
         assert "assistant_artifacts" in tables
         assert "card_templates" in tables
         assert "routine_schedules" in tables
@@ -447,6 +455,50 @@ class TestStoreAndLoad:
         assert [entry.id for entry in db.load_routine_assignments("routine-1")] == ["assignment-1"]
         assert [entry.id for entry in db.load_card_logs("2026-03-02")] == ["log-1"]
         assert [entry.id for entry in db.load_card_overrides("2026-03-02")] == ["override-1"]
+
+    def test_assistant_evidence_bundle_round_trips(self):
+        bundle = AssistantEvidenceBundle(
+            id="bundle-1",
+            thread_id="thread-1",
+            user_message_id="message-1",
+            intent="experiment_review",
+            entities=[
+                AssistantResolvedEntity(
+                    kind="experiment",
+                    entity_id="exp-1",
+                    label="Meditation → HRV",
+                    score=0.98,
+                )
+            ],
+            items=[
+                AssistantEvidenceItem(
+                    kind="analysis",
+                    source="experiment_analysis",
+                    entity_id="exp-1",
+                    payload_json={"adherence_rate": 0.5},
+                )
+            ],
+        )
+
+        db.save_assistant_evidence_bundle(bundle)
+        loaded = db.load_assistant_evidence_bundles(thread_id="thread-1")
+
+        assert loaded[0].intent == "experiment_review"
+        assert loaded[0].entities[0].entity_id == "exp-1"
+
+    def test_assistant_memory_record_round_trips(self):
+        record = AssistantMemoryRecord(
+            id="memory-1",
+            kind="entity_alias",
+            entity_id="exp-1",
+            alias_text="meditation experiment",
+            payload_json={"source": "resolver"},
+        )
+
+        db.save_assistant_memory_record(record)
+        loaded = db.load_assistant_memory_records(kind="entity_alias")
+
+        assert loaded[0].alias_text == "meditation experiment"
 
 
 # ---------------------------------------------------------------------------
