@@ -14,6 +14,7 @@ from app.domains.assistant.application.types import (
 from app.models import (
     AssistantArtifact,
     AssistantMessage,
+    AssistantRun,
     AssistantThread,
     CardLog,
     CardOverride,
@@ -396,6 +397,67 @@ class TestStoreAndLoad:
         assert loaded_snapshot is not None
         assert loaded_snapshot.id == "snapshot-1"
         assert [entry.id for entry in cards] == ["card-1"]
+
+    def test_finalize_assistant_reply_persists_message_thread_and_run_state_together(self):
+        thread = AssistantThread(
+            id="thread-1",
+            title="Recovery coach",
+            last_message_at="2026-01-14T10:00:00+00:00",
+        )
+        running_run = AssistantRun(
+            id="run-1",
+            task_type="chat",
+            status="running",
+            thread_id="thread-1",
+            started_at="2026-01-15T09:00:00+00:00",
+        )
+        assistant_message = AssistantMessage(
+            id="assistant-1",
+            thread_id="thread-1",
+            role="assistant",
+            content_markdown="Keep the bedtime routine consistent.",
+            created_at="2026-01-15T09:02:00+00:00",
+        )
+        updated_thread = thread.model_copy(
+            update={
+                "claude_session_id": "session-1",
+                "last_context_snapshot_id": "bundle-1",
+                "last_message_at": assistant_message.created_at,
+            }
+        )
+        completed_run = running_run.model_copy(
+            update={
+                "status": "completed",
+                "context_snapshot_id": "bundle-1",
+                "claude_session_id": "session-1",
+                "finished_at": "2026-01-15T09:02:01+00:00",
+            }
+        )
+
+        db.create_assistant_thread(thread)
+        db.save_assistant_run(running_run)
+        assert db.load_assistant_messages("thread-1") == []
+        assert db.load_assistant_runs("thread-1")[0].status == "running"
+
+        db.finalize_assistant_reply(
+            assistant_message=assistant_message,
+            updated_thread=updated_thread,
+            completed_run=completed_run,
+        )
+
+        loaded_thread = db.load_assistant_thread("thread-1")
+        loaded_messages = db.load_assistant_messages("thread-1")
+        loaded_runs = db.load_assistant_runs("thread-1")
+
+        assert loaded_thread is not None
+        assert loaded_thread.last_message_at == assistant_message.created_at
+        assert loaded_thread.last_context_snapshot_id == "bundle-1"
+        assert loaded_thread.claude_session_id == "session-1"
+        assert [message.id for message in loaded_messages] == ["assistant-1"]
+        assert loaded_runs[0].id == "run-1"
+        assert loaded_runs[0].status == "completed"
+        assert loaded_runs[0].finished_at == "2026-01-15T09:02:01+00:00"
+        assert loaded_runs[0].context_snapshot_id == "bundle-1"
 
     def test_missing_context_snapshot_returns_none(self):
         assert db.load_context_snapshot("missing") is None

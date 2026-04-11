@@ -25,18 +25,19 @@ def _load_assistant_router():
 
 def _patch_container(monkeypatch, assistant_router_mod):
     repo = object()
+    runtime = object()
     monkeypatch.setattr(
         assistant_router_mod,
         "build_container",
-        lambda: SimpleNamespace(assistant_repo=repo),
+        lambda: SimpleNamespace(assistant_repo=repo, assistant_runtime=runtime),
     )
-    return repo
+    return repo, runtime
 
 
 class TestAssistantRoutes:
     def test_get_threads_returns_service_response(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -57,7 +58,7 @@ class TestAssistantRoutes:
 
     def test_get_thread_detail_raises_lookup_error_when_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -74,7 +75,7 @@ class TestAssistantRoutes:
 
     def test_post_thread_creates_thread(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -93,11 +94,13 @@ class TestAssistantRoutes:
         assert response.id == "thread-1"
 
     def test_post_thread_message_returns_ndjson_stream(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router()
+        _repo, runtime = _patch_container(monkeypatch, assistant_router_mod)
+
         async def fake_stream_reply(*_args, **_kwargs):
+            assert _kwargs["runtime"] is runtime
             yield '{"type":"done"}\n'
 
-        assistant_router_mod = _load_assistant_router()
-        _patch_container(monkeypatch, assistant_router_mod)
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
@@ -126,7 +129,11 @@ class TestAssistantRoutes:
         assert payload == {"type": "done"}
 
     def test_post_thread_message_keeps_ndjson_contract(self, monkeypatch):
+        assistant_router_mod = _load_assistant_router()
+        _repo, runtime = _patch_container(monkeypatch, assistant_router_mod)
+
         async def fake_stream_reply(*_args, **_kwargs):
+            assert _kwargs["runtime"] is runtime
             yield '{"type": "delta", "text": "hello"}\n'
             yield (
                 '{"type": "done", "message": {"id": "assistant-1", '
@@ -135,8 +142,6 @@ class TestAssistantRoutes:
                 '"snapshot_id": "evidence-1", "run_id": "run-1"}\n'
             )
 
-        assistant_router_mod = _load_assistant_router()
-        _patch_container(monkeypatch, assistant_router_mod)
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
@@ -176,7 +181,7 @@ class TestAssistantRoutes:
 
     def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -198,7 +203,7 @@ class TestAssistantRoutes:
 
     def test_get_thread_messages_raises_lookup_error_when_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,

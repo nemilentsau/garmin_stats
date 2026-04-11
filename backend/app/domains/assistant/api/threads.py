@@ -11,7 +11,6 @@ from app.domains.assistant.application.threads import (
     list_messages,
     list_threads,
 )
-from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.models import (
     AssistantMessageCreateRequest,
     AssistantMessagesResponse,
@@ -21,7 +20,6 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
-_runtime = ClaudeCodeRuntime()
 
 
 @router.get("/threads", response_model=AssistantThreadsResponse)
@@ -51,13 +49,14 @@ def get_thread_messages(thread_id: str):
 @router.post("/threads/{thread_id}/messages")
 async def post_thread_message(thread_id: str, request: AssistantMessageCreateRequest):
     """Stream an assistant reply as NDJSON."""
-    repository = build_container().assistant_repo
+    container = build_container()
+    repository = container.assistant_repo
     get_thread(repository, thread_id)
     return StreamingResponse(
         stream_reply(
             repo=repository,
             read_store=repository,
-            runtime=_runtime,
+            runtime=container.assistant_runtime,
             thread_id=thread_id,
             request=request,
         ),
