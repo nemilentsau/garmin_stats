@@ -64,7 +64,4 @@ class SqliteRoutineRepository:
         routine_id: str,
         assignments: list[RoutineAssignment],
     ) -> None:
-        if any(assignment.routine_id != routine_id for assignment in assignments):
-            raise ValueError("All assignments must match the provided routine_id")
-
         replace_routine_assignments(routine_id, assignments)

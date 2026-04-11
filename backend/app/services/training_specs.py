@@ -20,7 +20,6 @@ from app.domains.routines.application.catalog import (
 from app.domains.routines.application.catalog import (
     list_routines as list_domain_routines,
 )
-from app.domains.routines.application.ports import RoutineRepository
 
 from ..infra.database import (
     load_assistant_artifact,
@@ -65,10 +64,6 @@ _PAYLOAD_MODELS = {
     "checklist_block": ChecklistBlockPayloadSpec,
     "exercise_block": ExerciseBlockPayloadSpec,
 }
-
-
-def _routine_repo() -> RoutineRepository:
-    return build_container().routines_repo
 
 
 @dataclass(frozen=True)
@@ -774,7 +769,7 @@ def _activate_card_template_dependency(
 
 def _compile_routine_spec_artifact(artifact: AssistantArtifact) -> RoutineSchedule:
     return compile_routine_artifact(
-        _routine_repo(),
+        build_container().routines_repo,
         artifact,
         activate_card_template_dependency=lambda card_id, source_artifact: (
             _activate_card_template_dependency(card_id, source_artifact=source_artifact)
@@ -807,12 +802,12 @@ def list_cards(status: str | None = None) -> CardTemplatesResponse:
 
 
 def list_routines(status: str | None = None) -> RoutineSchedulesResponse:
-    return list_domain_routines(_routine_repo(), status=status)
+    return list_domain_routines(build_container().routines_repo, status=status)
 
 
 def get_routine(routine_id: str) -> RoutineSchedule:
-    return get_domain_routine(_routine_repo(), routine_id)
+    return get_domain_routine(build_container().routines_repo, routine_id)
 
 
 def list_routine_assignments(routine_id: str) -> RoutineAssignmentsResponse:
-    return list_domain_routine_assignments(_routine_repo(), routine_id)
+    return list_domain_routine_assignments(build_container().routines_repo, routine_id)

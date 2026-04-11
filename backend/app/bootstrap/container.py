@@ -1,8 +1,9 @@
-"""Minimal dependency container for migrated domain slices."""
+"""Dependency container for migrated domain slices."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 
@@ -12,5 +13,6 @@ class AppContainer:
     routines_repo: SqliteRoutineRepository = field(default_factory=SqliteRoutineRepository)
 
 
+@lru_cache(maxsize=1)
 def build_container() -> AppContainer:
     return AppContainer()

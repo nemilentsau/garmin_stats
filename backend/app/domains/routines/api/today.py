@@ -1,7 +1,5 @@
 """Domain-local today routes."""
 
-from functools import lru_cache
-
 from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
@@ -27,7 +25,7 @@ router = APIRouter(prefix="/api/today", tags=["today"])
 @router.get("", response_model=TodayResponse)
 def get_today_view(date: str = Query(..., description="Date (YYYY-MM-DD)")):
     """Return compiled cards for a single day."""
-    return _get_today(_repo(), date=date)
+    return _get_today(build_container().routines_repo, date=date)
 
 
 @router.get("/card-logs", response_model=CardLogRangeResponse)
@@ -36,20 +34,16 @@ def get_card_logs_range(
     end_date: str = Query(..., description="End date (YYYY-MM-DD, inclusive)"),
 ):
     """Return completion statuses for all card occurrences in a date range."""
-    return _get_card_log_range(_repo(), start_date=start_date, end_date=end_date)
+    repo = build_container().routines_repo
+    return _get_card_log_range(repo, start_date=start_date, end_date=end_date)
 
 
 @router.put("/{date}/cards/{occurrence_key}", response_model=CardLog)
 def put_today_card_log(date: str, occurrence_key: str, request: TodayCardLogUpdateRequest):
     """Create or replace the log for a single card occurrence."""
     return _upsert_today_card_log(
-        _repo(),
+        build_container().routines_repo,
         date=date,
         occurrence_key=occurrence_key,
         request=request,
     )
-
-
-@lru_cache(maxsize=1)
-def _repo():
-    return build_container().routines_repo

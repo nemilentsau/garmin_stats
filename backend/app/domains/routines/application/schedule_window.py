@@ -177,7 +177,7 @@ def get_schedule_window(
             ScheduleDay(
                 date=date_str,
                 weekday=_WEEKDAY_NAMES[day.weekday()],
-                occurrences=sorted(occurrences, key=occurrence_sort_key),
+                occurrences=occurrences,
             )
         )
 
