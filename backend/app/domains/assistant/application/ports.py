@@ -1,0 +1,68 @@
+"""Repository contracts for assistant conversation and read-model access."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.models import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    CardLog,
+    DailyCheckIn,
+    DailyMetric,
+    Experiment,
+    ExperimentAnalysis,
+    ExperimentExposure,
+    Note,
+    RoutineAssignment,
+    RoutineSchedule,
+    UserProfile,
+)
+
+
+class AssistantConversationStore(Protocol):
+    def list_threads(self) -> list[AssistantThread]: ...
+    def get_thread(self, thread_id: str) -> AssistantThread | None: ...
+    def save_thread(self, thread: AssistantThread) -> None: ...
+    def list_messages(self, thread_id: str) -> list[AssistantMessage]: ...
+    def save_message(self, message: AssistantMessage) -> None: ...
+    def save_run(self, run: AssistantRun) -> None: ...
+    def save_evidence_bundle(self, bundle: AssistantEvidenceBundle) -> None: ...
+    def list_evidence_bundles(
+        self,
+        thread_id: str | None = None,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]: ...
+    def save_memory_record(self, record: AssistantMemoryRecord) -> None: ...
+    def list_memory_records(
+        self,
+        kind: str | None = None,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantMemoryRecord]: ...
+
+
+class AssistantReadModelStore(Protocol):
+    def list_experiments(
+        self,
+        *,
+        status: str | None = None,
+        statuses: tuple[str, ...] | None = None,
+    ) -> list[Experiment]: ...
+    def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None: ...
+    def list_experiment_exposures(
+        self,
+        *,
+        experiment_id: str | None = None,
+        date: str | None = None,
+    ) -> list[ExperimentExposure]: ...
+    def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]: ...
+    def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]: ...
+    def list_card_logs_range(self, *, start_date: str, end_date: str) -> list[CardLog]: ...
+    def list_recent_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]: ...
+    def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]: ...
+    def list_recent_notes(self, *, last_n: int | None = None) -> list[Note]: ...
+    def get_profile(self, profile_id: str = "default") -> UserProfile | None: ...
