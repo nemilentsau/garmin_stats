@@ -89,7 +89,7 @@ def _resolve_experiment_entities(
             kind="experiment",
             entity_id=best_experiment.id,
             label=best_experiment.name,
-            score=round(best_score, 3),
+            score=round(_bounded_confidence(best_score), 3),
         )
     ]
 
@@ -153,6 +153,10 @@ def _overlap_score(query_tokens: set[str], candidate_tokens: set[str]) -> float:
     if not overlap:
         return 0.0
     return len(overlap) / len(candidate_tokens)
+
+
+def _bounded_confidence(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def _tokenize(text: str) -> set[str]:

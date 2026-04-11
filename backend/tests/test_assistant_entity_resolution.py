@@ -146,6 +146,8 @@ def test_entity_resolver_prefers_exact_overlapping_experiment_id_match() -> None
     )
 
     assert resolved[0].entity_id == "sleep-quality"
+    assert 0.0 <= resolved[0].score <= 1.0
+    assert resolved[0].score == 1.0
 
 
 def test_entity_resolver_handles_trial_synonym_route_for_experiment_matching() -> None:
