@@ -884,23 +884,40 @@ def save_experiment_exposure(exposure: ExperimentExposure) -> None:
     )
 
 
+def _auto_experiment_exposure_id(experiment_id: str, date: str) -> str:
+    return f"exposure:auto:{experiment_id}:{date}"
+
+
 def replace_experiment_exposure_for_date(
     experiment_id: str,
     date: str,
     exposure: ExperimentExposure | None,
 ) -> None:
-    """Replace all exposure rows for one experiment-day with one derived row."""
+    """Replace the derived exposure row for one experiment-day.
+
+    Manual same-day exposure rows are preserved and take precedence over any
+    derived exposure the sync service would otherwise write.
+    """
+    auto_id = _auto_experiment_exposure_id(experiment_id, date)
     if exposure is not None and (
-        exposure.experiment_id != experiment_id or exposure.date != date
+        exposure.experiment_id != experiment_id
+        or exposure.date != date
+        or exposure.id != auto_id
     ):
         raise ValueError("Exposure does not match experiment_id/date replacement target")
 
     with _connect() as con, con:
-        con.execute(
-            "DELETE FROM experiment_exposures WHERE experiment_id = ? AND entry_date = ?",
-            (experiment_id, date),
-        )
-        if exposure is None:
+        manual_exists = con.execute(
+            """
+            SELECT 1
+            FROM experiment_exposures
+            WHERE experiment_id = ? AND entry_date = ? AND id != ?
+            LIMIT 1
+            """,
+            (experiment_id, date, auto_id),
+        ).fetchone() is not None
+        con.execute("DELETE FROM experiment_exposures WHERE id = ?", (auto_id,))
+        if exposure is None or manual_exists:
             return
         _save_json_record_in_connection(
             con,

@@ -8,12 +8,14 @@ from app.infra.database import (
     save_card_log,
     save_experiment,
     save_experiment_analysis,
+    save_experiment_exposure,
 )
 from app.models import (
     AssistantArtifactCreateRequest,
     CardLog,
     Experiment,
     ExperimentDesign,
+    ExperimentExposure,
 )
 from app.services.experiment_analysis import compute_experiment_analysis
 from app.services.training_specs import (
@@ -165,6 +167,46 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
     assert exposures[0].exposure_score == 0.5
 
 
+def test_sync_experiment_exposures_preserves_manual_same_day_entries():
+    _activate_two_card_routine("routine-exposure-manual")
+    _save_linked_experiment("exp-manual", "routine-exposure-manual")
+    save_experiment_exposure(
+        ExperimentExposure(
+            id="manual:exp-manual:2026-03-02",
+            experiment_id="exp-manual",
+            date="2026-03-02",
+            exposure_score=0.0,
+            adherence_state="missed",
+            linked_routine_entry_ids=[],
+            notes="Manual override should win",
+        )
+    )
+
+    first_card = _scheduled_cards_for("2026-03-02")[0]
+    save_card_log(
+        CardLog(
+            id=f"card-log:{first_card.date}:{first_card.occurrence_key}",
+            date=first_card.date,
+            occurrence_key=first_card.occurrence_key,
+            card_template_id=first_card.card_template_id,
+            assignment_id=first_card.assignment_id,
+            status="completed",
+            actual_json={},
+            notes=None,
+        )
+    )
+
+    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+
+    sync_experiment_exposures_for_date("2026-03-02")
+
+    exposures = load_experiment_exposures(experiment_id="exp-manual")
+    assert len(exposures) == 1
+    assert exposures[0].id == "manual:exp-manual:2026-03-02"
+    assert exposures[0].adherence_state == "missed"
+    assert exposures[0].notes == "Manual override should win"
+
+
 def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     _activate_two_card_routine("routine-exposure-analysis")
     experiment = Experiment(
@@ -210,3 +252,48 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     assert after is not None
     assert after.adherence_rate == 1.0
     assert after.adherence_by_day[0].state == "full"
+
+
+def test_sync_experiment_exposures_updates_completed_experiments_after_late_edits():
+    _activate_two_card_routine("routine-exposure-completed")
+    experiment = Experiment(
+        id="exp-completed-refresh",
+        name="Meditation -> HRV",
+        status="completed",
+        linked_routine_ids=["routine-exposure-completed"],
+        design=ExperimentDesign(
+            baseline_start_date="2026-02-20",
+            baseline_end_date="2026-03-01",
+            treatment_start_date="2026-03-02",
+            treatment_end_date="2026-03-02",
+        ),
+    )
+    save_experiment(experiment)
+    save_experiment_analysis(experiment.id, compute_experiment_analysis(experiment))
+
+    first_card = _scheduled_cards_for("2026-03-02")[0]
+    save_card_log(
+        CardLog(
+            id=f"card-log:{first_card.date}:{first_card.occurrence_key}",
+            date=first_card.date,
+            occurrence_key=first_card.occurrence_key,
+            card_template_id=first_card.card_template_id,
+            assignment_id=first_card.assignment_id,
+            status="completed",
+            actual_json={},
+            notes=None,
+        )
+    )
+
+    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+
+    sync_experiment_exposures_for_date("2026-03-02")
+
+    exposures = load_experiment_exposures(experiment_id="exp-completed-refresh")
+    assert len(exposures) == 1
+    assert exposures[0].adherence_state == "partial"
+
+    after = load_experiment_analysis("exp-completed-refresh")
+    assert after is not None
+    assert after.adherence_rate == 0.0
+    assert after.adherence_by_day[0].state == "partial"

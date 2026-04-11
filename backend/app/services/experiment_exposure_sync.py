@@ -18,7 +18,7 @@ from app.models import CardLog, Experiment, ExperimentExposure, ScheduleOccurren
 from app.services.experiment_analysis import compute_experiment_analysis
 
 _PARTIAL_CARD_WEIGHT = 0.5
-_SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft")
+_SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 
 
 class ExperimentExposureSyncService:
