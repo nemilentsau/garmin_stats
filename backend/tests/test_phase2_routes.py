@@ -81,7 +81,18 @@ class TestAssistantRoutes:
             )
         )
 
+        async def collect_first_line(stream):
+            async for line in stream:
+                if isinstance(line, (bytes, bytearray)):
+                    line = line.decode()
+                return line
+            return ""
+
+        first_line = asyncio.run(collect_first_line(response.body_iterator))
+        payload = json.loads(first_line)
+
         assert response.media_type == "application/x-ndjson"
+        assert payload == {"type": "done"}
 
     def test_post_thread_message_keeps_ndjson_contract(self, monkeypatch):
         async def fake_stream_reply(*_args, **_kwargs):
