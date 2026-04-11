@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import AsyncIterator, Sequence
+from typing import Any, Protocol
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.models import (
@@ -86,3 +87,15 @@ class AssistantRecallStore(Protocol):
 
 class AssistantRetrievalStore(AssistantReadModelStore, AssistantRecallStore, Protocol):
     """Combined read-model + recall protocol for deterministic evidence retrieval."""
+
+
+class AssistantRuntime(Protocol):
+    def stream_chat(
+        self,
+        *,
+        evidence_bundle: AssistantEvidenceBundle,
+        prior_messages: Sequence[AssistantMessage | dict[str, Any]],
+        memory_records: Sequence[AssistantMemoryRecord],
+        user_message: str,
+        model: str,
+    ) -> AsyncIterator[dict[str, Any]]: ...
