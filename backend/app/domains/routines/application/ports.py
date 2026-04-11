@@ -7,6 +7,10 @@ from typing import Protocol
 from app.models import CardLog, CardOverride, CardTemplate, RoutineAssignment, RoutineSchedule
 
 
+class TodayCardLogObserver(Protocol):
+    def sync_for_date(self, *, date: str) -> None: ...
+
+
 class RoutineRepository(Protocol):
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]: ...
     def get_routine(self, routine_id: str) -> RoutineSchedule | None: ...

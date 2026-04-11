@@ -41,9 +41,11 @@ def get_card_logs_range(
 @router.put("/{date}/cards/{occurrence_key}", response_model=CardLog)
 def put_today_card_log(date: str, occurrence_key: str, request: TodayCardLogUpdateRequest):
     """Create or replace the log for a single card occurrence."""
+    container = build_container()
     return _upsert_today_card_log(
-        build_container().routines_repo,
+        container.routines_repo,
         date=date,
         occurrence_key=occurrence_key,
         request=request,
+        observer=container.experiment_exposure_sync,
     )

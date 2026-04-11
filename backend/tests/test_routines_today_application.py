@@ -8,11 +8,14 @@ from app.domains.routines.application.today import (
     upsert_today_card_log,
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.infra.database import load_experiment_exposures, save_experiment
 from app.models import (
     AssistantArtifactCreateRequest,
     CardLog,
+    Experiment,
     TodayCardLogUpdateRequest,
 )
+from app.services import today as today_service
 from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
@@ -61,6 +64,40 @@ def _routine_request(routine_id: str, *, card_id: str) -> AssistantArtifactCreat
                     "position": 20,
                     "prescription_override_json": {},
                 }
+            ],
+        },
+    )
+
+
+def _two_card_routine_request(routine_id: str) -> AssistantArtifactCreateRequest:
+    return AssistantArtifactCreateRequest(
+        id=f"artifact-{routine_id}",
+        kind="routine_spec",
+        schema_version=1,
+        payload_json={
+            "id": routine_id,
+            "name": f"Routine {routine_id}",
+            "start_date": "2026-03-02",
+            "status": "active",
+            "tags": ["training"],
+            "notes": "Today fixture routine",
+            "assignments": [
+                {
+                    "id": f"{routine_id}-morning",
+                    "card_template_id": "card-morning",
+                    "day": 1,
+                    "slot": "morning",
+                    "position": 10,
+                    "prescription_override_json": {},
+                },
+                {
+                    "id": f"{routine_id}-evening",
+                    "card_template_id": "card-evening",
+                    "day": 1,
+                    "slot": "evening",
+                    "position": 10,
+                    "prescription_override_json": {},
+                },
             ],
         },
     )
@@ -155,3 +192,75 @@ def test_upsert_today_card_log_rejects_assignment_mismatch():
                 notes=None,
             ),
         )
+
+
+def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
+    morning_card_artifact = create_assistant_artifact(_card_request("card-morning"))
+    activate_assistant_artifact(morning_card_artifact.id)
+    evening_card_artifact = create_assistant_artifact(_card_request("card-evening"))
+    activate_assistant_artifact(evening_card_artifact.id)
+    routine_artifact = create_assistant_artifact(_two_card_routine_request("routine-exposure"))
+    activate_assistant_artifact(routine_artifact.id)
+    save_experiment(
+        Experiment(
+            id="exp-today-sync",
+            name="Meditation -> HRV",
+            status="draft",
+            linked_routine_ids=["routine-exposure"],
+        )
+    )
+
+    today = today_service.get_today("2026-03-02")
+    cards = [card for slot in today.slots for card in slot.cards]
+    first_card, second_card = cards
+
+    today_service.upsert_today_card_log(
+        "2026-03-02",
+        first_card.occurrence_key,
+        TodayCardLogUpdateRequest(
+            card_template_id=first_card.card_template_id,
+            assignment_id=first_card.assignment_id,
+            status="completed",
+            actual_json={},
+            notes=None,
+        ),
+    )
+
+    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    assert len(exposures) == 1
+    assert exposures[0].adherence_state == "partial"
+    assert exposures[0].exposure_score == 0.5
+
+    today_service.upsert_today_card_log(
+        "2026-03-02",
+        second_card.occurrence_key,
+        TodayCardLogUpdateRequest(
+            card_template_id=second_card.card_template_id,
+            assignment_id=second_card.assignment_id,
+            status="completed",
+            actual_json={},
+            notes=None,
+        ),
+    )
+
+    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    assert len(exposures) == 1
+    assert exposures[0].adherence_state == "full"
+    assert exposures[0].exposure_score == 1.0
+
+    today_service.upsert_today_card_log(
+        "2026-03-02",
+        first_card.occurrence_key,
+        TodayCardLogUpdateRequest(
+            card_template_id=first_card.card_template_id,
+            assignment_id=first_card.assignment_id,
+            status="skipped",
+            actual_json={},
+            notes=None,
+        ),
+    )
+
+    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    assert len(exposures) == 1
+    assert exposures[0].adherence_state == "partial"
+    assert exposures[0].exposure_score == 0.5

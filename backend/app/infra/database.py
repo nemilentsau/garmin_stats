@@ -884,6 +884,36 @@ def save_experiment_exposure(exposure: ExperimentExposure) -> None:
     )
 
 
+def replace_experiment_exposure_for_date(
+    experiment_id: str,
+    date: str,
+    exposure: ExperimentExposure | None,
+) -> None:
+    """Replace all exposure rows for one experiment-day with one derived row."""
+    if exposure is not None and (
+        exposure.experiment_id != experiment_id or exposure.date != date
+    ):
+        raise ValueError("Exposure does not match experiment_id/date replacement target")
+
+    with _connect() as con, con:
+        con.execute(
+            "DELETE FROM experiment_exposures WHERE experiment_id = ? AND entry_date = ?",
+            (experiment_id, date),
+        )
+        if exposure is None:
+            return
+        _save_json_record_in_connection(
+            con,
+            "experiment_exposures",
+            exposure.id,
+            exposure.model_dump_json(),
+            extra_columns={
+                "experiment_id": exposure.experiment_id,
+                "entry_date": exposure.date,
+            },
+        )
+
+
 def load_experiment_exposures(
     experiment_id: str | None = None,
     date: str | None = None,

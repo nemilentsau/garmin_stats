@@ -23,9 +23,11 @@ def get_today(date: str):
 
 
 def upsert_today_card_log(date: str, occurrence_key: str, request):
+    container = build_container()
     return _upsert_today_card_log(
-        build_container().routines_repo,
+        container.routines_repo,
         date=date,
         occurrence_key=occurrence_key,
         request=request,
+        observer=container.experiment_exposure_sync,
     )

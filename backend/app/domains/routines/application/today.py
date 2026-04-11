@@ -17,7 +17,7 @@ from app.models import (
     TodayStats,
 )
 
-from .ports import RoutineRepository
+from .ports import RoutineRepository, TodayCardLogObserver
 
 _SLOT_LABELS = {
     "morning": "Morning",
@@ -88,6 +88,7 @@ def upsert_today_card_log(
     date: str,
     occurrence_key: str,
     request: TodayCardLogUpdateRequest,
+    observer: TodayCardLogObserver | None = None,
 ) -> CardLog:
     scheduled_cards = {
         card.occurrence_key: card
@@ -116,4 +117,6 @@ def upsert_today_card_log(
         notes=request.notes,
     )
     repo.save_card_log(log)
+    if observer is not None:
+        observer.sync_for_date(date=date)
     return log

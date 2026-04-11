@@ -102,6 +102,15 @@ There are two major paths:
 - `profile.py`, `checkins.py`, `notes.py`, `experiments.py`, `programs.py`, `target_metrics.py`
   Secondary/parked domain services still present in the backend.
 
+## Experiment Semantics
+
+Experiment adherence is protocol-defined and day-grain.
+
+- One `ExperimentExposure` represents one experiment-day for one `experiment_id + date`.
+- Exposure is derived from whether the planned intervention dose for that day was satisfied, not from any single card in isolation.
+- A routine may schedule multiple intervention cards on the same day. That is expected when the protocol requires multiple sessions or components.
+- Do not collapse an experiment day to a "best card status" and do not treat multiple same-day linked cards as ambiguity. The correct question is whether the prescribed daily dose was met, partially met, missed, or is still unresolved.
+
 ## Backend Route Inventory
 
 ### Health and ingest

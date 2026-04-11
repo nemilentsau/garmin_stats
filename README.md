@@ -55,6 +55,7 @@ Important details:
 - bundle import persists artifacts and auto-activates them in dependency order
 - low-level assistant artifacts still exist for debugging/manual flows, but they are not the normal user path
 - Today only logs execution state; it does not author schedule structure
+- Today card logs now auto-derive linked experiment exposure rows for routine-linked experiments, so adherence comes from the live routine runtime instead of a separate manual logging path
 
 Bundle examples live in:
 
@@ -246,6 +247,9 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `GET/POST /api/checkins`
 - `GET/POST /api/notes`
 - `GET/POST /api/experiments`
+- `GET /api/experiments/{experiment_id}`
+- `GET /api/experiments/{experiment_id}/analysis`
+- `GET/POST /api/experiments/{experiment_id}/exposures`
 - `GET/POST /api/programs`
 - `GET /api/target-metrics`
 
