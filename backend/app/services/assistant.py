@@ -5,11 +5,21 @@ from collections.abc import AsyncIterator
 from contextlib import suppress
 from uuid import uuid4
 
+from ..bootstrap.container import build_container
+from ..domains.assistant.application.threads import (
+    create_thread as create_thread_use_case,
+)
+from ..domains.assistant.application.threads import (
+    get_thread as get_thread_use_case,
+)
+from ..domains.assistant.application.threads import (
+    list_messages as list_messages_use_case,
+)
+from ..domains.assistant.application.threads import (
+    list_threads as list_threads_use_case,
+)
 from ..infra.database import (
-    load_assistant_messages,
     load_assistant_runs,
-    load_assistant_thread,
-    load_assistant_threads,
     save_assistant_message,
     save_assistant_run,
     save_assistant_thread,
@@ -32,37 +42,19 @@ _runtime = ClaudeCodeRuntime()
 
 
 def list_threads() -> AssistantThreadsResponse:
-    threads = sorted(
-        load_assistant_threads(),
-        key=lambda thread: thread.last_message_at or thread.created_at or "",
-        reverse=True,
-    )
-    return AssistantThreadsResponse(threads=threads)
+    return list_threads_use_case(build_container().assistant_repo)
 
 
 def create_thread(request: AssistantThreadCreateRequest) -> AssistantThread:
-    thread = AssistantThread(
-        id=request.id,
-        title=request.title,
-        mode=request.mode,
-        model=request.model,
-        created_at=now_iso(),
-    )
-    save_assistant_thread(thread)
-    return thread
+    return create_thread_use_case(build_container().assistant_repo, request)
 
 
 def get_thread(thread_id: str) -> AssistantThread:
-    thread = load_assistant_thread(thread_id)
-    if thread is None:
-        raise LookupError(f"Assistant thread {thread_id} not found")
-    return thread
+    return get_thread_use_case(build_container().assistant_repo, thread_id)
 
 
 def list_messages(thread_id: str) -> AssistantMessagesResponse:
-    get_thread(thread_id)
-    messages = load_assistant_messages(thread_id)
-    return AssistantMessagesResponse(messages=messages)
+    return list_messages_use_case(build_container().assistant_repo, thread_id)
 
 
 def _update_thread(

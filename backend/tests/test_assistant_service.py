@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import app.services.assistant as assistant_mod
 from app.models import (
@@ -32,6 +33,20 @@ async def _collect(stream):
     return lines
 
 
+def _patch_assistant_repo(monkeypatch, thread_id: str = "thread-1") -> None:
+    class _Repo:
+        def get_thread(self, candidate_thread_id: str) -> AssistantThread | None:
+            if candidate_thread_id != thread_id:
+                return None
+            return AssistantThread(id=candidate_thread_id, title="Recovery")
+
+    monkeypatch.setattr(
+        assistant_mod,
+        "build_container",
+        lambda: SimpleNamespace(assistant_repo=_Repo()),
+    )
+
+
 class TestStreamThreadReply:
     def test_persists_assistant_reply_and_completes_run(self, monkeypatch):
         saved_messages = []
@@ -39,11 +54,7 @@ class TestStreamThreadReply:
         saved_threads = []
         broadcast_events = []
 
-        monkeypatch.setattr(
-            assistant_mod,
-            "load_assistant_thread",
-            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
-        )
+        _patch_assistant_repo(monkeypatch)
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_thread", saved_threads.append)
@@ -92,11 +103,7 @@ class TestStreamThreadReply:
         saved_runs = []
         broadcast_events = []
 
-        monkeypatch.setattr(
-            assistant_mod,
-            "load_assistant_thread",
-            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
-        )
+        _patch_assistant_repo(monkeypatch)
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_thread", lambda _thread: None)
@@ -138,11 +145,7 @@ class TestStreamThreadReply:
         saved_threads = []
         broadcast_events = []
 
-        monkeypatch.setattr(
-            assistant_mod,
-            "load_assistant_thread",
-            lambda tid: AssistantThread(id=tid, title="Recovery") if tid == "thread-1" else None,
-        )
+        _patch_assistant_repo(monkeypatch)
         monkeypatch.setattr(assistant_mod, "save_assistant_message", saved_messages.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_run", saved_runs.append)
         monkeypatch.setattr(assistant_mod, "save_assistant_thread", saved_threads.append)

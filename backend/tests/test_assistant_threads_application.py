@@ -2,13 +2,14 @@
 
 import pytest
 
-from app.domains.assistant.application.threads import list_messages, list_threads
+from app.domains.assistant.application.threads import create_thread, list_messages, list_threads
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.models import (
     AssistantMessage,
     AssistantMessagesResponse,
     AssistantRun,
     AssistantThread,
+    AssistantThreadCreateRequest,
     AssistantThreadsResponse,
 )
 
@@ -112,3 +113,23 @@ def test_list_messages_returns_messages_for_existing_thread() -> None:
 
     assert isinstance(response, AssistantMessagesResponse)
     assert [message.id for message in response.messages] == ["message-1"]
+
+
+def test_create_thread_rejects_duplicate_id() -> None:
+    repo = _FakeConversationStore(
+        threads=[AssistantThread(id="thread-1", title="Original", mode="general", model="sonnet")]
+    )
+
+    with pytest.raises(ValueError, match="Assistant thread thread-1 already exists"):
+        create_thread(
+            repo,
+            AssistantThreadCreateRequest(
+                id="thread-1",
+                title="Replacement",
+                mode="analysis",
+                model="opus",
+            ),
+        )
+
+    assert repo.get_thread("thread-1") is not None
+    assert repo.get_thread("thread-1").title == "Original"

@@ -26,6 +26,9 @@ def create_thread(
     repo: AssistantConversationStore,
     request: AssistantThreadCreateRequest,
 ) -> AssistantThread:
+    if repo.get_thread(request.id) is not None:
+        raise ValueError(f"Assistant thread {request.id} already exists")
+
     thread = AssistantThread(
         id=request.id,
         title=request.title,
