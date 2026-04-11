@@ -67,3 +67,22 @@ class AssistantReadModelStore(Protocol):
     def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]: ...
     def list_recent_notes(self, *, last_n: int | None = None) -> list[Note]: ...
     def get_profile(self, profile_id: str = "default") -> UserProfile | None: ...
+
+
+class AssistantRecallStore(Protocol):
+    def list_evidence_bundles(
+        self,
+        thread_id: str | None = None,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]: ...
+    def list_memory_records(
+        self,
+        kind: str | None = None,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantMemoryRecord]: ...
+
+
+class AssistantRetrievalStore(AssistantReadModelStore, AssistantRecallStore, Protocol):
+    """Combined read-model + recall protocol for deterministic evidence retrieval."""
