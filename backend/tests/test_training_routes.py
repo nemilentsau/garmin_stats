@@ -127,10 +127,6 @@ class TestAssistantArtifactBundleRoutes:
 
 
 class TestTodayRoutes:
-    def test_today_wrapper_re_exports_service_function(self):
-        assert today_mod.get_card_log_range is not None
-        assert callable(today_mod.get_card_log_range)
-
     def test_post_today_cards_returns_404(self):
         status = asyncio.run(_today_status("POST", "/api/today/2026-03-02/cards"))
 

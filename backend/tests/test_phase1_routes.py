@@ -6,6 +6,7 @@ from fastapi import HTTPException
 import app.routers.experiments as experiments_mod
 import app.routers.profile as profile_mod
 import app.routers.routines as routines_mod
+import app.services.training_specs as training_specs_mod
 from app.models import (
     Experiment,
     OutcomeMetric,
@@ -49,13 +50,13 @@ class TestRoutineRoutes:
 
     def test_get_routine_raises_lookup_error_when_missing(self, monkeypatch):
         monkeypatch.setattr(
-            routines_mod,
+            training_specs_mod,
             "get_routine",
             lambda *_args: (_ for _ in ()).throw(LookupError("Routine routine-1 not found")),
         )
 
         with pytest.raises(LookupError, match="Routine routine-1 not found"):
-            routines_mod.get_routine("routine-1")
+            training_specs_mod.get_routine("routine-1")
 
 
 class TestExperimentRoutes:

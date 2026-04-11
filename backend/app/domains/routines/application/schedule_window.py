@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import cast
 
 from app.domains.routines.domain.schedule import (
@@ -17,6 +17,9 @@ from app.domains.routines.domain.schedule import (
 )
 from app.models import (
     CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
     ScheduleDay,
     ScheduleOccurrence,
     ScheduleOccurrenceSourceKind,
@@ -37,7 +40,13 @@ _WEEKDAY_NAMES: tuple[WeekdayName, ...] = (
 )
 
 
-def _base_occurrences_for_day(day, *, routines, card_lookup, assignments_by_routine):
+def _base_occurrences_for_day(
+    day: date,
+    *,
+    routines: list[RoutineSchedule],
+    card_lookup: dict[str, CardTemplate],
+    assignments_by_routine: dict[str, list[RoutineAssignment]],
+) -> list[ScheduleOccurrence]:
     occurrences: list[ScheduleOccurrence] = []
     date_str = day.isoformat()
     for routine in routines:
@@ -70,7 +79,14 @@ def _base_occurrences_for_day(day, *, routines, card_lookup, assignments_by_rout
     return occurrences
 
 
-def _apply_overrides(repo, occurrences, *, date: str, card_lookup, overrides: list[CardOverride]):
+def _apply_overrides(
+    repo: RoutineRepository,
+    occurrences: list[ScheduleOccurrence],
+    *,
+    date: str,
+    card_lookup: dict[str, CardTemplate],
+    overrides: list[CardOverride],
+) -> list[ScheduleOccurrence]:
     updated = {occurrence.occurrence_key: occurrence for occurrence in occurrences}
     for override in overrides:
         target_occurrence = (
@@ -145,11 +161,11 @@ def get_schedule_window(
     routines = repo.list_routines(status="active")
     assignments = repo.list_assignments()
     card_lookup = {card.id: card for card in repo.list_card_templates(status="active")}
-    assignments_by_routine: dict[str, list] = defaultdict(list)
+    assignments_by_routine: dict[str, list[RoutineAssignment]] = defaultdict(list)
     for assignment in assignments:
         assignments_by_routine[assignment.routine_id].append(assignment)
 
-    overrides_by_date: dict[str, list] = defaultdict(list)
+    overrides_by_date: dict[str, list[CardOverride]] = defaultdict(list)
     for override in repo.list_card_overrides_range(
         start_date=start_date,
         end_date=window_end.isoformat(),

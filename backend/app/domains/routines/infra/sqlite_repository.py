@@ -16,32 +16,38 @@ from app.infra.database import (
     save_routine_schedule,
     save_routine_schedule_with_assignments,
 )
-from app.models import CardLog, RoutineAssignment, RoutineSchedule
+from app.models import (
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+)
 
 
 class SqliteRoutineRepository:
-    def list_routines(self, *, status: str | None = None):
+    def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
         return load_routine_schedules(status=status)
 
-    def get_routine(self, routine_id: str):
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
         return load_routine_schedule(routine_id)
 
-    def list_assignments(self, *, routine_id: str | None = None):
+    def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
         return load_routine_assignments(routine_id=routine_id)
 
-    def list_card_templates(self, *, status: str | None = None):
+    def list_card_templates(self, *, status: str | None = None) -> list[CardTemplate]:
         return load_card_templates(status=status)
 
-    def get_card_template(self, card_id: str):
+    def get_card_template(self, card_id: str) -> CardTemplate | None:
         return load_card_template(card_id)
 
-    def list_card_overrides_range(self, *, start_date: str, end_date: str):
+    def list_card_overrides_range(self, *, start_date: str, end_date: str) -> list[CardOverride]:
         return load_card_overrides_range(start_date, end_date)
 
-    def list_card_logs(self, *, date: str | None = None):
+    def list_card_logs(self, *, date: str | None = None) -> list[CardLog]:
         return load_card_logs(date)
 
-    def list_card_logs_range(self, *, start_date: str, end_date: str):
+    def list_card_logs_range(self, *, start_date: str, end_date: str) -> list[CardLog]:
         return load_card_logs_range(start_date, end_date)
 
     def save_card_log(self, log: CardLog) -> None:

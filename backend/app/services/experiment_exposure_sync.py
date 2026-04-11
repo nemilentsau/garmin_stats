@@ -6,10 +6,9 @@ from collections import defaultdict
 from collections.abc import Mapping
 
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import (
     delete_experiment_analysis,
-    load_card_logs,
+    load_experiment_exposures,
     load_experiments,
     replace_experiment_exposure_for_date,
     save_experiment_analysis,
@@ -26,7 +25,20 @@ class ExperimentExposureSyncService:
         sync_experiment_exposures_for_date(date)
 
 
-def _refresh_persisted_analysis(experiment: Experiment) -> None:
+def _refresh_persisted_analysis_if_changed(
+    experiment: Experiment,
+    *,
+    old_exposure: ExperimentExposure | None,
+    new_exposure: ExperimentExposure | None,
+) -> None:
+    changed = (old_exposure is None) != (new_exposure is None)
+    if not changed and old_exposure is not None and new_exposure is not None:
+        changed = (
+            old_exposure.exposure_score != new_exposure.exposure_score
+            or old_exposure.adherence_state != new_exposure.adherence_state
+        )
+    if not changed:
+        return
     if experiment.design is None:
         delete_experiment_analysis(experiment.id)
         return
@@ -84,7 +96,9 @@ def _derive_experiment_exposure(
 
 def sync_experiment_exposures_for_date(date: str) -> None:
     """Recompute derived experiment exposures for one date from current card logs."""
-    repo = SqliteRoutineRepository()
+    from app.bootstrap.container import build_container
+
+    repo = build_container().routines_repo
     window = get_schedule_window(repo, start_date=date, duration_days=1)
     occurrences = window.days[0].occurrences if window.days else []
     routine_ids_on_date = {
@@ -102,7 +116,7 @@ def sync_experiment_exposures_for_date(date: str) -> None:
         occurrences_by_routine[occurrence.routine_id].append(occurrence)
 
     logs_by_occurrence_key = {
-        log.occurrence_key: log for log in load_card_logs(date)
+        log.occurrence_key: log for log in repo.list_card_logs(date=date)
     }
     experiments = [
         experiment
@@ -113,11 +127,15 @@ def sync_experiment_exposures_for_date(date: str) -> None:
         relevant_occurrences: list[ScheduleOccurrence] = []
         for routine_id in experiment.linked_routine_ids:
             relevant_occurrences.extend(occurrences_by_routine.get(routine_id, []))
-        exposure = _derive_experiment_exposure(
+        old_exposures = load_experiment_exposures(experiment_id=experiment.id, date=date)
+        old_exposure = old_exposures[0] if old_exposures else None
+        new_exposure = _derive_experiment_exposure(
             experiment,
             date=date,
             occurrences=relevant_occurrences,
             logs_by_occurrence_key=logs_by_occurrence_key,
         )
-        replace_experiment_exposure_for_date(experiment.id, date, exposure)
-        _refresh_persisted_analysis(experiment)
+        replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
+        _refresh_persisted_analysis_if_changed(
+            experiment, old_exposure=old_exposure, new_exposure=new_exposure,
+        )
