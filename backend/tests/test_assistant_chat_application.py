@@ -150,12 +150,8 @@ def test_follow_up_works_without_claude_resume():
     assert payloads[-1]["type"] == "done"
     assert "keep going" in payloads[-1]["message"]["content_markdown"].lower()
     assert len(runtime.stream_chat_kwargs) == 1
-    assert [
-        (message["id"], message["role"], message["content_markdown"])
-        for message in runtime.stream_chat_kwargs[0]["prior_messages"]
-    ] == [
-        (message["id"], message["role"], message["content_markdown"])
-        for message in seeded_prior_messages
+    assert runtime.stream_chat_kwargs[0]["prior_messages"] == [
+        dict(message) for message in seeded_prior_messages
     ]
     assert "claude_session_id" not in runtime.stream_chat_kwargs[0]
     assert "session_id" not in runtime.stream_chat_kwargs[0]
