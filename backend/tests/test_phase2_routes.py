@@ -4,7 +4,7 @@ import asyncio
 import importlib
 import json
 import sys
-import types
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,50 +16,38 @@ from app.models import (
 )
 
 
-def _load_assistant_router(monkeypatch, stream_reply=None):
-    if stream_reply is not None:
-        _install_future_chat_owner(monkeypatch, stream_reply)
-    if "app.routers.assistant" in sys.modules:
-        del sys.modules["app.routers.assistant"]
+def _load_assistant_router():
+    if "app.domains.assistant.api.threads" in sys.modules:
+        del sys.modules["app.domains.assistant.api.threads"]
     importlib.invalidate_caches()
-    return importlib.import_module("app.routers.assistant")
+    return importlib.import_module("app.domains.assistant.api.threads")
 
 
-def _install_future_chat_owner(monkeypatch, stream_reply):
-    application_module = types.ModuleType("app.domains.assistant.application")
-    chat_module = types.ModuleType("app.domains.assistant.application.chat")
-    chat_module.stream_reply = stream_reply
-    application_module.chat = chat_module
-
-    assistant_module = types.ModuleType("app.domains.assistant")
-    assistant_module.application = application_module
-
-    domains_module = types.ModuleType("app.domains")
-    domains_module.assistant = assistant_module
-
-    for module_name, module in {
-        "app.domains": domains_module,
-        "app.domains.assistant": assistant_module,
-        "app.domains.assistant.application": application_module,
-        "app.domains.assistant.application.chat": chat_module,
-    }.items():
-        monkeypatch.setitem(sys.modules, module_name, module)
-
-    application_module.__path__ = []  # type: ignore[attr-defined]
-    assistant_module.__path__ = []  # type: ignore[attr-defined]
-    domains_module.__path__ = []  # type: ignore[attr-defined]
+def _patch_container(monkeypatch, assistant_router_mod):
+    repo = object()
+    monkeypatch.setattr(
+        assistant_router_mod,
+        "build_container",
+        lambda: SimpleNamespace(assistant_repo=repo),
+    )
+    return repo
 
 
 class TestAssistantRoutes:
     def test_get_threads_returns_service_response(self, monkeypatch):
-        assistant_router_mod = _load_assistant_router(monkeypatch)
+        assistant_router_mod = _load_assistant_router()
+        repo = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
             "list_threads",
-            lambda: AssistantThreadsResponse(
-                threads=[AssistantThread(id="thread-1", title="Recovery")],
-                total=1,
+            lambda candidate_repo: (
+                AssistantThreadsResponse(
+                    threads=[AssistantThread(id="thread-1", title="Recovery")],
+                    total=1,
+                )
+                if candidate_repo is repo
+                else (_ for _ in ()).throw(AssertionError("unexpected repository"))
             ),
         )
 
@@ -68,24 +56,34 @@ class TestAssistantRoutes:
         assert response.total == 1
 
     def test_get_thread_detail_raises_lookup_error_when_missing(self, monkeypatch):
-        assistant_router_mod = _load_assistant_router(monkeypatch)
+        assistant_router_mod = _load_assistant_router()
+        repo = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
-            lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
+            lambda candidate_repo, *_args: (
+                (_ for _ in ()).throw(LookupError("Assistant thread missing"))
+                if candidate_repo is repo
+                else (_ for _ in ()).throw(AssertionError("unexpected repository"))
+            ),
         )
 
         with pytest.raises(LookupError, match="Assistant thread missing"):
             assistant_router_mod.get_thread_detail("thread-1")
 
     def test_post_thread_creates_thread(self, monkeypatch):
-        assistant_router_mod = _load_assistant_router(monkeypatch)
+        assistant_router_mod = _load_assistant_router()
+        repo = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
             "create_thread",
-            lambda request: AssistantThread(id=request.id, title=request.title),
+            lambda candidate_repo, request: (
+                AssistantThread(id=request.id, title=request.title)
+                if candidate_repo is repo
+                else (_ for _ in ()).throw(AssertionError("unexpected repository"))
+            ),
         )
 
         response = assistant_router_mod.post_thread(
@@ -98,20 +96,14 @@ class TestAssistantRoutes:
         async def fake_stream_reply(*_args, **_kwargs):
             yield '{"type":"done"}\n'
 
-        async def legacy_stream_used(*_args, **_kwargs):
-            if False:
-                yield ""
-            raise AssertionError("legacy stream owner is still used by the route")
-
-        assistant_router_mod = _load_assistant_router(
-            monkeypatch, stream_reply=fake_stream_reply
-        )
+        assistant_router_mod = _load_assistant_router()
+        _patch_container(monkeypatch, assistant_router_mod)
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
-            lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
+            lambda *_args: AssistantThread(id="thread-1", title="Recovery"),
         )
-        monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
+        monkeypatch.setattr(assistant_router_mod, "stream_reply", fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -136,22 +128,21 @@ class TestAssistantRoutes:
     def test_post_thread_message_keeps_ndjson_contract(self, monkeypatch):
         async def fake_stream_reply(*_args, **_kwargs):
             yield '{"type": "delta", "text": "hello"}\n'
-            yield '{"type": "done", "message": {"id": "assistant-1", "thread_id": "thread-1", "role": "assistant", "content_markdown": "hello"}, "session_id": None, "snapshot_id": "evidence-1", "run_id": "run-1"}\n'
+            yield (
+                '{"type": "done", "message": {"id": "assistant-1", '
+                '"thread_id": "thread-1", "role": "assistant", '
+                '"content_markdown": "hello"}, "session_id": null, '
+                '"snapshot_id": "evidence-1", "run_id": "run-1"}\n'
+            )
 
-        async def legacy_stream_used(*_args, **_kwargs):
-            if False:
-                yield ""
-            raise AssertionError("legacy stream owner is still used by the route")
-
-        assistant_router_mod = _load_assistant_router(
-            monkeypatch, stream_reply=fake_stream_reply
-        )
+        assistant_router_mod = _load_assistant_router()
+        _patch_container(monkeypatch, assistant_router_mod)
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
-            lambda thread_id: AssistantThread(id=thread_id, title="Recovery"),
+            lambda *_args: AssistantThread(id="thread-1", title="Recovery"),
         )
-        monkeypatch.setattr(assistant_router_mod, "stream_thread_reply", legacy_stream_used)
+        monkeypatch.setattr(assistant_router_mod, "stream_reply", fake_stream_reply)
 
         response = asyncio.run(
             assistant_router_mod.post_thread_message(
@@ -184,12 +175,17 @@ class TestAssistantRoutes:
         assert payloads[-1]["run_id"] == "run-1"
 
     def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
-        assistant_router_mod = _load_assistant_router(monkeypatch)
+        assistant_router_mod = _load_assistant_router()
+        repo = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
             "get_thread",
-            lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
+            lambda candidate_repo, *_args: (
+                (_ for _ in ()).throw(LookupError("Assistant thread missing"))
+                if candidate_repo is repo
+                else (_ for _ in ()).throw(AssertionError("unexpected repository"))
+            ),
         )
 
         with pytest.raises(LookupError, match="Assistant thread missing"):
@@ -201,12 +197,17 @@ class TestAssistantRoutes:
             )
 
     def test_get_thread_messages_raises_lookup_error_when_missing(self, monkeypatch):
-        assistant_router_mod = _load_assistant_router(monkeypatch)
+        assistant_router_mod = _load_assistant_router()
+        repo = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
             "list_messages",
-            lambda *_args: (_ for _ in ()).throw(LookupError("Assistant thread missing")),
+            lambda candidate_repo, *_args: (
+                (_ for _ in ()).throw(LookupError("Assistant thread missing"))
+                if candidate_repo is repo
+                else (_ for _ in ()).throw(AssertionError("unexpected repository"))
+            ),
         )
 
         with pytest.raises(LookupError, match="Assistant thread missing"):

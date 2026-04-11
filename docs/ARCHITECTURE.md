@@ -7,7 +7,7 @@ This file is a current-state code map. It is not a roadmap and it is not a histo
 The shipped app has three active product centers:
 
 1. Recovery dashboard and metric drill-downs
-2. Assistant chat with stored runs and snapshots
+2. Assistant chat with retrieval-first evidence bundles and stored runs
 3. Routine runtime shared by Creation, Schedule, and Today
 
 Experiments and programs are not removed from the backend, but they are intentionally parked in the frontend.
@@ -36,7 +36,7 @@ Experiments and programs are not removed from the backend, but they are intentio
 There are two major paths:
 
 - Ingest path: FIT files -> `parser.py` -> `stats.py` -> SQLite
-- Read path: SQLite -> domain application or legacy services -> JSON API -> frontend
+- Read path: SQLite -> domain application slices or legacy services -> JSON API -> frontend
 
 ### Core modules
 
@@ -74,8 +74,8 @@ There are two major paths:
 
 ### Active service areas
 
-- `assistant.py`, `assistant_context.py`, `assistant_runtime.py`
-  Assistant orchestration and prompt/runtime integration.
+- `domains/assistant/`
+  Assistant domain slice. `api/threads.py` owns `/api/assistant` endpoints, `application/` owns retrieval-first chat and thread use-cases, and `infra/` owns SQLite repository + Claude runtime adapters.
 
 - `domains/routines/`
   The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.

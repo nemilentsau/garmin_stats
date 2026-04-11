@@ -2,10 +2,10 @@
 
 from fastapi import FastAPI
 
+from app.domains.assistant.api.threads import router as assistant_router
 from app.domains.routines.api.routines import router as routines_router
 from app.domains.routines.api.today import router as today_router
 
-from ..routers.assistant import router as assistant_router
 from ..routers.assistant_artifact_bundles import router as assistant_artifact_bundles_router
 from ..routers.assistant_artifacts import router as assistant_artifacts_router
 from ..routers.body_battery import router as body_battery_router
