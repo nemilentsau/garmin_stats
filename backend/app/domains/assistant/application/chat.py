@@ -100,6 +100,7 @@ def _save_thread_state(
     last_message_at: str,
     snapshot_id: str | None = None,
     session_id: str | None = None,
+    persist: bool = True,
 ) -> object:
     if isinstance(thread, dict):
         updated = dict(thread)
@@ -108,7 +109,8 @@ def _save_thread_state(
             updated["last_context_snapshot_id"] = snapshot_id
         if session_id is not None:
             updated["claude_session_id"] = session_id
-        cast(Any, repo).save_thread(updated)
+        if persist:
+            cast(Any, repo).save_thread(updated)
         return updated
 
     if isinstance(thread, BaseModel):
@@ -118,7 +120,8 @@ def _save_thread_state(
         if session_id is not None:
             updates["claude_session_id"] = session_id
         updated_model = thread.model_copy(update=updates)
-        cast(Any, repo).save_thread(updated_model)
+        if persist:
+            cast(Any, repo).save_thread(updated_model)
         return updated_model
 
     raise TypeError("unsupported thread type for state persistence")
@@ -250,22 +253,25 @@ async def stream_reply(
             evidence_refs_json=[evidence_bundle.id],
             created_at=now_iso(),
         )
-        repo.save_message(assistant_message)
         thread = _save_thread_state(
             repo=repo,
             thread=thread,
             last_message_at=assistant_message.created_at or now_iso(),
             snapshot_id=evidence_bundle.id,
             session_id=session_id,
+            persist=False,
         )
-        repo.save_run(
-            run.model_copy(
-                update={
-                    "status": "completed",
-                    "claude_session_id": session_id,
-                    "finished_at": now_iso(),
-                }
-            )
+        completed_run = run.model_copy(
+            update={
+                "status": "completed",
+                "claude_session_id": session_id,
+                "finished_at": now_iso(),
+            }
+        )
+        cast(Any, repo).finalize_reply(
+            assistant_message=assistant_message,
+            updated_thread=thread,
+            completed_run=completed_run,
         )
         yield _json_line(
             {
@@ -273,7 +279,7 @@ async def stream_reply(
                 "message": assistant_message.model_dump(mode="json"),
                 "session_id": session_id,
                 "snapshot_id": evidence_bundle.id,
-                "run_id": run.id,
+                "run_id": completed_run.id,
             }
         )
     except Exception as exc:

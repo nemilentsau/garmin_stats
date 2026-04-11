@@ -53,13 +53,13 @@ class _FakeConversationStore:
         memory_records: list[AssistantMemoryRecord] | None = None,
         prior_evidence_bundles: list[AssistantEvidenceBundle] | None = None,
         fail_on_save_evidence_bundle: bool = False,
-        fail_on_save_assistant_message: bool = False,
+        fail_on_finalize_reply: bool = False,
     ) -> None:
         self.thread_id = thread_id
         self.claude_session_id = claude_session_id
         self.model = model
         self.fail_on_save_evidence_bundle = fail_on_save_evidence_bundle
-        self.fail_on_save_assistant_message = fail_on_save_assistant_message
+        self.fail_on_finalize_reply = fail_on_finalize_reply
         self.thread_state: dict[str, Any] = {
             "id": thread_id,
             "model": model,
@@ -84,7 +84,7 @@ class _FakeConversationStore:
         prior_messages: list[dict[str, Any]] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
         fail_on_save_evidence_bundle: bool = False,
-        fail_on_save_assistant_message: bool = False,
+        fail_on_finalize_reply: bool = False,
     ):
         return cls(
             thread_id=thread_id,
@@ -93,7 +93,7 @@ class _FakeConversationStore:
             prior_messages=prior_messages,
             memory_records=memory_records,
             fail_on_save_evidence_bundle=fail_on_save_evidence_bundle,
-            fail_on_save_assistant_message=fail_on_save_assistant_message,
+            fail_on_finalize_reply=fail_on_finalize_reply,
         )
 
     def get_thread(self, thread_id: str):
@@ -107,8 +107,6 @@ class _FakeConversationStore:
         return list(self.messages)
 
     def save_message(self, message):
-        if getattr(message, "role", None) == "assistant" and self.fail_on_save_assistant_message:
-            raise RuntimeError("assistant save failed")
         self.messages.append(message)
 
     def save_thread(self, thread):
@@ -119,6 +117,19 @@ class _FakeConversationStore:
 
     def save_run(self, run):
         self.saved_runs.append(run)
+
+    def finalize_reply(
+        self,
+        *,
+        assistant_message,
+        updated_thread,
+        completed_run,
+    ):
+        if self.fail_on_finalize_reply:
+            raise RuntimeError("finalize reply failed")
+        self.messages.append(assistant_message)
+        self.save_thread(updated_thread)
+        self.saved_runs.append(completed_run)
 
     def save_evidence_bundle(self, bundle):
         if self.fail_on_save_evidence_bundle:
@@ -411,7 +422,7 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
 def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed():
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
-        fail_on_save_assistant_message=True,
+        fail_on_finalize_reply=True,
     )
     runtime = _FakeRuntime(deltas=["runtime answer"], done_session_id="session-final")
 
@@ -434,3 +445,5 @@ def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed
     assert payloads[-1]["type"] == "error"
     assert payloads[-1]["run_id"].startswith("run-")
     assert repo.saved_runs[-1].status == "failed"
+    assert not any(getattr(message, "role", "") == "assistant" for message in repo.messages)
+    assert not any(run.status == "completed" for run in repo.saved_runs)

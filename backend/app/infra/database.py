@@ -1138,6 +1138,39 @@ def save_assistant_run(run: AssistantRun) -> None:
     )
 
 
+def finalize_assistant_reply(
+    *,
+    assistant_message: AssistantMessage,
+    updated_thread: AssistantThread,
+    completed_run: AssistantRun,
+) -> None:
+    """Persist assistant reply + thread metadata + completed run atomically."""
+    with _connect() as con, con:
+        _save_json_record_in_connection(
+            con,
+            "assistant_messages",
+            assistant_message.id,
+            assistant_message.model_dump_json(),
+            extra_columns={"thread_id": assistant_message.thread_id},
+            created_at=assistant_message.created_at,
+        )
+        _save_json_record_in_connection(
+            con,
+            "assistant_threads",
+            updated_thread.id,
+            updated_thread.model_dump_json(),
+        )
+        _save_json_record_in_connection(
+            con,
+            "assistant_runs",
+            completed_run.id,
+            completed_run.model_dump_json(),
+            extra_columns={"thread_id": completed_run.thread_id},
+            created_at=completed_run.started_at,
+            updated_at=completed_run.finished_at or completed_run.started_at,
+        )
+
+
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()

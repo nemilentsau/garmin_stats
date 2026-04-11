@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.infra.database import (
     create_assistant_thread,
+    finalize_assistant_reply,
     load_assistant_evidence_bundles,
     load_assistant_memory_records,
     load_assistant_messages,
@@ -61,6 +62,24 @@ class SqliteAssistantRepository:
 
     def save_message(self, message: AssistantMessage) -> None:
         save_assistant_message(message)
+
+    def finalize_reply(
+        self,
+        *,
+        assistant_message: AssistantMessage,
+        updated_thread: AssistantThread | dict[str, object],
+        completed_run: AssistantRun,
+    ) -> None:
+        thread = (
+            AssistantThread.model_validate(updated_thread)
+            if isinstance(updated_thread, dict)
+            else updated_thread
+        )
+        finalize_assistant_reply(
+            assistant_message=assistant_message,
+            updated_thread=thread,
+            completed_run=completed_run,
+        )
 
     def save_run(self, run: AssistantRun) -> None:
         save_assistant_run(run)
