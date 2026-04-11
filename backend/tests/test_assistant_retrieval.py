@@ -264,3 +264,138 @@ def test_experiment_review_retriever_includes_cross_thread_recall_hooks() -> Non
     kinds = [item.kind for item in bundle.items]
     assert "prior_evidence" in kinds
     assert "memory" in kinds
+
+
+def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> None:
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id="two-week-meditation-foundation-routine",
+    )
+    entities = [
+        AssistantResolvedEntity(
+            kind="experiment",
+            entity_id="meditation-hrv-2026-03",
+            label="Meditation -> HRV",
+            score=0.98,
+        )
+    ]
+
+    dot_thread_bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        entities=entities,
+        thread_id="thread.1",
+        user_message_id="MSG",
+    )
+    dash_thread_bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        entities=entities,
+        thread_id="thread-1",
+        user_message_id="MSG",
+    )
+    lowercase_message_bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        entities=entities,
+        thread_id="thread.1",
+        user_message_id="msg",
+    )
+
+    assert dot_thread_bundle.id != dash_thread_bundle.id
+    assert dot_thread_bundle.id != lowercase_message_bundle.id
+
+
+def test_prior_evidence_recall_selects_other_threads_before_truncation() -> None:
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id="two-week-meditation-foundation-routine",
+    )
+    entities = [
+        AssistantResolvedEntity(
+            kind="experiment",
+            entity_id="meditation-hrv-2026-03",
+            label="Meditation -> HRV",
+            score=0.98,
+        )
+    ]
+
+    older_cross_thread = [
+        AssistantEvidenceBundle(
+            id="other-1",
+            thread_id="thread-x",
+            user_message_id="m-1",
+            intent="experiment_review",
+            created_at="2026-03-01T00:00:00Z",
+        ),
+        AssistantEvidenceBundle(
+            id="other-2",
+            thread_id="thread-y",
+            user_message_id="m-2",
+            intent="experiment_review",
+            created_at="2026-03-02T00:00:00Z",
+        ),
+    ]
+    busy_current_thread = [
+        AssistantEvidenceBundle(
+            id=f"current-{index}",
+            thread_id="thread-1",
+            user_message_id=f"current-message-{index}",
+            intent="experiment_review",
+            created_at=f"2026-03-{3 + index:02d}T00:00:00Z",
+        )
+        for index in range(1, 11)
+    ]
+    store._evidence_bundles = older_cross_thread + busy_current_thread
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        entities=entities,
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    prior_bundle_ids = {
+        item.payload_json["bundle_id"]
+        for item in bundle.items
+        if item.kind == "prior_evidence"
+    }
+    assert prior_bundle_ids == {"other-1", "other-2"}
+
+
+def test_linked_routine_includes_non_active_status_when_routine_exists() -> None:
+    routine_id = "two-week-meditation-foundation-routine"
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id=routine_id,
+    )
+    store._routines = [
+        RoutineSchedule(
+            id=routine_id,
+            name="Two-week Meditation Foundation",
+            status="retired",
+            start_date="2026-03-01",
+        )
+    ]
+    entities = [
+        AssistantResolvedEntity(
+            kind="experiment",
+            entity_id="meditation-hrv-2026-03",
+            label="Meditation -> HRV",
+            score=0.98,
+        )
+    ]
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        entities=entities,
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    linked_items = [item for item in bundle.items if item.kind == "linked_routine"]
+    assert linked_items
+    assert linked_items[0].payload_json["routines"][0]["status"] == "retired"
+    assert not any(gap.startswith("linked_routine_missing:") for gap in bundle.gaps)

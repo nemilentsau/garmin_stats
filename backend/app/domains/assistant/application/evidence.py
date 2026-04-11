@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import re
+import hashlib
 from collections.abc import Sequence
 
 from app.domains.assistant.application.ports import AssistantRetrievalStore
@@ -17,7 +17,6 @@ from app.domains.assistant.application.types import (
 
 _MAX_PRIOR_BUNDLES = 3
 _MAX_MEMORY_RECORDS = 5
-_SLUG_PATTERN = re.compile(r"[^a-z0-9]+")
 
 
 def build_evidence_bundle(
@@ -70,8 +69,10 @@ def _build_prior_evidence_items(
     current_thread_id: str,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
-    bundles = store.list_evidence_bundles(last_n=last_n * 3)
-    other_thread_bundles = [bundle for bundle in bundles if bundle.thread_id != current_thread_id]
+    all_bundles = store.list_evidence_bundles()
+    other_thread_bundles = [
+        bundle for bundle in all_bundles if bundle.thread_id != current_thread_id
+    ]
     if not other_thread_bundles:
         return []
 
@@ -141,12 +142,9 @@ def _first_experiment_entity_id(entities: Sequence[AssistantResolvedEntity]) -> 
 
 
 def _deterministic_bundle_id(*, intent: str, thread_id: str, user_message_id: str) -> str:
-    return f"evidence-{_slug(thread_id)}-{_slug(user_message_id)}-{_slug(intent)}"
-
-
-def _slug(value: str) -> str:
-    normalized = _SLUG_PATTERN.sub("-", value.strip().lower()).strip("-")
-    return normalized or "unknown"
+    raw = f"{thread_id}\x1f{user_message_id}\x1f{intent}".encode()
+    digest = hashlib.sha256(raw).hexdigest()[:20]
+    return f"evidence-{digest}"
 
 
 def _dedupe(values: Sequence[str]) -> list[str]:

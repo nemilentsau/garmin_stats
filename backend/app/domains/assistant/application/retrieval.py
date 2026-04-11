@@ -74,7 +74,7 @@ def retrieve_experiment_review(
             )
         )
 
-    linked_routines = _load_linked_active_routines(store=store, experiment=experiment)
+    linked_routines, missing_routine_ids = _load_linked_routines(store=store, experiment=experiment)
     if linked_routines:
         primary_routine = linked_routines[0]
         items.append(
@@ -97,9 +97,8 @@ def retrieve_experiment_review(
                 },
             )
         )
-    elif experiment.linked_routine_ids:
-        missing_ids = sorted(set(experiment.linked_routine_ids))
-        gaps.extend([f"linked_routine_missing:{routine_id}" for routine_id in missing_ids])
+    if missing_routine_ids:
+        gaps.extend([f"linked_routine_missing:{routine_id}" for routine_id in missing_routine_ids])
 
     return items, gaps
 
@@ -134,21 +133,28 @@ def _summarize_exposures(exposures: Sequence[ExperimentExposure]) -> dict[str, o
     }
 
 
-def _load_linked_active_routines(
+def _load_linked_routines(
     *,
     store: AssistantReadModelStore,
     experiment: Experiment,
-) -> list[RoutineSchedule]:
+) -> tuple[list[RoutineSchedule], list[str]]:
     if not experiment.linked_routine_ids:
-        return []
+        return [], []
 
-    active_routines = {
+    routines_by_id = {
         routine.id: routine
-        for routine in store.list_routines(status="active")
+        for routine in store.list_routines()
     }
     linked = [
-        active_routines[routine_id]
+        routines_by_id[routine_id]
         for routine_id in experiment.linked_routine_ids
-        if routine_id in active_routines
+        if routine_id in routines_by_id
     ]
-    return sorted(linked, key=lambda routine: routine.id)
+    missing = sorted(
+        {
+            routine_id
+            for routine_id in experiment.linked_routine_ids
+            if routine_id not in routines_by_id
+        }
+    )
+    return sorted(linked, key=lambda routine: routine.id), missing
