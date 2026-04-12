@@ -62,3 +62,9 @@ def test_router_marks_explicit_recall_language_signal() -> None:
 
     assert decision.intent == "experiment_review"
     assert "explicit_recall_language" in decision.matched_signals
+
+
+def test_router_does_not_treat_time_window_comparisons_as_thread_recall() -> None:
+    decision = route_user_query("Compare today's HRV to the previous week.")
+
+    assert "explicit_recall_language" not in decision.matched_signals

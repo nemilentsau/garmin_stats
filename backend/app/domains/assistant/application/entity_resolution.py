@@ -52,8 +52,8 @@ def _resolve_experiment_entities(
     memory: Sequence[AssistantMemoryRecord],
     query: str,
 ) -> list[AssistantResolvedEntity]:
-    active_experiments = store.list_experiments(statuses=("active",))
-    if not active_experiments:
+    candidate_experiments = store.list_experiments(statuses=("active", "draft"))
+    if not candidate_experiments:
         return []
 
     query_tokens = _tokenize(query)
@@ -63,7 +63,7 @@ def _resolve_experiment_entities(
     alias_tokens = _alias_tokens_by_entity(memory)
     scored_candidates: list[tuple[Experiment, float]] = []
     lowered_query = query.lower()
-    for experiment in active_experiments:
+    for experiment in candidate_experiments:
         score = _experiment_match_score(
             query_tokens=query_tokens,
             query_text=lowered_query,

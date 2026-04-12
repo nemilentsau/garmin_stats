@@ -290,13 +290,7 @@ def _load_active_experiments(*, store: AssistantReadModelStore) -> list[Experime
 
 
 def _analysis_payload(analysis: ExperimentAnalysis) -> dict[str, object]:
-    return {
-        "analysis_date": analysis.analysis_date,
-        "phase": analysis.phase,
-        "adherence_rate": analysis.adherence_rate,
-        "overall_confidence": analysis.overall_confidence,
-        "summary": analysis.summary,
-    }
+    return analysis.model_dump(mode="json")
 
 
 def _active_experiment_payload(

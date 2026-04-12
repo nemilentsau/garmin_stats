@@ -215,3 +215,24 @@ def test_entity_resolver_uses_alias_memory_for_experiment_matching() -> None:
     )
 
     assert resolved[0].entity_id == "meditation-hrv-2026-03"
+
+
+def test_entity_resolver_matches_draft_experiment_when_query_names_it() -> None:
+    store = _FakeReadStore(
+        experiments=[
+            Experiment(
+                id="meditation-hrv-draft",
+                name="Meditation to HRV",
+                status="draft",
+            )
+        ]
+    )
+
+    resolved = resolve_entities(
+        store=store,
+        memory=[],
+        route=AssistantRouteDecision(intent="experiment_review", confidence=0.95),
+        query="How does our meditation experiment look like so far?",
+    )
+
+    assert resolved[0].entity_id == "meditation-hrv-draft"

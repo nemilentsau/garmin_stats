@@ -17,15 +17,12 @@ _EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
 _RECALL_LANGUAGE_PHRASES = (
     "what did we say",
     "what did we discuss",
-    "compare",
-    "comparison",
-    "compared to",
-    "earlier",
-    "previous",
-    "prior",
     "last thread",
-    "as before",
-    "before this",
+    "previous thread",
+    "earlier thread",
+    "last conversation",
+    "previous conversation",
+    "earlier conversation",
 )
 _INTENT_ORDER: tuple[AssistantIntent, ...] = (
     "experiment_review",

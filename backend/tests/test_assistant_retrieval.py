@@ -582,6 +582,11 @@ def test_experiment_review_retriever_returns_analysis_adherence_and_linked_routi
     assert "analysis" in kinds
     assert "exposures" in kinds
     assert "linked_routine" in kinds
+    analysis_item = next(item for item in bundle.items if item.kind == "analysis")
+    assert analysis_item.payload_json["days_in_baseline"] == 14
+    assert analysis_item.payload_json["days_in_treatment"] == 14
+    assert "metrics" in analysis_item.payload_json
+    assert "confounders" in analysis_item.payload_json
 
 
 def test_experiment_review_retriever_includes_cross_thread_recall_hooks() -> None:
