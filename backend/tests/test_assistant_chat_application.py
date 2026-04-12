@@ -645,7 +645,8 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
     assert runtime.stream_chat_kwargs == []
 
 
-def test_stream_reply_memory_setup_failure_still_emits_run_id_and_marks_run_failed():
+def test_stream_reply_memory_setup_failure_emits_error_without_run():
+    """Memory loading fails before the run is created — error emitted, no run persisted."""
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
         fail_on_list_memory_records=True,
@@ -669,8 +670,8 @@ def test_stream_reply_memory_setup_failure_still_emits_run_id_and_marks_run_fail
 
     payloads = [json.loads(line) for line in lines]
     assert payloads[-1]["type"] == "error"
-    assert payloads[-1]["run_id"].startswith("run-")
-    assert repo.saved_runs[-1].status == "failed"
+    assert "run_id" not in payloads[-1]
+    assert repo.saved_runs == []
     assert runtime.stream_chat_kwargs == []
 
 

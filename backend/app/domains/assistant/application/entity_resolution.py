@@ -9,13 +9,13 @@ from collections.abc import Sequence
 from app.domains.assistant.application.ports import AssistantReadModelStore
 from app.domains.assistant.application.types import (
     EXPERIMENT_REVIEW_TERMS,
+    LOWERCASE_TOKEN_PATTERN,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
 from app.models import Experiment
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {
     "a",
@@ -129,7 +129,7 @@ def _query_mentions_experiment_id(query_text: str, experiment_id: str) -> bool:
 
 
 def _normalize_id(value: str) -> str:
-    parts = _TOKEN_PATTERN.findall(value.lower())
+    parts = LOWERCASE_TOKEN_PATTERN.findall(value.lower())
     return "-".join(parts)
 
 
@@ -162,6 +162,6 @@ def _bounded_confidence(value: float) -> float:
 def _tokenize(text: str) -> set[str]:
     return {
         token
-        for token in _TOKEN_PATTERN.findall(text.lower())
+        for token in LOWERCASE_TOKEN_PATTERN.findall(text.lower())
         if token and token not in _STOP_WORDS
     }

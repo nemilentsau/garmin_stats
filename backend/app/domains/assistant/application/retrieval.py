@@ -11,6 +11,7 @@ from app.domains.assistant.application.types import (
     AssistantEvidenceItem,
     AssistantResolvedEntity,
     AssistantRouteDecision,
+    dedupe_strings,
 )
 from app.models import (
     CardLog,
@@ -102,10 +103,10 @@ def retrieve_open_ended_coaching(
     if profile is not None:
         payload["profile"] = _profile_payload(profile)
 
-    gaps = _dedupe([*recovery_gaps, *routine_gaps])
+    gaps = dedupe_strings([*recovery_gaps, *routine_gaps])
     if not payload:
         gaps.append("current_state_missing")
-        return [], _dedupe(gaps)
+        return [], dedupe_strings(gaps)
 
     return [
         AssistantEvidenceItem(
@@ -113,7 +114,7 @@ def retrieve_open_ended_coaching(
             source="read_model.current_state",
             payload_json=payload,
         )
-    ], _dedupe(gaps)
+    ], dedupe_strings(gaps)
 
 
 def _build_experiment_evidence(
@@ -191,7 +192,9 @@ def _build_experiment_scan_context(
     active_experiments = _load_active_experiments(store=store)
     active_routines = _ordered_routines(store.list_routines(status="active"))
     recovery_payload, recovery_gaps = _build_recovery_context(store=store)
-    routine_payload, routine_gaps = _build_routine_context(store=store)
+    routine_payload, routine_gaps = _build_routine_context(
+        store=store, active_routines=active_routines,
+    )
 
     payload: dict[str, object] = {
         "active_experiment_count": len(active_experiments),
@@ -224,7 +227,7 @@ def _build_experiment_scan_context(
             source="read_model.scan_overview",
             payload_json=payload,
         )
-    ], _dedupe(gaps)
+    ], dedupe_strings(gaps)
 
 
 def _is_experiment_scan_request(route: AssistantRouteDecision) -> bool:
@@ -237,29 +240,6 @@ def _is_experiment_scan_request(route: AssistantRouteDecision) -> bool:
                 "experiment_routine_scan",
             }
         )
-    )
-
-
-def _active_experiments_item(
-    *,
-    store: AssistantReadModelStore,
-    experiments: Sequence[Experiment],
-) -> AssistantEvidenceItem:
-    ordered = sorted(
-        experiments,
-        key=lambda experiment: (experiment.priority, experiment.id),
-        reverse=True,
-    )
-    return AssistantEvidenceItem(
-        kind="active_experiments",
-        source="read_model.experiments",
-        payload_json={
-            "count": len(ordered),
-            "experiments": [
-                _active_experiment_payload(store=store, experiment=experiment)
-                for experiment in ordered
-            ],
-        },
     )
 
 
@@ -345,11 +325,16 @@ def _build_recovery_context(store: AssistantReadModelStore) -> tuple[dict[str, o
     return payload, gaps
 
 
-def _build_routine_context(store: AssistantReadModelStore) -> tuple[dict[str, object], list[str]]:
+def _build_routine_context(
+    store: AssistantReadModelStore,
+    *,
+    active_routines: Sequence[RoutineSchedule] | None = None,
+) -> tuple[dict[str, object], list[str]]:
     payload: dict[str, object] = {}
     gaps: list[str] = []
 
-    active_routines = _ordered_routines(store.list_routines(status="active"))
+    if active_routines is None:
+        active_routines = _ordered_routines(store.list_routines(status="active"))
     if active_routines:
         payload["active_routines"] = [_routine_payload(routine) for routine in active_routines]
     else:
@@ -653,17 +638,6 @@ def _card_log_payload(card_log: CardLog) -> dict[str, object]:
         "card_template_id": card_log.card_template_id,
         "status": card_log.status,
     }
-
-
-def _dedupe(values: Sequence[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered
 
 
 def _load_linked_routines(

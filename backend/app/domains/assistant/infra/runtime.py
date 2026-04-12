@@ -109,7 +109,8 @@ class ClaudeCodeRuntime:
         model: str,
     ) -> AsyncIterator[dict[str, str | None]]:
         prompt = _chat_prompt(user_message)
-        workspace = _write_workspace_files(
+        workspace = await asyncio.to_thread(
+            _write_workspace_files,
             evidence_bundle=evidence_bundle,
             prior_messages=prior_messages,
             memory_records=memory_records,

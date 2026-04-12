@@ -1,8 +1,13 @@
 """Internal assistant types used by the retrieval-first persistence layer."""
 
+import re
+from collections.abc import Sequence
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+MAX_MEMORY_RECORDS = 5
 
 AssistantIntent = Literal[
     "experiment_review",
@@ -64,3 +69,15 @@ class AssistantMemoryRecord(_AssistantInternalModel):
     payload_json: dict[str, Any] = Field(default_factory=dict)
     created_at: str | None = None
     updated_at: str | None = None
+
+
+def dedupe_strings(values: Sequence[str]) -> list[str]:
+    """Order-preserving string deduplication."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered

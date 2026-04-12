@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from typing import NamedTuple
 
 from app.domains.assistant.application.ports import AssistantRetrievalStore
 from app.domains.assistant.application.retrieval import (
@@ -13,16 +14,17 @@ from app.domains.assistant.application.retrieval import (
     retrieve_routine_adherence,
 )
 from app.domains.assistant.application.types import (
+    MAX_MEMORY_RECORDS,
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantIntent,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
+    dedupe_strings,
 )
 
 _MAX_PRIOR_BUNDLES = 3
-_MAX_MEMORY_RECORDS = 5
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"
 _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
     "experiment_review": frozenset({"experiment_review"}),
@@ -32,15 +34,14 @@ _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
         {"open_ended_coaching", "recovery_briefing", "routine_adherence"}
     ),
 }
-_PriorBundleCandidate = tuple[
-    int,
-    str,
-    str,
-    str,
-    AssistantEvidenceBundle,
-    str,
-    list[str],
-]
+class _PriorBundleCandidate(NamedTuple):
+    priority: int
+    created_at: str
+    updated_at: str
+    bundle_id: str
+    bundle: AssistantEvidenceBundle
+    match_type: str
+    matched_entity_ids: list[str]
 
 
 def build_evidence_bundle(
@@ -83,7 +84,7 @@ def build_evidence_bundle(
             last_n=_MAX_PRIOR_BUNDLES,
         )
     )
-    items.extend(_build_memory_items(store=store, last_n=_MAX_MEMORY_RECORDS))
+    items.extend(_build_memory_items(store=store, last_n=MAX_MEMORY_RECORDS))
 
     return AssistantEvidenceBundle(
         id=_deterministic_bundle_id(
@@ -96,7 +97,7 @@ def build_evidence_bundle(
         intent=route.intent,
         entities=list(entities),
         items=items,
-        gaps=_dedupe(gaps),
+        gaps=dedupe_strings(gaps),
     )
 
 
@@ -108,7 +109,7 @@ def _build_prior_evidence_items(
     current_thread_id: str,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
-    all_bundles = store.list_evidence_bundles()
+    all_bundles = store.list_evidence_bundles(last_n=50)
     other_thread_bundles = [
         bundle for bundle in all_bundles if bundle.thread_id != current_thread_id
     ]
@@ -136,30 +137,30 @@ def _build_prior_evidence_items(
         if match_type is None:
             continue
         prior_bundle_candidates.append(
-            (
-                priority,
-                bundle.created_at or "",
-                bundle.updated_at or "",
-                bundle.id,
-                bundle,
-                match_type,
-                matched_entity_ids,
+            _PriorBundleCandidate(
+                priority=priority,
+                created_at=bundle.created_at or "",
+                updated_at=bundle.updated_at or "",
+                bundle_id=bundle.id,
+                bundle=bundle,
+                match_type=match_type,
+                matched_entity_ids=matched_entity_ids,
             )
         )
 
     ordered_bundles = sorted(
         prior_bundle_candidates,
-        key=lambda candidate: (
-            candidate[0],
-            candidate[1],
-            candidate[2],
-            candidate[3],
-        ),
+        key=lambda c: (c.priority, c.created_at, c.updated_at, c.bundle_id),
         reverse=True,
     )[:last_n]
 
     items: list[AssistantEvidenceItem] = []
-    for _, _, _, _, bundle, match_type, matched_entity_ids in ordered_bundles:
+    for candidate in ordered_bundles:
+        bundle, match_type, matched_entity_ids = (
+            candidate.bundle,
+            candidate.match_type,
+            candidate.matched_entity_ids,
+        )
         items.append(
             AssistantEvidenceItem(
                 kind="prior_evidence",
@@ -218,14 +219,3 @@ def _deterministic_bundle_id(*, intent: str, thread_id: str, user_message_id: st
     raw = f"{thread_id}\x1f{user_message_id}\x1f{intent}".encode()
     digest = hashlib.sha256(raw).hexdigest()[:20]
     return f"evidence-{digest}"
-
-
-def _dedupe(values: Sequence[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered

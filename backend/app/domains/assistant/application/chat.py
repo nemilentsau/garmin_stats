@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, cast
@@ -21,6 +20,8 @@ from app.domains.assistant.application.ports import (
 )
 from app.domains.assistant.application.router import route_user_query
 from app.domains.assistant.application.types import (
+    LOWERCASE_TOKEN_PATTERN,
+    MAX_MEMORY_RECORDS,
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
@@ -29,9 +30,7 @@ from app.domains.assistant.application.types import (
 from app.models import AssistantMessage, AssistantMessageCreateRequest, AssistantRun
 from app.utils.timeutil import now_iso
 
-_MAX_MEMORY_RECORDS = 5
 _MAX_ALIAS_PHRASE_TOKENS = 6
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _QUESTION_WORDS = {
     "are",
     "can",
@@ -215,7 +214,7 @@ def _build_entity_alias_memory_record(
     if not alias_text:
         return None
 
-    alias_tokens = _TOKEN_PATTERN.findall(alias_text.lower())
+    alias_tokens = LOWERCASE_TOKEN_PATTERN.findall(alias_text.lower())
     if not (_MIN_ALIAS_TOKENS <= len(alias_tokens) <= _MAX_ALIAS_TOKENS):
         return None
     if any(token in _QUESTION_WORDS for token in alias_tokens):
@@ -223,7 +222,7 @@ def _build_entity_alias_memory_record(
 
     normalized_alias = " ".join(alias_tokens)
     existing_aliases = {
-        " ".join(_TOKEN_PATTERN.findall(record.alias_text.lower()))
+        " ".join(LOWERCASE_TOKEN_PATTERN.findall(record.alias_text.lower()))
         for record in memory_records
         if record.kind == "entity_alias"
         and record.entity_id == entity.entity_id
@@ -306,12 +305,8 @@ def _matches_saved_entity_alias(
     return False
 
 
-def _normalized_alias_text(value: str) -> str:
-    return " ".join(_alias_tokens(value))
-
-
 def _alias_tokens(value: str) -> list[str]:
-    return _TOKEN_PATTERN.findall(value.lower())
+    return LOWERCASE_TOKEN_PATTERN.findall(value.lower())
 
 
 def _query_contains_alias(*, query_tokens: list[str], alias_tokens: list[str]) -> bool:
@@ -329,7 +324,7 @@ def _resolution_memory_records(
     *,
     query: str,
 ) -> tuple[list[AssistantMemoryRecord], list[AssistantMemoryRecord]]:
-    prompt_memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
+    prompt_memory_records = list(repo.list_memory_records(last_n=MAX_MEMORY_RECORDS))
     alias_candidates = _alias_query_candidates(query)
     alias_memory_records = list(
         repo.list_memory_records(
@@ -396,18 +391,6 @@ async def stream_reply(
             last_message_at=user_message.created_at or now_iso(),
         )
 
-        run = AssistantRun(
-            id=f"run-{uuid4().hex}",
-            task_type="chat",
-            status="running",
-            thread_id=_thread_id(thread),
-            command_json={
-                "model": _model_for_thread(thread),
-            },
-            started_at=now_iso(),
-        )
-        repo.save_run(run)
-
         prompt_memory_records, resolution_memory_records = _resolution_memory_records(
             repo,
             query=request.content,
@@ -445,16 +428,19 @@ async def stream_reply(
             user_message_id=request.id,
         )
 
-        run = run.model_copy(
-            update={
-                "context_snapshot_id": evidence_bundle.id,
-                "command_json": {
-                    "model": _model_for_thread(thread),
-                    "intent": route.intent,
-                    "confidence": route.confidence,
-                    "matched_signals": list(route.matched_signals),
-                },
-            }
+        run = AssistantRun(
+            id=f"run-{uuid4().hex}",
+            task_type="chat",
+            status="running",
+            thread_id=_thread_id(thread),
+            context_snapshot_id=evidence_bundle.id,
+            command_json={
+                "model": _model_for_thread(thread),
+                "intent": route.intent,
+                "confidence": route.confidence,
+                "matched_signals": list(route.matched_signals),
+            },
+            started_at=now_iso(),
         )
         repo.save_run(run)
         repo.save_evidence_bundle(evidence_bundle)

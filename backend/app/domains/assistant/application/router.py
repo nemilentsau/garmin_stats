@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import re
-
 from app.domains.assistant.application.types import (
     EXPERIMENT_REVIEW_TERMS,
+    LOWERCASE_TOKEN_PATTERN,
     AssistantIntent,
     AssistantRouteDecision,
 )
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
     {"experiments", "trials", "studies"}
 )
@@ -34,7 +32,7 @@ _INTENT_ORDER: tuple[AssistantIntent, ...] = (
 
 def route_user_query(query: str) -> AssistantRouteDecision:
     text = query.lower()
-    tokens = set(_TOKEN_PATTERN.findall(text))
+    tokens = set(LOWERCASE_TOKEN_PATTERN.findall(text))
     scores = {intent: 0.0 for intent in _INTENT_ORDER}
     signals = {intent: [] for intent in _INTENT_ORDER}
 
