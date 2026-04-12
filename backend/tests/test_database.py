@@ -1,5 +1,6 @@
 """Tests for database.py — connection, storage, read-back."""
 
+import json
 import os
 
 import pytest
@@ -77,6 +78,68 @@ class TestInit:
         with db._connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
+
+    def test_init_db_migrates_legacy_assistant_memory_table_before_alias_index(self, tmp_db):
+        with db._connect() as con, con:
+            con.execute("DROP TABLE assistant_memory_records")
+            con.execute(
+                """
+                CREATE TABLE assistant_memory_records (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    entity_id TEXT,
+                    alias_text TEXT,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            con.execute(
+                """
+                INSERT INTO assistant_memory_records (
+                    id, kind, entity_id, alias_text, data, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "memory-1",
+                    "entity_alias",
+                    "exp-1",
+                    "sleep stack",
+                    json.dumps(
+                        {
+                            "id": "memory-1",
+                            "kind": "entity_alias",
+                            "entity_id": "exp-1",
+                            "alias_text": "sleep stack",
+                            "payload_json": {},
+                        }
+                    ),
+                    "2026-04-11T10:00:00Z",
+                    "2026-04-11T10:00:00Z",
+                ),
+            )
+
+        db.init_db()
+
+        with db._connect() as con:
+            columns = {
+                row["name"]
+                for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+            }
+            indexes = {
+                row["name"]
+                for row in con.execute("PRAGMA index_list(assistant_memory_records)").fetchall()
+            }
+            row = con.execute(
+                "SELECT alias_normalized FROM assistant_memory_records WHERE id = ?",
+                ("memory-1",),
+            ).fetchone()
+
+        assert "alias_normalized" in columns
+        assert "idx_assistant_memory_records_kind_alias_normalized_created" in indexes
+        assert row is not None
+        assert row["alias_normalized"] == "sleep stack"
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +496,13 @@ class TestStoreAndLoad:
                 "finished_at": "2026-01-15T09:02:01+00:00",
             }
         )
+        memory_record = AssistantMemoryRecord(
+            id="memory-1",
+            kind="entity_alias",
+            entity_id="experiment-1",
+            alias_text="sleep stack",
+            created_at="2026-01-15T09:02:01+00:00",
+        )
 
         db.create_assistant_thread(thread)
         db.save_assistant_run(running_run)
@@ -443,17 +513,27 @@ class TestStoreAndLoad:
             assistant_message=assistant_message,
             updated_thread=updated_thread,
             completed_run=completed_run,
+            memory_record=memory_record,
         )
 
         loaded_thread = db.load_assistant_thread("thread-1")
         loaded_messages = db.load_assistant_messages("thread-1")
+        loaded_memory = db.load_assistant_memory_records(kind="entity_alias")
         loaded_runs = db.load_assistant_runs("thread-1")
+        with db._connect() as con:
+            row = con.execute(
+                "SELECT alias_text FROM assistant_memory_records WHERE id = ?",
+                ("memory-1",),
+            ).fetchone()
 
         assert loaded_thread is not None
         assert loaded_thread.last_message_at == assistant_message.created_at
         assert loaded_thread.last_context_snapshot_id == "bundle-1"
         assert loaded_thread.claude_session_id == "session-1"
         assert [message.id for message in loaded_messages] == ["assistant-1"]
+        assert [record.id for record in loaded_memory] == ["memory-1"]
+        assert row is not None
+        assert row["alias_text"] == "sleep stack"
         assert loaded_runs[0].id == "run-1"
         assert loaded_runs[0].status == "completed"
         assert loaded_runs[0].finished_at == "2026-01-15T09:02:01+00:00"
@@ -561,6 +641,31 @@ class TestStoreAndLoad:
         loaded = db.load_assistant_memory_records(kind="entity_alias")
 
         assert loaded[0].alias_text == "meditation experiment"
+
+    def test_assistant_memory_record_alias_lookup_filters_candidates(self):
+        db.save_assistant_memory_record(
+            AssistantMemoryRecord(
+                id="memory-1",
+                kind="entity_alias",
+                entity_id="exp-1",
+                alias_text="sleep stack",
+            )
+        )
+        db.save_assistant_memory_record(
+            AssistantMemoryRecord(
+                id="memory-2",
+                kind="entity_alias",
+                entity_id="exp-2",
+                alias_text="mobility reset",
+            )
+        )
+
+        loaded = db.load_assistant_memory_records(
+            kind="entity_alias",
+            alias_candidates=("sleep stack", "sleep"),
+        )
+
+        assert [record.id for record in loaded] == ["memory-1"]
 
 
 # ---------------------------------------------------------------------------

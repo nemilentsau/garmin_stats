@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -75,6 +76,7 @@ DATA_DIR = Path(os.environ.get(
 ))
 
 _ingest_lock = threading.Lock()
+_ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
@@ -191,6 +193,7 @@ CREATE TABLE IF NOT EXISTS assistant_memory_records (
     kind TEXT NOT NULL,
     entity_id TEXT,
     alias_text TEXT,
+    alias_normalized TEXT,
     data TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -285,8 +288,42 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _connect() as con:
         con.executescript(_SCHEMA)
+        _ensure_assistant_memory_alias_lookup_columns(con)
         con.execute("PRAGMA journal_mode=WAL")
         con.commit()
+
+
+def _ensure_assistant_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
+    columns = {
+        row["name"]
+        for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+    }
+    if "alias_normalized" not in columns:
+        con.execute("ALTER TABLE assistant_memory_records ADD COLUMN alias_normalized TEXT")
+
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_alias_normalized_created "
+        "ON assistant_memory_records (kind, alias_normalized, created_at)"
+    )
+
+    rows = con.execute(
+        "SELECT id, alias_text FROM assistant_memory_records "
+        "WHERE alias_text IS NOT NULL AND (alias_normalized IS NULL OR alias_normalized = '')"
+    ).fetchall()
+    for row in rows:
+        con.execute(
+            "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
+            (_normalize_alias_text(row["alias_text"]), row["id"]),
+        )
+
+
+def _normalize_alias_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    tokens = _ALIAS_TOKEN_PATTERN.findall(value.lower())
+    if not tokens:
+        return None
+    return " ".join(tokens)
 
 
 def _save_json_record(
@@ -1143,6 +1180,7 @@ def finalize_assistant_reply(
     assistant_message: AssistantMessage,
     updated_thread: AssistantThread,
     completed_run: AssistantRun,
+    memory_record: AssistantMemoryRecord | None = None,
 ) -> None:
     """Persist assistant reply + thread metadata + completed run atomically."""
     with _connect() as con, con:
@@ -1169,6 +1207,21 @@ def finalize_assistant_reply(
             created_at=completed_run.started_at,
             updated_at=completed_run.finished_at or completed_run.started_at,
         )
+        if memory_record is not None:
+            _save_json_record_in_connection(
+                con,
+                "assistant_memory_records",
+                memory_record.id,
+                memory_record.model_dump_json(),
+                extra_columns={
+                    "kind": memory_record.kind,
+                    "entity_id": memory_record.entity_id,
+                    "alias_text": memory_record.alias_text,
+                    "alias_normalized": _normalize_alias_text(memory_record.alias_text),
+                },
+                created_at=memory_record.created_at,
+                updated_at=memory_record.updated_at or memory_record.created_at,
+            )
 
 
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
@@ -1224,6 +1277,7 @@ def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
             "kind": record.kind,
             "entity_id": record.entity_id,
             "alias_text": record.alias_text,
+            "alias_normalized": _normalize_alias_text(record.alias_text),
         },
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -1234,14 +1288,33 @@ def load_assistant_memory_records(
     kind: str | None = None,
     *,
     last_n: int | None = None,
+    alias_candidates: tuple[str, ...] | None = None,
 ) -> list[AssistantMemoryRecord]:
-    where_sql = "kind = ?" if kind is not None else ""
-    params = (kind,) if kind is not None else ()
+    clauses: list[str] = []
+    params: list[object] = []
+    if kind is not None:
+        clauses.append("kind = ?")
+        params.append(kind)
+
+    normalized_candidates = tuple(
+        normalized
+        for normalized in (
+            _normalize_alias_text(candidate) for candidate in (alias_candidates or ())
+        )
+        if normalized is not None
+    )
+    if alias_candidates is not None:
+        if not normalized_candidates:
+            return []
+        placeholders = ", ".join("?" for _ in normalized_candidates)
+        clauses.append(f"alias_normalized IN ({placeholders})")
+        params.extend(normalized_candidates)
+
     return _load_json_records(
         "assistant_memory_records",
         AssistantMemoryRecord,
-        where_sql=where_sql,
-        params=params,
+        where_sql=" AND ".join(clauses),
+        params=tuple(params),
         order_by="created_at, id",
         last_n=last_n,
     )

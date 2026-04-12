@@ -53,12 +53,14 @@ class _FakeConversationStore:
         memory_records: list[AssistantMemoryRecord] | None = None,
         prior_evidence_bundles: list[AssistantEvidenceBundle] | None = None,
         fail_on_save_evidence_bundle: bool = False,
+        fail_on_list_memory_records: bool = False,
         fail_on_finalize_reply: bool = False,
     ) -> None:
         self.thread_id = thread_id
         self.claude_session_id = claude_session_id
         self.model = model
         self.fail_on_save_evidence_bundle = fail_on_save_evidence_bundle
+        self.fail_on_list_memory_records = fail_on_list_memory_records
         self.fail_on_finalize_reply = fail_on_finalize_reply
         self.thread_state: dict[str, Any] = {
             "id": thread_id,
@@ -67,12 +69,14 @@ class _FakeConversationStore:
         }
         self.messages: list[object] = list(prior_messages or [])
         self.memory_records: list[AssistantMemoryRecord] = list(memory_records or [])
+        self.saved_memory_records: list[AssistantMemoryRecord] = []
         self.prior_evidence_bundles: list[AssistantEvidenceBundle] = list(
             prior_evidence_bundles or []
         )
         self.saved_threads: list[dict[str, Any]] = []
         self.saved_evidence_bundles: list[AssistantEvidenceBundle] = []
         self.saved_runs: list[AssistantRun] = []
+        self.list_memory_calls: list[dict[str, object]] = []
 
     @classmethod
     def with_thread(
@@ -84,6 +88,7 @@ class _FakeConversationStore:
         prior_messages: list[dict[str, Any]] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
         fail_on_save_evidence_bundle: bool = False,
+        fail_on_list_memory_records: bool = False,
         fail_on_finalize_reply: bool = False,
     ):
         return cls(
@@ -93,6 +98,7 @@ class _FakeConversationStore:
             prior_messages=prior_messages,
             memory_records=memory_records,
             fail_on_save_evidence_bundle=fail_on_save_evidence_bundle,
+            fail_on_list_memory_records=fail_on_list_memory_records,
             fail_on_finalize_reply=fail_on_finalize_reply,
         )
 
@@ -124,17 +130,24 @@ class _FakeConversationStore:
         assistant_message,
         updated_thread,
         completed_run,
+        memory_record=None,
     ):
         if self.fail_on_finalize_reply:
             raise RuntimeError("finalize reply failed")
         self.messages.append(assistant_message)
         self.save_thread(updated_thread)
         self.saved_runs.append(completed_run)
+        if memory_record is not None:
+            self.save_memory_record(memory_record)
 
     def save_evidence_bundle(self, bundle):
         if self.fail_on_save_evidence_bundle:
             raise RuntimeError("evidence save failed")
         self.saved_evidence_bundles.append(bundle)
+
+    def save_memory_record(self, record: AssistantMemoryRecord) -> None:
+        self.memory_records.append(record)
+        self.saved_memory_records.append(record)
 
     def list_evidence_bundles(
         self,
@@ -154,10 +167,28 @@ class _FakeConversationStore:
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ):
+        if self.fail_on_list_memory_records:
+            raise RuntimeError("memory read failed")
+        self.list_memory_calls.append(
+            {
+                "kind": kind,
+                "last_n": last_n,
+                "alias_candidates": alias_candidates,
+            }
+        )
         records = list(self.memory_records)
         if kind is not None:
             records = [record for record in records if record.kind == kind]
+        if alias_candidates is not None:
+            candidate_set = set(alias_candidates)
+            records = [
+                record
+                for record in records
+                if record.alias_text is not None
+                and " ".join(record.alias_text.lower().split()) in candidate_set
+            ]
         if last_n is not None:
             records = records[-last_n:]
         return records
@@ -333,12 +364,206 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert isinstance(memory_records[0], AssistantMemoryRecord)
     assert memory_records[0].kind == "entity_alias"
     assert repo.saved_runs[-1].status == "completed"
+    assert repo.saved_memory_records == []
     user_message = cast(Any, repo.messages[0])
     assistant_message = cast(Any, repo.messages[-1])
     assert repo.saved_threads[0]["last_message_at"] == user_message.created_at
     assert repo.saved_threads[-1]["last_message_at"] == assistant_message.created_at
     assert repo.saved_threads[-1]["last_context_snapshot_id"] == repo.saved_evidence_bundles[0].id
     assert repo.saved_threads[-1]["claude_session_id"] == "session-1"
+
+
+def test_stream_reply_persists_confident_entity_alias_memory_for_short_experiment_alias():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+    )
+    runtime = _FakeRuntime(deltas=["I see a stable pattern."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-5",
+                    content="Meditation to HRV",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    assert len(repo.saved_memory_records) == 1
+    record = repo.saved_memory_records[0]
+    assert record.kind == "entity_alias"
+    assert record.entity_id == "meditation-hrv-2026-03"
+    assert record.alias_text == "Meditation to HRV"
+    memory_records = runtime.stream_chat_kwargs[0]["memory_records"]
+    assert isinstance(memory_records, list)
+    assert not any(
+        isinstance(memory_record, AssistantMemoryRecord)
+        and memory_record.kind == "entity_alias"
+        and memory_record.alias_text == "Meditation to HRV"
+        for memory_record in memory_records
+    )
+
+
+def test_stream_reply_reroutes_to_experiment_review_from_saved_alias_memory():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        memory_records=[
+            AssistantMemoryRecord(
+                id="memory-2",
+                kind="entity_alias",
+                entity_id="meditation-hrv-2026-03",
+                alias_text="sleep stack",
+            )
+        ],
+    )
+    runtime = _FakeRuntime(deltas=["I see the treatment window clearly."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-6",
+                    content="sleep stack",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
+    assert isinstance(evidence_bundle, AssistantEvidenceBundle)
+    assert evidence_bundle.intent == "experiment_review"
+    assert any(entity.entity_id == "meditation-hrv-2026-03" for entity in evidence_bundle.entities)
+
+
+def test_stream_reply_alias_reroute_uses_saved_alias_outside_prompt_memory_window():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        memory_records=[
+            AssistantMemoryRecord(
+                id="memory-target",
+                kind="entity_alias",
+                entity_id="meditation-hrv-2026-03",
+                alias_text="sleep stack",
+            ),
+            AssistantMemoryRecord(
+                id="memory-1",
+                kind="entity_alias",
+                entity_id="other-1",
+                alias_text="alias one",
+            ),
+            AssistantMemoryRecord(
+                id="memory-2",
+                kind="entity_alias",
+                entity_id="other-2",
+                alias_text="alias two",
+            ),
+            AssistantMemoryRecord(
+                id="memory-3",
+                kind="entity_alias",
+                entity_id="other-3",
+                alias_text="alias three",
+            ),
+            AssistantMemoryRecord(
+                id="memory-4",
+                kind="entity_alias",
+                entity_id="other-4",
+                alias_text="alias four",
+            ),
+            AssistantMemoryRecord(
+                id="memory-5",
+                kind="entity_alias",
+                entity_id="other-5",
+                alias_text="alias five",
+            ),
+        ],
+    )
+    runtime = _FakeRuntime(deltas=["I found the right experiment."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-7",
+                    content="sleep stack",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
+    assert isinstance(evidence_bundle, AssistantEvidenceBundle)
+    assert evidence_bundle.intent == "experiment_review"
+    prompt_memory_records = runtime.stream_chat_kwargs[0]["memory_records"]
+    assert isinstance(prompt_memory_records, list)
+    assert all(
+        not (
+            isinstance(memory_record, AssistantMemoryRecord)
+            and memory_record.alias_text == "sleep stack"
+        )
+        for memory_record in prompt_memory_records
+    )
+    assert any(
+        call["kind"] == "entity_alias"
+        and isinstance(call["alias_candidates"], tuple)
+        and "sleep stack" in call["alias_candidates"]
+        for call in repo.list_memory_calls
+    )
+
+
+def test_stream_reply_alias_reroute_handles_natural_language_follow_up():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        memory_records=[
+            AssistantMemoryRecord(
+                id="memory-3",
+                kind="entity_alias",
+                entity_id="meditation-hrv-2026-03",
+                alias_text="sleep stack",
+            )
+        ],
+    )
+    runtime = _FakeRuntime(deltas=["The experiment is still trending cleanly."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-9",
+                    content="How is sleep stack going?",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
+    assert isinstance(evidence_bundle, AssistantEvidenceBundle)
+    assert evidence_bundle.intent == "experiment_review"
+    assert any(entity.entity_id == "meditation-hrv-2026-03" for entity in evidence_bundle.entities)
 
 
 def test_follow_up_works_without_claude_resume():
@@ -419,6 +644,35 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
     assert runtime.stream_chat_kwargs == []
 
 
+def test_stream_reply_memory_setup_failure_still_emits_run_id_and_marks_run_failed():
+    repo = _FakeConversationStore.with_thread(
+        thread_id="thread-1",
+        fail_on_list_memory_records=True,
+    )
+    runtime = _FakeRuntime(deltas=["should not stream"])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-8",
+                    content="How does our meditation experiment look like so far?",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "error"
+    assert payloads[-1]["run_id"].startswith("run-")
+    assert repo.saved_runs[-1].status == "failed"
+    assert runtime.stream_chat_kwargs == []
+
+
 def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed():
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
@@ -435,7 +689,7 @@ def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed
                 thread_id="thread-1",
                 request=AssistantMessageCreateRequest(
                     id="message-4",
-                    content="How does our meditation experiment look like so far?",
+                    content="Meditation to HRV",
                 ),
             )
         )
@@ -445,5 +699,6 @@ def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed
     assert payloads[-1]["type"] == "error"
     assert payloads[-1]["run_id"].startswith("run-")
     assert repo.saved_runs[-1].status == "failed"
+    assert repo.saved_memory_records == []
     assert not any(getattr(message, "role", "") == "assistant" for message in repo.messages)
     assert not any(run.status == "completed" for run in repo.saved_runs)

@@ -69,6 +69,7 @@ class SqliteAssistantRepository:
         assistant_message: AssistantMessage,
         updated_thread: AssistantThread | dict[str, object],
         completed_run: AssistantRun,
+        memory_record: AssistantMemoryRecord | None = None,
     ) -> None:
         thread = (
             AssistantThread.model_validate(updated_thread)
@@ -79,6 +80,7 @@ class SqliteAssistantRepository:
             assistant_message=assistant_message,
             updated_thread=thread,
             completed_run=completed_run,
+            memory_record=memory_record,
         )
 
     def save_run(self, run: AssistantRun) -> None:
@@ -103,8 +105,13 @@ class SqliteAssistantRepository:
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ) -> list[AssistantMemoryRecord]:
-        return load_assistant_memory_records(kind=kind, last_n=last_n)
+        return load_assistant_memory_records(
+            kind=kind,
+            last_n=last_n,
+            alias_candidates=alias_candidates,
+        )
 
     def list_experiments(
         self,

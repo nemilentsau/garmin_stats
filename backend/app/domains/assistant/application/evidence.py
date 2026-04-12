@@ -6,7 +6,12 @@ import hashlib
 from collections.abc import Sequence
 
 from app.domains.assistant.application.ports import AssistantRetrievalStore
-from app.domains.assistant.application.retrieval import retrieve_experiment_review
+from app.domains.assistant.application.retrieval import (
+    retrieve_experiment_review,
+    retrieve_open_ended_coaching,
+    retrieve_recovery_briefing,
+    retrieve_routine_adherence,
+)
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
@@ -33,11 +38,22 @@ def build_evidence_bundle(
     gaps: list[str] = []
 
     if route.intent == "experiment_review":
-        route_items, route_gaps = retrieve_experiment_review(store=store, entities=entities)
-        items.extend(route_items)
-        gaps.extend(route_gaps)
+        route_items, route_gaps = retrieve_experiment_review(
+            store=store,
+            route=route,
+            entities=entities,
+        )
+    elif route.intent == "recovery_briefing":
+        route_items, route_gaps = retrieve_recovery_briefing(store=store)
+    elif route.intent == "routine_adherence":
+        route_items, route_gaps = retrieve_routine_adherence(store=store)
+    elif route.intent == "open_ended_coaching":
+        route_items, route_gaps = retrieve_open_ended_coaching(store=store)
     else:
-        gaps.append(f"unsupported_intent:{route.intent}")
+        route_items, route_gaps = [], [f"unsupported_intent:{route.intent}"]
+
+    items.extend(route_items)
+    gaps.extend(route_gaps)
 
     items.extend(
         _build_prior_evidence_items(

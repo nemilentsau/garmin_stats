@@ -11,6 +11,9 @@ from app.domains.assistant.application.types import (
 )
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
+    {"experiments", "trials", "studies"}
+)
 _INTENT_ORDER: tuple[AssistantIntent, ...] = (
     "experiment_review",
     "recovery_briefing",
@@ -29,14 +32,22 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         scores[intent] += weight
         signals[intent].append(signal)
 
-    if tokens.intersection(EXPERIMENT_REVIEW_TERMS):
+    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.55, "mentions_experiment")
+    if tokens.intersection({"experiments", "trials", "studies"}):
+        add_signal("experiment_review", 0.10, "plural_experiment_context")
     if any(phrase in text for phrase in ("so far", "look like", "results", "effect")):
         add_signal("experiment_review", 0.25, "review_phrase")
     if tokens.intersection({"meditation", "intervention", "protocol"}):
         add_signal("experiment_review", 0.15, "intervention_keyword")
     if "how" in tokens and "experiment" in tokens:
         add_signal("experiment_review", 0.10, "how_experiment_question")
+    if tokens.intersection({"scan", "scanning"}):
+        add_signal("experiment_review", 0.05, "scan_keyword")
+    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
+        {"routine", "routines", "tracking"}
+    ):
+        add_signal("experiment_review", 0.10, "experiment_routine_scan")
 
     if tokens.intersection({"recovery", "readiness"}):
         add_signal("recovery_briefing", 0.60, "mentions_recovery")
@@ -58,6 +69,21 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         add_signal("open_ended_coaching", 0.40, "coaching_keyword")
     if text.startswith(("how can i", "what should i")):
         add_signal("open_ended_coaching", 0.30, "open_question_prefix")
+    if tokens.intersection(
+        {
+            "review",
+            "reviews",
+            "pattern",
+            "patterns",
+            "confounder",
+            "confounders",
+            "adjust",
+            "adjustment",
+        }
+    ):
+        add_signal("open_ended_coaching", 0.25, "reflective_review_keyword")
+    if tokens.intersection({"week", "weekly", "recent"}):
+        add_signal("open_ended_coaching", 0.10, "recent_window_context")
 
     ranked = sorted(
         _INTENT_ORDER,

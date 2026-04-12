@@ -36,6 +36,7 @@ class AssistantConversationStore(Protocol):
         assistant_message: AssistantMessage,
         updated_thread: AssistantThread | dict[str, Any],
         completed_run: AssistantRun,
+        memory_record: AssistantMemoryRecord | None = None,
     ) -> None: ...
     def save_run(self, run: AssistantRun) -> None: ...
     def save_evidence_bundle(self, bundle: AssistantEvidenceBundle) -> None: ...
@@ -51,6 +52,7 @@ class AssistantConversationStore(Protocol):
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ) -> list[AssistantMemoryRecord]: ...
 
 
@@ -89,6 +91,7 @@ class AssistantRecallStore(Protocol):
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ) -> list[AssistantMemoryRecord]: ...
 
 

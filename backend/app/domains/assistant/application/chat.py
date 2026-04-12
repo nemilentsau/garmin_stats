@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, cast
@@ -19,11 +20,47 @@ from app.domains.assistant.application.ports import (
     AssistantRuntime,
 )
 from app.domains.assistant.application.router import route_user_query
-from app.domains.assistant.application.types import AssistantEvidenceBundle
+from app.domains.assistant.application.types import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
+    AssistantResolvedEntity,
+    AssistantRouteDecision,
+)
 from app.models import AssistantMessage, AssistantMessageCreateRequest, AssistantRun
 from app.utils.timeutil import now_iso
 
 _MAX_MEMORY_RECORDS = 5
+_MAX_ALIAS_PHRASE_TOKENS = 6
+_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_QUESTION_WORDS = {
+    "are",
+    "can",
+    "could",
+    "did",
+    "do",
+    "does",
+    "had",
+    "has",
+    "have",
+    "how",
+    "is",
+    "may",
+    "might",
+    "should",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+    "will",
+    "would",
+}
+_MIN_ALIAS_TOKENS = 2
+_MAX_ALIAS_TOKENS = 6
+_MIN_ALIAS_SCORE = 0.9
 
 
 class _RetrievalStoreAdapter:
@@ -51,8 +88,13 @@ class _RetrievalStoreAdapter:
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ):
-        return self._conversation_store.list_memory_records(kind=kind, last_n=last_n)
+        return self._conversation_store.list_memory_records(
+            kind=kind,
+            last_n=last_n,
+            alias_candidates=alias_candidates,
+        )
 
     def __getattr__(self, item: str) -> object:
         return getattr(self._read_store, item)
@@ -151,6 +193,174 @@ def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
     )
 
 
+def _build_entity_alias_memory_record(
+    *,
+    route: AssistantRouteDecision,
+    entities: list[AssistantResolvedEntity],
+    memory_records: list[AssistantMemoryRecord],
+    query: str,
+) -> AssistantMemoryRecord | None:
+    if route.intent != "experiment_review":
+        return None
+
+    experiment_entities = [entity for entity in entities if entity.kind == "experiment"]
+    if len(experiment_entities) != 1:
+        return None
+
+    entity = experiment_entities[0]
+    if entity.score < _MIN_ALIAS_SCORE:
+        return None
+
+    alias_text = query.strip()
+    if not alias_text:
+        return None
+
+    alias_tokens = _TOKEN_PATTERN.findall(alias_text.lower())
+    if not (_MIN_ALIAS_TOKENS <= len(alias_tokens) <= _MAX_ALIAS_TOKENS):
+        return None
+    if any(token in _QUESTION_WORDS for token in alias_tokens):
+        return None
+
+    normalized_alias = " ".join(alias_tokens)
+    existing_aliases = {
+        " ".join(_TOKEN_PATTERN.findall(record.alias_text.lower()))
+        for record in memory_records
+        if record.kind == "entity_alias"
+        and record.entity_id == entity.entity_id
+        and record.alias_text
+    }
+    if normalized_alias in existing_aliases:
+        return None
+
+    return AssistantMemoryRecord(
+        id=f"memory-{uuid4().hex}",
+        kind="entity_alias",
+        entity_id=entity.entity_id,
+        alias_text=alias_text,
+        payload_json={
+            "source_query": query,
+            "resolved_entity_label": entity.label,
+            "resolved_entity_score": entity.score,
+            "route_intent": route.intent,
+        },
+        created_at=now_iso(),
+    )
+
+
+def _maybe_reroute_from_memory_alias(
+    *,
+    memory_records: list[AssistantMemoryRecord],
+    route: AssistantRouteDecision,
+    read_store: AssistantReadModelStore,
+    query: str,
+) -> tuple[AssistantRouteDecision, list[AssistantResolvedEntity]]:
+    if route.intent == "experiment_review":
+        return route, []
+    if not _matches_saved_entity_alias(memory_records=memory_records, query=query):
+        return route, []
+
+    experiment_route = AssistantRouteDecision(
+        intent="experiment_review",
+        confidence=route.confidence,
+        matched_signals=[*route.matched_signals, "memory_alias_reroute"],
+    )
+    entities = resolve_entities(
+        store=read_store,
+        memory=memory_records,
+        route=experiment_route,
+        query=query,
+    )
+    if not entities:
+        return route, []
+
+    matched_entity_ids = {entity.entity_id for entity in entities if entity.kind == "experiment"}
+    if not _matches_saved_entity_alias(
+        memory_records=memory_records,
+        query=query,
+        entity_ids=matched_entity_ids,
+    ):
+        return route, []
+    return experiment_route, entities
+
+
+def _matches_saved_entity_alias(
+    *,
+    memory_records: list[AssistantMemoryRecord],
+    query: str,
+    entity_ids: set[str] | None = None,
+) -> bool:
+    query_tokens = _alias_tokens(query)
+    if not query_tokens:
+        return False
+
+    for record in memory_records:
+        if record.kind != "entity_alias" or not record.alias_text or not record.entity_id:
+            continue
+        if entity_ids is not None and record.entity_id not in entity_ids:
+            continue
+        if _query_contains_alias(
+            query_tokens=query_tokens,
+            alias_tokens=_alias_tokens(record.alias_text),
+        ):
+            return True
+    return False
+
+
+def _normalized_alias_text(value: str) -> str:
+    return " ".join(_alias_tokens(value))
+
+
+def _alias_tokens(value: str) -> list[str]:
+    return _TOKEN_PATTERN.findall(value.lower())
+
+
+def _query_contains_alias(*, query_tokens: list[str], alias_tokens: list[str]) -> bool:
+    if not alias_tokens or len(alias_tokens) > len(query_tokens):
+        return False
+    window_size = len(alias_tokens)
+    for index in range(len(query_tokens) - window_size + 1):
+        if query_tokens[index : index + window_size] == alias_tokens:
+            return True
+    return False
+
+
+def _resolution_memory_records(
+    repo: AssistantConversationStore,
+    *,
+    query: str,
+) -> tuple[list[AssistantMemoryRecord], list[AssistantMemoryRecord]]:
+    prompt_memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
+    alias_candidates = _alias_query_candidates(query)
+    alias_memory_records = list(
+        repo.list_memory_records(
+            kind="entity_alias",
+            alias_candidates=alias_candidates or None,
+        )
+    )
+
+    merged_by_id: dict[str, AssistantMemoryRecord] = {
+        record.id: record for record in prompt_memory_records
+    }
+    for record in alias_memory_records:
+        merged_by_id.setdefault(record.id, record)
+
+    return prompt_memory_records, list(merged_by_id.values())
+
+
+def _alias_query_candidates(query: str) -> tuple[str, ...]:
+    query_tokens = _alias_tokens(query)
+    if not query_tokens:
+        return ()
+
+    max_window = min(len(query_tokens), _MAX_ALIAS_PHRASE_TOKENS)
+    candidates: dict[str, None] = {}
+    for window_size in range(1, max_window + 1):
+        for index in range(len(query_tokens) - window_size + 1):
+            candidate = " ".join(query_tokens[index : index + window_size])
+            candidates.setdefault(candidate, None)
+    return tuple(candidates.keys())
+
+
 async def stream_reply(
     *,
     repo: AssistantConversationStore,
@@ -164,6 +374,7 @@ async def stream_reply(
     evidence_bundle: AssistantEvidenceBundle | None = None
     assistant_chunks: list[str] = []
     session_id: str | None = None
+    pending_memory_record: AssistantMemoryRecord | None = None
 
     try:
         thread = repo.get_thread(thread_id)
@@ -185,12 +396,42 @@ async def stream_reply(
             last_message_at=user_message.created_at or now_iso(),
         )
 
-        memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
+        run = AssistantRun(
+            id=f"run-{uuid4().hex}",
+            task_type="chat",
+            status="running",
+            thread_id=_thread_id(thread),
+            command_json={
+                "model": _model_for_thread(thread),
+            },
+            started_at=now_iso(),
+        )
+        repo.save_run(run)
+
+        prompt_memory_records, resolution_memory_records = _resolution_memory_records(
+            repo,
+            query=request.content,
+        )
         route = route_user_query(request.content)
         entities = resolve_entities(
             store=read_store,
-            memory=memory_records,
+            memory=resolution_memory_records,
             route=route,
+            query=request.content,
+        )
+        if not entities:
+            route, rerouted_entities = _maybe_reroute_from_memory_alias(
+                memory_records=resolution_memory_records,
+                route=route,
+                read_store=read_store,
+                query=request.content,
+            )
+            if rerouted_entities:
+                entities = rerouted_entities
+        pending_memory_record = _build_entity_alias_memory_record(
+            route=route,
+            entities=entities,
+            memory_records=resolution_memory_records,
             query=request.content,
         )
         evidence_bundle = build_evidence_bundle(
@@ -204,19 +445,16 @@ async def stream_reply(
             user_message_id=request.id,
         )
 
-        run = AssistantRun(
-            id=f"run-{uuid4().hex}",
-            task_type="chat",
-            status="running",
-            thread_id=_thread_id(thread),
-            context_snapshot_id=evidence_bundle.id,
-            command_json={
-                "model": _model_for_thread(thread),
-                "intent": route.intent,
-                "confidence": route.confidence,
-                "matched_signals": list(route.matched_signals),
-            },
-            started_at=now_iso(),
+        run = run.model_copy(
+            update={
+                "context_snapshot_id": evidence_bundle.id,
+                "command_json": {
+                    "model": _model_for_thread(thread),
+                    "intent": route.intent,
+                    "confidence": route.confidence,
+                    "matched_signals": list(route.matched_signals),
+                },
+            }
         )
         repo.save_run(run)
         repo.save_evidence_bundle(evidence_bundle)
@@ -229,7 +467,7 @@ async def stream_reply(
         async for event in runtime.stream_chat(
             evidence_bundle=evidence_bundle,
             prior_messages=prior_messages,
-            memory_records=memory_records,
+            memory_records=prompt_memory_records,
             user_message=request.content,
             model=_model_for_thread(thread),
         ):
@@ -272,6 +510,7 @@ async def stream_reply(
             assistant_message=assistant_message,
             updated_thread=thread,
             completed_run=completed_run,
+            memory_record=pending_memory_record,
         )
         yield _json_line(
             {

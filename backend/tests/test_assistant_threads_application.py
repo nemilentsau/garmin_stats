@@ -55,6 +55,7 @@ class _FakeConversationStore:
         assistant_message: AssistantMessage,
         updated_thread: AssistantThread | dict[str, Any],
         completed_run: AssistantRun,
+        memory_record: AssistantMemoryRecord | None = None,
     ) -> None:
         self._messages.append(assistant_message)
         if isinstance(updated_thread, dict):
@@ -63,6 +64,7 @@ class _FakeConversationStore:
             thread = updated_thread
         self._threads[thread.id] = thread
         _ = completed_run
+        _ = memory_record
 
     def save_evidence_bundle(self, bundle: AssistantEvidenceBundle) -> None:
         _ = bundle
@@ -84,8 +86,9 @@ class _FakeConversationStore:
         kind: str | None = None,
         *,
         last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
     ) -> list[AssistantMemoryRecord]:
-        _ = (kind, last_n)
+        _ = (kind, last_n, alias_candidates)
         return []
 
 
