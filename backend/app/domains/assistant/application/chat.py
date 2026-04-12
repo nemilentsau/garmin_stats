@@ -185,11 +185,11 @@ def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
     if experiment_name is None:
         return ""
     if exposure_count is None:
-        return f"Grounded quick read: {experiment_name} is loaded from your saved evidence."
+        return f"Grounded quick read: {experiment_name} is loaded from current experiment evidence."
     day_label = "day" if exposure_count == 1 else "days"
     return (
-        f"Grounded quick read: {experiment_name} has {exposure_count} logged exposure {day_label}; "
-        "I will refine this with your thread history."
+        f"Grounded quick read: {experiment_name} has "
+        f"{exposure_count} logged exposure {day_label}."
     )
 
 

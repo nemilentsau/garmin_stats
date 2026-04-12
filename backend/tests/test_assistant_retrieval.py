@@ -729,6 +729,179 @@ def test_prior_evidence_recall_selects_other_threads_before_truncation() -> None
     assert prior_bundle_ids == {"other-1", "other-2"}
 
 
+def test_prior_evidence_excludes_unrelated_threads_without_overlap_or_recall() -> None:
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id="two-week-meditation-foundation-routine",
+    )
+    entities = [
+        AssistantResolvedEntity(
+            kind="experiment",
+            entity_id="meditation-hrv-2026-03",
+            label="Meditation -> HRV",
+            score=0.98,
+        )
+    ]
+    store._evidence_bundles = [
+        AssistantEvidenceBundle(
+            id="other-1",
+            thread_id="thread-x",
+            user_message_id="m-1",
+            intent="recovery_briefing",
+            created_at="2026-03-01T00:00:00Z",
+            entities=[
+                AssistantResolvedEntity(
+                    kind="routine",
+                    entity_id="sleep-routine",
+                    label="Sleep routine",
+                    score=0.9,
+                )
+            ],
+        )
+    ]
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(
+            intent="experiment_review",
+            confidence=0.95,
+            matched_signals=["mentions_experiment"],
+        ),
+        entities=entities,
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    assert not any(item.kind == "prior_evidence" for item in bundle.items)
+
+
+def test_prior_evidence_includes_same_entity_across_threads() -> None:
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id="two-week-meditation-foundation-routine",
+    )
+    entities = [
+        AssistantResolvedEntity(
+            kind="experiment",
+            entity_id="meditation-hrv-2026-03",
+            label="Meditation -> HRV",
+            score=0.98,
+        )
+    ]
+    store._evidence_bundles = [
+        AssistantEvidenceBundle(
+            id="other-entity-match",
+            thread_id="thread-x",
+            user_message_id="m-1",
+            intent="open_ended_coaching",
+            created_at="2026-03-02T00:00:00Z",
+            entities=[
+                AssistantResolvedEntity(
+                    kind="experiment",
+                    entity_id="meditation-hrv-2026-03",
+                    label="Meditation -> HRV",
+                    score=0.95,
+                )
+            ],
+        )
+    ]
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(
+            intent="experiment_review",
+            confidence=0.95,
+            matched_signals=["mentions_experiment"],
+        ),
+        entities=entities,
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    prior_items = [item for item in bundle.items if item.kind == "prior_evidence"]
+    assert len(prior_items) == 1
+    assert prior_items[0].payload_json["match_type"] == "entity_overlap"
+    assert prior_items[0].payload_json["matched_entity_ids"] == [
+        "meditation-hrv-2026-03"
+    ]
+    assert prior_items[0].entity_id == "meditation-hrv-2026-03"
+
+
+def test_prior_evidence_includes_adjacent_family_for_recovery_briefing() -> None:
+    store = _FakeReadStore.for_weekly_state()
+    store._evidence_bundles = [
+        AssistantEvidenceBundle(
+            id="other-adjacent",
+            thread_id="thread-x",
+            user_message_id="m-1",
+            intent="open_ended_coaching",
+            created_at="2026-04-11T00:00:00Z",
+        ),
+        AssistantEvidenceBundle(
+            id="other-unrelated",
+            thread_id="thread-y",
+            user_message_id="m-2",
+            intent="experiment_review",
+            created_at="2026-04-10T00:00:00Z",
+        ),
+    ]
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(intent="recovery_briefing", confidence=0.95),
+        entities=[],
+        thread_id="thread-1",
+        user_message_id="message-2",
+    )
+
+    prior_items = [item for item in bundle.items if item.kind == "prior_evidence"]
+    assert [item.payload_json["bundle_id"] for item in prior_items] == [
+        "other-adjacent"
+    ]
+    assert prior_items[0].payload_json["match_type"] == "intent_family"
+
+
+def test_prior_evidence_explicit_recall_override_includes_otherwise_excluded_bundle() -> None:
+    store = _FakeReadStore.for_experiment_review(
+        experiment_id="meditation-hrv-2026-03",
+        routine_id="two-week-meditation-foundation-routine",
+    )
+    store._evidence_bundles = [
+        AssistantEvidenceBundle(
+            id="other-explicit",
+            thread_id="thread-x",
+            user_message_id="m-1",
+            intent="open_ended_coaching",
+            created_at="2026-03-04T00:00:00Z",
+        )
+    ]
+
+    bundle = build_evidence_bundle(
+        store=store,
+        route=AssistantRouteDecision(
+            intent="experiment_review",
+            confidence=0.95,
+            matched_signals=["mentions_experiment", "explicit_recall_language"],
+        ),
+        entities=[
+            AssistantResolvedEntity(
+                kind="experiment",
+                entity_id="meditation-hrv-2026-03",
+                label="Meditation -> HRV",
+                score=0.98,
+            )
+        ],
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    prior_items = [item for item in bundle.items if item.kind == "prior_evidence"]
+    assert [item.payload_json["bundle_id"] for item in prior_items] == [
+        "other-explicit"
+    ]
+    assert prior_items[0].payload_json["match_type"] == "explicit_recall"
+
+
 def test_linked_routine_includes_non_active_status_when_routine_exists() -> None:
     routine_id = "two-week-meditation-foundation-routine"
     store = _FakeReadStore.for_experiment_review(

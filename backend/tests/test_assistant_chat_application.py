@@ -349,6 +349,7 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     payloads = [json.loads(line) for line in lines]
     assert payloads[0]["type"] == "delta"
     assert "Meditation" in payloads[0]["text"]
+    assert "refine this with your thread history" not in payloads[0]["text"]
     assert payloads[-1]["type"] == "done"
     assert payloads[-1]["snapshot_id"] == repo.saved_evidence_bundles[0].id
     assert payloads[-1]["run_id"].startswith("run-")

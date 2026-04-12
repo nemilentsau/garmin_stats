@@ -14,6 +14,19 @@ _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
     {"experiments", "trials", "studies"}
 )
+_RECALL_LANGUAGE_PHRASES = (
+    "what did we say",
+    "what did we discuss",
+    "compare",
+    "comparison",
+    "compared to",
+    "earlier",
+    "previous",
+    "prior",
+    "last thread",
+    "as before",
+    "before this",
+)
 _INTENT_ORDER: tuple[AssistantIntent, ...] = (
     "experiment_review",
     "recovery_briefing",
@@ -95,16 +108,26 @@ def route_user_query(query: str) -> AssistantRouteDecision:
     second_score = scores[ranked[1]] if len(ranked) > 1 else 0.0
 
     if top_score <= 0.0:
+        matched_signals = []
+        if _has_explicit_recall_language(text):
+            matched_signals.append("explicit_recall_language")
         return AssistantRouteDecision(
             intent="open_ended_coaching",
             confidence=0.50,
-            matched_signals=[],
+            matched_signals=matched_signals,
         )
 
     margin_penalty = max(0.0, 0.20 - (top_score - second_score))
     confidence = max(0.50, min(0.99, top_score - margin_penalty))
+    matched_signals = list(signals[top_intent])
+    if _has_explicit_recall_language(text):
+        matched_signals.append("explicit_recall_language")
     return AssistantRouteDecision(
         intent=top_intent,
         confidence=round(confidence, 3),
-        matched_signals=signals[top_intent],
+        matched_signals=matched_signals,
     )
+
+
+def _has_explicit_recall_language(text: str) -> bool:
+    return any(phrase in text for phrase in _RECALL_LANGUAGE_PHRASES)

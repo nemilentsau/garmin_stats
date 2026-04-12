@@ -2,6 +2,35 @@
 
 ## Assistant Follow-Ups
 
+### Completed: Gate Cross-Thread `prior_evidence` By Relevance
+
+Implemented on 2026-04-12.
+
+What changed:
+
+- cross-thread `prior_evidence` is no longer attached by recency alone
+- same-thread evidence stays primary
+- cross-thread recall now requires exact entity overlap, explicit recall language, or allowed intent-family fallback
+- global memory remains available by default
+
+Reference:
+
+- [2026-04-12-assistant-cross-thread-prior-evidence-gating-design.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/specs/2026-04-12-assistant-cross-thread-prior-evidence-gating-design.md)
+- [2026-04-12-assistant-cross-thread-prior-evidence-gating.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-04-12-assistant-cross-thread-prior-evidence-gating.md)
+
+### Completed: Tighten Assistant Lead-In Wording
+
+Implemented on 2026-04-12.
+
+What changed:
+
+- the fast grounded first delta no longer claims a later refinement pass
+- lead-in wording now describes current evidence directly instead of implying hidden multi-stage reasoning
+
+Reference:
+
+- [chat.py](/Users/andreinemilentsau/Projects/garmin_stats/backend/app/domains/assistant/application/chat.py)
+
 ### 1. Add Daily Check-In UI On `/today`
 
 See [checkin-todo.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/checkin-todo.md).
@@ -17,38 +46,3 @@ Recommended shape:
 - compact `Daily Check-In` card on `/today`
 - today-first entry flow
 - preserve the existing `/api/checkins` contract
-
-### 2. Gate Cross-Thread `prior_evidence` By Relevance
-
-Current state:
-
-- global continuity is enabled by default
-- new threads can still receive `prior_evidence` items from unrelated recent threads
-- this did not break the current smoke test, but it is broader than necessary
-
-Why it matters:
-
-- broad recall will eventually cause answer bleed across topics or threads
-- daily briefings should not automatically carry recent experiment-review bundles unless they are actually relevant
-
-Recommended follow-up:
-
-- keep global memory default
-- tighten `prior_evidence` selection by intent and entity relevance
-- continue allowing explicit cross-thread recall where it adds value
-
-### 3. Tighten Assistant Lead-In Wording
-
-Current state:
-
-- the assistant can still imply hidden multi-stage reasoning or later refinement in some lead sentences
-
-Why it matters:
-
-- wording should describe the actual runtime behavior
-- the current assistant is a single-pass grounded generation path over `evidence.json`, `memory.json`, and `thread_messages.json`
-
-Recommended follow-up:
-
-- replace any misleading “refine later” phrasing with factual source-aware wording
-- preferred framing: grounded from current evidence plus prior thread context when present

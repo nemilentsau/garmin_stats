@@ -53,3 +53,12 @@ def test_router_classifies_weekly_review_questions_as_open_ended_coaching() -> N
     decision = route_user_query(query)
 
     assert decision.intent == "open_ended_coaching"
+
+
+def test_router_marks_explicit_recall_language_signal() -> None:
+    decision = route_user_query(
+        "What did we discuss earlier about my meditation experiment?"
+    )
+
+    assert decision.intent == "experiment_review"
+    assert "explicit_recall_language" in decision.matched_signals
