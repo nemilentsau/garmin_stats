@@ -1,13 +1,21 @@
 """Tests for database.py — connection, storage, read-back."""
 
+import json
 import os
 
 import pytest
 
 import app.infra.database as db
+from app.domains.assistant.application.types import (
+    AssistantEvidenceBundle,
+    AssistantEvidenceItem,
+    AssistantMemoryRecord,
+    AssistantResolvedEntity,
+)
 from app.models import (
     AssistantArtifact,
     AssistantMessage,
+    AssistantRun,
     AssistantThread,
     CardLog,
     CardOverride,
@@ -57,6 +65,8 @@ class TestInit:
         assert "user_profile" in tables
         assert "routines" in tables
         assert "assistant_threads" in tables
+        assert "assistant_evidence_bundles" in tables
+        assert "assistant_memory_records" in tables
         assert "assistant_artifacts" in tables
         assert "card_templates" in tables
         assert "routine_schedules" in tables
@@ -68,6 +78,68 @@ class TestInit:
         with db._connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
+
+    def test_init_db_migrates_legacy_assistant_memory_table_before_alias_index(self, tmp_db):
+        with db._connect() as con, con:
+            con.execute("DROP TABLE assistant_memory_records")
+            con.execute(
+                """
+                CREATE TABLE assistant_memory_records (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    entity_id TEXT,
+                    alias_text TEXT,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            con.execute(
+                """
+                INSERT INTO assistant_memory_records (
+                    id, kind, entity_id, alias_text, data, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "memory-1",
+                    "entity_alias",
+                    "exp-1",
+                    "sleep stack",
+                    json.dumps(
+                        {
+                            "id": "memory-1",
+                            "kind": "entity_alias",
+                            "entity_id": "exp-1",
+                            "alias_text": "sleep stack",
+                            "payload_json": {},
+                        }
+                    ),
+                    "2026-04-11T10:00:00Z",
+                    "2026-04-11T10:00:00Z",
+                ),
+            )
+
+        db.init_db()
+
+        with db._connect() as con:
+            columns = {
+                row["name"]
+                for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+            }
+            indexes = {
+                row["name"]
+                for row in con.execute("PRAGMA index_list(assistant_memory_records)").fetchall()
+            }
+            row = con.execute(
+                "SELECT alias_normalized FROM assistant_memory_records WHERE id = ?",
+                ("memory-1",),
+            ).fetchone()
+
+        assert "alias_normalized" in columns
+        assert "idx_assistant_memory_records_kind_alias_normalized_created" in indexes
+        assert row is not None
+        assert row["alias_normalized"] == "sleep stack"
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +461,84 @@ class TestStoreAndLoad:
         assert loaded_snapshot.id == "snapshot-1"
         assert [entry.id for entry in cards] == ["card-1"]
 
+    def test_finalize_assistant_reply_persists_message_thread_and_run_state_together(self):
+        thread = AssistantThread(
+            id="thread-1",
+            title="Recovery coach",
+            last_message_at="2026-01-14T10:00:00+00:00",
+        )
+        running_run = AssistantRun(
+            id="run-1",
+            task_type="chat",
+            status="running",
+            thread_id="thread-1",
+            started_at="2026-01-15T09:00:00+00:00",
+        )
+        assistant_message = AssistantMessage(
+            id="assistant-1",
+            thread_id="thread-1",
+            role="assistant",
+            content_markdown="Keep the bedtime routine consistent.",
+            created_at="2026-01-15T09:02:00+00:00",
+        )
+        updated_thread = thread.model_copy(
+            update={
+                "claude_session_id": "session-1",
+                "last_context_snapshot_id": "bundle-1",
+                "last_message_at": assistant_message.created_at,
+            }
+        )
+        completed_run = running_run.model_copy(
+            update={
+                "status": "completed",
+                "context_snapshot_id": "bundle-1",
+                "claude_session_id": "session-1",
+                "finished_at": "2026-01-15T09:02:01+00:00",
+            }
+        )
+        memory_record = AssistantMemoryRecord(
+            id="memory-1",
+            kind="entity_alias",
+            entity_id="experiment-1",
+            alias_text="sleep stack",
+            created_at="2026-01-15T09:02:01+00:00",
+        )
+
+        db.create_assistant_thread(thread)
+        db.save_assistant_run(running_run)
+        assert db.load_assistant_messages("thread-1") == []
+        assert db.load_assistant_runs("thread-1")[0].status == "running"
+
+        db.finalize_assistant_reply(
+            assistant_message=assistant_message,
+            updated_thread=updated_thread,
+            completed_run=completed_run,
+            memory_record=memory_record,
+        )
+
+        loaded_thread = db.load_assistant_thread("thread-1")
+        loaded_messages = db.load_assistant_messages("thread-1")
+        loaded_memory = db.load_assistant_memory_records(kind="entity_alias")
+        loaded_runs = db.load_assistant_runs("thread-1")
+        with db._connect() as con:
+            row = con.execute(
+                "SELECT alias_text FROM assistant_memory_records WHERE id = ?",
+                ("memory-1",),
+            ).fetchone()
+
+        assert loaded_thread is not None
+        assert loaded_thread.last_message_at == assistant_message.created_at
+        assert loaded_thread.last_context_snapshot_id == "bundle-1"
+        assert loaded_thread.claude_session_id == "session-1"
+        assert [message.id for message in loaded_messages] == ["assistant-1"]
+        assert [record.id for record in loaded_memory] == ["memory-1"]
+        assert row is not None
+        assert row["alias_text"] == "sleep stack"
+        assert loaded_runs[0].id == "run-1"
+        assert loaded_runs[0].status == "completed"
+        assert loaded_runs[0].finished_at == "2026-01-15T09:02:01+00:00"
+        assert loaded_runs[0].context_snapshot_id == "bundle-1"
+
     def test_missing_context_snapshot_returns_none(self):
         assert db.load_context_snapshot("missing") is None
 
@@ -447,6 +597,75 @@ class TestStoreAndLoad:
         assert [entry.id for entry in db.load_routine_assignments("routine-1")] == ["assignment-1"]
         assert [entry.id for entry in db.load_card_logs("2026-03-02")] == ["log-1"]
         assert [entry.id for entry in db.load_card_overrides("2026-03-02")] == ["override-1"]
+
+    def test_assistant_evidence_bundle_round_trips(self):
+        bundle = AssistantEvidenceBundle(
+            id="bundle-1",
+            thread_id="thread-1",
+            user_message_id="message-1",
+            intent="experiment_review",
+            entities=[
+                AssistantResolvedEntity(
+                    kind="experiment",
+                    entity_id="exp-1",
+                    label="Meditation → HRV",
+                    score=0.98,
+                )
+            ],
+            items=[
+                AssistantEvidenceItem(
+                    kind="analysis",
+                    source="experiment_analysis",
+                    entity_id="exp-1",
+                    payload_json={"adherence_rate": 0.5},
+                )
+            ],
+        )
+
+        db.save_assistant_evidence_bundle(bundle)
+        loaded = db.load_assistant_evidence_bundles(thread_id="thread-1")
+
+        assert loaded[0].intent == "experiment_review"
+        assert loaded[0].entities[0].entity_id == "exp-1"
+
+    def test_assistant_memory_record_round_trips(self):
+        record = AssistantMemoryRecord(
+            id="memory-1",
+            kind="entity_alias",
+            entity_id="exp-1",
+            alias_text="meditation experiment",
+            payload_json={"source": "resolver"},
+        )
+
+        db.save_assistant_memory_record(record)
+        loaded = db.load_assistant_memory_records(kind="entity_alias")
+
+        assert loaded[0].alias_text == "meditation experiment"
+
+    def test_assistant_memory_record_alias_lookup_filters_candidates(self):
+        db.save_assistant_memory_record(
+            AssistantMemoryRecord(
+                id="memory-1",
+                kind="entity_alias",
+                entity_id="exp-1",
+                alias_text="sleep stack",
+            )
+        )
+        db.save_assistant_memory_record(
+            AssistantMemoryRecord(
+                id="memory-2",
+                kind="entity_alias",
+                entity_id="exp-2",
+                alias_text="mobility reset",
+            )
+        )
+
+        loaded = db.load_assistant_memory_records(
+            kind="entity_alias",
+            alias_candidates=("sleep stack", "sleep"),
+        )
+
+        assert [record.id for record in loaded] == ["memory-1"]
 
 
 # ---------------------------------------------------------------------------

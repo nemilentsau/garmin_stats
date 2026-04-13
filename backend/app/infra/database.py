@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -16,6 +17,10 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..domains.assistant.application.types import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
+)
 from ..models import (
     DEFAULT_PROFILE_ID,
     AssistantArtifact,
@@ -71,6 +76,7 @@ DATA_DIR = Path(os.environ.get(
 ))
 
 _ingest_lock = threading.Lock()
+_ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
@@ -79,6 +85,7 @@ _VALID_TABLES = frozenset({
     "daily_checkins", "notes", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
+    "assistant_evidence_bundles", "assistant_memory_records",
     "evidence_cards", "programs", "program_versions",
     "assistant_artifacts", "card_templates", "routine_schedules",
     "routine_assignments", "card_logs", "card_overrides",
@@ -172,6 +179,25 @@ CREATE TABLE IF NOT EXISTS assistant_runs (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS assistant_evidence_bundles (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    user_message_id TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assistant_memory_records (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    entity_id TEXT,
+    alias_text TEXT,
+    alias_normalized TEXT,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS routine_assignments (
     id TEXT PRIMARY KEY,
     routine_id TEXT NOT NULL,
@@ -224,6 +250,10 @@ CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread_created
     ON assistant_messages (thread_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_assistant_runs_thread_created
     ON assistant_runs (thread_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_evidence_bundles_thread_created
+    ON assistant_evidence_bundles (thread_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_created
+    ON assistant_memory_records (kind, created_at);
 CREATE TABLE IF NOT EXISTS experiment_analyses (
     experiment_id TEXT PRIMARY KEY,
     data TEXT NOT NULL,
@@ -258,8 +288,42 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _connect() as con:
         con.executescript(_SCHEMA)
+        _ensure_assistant_memory_alias_lookup_columns(con)
         con.execute("PRAGMA journal_mode=WAL")
         con.commit()
+
+
+def _ensure_assistant_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
+    columns = {
+        row["name"]
+        for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+    }
+    if "alias_normalized" not in columns:
+        con.execute("ALTER TABLE assistant_memory_records ADD COLUMN alias_normalized TEXT")
+
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_alias_normalized_created "
+        "ON assistant_memory_records (kind, alias_normalized, created_at)"
+    )
+
+    rows = con.execute(
+        "SELECT id, alias_text FROM assistant_memory_records "
+        "WHERE alias_text IS NOT NULL AND (alias_normalized IS NULL OR alias_normalized = '')"
+    ).fetchall()
+    for row in rows:
+        con.execute(
+            "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
+            (_normalize_alias_text(row["alias_text"]), row["id"]),
+        )
+
+
+def _normalize_alias_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    tokens = _ALIAS_TOKEN_PATTERN.findall(value.lower())
+    if not tokens:
+        return None
+    return " ".join(tokens)
 
 
 def _save_json_record(
@@ -1052,6 +1116,22 @@ def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
     )
 
 
+def create_assistant_thread(thread: AssistantThread) -> None:
+    created_at = thread.created_at or now_iso()
+    payload = thread.model_copy(update={"created_at": created_at}).model_dump_json()
+    with _connect() as con, con:
+        try:
+            con.execute(
+                (
+                    "INSERT INTO assistant_threads "
+                    "(id, data, created_at, updated_at) VALUES (?, ?, ?, ?)"
+                ),
+                (thread.id, payload, created_at, created_at),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError(f"Assistant thread {thread.id} already exists") from exc
+
+
 def save_assistant_thread(thread: AssistantThread) -> None:
     _save_json_record("assistant_threads", thread.id, thread.model_dump_json())
 
@@ -1095,6 +1175,55 @@ def save_assistant_run(run: AssistantRun) -> None:
     )
 
 
+def finalize_assistant_reply(
+    *,
+    assistant_message: AssistantMessage,
+    updated_thread: AssistantThread,
+    completed_run: AssistantRun,
+    memory_record: AssistantMemoryRecord | None = None,
+) -> None:
+    """Persist assistant reply + thread metadata + completed run atomically."""
+    with _connect() as con, con:
+        _save_json_record_in_connection(
+            con,
+            "assistant_messages",
+            assistant_message.id,
+            assistant_message.model_dump_json(),
+            extra_columns={"thread_id": assistant_message.thread_id},
+            created_at=assistant_message.created_at,
+        )
+        _save_json_record_in_connection(
+            con,
+            "assistant_threads",
+            updated_thread.id,
+            updated_thread.model_dump_json(),
+        )
+        _save_json_record_in_connection(
+            con,
+            "assistant_runs",
+            completed_run.id,
+            completed_run.model_dump_json(),
+            extra_columns={"thread_id": completed_run.thread_id},
+            created_at=completed_run.started_at,
+            updated_at=completed_run.finished_at or completed_run.started_at,
+        )
+        if memory_record is not None:
+            _save_json_record_in_connection(
+                con,
+                "assistant_memory_records",
+                memory_record.id,
+                memory_record.model_dump_json(),
+                extra_columns={
+                    "kind": memory_record.kind,
+                    "entity_id": memory_record.entity_id,
+                    "alias_text": memory_record.alias_text,
+                    "alias_normalized": _normalize_alias_text(memory_record.alias_text),
+                },
+                created_at=memory_record.created_at,
+                updated_at=memory_record.updated_at or memory_record.created_at,
+            )
+
+
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
@@ -1104,6 +1233,90 @@ def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
         where_sql=where_sql,
         params=params,
         order_by="created_at, id",
+    )
+
+
+def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
+    _save_json_record(
+        "assistant_evidence_bundles",
+        bundle.id,
+        bundle.model_dump_json(),
+        extra_columns={
+            "thread_id": bundle.thread_id,
+            "user_message_id": bundle.user_message_id,
+            "intent": bundle.intent,
+        },
+        created_at=bundle.created_at,
+        updated_at=bundle.updated_at,
+    )
+
+
+def load_assistant_evidence_bundles(
+    thread_id: str | None = None,
+    *,
+    last_n: int | None = None,
+) -> list[AssistantEvidenceBundle]:
+    where_sql = "thread_id = ?" if thread_id is not None else ""
+    params = (thread_id,) if thread_id is not None else ()
+    return _load_json_records(
+        "assistant_evidence_bundles",
+        AssistantEvidenceBundle,
+        where_sql=where_sql,
+        params=params,
+        order_by="created_at, id",
+        last_n=last_n,
+    )
+
+
+def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
+    _save_json_record(
+        "assistant_memory_records",
+        record.id,
+        record.model_dump_json(),
+        extra_columns={
+            "kind": record.kind,
+            "entity_id": record.entity_id,
+            "alias_text": record.alias_text,
+            "alias_normalized": _normalize_alias_text(record.alias_text),
+        },
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def load_assistant_memory_records(
+    kind: str | None = None,
+    *,
+    last_n: int | None = None,
+    alias_candidates: tuple[str, ...] | None = None,
+) -> list[AssistantMemoryRecord]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if kind is not None:
+        clauses.append("kind = ?")
+        params.append(kind)
+
+    normalized_candidates = tuple(
+        normalized
+        for normalized in (
+            _normalize_alias_text(candidate) for candidate in (alias_candidates or ())
+        )
+        if normalized is not None
+    )
+    if alias_candidates is not None:
+        if not normalized_candidates:
+            return []
+        placeholders = ", ".join("?" for _ in normalized_candidates)
+        clauses.append(f"alias_normalized IN ({placeholders})")
+        params.extend(normalized_candidates)
+
+    return _load_json_records(
+        "assistant_memory_records",
+        AssistantMemoryRecord,
+        where_sql=" AND ".join(clauses),
+        params=tuple(params),
+        order_by="created_at, id",
+        last_n=last_n,
     )
 
 

@@ -1,0 +1,2 @@
+"""Assistant domain package."""
+
