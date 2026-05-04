@@ -17,9 +17,11 @@ The first biometric-focused slice has been implemented on 2026-05-03.
 
 What landed:
 
-- `backend/app/domains/garmin_analytics/` now owns dashboard overview, raw wellness, sleep, HRV, skin temperature, daily aggregates, and windowed period summaries.
+- `backend/app/domains/garmin_analytics/` now owns dashboard overview, raw wellness, sleep, HRV, skin temperature, daily aggregates, windowed period summaries, and the recovery insight/analysis route surface.
 - `backend/app/bootstrap/routing.py` mounts the domain-local Garmin analytics routers directly.
 - Flat routers for the migrated endpoints now act as compatibility wrappers.
+- `backend/app/domains/garmin_analytics/api/insights.py` owns heart-rate, stress, and body-battery insight/analysis routes.
+- `backend/app/domains/garmin_analytics/application/insights.py` is the transitional facade over the heavier legacy analysis services.
 - `backend/app/services/dashboard.py` delegates to the domain implementation.
 - `backend/app/services/period_windows.py` was removed; period summaries now live in `backend/app/domains/garmin_analytics/application/period_summary.py`.
 - `backend/app/bootstrap/container.py` exposes a domain-local biometric repository.

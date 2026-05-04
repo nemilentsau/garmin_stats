@@ -1,14 +1,10 @@
-"""Body Battery HTTP routes."""
+"""Compatibility wrapper for body battery routes."""
 
-from fastapi import APIRouter
+from app.domains.garmin_analytics.api.insights import (
+    body_battery_router as router,
+)
+from app.domains.garmin_analytics.api.insights import (
+    get_body_battery_analysis,
+)
 
-from ..models import BodyBatteryAnalysisResponse
-from ..services.body_battery_analysis import load_body_battery_analysis
-
-router = APIRouter(prefix="/api/body-battery", tags=["body-battery"])
-
-
-@router.get("/analysis", response_model=BodyBatteryAnalysisResponse)
-def get_body_battery_analysis():
-    """Return period-level body battery analysis (trend, weekly boxplots)."""
-    return load_body_battery_analysis()
+__all__ = ["get_body_battery_analysis", "router"]

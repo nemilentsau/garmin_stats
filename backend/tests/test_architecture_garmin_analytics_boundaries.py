@@ -13,6 +13,7 @@ def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
     for path in [
         "backend/app/domains/garmin_analytics/api/overview.py",
         "backend/app/domains/garmin_analytics/api/biometrics.py",
+        "backend/app/domains/garmin_analytics/api/insights.py",
     ]:
         source = _read(path)
         assert "app.infra.database" not in source
@@ -34,12 +35,16 @@ def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
     source = _read("backend/app/bootstrap/routing.py")
     assert "domains.garmin_analytics.api.overview" in source
     assert "domains.garmin_analytics.api.biometrics" in source
+    assert "domains.garmin_analytics.api.insights" in source
     assert "from ..routers.dashboard import router as dashboard_router" not in source
     assert "from ..routers.wellness import router as wellness_router" not in source
     assert "from ..routers.sleep import router as sleep_router" not in source
     assert "from ..routers.hrv import router as hrv_router" not in source
     assert "from ..routers.skin_temp import router as skin_temp_router" not in source
     assert "from ..routers.daily_aggregates import router as daily_aggregates_router" not in source
+    assert "from ..routers.heart_rate import router as heart_rate_router" not in source
+    assert "from ..routers.stress import router as stress_router" not in source
+    assert "from ..routers.body_battery import router as body_battery_router" not in source
 
 
 def test_flat_garmin_analytics_routers_are_compatibility_wrappers():
@@ -50,6 +55,9 @@ def test_flat_garmin_analytics_routers_are_compatibility_wrappers():
         "backend/app/routers/hrv.py",
         "backend/app/routers/skin_temp.py",
         "backend/app/routers/daily_aggregates.py",
+        "backend/app/routers/heart_rate.py",
+        "backend/app/routers/stress.py",
+        "backend/app/routers/body_battery.py",
     ]:
         source = _read(path)
         assert "domains.garmin_analytics.api" in source

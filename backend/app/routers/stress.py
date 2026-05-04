@@ -1,14 +1,10 @@
-"""Stress HTTP routes."""
+"""Compatibility wrapper for stress routes."""
 
-from fastapi import APIRouter
+from app.domains.garmin_analytics.api.insights import (
+    get_stress_analysis,
+)
+from app.domains.garmin_analytics.api.insights import (
+    stress_router as router,
+)
 
-from ..models import StressAnalysisResponse
-from ..services.stress_analysis import load_stress_analysis
-
-router = APIRouter(prefix="/api/stress", tags=["stress"])
-
-
-@router.get("/analysis", response_model=StressAnalysisResponse)
-def get_stress_analysis():
-    """Return period-level stress analysis (avg trend, weekly boxplots)."""
-    return load_stress_analysis()
+__all__ = ["get_stress_analysis", "router"]
