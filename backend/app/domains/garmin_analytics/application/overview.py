@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from app.domains.garmin_analytics.application.hrv import _normalize_hrv_status
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
 from app.models import (
     CorrelationPoint,
@@ -15,7 +16,6 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
-from app.services.hrv import _normalize_hrv_status
 from app.stats import trailing_ma7
 
 

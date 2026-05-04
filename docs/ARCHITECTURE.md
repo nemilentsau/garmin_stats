@@ -81,14 +81,14 @@ There are two major paths:
   The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
 
 - `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis route surface for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
+  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `heart_rate.py`, `heart_rate_analysis.py`
 - `hrv.py`, `hrv_analysis.py`
 - `sleep_analysis.py`
 - `stress_analysis.py`
 - `body_battery_analysis.py`
-  Transitional metric-specific analysis implementations. The public route surface now runs through `domains/garmin_analytics/`, while these modules keep the heavier calculation code stable until it is worth splitting into smaller domain-local insight modules.
+  Compatibility wrappers over `domains/garmin_analytics/application/` metric-analysis modules.
 
 - `training_specs.py`
   Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.

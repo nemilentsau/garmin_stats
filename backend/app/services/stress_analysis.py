@@ -1,62 +1,24 @@
-"""Stress analysis: daily avg trend with 7-day MA, weekly boxplots."""
+"""Compatibility wrapper for Garmin analytics stress analysis."""
 
-from ..infra import cache
-from ..infra.database import load_daily_metrics
-from ..models import (
-    DailyMetric,
-    StressAnalysisResponse,
-    StressTrendPoint,
-    WeeklyStressBox,
+from app.bootstrap.container import build_container
+from app.domains.garmin_analytics.application.stress_analysis import (
+    _compute_stress_analysis,
+    _compute_stress_trend,
+    _compute_weekly_stress_boxplots,
 )
-from ..stats import group_by_iso_week, safe_percentile, trailing_ma7
-
-STRESS_ANALYSIS = "stress_analysis"
-
-
-def _compute_stress_trend(
-    metrics: list[DailyMetric],
-) -> list[StressTrendPoint]:
-    avg_values: list[float | None] = [m.stress.avg for m in metrics]
-    ma7_values = trailing_ma7(avg_values)
-
-    return [
-        StressTrendPoint(
-            date=m.date,
-            avg=avg_values[i],
-            ma7=ma7_values[i],
-        )
-        for i, m in enumerate(metrics)
-    ]
-
-
-def _compute_weekly_stress_boxplots(
-    metrics: list[DailyMetric],
-) -> list[WeeklyStressBox]:
-    weeks = group_by_iso_week(metrics, lambda m: m.stress.avg)
-    result: list[WeeklyStressBox] = []
-    for week_key in sorted(weeks):
-        vals = sorted(weeks[week_key])
-        result.append(
-            WeeklyStressBox(
-                iso_week=week_key,
-                min_avg=float(vals[0]),
-                q1_avg=safe_percentile(vals, 25),
-                median_avg=safe_percentile(vals, 50),
-                q3_avg=safe_percentile(vals, 75),
-                max_avg=float(vals[-1]),
-                day_count=len(vals),
-            )
-        )
-    return result
+from app.domains.garmin_analytics.application.stress_analysis import (
+    load_stress_analysis as _load_stress_analysis,
+)
+from app.models import StressAnalysisResponse
 
 
 def load_stress_analysis() -> StressAnalysisResponse:
-    return cache.cached(STRESS_ANALYSIS, _compute_stress_analysis)
+    return _load_stress_analysis(build_container().garmin_biometrics_repo)
 
 
-def _compute_stress_analysis() -> StressAnalysisResponse:
-    metrics = load_daily_metrics()
-    return StressAnalysisResponse(
-        avg_trend=_compute_stress_trend(metrics),
-        weekly_boxplots=_compute_weekly_stress_boxplots(metrics),
-    )
+__all__ = [
+    "_compute_stress_analysis",
+    "_compute_stress_trend",
+    "_compute_weekly_stress_boxplots",
+    "load_stress_analysis",
+]

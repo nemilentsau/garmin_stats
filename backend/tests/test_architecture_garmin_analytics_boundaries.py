@@ -31,6 +31,40 @@ def test_garmin_analytics_application_modules_are_fastapi_free():
         assert "fastapi" not in _read(path)
 
 
+def test_garmin_analytics_application_does_not_import_flat_services_or_database():
+    for path in [
+        "backend/app/domains/garmin_analytics/application/overview.py",
+        "backend/app/domains/garmin_analytics/application/biometrics.py",
+        "backend/app/domains/garmin_analytics/application/period_summary.py",
+        "backend/app/domains/garmin_analytics/application/insights.py",
+        "backend/app/domains/garmin_analytics/application/heart_rate.py",
+        "backend/app/domains/garmin_analytics/application/heart_rate_analysis.py",
+        "backend/app/domains/garmin_analytics/application/hrv.py",
+        "backend/app/domains/garmin_analytics/application/hrv_analysis.py",
+        "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
+        "backend/app/domains/garmin_analytics/application/stress_analysis.py",
+        "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
+    ]:
+        source = _read(path)
+        assert "app.services" not in source
+        assert "app.infra.database" not in source
+
+
+def test_flat_garmin_analytics_services_are_compatibility_wrappers():
+    for path in [
+        "backend/app/services/heart_rate.py",
+        "backend/app/services/heart_rate_analysis.py",
+        "backend/app/services/hrv.py",
+        "backend/app/services/hrv_analysis.py",
+        "backend/app/services/sleep_analysis.py",
+        "backend/app/services/stress_analysis.py",
+        "backend/app/services/body_battery_analysis.py",
+    ]:
+        source = _read(path)
+        assert "domains.garmin_analytics.application" in source
+        assert "app.infra.database" not in source
+
+
 def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
     source = _read("backend/app/bootstrap/routing.py")
     assert "domains.garmin_analytics.api.overview" in source
