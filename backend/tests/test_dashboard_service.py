@@ -5,6 +5,12 @@ import warnings
 import pytest
 
 import app.infra.database as db
+from app.domains.garmin_analytics.application.overview import (
+    get_dashboard_overview,
+)
+from app.domains.garmin_analytics.infra.biometric_repository import (
+    SqliteBiometricRepository,
+)
 from app.infra import cache
 from app.models import (
     DailyBodyBatteryStats,
@@ -15,7 +21,10 @@ from app.models import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.services.dashboard import load_dashboard_overview
+
+
+def load_dashboard_overview():
+    return get_dashboard_overview(SqliteBiometricRepository())
 
 
 @pytest.fixture(autouse=True)

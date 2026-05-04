@@ -19,11 +19,9 @@ What landed:
 
 - `backend/app/domains/garmin_analytics/` now owns dashboard overview, raw wellness, sleep, HRV, skin temperature, daily aggregates, windowed period summaries, and recovery insight/analysis implementations.
 - `backend/app/bootstrap/routing.py` mounts the domain-local Garmin analytics routers directly.
-- Flat routers for the migrated endpoints now act as compatibility wrappers.
+- Flat routers and services for migrated Garmin analytics endpoints were removed after route and test imports moved to the domain.
 - `backend/app/domains/garmin_analytics/api/insights.py` owns heart-rate, stress, and body-battery insight/analysis routes.
 - `backend/app/domains/garmin_analytics/application/insights.py` is a route-facing facade over domain-local metric-analysis modules.
-- Flat metric-analysis services under `backend/app/services/` now delegate to domain-local Garmin analytics implementations.
-- `backend/app/services/dashboard.py` delegates to the domain implementation.
 - `backend/app/services/period_windows.py` was removed; period summaries now live in `backend/app/domains/garmin_analytics/application/period_summary.py`.
 - `backend/app/bootstrap/container.py` exposes a domain-local biometric repository.
 - Architecture guards prevent migrated API modules from importing global database helpers or `stats.py` directly.
@@ -134,9 +132,9 @@ The HTTP paths remain stable. The domain package changes internal ownership, not
 
 Owns use cases and orchestration.
 
-- `overview.py` owns dashboard composition currently in `services/dashboard.py`.
+- `overview.py` owns dashboard composition.
 - `biometrics.py` owns raw biometric read use cases for wellness, sleep, HRV, skin temperature, and daily aggregates.
-- `period_summary.py` owns windowed period summaries currently in `services/period_windows.py`.
+- `period_summary.py` owns windowed period summaries.
 - `insights.py` is the route-facing facade for analysis endpoints.
 - `heart_rate.py`, `heart_rate_analysis.py`, `hrv.py`, `hrv_analysis.py`, `sleep_analysis.py`, `stress_analysis.py`, and `body_battery_analysis.py` own the current recovery analysis implementations.
 - `ports.py` defines read interfaces for biometric data and future session/activity data.
@@ -170,17 +168,12 @@ The first slice should move the foundation and current biometric read surface:
    - `/api/skin-temp`
    - `/api/daily-aggregates`
 6. Mount the domain-local routers from `bootstrap/routing.py`.
-7. Keep old flat routers only as temporary compatibility wrappers where useful.
+7. Do not keep flat compatibility wrappers for migrated Garmin analytics code unless a real runtime consumer appears.
 8. Add architecture guards for the migrated domain.
 
-This slice should not move:
+Still out of scope:
 
 - `/api/days`
-- heart-rate insights, analysis, or distribution
-- HRV insight and analysis endpoints beyond preserving the existing raw HRV route behavior
-- stress analysis
-- body-battery analysis
-- sleep analysis if moving it would force the slice to absorb the heavier insight layer too early
 - activity/session parsing
 
 ## Future Activity And Session Boundary
@@ -218,7 +211,7 @@ The first implementation plan should include:
 - architecture guard tests:
   - `api` does not import `app.infra.database` or `app.stats`
   - `application` is FastAPI-free
-  - compatibility wrappers remain thin
+  - migrated Garmin analytics flat shims are absent
 - full backend verification:
   - `cd backend && uv run ruff check`
   - `cd backend && uv run pyright app/ tests/`

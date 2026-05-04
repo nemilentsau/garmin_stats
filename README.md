@@ -181,10 +181,10 @@ The ingest pipeline handles both the day archives and the extracted day folders.
   SQLite persistence, ingest bookkeeping, cache, SSE bus, watcher.
 
 - `backend/app/services/`
-  Remaining flat service modules plus compatibility wrappers during the backend migration. Garmin analytics metric-analysis service paths now delegate to domain-local implementations.
+  Remaining flat service modules for backend areas that have not moved yet. Migrated Garmin analytics services were removed after their routes and tests moved to the domain.
 
 - `backend/app/routers/`
-  Remaining flat route modules plus compatibility wrappers during the backend migration.
+  Remaining flat route modules for backend areas that have not moved yet. Migrated Garmin analytics routers are mounted from the domain directly.
 
 - `frontend/src/routes/`
   SvelteKit routes for dashboard, assistant, Today, routines, and parked placeholders.

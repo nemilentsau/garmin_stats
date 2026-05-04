@@ -83,13 +83,6 @@ There are two major paths:
 - `domains/garmin_analytics/`
   Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
-- `heart_rate.py`, `heart_rate_analysis.py`
-- `hrv.py`, `hrv_analysis.py`
-- `sleep_analysis.py`
-- `stress_analysis.py`
-- `body_battery_analysis.py`
-  Compatibility wrappers over `domains/garmin_analytics/application/` metric-analysis modules.
-
 - `training_specs.py`
   Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.
 
@@ -174,7 +167,7 @@ Important rules:
 Garmin analytics is biometric-first but not `DailyMetric`-only.
 
 - Domain routes now mount from `backend/app/domains/garmin_analytics/api/` for dashboard overview, wellness, sleep, HRV, skin temperature, daily aggregates, heart-rate insights/analysis/distribution, stress analysis, and body-battery analysis.
-- `backend/app/routers/dashboard.py`, `wellness.py`, `sleep.py`, `hrv.py`, `skin_temp.py`, `daily_aggregates.py`, `heart_rate.py`, `stress.py`, and `body_battery.py` remain import-compatible wrappers.
+- Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
 - `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 

@@ -50,8 +50,9 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         assert "app.infra.database" not in source
 
 
-def test_flat_garmin_analytics_services_are_compatibility_wrappers():
+def test_migrated_garmin_analytics_service_shims_are_removed():
     for path in [
+        "backend/app/services/dashboard.py",
         "backend/app/services/heart_rate.py",
         "backend/app/services/heart_rate_analysis.py",
         "backend/app/services/hrv.py",
@@ -60,9 +61,7 @@ def test_flat_garmin_analytics_services_are_compatibility_wrappers():
         "backend/app/services/stress_analysis.py",
         "backend/app/services/body_battery_analysis.py",
     ]:
-        source = _read(path)
-        assert "domains.garmin_analytics.application" in source
-        assert "app.infra.database" not in source
+        assert not (_REPO_ROOT / path).exists()
 
 
 def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
@@ -81,7 +80,7 @@ def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
     assert "from ..routers.body_battery import router as body_battery_router" not in source
 
 
-def test_flat_garmin_analytics_routers_are_compatibility_wrappers():
+def test_migrated_garmin_analytics_router_shims_are_removed():
     for path in [
         "backend/app/routers/dashboard.py",
         "backend/app/routers/wellness.py",
@@ -93,9 +92,7 @@ def test_flat_garmin_analytics_routers_are_compatibility_wrappers():
         "backend/app/routers/stress.py",
         "backend/app/routers/body_battery.py",
     ]:
-        source = _read(path)
-        assert "domains.garmin_analytics.api" in source
-        assert "APIRouter(" not in source
+        assert not (_REPO_ROOT / path).exists()
 
 
 def test_days_route_remains_outside_garmin_analytics_slice():
