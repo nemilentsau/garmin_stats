@@ -15,24 +15,8 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
+from app.services.hrv import _normalize_hrv_status
 from app.stats import trailing_ma7
-
-
-def _normalize_hrv_status(raw: str | None) -> str:
-    if not raw:
-        return "Unknown"
-    value = raw.lower()
-    if value == "none":
-        return "Unknown"
-    if "unbalanced" in value:
-        return "Unbalanced"
-    if "balanced" in value:
-        return "Balanced"
-    if "low" in value:
-        return "Low"
-    if "high" in value:
-        return "High"
-    return raw.title()
 
 
 def _recovery_status(metrics: list[DailyMetric], selected_index: int) -> str | None:

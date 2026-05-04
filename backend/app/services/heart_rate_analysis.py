@@ -4,6 +4,7 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
+from ..domains.garmin_analytics.domain.windows import compute_windows
 from ..infra import cache
 from ..infra.database import load_daily_metrics, load_sleep, load_wellness
 from ..models import (
@@ -22,7 +23,6 @@ from ..models import (
 )
 from ..stats import trailing_ma7
 from ..utils.timeutil import parse_iso as _parse_iso
-from ._windows import compute_windows
 
 
 def _compute_circadian_profile(

@@ -2,6 +2,7 @@
 
 from datetime import date as date_type
 
+from ..domains.garmin_analytics.domain.windows import compute_windows
 from ..infra import cache
 from ..infra.database import load_daily_metrics
 from ..models import (
@@ -12,7 +13,6 @@ from ..models import (
     WeeklyHrvBox,
 )
 from ..stats import trailing_ma7
-from ._windows import compute_windows
 from .hrv import _compute_day_of_week, _compute_hrv_distribution
 
 
