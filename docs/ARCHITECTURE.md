@@ -213,6 +213,9 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 
 ## Source Of Truth Docs
 
+- [docs/README.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/README.md)
+  Documentation index and source-of-truth guide.
+
 - [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
   Product overview, routes, setup, API map.
 

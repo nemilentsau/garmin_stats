@@ -195,6 +195,9 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - [docs/ARCHITECTURE.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ARCHITECTURE.md)
   Current-state code map.
 
+- [docs/README.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/README.md)
+  Documentation index and source-of-truth guide.
+
 - [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
   Routine runtime design notes.
 
