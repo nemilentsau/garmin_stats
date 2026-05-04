@@ -61,14 +61,15 @@ HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _normalize_hrv_status(raw: str | None) -> str:
+def normalize_hrv_status(raw: str | None) -> str:
     """Normalize Garmin HRV status strings to clean labels."""
     if not raw:
         return "Unknown"
     value = raw.lower()
     if value == "none":
         return "Unknown"
-    if "unbalanced" in value:  # must precede "balanced" (substring match)
+    # "unbalanced" check must precede "balanced" since the latter is a substring.
+    if "unbalanced" in value:
         return "Unbalanced"
     if "balanced" in value:
         return "Balanced"
@@ -118,6 +119,19 @@ def safe_median(values: Sequence[int | float]) -> float | None:
 def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
     """Percentile (linear interpolation), or None if empty."""
     return round(float(np.percentile(values, pct)), 1) if values else None
+
+
+def prior_7d_avg(
+    metrics: list[DailyMetric],
+    selected_index: int,
+    value_fn: Callable[[DailyMetric], float | None],
+) -> float | None:
+    """Average of `value_fn` over up to 7 metrics preceding `selected_index`."""
+    previous = [
+        v for v in (value_fn(m) for m in metrics[max(0, selected_index - 7):selected_index])
+        if v is not None
+    ]
+    return round(sum(previous) / len(previous), 1) if previous else None
 
 
 def trailing_ma7(values: list[float | None]) -> list[float | None]:
@@ -285,7 +299,7 @@ def aggregate_day(day: DayData) -> DailyMetric:
         hrv=DailyHrvStats(
             weekly_avg=hrv_s.weekly_average if hrv_s else None,
             nightly_avg=hrv_s.last_night_average if hrv_s else None,
-            status=_normalize_hrv_status(hrv_s.status) if hrv_s else None,
+            status=normalize_hrv_status(hrv_s.status) if hrv_s else None,
         ),
         sleep=DailySleepStats(
             score=sleep_a.overall_score if sleep_a else None,

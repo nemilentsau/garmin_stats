@@ -26,7 +26,7 @@ from app.models import (
     HrvTrendBand,
     HrvValue,
 )
-from app.stats import _normalize_hrv_status
+from app.stats import normalize_hrv_status, prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
@@ -34,15 +34,7 @@ _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
 def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRecovery:
     selected = metrics[selected_index].hrv
-    previous_nightly = [
-        metric.hrv.nightly_avg
-        for metric in metrics[max(0, selected_index - 7):selected_index]
-        if metric.hrv.nightly_avg is not None
-    ]
-    baseline = (
-        round(sum(previous_nightly) / len(previous_nightly), 1)
-        if previous_nightly else None
-    )
+    baseline = prior_7d_avg(metrics, selected_index, lambda m: m.hrv.nightly_avg)
     nightly = selected.nightly_avg
     delta = (
         round(nightly - baseline, 1)
@@ -144,7 +136,7 @@ def _compute_trend_band(nightly_vals: list[float]) -> HrvTrendBand:
 def _compute_status_mix(metrics: list[DailyMetric], selected_index: int) -> list[HrvStatusBucket]:
     window = metrics[max(0, selected_index - 13):selected_index + 1]
     labels = [
-        _normalize_hrv_status(metric.hrv.status)
+        normalize_hrv_status(metric.hrv.status)
         for metric in window
         if metric.hrv.status
     ]
@@ -164,10 +156,10 @@ def _compute_status_mix(metrics: list[DailyMetric], selected_index: int) -> list
 
 
 def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStreak:
-    current_status = _normalize_hrv_status(metrics[selected_index].hrv.status)
+    current_status = normalize_hrv_status(metrics[selected_index].hrv.status)
     streak_days = 1
     for i in range(selected_index - 1, -1, -1):
-        if _normalize_hrv_status(metrics[i].hrv.status) == current_status:
+        if normalize_hrv_status(metrics[i].hrv.status) == current_status:
             streak_days += 1
         else:
             break
@@ -177,7 +169,7 @@ def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStrea
     worst = 0
     run = 0
     for metric in window:
-        if _normalize_hrv_status(metric.hrv.status) in _BAD_HRV_STATUSES:
+        if normalize_hrv_status(metric.hrv.status) in _BAD_HRV_STATUSES:
             run += 1
             worst = max(worst, run)
         else:
@@ -211,14 +203,13 @@ def _compute_long_baseline(
 
 def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) -> float | None:
     selected_resting = metrics[selected_index].heart_rate.resting
-    previous_resting = [
-        metric.heart_rate.resting
-        for metric in metrics[max(0, selected_index - 7):selected_index]
-        if metric.heart_rate.resting is not None
-    ]
-    if selected_resting is None or not previous_resting:
+    baseline = prior_7d_avg(
+        metrics,
+        selected_index,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+    )
+    if selected_resting is None or baseline is None:
         return None
-    baseline = sum(previous_resting) / len(previous_resting)
     return round(selected_resting - baseline, 1)
 
 

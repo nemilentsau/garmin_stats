@@ -13,7 +13,7 @@ from app.models import (
     HeartRateRecovery,
     HRZoneDuration,
 )
-from app.stats import HR_ZONE_THRESHOLDS
+from app.stats import HR_ZONE_THRESHOLDS, prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
 
@@ -91,14 +91,10 @@ def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDur
 
 def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
     selected_resting = metrics[selected_index].heart_rate.resting
-    previous_resting = [
-        m.heart_rate.resting
-        for m in metrics[max(0, selected_index - 7):selected_index]
-        if m.heart_rate.resting is not None
-    ]
-    baseline = (
-        round(sum(previous_resting) / len(previous_resting), 1)
-        if previous_resting else None
+    baseline = prior_7d_avg(
+        metrics,
+        selected_index,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
     )
     delta = (
         round(selected_resting - baseline, 1)

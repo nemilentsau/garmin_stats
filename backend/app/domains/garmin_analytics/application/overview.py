@@ -1,7 +1,5 @@
 """Dashboard overview use case for Garmin analytics."""
 
-from collections.abc import Callable
-
 import numpy as np
 
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
@@ -17,19 +15,7 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
-from app.stats import _normalize_hrv_status, trailing_ma7
-
-
-def _prior_7d_avg(
-    metrics: list[DailyMetric],
-    selected_index: int,
-    value_fn: Callable[[DailyMetric], float | None],
-) -> float | None:
-    previous = [
-        v for v in (value_fn(m) for m in metrics[max(0, selected_index - 7):selected_index])
-        if v is not None
-    ]
-    return sum(previous) / len(previous) if previous else None
+from app.stats import normalize_hrv_status, prior_7d_avg, trailing_ma7
 
 
 def _recovery_status(
@@ -77,7 +63,7 @@ def _compute_readiness(
         ),
     }
     if recovery_status == "suppressed_status":
-        normalized_status = _normalize_hrv_status(selected.hrv.status).lower()
+        normalized_status = normalize_hrv_status(selected.hrv.status).lower()
         hrv_recovery = 0.0
         hrv_recovery_hint = (
             f"Garmin HRV status is {normalized_status}, which suppresses recovery "
@@ -136,7 +122,7 @@ def _compute_readiness(
         "Low": (5.0, "HRV is persistently low — may indicate fatigue"),
         "Unbalanced": (0.0, "Autonomic nervous system shows imbalance"),
     }
-    normalized = _normalize_hrv_status(selected.hrv.status)
+    normalized = normalize_hrv_status(selected.hrv.status)
     hrv_status, hrv_status_hint = status_info.get(
         normalized,
         (12.0, "HRV status unavailable"),
@@ -183,7 +169,7 @@ def _compute_vitals(
         resting_hr_delta_7d=resting_delta,
         nightly_hrv=nightly,
         nightly_hrv_delta_7d=hrv_delta,
-        hrv_status=_normalize_hrv_status(selected.hrv.status),
+        hrv_status=normalize_hrv_status(selected.hrv.status),
         sleep_score=selected.sleep.score,
         stress_avg=selected.stress.avg,
     )
@@ -303,8 +289,8 @@ def get_dashboard_overview(
     selected_index = len(metrics) - 1
     selected = metrics[selected_index]
 
-    hrv_baseline_7d = _prior_7d_avg(metrics, selected_index, lambda m: m.hrv.nightly_avg)
-    resting_baseline_7d = _prior_7d_avg(
+    hrv_baseline_7d = prior_7d_avg(metrics, selected_index, lambda m: m.hrv.nightly_avg)
+    resting_baseline_7d = prior_7d_avg(
         metrics, selected_index,
         lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
     )
@@ -313,15 +299,11 @@ def get_dashboard_overview(
         if selected.heart_rate.resting is not None and resting_baseline_7d is not None
         else None
     )
-
-    if selected.sleep.score is None and selected.hrv.status is None:
-        readiness = None
-    else:
-        readiness = _compute_readiness(
-            selected,
-            _recovery_status(selected, hrv_baseline_7d),
-            resting_delta,
-        )
+    readiness = _compute_readiness(
+        selected,
+        _recovery_status(selected, hrv_baseline_7d),
+        resting_delta,
+    )
 
     return DashboardOverviewResponse(
         date=selected.date,
