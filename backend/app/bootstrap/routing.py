@@ -10,24 +10,26 @@ from app.domains.garmin_analytics.api.biometrics import (
     sleep_router,
     wellness_router,
 )
+from app.domains.garmin_analytics.api.insights import (
+    body_battery_router,
+    heart_rate_router,
+    stress_router,
+)
 from app.domains.garmin_analytics.api.overview import router as dashboard_router
 from app.domains.routines.api.routines import router as routines_router
 from app.domains.routines.api.today import router as today_router
 
 from ..routers.assistant_artifact_bundles import router as assistant_artifact_bundles_router
 from ..routers.assistant_artifacts import router as assistant_artifacts_router
-from ..routers.body_battery import router as body_battery_router
 from ..routers.cards import router as cards_router
 from ..routers.checkins import router as checkins_router
 from ..routers.days import router as days_router
 from ..routers.events import router as events_router
 from ..routers.experiments import router as experiments_router
-from ..routers.heart_rate import router as heart_rate_router
 from ..routers.ingest import router as ingest_router
 from ..routers.notes import router as notes_router
 from ..routers.profile import router as profile_router
 from ..routers.programs import router as programs_router
-from ..routers.stress import router as stress_router
 from ..routers.target_metrics import router as target_metrics_router
 
 

@@ -1,16 +1,14 @@
-"""Body Battery analysis: daily min/max trend with 7-day MA, weekly boxplots."""
+"""Body Battery analysis calculations for Garmin analytics."""
 
-from ..infra import cache
-from ..infra.database import load_daily_metrics
-from ..models import (
+from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.infra import cache
+from app.models import (
     BodyBatteryAnalysisResponse,
     BodyBatteryTrendPoint,
     DailyMetric,
     WeeklyBodyBatteryBox,
 )
-from ..stats import group_by_iso_week, safe_percentile, trailing_ma7
-
-BODY_BATTERY_ANALYSIS = "body_battery_analysis"
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
 
 def _compute_body_battery_trend(
@@ -56,12 +54,19 @@ def _compute_weekly_body_battery_boxplots(
     return result
 
 
-def load_body_battery_analysis() -> BodyBatteryAnalysisResponse:
-    return cache.cached(BODY_BATTERY_ANALYSIS, _compute_body_battery_analysis)
+def load_body_battery_analysis(
+    repo: BiometricReadRepository,
+) -> BodyBatteryAnalysisResponse:
+    return cache.cached(
+        cache.BODY_BATTERY_ANALYSIS,
+        lambda: _compute_body_battery_analysis(repo),
+    )
 
 
-def _compute_body_battery_analysis() -> BodyBatteryAnalysisResponse:
-    metrics = load_daily_metrics()
+def _compute_body_battery_analysis(
+    repo: BiometricReadRepository,
+) -> BodyBatteryAnalysisResponse:
+    metrics = repo.load_daily_metrics()
     return BodyBatteryAnalysisResponse(
         trend=_compute_body_battery_trend(metrics),
         weekly_boxplots=_compute_weekly_body_battery_boxplots(metrics),

@@ -1,16 +1,14 @@
-"""Stress analysis: daily avg trend with 7-day MA, weekly boxplots."""
+"""Stress analysis calculations for Garmin analytics."""
 
-from ..infra import cache
-from ..infra.database import load_daily_metrics
-from ..models import (
+from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.infra import cache
+from app.models import (
     DailyMetric,
     StressAnalysisResponse,
     StressTrendPoint,
     WeeklyStressBox,
 )
-from ..stats import group_by_iso_week, safe_percentile, trailing_ma7
-
-STRESS_ANALYSIS = "stress_analysis"
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
 
 def _compute_stress_trend(
@@ -50,12 +48,12 @@ def _compute_weekly_stress_boxplots(
     return result
 
 
-def load_stress_analysis() -> StressAnalysisResponse:
-    return cache.cached(STRESS_ANALYSIS, _compute_stress_analysis)
+def load_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
+    return cache.cached(cache.STRESS_ANALYSIS, lambda: _compute_stress_analysis(repo))
 
 
-def _compute_stress_analysis() -> StressAnalysisResponse:
-    metrics = load_daily_metrics()
+def _compute_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
+    metrics = repo.load_daily_metrics()
     return StressAnalysisResponse(
         avg_trend=_compute_stress_trend(metrics),
         weekly_boxplots=_compute_weekly_stress_boxplots(metrics),

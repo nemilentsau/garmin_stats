@@ -3,6 +3,12 @@
 import pytest
 
 import app.infra.database as db
+from app.domains.garmin_analytics.application.heart_rate import (
+    load_heart_rate_insights as _load_heart_rate_insights,
+)
+from app.domains.garmin_analytics.infra.biometric_repository import (
+    SqliteBiometricRepository,
+)
 from app.infra import cache
 from app.models import (
     DailyBodyBatteryStats,
@@ -15,7 +21,10 @@ from app.models import (
     DayWellness,
     HeartRateReading,
 )
-from app.services.heart_rate import load_heart_rate_insights
+
+
+def load_heart_rate_insights(date: str | None = None):
+    return _load_heart_rate_insights(SqliteBiometricRepository(), date)
 
 
 @pytest.fixture(autouse=True)

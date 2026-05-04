@@ -45,7 +45,7 @@ def get_sleep(
 @sleep_router.get("/analysis", response_model=SleepAnalysisResponse)
 def get_sleep_analysis():
     """Return period-level sleep analysis (score trend, weekly boxplots)."""
-    return insights_uc.get_sleep_analysis()
+    return insights_uc.get_sleep_analysis(build_container().garmin_biometrics_repo)
 
 
 @hrv_router.get("", response_model=HrvResponse)
@@ -59,7 +59,7 @@ def get_hrv(
 @hrv_router.get("/analysis", response_model=HrvAnalysisResponse)
 def get_hrv_analysis():
     """Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots)."""
-    return insights_uc.get_hrv_analysis()
+    return insights_uc.get_hrv_analysis(build_container().garmin_biometrics_repo)
 
 
 @hrv_router.get("/insights", response_model=HrvInsightsResponse)
@@ -67,7 +67,10 @@ def get_hrv_insights(
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    return insights_uc.get_hrv_insights(date)
+    return insights_uc.get_hrv_insights(
+        build_container().garmin_biometrics_repo,
+        date,
+    )
 
 
 @skin_temp_router.get("", response_model=SkinTempResponse)

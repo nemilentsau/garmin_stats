@@ -1,13 +1,13 @@
-"""Heart-rate analysis: circadian, sleeping HR, resting trend, distribution, boxplots."""
+"""Heart-rate analysis calculations for Garmin analytics."""
 
 from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
-from ..domains.garmin_analytics.domain.windows import compute_windows
-from ..infra import cache
-from ..infra.database import load_daily_metrics, load_sleep, load_wellness
-from ..models import (
+from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.domain.windows import compute_windows
+from app.infra import cache
+from app.models import (
     CircadianHRPoint,
     DailyAvgHRTrendPoint,
     DailyMetric,
@@ -21,8 +21,8 @@ from ..models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from ..stats import trailing_ma7
-from ..utils.timeutil import parse_iso as _parse_iso
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
+from app.utils.timeutil import parse_iso as _parse_iso
 
 
 def _compute_circadian_profile(
@@ -197,56 +197,36 @@ def _compute_weekly_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyRestingHRBox]:
     """Group resting HR by ISO week, compute 5-number summary."""
-    from datetime import date as date_type
-
-    weeks: dict[str, list[int]] = {}
-    for m in metrics:
-        if m.heart_rate.resting is None:
-            continue
-        try:
-            d = date_type.fromisoformat(m.date)
-        except ValueError:
-            continue
-        iso_year, iso_week, _ = d.isocalendar()
-        key = f"{iso_year}-W{iso_week:02d}"
-        weeks.setdefault(key, []).append(m.heart_rate.resting)
-
+    weeks = group_by_iso_week(
+        metrics,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+    )
     result: list[WeeklyRestingHRBox] = []
     for week_key in sorted(weeks):
         vals = sorted(weeks[week_key])
-        n = len(vals)
-        if n == 0:
-            continue
-
-        def percentile(data: list[int], pct: float) -> float:
-            k = (len(data) - 1) * pct / 100
-            f = int(k)
-            c = f + 1
-            if c >= len(data):
-                return float(data[f])
-            return round(data[f] + (k - f) * (data[c] - data[f]), 1)
-
         result.append(WeeklyRestingHRBox(
             iso_week=week_key,
             min_bpm=float(vals[0]),
-            q1_bpm=percentile(vals, 25),
-            median_bpm=percentile(vals, 50),
-            q3_bpm=percentile(vals, 75),
+            q1_bpm=safe_percentile(vals, 25),
+            median_bpm=safe_percentile(vals, 50),
+            q3_bpm=safe_percentile(vals, 75),
             max_bpm=float(vals[-1]),
-            day_count=n,
+            day_count=len(vals),
         ))
     return result
 
 
-def load_heart_rate_analysis() -> HeartRateAnalysisResponse:
+def load_heart_rate_analysis(repo: BiometricReadRepository) -> HeartRateAnalysisResponse:
     """Load all wellness + sleep + metrics, compute analysis features (cached)."""
-    return cache.cached(cache.HR_ANALYSIS, _compute_heart_rate_analysis)
+    return cache.cached(cache.HR_ANALYSIS, lambda: _compute_heart_rate_analysis(repo))
 
 
-def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
-    all_wellness = load_wellness()
-    all_sleep = load_sleep()
-    metrics = load_daily_metrics()
+def _compute_heart_rate_analysis(
+    repo: BiometricReadRepository,
+) -> HeartRateAnalysisResponse:
+    all_wellness = repo.load_wellness()
+    all_sleep = repo.load_sleep()
+    metrics = repo.load_daily_metrics()
     pattern_windows = compute_windows(
         all_wellness,
         lambda subset: HRPatternWindow(
@@ -262,9 +242,12 @@ def _compute_heart_rate_analysis() -> HeartRateAnalysisResponse:
     )
 
 
-def load_hr_distribution(date: str) -> HRDistributionResponse:
+def load_hr_distribution(
+    repo: BiometricReadRepository,
+    date: str,
+) -> HRDistributionResponse:
     """Load one day's wellness, build histogram."""
-    wellness_days = load_wellness(date)
+    wellness_days = repo.load_wellness(date)
     if not wellness_days:
         return HRDistributionResponse(date=date, bins=[], sample_count=0)
 

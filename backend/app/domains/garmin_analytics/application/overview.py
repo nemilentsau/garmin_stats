@@ -15,23 +15,18 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
-from app.services.hrv import _normalize_hrv_status
-from app.stats import trailing_ma7
+from app.stats import normalize_hrv_status, prior_7d_avg, trailing_ma7
 
 
-def _recovery_status(metrics: list[DailyMetric], selected_index: int) -> str | None:
-    selected = metrics[selected_index].hrv
-    nightly = selected.nightly_avg
-    previous_nightly = [
-        metric.hrv.nightly_avg
-        for metric in metrics[max(0, selected_index - 7):selected_index]
-        if metric.hrv.nightly_avg is not None
-    ]
-    if nightly is None or not previous_nightly:
+def _recovery_status(
+    selected: DailyMetric,
+    hrv_baseline_7d: float | None,
+) -> str | None:
+    nightly = selected.hrv.nightly_avg
+    if nightly is None or hrv_baseline_7d is None:
         return None
-    baseline = sum(previous_nightly) / len(previous_nightly)
-    delta = nightly - baseline
-    status_text = selected.status.lower() if selected.status else ""
+    delta = nightly - hrv_baseline_7d
+    status_text = selected.hrv.status.lower() if selected.hrv.status else ""
     if delta <= -10:
         return "suppressed_delta"
     if "low" in status_text or "unbalanced" in status_text:
@@ -48,18 +43,6 @@ def _format_delta_magnitude(value: float) -> str:
     if rounded.is_integer():
         return str(int(rounded))
     return f"{rounded:.1f}"
-
-
-def _resting_delta(metrics: list[DailyMetric], selected_index: int) -> float | None:
-    selected_resting = metrics[selected_index].heart_rate.resting
-    previous = [
-        metric.heart_rate.resting
-        for metric in metrics[max(0, selected_index - 7):selected_index]
-        if metric.heart_rate.resting is not None
-    ]
-    if selected_resting is None or not previous:
-        return None
-    return round(selected_resting - sum(previous) / len(previous), 1)
 
 
 def _compute_readiness(
@@ -80,7 +63,7 @@ def _compute_readiness(
         ),
     }
     if recovery_status == "suppressed_status":
-        normalized_status = _normalize_hrv_status(selected.hrv.status).lower()
+        normalized_status = normalize_hrv_status(selected.hrv.status).lower()
         hrv_recovery = 0.0
         hrv_recovery_hint = (
             f"Garmin HRV status is {normalized_status}, which suppresses recovery "
@@ -139,7 +122,7 @@ def _compute_readiness(
         "Low": (5.0, "HRV is persistently low — may indicate fatigue"),
         "Unbalanced": (0.0, "Autonomic nervous system shows imbalance"),
     }
-    normalized = _normalize_hrv_status(selected.hrv.status)
+    normalized = normalize_hrv_status(selected.hrv.status)
     hrv_status, hrv_status_hint = status_info.get(
         normalized,
         (12.0, "HRV status unavailable"),
@@ -171,26 +154,22 @@ def _compute_readiness(
     )
 
 
-def _compute_vitals(metrics: list[DailyMetric], selected_index: int) -> TodayVitals:
-    selected = metrics[selected_index]
-    resting_delta = _resting_delta(metrics, selected_index)
-
+def _compute_vitals(
+    selected: DailyMetric,
+    resting_delta: float | None,
+    hrv_baseline_7d: float | None,
+) -> TodayVitals:
     nightly = selected.hrv.nightly_avg
-    previous_nightly = [
-        metric.hrv.nightly_avg
-        for metric in metrics[max(0, selected_index - 7):selected_index]
-        if metric.hrv.nightly_avg is not None
-    ]
     hrv_delta: float | None = None
-    if nightly is not None and previous_nightly:
-        hrv_delta = round(nightly - sum(previous_nightly) / len(previous_nightly), 1)
+    if nightly is not None and hrv_baseline_7d is not None:
+        hrv_delta = round(nightly - hrv_baseline_7d, 1)
 
     return TodayVitals(
         resting_hr=selected.heart_rate.resting,
         resting_hr_delta_7d=resting_delta,
         nightly_hrv=nightly,
         nightly_hrv_delta_7d=hrv_delta,
-        hrv_status=_normalize_hrv_status(selected.hrv.status),
+        hrv_status=normalize_hrv_status(selected.hrv.status),
         sleep_score=selected.sleep.score,
         stress_avg=selected.stress.avg,
     )
@@ -310,14 +289,26 @@ def get_dashboard_overview(
     selected_index = len(metrics) - 1
     selected = metrics[selected_index]
 
+    hrv_baseline_7d = prior_7d_avg(metrics, selected_index, lambda m: m.hrv.nightly_avg)
+    resting_baseline_7d = prior_7d_avg(
+        metrics, selected_index,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+    )
+    resting_delta = (
+        round(selected.heart_rate.resting - resting_baseline_7d, 1)
+        if selected.heart_rate.resting is not None and resting_baseline_7d is not None
+        else None
+    )
+    readiness = _compute_readiness(
+        selected,
+        _recovery_status(selected, hrv_baseline_7d),
+        resting_delta,
+    )
+
     return DashboardOverviewResponse(
         date=selected.date,
-        readiness=_compute_readiness(
-            selected,
-            _recovery_status(metrics, selected_index),
-            _resting_delta(metrics, selected_index),
-        ),
-        vitals=_compute_vitals(metrics, selected_index),
+        readiness=readiness,
+        vitals=_compute_vitals(selected, resting_delta, hrv_baseline_7d),
         sparklines=_compute_sparklines(metrics),
         correlations=_compute_correlations(metrics),
     )

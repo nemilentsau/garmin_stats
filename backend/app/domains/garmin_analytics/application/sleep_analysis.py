@@ -1,16 +1,14 @@
-"""Sleep analysis: score trend with 7-day MA, weekly boxplots."""
+"""Sleep analysis calculations for Garmin analytics."""
 
-from ..infra import cache
-from ..infra.database import load_daily_metrics
-from ..models import (
+from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.infra import cache
+from app.models import (
     DailyMetric,
     SleepAnalysisResponse,
     SleepTrendPoint,
     WeeklySleepBox,
 )
-from ..stats import group_by_iso_week, safe_percentile, trailing_ma7
-
-SLEEP_ANALYSIS = "sleep_analysis"
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
 
 def _compute_sleep_trend(
@@ -57,12 +55,12 @@ def _compute_weekly_sleep_boxplots(
     return result
 
 
-def load_sleep_analysis() -> SleepAnalysisResponse:
-    return cache.cached(SLEEP_ANALYSIS, _compute_sleep_analysis)
+def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
+    return cache.cached(cache.SLEEP_ANALYSIS, lambda: _compute_sleep_analysis(repo))
 
 
-def _compute_sleep_analysis() -> SleepAnalysisResponse:
-    metrics = load_daily_metrics()
+def _compute_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
+    metrics = repo.load_daily_metrics()
     return SleepAnalysisResponse(
         score_trend=_compute_sleep_trend(metrics),
         weekly_boxplots=_compute_weekly_sleep_boxplots(metrics),

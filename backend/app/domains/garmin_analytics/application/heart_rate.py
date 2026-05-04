@@ -1,10 +1,10 @@
-"""Heart-rate domain service: backend source of truth for derived HR insights."""
+"""Heart-rate insight calculations for Garmin analytics."""
 
 from datetime import datetime
 from statistics import median
 
-from ..infra.database import load_daily_metrics, load_wellness
-from ..models import (
+from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.models import (
     DailyMetric,
     HeartRateDataQuality,
     HeartRateInsight,
@@ -13,8 +13,8 @@ from ..models import (
     HeartRateRecovery,
     HRZoneDuration,
 )
-from ..stats import HR_ZONE_THRESHOLDS
-from ..utils.timeutil import parse_iso as _parse_iso
+from app.stats import HR_ZONE_THRESHOLDS, prior_7d_avg
+from app.utils.timeutil import parse_iso as _parse_iso
 
 
 def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:
@@ -91,14 +91,10 @@ def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDur
 
 def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
     selected_resting = metrics[selected_index].heart_rate.resting
-    previous_resting = [
-        m.heart_rate.resting
-        for m in metrics[max(0, selected_index - 7):selected_index]
-        if m.heart_rate.resting is not None
-    ]
-    baseline = (
-        round(sum(previous_resting) / len(previous_resting), 1)
-        if previous_resting else None
+    baseline = prior_7d_avg(
+        metrics,
+        selected_index,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
     )
     delta = (
         round(selected_resting - baseline, 1)
@@ -194,9 +190,12 @@ def _build_insights(
     return insights
 
 
-def load_heart_rate_insights(date: str | None = None) -> HeartRateInsightsResponse:
+def load_heart_rate_insights(
+    repo: BiometricReadRepository,
+    date: str | None = None,
+) -> HeartRateInsightsResponse:
     """Load backend-derived heart-rate insights for a day (or latest if omitted)."""
-    metrics = load_daily_metrics()
+    metrics = repo.load_daily_metrics()
     if not metrics:
         raise LookupError("No heart-rate data available")
 
@@ -208,7 +207,7 @@ def load_heart_rate_insights(date: str | None = None) -> HeartRateInsightsRespon
     if selected_index is None:
         raise LookupError(f"Day {selected_date} not found")
 
-    wellness_days = load_wellness(selected_date)
+    wellness_days = repo.load_wellness(selected_date)
     heart_rate_readings = wellness_days[0].heart_rate if wellness_days else []
     parsed_times = sorted(
         dt for dt in (_parse_iso(r.timestamp) for r in heart_rate_readings) if dt is not None
