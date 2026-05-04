@@ -1,4 +1,4 @@
-"""Shared time-window constants and helpers for windowed analysis."""
+"""Reusable analytical time-window helpers."""
 
 from collections.abc import Callable
 from datetime import date as date_type
@@ -17,7 +17,7 @@ def compute_windows[T: _HasDate, R](
     items: list[T],
     fn: Callable[[list[T]], R],
 ) -> dict[str, R]:
-    """Apply *fn* to date-filtered subsets for each standard time window."""
+    """Apply a calculation to each standard analytics window."""
     today = date_type.today()
     windows: dict[str, R] = {}
     for label, days in WINDOW_DAYS.items():
@@ -25,6 +25,6 @@ def compute_windows[T: _HasDate, R](
             subset = items
         else:
             cutoff = (today - timedelta(days=days)).isoformat()
-            subset = [x for x in items if x.date >= cutoff]
+            subset = [item for item in items if item.date >= cutoff]
         windows[label] = fn(subset)
     return windows

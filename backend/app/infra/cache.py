@@ -19,6 +19,7 @@ SLEEP_ALL = "sleep_all"
 HRV_ALL = "hrv_all"
 SKIN_TEMP_ALL = "skin_temp_all"
 AVAILABLE_DAYS = "available_days"
+WINDOWED_PERIOD = "windowed_period"
 HR_ANALYSIS = "hr_analysis"
 HRV_ANALYSIS = "hrv_analysis"
 

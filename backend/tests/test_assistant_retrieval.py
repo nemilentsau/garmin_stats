@@ -2,6 +2,7 @@
 
 from datetime import date
 
+import app.domains.assistant.application.retrieval as retrieval_mod
 from app.domains.assistant.application.evidence import build_evidence_bundle
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
@@ -1144,7 +1145,14 @@ def test_routine_adherence_compacts_assignment_history_to_recent_window() -> Non
     assert "scheduled_dates" not in summary
 
 
-def test_routine_adherence_caps_future_schedule_window_at_today() -> None:
+def test_routine_adherence_caps_future_schedule_window_at_today(monkeypatch) -> None:
+    class _FrozenDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 4, 12)
+
+    monkeypatch.setattr(retrieval_mod, "date", _FrozenDate)
+
     store = _FakeReadStore.for_weekly_state()
     store._assignments.extend(
         [
@@ -1174,7 +1182,7 @@ def test_routine_adherence_caps_future_schedule_window_at_today() -> None:
     )
 
     routine_item = next(item for item in bundle.items if item.kind == "routine_state")
-    expected_end_date = min(date(2026, 4, 20), date.today()).isoformat()
+    expected_end_date = min(date(2026, 4, 20), _FrozenDate.today()).isoformat()
     assert routine_item.payload_json["card_log_window"]["end_date"] == expected_end_date
     assert routine_item.payload_json["card_log_window"]["status_counts"]["completed"] == 3
     assert routine_item.payload_json["card_log_window"]["status_counts"]["partial"] == 3

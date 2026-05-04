@@ -195,8 +195,8 @@ class TestStartupIngest:
 class TestExceptionHandlers:
     def test_lookup_error_returns_404(self, monkeypatch):
         monkeypatch.setattr(
-            "app.routers.dashboard.load_dashboard_overview",
-            lambda: (_ for _ in ()).throw(LookupError("No dashboard data")),
+            "app.domains.garmin_analytics.api.overview.load_dashboard_overview",
+            lambda *_args: (_ for _ in ()).throw(LookupError("No dashboard data")),
         )
 
         status, _headers, body = asyncio.run(_asgi_request("/api/dashboard"))

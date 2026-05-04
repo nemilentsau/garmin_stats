@@ -80,15 +80,15 @@ There are two major paths:
 - `domains/routines/`
   The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
 
-- `dashboard.py`
-  Recovery dashboard summaries.
+- `domains/garmin_analytics/`
+  Garmin-derived analytical read models and dashboard use cases. The first slice owns dashboard overview, daily aggregates, period summaries, and raw biometric routes for wellness, sleep, HRV, and skin temperature. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `heart_rate.py`, `heart_rate_analysis.py`
 - `hrv.py`, `hrv_analysis.py`
 - `sleep_analysis.py`
 - `stress_analysis.py`
 - `body_battery_analysis.py`
-  Metric-specific analysis and drill-down logic.
+  Remaining metric-specific analysis and drill-down logic. Some flat modules now act as compatibility wrappers while Garmin analytics ownership moves into `domains/garmin_analytics/`.
 
 - `training_specs.py`
   Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.
@@ -168,6 +168,15 @@ Important rules:
 - bundle import persists artifacts and auto-activates them
 - Today does not create schedule structure
 - schedule exceptions are still read for backward compatibility, but Today does not author them
+
+## Garmin Analytics Boundary
+
+Garmin analytics is biometric-first but not `DailyMetric`-only.
+
+- Domain routes now mount from `backend/app/domains/garmin_analytics/api/` for dashboard overview, wellness, sleep, HRV, skin temperature, and daily aggregates.
+- `backend/app/routers/dashboard.py`, `wellness.py`, `sleep.py`, `hrv.py`, `skin_temp.py`, and `daily_aggregates.py` remain import-compatible wrappers.
+- `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
+- Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend
 
