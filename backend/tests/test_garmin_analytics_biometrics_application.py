@@ -18,20 +18,25 @@ class _FakeBiometricRepository:
         self.hrv: list[DayHrv] = []
         self.skin_temp: list[DaySkinTemp] = []
         self.daily = []
+        self.day_table_loads = 0
 
     def load_daily_metrics(self):
         return self.daily
 
     def load_wellness(self, date: str | None = None):
+        self.day_table_loads += 1
         return [day for day in self.wellness if date is None or day.date == date]
 
     def load_sleep(self, date: str | None = None):
+        self.day_table_loads += 1
         return [day for day in self.sleep if date is None or day.date == date]
 
     def load_hrv(self, date: str | None = None):
+        self.day_table_loads += 1
         return [day for day in self.hrv if date is None or day.date == date]
 
     def load_skin_temp(self, date: str | None = None):
+        self.day_table_loads += 1
         return [day for day in self.skin_temp if date is None or day.date == date]
 
 
@@ -67,6 +72,20 @@ def test_daily_aggregates_include_windowed_period_summaries():
     assert response.days == []
     assert response.daily == []
     assert set(response.period_windows) == {"3M", "6M", "All"}
+
+
+def test_daily_aggregates_reuse_cached_period_summaries_when_unchanged():
+    from app.domains.garmin_analytics.application.biometrics import get_daily_aggregates
+
+    repo = _FakeBiometricRepository()
+
+    get_daily_aggregates(repo)
+    first_load_count = repo.day_table_loads
+
+    get_daily_aggregates(repo)
+
+    assert first_load_count == 4
+    assert repo.day_table_loads == first_load_count
 
 
 def test_dashboard_overview_raises_lookup_error_when_metrics_missing():

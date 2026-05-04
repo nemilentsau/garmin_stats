@@ -2,6 +2,7 @@
 
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
 from app.domains.garmin_analytics.domain.windows import compute_windows
+from app.infra import cache
 from app.models import (
     DayData,
     DayHrv,
@@ -17,7 +18,10 @@ def load_windowed_period_summary(
     repo: BiometricReadRepository,
 ) -> dict[str, PeriodSummary]:
     """Compute standard period summaries from current biometric tables."""
-    return compute_windows(_reconstruct_day_data(repo), compute_period_summary)
+    return cache.cached(
+        cache.WINDOWED_PERIOD,
+        lambda: compute_windows(_reconstruct_day_data(repo), compute_period_summary),
+    )
 
 
 def _reconstruct_day_data(repo: BiometricReadRepository) -> list[DayData]:
