@@ -21,7 +21,7 @@ from app.models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from app.stats import trailing_ma7
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 from app.utils.timeutil import parse_iso as _parse_iso
 
 
@@ -197,43 +197,21 @@ def _compute_weekly_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyRestingHRBox]:
     """Group resting HR by ISO week, compute 5-number summary."""
-    from datetime import date as date_type
-
-    weeks: dict[str, list[int]] = {}
-    for m in metrics:
-        if m.heart_rate.resting is None:
-            continue
-        try:
-            d = date_type.fromisoformat(m.date)
-        except ValueError:
-            continue
-        iso_year, iso_week, _ = d.isocalendar()
-        key = f"{iso_year}-W{iso_week:02d}"
-        weeks.setdefault(key, []).append(m.heart_rate.resting)
-
+    weeks = group_by_iso_week(
+        metrics,
+        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+    )
     result: list[WeeklyRestingHRBox] = []
     for week_key in sorted(weeks):
         vals = sorted(weeks[week_key])
-        n = len(vals)
-        if n == 0:
-            continue
-
-        def percentile(data: list[int], pct: float) -> float:
-            k = (len(data) - 1) * pct / 100
-            f = int(k)
-            c = f + 1
-            if c >= len(data):
-                return float(data[f])
-            return round(data[f] + (k - f) * (data[c] - data[f]), 1)
-
         result.append(WeeklyRestingHRBox(
             iso_week=week_key,
             min_bpm=float(vals[0]),
-            q1_bpm=percentile(vals, 25),
-            median_bpm=percentile(vals, 50),
-            q3_bpm=percentile(vals, 75),
+            q1_bpm=safe_percentile(vals, 25),
+            median_bpm=safe_percentile(vals, 50),
+            q3_bpm=safe_percentile(vals, 75),
             max_bpm=float(vals[-1]),
-            day_count=n,
+            day_count=len(vals),
         ))
     return result
 

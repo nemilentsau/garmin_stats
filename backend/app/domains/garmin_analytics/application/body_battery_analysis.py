@@ -10,8 +10,6 @@ from app.models import (
 )
 from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
-BODY_BATTERY_ANALYSIS = "body_battery_analysis"
-
 
 def _compute_body_battery_trend(
     metrics: list[DailyMetric],
@@ -60,7 +58,7 @@ def load_body_battery_analysis(
     repo: BiometricReadRepository,
 ) -> BodyBatteryAnalysisResponse:
     return cache.cached(
-        BODY_BATTERY_ANALYSIS,
+        cache.BODY_BATTERY_ANALYSIS,
         lambda: _compute_body_battery_analysis(repo),
     )
 

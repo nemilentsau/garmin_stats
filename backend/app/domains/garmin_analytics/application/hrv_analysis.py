@@ -1,7 +1,5 @@
 """HRV analysis calculations for Garmin analytics."""
 
-from datetime import date as date_type
-
 from app.domains.garmin_analytics.application.hrv import (
     _compute_day_of_week,
     _compute_hrv_distribution,
@@ -16,7 +14,7 @@ from app.models import (
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
-from app.stats import trailing_ma7
+from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
 
 def _compute_nightly_hrv_trend(
@@ -40,42 +38,19 @@ def _compute_weekly_hrv_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyHrvBox]:
     """Group nightly HRV by ISO week, compute 5-number summary."""
-    weeks: dict[str, list[float]] = {}
-    for m in metrics:
-        if m.hrv.nightly_avg is None:
-            continue
-        try:
-            d = date_type.fromisoformat(m.date)
-        except ValueError:
-            continue
-        iso_year, iso_week, _ = d.isocalendar()
-        key = f"{iso_year}-W{iso_week:02d}"
-        weeks.setdefault(key, []).append(m.hrv.nightly_avg)
-
+    weeks = group_by_iso_week(metrics, lambda m: m.hrv.nightly_avg)
     result: list[WeeklyHrvBox] = []
     for week_key in sorted(weeks):
         vals = sorted(weeks[week_key])
-        n = len(vals)
-        if n == 0:
-            continue
-
-        def percentile(data: list[float], pct: float) -> float:
-            k = (len(data) - 1) * pct / 100
-            f = int(k)
-            c = f + 1
-            if c >= len(data):
-                return float(data[f])
-            return round(data[f] + (k - f) * (data[c] - data[f]), 1)
-
         result.append(
             WeeklyHrvBox(
                 iso_week=week_key,
                 min_ms=float(vals[0]),
-                q1_ms=percentile(vals, 25),
-                median_ms=percentile(vals, 50),
-                q3_ms=percentile(vals, 75),
+                q1_ms=safe_percentile(vals, 25),
+                median_ms=safe_percentile(vals, 50),
+                q3_ms=safe_percentile(vals, 75),
                 max_ms=float(vals[-1]),
-                day_count=n,
+                day_count=len(vals),
             )
         )
     return result
@@ -113,7 +88,6 @@ def load_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
 
 def _compute_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
     metrics = repo.load_daily_metrics()
-    # selected_nightly = latest day's nightly avg for percentile highlight
     selected_nightly: float | None = None
     if metrics and metrics[-1].hrv.nightly_avg is not None:
         selected_nightly = metrics[-1].hrv.nightly_avg

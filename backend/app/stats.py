@@ -61,8 +61,10 @@ HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _normalize_hrv_status(raw: str) -> str:
+def _normalize_hrv_status(raw: str | None) -> str:
     """Normalize Garmin HRV status strings to clean labels."""
+    if not raw:
+        return "Unknown"
     value = raw.lower()
     if value == "none":
         return "Unknown"

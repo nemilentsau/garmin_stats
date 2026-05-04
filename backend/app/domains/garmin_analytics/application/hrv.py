@@ -26,26 +26,10 @@ from app.models import (
     HrvTrendBand,
     HrvValue,
 )
+from app.stats import _normalize_hrv_status
 from app.utils.timeutil import parse_iso as _parse_iso
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
-
-
-def _normalize_hrv_status(raw: str | None) -> str:
-    if not raw:
-        return "Unknown"
-    value = raw.lower()
-    if value == "none":
-        return "Unknown"
-    if "unbalanced" in value:  # must precede "balanced" (substring match)
-        return "Unbalanced"
-    if "balanced" in value:
-        return "Balanced"
-    if "low" in value:
-        return "Low"
-    if "high" in value:
-        return "High"
-    return raw.title()
 
 
 def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRecovery:

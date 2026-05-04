@@ -10,8 +10,6 @@ from app.models import (
 )
 from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
-STRESS_ANALYSIS = "stress_analysis"
-
 
 def _compute_stress_trend(
     metrics: list[DailyMetric],
@@ -51,7 +49,7 @@ def _compute_weekly_stress_boxplots(
 
 
 def load_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
-    return cache.cached(STRESS_ANALYSIS, lambda: _compute_stress_analysis(repo))
+    return cache.cached(cache.STRESS_ANALYSIS, lambda: _compute_stress_analysis(repo))
 
 
 def _compute_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:

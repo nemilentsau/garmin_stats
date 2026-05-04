@@ -10,8 +10,6 @@ from app.models import (
 )
 from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 
-SLEEP_ANALYSIS = "sleep_analysis"
-
 
 def _compute_sleep_trend(
     metrics: list[DailyMetric],
@@ -58,7 +56,7 @@ def _compute_weekly_sleep_boxplots(
 
 
 def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
-    return cache.cached(SLEEP_ANALYSIS, lambda: _compute_sleep_analysis(repo))
+    return cache.cached(cache.SLEEP_ANALYSIS, lambda: _compute_sleep_analysis(repo))
 
 
 def _compute_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
