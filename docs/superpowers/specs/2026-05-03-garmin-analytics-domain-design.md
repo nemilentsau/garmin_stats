@@ -20,7 +20,8 @@ What landed:
 - `backend/app/domains/garmin_analytics/` now owns dashboard overview, raw wellness, sleep, HRV, skin temperature, daily aggregates, and windowed period summaries.
 - `backend/app/bootstrap/routing.py` mounts the domain-local Garmin analytics routers directly.
 - Flat routers for the migrated endpoints now act as compatibility wrappers.
-- `backend/app/services/dashboard.py` and `backend/app/services/period_windows.py` now delegate to the domain implementation.
+- `backend/app/services/dashboard.py` delegates to the domain implementation.
+- `backend/app/services/period_windows.py` was removed; period summaries now live in `backend/app/domains/garmin_analytics/application/period_summary.py`.
 - `backend/app/bootstrap/container.py` exposes a domain-local biometric repository.
 - Architecture guards prevent migrated API modules from importing global database helpers or `stats.py` directly.
 - `/api/days` remains outside the domain.
@@ -30,7 +31,7 @@ What landed:
 
 The backend refactor is moving from flat routers and services into a domain-modular monolith. `routines` and `assistant` have already established the pattern of domain-local `api`, `application`, `domain`, and `infra` packages.
 
-The Garmin analytics surface is still mostly flat:
+At the start of this slice, the Garmin analytics surface was mostly flat:
 
 - `backend/app/routers/dashboard.py`
 - `backend/app/routers/wellness.py`
