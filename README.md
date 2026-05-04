@@ -168,6 +168,9 @@ The ingest pipeline handles both the day archives and the extracted day folders.
 - `backend/app/domains/routines/`
   First migrated backend domain slice for routines catalog, schedule window, today, and activation.
 
+- `backend/app/domains/garmin_analytics/`
+  Migrated backend domain slice for Garmin-derived dashboard and biometric read models. The first slice owns dashboard overview, raw wellness/sleep/HRV/skin-temperature reads, daily aggregates, and windowed period summaries.
+
 - `backend/app/parser.py`
   FIT parsing and local-time timestamp normalization.
 

@@ -1,7 +1,7 @@
 # Garmin Analytics Domain Design
 
 Date: 2026-05-03
-Status: Proposed
+Status: First slice implemented
 
 ## Summary
 
@@ -10,6 +10,21 @@ Create `backend/app/domains/garmin_analytics/` as the backend owner for Garmin-d
 This domain should start by migrating the existing biometric and recovery dashboard surface. It must also be shaped for future session/activity data, such as runs, meditations, and strength sessions, without prematurely parsing or modeling those activity files in this slice.
 
 The important design rule is that `DailyMetric` is one read-model family inside Garmin analytics. It is not the domain itself.
+
+## Implementation Status
+
+The first biometric-focused slice has been implemented on 2026-05-03.
+
+What landed:
+
+- `backend/app/domains/garmin_analytics/` now owns dashboard overview, raw wellness, sleep, HRV, skin temperature, daily aggregates, and windowed period summaries.
+- `backend/app/bootstrap/routing.py` mounts the domain-local Garmin analytics routers directly.
+- Flat routers for the migrated endpoints now act as compatibility wrappers.
+- `backend/app/services/dashboard.py` and `backend/app/services/period_windows.py` now delegate to the domain implementation.
+- `backend/app/bootstrap/container.py` exposes a domain-local biometric repository.
+- Architecture guards prevent migrated API modules from importing global database helpers or `stats.py` directly.
+- `/api/days` remains outside the domain.
+- Activity/session ownership remains documented but unimplemented.
 
 ## Context
 

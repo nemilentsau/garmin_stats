@@ -457,7 +457,7 @@ export interface paths {
         };
         /**
          * Get Thread Messages
-         * @description Return the messages for a thread.
+         * @description Return messages for a thread.
          */
         get: operations["get_thread_messages_api_assistant_threads__thread_id__messages_get"];
         put?: never;
