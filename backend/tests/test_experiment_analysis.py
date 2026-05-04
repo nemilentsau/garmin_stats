@@ -15,6 +15,7 @@ from app.models import (
     DailySleepStats,
     Experiment,
     ExperimentDesign,
+    ExperimentExposure,
     OutcomeMetric,
 )
 from app.services.experiment_analysis import compute_experiment_analysis
@@ -364,6 +365,74 @@ class TestExperimentPreviewAndImport:
         assert detail.analysis is not None
         assert detail.experiment.outcome_metrics[0].path == "sleep.score"
         assert detail.analysis.metrics[0].path == "sleep.score"
+
+    def test_get_experiment_with_analysis_refreshes_stale_adherence_window(self, monkeypatch):
+        """Reading yesterday's analysis should recompute adherence for today's date."""
+        import app.services.experiment_analysis as experiment_analysis_mod
+        import app.services.experiments as experiments_mod
+
+        class Apr13(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 4, 13)
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        experiment = Experiment(
+            id="stale-adherence",
+            name="Meditation -> HRV",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-24",
+            ),
+            outcome_metrics=[],
+        )
+        db.save_experiment(experiment)
+        for day in ("2026-04-11", "2026-04-12", "2026-04-13"):
+            db.save_experiment_exposure(
+                ExperimentExposure(
+                    id=f"exposure:auto:{experiment.id}:{day}",
+                    experiment_id=experiment.id,
+                    date=day,
+                    adherence_state="full",
+                    exposure_score=1.0,
+                )
+            )
+
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
+        db.save_experiment_analysis(
+            experiment.id,
+            experiment_analysis_mod.compute_experiment_analysis(experiment),
+        )
+        stale = db.load_experiment_analysis(experiment.id)
+        assert stale is not None
+        assert stale.adherence_rate == 1.0
+        assert len(stale.adherence_by_day) == 3
+
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
+        monkeypatch.setattr(experiments_mod, "date_type", May4)
+
+        analysis = experiments_mod.get_experiment_analysis(experiment.id)
+
+        assert analysis is not None
+        assert analysis.analysis_date == "2026-05-04"
+        assert analysis.adherence_rate == 0.214
+        assert len(analysis.adherence_by_day) == 14
+        assert analysis.adherence_by_day[-1].date == "2026-04-24"
+        assert analysis.adherence_by_day[-1].state == "unknown"
+
+        db.save_experiment_analysis(experiment.id, stale)
+        detail = experiments_mod.get_experiment_with_analysis(experiment.id)
+
+        assert detail.analysis is not None
+        assert detail.analysis.analysis_date == "2026-05-04"
+        assert detail.analysis.adherence_rate == 0.214
 
     def test_preview_validates_metric_path_within_experiment_window(self):
         """Historical metrics inside the experiment window should still validate."""
