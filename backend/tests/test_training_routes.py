@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI
 from starlette.types import Message
 
-import app.routers.assistant_artifact_bundles as artifact_bundles_mod
-import app.routers.assistant_artifacts as artifacts_mod
+import app.domains.artifacts.api.artifacts as artifacts_mod
+import app.domains.artifacts.api.bundles as artifact_bundles_mod
 import app.routers.today as today_mod
 
 

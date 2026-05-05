@@ -86,8 +86,8 @@ There are two major paths:
 - `domains/experiments/`
   Experiment CRUD, design preview/import, target metric registry, exposure derivation, and N=1 analysis. This domain owns `/api/experiments` and `/api/target-metrics`. Experiment analysis is a cached read model that refreshes after exposure changes and on stale date-sensitive reads.
 
-- `training_specs.py`
-  Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.
+- `domains/artifacts/`
+  Assistant-authored artifact staging and publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and `/api/assistant/artifact-bundles`. It validates/imports card and routine artifacts, tracks bundle revisions and capability requests, and delegates activation writes to the owning runtime domains.
 
 - `schedule_projection.py`
   Compatibility wrapper over `domains/routines/application/schedule_window.py`.
@@ -165,6 +165,19 @@ Important rules:
 - bundle import persists artifacts and auto-activates them
 - Today does not create schedule structure
 - schedule exceptions are still read for backward compatibility, but Today does not author them
+
+## Artifacts Boundary
+
+Artifacts is the staging and publishing layer for assistant-authored objects.
+
+- `domains/artifacts/api/` owns artifact, bundle, and card-template routes.
+- `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, and activation orchestration.
+- Activated cards/routines become live runtime data owned by `domains/routines`.
+- Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or a future `domains/programs`.
+
+Normal artifact flow:
+
+`assistant/generated JSON -> artifact draft -> validated artifact -> imported bundle -> activation -> live domain record`
 
 ## Garmin Analytics Boundary
 

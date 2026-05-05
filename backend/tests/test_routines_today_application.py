@@ -2,6 +2,10 @@
 
 import pytest
 
+from app.domains.artifacts.application.artifacts import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+)
 from app.domains.routines.application.today import (
     get_card_log_range,
     get_today,
@@ -16,10 +20,6 @@ from app.models import (
     TodayCardLogUpdateRequest,
 )
 from app.services import today as today_service
-from app.services.training_specs import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
-)
 
 
 def _card_request(card_id: str) -> AssistantArtifactCreateRequest:

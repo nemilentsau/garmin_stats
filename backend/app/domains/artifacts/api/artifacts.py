@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter
 
-from ..models import AssistantArtifact, AssistantArtifactCreateRequest, AssistantArtifactsResponse
-from ..services.training_specs import (
+from app.domains.artifacts.application.artifacts import (
     activate_assistant_artifact,
     create_assistant_artifact,
     get_assistant_artifact,
     list_assistant_artifacts,
 )
+from app.models import AssistantArtifact, AssistantArtifactCreateRequest, AssistantArtifactsResponse
 
 router = APIRouter(prefix="/api/assistant/artifacts", tags=["assistant-artifacts"])
 

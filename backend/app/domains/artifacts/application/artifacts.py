@@ -11,17 +11,7 @@ from pydantic import ValidationError
 
 from app.bootstrap.container import build_container
 from app.domains.routines.application.activation import compile_routine_artifact
-from app.domains.routines.application.catalog import (
-    get_routine as get_domain_routine,
-)
-from app.domains.routines.application.catalog import (
-    list_routine_assignments as list_domain_routine_assignments,
-)
-from app.domains.routines.application.catalog import (
-    list_routines as list_domain_routines,
-)
-
-from ..infra.database import (
+from app.infra.database import (
     load_assistant_artifact,
     load_assistant_artifact_by_payload_id,
     load_assistant_artifacts,
@@ -34,7 +24,7 @@ from ..infra.database import (
     save_assistant_artifacts_batch,
     save_card_template,
 )
-from ..models import (
+from app.models import (
     ArtifactBundleDelta,
     ArtifactBundleDeltaAction,
     ArtifactBundleImportResponse,
@@ -51,13 +41,11 @@ from ..models import (
     CardTemplatesResponse,
     ChecklistBlockPayloadSpec,
     ExerciseBlockPayloadSpec,
-    RoutineAssignmentsResponse,
     RoutineSchedule,
-    RoutineSchedulesResponse,
     RoutineSpec,
     TimerSessionPayloadSpec,
 )
-from ..utils.timeutil import now_iso
+from app.utils.timeutil import now_iso
 
 _PAYLOAD_MODELS = {
     "timer_session": TimerSessionPayloadSpec,
@@ -799,15 +787,3 @@ def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
 def list_cards(status: str | None = None) -> CardTemplatesResponse:
     cards = load_card_templates(status=status)
     return CardTemplatesResponse(cards=cards)
-
-
-def list_routines(status: str | None = None) -> RoutineSchedulesResponse:
-    return list_domain_routines(build_container().routines_repo, status=status)
-
-
-def get_routine(routine_id: str) -> RoutineSchedule:
-    return get_domain_routine(build_container().routines_repo, routine_id)
-
-
-def list_routine_assignments(routine_id: str) -> RoutineAssignmentsResponse:
-    return list_domain_routine_assignments(build_container().routines_repo, routine_id)

@@ -2,15 +2,15 @@
 
 from fastapi import APIRouter
 
-from ..models import (
-    ArtifactBundleImportResponse,
-    ArtifactBundlePreviewResponse,
-    ArtifactBundleSpec,
-)
-from ..services.training_specs import (
+from app.domains.artifacts.application.artifacts import (
     activate_assistant_artifact,
     import_artifact_bundle,
     preview_artifact_bundle,
+)
+from app.models import (
+    ArtifactBundleImportResponse,
+    ArtifactBundlePreviewResponse,
+    ArtifactBundleSpec,
 )
 
 router = APIRouter(prefix="/api/assistant/artifact-bundles", tags=["assistant-artifact-bundles"])

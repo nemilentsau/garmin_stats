@@ -4,9 +4,12 @@ from importlib import import_module
 
 import pytest
 
+from app.domains.artifacts.application.artifacts import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+)
 from app.infra.database import save_card_override
 from app.models import AssistantArtifactCreateRequest, CardOverride
-from app.services.training_specs import activate_assistant_artifact, create_assistant_artifact
 
 
 def _schedule_mod():
