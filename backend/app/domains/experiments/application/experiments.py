@@ -8,6 +8,7 @@ from datetime import timedelta
 from app.infra.database import (
     delete_experiment_analysis,
     experiment_exists,
+    load_all_experiment_analyses,
     load_daily_metrics,
     load_experiment,
     load_experiment_analysis,
@@ -30,7 +31,11 @@ from app.models import (
     ExperimentWithAnalysis,
 )
 
-from .analysis import compute_experiment_analysis
+from .analysis import (
+    compute_experiment_analysis,
+    current_treatment_window_end,
+    expected_experiment_phase,
+)
 from .stats import resolve_metric_path
 
 # ---------------------------------------------------------------------------
@@ -41,10 +46,11 @@ from .stats import resolve_metric_path
 def list_experiments() -> ExperimentsResponse:
     """Return all experiments with their latest analysis."""
     experiments = load_experiments()
+    analyses_by_id = load_all_experiment_analyses()
     items = [
         ExperimentWithAnalysis(
             experiment=exp,
-            analysis=_load_current_analysis(exp),
+            analysis=_refresh_if_stale(exp, analyses_by_id.get(exp.id)),
         )
         for exp in experiments
     ]
@@ -104,29 +110,6 @@ def _persist_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis |
     return analysis
 
 
-def _expected_phase(experiment: Experiment) -> str:
-    design = experiment.design
-    if design is None or not design.treatment_start_date:
-        return "draft"
-
-    today = date_type.today().isoformat()
-    if today < design.treatment_start_date:
-        return "collecting_baseline"
-    if design.treatment_end_date and today > design.treatment_end_date:
-        return "completed"
-    return "treatment"
-
-
-def _current_treatment_window_end(experiment: Experiment) -> str | None:
-    design = experiment.design
-    if design is None or not design.treatment_start_date:
-        return None
-
-    today = date_type.today().isoformat()
-    treatment_end = design.treatment_end_date or today
-    return min(treatment_end, today)
-
-
 def _analysis_needs_refresh(
     experiment: Experiment,
     analysis: ExperimentAnalysis | None,
@@ -136,29 +119,32 @@ def _analysis_needs_refresh(
     if analysis is None:
         return False
 
-    today = date_type.today().isoformat()
-    if analysis.analysis_date != today:
+    if analysis.analysis_date != date_type.today().isoformat():
+        return True
+    if analysis.phase != expected_experiment_phase(experiment):
         return True
 
-    if analysis.phase != _expected_phase(experiment):
-        return True
-
-    treatment_end = _current_treatment_window_end(experiment)
     treatment_start = experiment.design.treatment_start_date
+    treatment_end = current_treatment_window_end(experiment.design)
     if treatment_start is None or treatment_end is None or treatment_end < treatment_start:
         return False
 
-    covered_dates = [entry.date for entry in analysis.adherence_by_day]
-    if not covered_dates:
+    if not analysis.adherence_by_day:
         return True
-    return max(covered_dates) < treatment_end
+    return analysis.adherence_by_day[-1].date < treatment_end
 
 
-def _load_current_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
-    analysis = load_experiment_analysis(experiment.id)
+def _refresh_if_stale(
+    experiment: Experiment,
+    analysis: ExperimentAnalysis | None,
+) -> ExperimentAnalysis | None:
     if _analysis_needs_refresh(experiment, analysis):
         return _persist_experiment_analysis(experiment)
     return analysis
+
+
+def _load_current_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
+    return _refresh_if_stale(experiment, load_experiment_analysis(experiment.id))
 
 
 def _validate_metric_path(

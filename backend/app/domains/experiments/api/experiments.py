@@ -6,7 +6,6 @@ from app.domains.experiments.application.analysis import refresh_active_experime
 from app.domains.experiments.application.experiments import (
     create_experiment,
     create_experiment_exposure,
-    get_experiment,
     get_experiment_analysis,
     get_experiment_with_analysis,
     import_experiment,
@@ -104,9 +103,8 @@ def get_exposures(experiment_id: str):
 def post_exposure(experiment_id: str, exposure: ExperimentExposure):
     """Log an exposure entry for an experiment."""
     try:
-        get_experiment(experiment_id)
+        return create_experiment_exposure(experiment_id, exposure)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    if exposure.experiment_id != experiment_id:
-        raise HTTPException(status_code=400, detail="Exposure experiment_id mismatch")
-    return create_experiment_exposure(experiment_id, exposure)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
