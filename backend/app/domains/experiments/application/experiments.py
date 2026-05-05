@@ -5,29 +5,33 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import timedelta
 
-from ..infra.database import (
+from app.infra.database import (
     delete_experiment_analysis,
     experiment_exists,
     load_daily_metrics,
     load_experiment,
     load_experiment_analysis,
+    load_experiment_exposures,
     load_experiments,
     load_routine_schedule,
     save_experiment,
     save_experiment_analysis,
+    save_experiment_exposure,
 )
-from ..models import (
+from app.models import (
     DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentDesign,
+    ExperimentExposure,
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
     ExperimentsResponse,
     ExperimentWithAnalysis,
 )
-from .experiment_analysis import compute_experiment_analysis
-from .experiment_stats import resolve_metric_path
+
+from .analysis import compute_experiment_analysis
+from .stats import resolve_metric_path
 
 # ---------------------------------------------------------------------------
 # List / get
@@ -415,3 +419,21 @@ def get_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
     """Return current analysis for an experiment, refreshing stale cached rows."""
     exp = get_experiment(experiment_id)
     return _load_current_analysis(exp)
+
+
+def list_experiment_exposures(experiment_id: str) -> list[ExperimentExposure]:
+    """Return all exposure entries for an experiment."""
+    return load_experiment_exposures(experiment_id=experiment_id)
+
+
+def create_experiment_exposure(
+    experiment_id: str,
+    exposure: ExperimentExposure,
+) -> ExperimentExposure:
+    """Persist a manual exposure entry for an experiment."""
+    if exposure.experiment_id != experiment_id:
+        raise ValueError("Exposure experiment_id mismatch")
+    experiment = get_experiment(experiment_id)
+    save_experiment_exposure(exposure)
+    _persist_experiment_analysis(experiment)
+    return exposure

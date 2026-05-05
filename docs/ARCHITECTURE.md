@@ -10,7 +10,7 @@ The shipped app has three active product centers:
 2. Assistant chat with retrieval-first evidence bundles and stored runs
 3. Routine runtime shared by Creation, Schedule, and Today
 
-Experiments and programs are not removed from the backend, but they are intentionally parked in the frontend.
+Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area.
 
 ## Project Layout
 
@@ -83,6 +83,9 @@ There are two major paths:
 - `domains/garmin_analytics/`
   Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
+- `domains/experiments/`
+  Experiment CRUD, design preview/import, target metric registry, exposure derivation, and N=1 analysis. This domain owns `/api/experiments` and `/api/target-metrics`. Experiment analysis is a cached read model that refreshes after exposure changes and on stale date-sensitive reads.
+
 - `training_specs.py`
   Assistant artifact validation/import/activation. Routine activation now delegates to `domains/routines/application/activation.py`.
 
@@ -92,7 +95,7 @@ There are two major paths:
 - `today.py`
   Compatibility wrapper over `domains/routines/application/today.py`.
 
-- `profile.py`, `checkins.py`, `notes.py`, `experiments.py`, `programs.py`, `target_metrics.py`
+- `profile.py`, `checkins.py`, `notes.py`, `programs.py`
   Secondary/parked domain services still present in the backend.
 
 ## Experiment Semantics
@@ -103,6 +106,7 @@ Experiment adherence is protocol-defined and day-grain.
 - Exposure is derived from whether the planned intervention dose for that day was satisfied, not from any single card in isolation.
 - A routine may schedule multiple intervention cards on the same day. That is expected when the protocol requires multiple sessions or components.
 - Do not collapse an experiment day to a "best card status" and do not treat multiple same-day linked cards as ambiguity. The correct question is whether the prescribed daily dose was met, partially met, missed, or is still unresolved.
+- Experiment analysis is not a permanent historical snapshot for active windows. It is recomputed after exposure changes and refreshed on read when its `analysis_date` is stale.
 
 ## Backend Route Inventory
 

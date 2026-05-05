@@ -3,7 +3,7 @@
 import pytest
 from fastapi import HTTPException
 
-import app.routers.experiments as experiments_mod
+import app.domains.experiments.api.experiments as experiments_mod
 import app.routers.profile as profile_mod
 import app.routers.routines as routines_mod
 import app.services.training_specs as training_specs_mod

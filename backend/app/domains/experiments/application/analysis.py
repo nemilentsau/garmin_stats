@@ -11,14 +11,14 @@ from datetime import timedelta
 
 import numpy as np
 
-from ..infra.database import (
+from app.infra.database import (
     load_daily_checkins,
     load_daily_metrics,
     load_experiment_exposures,
     load_experiments,
     save_experiment_analysis,
 )
-from ..models import (
+from app.models import (
     AdherenceDayEntry,
     ConfounderCheck,
     DailyCheckIn,
@@ -30,7 +30,8 @@ from ..models import (
     MetricLagResult,
     OutcomeMetric,
 )
-from .experiment_stats import (
+
+from .stats import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,

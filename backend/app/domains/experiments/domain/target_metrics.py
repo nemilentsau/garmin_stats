@@ -1,6 +1,6 @@
 """Backend-owned registry for experiment target metrics."""
 
-from .models import TargetMetricDefinition
+from app.models import TargetMetricDefinition
 
 _TARGET_METRICS = {
     "resting_hr": TargetMetricDefinition(

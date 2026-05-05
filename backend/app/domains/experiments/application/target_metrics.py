@@ -1,7 +1,7 @@
 """Target metric registry service."""
 
-from ..models import TargetMetricsResponse
-from ..target_metrics import list_target_metrics
+from app.domains.experiments.domain.target_metrics import list_target_metrics
+from app.models import TargetMetricsResponse
 
 
 def get_target_metrics() -> TargetMetricsResponse:

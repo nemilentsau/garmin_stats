@@ -14,7 +14,8 @@ from app.infra.database import (
     save_experiment_analysis,
 )
 from app.models import CardLog, Experiment, ExperimentExposure, ScheduleOccurrence
-from app.services.experiment_analysis import compute_experiment_analysis
+
+from .analysis import compute_experiment_analysis
 
 _PARTIAL_CARD_WEIGHT = 0.5
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
