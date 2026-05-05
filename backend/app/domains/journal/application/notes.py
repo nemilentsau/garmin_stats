@@ -1,7 +1,7 @@
-"""Notes service."""
+"""Note use cases."""
 
-from ..infra.database import load_notes, save_note
-from ..models import Note, NotesResponse
+from app.infra.database import load_notes, save_note
+from app.models import Note, NotesResponse
 
 
 def list_notes(date: str | None = None) -> NotesResponse:

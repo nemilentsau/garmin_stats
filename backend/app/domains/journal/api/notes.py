@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Query
 
-from ..models import Note, NotesResponse
-from ..services.notes import create_note, list_notes
+from app.domains.journal.application.notes import create_note, list_notes
+from app.models import Note, NotesResponse
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
