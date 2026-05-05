@@ -85,10 +85,21 @@ There are two major paths:
   Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
-  Experiment CRUD, design preview/import, target metric registry, exposure derivation, and N=1 analysis. This domain owns `/api/experiments` and `/api/target-metrics`. Experiment analysis is a cached read model that refreshes after exposure changes and on stale date-sensitive reads.
+  Transitional domain-routed slice for experiment CRUD, design preview/import,
+  target metric registry, exposure derivation, and N=1 analysis. This domain
+  owns `/api/experiments` and `/api/target-metrics`. Experiment analysis is a
+  cached read model that refreshes after exposure changes and on stale
+  date-sensitive reads. Routes and flat shims are migrated, but application code
+  still has direct SQLite helper dependencies.
 
 - `domains/artifacts/`
-  Assistant-authored artifact staging and publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and `/api/assistant/artifact-bundles`. It validates/imports card and routine artifacts, tracks bundle revisions and capability requests, and delegates activation writes to the owning runtime domains.
+  Transitional domain-routed slice for assistant-authored artifact staging and
+  publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and
+  `/api/assistant/artifact-bundles`. It validates/imports card and routine
+  artifacts, tracks bundle revisions and capability requests, and delegates
+  activation writes to the owning runtime domains. Routes and flat shims are
+  migrated, but application code still owns persistence helper calls and routine
+  activation composition.
 
 - `domains/journal/`
   Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation. `api/` owns FastAPI routes, `application/` owns use cases and repository ports, and `infra/` owns the SQLite repository adapter.
@@ -101,10 +112,19 @@ There are two major paths:
 
 ### Migrated slice boundary convention
 
+The project now uses "migrated" to mean both route/file-layout migration and
+strict boundary migration.
+
 - `api/` modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
-- `application/` modules should stay FastAPI-free and depend on repository ports rather than `app.infra.database`.
+- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import `app.infra.database`, `app.services.*`, or `app.routers.*`.
 - `infra/` modules are the SQLite boundary for migrated slices and may wrap `app.infra.database`.
+- Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
+
+Fully migrated slices today: `domains/assistant`, `domains/routines`,
+`domains/garmin_analytics`, `domains/journal`, and `core/profile`.
+Transitional domain-routed slices today: `domains/artifacts` and
+`domains/experiments`.
 
 ## Experiment Semantics
 

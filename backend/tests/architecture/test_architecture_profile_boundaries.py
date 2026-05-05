@@ -2,7 +2,13 @@
 
 from pathlib import Path
 
-from tests._architecture import REPO_ROOT, assert_no_repo_imports_of, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_application_modules_are_strict,
+    assert_no_repo_imports_of,
+    read_repo_file,
+)
 
 
 def test_profile_api_lives_under_core_not_flat_router_or_domain():
@@ -10,19 +16,14 @@ def test_profile_api_lives_under_core_not_flat_router_or_domain():
 
     assert "APIRouter" in source
     assert "app.core.profile.application" in source
-    assert "app.services." not in source
-    assert "app.routers" not in source
+    assert_api_modules_are_boundary_only(["backend/app/core/profile/api.py"])
 
 
-def test_profile_application_is_fastapi_free():
-    assert "fastapi" not in read_repo_file("backend/app/core/profile/application.py")
-
-
-def test_profile_application_uses_port_not_database():
-    source = read_repo_file("backend/app/core/profile/application.py")
-
-    assert "app.infra.database" not in source
-    assert "ProfileRepository" in source
+def test_profile_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
+        "backend/app/core/profile/application.py",
+        "backend/app/core/profile/ports.py",
+    ])
 
 
 def test_profile_sqlite_adapter_is_the_database_boundary():

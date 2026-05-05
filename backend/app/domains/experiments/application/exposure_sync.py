@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
+from dataclasses import dataclass
 
+from app.domains.routines.application.ports import RoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.infra.database import (
+    auto_experiment_exposure_id,
     delete_experiment_analysis,
     load_experiment_exposures,
     load_experiments,
@@ -21,9 +24,12 @@ _PARTIAL_CARD_WEIGHT = 0.5
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 
 
+@dataclass(frozen=True)
 class ExperimentExposureSyncService:
+    routine_repo: RoutineRepository
+
     def sync_for_date(self, *, date: str) -> None:
-        sync_experiment_exposures_for_date(date)
+        sync_experiment_exposures_for_date(date, routine_repo=self.routine_repo)
 
 
 def _refresh_persisted_analysis_if_changed(
@@ -86,7 +92,7 @@ def _derive_experiment_exposure(
         adherence_state = "partial"
 
     return ExperimentExposure(
-        id=f"exposure:auto:{experiment.id}:{date}",
+        id=auto_experiment_exposure_id(experiment.id, date),
         experiment_id=experiment.id,
         date=date,
         exposure_score=exposure_score,
@@ -95,20 +101,19 @@ def _derive_experiment_exposure(
     )
 
 
-def sync_experiment_exposures_for_date(date: str) -> None:
+def sync_experiment_exposures_for_date(
+    date: str,
+    *,
+    routine_repo: RoutineRepository,
+) -> None:
     """Recompute derived experiment exposures for one date from current card logs."""
-    from app.bootstrap.container import build_container
-
-    repo = build_container().routines_repo
-    window = get_schedule_window(repo, start_date=date, duration_days=1)
+    window = get_schedule_window(routine_repo, start_date=date, duration_days=1)
     occurrences = window.days[0].occurrences if window.days else []
     routine_ids_on_date = {
         occurrence.routine_id
         for occurrence in occurrences
         if occurrence.routine_id is not None
     }
-    if not routine_ids_on_date:
-        return
 
     occurrences_by_routine: dict[str, list[ScheduleOccurrence]] = defaultdict(list)
     for occurrence in occurrences:
@@ -117,19 +122,27 @@ def sync_experiment_exposures_for_date(date: str) -> None:
         occurrences_by_routine[occurrence.routine_id].append(occurrence)
 
     logs_by_occurrence_key = {
-        log.occurrence_key: log for log in repo.list_card_logs(date=date)
+        log.occurrence_key: log for log in routine_repo.list_card_logs(date=date)
     }
-    experiments = [
-        experiment
-        for experiment in load_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES)
-        if routine_ids_on_date.intersection(experiment.linked_routine_ids)
-    ]
-    for experiment in experiments:
+    auto_exposures_by_experiment = {
+        exposure.experiment_id: exposure
+        for exposure in load_experiment_exposures(date=date)
+        if exposure.id == auto_experiment_exposure_id(exposure.experiment_id, date)
+    }
+    if not routine_ids_on_date and not auto_exposures_by_experiment:
+        return
+
+    for experiment in load_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES):
+        old_auto_exposure = auto_exposures_by_experiment.get(experiment.id)
+        if (
+            not routine_ids_on_date.intersection(experiment.linked_routine_ids)
+            and old_auto_exposure is None
+        ):
+            continue
+
         relevant_occurrences: list[ScheduleOccurrence] = []
         for routine_id in experiment.linked_routine_ids:
             relevant_occurrences.extend(occurrences_by_routine.get(routine_id, []))
-        old_exposures = load_experiment_exposures(experiment_id=experiment.id, date=date)
-        old_exposure = old_exposures[0] if old_exposures else None
         new_exposure = _derive_experiment_exposure(
             experiment,
             date=date,
@@ -138,5 +151,5 @@ def sync_experiment_exposures_for_date(date: str) -> None:
         )
         replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
         _refresh_persisted_analysis_if_changed(
-            experiment, old_exposure=old_exposure, new_exposure=new_exposure,
+            experiment, old_exposure=old_auto_exposure, new_exposure=new_exposure,
         )

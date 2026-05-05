@@ -1,32 +1,26 @@
 """Architecture guard rails for Garmin analytics domain ownership."""
 
-from tests._architecture import REPO_ROOT, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_application_modules_are_strict,
+    assert_no_text_in_files,
+    read_repo_file,
+)
 
 
 def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
-    for path in [
+    paths = [
         "backend/app/domains/garmin_analytics/api/overview.py",
         "backend/app/domains/garmin_analytics/api/biometrics.py",
         "backend/app/domains/garmin_analytics/api/insights.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.infra.database" not in source
-        assert "app.stats" not in source
-        assert "app.routers" not in source
-
-
-def test_garmin_analytics_application_modules_are_fastapi_free():
-    for path in [
-        "backend/app/domains/garmin_analytics/application/overview.py",
-        "backend/app/domains/garmin_analytics/application/biometrics.py",
-        "backend/app/domains/garmin_analytics/application/period_summary.py",
-        "backend/app/domains/garmin_analytics/application/insights.py",
-    ]:
-        assert "fastapi" not in read_repo_file(path)
+    ]
+    assert_api_modules_are_boundary_only(paths)
+    assert_no_text_in_files(paths, ["app.stats"])
 
 
 def test_garmin_analytics_application_does_not_import_flat_services_or_database():
-    for path in [
+    assert_application_modules_are_strict([
         "backend/app/domains/garmin_analytics/application/overview.py",
         "backend/app/domains/garmin_analytics/application/biometrics.py",
         "backend/app/domains/garmin_analytics/application/period_summary.py",
@@ -38,10 +32,7 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
         "backend/app/domains/garmin_analytics/application/stress_analysis.py",
         "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.services" not in source
-        assert "app.infra.database" not in source
+    ])
 
 
 def test_migrated_garmin_analytics_service_shims_are_removed():
