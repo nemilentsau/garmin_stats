@@ -29,7 +29,7 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from garminconnect import Garmin, GarminConnectAuthenticationError
+from garminconnect import Garmin
 
 try:
     from dotenv import load_dotenv

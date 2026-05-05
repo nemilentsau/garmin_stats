@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402, I001
 """One-time data re-ingestion script.
 
 Re-parses all FIT files and stores results in SQLite.
@@ -14,7 +15,7 @@ from pathlib import Path
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from app.infra.database import DATA_DIR, init_db, ingest_all  # noqa: E402
+from app.infra.database import DATA_DIR, init_db, ingest_all
 
 if __name__ == "__main__":
     print(f"Data directory: {DATA_DIR}")

@@ -1,16 +1,20 @@
 """Note use cases."""
 
-from app.infra.database import load_notes, save_note
 from app.models import Note, NotesResponse
 
+from .ports import JournalRepository
 
-def list_notes(date: str | None = None) -> NotesResponse:
+
+def list_notes(
+    repo: JournalRepository,
+    date: str | None = None,
+) -> NotesResponse:
     """Return notes, optionally filtered by date."""
-    notes = load_notes(date=date)
+    notes = repo.list_notes(date=date)
     return NotesResponse(notes=notes)
 
 
-def create_note(note: Note) -> Note:
+def create_note(repo: JournalRepository, note: Note) -> Note:
     """Persist a note."""
-    save_note(note)
+    repo.save_note(note)
     return note

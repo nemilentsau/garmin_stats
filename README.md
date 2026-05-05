@@ -1,102 +1,129 @@
 # Garmin Health Assistant
 
-This repo is a local-first health assistant built on Garmin recovery data.
+Garmin Health Assistant is a local-first personal health application built around
+Garmin wellness exports. It ingests Garmin FIT files, turns them into deterministic
+recovery metrics, and presents them through a Svelte dashboard, a routine execution
+surface, and an assistant that answers from curated local context.
 
-The product is currently recovery-first:
+The project is recovery-first today. It is useful for understanding HRV, sleep,
+resting heart rate, stress, body battery, and related day-to-day recovery signals.
+It also has a structured routine runtime that can schedule interventions and log
+what happened. Experiments are supported in the backend and are intended to sit on
+top of that routine runtime, but the primary product flow is currently dashboard +
+assistant + routines.
 
-- the backend ingests Garmin FIT exports and computes deterministic health metrics
-- the frontend renders dashboards, Today, schedule review, and assistant flows
-- the assistant works from curated snapshots, not raw database access
-- routines run through a structured bundle pipeline instead of ad hoc markdown imports
+## What It Does
 
-Experiments are the next product step, but the current foundation is the dashboard + assistant + routine runtime.
+- Imports daily Garmin health archives from `data/garmin_health_stats/`.
+- Parses FIT files into local-time records and stores derived data in SQLite.
+- Computes all statistics in the backend, including daily aggregates, period
+  summaries, moving averages, readiness signals, and metric insights.
+- Renders a frontend recovery dashboard with metric drill-downs for HRV, sleep,
+  heart rate, stress, body battery, respiration, skin temperature, and pulse ox.
+- Provides an assistant chat that uses curated evidence bundles instead of direct
+  raw database access.
+- Supports routine bundles that compile into live schedules and a Today execution
+  board.
+- Derives experiment exposure rows from completed routine cards when experiments
+  are linked to routine interventions.
 
-## Current Product
+Raw Garmin exports and the local SQLite database stay on the developer machine.
+The `data/` and `storage/` directories are gitignored.
 
-### Recovery dashboard
+## How Data Flows
 
-- overview and metric drill-downs for heart rate, HRV, sleep, stress, body battery, respiration, skin temperature, and pulse ox
-- backend-owned statistics only; the frontend does not compute analytical values
+```text
+Garmin day zip
+  -> extracted FIT files
+  -> backend/app/parser.py
+  -> backend/app/stats.py
+  -> SQLite storage
+  -> backend domain/application services
+  -> FastAPI JSON endpoints
+  -> SvelteKit frontend
+```
 
-### Assistant
+FIT timestamps are stored in UTC by Garmin. The parser reads the per-day UTC
+offset from Garmin monitoring metadata and shifts timestamps to local time during
+ingest. New timestamp fields should follow the same parser path.
 
-- persistent assistant threads
-- stored runs and context snapshots
-- streamed responses backed by curated health context
+The frontend is display-only for analytics. It can format values and render
+charts, but statistical computation and derived health values belong in the
+backend API.
 
-### Routine runtime
+## High-Level Architecture
 
-- `/routines/schedule` is the routine surface
-- `/today` is the execution surface
+The backend is a FastAPI app under `backend/app/`. Its current direction is a
+domain-oriented structure:
 
-The intended split is:
+- `bootstrap/` assembles the FastAPI app, registers routers, owns lifespan wiring,
+  and provides the dependency container.
+- `infra/` contains shared infrastructure: SQLite persistence, ingest bookkeeping,
+  cache invalidation, server-sent events, and file watching.
+- `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
+  biometric reads, and recovery insights.
+- `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,
+  and runtime integration.
+- `domains/routines/` owns routine catalog, schedule projection, Today execution,
+  and routine activation.
+- `domains/artifacts/` validates and imports assistant-authored cards and routine
+  bundles before activating them into live runtime data.
+- `domains/experiments/` owns experiment definitions, target metrics, exposure
+  derivation, and N=1 analysis.
+- `domains/journal/` owns daily check-ins and notes.
+- `core/profile/` owns app-level profile configuration.
 
-- Schedule: inspect compiled live occurrences over the next 14 days and import bundles
-- Today: log what actually happened for one day
+Migrated slices follow the same boundary convention: API modules handle FastAPI
+and dependency lookup, application modules own use cases and repository ports, and
+infra adapters are the SQLite boundary.
 
-Schedule is the only routine-management UI entry point.
+The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
+overview, metric detail pages, assistant chat, Today board, and routine schedule
+review. Shared API helpers and generated API types live in `frontend/src/lib/`.
 
-### Parked surfaces
+For the full current code map and route inventory, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- `/experiments` is intentionally parked until it can sit on top of the current routine runtime cleanly
-- `/programs` is intentionally parked for the same reason
+## Routine Runtime
 
-## Routine Flow
+Routines are imported through deterministic bundle JSON, not freeform markdown.
+The normal flow is:
 
-The routine system accepts deterministic bundle JSON, not arbitrary markdown.
+```text
+bundle JSON -> preview -> import -> auto-activate -> schedule and Today
+```
 
-Canonical flow:
+Preview validates without writing. Import persists validated artifacts and
+activates cards before routines, because routines depend on card templates. Today
+logs execution for a date; it does not author schedule structure.
 
-`source note -> bundle JSON -> preview -> import -> auto-activate -> schedule/today`
+The bundle format is documented in
+[docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
+Example bundles live in `docs/*_bundle.json`.
 
-Important details:
+## Repository Layout
 
-- preview performs no writes
-- bundle import persists artifacts and auto-activates them in dependency order
-- low-level assistant artifacts still exist for debugging/manual flows, but they are not the normal user path
-- Today only logs execution state; it does not author schedule structure
-- Today card logs now auto-derive linked experiment exposure rows for routine-linked experiments, so adherence comes from the live routine runtime instead of a separate manual logging path
-
-Bundle examples live in:
-
-- [docs/morning_stretching_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/morning_stretching_bundle.json)
-- [docs/two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
-- [docs/two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
-
-The bundle contract is documented in [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
-
-## Main Routes
-
-- `/`
-  Recovery dashboard overview.
-
-- `/assistant`
-  Persistent recovery assistant chat.
-
-- `/today`
-  One-day execution board built from live compiled routines and logs.
-
-- `/routines/schedule`
-  14-day live schedule review plus bundle import.
-
-- `/routines`
-  Redirects to `/routines/schedule`.
-
-- `/experiments`
-  Parked placeholder.
-
-- `/programs`
-  Parked placeholder.
+```text
+backend/
+  app/          FastAPI app, domain slices, parser, stats, infrastructure
+  tests/        Backend unit and architecture tests
+frontend/
+  src/          SvelteKit routes, components, API client, chart helpers
+scripts/        Local utility scripts for Garmin download, ingest, FIT inspection
+docs/           Architecture notes, data model notes, bundle specs, examples
+data/           Local Garmin exports, ignored by git
+storage/        Local SQLite database, ignored by git
+```
 
 ## Running Locally
 
-### Prerequisites
+Prerequisites:
 
-- Python `3.14`
-- Node.js `20+`
+- Python 3.14
+- Node.js 20+
 - `uv`
 
-### Backend
+Backend:
 
 ```bash
 cd backend
@@ -104,9 +131,7 @@ uv sync --python 3.14
 uv run uvicorn app.main:app --reload
 ```
 
-Backend default: `http://localhost:8000`
-
-### Frontend
+Frontend:
 
 ```bash
 cd frontend
@@ -114,35 +139,14 @@ npm install
 npm run dev
 ```
 
-Frontend default: `http://localhost:5173`
+Default local URLs:
 
-### Tests and validation
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
 
-```bash
-cd backend && uv run pytest tests/ -v
-cd backend && uv run ruff check
-cd backend && uv run pyright app/ tests/
-cd frontend && npm run check
-```
+## Data And Ingest
 
-### API type generation
-
-If backend models or route schemas change:
-
-```bash
-bash scripts/generate-api-types.sh
-```
-
-### Re-ingest after parser changes
-
-If `backend/app/parser.py` changes:
-
-```bash
-cd backend
-uv run python ../scripts/reingest.py
-```
-
-## Data Layout
+Expected Garmin data layout:
 
 ```text
 data/
@@ -155,120 +159,52 @@ data/
       ...
 ```
 
-The ingest pipeline handles both the day archives and the extracted day folders.
+The ingest pipeline handles zip extraction and parsed-data refresh. After parser
+changes, re-ingest the local data:
 
-## Repo Map
+```bash
+cd backend
+uv run python ../scripts/reingest.py
+```
 
-- `backend/app/models.py`
-  Pydantic contracts for Garmin data, assistant state, routines, and API responses.
+Garmin Connect download support is in `scripts/download_garmin.py`. FIT structure
+inspection support is in `scripts/explore_fit_files.py`.
 
-- `backend/app/bootstrap/`
-  FastAPI app assembly, lifespan wiring, router registration, and dependency container.
+## Validation
 
-- `backend/app/domains/routines/`
-  First migrated backend domain slice for routines catalog, schedule window, today, and activation.
+Backend:
 
-- `backend/app/domains/garmin_analytics/`
-  Migrated backend domain slice for Garmin-derived dashboard and biometric read models. It owns dashboard overview, raw wellness/sleep/HRV/skin-temperature reads, daily aggregates, windowed period summaries, and the current recovery insight/analysis implementations.
+```bash
+cd backend
+uv run ruff check
+uv run pyright app/ tests/
+uv run pytest tests/ -v
+```
 
-- `backend/app/parser.py`
-  FIT parsing and local-time timestamp normalization.
+Frontend:
 
-- `backend/app/stats.py`
-  Deterministic aggregate/stat computation.
+```bash
+cd frontend
+npm run check
+```
 
-- `backend/app/infra/`
-  SQLite persistence, ingest bookkeeping, cache, SSE bus, watcher.
+If backend models or route schemas change, regenerate frontend API types:
 
-- `backend/app/services/`
-  Remaining flat service modules for backend areas that have not moved yet. Migrated Garmin analytics services were removed after their routes and tests moved to the domain.
+```bash
+bash scripts/generate-api-types.sh
+```
 
-- `backend/app/routers/`
-  Remaining flat route modules for backend areas that have not moved yet. Migrated Garmin analytics routers are mounted from the domain directly.
+Do not edit `frontend/src/lib/api-types.ts` by hand.
 
-- `frontend/src/routes/`
-  SvelteKit routes for dashboard, assistant, Today, routines, and parked placeholders.
+## Documentation
 
-- `frontend/src/lib/`
-  Typed API client, shared formatting, colors, charts, and frontend helpers.
-
-- [docs/ARCHITECTURE.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ARCHITECTURE.md)
-  Current-state code map.
-
-- [docs/README.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/README.md)
-  Documentation index and source-of-truth guide.
-
-- [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
-  Routine runtime design notes.
-
-- [docs/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
-  Planned analytical foundation for activity sessions, activity-derived daily features, and experiment joins.
-
-- [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
-  Current analytical observations from the live dataset.
-
-## API Surface
-
-### Health data
-
-- `GET /api/dashboard`
-- `GET /api/days`
-- `GET /api/wellness`
-- `GET /api/sleep`
-- `GET /api/daily-aggregates`
-- `GET /api/skin-temp`
-- `GET /api/heart-rate`
-- `GET /api/hrv`
-- `GET /api/stress`
-- `GET /api/body-battery`
-
-### Assistant
-
-- `GET /api/assistant/threads`
-- `POST /api/assistant/threads`
-- `GET /api/assistant/threads/{thread_id}`
-- `GET /api/assistant/threads/{thread_id}/messages`
-- `POST /api/assistant/threads/{thread_id}/messages`
-- `GET /api/assistant/artifacts`
-- `POST /api/assistant/artifacts`
-- `POST /api/assistant/artifacts/{artifact_id}/activate`
-- `POST /api/assistant/artifact-bundles/preview`
-- `POST /api/assistant/artifact-bundles/import`
-
-`POST /api/assistant/artifact-bundles/import` is the normal routine import endpoint. It persists the validated bundle artifacts and auto-activates them into live runtime records.
-
-### Routine runtime
-
-- `GET /api/cards`
-- `GET /api/routines`
-- `GET /api/routines/{routine_id}`
-- `GET /api/routines/{routine_id}/assignments`
-- `GET /api/routines/schedule-window?start_date=YYYY-MM-DD`
-- `GET /api/today?date=YYYY-MM-DD`
-- `PUT /api/today/{date}/cards/{occurrence_key}`
-
-### Parked/manual domains still present in the backend
-
-- `GET/PUT /api/profile`
-- `GET/POST /api/checkins`
-- `GET/POST /api/notes`
-- `GET/POST /api/experiments`
-- `GET /api/experiments/{experiment_id}`
-- `GET /api/experiments/{experiment_id}/analysis`
-- `GET/POST /api/experiments/{experiment_id}/exposures`
-- `GET/POST /api/programs`
-- `GET /api/target-metrics`
-
-The backend carries these surfaces, but the main product flow currently prioritizes assistant + recovery + routines.
-
-## Current Direction
-
-The app is already useful as a personal recovery assistant. It is not yet a general training-performance coach.
-
-The next meaningful product layer is experiments built on top of the current routine runtime, not another reset of the routine model.
-
-## Privacy
-
-The `data/` directory is gitignored. Raw Garmin exports and derived local storage should never be committed.
-
-Assistant requests send a curated context bundle, not the entire local dataset.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
+  ownership boundaries, and route inventory.
+- [docs/DATA_SCHEMA_DESIGN.md](docs/DATA_SCHEMA_DESIGN.md) - routine, card,
+  schedule, Today, and live runtime storage semantics.
+- [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
+  canonical routine bundle JSON contract.
+- [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned
+  activity/session analytics and experiment-day joins.
+- [FINDINGS.md](FINDINGS.md) - current observations and data quality notes from
+  the live dataset.
