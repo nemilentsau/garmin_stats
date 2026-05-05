@@ -1,11 +1,11 @@
 """SQLite repository adapter for profile configuration."""
 
 from app.infra.database import load_user_profile, save_user_profile
-from app.models import UserProfile
+from app.models import DEFAULT_PROFILE_ID, UserProfile
 
 
 class SqliteProfileRepository:
-    def get_profile(self, profile_id: str = "default") -> UserProfile | None:
+    def get_profile(self, profile_id: str = DEFAULT_PROFILE_ID) -> UserProfile | None:
         return load_user_profile(profile_id=profile_id)
 
     def save_profile(self, profile: UserProfile) -> None:

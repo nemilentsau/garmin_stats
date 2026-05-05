@@ -2,15 +2,14 @@
 
 from app.core.profile.application import get_user_profile, update_user_profile
 from app.domains.journal.application.checkins import create_checkin, list_checkins
-from app.models import DailyCheckIn, Note, UserProfile
+from app.models import DEFAULT_PROFILE_ID, DailyCheckIn, Note, UserProfile
 
 
 class _FakeProfileRepository:
     def __init__(self):
         self.profile: UserProfile | None = None
 
-    def get_profile(self, profile_id: str = "default") -> UserProfile | None:
-        _ = profile_id
+    def get_profile(self, profile_id: str = DEFAULT_PROFILE_ID) -> UserProfile | None:
         return self.profile
 
     def save_profile(self, profile: UserProfile) -> None:
@@ -21,13 +20,7 @@ class _FakeJournalRepository:
     def __init__(self):
         self.checkins: dict[str, DailyCheckIn] = {}
 
-    def list_checkins(
-        self,
-        *,
-        date: str | None = None,
-        last_n: int | None = None,
-    ) -> list[DailyCheckIn]:
-        _ = last_n
+    def list_checkins(self, *, date: str | None = None) -> list[DailyCheckIn]:
         checkins = list(self.checkins.values())
         if date is not None:
             return [checkin for checkin in checkins if checkin.date == date]
@@ -36,17 +29,11 @@ class _FakeJournalRepository:
     def save_checkin(self, checkin: DailyCheckIn) -> None:
         self.checkins[checkin.date] = checkin
 
-    def list_notes(
-        self,
-        *,
-        date: str | None = None,
-        last_n: int | None = None,
-    ) -> list[Note]:
-        _ = date, last_n
+    def list_notes(self, *, date: str | None = None) -> list[Note]:
         return []
 
     def save_note(self, note: Note) -> None:
-        _ = note
+        pass
 
 
 class TestProfileService:
