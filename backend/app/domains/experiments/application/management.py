@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.domains.routines.application.ports import RoutineRepository
 from app.models import Experiment, ExperimentsResponse, ExperimentWithAnalysis
 
 from .analysis_cache import (
@@ -70,9 +71,11 @@ def update_experiment(
 def import_experiment(
     repo: ExperimentRepository,
     experiment: Experiment,
+    *,
+    routine_repo: RoutineRepository,
 ) -> ExperimentWithAnalysis:
     """Validate, persist, and run initial analysis."""
-    preview = preview_experiment(repo, experiment)
+    preview = preview_experiment(repo, experiment, routine_repo=routine_repo)
     if not preview.valid:
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")
         raise ValueError(f"Experiment has validation errors: {msg}")

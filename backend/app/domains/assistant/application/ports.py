@@ -60,7 +60,6 @@ class AssistantReadModelStore(Protocol):
     def list_experiments(
         self,
         *,
-        status: str | None = None,
         statuses: tuple[str, ...] | None = None,
     ) -> list[Experiment]: ...
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None: ...

@@ -12,7 +12,6 @@ from app.infra.database import (
     load_experiment_analysis,
     load_experiment_exposures,
     load_experiments,
-    load_routine_schedule,
     replace_experiment_exposure_for_date,
     save_experiment,
     save_experiment_analysis,
@@ -24,7 +23,6 @@ from app.models import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
-    RoutineSchedule,
 )
 
 
@@ -32,10 +30,9 @@ class SqliteExperimentRepository:
     def list_experiments(
         self,
         *,
-        status: str | None = None,
         statuses: tuple[str, ...] | None = None,
     ) -> list[Experiment]:
-        return load_experiments(status=status, statuses=statuses)
+        return load_experiments(statuses=statuses)
 
     def get_experiment(self, experiment_id: str) -> Experiment | None:
         return load_experiment(experiment_id)
@@ -86,6 +83,3 @@ class SqliteExperimentRepository:
 
     def list_daily_checkins(self) -> list[DailyCheckIn]:
         return load_daily_checkins()
-
-    def get_routine_schedule(self, routine_id: str) -> RoutineSchedule | None:
-        return load_routine_schedule(routine_id)

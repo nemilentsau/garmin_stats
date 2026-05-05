@@ -7,6 +7,7 @@ import pytest
 import app.infra.database as db
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
+from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.models import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -246,7 +247,9 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="nonexistent.metric")],
         )
-        result = preview_experiment(SqliteExperimentRepository(), exp)
+        result = preview_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
         assert not result.valid
         error_msgs = [i.message for i in result.issues if i.level == "error"]
         assert any("nonexistent.metric" in msg for msg in error_msgs)
@@ -266,7 +269,9 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        result = preview_experiment(SqliteExperimentRepository(), exp)
+        result = preview_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
         assert not result.valid
 
     def test_import_persists_and_analyses(self):
@@ -287,7 +292,9 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        result = import_experiment(SqliteExperimentRepository(), exp)
+        result = import_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
         assert result.experiment.status == "active"
         assert result.analysis is not None
         assert result.analysis.days_in_baseline > 0
@@ -315,7 +322,9 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        import_experiment(SqliteExperimentRepository(), exp)
+        import_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
 
         loaded = db.load_experiment_analysis("flat-series")
 
@@ -350,7 +359,9 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        import_experiment(SqliteExperimentRepository(), exp)
+        import_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
 
         updated = Experiment(
             id="refresh-test",
@@ -492,6 +503,8 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
 
-        result = preview_experiment(SqliteExperimentRepository(), exp)
+        result = preview_experiment(
+            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+        )
 
         assert result.valid is True

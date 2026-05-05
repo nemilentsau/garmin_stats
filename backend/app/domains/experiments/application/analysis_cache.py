@@ -17,18 +17,27 @@ from .ports import ExperimentRepository
 log = logging.getLogger(__name__)
 
 
+def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -> bool:
+    return cached.model_copy(update={"analysis_date": fresh.analysis_date}) == fresh
+
+
 def persist_experiment_analysis(
     repo: ExperimentRepository,
     experiment: Experiment,
+    *,
+    cached: ExperimentAnalysis | None = None,
 ) -> ExperimentAnalysis | None:
     """Refresh the saved analysis so reads stay aligned with the experiment spec."""
     if experiment.design is None:
         repo.delete_experiment_analysis(experiment.id)
         return None
 
-    analysis = compute_experiment_analysis(repo, experiment)
-    repo.save_experiment_analysis(experiment.id, analysis)
-    return analysis
+    fresh = compute_experiment_analysis(repo, experiment)
+    existing = cached if cached is not None else repo.get_experiment_analysis(experiment.id)
+    if existing is not None and _analysis_unchanged(existing, fresh):
+        return existing
+    repo.save_experiment_analysis(experiment.id, fresh)
+    return fresh
 
 
 def analysis_needs_refresh(
@@ -61,7 +70,7 @@ def refresh_if_stale(
     analysis: ExperimentAnalysis | None,
 ) -> ExperimentAnalysis | None:
     if analysis_needs_refresh(experiment, analysis):
-        return persist_experiment_analysis(repo, experiment)
+        return persist_experiment_analysis(repo, experiment, cached=analysis)
     return analysis
 
 
@@ -85,14 +94,16 @@ def get_experiment_analysis(
 
 def refresh_active_experiments(repo: ExperimentRepository) -> int:
     """Recompute analysis for all active experiments. Returns count refreshed."""
-    experiments = repo.list_experiments(status="active")
+    experiments = repo.list_experiments(statuses=("active",))
+    cached_analyses = repo.list_all_experiment_analyses()
     count = 0
     for experiment in experiments:
         if experiment.design is None:
             continue
         try:
-            analysis = compute_experiment_analysis(repo, experiment)
-            repo.save_experiment_analysis(experiment.id, analysis)
+            persist_experiment_analysis(
+                repo, experiment, cached=cached_analyses.get(experiment.id),
+            )
             count += 1
         except Exception:
             log.exception("Failed to refresh experiment %s", experiment.id)

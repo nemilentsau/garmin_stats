@@ -10,7 +10,7 @@ from app.domains.routines.application.ports import RoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.models import CardLog, Experiment, ExperimentExposure, ScheduleOccurrence
 
-from .analysis import compute_experiment_analysis
+from .analysis_cache import persist_experiment_analysis
 from .ports import ExperimentRepository
 
 _PARTIAL_CARD_WEIGHT = 0.5
@@ -45,11 +45,7 @@ def _refresh_persisted_analysis_if_changed(
         )
     if not changed:
         return
-    if experiment.design is None:
-        repo.delete_experiment_analysis(experiment.id)
-        return
-    analysis = compute_experiment_analysis(repo, experiment)
-    repo.save_experiment_analysis(experiment.id, analysis)
+    persist_experiment_analysis(repo, experiment)
 
 
 def _derive_experiment_exposure(

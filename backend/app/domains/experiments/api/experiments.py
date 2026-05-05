@@ -43,14 +43,24 @@ def get_experiments():
 @router.post("/preview", response_model=ExperimentPreviewResponse)
 def post_preview(experiment: Experiment):
     """Validate an experiment spec without persisting."""
-    return preview_experiment(build_container().experiments_repo, experiment)
+    container = build_container()
+    return preview_experiment(
+        container.experiments_repo,
+        experiment,
+        routine_repo=container.routines_repo,
+    )
 
 
 @router.post("/import", response_model=ExperimentWithAnalysis)
 def post_import(experiment: Experiment):
     """Validate, persist, and run initial analysis."""
+    container = build_container()
     try:
-        return import_experiment(build_container().experiments_repo, experiment)
+        return import_experiment(
+            container.experiments_repo,
+            experiment,
+            routine_repo=container.routines_repo,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

@@ -37,10 +37,6 @@ from .analysis_math import (
 )
 from .ports import ExperimentRepository
 
-# ---------------------------------------------------------------------------
-# Lifecycle helpers (shared with analysis cache staleness checks)
-# ---------------------------------------------------------------------------
-
 
 def expected_experiment_phase(experiment: Experiment) -> str:
     """Phase that ``compute_experiment_analysis`` would assign for the current date."""
@@ -338,12 +334,10 @@ def _compute_adherence(
     exposures = repo.list_experiment_exposures(experiment_id=experiment.id)
     exposure_map = {e.date: e for e in exposures}
 
-    today = date_type.today().isoformat()
-    capped_end = min(treatment_end, today)
     entries: list[AdherenceDayEntry] = []
     full_count = 0
 
-    for ds in _date_range(treatment_start, capped_end):
+    for ds in _date_range(treatment_start, treatment_end):
         exp = exposure_map.get(ds)
         if exp is not None:
             entries.append(AdherenceDayEntry(

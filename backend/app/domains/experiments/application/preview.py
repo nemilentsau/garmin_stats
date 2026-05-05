@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import timedelta
 
+from app.domains.routines.application.ports import RoutineRepository
 from app.models import (
     DailyMetric,
     Experiment,
@@ -47,7 +48,7 @@ _VALID_CHECKIN_FIELDS = {
 
 
 def _resolve_design_dates(
-    repo: ExperimentRepository,
+    routine_repo: RoutineRepository,
     design: ExperimentDesign,
     linked_routine_ids: list[str],
 ) -> list[ExperimentPreviewIssue]:
@@ -86,7 +87,7 @@ def _resolve_design_dates(
         ))
         return issues
 
-    routine = repo.get_routine_schedule(linked_routine_ids[0])
+    routine = routine_repo.get_routine(linked_routine_ids[0])
     if routine is None:
         issues.append(ExperimentPreviewIssue(
             level="error",
@@ -112,6 +113,8 @@ def _resolve_design_dates(
 def preview_experiment(
     repo: ExperimentRepository,
     experiment: Experiment,
+    *,
+    routine_repo: RoutineRepository,
 ) -> ExperimentPreviewResponse:
     """Validate an experiment spec without persisting."""
     issues: list[ExperimentPreviewIssue] = []
@@ -126,7 +129,7 @@ def preview_experiment(
         ))
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
 
-    resolve_issues = _resolve_design_dates(repo, design, experiment.linked_routine_ids)
+    resolve_issues = _resolve_design_dates(routine_repo, design, experiment.linked_routine_ids)
     issues.extend(resolve_issues)
     if any(i.level == "error" for i in resolve_issues):
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)

@@ -921,15 +921,11 @@ def delete_experiment(experiment_id: str) -> None:
 
 def load_experiments(
     *,
-    status: str | None = None,
     statuses: tuple[str, ...] | None = None,
 ) -> list[Experiment]:
     where_sql = ""
     params: tuple[object, ...] = ()
-    if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
-    elif statuses is not None:
+    if statuses is not None:
         placeholders = ", ".join("?" for _ in statuses)
         where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
         params = statuses

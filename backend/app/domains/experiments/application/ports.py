@@ -10,7 +10,6 @@ from app.models import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
-    RoutineSchedule,
 )
 
 
@@ -18,7 +17,6 @@ class ExperimentRepository(Protocol):
     def list_experiments(
         self,
         *,
-        status: str | None = None,
         statuses: tuple[str, ...] | None = None,
     ) -> list[Experiment]: ...
 
@@ -59,5 +57,3 @@ class ExperimentRepository(Protocol):
     def list_daily_metrics(self) -> list[DailyMetric]: ...
 
     def list_daily_checkins(self) -> list[DailyCheckIn]: ...
-
-    def get_routine_schedule(self, routine_id: str) -> RoutineSchedule | None: ...

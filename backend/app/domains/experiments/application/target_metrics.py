@@ -1,4 +1,4 @@
-"""Experiment target metric registry use cases."""
+"""Experiment target metric registry."""
 
 from __future__ import annotations
 
@@ -71,14 +71,6 @@ _TARGET_METRICS = {
 def list_target_metrics() -> list[TargetMetricDefinition]:
     """Return the supported target metrics in stable key order."""
     return [_TARGET_METRICS[key] for key in sorted(_TARGET_METRICS)]
-
-
-def get_target_metric(key: str) -> TargetMetricDefinition:
-    """Return a target metric definition or raise KeyError if unknown."""
-    try:
-        return _TARGET_METRICS[key]
-    except KeyError as exc:
-        raise KeyError(f"Unknown target metric: {key}") from exc
 
 
 def get_target_metrics() -> TargetMetricsResponse:
