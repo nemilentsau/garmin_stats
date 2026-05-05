@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from app.domains.routines.application.ports import RoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.infra.database import (
+    auto_experiment_exposure_id,
     delete_experiment_analysis,
     load_experiment_exposures,
     load_experiments,
@@ -29,20 +30,6 @@ class ExperimentExposureSyncService:
 
     def sync_for_date(self, *, date: str) -> None:
         sync_experiment_exposures_for_date(date, routine_repo=self.routine_repo)
-
-
-def _auto_exposure_id(experiment_id: str, date: str) -> str:
-    return f"exposure:auto:{experiment_id}:{date}"
-
-
-def _find_auto_exposure(
-    exposures: list[ExperimentExposure],
-    *,
-    experiment_id: str,
-    date: str,
-) -> ExperimentExposure | None:
-    auto_id = _auto_exposure_id(experiment_id, date)
-    return next((exposure for exposure in exposures if exposure.id == auto_id), None)
 
 
 def _refresh_persisted_analysis_if_changed(
@@ -105,7 +92,7 @@ def _derive_experiment_exposure(
         adherence_state = "partial"
 
     return ExperimentExposure(
-        id=_auto_exposure_id(experiment.id, date),
+        id=auto_experiment_exposure_id(experiment.id, date),
         experiment_id=experiment.id,
         date=date,
         exposure_score=exposure_score,
@@ -137,17 +124,16 @@ def sync_experiment_exposures_for_date(
     logs_by_occurrence_key = {
         log.occurrence_key: log for log in routine_repo.list_card_logs(date=date)
     }
-    experiments = [
-        experiment
-        for experiment in load_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES)
-    ]
-    for experiment in experiments:
-        old_exposures = load_experiment_exposures(experiment_id=experiment.id, date=date)
-        old_auto_exposure = _find_auto_exposure(
-            old_exposures,
-            experiment_id=experiment.id,
-            date=date,
-        )
+    auto_exposures_by_experiment = {
+        exposure.experiment_id: exposure
+        for exposure in load_experiment_exposures(date=date)
+        if exposure.id == auto_experiment_exposure_id(exposure.experiment_id, date)
+    }
+    if not routine_ids_on_date and not auto_exposures_by_experiment:
+        return
+
+    for experiment in load_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES):
+        old_auto_exposure = auto_exposures_by_experiment.get(experiment.id)
         if (
             not routine_ids_on_date.intersection(experiment.linked_routine_ids)
             and old_auto_exposure is None

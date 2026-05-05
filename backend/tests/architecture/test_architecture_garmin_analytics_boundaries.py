@@ -4,6 +4,7 @@ from tests._architecture import (
     REPO_ROOT,
     assert_api_modules_are_boundary_only,
     assert_application_modules_are_strict,
+    assert_no_text_in_files,
     read_repo_file,
 )
 
@@ -15,8 +16,7 @@ def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
         "backend/app/domains/garmin_analytics/api/insights.py",
     ]
     assert_api_modules_are_boundary_only(paths)
-    for path in paths:
-        assert "app.stats" not in read_repo_file(path)
+    assert_no_text_in_files(paths, ["app.stats"])
 
 
 def test_garmin_analytics_application_does_not_import_flat_services_or_database():
