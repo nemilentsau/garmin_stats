@@ -5,19 +5,11 @@ Loads data windows, calls statistical functions, produces ExperimentAnalysis.
 
 from __future__ import annotations
 
-import logging
 from datetime import date as date_type
 from datetime import timedelta
 
 import numpy as np
 
-from app.infra.database import (
-    load_daily_checkins,
-    load_daily_metrics,
-    load_experiment_exposures,
-    load_experiments,
-    save_experiment_analysis,
-)
 from app.models import (
     AdherenceDayEntry,
     ConfounderCheck,
@@ -32,7 +24,7 @@ from app.models import (
     OutcomeMetric,
 )
 
-from .stats import (
+from .analysis_math import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,
@@ -43,13 +35,7 @@ from .stats import (
     resolve_path,
     welch_t_test,
 )
-
-log = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Lifecycle helpers (shared with experiments.py for staleness checks)
-# ---------------------------------------------------------------------------
+from .ports import ExperimentRepository
 
 
 def expected_experiment_phase(experiment: Experiment) -> str:
@@ -339,20 +325,19 @@ def _check_confounders(
 
 
 def _compute_adherence(
+    repo: ExperimentRepository,
     experiment: Experiment,
     treatment_start: str,
     treatment_end: str,
 ) -> tuple[float, list[AdherenceDayEntry]]:
     """Compute adherence rate and per-day calendar from exposures."""
-    exposures = load_experiment_exposures(experiment_id=experiment.id)
+    exposures = repo.list_experiment_exposures(experiment_id=experiment.id)
     exposure_map = {e.date: e for e in exposures}
 
-    today = date_type.today().isoformat()
-    capped_end = min(treatment_end, today)
     entries: list[AdherenceDayEntry] = []
     full_count = 0
 
-    for ds in _date_range(treatment_start, capped_end):
+    for ds in _date_range(treatment_start, treatment_end):
         exp = exposure_map.get(ds)
         if exp is not None:
             entries.append(AdherenceDayEntry(
@@ -458,7 +443,10 @@ def _generate_summary(
 # ---------------------------------------------------------------------------
 
 
-def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
+def compute_experiment_analysis(
+    repo: ExperimentRepository,
+    experiment: Experiment,
+) -> ExperimentAnalysis:
     """Compute full analysis for an experiment."""
     design = experiment.design
     if design is None:
@@ -501,8 +489,8 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
     assert design.baseline_end_date is not None
     assert design.treatment_start_date is not None
 
-    metrics_map = {m.date: m for m in load_daily_metrics()}
-    checkins_map = {c.date: c for c in load_daily_checkins()}
+    metrics_map = {m.date: m for m in repo.list_daily_metrics()}
+    checkins_map = {c.date: c for c in repo.list_daily_checkins()}
 
     treatment_end = current_treatment_window_end(design)
     assert treatment_end is not None  # design + treatment_start_date guarded above
@@ -538,7 +526,7 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
 
     # Adherence
     adherence_rate, adherence_by_day = _compute_adherence(
-        experiment, design.treatment_start_date, treatment_end,
+        repo, experiment, design.treatment_start_date, treatment_end,
     )
 
     # Days counts — reuse from primary metric analysis to avoid redundant extraction
@@ -571,24 +559,3 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
         overall_confidence=confidence,
         summary=summary,
     )
-
-
-# ---------------------------------------------------------------------------
-# Batch refresh
-# ---------------------------------------------------------------------------
-
-
-def refresh_active_experiments() -> int:
-    """Recompute analysis for all active experiments. Returns count refreshed."""
-    experiments = load_experiments(status="active")
-    count = 0
-    for exp in experiments:
-        if exp.design is None:
-            continue
-        try:
-            analysis = compute_experiment_analysis(exp)
-            save_experiment_analysis(exp.id, analysis)
-            count += 1
-        except Exception:
-            log.exception("Failed to refresh experiment %s", exp.id)
-    return count

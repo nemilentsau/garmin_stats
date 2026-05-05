@@ -69,8 +69,8 @@ domain-oriented structure:
 - `domains/artifacts/` is a transitional domain-routed slice that validates and
   imports assistant-authored cards and routine bundles before activating them
   into live runtime data.
-- `domains/experiments/` is a transitional domain-routed slice for experiment
-  definitions, target metrics, exposure derivation, and N=1 analysis.
+- `domains/experiments/` owns experiment definitions, target metrics, exposure
+  derivation, and N=1 analysis through named application use-case modules.
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 

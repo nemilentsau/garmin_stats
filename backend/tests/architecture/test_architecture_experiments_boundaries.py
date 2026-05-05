@@ -1,9 +1,9 @@
-"""Architecture guard rails for the transitional experiments domain slice."""
+"""Architecture guard rails for the experiments domain slice."""
 
 from tests._architecture import (
     REPO_ROOT,
     assert_api_modules_are_boundary_only,
-    assert_transitional_application_modules,
+    assert_application_modules_are_strict,
     read_repo_file,
 )
 
@@ -15,23 +15,27 @@ def test_experiments_api_modules_do_not_import_flat_database_or_services():
     ])
 
 
-def test_experiments_application_is_explicitly_transitional():
-    assert_transitional_application_modules(
-        [
-            "backend/app/domains/experiments/application/analysis.py",
-            "backend/app/domains/experiments/application/experiments.py",
-            "backend/app/domains/experiments/application/exposure_sync.py",
-            "backend/app/domains/experiments/application/stats.py",
-            "backend/app/domains/experiments/application/target_metrics.py",
-        ],
-        allowed_violations=[
-            "app.infra.database",
-        ],
-        reason=(
-            "Experiments is domain-routed but not fully migrated: application code "
-            "still reaches shared SQLite helpers directly."
-        ),
-    )
+def test_experiments_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
+        "backend/app/domains/experiments/application/analysis_cache.py",
+        "backend/app/domains/experiments/application/analysis.py",
+        "backend/app/domains/experiments/application/analysis_math.py",
+        "backend/app/domains/experiments/application/exposures.py",
+        "backend/app/domains/experiments/application/exposure_sync.py",
+        "backend/app/domains/experiments/application/management.py",
+        "backend/app/domains/experiments/application/ports.py",
+        "backend/app/domains/experiments/application/preview.py",
+        "backend/app/domains/experiments/application/target_metrics.py",
+    ])
+
+
+def test_experiments_application_files_are_named_by_responsibility():
+    for path in [
+        "backend/app/domains/experiments/application/experiments.py",
+        "backend/app/domains/experiments/application/stats.py",
+        "backend/app/domains/experiments/domain",
+    ]:
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():
@@ -65,5 +69,5 @@ def test_migrated_experiment_router_shims_are_removed():
 
 def test_assistant_reads_experiment_analysis_through_domain_service():
     source = read_repo_file("backend/app/domains/assistant/infra/sqlite_repository.py")
-    assert "domains.experiments.application.experiments" in source
+    assert "domains.experiments.application.analysis_cache" in source
     assert "load_experiment_analysis" not in source

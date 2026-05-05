@@ -85,12 +85,15 @@ There are two major paths:
   Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
-  Transitional domain-routed slice for experiment CRUD, design preview/import,
-  target metric registry, exposure derivation, and N=1 analysis. This domain
-  owns `/api/experiments` and `/api/target-metrics`. Experiment analysis is a
-  cached read model that refreshes after exposure changes and on stale
-  date-sensitive reads. Routes and flat shims are migrated, but application code
-  still has direct SQLite helper dependencies.
+  Experiment CRUD, design preview/import, target metric registry, exposure
+  derivation, and N=1 analysis. This domain owns `/api/experiments` and
+  `/api/target-metrics`. Experiment analysis is a cached read model that
+  refreshes after exposure changes and on stale date-sensitive reads. `api/`
+  owns FastAPI routes, `application/` owns named use cases (`management`,
+  `preview`, `exposures`, `exposure_sync`, `analysis_cache`, `analysis`, and
+  `target_metrics`) plus repository ports, and `infra/` owns the SQLite
+  repository adapter. It has no separate `domain/` package until experiment
+  rules need a dedicated pure domain model layer.
 
 - `domains/artifacts/`
   Transitional domain-routed slice for assistant-authored artifact staging and
@@ -122,9 +125,9 @@ strict boundary migration.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
 Fully migrated slices today: `domains/assistant`, `domains/routines`,
-`domains/garmin_analytics`, `domains/journal`, and `core/profile`.
-Transitional domain-routed slices today: `domains/artifacts` and
-`domains/experiments`.
+`domains/garmin_analytics`, `domains/experiments`, `domains/journal`, and
+`core/profile`.
+Transitional domain-routed slices today: `domains/artifacts`.
 
 ## Experiment Semantics
 

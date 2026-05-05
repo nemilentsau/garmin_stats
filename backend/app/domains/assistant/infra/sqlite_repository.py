@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
-from app.domains.experiments.application.experiments import (
+from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
+from app.domains.experiments.application.ports import ExperimentRepository
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -17,8 +20,6 @@ from app.infra.database import (
     load_card_logs_range,
     load_daily_checkins,
     load_daily_metrics,
-    load_experiment_exposures,
-    load_experiments,
     load_notes,
     load_routine_assignments,
     load_routine_schedules,
@@ -46,7 +47,10 @@ from app.models import (
 )
 
 
+@dataclass(frozen=True)
 class SqliteAssistantRepository:
+    experiment_repo: ExperimentRepository
+
     def list_threads(self) -> list[AssistantThread]:
         return load_assistant_threads()
 
@@ -118,14 +122,13 @@ class SqliteAssistantRepository:
     def list_experiments(
         self,
         *,
-        status: str | None = None,
         statuses: tuple[str, ...] | None = None,
     ) -> list[Experiment]:
-        return load_experiments(status=status, statuses=statuses)
+        return self.experiment_repo.list_experiments(statuses=statuses)
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
-            return get_current_experiment_analysis(experiment_id)
+            return get_current_experiment_analysis(self.experiment_repo, experiment_id)
         except LookupError:
             return None
 
@@ -135,7 +138,9 @@ class SqliteAssistantRepository:
         experiment_id: str | None = None,
         date: str | None = None,
     ) -> list[ExperimentExposure]:
-        return load_experiment_exposures(experiment_id=experiment_id, date=date)
+        return self.experiment_repo.list_experiment_exposures(
+            experiment_id=experiment_id, date=date,
+        )
 
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
         return load_routine_schedules(status=status)
