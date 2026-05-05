@@ -211,16 +211,14 @@ async def watch_data_directory(data_dir: Path) -> None:
             )
             # Refresh experiment analyses after successful ingest.
             try:
+                from app.bootstrap.container import build_container
                 from app.domains.experiments.application.analysis import (
                     refresh_active_experiments,
-                )
-                from app.domains.experiments.infra.sqlite_repository import (
-                    SqliteExperimentRepository,
                 )
 
                 refreshed = await asyncio.to_thread(
                     refresh_active_experiments,
-                    SqliteExperimentRepository(),
+                    build_container().experiments_repo,
                 )
                 if refreshed:
                     log.info("Refreshed %d active experiment analyses", refreshed)

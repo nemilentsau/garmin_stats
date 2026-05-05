@@ -948,10 +948,6 @@ def save_experiment_exposure(exposure: ExperimentExposure) -> None:
     )
 
 
-def auto_experiment_exposure_id(experiment_id: str, date: str) -> str:
-    return f"exposure:auto:{experiment_id}:{date}"
-
-
 def replace_experiment_exposure_for_date(
     experiment_id: str,
     date: str,
@@ -962,7 +958,7 @@ def replace_experiment_exposure_for_date(
     Manual same-day exposure rows are preserved and take precedence over any
     derived exposure the sync service would otherwise write.
     """
-    auto_id = auto_experiment_exposure_id(experiment_id, date)
+    auto_id = ExperimentExposure.auto_id(experiment_id, date)
     if exposure is not None and (
         exposure.experiment_id != experiment_id
         or exposure.date != date

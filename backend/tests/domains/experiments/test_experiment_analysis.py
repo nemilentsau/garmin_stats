@@ -22,10 +22,6 @@ from app.models import (
 )
 
 
-def _repo() -> SqliteExperimentRepository:
-    return SqliteExperimentRepository()
-
-
 def _make_metric(
     d: str,
     hrv_nightly: float | None,
@@ -119,7 +115,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(len(baseline), len(treatment))
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
 
         assert result.experiment_id == "test-experiment"
         assert result.phase == "completed"
@@ -140,7 +136,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(values, values)
 
         exp = _make_experiment(len(values), len(values))
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
 
         metric = result.metrics[0]
         assert abs(metric.best_result.delta_abs) < 1.0
@@ -157,7 +153,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(14, 14, lag_days=[0, 5])
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
 
         metric = result.metrics[0]
         # The lag=5 result should be better than lag=0
@@ -169,7 +165,7 @@ class TestComputeExperimentAnalysis:
     def test_no_design_returns_draft(self):
         """Experiment without design gets a draft analysis."""
         exp = Experiment(id="no-design", name="No Design", status="draft")
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
         assert result.phase == "draft"
         assert result.overall_confidence == "insufficient"
 
@@ -180,7 +176,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(14, 14)
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
 
         # We watch sleep.score and stress.avg — both should have checks
         assert len(result.confounders) == 2
@@ -195,7 +191,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(3, 3)
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
         assert result.overall_confidence == "insufficient"
 
     def test_lower_is_better_uses_direction_correct_nap(self):
@@ -222,7 +218,7 @@ class TestComputeExperimentAnalysis:
         ]
         exp.confounder_watch = []
 
-        result = compute_experiment_analysis(_repo(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
 
         metric = result.metrics[0]
         assert metric.best_result.direction_correct is True
@@ -250,7 +246,7 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="nonexistent.metric")],
         )
-        result = preview_experiment(_repo(), exp)
+        result = preview_experiment(SqliteExperimentRepository(), exp)
         assert not result.valid
         error_msgs = [i.message for i in result.issues if i.level == "error"]
         assert any("nonexistent.metric" in msg for msg in error_msgs)
@@ -270,7 +266,7 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        result = preview_experiment(_repo(), exp)
+        result = preview_experiment(SqliteExperimentRepository(), exp)
         assert not result.valid
 
     def test_import_persists_and_analyses(self):
@@ -291,7 +287,7 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        result = import_experiment(_repo(), exp)
+        result = import_experiment(SqliteExperimentRepository(), exp)
         assert result.experiment.status == "active"
         assert result.analysis is not None
         assert result.analysis.days_in_baseline > 0
@@ -319,7 +315,7 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        import_experiment(_repo(), exp)
+        import_experiment(SqliteExperimentRepository(), exp)
 
         loaded = db.load_experiment_analysis("flat-series")
 
@@ -354,7 +350,7 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
-        import_experiment(_repo(), exp)
+        import_experiment(SqliteExperimentRepository(), exp)
 
         updated = Experiment(
             id="refresh-test",
@@ -363,9 +359,9 @@ class TestExperimentPreviewAndImport:
             design=exp.design,
             outcome_metrics=[OutcomeMetric(path="sleep.score")],
         )
-        update_experiment(_repo(), "refresh-test", updated)
+        update_experiment(SqliteExperimentRepository(), "refresh-test", updated)
 
-        detail = get_experiment_with_analysis(_repo(), "refresh-test")
+        detail = get_experiment_with_analysis(SqliteExperimentRepository(), "refresh-test")
 
         assert detail.analysis is not None
         assert detail.experiment.outcome_metrics[0].path == "sleep.score"
@@ -410,10 +406,11 @@ class TestExperimentPreviewAndImport:
                 )
             )
 
+        repo = SqliteExperimentRepository()
         monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
         db.save_experiment_analysis(
             experiment.id,
-            experiment_analysis_mod.compute_experiment_analysis(_repo(), experiment),
+            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
         stale = db.load_experiment_analysis(experiment.id)
         assert stale is not None
@@ -423,7 +420,7 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
         monkeypatch.setattr(experiments_mod, "date_type", May4)
 
-        analysis = experiments_mod.get_experiment_analysis(_repo(), experiment.id)
+        analysis = experiments_mod.get_experiment_analysis(repo, experiment.id)
 
         assert analysis is not None
         assert analysis.analysis_date == "2026-05-04"
@@ -433,7 +430,7 @@ class TestExperimentPreviewAndImport:
         assert analysis.adherence_by_day[-1].state == "unknown"
 
         db.save_experiment_analysis(experiment.id, stale)
-        detail = experiments_mod.get_experiment_with_analysis(_repo(), experiment.id)
+        detail = experiments_mod.get_experiment_with_analysis(repo, experiment.id)
 
         assert detail.analysis is not None
         assert detail.analysis.analysis_date == "2026-05-04"
@@ -457,10 +454,10 @@ class TestExperimentPreviewAndImport:
                 treatment_start_date="not-a-date",
             ),
         )
-        create_experiment(_repo(), experiment)
+        create_experiment(SqliteExperimentRepository(), experiment)
 
-        detail = get_experiment_with_analysis(_repo(), experiment.id)
-        response = list_experiments(_repo())
+        detail = get_experiment_with_analysis(SqliteExperimentRepository(), experiment.id)
+        response = list_experiments(SqliteExperimentRepository())
 
         assert detail.experiment.id == experiment.id
         assert detail.analysis is None
@@ -494,6 +491,6 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
 
-        result = preview_experiment(_repo(), exp)
+        result = preview_experiment(SqliteExperimentRepository(), exp)
 
         assert result.valid is True

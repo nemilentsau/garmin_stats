@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.infra.database import (
     delete_experiment_analysis,
+    experiment_exists,
     load_all_experiment_analyses,
     load_daily_checkins,
     load_daily_metrics,
@@ -38,6 +39,9 @@ class SqliteExperimentRepository:
 
     def get_experiment(self, experiment_id: str) -> Experiment | None:
         return load_experiment(experiment_id)
+
+    def experiment_exists(self, experiment_id: str) -> bool:
+        return experiment_exists(experiment_id)
 
     def save_experiment(self, experiment: Experiment) -> None:
         save_experiment(experiment)

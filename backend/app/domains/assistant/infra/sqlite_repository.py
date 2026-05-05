@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.experiments.application.experiments import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
-from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
+from app.domains.experiments.application.ports import ExperimentRepository
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -47,7 +49,10 @@ from app.models import (
 )
 
 
+@dataclass(frozen=True)
 class SqliteAssistantRepository:
+    experiment_repo: ExperimentRepository
+
     def list_threads(self) -> list[AssistantThread]:
         return load_assistant_threads()
 
@@ -126,10 +131,7 @@ class SqliteAssistantRepository:
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
-            return get_current_experiment_analysis(
-                SqliteExperimentRepository(),
-                experiment_id,
-            )
+            return get_current_experiment_analysis(self.experiment_repo, experiment_id)
         except LookupError:
             return None
 

@@ -657,6 +657,10 @@ class ExperimentExposure(_DefaultsRequired):
     linked_routine_entry_ids: list[str] = []
     notes: str | None = None
 
+    @staticmethod
+    def auto_id(experiment_id: str, date: str) -> str:
+        return f"exposure:auto:{experiment_id}:{date}"
+
 
 class ExperimentMetricEffect(_DefaultsRequired):
     metric: str

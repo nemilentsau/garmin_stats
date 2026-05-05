@@ -27,10 +27,6 @@ from app.models import (
 )
 
 
-def _experiment_repo() -> SqliteExperimentRepository:
-    return SqliteExperimentRepository()
-
-
 def _card_request(card_id: str, *, slot_default: str) -> AssistantArtifactCreateRequest:
     return AssistantArtifactCreateRequest(
         id=f"artifact-{card_id}",
@@ -117,7 +113,7 @@ def _sync_exposures_for_date(date: str) -> None:
 
     sync_experiment_exposures_for_date(
         date,
-        experiment_repo=_experiment_repo(),
+        experiment_repo=SqliteExperimentRepository(),
         routine_repo=SqliteRoutineRepository(),
     )
 
@@ -235,7 +231,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     save_experiment(experiment)
     save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(_experiment_repo(), experiment),
+        compute_experiment_analysis(SqliteExperimentRepository(), experiment),
     )
 
     scheduled_cards = _scheduled_cards_for("2026-03-02")
@@ -283,7 +279,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
     save_experiment(experiment)
     save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(_experiment_repo(), experiment),
+        compute_experiment_analysis(SqliteExperimentRepository(), experiment),
     )
 
     first_card = _scheduled_cards_for("2026-03-02")[0]

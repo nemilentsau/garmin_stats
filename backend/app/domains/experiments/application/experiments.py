@@ -81,7 +81,7 @@ def update_experiment(
     """Replace an existing experiment."""
     if experiment.id != experiment_id:
         raise ValueError("Experiment id does not match path id")
-    if repo.get_experiment(experiment_id) is None:
+    if not repo.experiment_exists(experiment_id):
         raise LookupError(f"Experiment {experiment_id} not found")
     repo.save_experiment(experiment)
     _persist_experiment_analysis(repo, experiment)
@@ -371,7 +371,7 @@ def preview_experiment(
             ))
 
     # Duplicate check
-    if repo.get_experiment(experiment.id) is not None:
+    if repo.experiment_exists(experiment.id):
         issues.append(ExperimentPreviewIssue(
             level="warning",
             message=f"Experiment '{experiment.id}' already exists and will be overwritten.",

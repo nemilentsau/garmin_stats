@@ -30,10 +30,6 @@ class ExperimentExposureSyncService:
         )
 
 
-def _auto_exposure_id(experiment_id: str, date: str) -> str:
-    return f"exposure:auto:{experiment_id}:{date}"
-
-
 def _refresh_persisted_analysis_if_changed(
     repo: ExperimentRepository,
     experiment: Experiment,
@@ -95,7 +91,7 @@ def _derive_experiment_exposure(
         adherence_state = "partial"
 
     return ExperimentExposure(
-        id=_auto_exposure_id(experiment.id, date),
+        id=ExperimentExposure.auto_id(experiment.id, date),
         experiment_id=experiment.id,
         date=date,
         exposure_score=exposure_score,
@@ -131,7 +127,7 @@ def sync_experiment_exposures_for_date(
     auto_exposures_by_experiment = {
         exposure.experiment_id: exposure
         for exposure in experiment_repo.list_experiment_exposures(date=date)
-        if exposure.id == _auto_exposure_id(exposure.experiment_id, date)
+        if exposure.id == ExperimentExposure.auto_id(exposure.experiment_id, date)
     }
     if not routine_ids_on_date and not auto_exposures_by_experiment:
         return

@@ -34,7 +34,7 @@ def build_container() -> AppContainer:
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
     return AppContainer(
-        assistant_repo=SqliteAssistantRepository(),
+        assistant_repo=SqliteAssistantRepository(experiment_repo=experiments_repo),
         assistant_runtime=ClaudeCodeRuntime(),
         garmin_biometrics_repo=SqliteBiometricRepository(),
         journal_repo=SqliteJournalRepository(),
