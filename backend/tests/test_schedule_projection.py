@@ -1,30 +1,14 @@
 """Tests that define the Phase 1 shared schedule projection contract."""
 
-from types import SimpleNamespace
-
 import pytest
 
-from app.bootstrap.container import build_container
 from app.domains.artifacts.application.artifacts import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
-from app.domains.routines.application.schedule_window import (
-    get_schedule_window as _get_schedule_window,
-)
 from app.infra.database import save_card_override
 from app.models import AssistantArtifactCreateRequest, CardOverride
-
-
-def _schedule_mod():
-    def get_schedule_window(start_date: str, duration_days: int = 14):
-        return _get_schedule_window(
-            build_container().routines_repo,
-            start_date=start_date,
-            duration_days=duration_days,
-        )
-
-    return SimpleNamespace(get_schedule_window=get_schedule_window)
+from tests._routines_helpers import get_schedule_window
 
 
 def _card_request(
@@ -155,7 +139,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02")
+        window = get_schedule_window("2026-03-02")
         days = _days_by_date(window)
         occurrence_dates = [
             occurrence.date
@@ -201,7 +185,7 @@ class TestScheduleProjection:
             status="paused",
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02")
+        window = get_schedule_window("2026-03-02")
         card_ids = {occurrence.card_template_id for occurrence in _all_occurrences(window)}
 
         assert card_ids == {"card-active"}
@@ -270,7 +254,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02")
+        window = get_schedule_window("2026-03-02")
         dates_by_card = {
             card_id: [
                 occurrence.date
@@ -316,7 +300,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02")
+        window = get_schedule_window("2026-03-02")
         day_occurrences = _days_by_date(window)["2026-03-02"].occurrences
 
         assert {occurrence.routine_id for occurrence in day_occurrences} == {
@@ -355,7 +339,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02")
+        window = get_schedule_window("2026-03-02")
         ordered = [
             (occurrence.slot, occurrence.position, occurrence.card_template_id)
             for occurrence in _days_by_date(window)["2026-03-02"].occurrences
@@ -383,7 +367,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        window_before = get_schedule_window("2026-03-02")
         scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
 
         save_card_override(
@@ -405,7 +389,7 @@ class TestScheduleProjection:
             )
         )
 
-        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        window_after = get_schedule_window("2026-03-02")
         day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
 
         assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
@@ -430,7 +414,7 @@ class TestScheduleProjection:
             ],
         )
 
-        window_before = _schedule_mod().get_schedule_window("2026-03-02")
+        window_before = get_schedule_window("2026-03-02")
         scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
 
         save_card_override(
@@ -443,7 +427,7 @@ class TestScheduleProjection:
             )
         )
 
-        window_after = _schedule_mod().get_schedule_window("2026-03-02")
+        window_after = get_schedule_window("2026-03-02")
         day_occurrences = _days_by_date(window_after)["2026-03-02"].occurrences
 
         assert [occurrence.card_template_id for occurrence in day_occurrences] == ["card-extra"]
@@ -469,10 +453,10 @@ class TestScheduleProjection:
             )
         )
 
-        window = _schedule_mod().get_schedule_window("2026-03-02", duration_days=1)
+        window = get_schedule_window("2026-03-02", duration_days=1)
 
         assert window.days[0].occurrences == []
 
     def test_invalid_start_date_raises_value_error(self):
         with pytest.raises(ValueError):
-            _schedule_mod().get_schedule_window("03-02-2026")
+            get_schedule_window("03-02-2026")

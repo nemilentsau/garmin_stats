@@ -36,7 +36,7 @@ class TestImportProgram:
                     ],
                     experiments=[],
                 )
-        )
+            )
 
         assert list_programs().programs == []
         assert load_routines() == []

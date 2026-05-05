@@ -6,11 +6,12 @@ from app.domains.artifacts.application.artifacts import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
-from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.routines.application.today import (
     get_card_log_range,
     get_today,
-    upsert_today_card_log,
+)
+from app.domains.routines.application.today import (
+    upsert_today_card_log as _upsert_today_card_log,
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import load_experiment_exposures, save_experiment
@@ -20,6 +21,7 @@ from app.models import (
     Experiment,
     TodayCardLogUpdateRequest,
 )
+from tests._routines_helpers import upsert_today_card_log
 
 
 def _card_request(card_id: str) -> AssistantArtifactCreateRequest:
@@ -103,21 +105,6 @@ def _two_card_routine_request(routine_id: str) -> AssistantArtifactCreateRequest
     )
 
 
-def _upsert_today_card_log_with_exposure_sync(
-    repo: SqliteRoutineRepository,
-    date: str,
-    occurrence_key: str,
-    request: TodayCardLogUpdateRequest,
-):
-    return upsert_today_card_log(
-        repo,
-        date=date,
-        occurrence_key=occurrence_key,
-        request=request,
-        observer=ExperimentExposureSyncService(),
-    )
-
-
 def test_get_today_returns_grouped_slots_and_stats():
     card_artifact = create_assistant_artifact(_card_request("card-today"))
     activate_assistant_artifact(card_artifact.id)
@@ -179,7 +166,9 @@ def test_upsert_today_card_log_validates_occurrence_identity():
     )
 
     with pytest.raises(LookupError, match="Today occurrence missing not found"):
-        upsert_today_card_log(repo, date="2026-03-02", occurrence_key="missing", request=request)
+        _upsert_today_card_log(
+            repo, date="2026-03-02", occurrence_key="missing", request=request
+        )
 
 
 def test_upsert_today_card_log_rejects_assignment_mismatch():
@@ -195,7 +184,7 @@ def test_upsert_today_card_log_rejects_assignment_mismatch():
     scheduled_card = today.slots[2].cards[0]
 
     with pytest.raises(ValueError, match="Assignment id does not match"):
-        upsert_today_card_log(
+        _upsert_today_card_log(
             repo,
             date="2026-03-02",
             occurrence_key=scheduled_card.occurrence_key,
@@ -230,8 +219,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
     cards = [card for slot in today.slots for card in slot.cards]
     first_card, second_card = cards
 
-    _upsert_today_card_log_with_exposure_sync(
-        repo,
+    upsert_today_card_log(
         "2026-03-02",
         first_card.occurrence_key,
         TodayCardLogUpdateRequest(
@@ -248,8 +236,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
     assert exposures[0].adherence_state == "partial"
     assert exposures[0].exposure_score == 0.5
 
-    _upsert_today_card_log_with_exposure_sync(
-        repo,
+    upsert_today_card_log(
         "2026-03-02",
         second_card.occurrence_key,
         TodayCardLogUpdateRequest(
@@ -266,8 +253,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
     assert exposures[0].adherence_state == "full"
     assert exposures[0].exposure_score == 1.0
 
-    _upsert_today_card_log_with_exposure_sync(
-        repo,
+    upsert_today_card_log(
         "2026-03-02",
         first_card.occurrence_key,
         TodayCardLogUpdateRequest(
