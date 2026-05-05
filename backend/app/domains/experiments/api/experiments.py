@@ -2,11 +2,19 @@
 
 from fastapi import APIRouter, HTTPException
 
-from ..infra.database import (
-    load_experiment_exposures,
-    save_experiment_exposure,
+from app.domains.experiments.application.analysis import refresh_active_experiments
+from app.domains.experiments.application.experiments import (
+    create_experiment,
+    create_experiment_exposure,
+    get_experiment_analysis,
+    get_experiment_with_analysis,
+    import_experiment,
+    list_experiment_exposures,
+    list_experiments,
+    preview_experiment,
+    update_experiment,
 )
-from ..models import (
+from app.models import (
     Experiment,
     ExperimentAnalysis,
     ExperimentAnalysisRefreshResponse,
@@ -14,17 +22,6 @@ from ..models import (
     ExperimentPreviewResponse,
     ExperimentsResponse,
     ExperimentWithAnalysis,
-)
-from ..services.experiment_analysis import refresh_active_experiments
-from ..services.experiments import (
-    create_experiment,
-    get_experiment,
-    get_experiment_analysis,
-    get_experiment_with_analysis,
-    import_experiment,
-    list_experiments,
-    preview_experiment,
-    update_experiment,
 )
 
 router = APIRouter(prefix="/api/experiments", tags=["experiments"])
@@ -99,17 +96,15 @@ def get_analysis(experiment_id: str):
 @router.get("/{experiment_id}/exposures", response_model=list[ExperimentExposure])
 def get_exposures(experiment_id: str):
     """Return all exposures for an experiment."""
-    return load_experiment_exposures(experiment_id=experiment_id)
+    return list_experiment_exposures(experiment_id)
 
 
 @router.post("/{experiment_id}/exposures", response_model=ExperimentExposure)
 def post_exposure(experiment_id: str, exposure: ExperimentExposure):
     """Log an exposure entry for an experiment."""
     try:
-        get_experiment(experiment_id)
+        return create_experiment_exposure(experiment_id, exposure)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    if exposure.experiment_id != experiment_id:
-        raise HTTPException(status_code=400, detail="Exposure experiment_id mismatch")
-    save_experiment_exposure(exposure)
-    return exposure
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e

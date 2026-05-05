@@ -5,30 +5,38 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import timedelta
 
-from ..infra.database import (
+from app.infra.database import (
     delete_experiment_analysis,
     experiment_exists,
     load_all_experiment_analyses,
     load_daily_metrics,
     load_experiment,
     load_experiment_analysis,
+    load_experiment_exposures,
     load_experiments,
     load_routine_schedule,
     save_experiment,
     save_experiment_analysis,
+    save_experiment_exposure,
 )
-from ..models import (
+from app.models import (
     DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentDesign,
+    ExperimentExposure,
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
     ExperimentsResponse,
     ExperimentWithAnalysis,
 )
-from .experiment_analysis import compute_experiment_analysis
-from .experiment_stats import resolve_metric_path
+
+from .analysis import (
+    compute_experiment_analysis,
+    current_treatment_window_end,
+    expected_experiment_phase,
+)
+from .stats import resolve_metric_path
 
 # ---------------------------------------------------------------------------
 # List / get
@@ -38,11 +46,11 @@ from .experiment_stats import resolve_metric_path
 def list_experiments() -> ExperimentsResponse:
     """Return all experiments with their latest analysis."""
     experiments = load_experiments()
-    analyses = load_all_experiment_analyses()
+    analyses_by_id = load_all_experiment_analyses()
     items = [
         ExperimentWithAnalysis(
             experiment=exp,
-            analysis=analyses.get(exp.id),
+            analysis=_refresh_if_stale(exp, analyses_by_id.get(exp.id)),
         )
         for exp in experiments
     ]
@@ -60,7 +68,7 @@ def get_experiment(experiment_id: str) -> Experiment:
 def get_experiment_with_analysis(experiment_id: str) -> ExperimentWithAnalysis:
     """Load experiment + latest analysis."""
     exp = get_experiment(experiment_id)
-    analysis = load_experiment_analysis(experiment_id)
+    analysis = _load_current_analysis(exp)
     return ExperimentWithAnalysis(experiment=exp, analysis=analysis)
 
 
@@ -100,6 +108,43 @@ def _persist_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis |
     analysis = compute_experiment_analysis(experiment)
     save_experiment_analysis(experiment.id, analysis)
     return analysis
+
+
+def _analysis_needs_refresh(
+    experiment: Experiment,
+    analysis: ExperimentAnalysis | None,
+) -> bool:
+    if experiment.design is None:
+        return analysis is not None
+    if analysis is None:
+        return False
+
+    if analysis.analysis_date != date_type.today().isoformat():
+        return True
+    if analysis.phase != expected_experiment_phase(experiment):
+        return True
+
+    treatment_start = experiment.design.treatment_start_date
+    treatment_end = current_treatment_window_end(experiment.design)
+    if treatment_start is None or treatment_end is None or treatment_end < treatment_start:
+        return False
+
+    if not analysis.adherence_by_day:
+        return True
+    return analysis.adherence_by_day[-1].date < treatment_end
+
+
+def _refresh_if_stale(
+    experiment: Experiment,
+    analysis: ExperimentAnalysis | None,
+) -> ExperimentAnalysis | None:
+    if _analysis_needs_refresh(experiment, analysis):
+        return _persist_experiment_analysis(experiment)
+    return analysis
+
+
+def _load_current_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
+    return _refresh_if_stale(experiment, load_experiment_analysis(experiment.id))
 
 
 def _validate_metric_path(
@@ -357,7 +402,24 @@ def import_experiment(experiment: Experiment) -> ExperimentWithAnalysis:
 
 
 def get_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
-    """Return the latest persisted analysis for an experiment."""
-    if not experiment_exists(experiment_id):
-        raise LookupError(f"Experiment {experiment_id} not found")
-    return load_experiment_analysis(experiment_id)
+    """Return current analysis for an experiment, refreshing stale cached rows."""
+    exp = get_experiment(experiment_id)
+    return _load_current_analysis(exp)
+
+
+def list_experiment_exposures(experiment_id: str) -> list[ExperimentExposure]:
+    """Return all exposure entries for an experiment."""
+    return load_experiment_exposures(experiment_id=experiment_id)
+
+
+def create_experiment_exposure(
+    experiment_id: str,
+    exposure: ExperimentExposure,
+) -> ExperimentExposure:
+    """Persist a manual exposure entry for an experiment."""
+    if exposure.experiment_id != experiment_id:
+        raise ValueError("Exposure experiment_id mismatch")
+    experiment = get_experiment(experiment_id)
+    save_experiment_exposure(exposure)
+    _persist_experiment_analysis(experiment)
+    return exposure

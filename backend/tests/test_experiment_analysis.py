@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 import app.infra.database as db
+from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.models import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -15,9 +16,9 @@ from app.models import (
     DailySleepStats,
     Experiment,
     ExperimentDesign,
+    ExperimentExposure,
     OutcomeMetric,
 )
-from app.services.experiment_analysis import compute_experiment_analysis
 
 
 def _make_metric(
@@ -227,7 +228,7 @@ class TestComputeExperimentAnalysis:
 class TestExperimentPreviewAndImport:
     def test_preview_validates_metric_path(self):
         """Preview should reject invalid metric paths."""
-        from app.services.experiments import preview_experiment
+        from app.domains.experiments.application.experiments import preview_experiment
 
         # Seed some data so baseline check passes
         _seed_metrics([40.0] * 14, [50.0] * 14)
@@ -251,7 +252,7 @@ class TestExperimentPreviewAndImport:
 
     def test_preview_validates_dates(self):
         """Preview should catch invalid date ordering."""
-        from app.services.experiments import preview_experiment
+        from app.domains.experiments.application.experiments import preview_experiment
 
         exp = Experiment(
             id="bad-dates",
@@ -269,7 +270,7 @@ class TestExperimentPreviewAndImport:
 
     def test_import_persists_and_analyses(self):
         """Import should create experiment and run analysis."""
-        from app.services.experiments import import_experiment
+        from app.domains.experiments.application.experiments import import_experiment
 
         _seed_metrics([40.0] * 14, [50.0] * 14)
 
@@ -297,7 +298,7 @@ class TestExperimentPreviewAndImport:
 
     def test_imported_analysis_with_flat_windows_round_trips_from_storage(self):
         """Persisted analyses should remain loadable for constant windows."""
-        from app.services.experiments import import_experiment
+        from app.domains.experiments.application.experiments import import_experiment
 
         _seed_metrics([40.0] * 14, [50.0] * 14)
 
@@ -325,7 +326,7 @@ class TestExperimentPreviewAndImport:
 
     def test_update_experiment_refreshes_saved_analysis(self):
         """Updating an experiment should refresh the persisted analysis payload."""
-        from app.services.experiments import (
+        from app.domains.experiments.application.experiments import (
             get_experiment_with_analysis,
             import_experiment,
             update_experiment,
@@ -365,9 +366,105 @@ class TestExperimentPreviewAndImport:
         assert detail.experiment.outcome_metrics[0].path == "sleep.score"
         assert detail.analysis.metrics[0].path == "sleep.score"
 
+    def test_get_experiment_with_analysis_refreshes_stale_adherence_window(self, monkeypatch):
+        """Reading yesterday's analysis should recompute adherence for today's date."""
+        import app.domains.experiments.application.analysis as experiment_analysis_mod
+        import app.domains.experiments.application.experiments as experiments_mod
+
+        class Apr13(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 4, 13)
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        experiment = Experiment(
+            id="stale-adherence",
+            name="Meditation -> HRV",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-24",
+            ),
+            outcome_metrics=[],
+        )
+        db.save_experiment(experiment)
+        for day in ("2026-04-11", "2026-04-12", "2026-04-13"):
+            db.save_experiment_exposure(
+                ExperimentExposure(
+                    id=f"exposure:auto:{experiment.id}:{day}",
+                    experiment_id=experiment.id,
+                    date=day,
+                    adherence_state="full",
+                    exposure_score=1.0,
+                )
+            )
+
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
+        db.save_experiment_analysis(
+            experiment.id,
+            experiment_analysis_mod.compute_experiment_analysis(experiment),
+        )
+        stale = db.load_experiment_analysis(experiment.id)
+        assert stale is not None
+        assert stale.adherence_rate == 1.0
+        assert len(stale.adherence_by_day) == 3
+
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
+        monkeypatch.setattr(experiments_mod, "date_type", May4)
+
+        analysis = experiments_mod.get_experiment_analysis(experiment.id)
+
+        assert analysis is not None
+        assert analysis.analysis_date == "2026-05-04"
+        assert analysis.adherence_rate == 0.214
+        assert len(analysis.adherence_by_day) == 14
+        assert analysis.adherence_by_day[-1].date == "2026-04-24"
+        assert analysis.adherence_by_day[-1].state == "unknown"
+
+        db.save_experiment_analysis(experiment.id, stale)
+        detail = experiments_mod.get_experiment_with_analysis(experiment.id)
+
+        assert detail.analysis is not None
+        assert detail.analysis.analysis_date == "2026-05-04"
+        assert detail.analysis.adherence_rate == 0.214
+
+    def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
+        """Simple CRUD experiments should remain readable without cached analysis."""
+        from app.domains.experiments.application.experiments import (
+            create_experiment,
+            get_experiment_with_analysis,
+            list_experiments,
+        )
+
+        experiment = Experiment(
+            id="unvalidated-crud",
+            name="Unvalidated CRUD",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-02",
+                treatment_start_date="not-a-date",
+            ),
+        )
+        create_experiment(experiment)
+
+        detail = get_experiment_with_analysis(experiment.id)
+        response = list_experiments()
+
+        assert detail.experiment.id == experiment.id
+        assert detail.analysis is None
+        assert response.experiments[0].experiment.id == experiment.id
+        assert response.experiments[0].analysis is None
+
     def test_preview_validates_metric_path_within_experiment_window(self):
         """Historical metrics inside the experiment window should still validate."""
-        from app.services.experiments import preview_experiment
+        from app.domains.experiments.application.experiments import preview_experiment
 
         start = date(2026, 1, 1)
         metrics: list[DailyMetric] = []

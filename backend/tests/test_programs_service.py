@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.experiments import list_experiments
+from app.domains.experiments.application.experiments import list_experiments
 from app.services.programs import import_program, list_programs
 from app.services.routines import list_routines
 

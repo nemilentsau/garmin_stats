@@ -7,11 +7,11 @@ from functools import lru_cache
 
 from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
+from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.garmin_analytics.infra.biometric_repository import (
     SqliteBiometricRepository,
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.services.experiment_exposure_sync import ExperimentExposureSyncService
 
 
 @dataclass(frozen=True)

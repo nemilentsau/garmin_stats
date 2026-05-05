@@ -3,6 +3,8 @@
 from fastapi import FastAPI
 
 from app.domains.assistant.api.threads import router as assistant_router
+from app.domains.experiments.api.experiments import router as experiments_router
+from app.domains.experiments.api.target_metrics import router as target_metrics_router
 from app.domains.garmin_analytics.api.biometrics import (
     daily_aggregates_router,
     hrv_router,
@@ -25,12 +27,10 @@ from ..routers.cards import router as cards_router
 from ..routers.checkins import router as checkins_router
 from ..routers.days import router as days_router
 from ..routers.events import router as events_router
-from ..routers.experiments import router as experiments_router
 from ..routers.ingest import router as ingest_router
 from ..routers.notes import router as notes_router
 from ..routers.profile import router as profile_router
 from ..routers.programs import router as programs_router
-from ..routers.target_metrics import router as target_metrics_router
 
 
 def register_routers(app: FastAPI) -> None:

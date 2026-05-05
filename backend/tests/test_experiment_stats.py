@@ -5,17 +5,7 @@ import warnings
 
 import pytest
 
-from app.models import (
-    DailyBodyBatteryStats,
-    DailyCheckIn,
-    DailyHeartRateStats,
-    DailyHrvStats,
-    DailyMetric,
-    DailyMetricStats,
-    DailySkinTempStats,
-    DailySleepStats,
-)
-from app.services.experiment_stats import (
+from app.domains.experiments.application.stats import (
     autocorrelation_lag1,
     compute_cohens_d,
     compute_hedges_g,
@@ -26,6 +16,16 @@ from app.services.experiment_stats import (
     resolve_metric_path,
     resolve_path,
     welch_t_test,
+)
+from app.models import (
+    DailyBodyBatteryStats,
+    DailyCheckIn,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
 )
 
 

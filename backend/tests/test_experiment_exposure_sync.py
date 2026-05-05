@@ -1,5 +1,6 @@
 """Tests for experiment exposure sync derived from routine card logs."""
 
+from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.routines.application.today import get_today
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import (
@@ -17,7 +18,6 @@ from app.models import (
     ExperimentDesign,
     ExperimentExposure,
 )
-from app.services.experiment_analysis import compute_experiment_analysis
 from app.services.training_specs import (
     activate_assistant_artifact,
     create_assistant_artifact,
@@ -124,7 +124,7 @@ def test_sync_experiment_exposures_marks_day_full_when_all_linked_cards_complete
             )
         )
 
-    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
     sync_experiment_exposures_for_date("2026-03-02")
 
@@ -157,7 +157,7 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
         )
     )
 
-    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
     sync_experiment_exposures_for_date("2026-03-02")
 
@@ -196,7 +196,7 @@ def test_sync_experiment_exposures_preserves_manual_same_day_entries():
         )
     )
 
-    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
     sync_experiment_exposures_for_date("2026-03-02")
 
@@ -244,7 +244,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     assert before.adherence_rate == 0.0
     assert before.adherence_by_day[0].state == "unknown"
 
-    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
     sync_experiment_exposures_for_date("2026-03-02")
 
@@ -285,7 +285,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
         )
     )
 
-    from app.services.experiment_exposure_sync import sync_experiment_exposures_for_date
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
     sync_experiment_exposures_for_date("2026-03-02")
 

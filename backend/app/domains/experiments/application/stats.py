@@ -12,7 +12,7 @@ import numpy as np
 from pydantic import BaseModel
 from scipy import stats as sp_stats
 
-from ..models import DailyCheckIn, DailyMetric
+from app.models import DailyCheckIn, DailyMetric
 
 # ---------------------------------------------------------------------------
 # Metric path resolution

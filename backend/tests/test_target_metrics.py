@@ -2,7 +2,10 @@
 
 import pytest
 
-from app.target_metrics import get_target_metric, list_target_metrics
+from app.domains.experiments.domain.target_metrics import (
+    get_target_metric,
+    list_target_metrics,
+)
 
 
 def test_lists_supported_target_metrics_in_stable_order():

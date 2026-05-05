@@ -211,7 +211,9 @@ async def watch_data_directory(data_dir: Path) -> None:
             )
             # Refresh experiment analyses after successful ingest.
             try:
-                from ..services.experiment_analysis import refresh_active_experiments
+                from app.domains.experiments.application.analysis import (
+                    refresh_active_experiments,
+                )
 
                 refreshed = await asyncio.to_thread(refresh_active_experiments)
                 if refreshed:

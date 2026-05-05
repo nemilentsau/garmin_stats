@@ -11,26 +11,28 @@ from datetime import timedelta
 
 import numpy as np
 
-from ..infra.database import (
+from app.infra.database import (
     load_daily_checkins,
     load_daily_metrics,
     load_experiment_exposures,
     load_experiments,
     save_experiment_analysis,
 )
-from ..models import (
+from app.models import (
     AdherenceDayEntry,
     ConfounderCheck,
     DailyCheckIn,
     DailyMetric,
     Experiment,
     ExperimentAnalysis,
+    ExperimentDesign,
     ExperimentReportConfidence,
     MetricAnalysis,
     MetricLagResult,
     OutcomeMetric,
 )
-from .experiment_stats import (
+
+from .stats import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,
@@ -43,6 +45,33 @@ from .experiment_stats import (
 )
 
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle helpers (shared with experiments.py for staleness checks)
+# ---------------------------------------------------------------------------
+
+
+def expected_experiment_phase(experiment: Experiment) -> str:
+    """Phase that ``compute_experiment_analysis`` would assign for the current date."""
+    design = experiment.design
+    if design is None or not design.treatment_start_date:
+        return "draft"
+    today = date_type.today().isoformat()
+    if today < design.treatment_start_date:
+        return "collecting_baseline"
+    if design.treatment_end_date and today > design.treatment_end_date:
+        return "completed"
+    return "treatment"
+
+
+def current_treatment_window_end(design: ExperimentDesign | None) -> str | None:
+    """End of the realised treatment window: the planned end clamped to today."""
+    if design is None or not design.treatment_start_date:
+        return None
+    today = date_type.today().isoformat()
+    treatment_end = design.treatment_end_date or today
+    return min(treatment_end, today)
 
 
 # ---------------------------------------------------------------------------
@@ -475,18 +504,9 @@ def compute_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis:
     metrics_map = {m.date: m for m in load_daily_metrics()}
     checkins_map = {c.date: c for c in load_daily_checkins()}
 
-    today = date_type.today().isoformat()
-    treatment_end = design.treatment_end_date or today
-    if treatment_end > today:
-        treatment_end = today
-
-    # Determine phase
-    if today < design.treatment_start_date:
-        phase = "collecting_baseline"
-    elif design.treatment_end_date and today > design.treatment_end_date:
-        phase = "completed"
-    else:
-        phase = "treatment"
+    treatment_end = current_treatment_window_end(design)
+    assert treatment_end is not None  # design + treatment_start_date guarded above
+    phase = expected_experiment_phase(experiment)
 
     # Lag days from design or experiment-level fallback
     lag_days_list = design.expected_lag_days or experiment.expected_lag_days or [0]

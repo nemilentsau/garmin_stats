@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.domains.experiments.application.experiments import (
+    get_experiment_analysis as get_current_experiment_analysis,
+)
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -14,7 +17,6 @@ from app.infra.database import (
     load_card_logs_range,
     load_daily_checkins,
     load_daily_metrics,
-    load_experiment_analysis,
     load_experiment_exposures,
     load_experiments,
     load_notes,
@@ -122,7 +124,10 @@ class SqliteAssistantRepository:
         return load_experiments(status=status, statuses=statuses)
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
-        return load_experiment_analysis(experiment_id)
+        try:
+            return get_current_experiment_analysis(experiment_id)
+        except LookupError:
+            return None
 
     def list_experiment_exposures(
         self,
