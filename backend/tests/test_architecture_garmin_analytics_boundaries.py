@@ -1,12 +1,6 @@
 """Architecture guard rails for Garmin analytics domain ownership."""
 
-from pathlib import Path
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _read(path: str) -> str:
-    return (_REPO_ROOT / path).read_text(encoding="utf-8")
+from tests._architecture import REPO_ROOT, read_repo_file
 
 
 def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
@@ -15,7 +9,7 @@ def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
         "backend/app/domains/garmin_analytics/api/biometrics.py",
         "backend/app/domains/garmin_analytics/api/insights.py",
     ]:
-        source = _read(path)
+        source = read_repo_file(path)
         assert "app.infra.database" not in source
         assert "app.stats" not in source
         assert "app.routers" not in source
@@ -28,7 +22,7 @@ def test_garmin_analytics_application_modules_are_fastapi_free():
         "backend/app/domains/garmin_analytics/application/period_summary.py",
         "backend/app/domains/garmin_analytics/application/insights.py",
     ]:
-        assert "fastapi" not in _read(path)
+        assert "fastapi" not in read_repo_file(path)
 
 
 def test_garmin_analytics_application_does_not_import_flat_services_or_database():
@@ -45,7 +39,7 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         "backend/app/domains/garmin_analytics/application/stress_analysis.py",
         "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
     ]:
-        source = _read(path)
+        source = read_repo_file(path)
         assert "app.services" not in source
         assert "app.infra.database" not in source
 
@@ -61,11 +55,11 @@ def test_migrated_garmin_analytics_service_shims_are_removed():
         "backend/app/services/stress_analysis.py",
         "backend/app/services/body_battery_analysis.py",
     ]:
-        assert not (_REPO_ROOT / path).exists()
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
-    source = _read("backend/app/bootstrap/routing.py")
+    source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "domains.garmin_analytics.api.overview" in source
     assert "domains.garmin_analytics.api.biometrics" in source
     assert "domains.garmin_analytics.api.insights" in source
@@ -92,10 +86,10 @@ def test_migrated_garmin_analytics_router_shims_are_removed():
         "backend/app/routers/stress.py",
         "backend/app/routers/body_battery.py",
     ]:
-        assert not (_REPO_ROOT / path).exists()
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_days_route_remains_outside_garmin_analytics_slice():
-    source = _read("backend/app/bootstrap/routing.py")
+    source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "from ..routers.days import router as days_router" in source
     assert "domains.garmin_analytics.api.days" not in source

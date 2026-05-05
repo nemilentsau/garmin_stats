@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from app.core.profile.api import router as profile_router
 from app.domains.artifacts.api.artifacts import router as assistant_artifacts_router
 from app.domains.artifacts.api.bundles import router as assistant_artifact_bundles_router
 from app.domains.artifacts.api.cards import router as cards_router
@@ -21,15 +22,14 @@ from app.domains.garmin_analytics.api.insights import (
     stress_router,
 )
 from app.domains.garmin_analytics.api.overview import router as dashboard_router
+from app.domains.journal.api.checkins import router as checkins_router
+from app.domains.journal.api.notes import router as notes_router
 from app.domains.routines.api.routines import router as routines_router
 from app.domains.routines.api.today import router as today_router
 
-from ..routers.checkins import router as checkins_router
 from ..routers.days import router as days_router
 from ..routers.events import router as events_router
 from ..routers.ingest import router as ingest_router
-from ..routers.notes import router as notes_router
-from ..routers.profile import router as profile_router
 from ..routers.programs import router as programs_router
 
 

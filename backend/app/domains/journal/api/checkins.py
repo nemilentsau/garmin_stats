@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Query
 
-from ..models import DailyCheckIn, DailyCheckInsResponse
-from ..services.checkins import create_checkin, list_checkins
+from app.domains.journal.application.checkins import create_checkin, list_checkins
+from app.models import DailyCheckIn, DailyCheckInsResponse
 
 router = APIRouter(prefix="/api/checkins", tags=["checkins"])
 

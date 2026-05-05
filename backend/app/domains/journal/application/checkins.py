@@ -1,7 +1,7 @@
-"""Daily check-in service."""
+"""Daily check-in use cases."""
 
-from ..infra.database import load_daily_checkins, save_daily_checkin
-from ..models import DailyCheckIn, DailyCheckInsResponse
+from app.infra.database import load_daily_checkins, save_daily_checkin
+from app.models import DailyCheckIn, DailyCheckInsResponse
 
 
 def list_checkins(date: str | None = None) -> DailyCheckInsResponse:

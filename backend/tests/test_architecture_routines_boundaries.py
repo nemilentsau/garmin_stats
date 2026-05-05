@@ -2,11 +2,7 @@
 
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _read(path: str) -> str:
-    return (_REPO_ROOT / path).read_text(encoding="utf-8")
+from tests._architecture import REPO_ROOT, assert_no_repo_imports_of, read_repo_file
 
 
 def test_routines_api_modules_do_not_import_flat_database_or_services():
@@ -14,7 +10,7 @@ def test_routines_api_modules_do_not_import_flat_database_or_services():
         "backend/app/domains/routines/api/routines.py",
         "backend/app/domains/routines/api/today.py",
     ]:
-        source = _read(path)
+        source = read_repo_file(path)
         assert "app.infra.database" not in source
         assert "app.services." not in source
         assert "app.routers" not in source
@@ -27,11 +23,11 @@ def test_routines_application_modules_are_fastapi_free():
         "backend/app/domains/routines/application/today.py",
         "backend/app/domains/routines/application/activation.py",
     ]:
-        assert "fastapi" not in _read(path)
+        assert "fastapi" not in read_repo_file(path)
 
 
 def test_bootstrap_routing_mounts_domain_routines_router_directly():
-    source = _read("backend/app/bootstrap/routing.py")
+    source = read_repo_file("backend/app/bootstrap/routing.py")
 
     assert "domains.routines.api.routines" in source
     assert "domains.routines.api.today" in source
@@ -47,7 +43,7 @@ def test_migrated_routine_service_shims_are_removed():
         "backend/app/services/schedule_projection.py",
         "backend/app/services/today.py",
     ]:
-        assert not (_REPO_ROOT / path).exists()
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_migrated_routine_router_shims_are_removed():
@@ -55,29 +51,17 @@ def test_migrated_routine_router_shims_are_removed():
         "backend/app/routers/routines.py",
         "backend/app/routers/today.py",
     ]:
-        assert not (_REPO_ROOT / path).exists()
+        assert not (REPO_ROOT / path).exists()
 
 
 def test_backend_code_does_not_import_migrated_routine_shims():
-    forbidden = [
-        "app.services.routines",
-        "app.services.schedule_projection",
-        "app.services.today",
-        "app.routers.routines",
-        "app.routers.today",
-    ]
-    roots = [
-        _REPO_ROOT / "backend" / "app",
-        _REPO_ROOT / "backend" / "tests",
-    ]
-
-    offenders: list[str] = []
-    for root in roots:
-        for path in root.rglob("*.py"):
-            if path == Path(__file__).resolve():
-                continue
-            source = path.read_text(encoding="utf-8")
-            if any(import_path in source for import_path in forbidden):
-                offenders.append(str(path.relative_to(_REPO_ROOT)))
-
-    assert offenders == []
+    assert_no_repo_imports_of(
+        [
+            "app.services.routines",
+            "app.services.schedule_projection",
+            "app.services.today",
+            "app.routers.routines",
+            "app.routers.today",
+        ],
+        Path(__file__),
+    )

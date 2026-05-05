@@ -89,7 +89,13 @@ There are two major paths:
 - `domains/artifacts/`
   Assistant-authored artifact staging and publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and `/api/assistant/artifact-bundles`. It validates/imports card and routine artifacts, tracks bundle revisions and capability requests, and delegates activation writes to the owning runtime domains.
 
-- `profile.py`, `checkins.py`, `notes.py`, `programs.py`
+- `domains/journal/`
+  Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation.
+
+- `core/profile/`
+  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain.
+
+- `programs.py`
   Secondary/parked domain services still present in the backend.
 
 ## Experiment Semantics
@@ -131,13 +137,22 @@ Experiment adherence is protocol-defined and day-grain.
 - `/api/routines`
 - `/api/today`
 
-### Secondary or parked backend domains
+### Journal
 
-- `/api/profile`
 - `/api/checkins`
 - `/api/notes`
+
+### Experiments
+
 - `/api/experiments`
 - `/api/target-metrics`
+
+### Core app config
+
+- `/api/profile`
+
+### Secondary or parked backend domains
+
 - `/api/programs`
 
 ## Routine Runtime Boundary

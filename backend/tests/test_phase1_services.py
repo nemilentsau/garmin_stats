@@ -1,8 +1,8 @@
 """Tests for phase 1 foundation services."""
 
+from app.core.profile.application import get_user_profile, update_user_profile
+from app.domains.journal.application.checkins import create_checkin, list_checkins
 from app.models import DailyCheckIn, UserProfile
-from app.services.checkins import create_checkin, list_checkins
-from app.services.profile import get_user_profile, update_user_profile
 
 
 class TestProfileService:
