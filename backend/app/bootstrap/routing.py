@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from app.core.profile.api import router as profile_router
 from app.domains.artifacts.api.artifacts import router as assistant_artifacts_router
 from app.domains.artifacts.api.bundles import router as assistant_artifact_bundles_router
 from app.domains.artifacts.api.cards import router as cards_router
@@ -29,7 +30,6 @@ from app.domains.routines.api.today import router as today_router
 from ..routers.days import router as days_router
 from ..routers.events import router as events_router
 from ..routers.ingest import router as ingest_router
-from ..routers.profile import router as profile_router
 from ..routers.programs import router as programs_router
 
 

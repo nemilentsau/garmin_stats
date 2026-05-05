@@ -3,9 +3,9 @@
 import pytest
 from fastapi import HTTPException
 
+import app.core.profile.api as profile_mod
 import app.domains.experiments.api.experiments as experiments_mod
 import app.domains.routines.api.routines as routines_api_mod
-import app.routers.profile as profile_mod
 from app.models import (
     Experiment,
     OutcomeMetric,

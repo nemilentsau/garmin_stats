@@ -92,7 +92,10 @@ There are two major paths:
 - `domains/journal/`
   Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation.
 
-- `profile.py`, `programs.py`
+- `core/profile/`
+  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain.
+
+- `programs.py`
   Secondary/parked domain services still present in the backend.
 
 ## Experiment Semantics
@@ -144,9 +147,12 @@ Experiment adherence is protocol-defined and day-grain.
 - `/api/experiments`
 - `/api/target-metrics`
 
-### Secondary or parked backend domains
+### Core app config
 
 - `/api/profile`
+
+### Secondary or parked backend domains
+
 - `/api/programs`
 
 ## Routine Runtime Boundary

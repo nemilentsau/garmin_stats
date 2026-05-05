@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from ..models import UserProfile
-from ..services.profile import get_user_profile, update_user_profile
+from app.core.profile.application import get_user_profile, update_user_profile
+from app.models import UserProfile
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 

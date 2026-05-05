@@ -1,7 +1,7 @@
-"""Profile service."""
+"""Profile configuration use cases."""
 
-from ..infra.database import load_user_profile, save_user_profile
-from ..models import DEFAULT_PROFILE_ID, UserProfile
+from app.infra.database import load_user_profile, save_user_profile
+from app.models import DEFAULT_PROFILE_ID, UserProfile
 
 
 def get_user_profile() -> UserProfile:
