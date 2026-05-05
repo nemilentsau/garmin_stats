@@ -36,7 +36,7 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
 There are two major paths:
 
 - Ingest path: FIT files -> `parser.py` -> `stats.py` -> SQLite
-- Read path: SQLite -> domain application slices or legacy services -> JSON API -> frontend
+- Read path: SQLite -> repository adapters -> domain/core application slices or legacy services -> JSON API -> frontend
 
 ### Core modules
 
@@ -90,13 +90,20 @@ There are two major paths:
   Assistant-authored artifact staging and publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and `/api/assistant/artifact-bundles`. It validates/imports card and routine artifacts, tracks bundle revisions and capability requests, and delegates activation writes to the owning runtime domains.
 
 - `domains/journal/`
-  Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation.
+  Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation. `api/` owns FastAPI routes, `application/` owns use cases and repository ports, and `infra/` owns the SQLite repository adapter.
 
 - `core/profile/`
-  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain.
+  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. The route uses the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `infra/` owns the SQLite adapter.
 
 - `programs.py`
   Secondary/parked domain services still present in the backend.
+
+### Migrated slice boundary convention
+
+- `api/` modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
+- `application/` modules should stay FastAPI-free and depend on repository ports rather than `app.infra.database`.
+- `infra/` modules are the SQLite boundary for migrated slices and may wrap `app.infra.database`.
+- Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
 ## Experiment Semantics
 

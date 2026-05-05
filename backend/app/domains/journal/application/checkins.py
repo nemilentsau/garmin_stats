@@ -1,17 +1,21 @@
 """Daily check-in use cases."""
 
-from app.infra.database import load_daily_checkins, save_daily_checkin
 from app.models import DailyCheckIn, DailyCheckInsResponse
 
+from .ports import JournalRepository
 
-def list_checkins(date: str | None = None) -> DailyCheckInsResponse:
+
+def list_checkins(
+    repo: JournalRepository,
+    date: str | None = None,
+) -> DailyCheckInsResponse:
     """Return daily check-ins, optionally filtered by date."""
-    checkins = load_daily_checkins(date=date)
+    checkins = repo.list_checkins(date=date)
     return DailyCheckInsResponse(checkins=checkins)
 
 
-def create_checkin(checkin: DailyCheckIn) -> DailyCheckIn:
+def create_checkin(repo: JournalRepository, checkin: DailyCheckIn) -> DailyCheckIn:
     """Persist a daily check-in."""
     normalized = checkin.model_copy(update={"id": f"checkin-{checkin.date}"})
-    save_daily_checkin(normalized)
+    repo.save_checkin(normalized)
     return normalized

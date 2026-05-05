@@ -16,7 +16,7 @@ from app.models import (
 
 class TestProfileRoutes:
     def test_get_profile_returns_default_profile(self, monkeypatch):
-        monkeypatch.setattr(profile_mod, "get_user_profile", lambda: UserProfile())
+        monkeypatch.setattr(profile_mod, "get_user_profile", lambda *_args: UserProfile())
 
         profile = profile_mod.get_profile()
 

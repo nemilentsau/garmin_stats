@@ -1,16 +1,17 @@
 """Profile configuration use cases."""
 
-from app.infra.database import load_user_profile, save_user_profile
 from app.models import DEFAULT_PROFILE_ID, UserProfile
 
+from .ports import ProfileRepository
 
-def get_user_profile() -> UserProfile:
+
+def get_user_profile(repo: ProfileRepository) -> UserProfile:
     """Return the stored profile or an empty default profile."""
-    return load_user_profile() or UserProfile()
+    return repo.get_profile() or UserProfile()
 
 
-def update_user_profile(profile: UserProfile) -> UserProfile:
+def update_user_profile(repo: ProfileRepository, profile: UserProfile) -> UserProfile:
     """Persist and return the user profile."""
     normalized = profile.model_copy(update={"id": DEFAULT_PROFILE_ID})
-    save_user_profile(normalized)
+    repo.save_profile(normalized)
     return normalized
