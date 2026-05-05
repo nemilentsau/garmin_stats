@@ -5,7 +5,6 @@ Loads data windows, calls statistical functions, produces ExperimentAnalysis.
 
 from __future__ import annotations
 
-import logging
 from datetime import date as date_type
 from datetime import timedelta
 
@@ -25,8 +24,7 @@ from app.models import (
     OutcomeMetric,
 )
 
-from .ports import ExperimentRepository
-from .stats import (
+from .analysis_math import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,
@@ -37,12 +35,10 @@ from .stats import (
     resolve_path,
     welch_t_test,
 )
-
-log = logging.getLogger(__name__)
-
+from .ports import ExperimentRepository
 
 # ---------------------------------------------------------------------------
-# Lifecycle helpers (shared with experiments.py for staleness checks)
+# Lifecycle helpers (shared with analysis cache staleness checks)
 # ---------------------------------------------------------------------------
 
 
@@ -569,24 +565,3 @@ def compute_experiment_analysis(
         overall_confidence=confidence,
         summary=summary,
     )
-
-
-# ---------------------------------------------------------------------------
-# Batch refresh
-# ---------------------------------------------------------------------------
-
-
-def refresh_active_experiments(repo: ExperimentRepository) -> int:
-    """Recompute analysis for all active experiments. Returns count refreshed."""
-    experiments = repo.list_experiments(status="active")
-    count = 0
-    for exp in experiments:
-        if exp.design is None:
-            continue
-        try:
-            analysis = compute_experiment_analysis(repo, exp)
-            repo.save_experiment_analysis(exp.id, analysis)
-            count += 1
-        except Exception:
-            log.exception("Failed to refresh experiment %s", exp.id)
-    return count

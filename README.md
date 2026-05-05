@@ -70,7 +70,7 @@ domain-oriented structure:
   imports assistant-authored cards and routine bundles before activating them
   into live runtime data.
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
-  derivation, and N=1 analysis.
+  derivation, and N=1 analysis through named application use-case modules.
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domains.experiments.domain.target_metrics import (
+from app.domains.experiments.application.target_metrics import (
     get_target_metric,
     list_target_metrics,
 )

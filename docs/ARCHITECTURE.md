@@ -89,8 +89,11 @@ There are two major paths:
   derivation, and N=1 analysis. This domain owns `/api/experiments` and
   `/api/target-metrics`. Experiment analysis is a cached read model that
   refreshes after exposure changes and on stale date-sensitive reads. `api/`
-  owns FastAPI routes, `application/` owns use cases and repository ports, and
-  `infra/` owns the SQLite repository adapter.
+  owns FastAPI routes, `application/` owns named use cases (`management`,
+  `preview`, `exposures`, `exposure_sync`, `analysis_cache`, `analysis`, and
+  `target_metrics`) plus repository ports, and `infra/` owns the SQLite
+  repository adapter. It has no separate `domain/` package until experiment
+  rules need a dedicated pure domain model layer.
 
 - `domains/artifacts/`
   Transitional domain-routed slice for assistant-authored artifact staging and

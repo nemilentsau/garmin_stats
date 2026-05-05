@@ -1,11 +1,11 @@
-"""Unit tests for experiment statistical functions."""
+"""Unit tests for experiment analysis math helpers."""
 
 
 import warnings
 
 import pytest
 
-from app.domains.experiments.application.stats import (
+from app.domains.experiments.application.analysis_math import (
     autocorrelation_lag1,
     compute_cohens_d,
     compute_hedges_g,

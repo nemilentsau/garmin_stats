@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domains.experiments.application.experiments import list_experiments
+from app.domains.experiments.application.management import list_experiments
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.infra.database import load_routines
 from app.services.programs import import_program, list_programs

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
-from app.domains.experiments.application.experiments import (
+from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
 from app.domains.experiments.application.ports import ExperimentRepository
