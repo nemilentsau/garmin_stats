@@ -1,4 +1,4 @@
-"""Tests for training-runtime route error handling."""
+"""Tests for artifact route error handling."""
 
 import asyncio
 import json

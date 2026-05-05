@@ -1,7 +1,6 @@
-"""Tests for assistant artifacts and compiled training runtime."""
+"""Tests for assistant artifacts and compiled routine runtime."""
 
 import json
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -26,11 +25,11 @@ from app.models import (
     CardOverride,
     TodayCardLogUpdateRequest,
 )
+from tests._architecture import REPO_ROOT
 from tests._routines_helpers import get_schedule_window, get_today, upsert_today_card_log
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_CORE_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_core_bundle.json"
-_MEDITATION_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
+_CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_core_bundle.json"
+_MEDITATION_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
 
 
 def _card_request(

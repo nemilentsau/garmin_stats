@@ -542,7 +542,7 @@ class TestStoreAndLoad:
     def test_missing_context_snapshot_returns_none(self):
         assert db.load_context_snapshot("missing") is None
 
-    def test_training_runtime_records_survive_round_trip(self):
+    def test_routine_runtime_records_survive_round_trip(self):
         artifact = AssistantArtifact(
             id="artifact-1",
             kind="card_template",
