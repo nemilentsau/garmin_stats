@@ -9,16 +9,16 @@ Usage:
     # Prepare backend-managed env once:
     #   cd backend && uv sync --python 3.14
     # Run from backend so dependencies come from backend/pyproject.toml:
-    #   cd backend && uv run python ../explore_fit_files.py [--data-dir DATA_DIR] [--summary-only] [--by-day] [--type TYPE]
+    #   cd backend && uv run python ../scripts/explore_fit_files.py \
+    #       [--data-dir DATA_DIR] [--summary-only] [--by-day] [--type TYPE]
 """
 
 import argparse
-from collections import defaultdict
-from datetime import datetime
-from pathlib import Path
 import subprocess
+from collections import defaultdict
+from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _derive_shared_checkout_root(repo_root: Path) -> Path | None:
@@ -54,13 +54,13 @@ def _derive_shared_checkout_root(repo_root: Path) -> Path | None:
 
 def resolve_default_data_dir() -> tuple[Path, list[Path]]:
     """Resolve a sensible default data path for normal checkouts and worktrees."""
-    local_data = SCRIPT_DIR / "data"
+    local_data = REPO_ROOT / "data"
     candidates = [local_data]
     if local_data.exists():
         return local_data, candidates
 
-    shared_root = _derive_shared_checkout_root(SCRIPT_DIR)
-    if shared_root and shared_root != SCRIPT_DIR:
+    shared_root = _derive_shared_checkout_root(REPO_ROOT)
+    if shared_root and shared_root != REPO_ROOT:
         shared_data = shared_root / "data"
         candidates.append(shared_data)
         if shared_data.exists():
@@ -73,7 +73,7 @@ try:
 except ImportError:
     print("Error: garmin-fit-sdk library not installed.")
     print("Sync backend deps with: cd backend && uv sync --python 3.14")
-    print("Then run with: cd backend && uv run python ../explore_fit_files.py ...")
+    print("Then run with: cd backend && uv run python ../scripts/explore_fit_files.py ...")
     exit(1)
 
 
@@ -84,10 +84,7 @@ def get_fit_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
     for fit_file in data_dir.rglob("*.fit"):
         date_dir = fit_file.parent.name
         name_parts = fit_file.stem.split("_")
-        if len(name_parts) >= 2:
-            file_type = "_".join(name_parts[1:])
-        else:
-            file_type = "UNKNOWN"
+        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
         files_by_day[date_dir][file_type].append(fit_file)
 
     return {k: dict(v) for k, v in sorted(files_by_day.items())}
@@ -126,16 +123,18 @@ def analyze_fit_file(file_path: Path) -> dict:
             # Collect all field names across all records of this type
             all_fields = set()
             for record in records:
-                all_fields.update(str(k) for k in record.keys())
+                all_fields.update(str(k) for k in record)
 
                 # Track time range from timestamp fields
                 for ts_field in ["timestamp", "stress_level_time"]:
                     if ts_field in record and record[ts_field]:
                         ts = record[ts_field]
                         if hasattr(ts, "timestamp"):  # datetime-like
-                            if result["time_range"]["start"] is None or ts < result["time_range"]["start"]:
+                            current_start = result["time_range"]["start"]
+                            current_end = result["time_range"]["end"]
+                            if current_start is None or ts < current_start:
                                 result["time_range"]["start"] = ts
-                            if result["time_range"]["end"] is None or ts > result["time_range"]["end"]:
+                            if current_end is None or ts > current_end:
                                 result["time_range"]["end"] = ts
 
             result["fields_by_message"][msg_name] = sorted(all_fields)
@@ -168,7 +167,7 @@ def print_day_summary(date: str, files_by_type: dict[str, list[Path]], analyses:
     if all_starts and all_ends:
         print(f"   Time Range: {min(all_starts)} to {max(all_ends)}")
 
-    print(f"\n   File Types:")
+    print("\n   File Types:")
     for file_type, files in sorted(files_by_type.items()):
         type_analyses = [a for a in analyses if a["file_name"].endswith(f"_{file_type}.fit")]
         type_size = sum(a["file_size_kb"] for a in type_analyses)
@@ -189,14 +188,23 @@ def print_analysis(file_type: str, analyses: list[dict]):
             print(f"   ⚠️  Errors: {analysis['errors']}")
 
         if analysis["time_range"]["start"]:
-            print(f"   Time Range: {analysis['time_range']['start']} to {analysis['time_range']['end']}")
+            print(
+                "   Time Range: "
+                f"{analysis['time_range']['start']} to {analysis['time_range']['end']}"
+            )
 
         print(f"\n   Message Types ({len(analysis['message_types'])} types):")
-        for msg_type, count in sorted(analysis["message_types"].items(), key=lambda x: str(x[0])):
+        for msg_type, count in sorted(
+            analysis["message_types"].items(),
+            key=lambda x: str(x[0]),
+        ):
             print(f"      - {msg_type}: {count} records")
 
-        print(f"\n   Fields by Message Type:")
-        for msg_type, fields in sorted(analysis["fields_by_message"].items(), key=lambda x: str(x[0])):
+        print("\n   Fields by Message Type:")
+        for msg_type, fields in sorted(
+            analysis["fields_by_message"].items(),
+            key=lambda x: str(x[0]),
+        ):
             named_fields = [f for f in fields if not f.isdigit()]
             unknown_fields = [f for f in fields if f.isdigit()]
 
@@ -225,7 +233,7 @@ def generate_summary(files_by_day: dict, all_analyses: dict):
 
     all_msg_types = defaultdict(lambda: {"count": 0, "fields": set()})
 
-    for file_type, analyses in all_analyses.items():
+    for analyses in all_analyses.values():
         for analysis in analyses:
             for msg_type, count in analysis["message_types"].items():
                 all_msg_types[msg_type]["count"] += count
@@ -293,8 +301,11 @@ def main():
         return 1
 
     total_files = sum(sum(len(f) for f in day.values()) for day in files_by_day.values())
-    total_types = len(set(t for day in files_by_day.values() for t in day.keys()))
-    print(f"   Found {total_files} FIT files in {total_types} categories across {len(files_by_day)} days")
+    total_types = len({t for day in files_by_day.values() for t in day})
+    print(
+        f"   Found {total_files} FIT files in {total_types} categories "
+        f"across {len(files_by_day)} days"
+    )
 
     # Filter by type if specified
     if args.type:
@@ -308,7 +319,7 @@ def main():
     print("\n🔬 Analyzing files...")
     all_analyses = defaultdict(list)
 
-    for date, day_files in sorted(files_by_day.items()):
+    for _date, day_files in sorted(files_by_day.items()):
         for file_type, files in sorted(day_files.items()):
             for fit_file in sorted(files):
                 print(f"   Processing: {fit_file.parent.name}/{fit_file.name}")

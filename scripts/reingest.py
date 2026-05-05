@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402, I001
 """One-time data re-ingestion script.
 
 Re-parses all FIT files and stores results in SQLite.

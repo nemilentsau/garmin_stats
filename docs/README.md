@@ -37,7 +37,7 @@ plans are intentionally not kept as a parallel source of truth.
 ## Root Docs
 
 - [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
-  Product overview, local setup, repo map, and API surface.
+  Human-readable product overview, high-level architecture, and local setup.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
   Current analytical observations from the live dataset.
