@@ -1,16 +1,30 @@
 """Tests that define the Phase 1 shared schedule projection contract."""
 
-from importlib import import_module
+from types import SimpleNamespace
 
 import pytest
 
+from app.bootstrap.container import build_container
+from app.domains.artifacts.application.artifacts import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+)
+from app.domains.routines.application.schedule_window import (
+    get_schedule_window as _get_schedule_window,
+)
 from app.infra.database import save_card_override
 from app.models import AssistantArtifactCreateRequest, CardOverride
-from app.services.training_specs import activate_assistant_artifact, create_assistant_artifact
 
 
 def _schedule_mod():
-    return import_module("app.services.schedule_projection")
+    def get_schedule_window(start_date: str, duration_days: int = 14):
+        return _get_schedule_window(
+            build_container().routines_repo,
+            start_date=start_date,
+            duration_days=duration_days,
+        )
+
+    return SimpleNamespace(get_schedule_window=get_schedule_window)
 
 
 def _card_request(

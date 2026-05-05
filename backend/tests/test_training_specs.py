@@ -2,12 +2,26 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
-import app.services.training_specs as training_specs_mod
+from app.bootstrap.container import build_container
+from app.domains.artifacts.application.artifacts import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+    import_artifact_bundle,
+    preview_artifact_bundle,
+)
+from app.domains.routines.application.schedule_window import (
+    get_schedule_window as _get_schedule_window,
+)
+from app.domains.routines.application.today import (
+    get_today as _get_today,
+)
+from app.domains.routines.application.today import (
+    upsert_today_card_log as _upsert_today_card_log,
+)
 from app.infra.database import (
     load_assistant_artifacts,
     load_card_template,
@@ -22,19 +36,33 @@ from app.models import (
     CardOverride,
     TodayCardLogUpdateRequest,
 )
-from app.routers.routines import get_schedule_window
-from app.routers.today import get_today, upsert_today_card_log
-from app.services.training_specs import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
-    import_artifact_bundle,
-    list_routines,
-    preview_artifact_bundle,
-)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CORE_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_core_bundle.json"
 _MEDITATION_BUNDLE_PATH = _REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
+
+
+def get_schedule_window(start_date: str, duration_days: int = 14):
+    return _get_schedule_window(
+        build_container().routines_repo,
+        start_date=start_date,
+        duration_days=duration_days,
+    )
+
+
+def get_today(date: str):
+    return _get_today(build_container().routines_repo, date=date)
+
+
+def upsert_today_card_log(date: str, occurrence_key: str, request: TodayCardLogUpdateRequest):
+    container = build_container()
+    return _upsert_today_card_log(
+        container.routines_repo,
+        date=date,
+        occurrence_key=occurrence_key,
+        request=request,
+        observer=container.experiment_exposure_sync,
+    )
 
 
 def _card_request(
@@ -195,26 +223,6 @@ def _starter_bundle_spec() -> ArtifactBundleSpec:
 
 def _exercise_list(payload_json: dict[str, object]) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], payload_json["exercises"])
-
-
-def test_list_routines_uses_current_container_repo(monkeypatch):
-    observed_statuses: list[str | None] = []
-
-    class FakeRoutineRepo:
-        def list_routines(self, *, status: str | None = None):
-            observed_statuses.append(status)
-            return []
-
-    monkeypatch.setattr(
-        training_specs_mod,
-        "build_container",
-        lambda: SimpleNamespace(routines_repo=FakeRoutineRepo()),
-    )
-
-    response = list_routines(status="active")
-
-    assert observed_statuses == ["active"]
-    assert response.routines == []
 
 
 def _bundle_card_spec(

@@ -2,6 +2,11 @@
 
 import pytest
 
+from app.domains.artifacts.application.artifacts import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+)
+from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.routines.application.today import (
     get_card_log_range,
     get_today,
@@ -14,11 +19,6 @@ from app.models import (
     CardLog,
     Experiment,
     TodayCardLogUpdateRequest,
-)
-from app.services import today as today_service
-from app.services.training_specs import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
 )
 
 
@@ -100,6 +100,21 @@ def _two_card_routine_request(routine_id: str) -> AssistantArtifactCreateRequest
                 },
             ],
         },
+    )
+
+
+def _upsert_today_card_log_with_exposure_sync(
+    repo: SqliteRoutineRepository,
+    date: str,
+    occurrence_key: str,
+    request: TodayCardLogUpdateRequest,
+):
+    return upsert_today_card_log(
+        repo,
+        date=date,
+        occurrence_key=occurrence_key,
+        request=request,
+        observer=ExperimentExposureSyncService(),
     )
 
 
@@ -210,11 +225,13 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
         )
     )
 
-    today = today_service.get_today("2026-03-02")
+    repo = SqliteRoutineRepository()
+    today = get_today(repo, date="2026-03-02")
     cards = [card for slot in today.slots for card in slot.cards]
     first_card, second_card = cards
 
-    today_service.upsert_today_card_log(
+    _upsert_today_card_log_with_exposure_sync(
+        repo,
         "2026-03-02",
         first_card.occurrence_key,
         TodayCardLogUpdateRequest(
@@ -231,7 +248,8 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
     assert exposures[0].adherence_state == "partial"
     assert exposures[0].exposure_score == 0.5
 
-    today_service.upsert_today_card_log(
+    _upsert_today_card_log_with_exposure_sync(
+        repo,
         "2026-03-02",
         second_card.occurrence_key,
         TodayCardLogUpdateRequest(
@@ -248,7 +266,8 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
     assert exposures[0].adherence_state == "full"
     assert exposures[0].exposure_score == 1.0
 
-    today_service.upsert_today_card_log(
+    _upsert_today_card_log_with_exposure_sync(
+        repo,
         "2026-03-02",
         first_card.occurrence_key,
         TodayCardLogUpdateRequest(
