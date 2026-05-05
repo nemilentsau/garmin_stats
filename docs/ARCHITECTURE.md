@@ -18,7 +18,8 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
   FastAPI application code.
 
 - `backend/tests/`
-  Backend tests.
+  Backend tests organized by ownership: architecture guards, bootstrap, infra,
+  core, and domain slices.
 
 - `frontend/src/`
   SvelteKit application.

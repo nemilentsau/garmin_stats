@@ -81,8 +81,8 @@ cd backend && uv run pytest tests/ -v
 
 ## Reference
 
-- `backend/tests/test_stats.py` — aggregation tests (branches: safe helpers empty/nonempty, daily aggregation with/without data, period summary from raw readings, HR zone boundaries, flatten)
-- `backend/tests/test_parser.py` — extractor edge cases (branches: zero-value handling for wellness and HRV)
-- `backend/tests/test_main.py` — API handler tests (branches: 404 not found, filesystem-missing fallback, happy path)
-- `backend/tests/test_database.py` — DB round-trips and schema (branches: init, count rows valid/invalid, fingerprint, store/load, stale deletion)
-- `backend/tests/test_watcher.py` — archive reconciliation and extraction safety (branches: missing output, already-synced no-op, stale output refresh, path traversal rejection)
+- `backend/tests/domains/garmin_analytics/test_stats.py` — aggregation tests (branches: safe helpers empty/nonempty, daily aggregation with/without data, period summary from raw readings, HR zone boundaries, flatten)
+- `backend/tests/infra/test_parser.py` — extractor edge cases (branches: zero-value handling for wellness and HRV)
+- `backend/tests/bootstrap/test_main.py` — API handler tests (branches: 404 not found, filesystem-missing fallback, happy path)
+- `backend/tests/infra/test_database.py` — DB round-trips and schema (branches: init, count rows valid/invalid, fingerprint, store/load, stale deletion)
+- `backend/tests/infra/test_watcher.py` — archive reconciliation and extraction safety (branches: missing output, already-synced no-op, stale output refresh, path traversal rejection)

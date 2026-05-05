@@ -106,7 +106,7 @@ Example bundles live in `docs/*_bundle.json`.
 ```text
 backend/
   app/          FastAPI app, domain slices, parser, stats, infrastructure
-  tests/        Backend unit and architecture tests
+  tests/        Backend tests organized by architecture, infra, core, and domain
 frontend/
   src/          SvelteKit routes, components, API client, chart helpers
 scripts/        Local utility scripts for Garmin download, ingest, FIT inspection

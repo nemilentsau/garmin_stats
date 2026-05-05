@@ -1,4 +1,4 @@
-"""Tests that define the Phase 1 shared schedule projection contract."""
+"""Tests that define the shared routine schedule projection contract."""
 
 import pytest
 
