@@ -3,6 +3,7 @@
 import pytest
 
 from app.domains.experiments.application.experiments import list_experiments
+from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.infra.database import load_routines
 from app.services.programs import import_program, list_programs
 
@@ -40,7 +41,7 @@ class TestImportProgram:
 
         assert list_programs().programs == []
         assert load_routines() == []
-        assert list_experiments().experiments == []
+        assert list_experiments(SqliteExperimentRepository()).experiments == []
 
     def test_reimport_removes_deleted_protocols_and_experiments(self):
         import_program(
@@ -70,7 +71,7 @@ class TestImportProgram:
         )
 
         routines = load_routines()
-        experiments = list_experiments().experiments
+        experiments = list_experiments(SqliteExperimentRepository()).experiments
 
         assert [routine.id for routine in routines] == ["program-1:protocol-1"]
         assert routines[0].name == "Walk updated"

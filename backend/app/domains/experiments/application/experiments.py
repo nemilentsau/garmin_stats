@@ -5,20 +5,6 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import timedelta
 
-from app.infra.database import (
-    delete_experiment_analysis,
-    experiment_exists,
-    load_all_experiment_analyses,
-    load_daily_metrics,
-    load_experiment,
-    load_experiment_analysis,
-    load_experiment_exposures,
-    load_experiments,
-    load_routine_schedule,
-    save_experiment,
-    save_experiment_analysis,
-    save_experiment_exposure,
-)
 from app.models import (
     DailyMetric,
     Experiment,
@@ -36,6 +22,7 @@ from .analysis import (
     current_treatment_window_end,
     expected_experiment_phase,
 )
+from .ports import ExperimentRepository
 from .stats import resolve_metric_path
 
 # ---------------------------------------------------------------------------
@@ -43,32 +30,35 @@ from .stats import resolve_metric_path
 # ---------------------------------------------------------------------------
 
 
-def list_experiments() -> ExperimentsResponse:
+def list_experiments(repo: ExperimentRepository) -> ExperimentsResponse:
     """Return all experiments with their latest analysis."""
-    experiments = load_experiments()
-    analyses_by_id = load_all_experiment_analyses()
+    experiments = repo.list_experiments()
+    analyses_by_id = repo.list_all_experiment_analyses()
     items = [
         ExperimentWithAnalysis(
             experiment=exp,
-            analysis=_refresh_if_stale(exp, analyses_by_id.get(exp.id)),
+            analysis=_refresh_if_stale(repo, exp, analyses_by_id.get(exp.id)),
         )
         for exp in experiments
     ]
     return ExperimentsResponse(experiments=items)
 
 
-def get_experiment(experiment_id: str) -> Experiment:
+def get_experiment(repo: ExperimentRepository, experiment_id: str) -> Experiment:
     """Load a single experiment."""
-    result = load_experiment(experiment_id)
+    result = repo.get_experiment(experiment_id)
     if result is None:
         raise LookupError(f"Experiment {experiment_id} not found")
     return result
 
 
-def get_experiment_with_analysis(experiment_id: str) -> ExperimentWithAnalysis:
+def get_experiment_with_analysis(
+    repo: ExperimentRepository,
+    experiment_id: str,
+) -> ExperimentWithAnalysis:
     """Load experiment + latest analysis."""
-    exp = get_experiment(experiment_id)
-    analysis = _load_current_analysis(exp)
+    exp = get_experiment(repo, experiment_id)
+    analysis = _load_current_analysis(repo, exp)
     return ExperimentWithAnalysis(experiment=exp, analysis=analysis)
 
 
@@ -77,20 +67,24 @@ def get_experiment_with_analysis(experiment_id: str) -> ExperimentWithAnalysis:
 # ---------------------------------------------------------------------------
 
 
-def create_experiment(experiment: Experiment) -> Experiment:
+def create_experiment(repo: ExperimentRepository, experiment: Experiment) -> Experiment:
     """Create a new experiment."""
-    save_experiment(experiment)
+    repo.save_experiment(experiment)
     return experiment
 
 
-def update_experiment(experiment_id: str, experiment: Experiment) -> Experiment:
+def update_experiment(
+    repo: ExperimentRepository,
+    experiment_id: str,
+    experiment: Experiment,
+) -> Experiment:
     """Replace an existing experiment."""
     if experiment.id != experiment_id:
         raise ValueError("Experiment id does not match path id")
-    if not experiment_exists(experiment_id):
+    if repo.get_experiment(experiment_id) is None:
         raise LookupError(f"Experiment {experiment_id} not found")
-    save_experiment(experiment)
-    _persist_experiment_analysis(experiment)
+    repo.save_experiment(experiment)
+    _persist_experiment_analysis(repo, experiment)
     return experiment
 
 
@@ -99,14 +93,17 @@ def update_experiment(experiment_id: str, experiment: Experiment) -> Experiment:
 # ---------------------------------------------------------------------------
 
 
-def _persist_experiment_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
+def _persist_experiment_analysis(
+    repo: ExperimentRepository,
+    experiment: Experiment,
+) -> ExperimentAnalysis | None:
     """Refresh the saved analysis so reads stay aligned with the experiment spec."""
     if experiment.design is None:
-        delete_experiment_analysis(experiment.id)
+        repo.delete_experiment_analysis(experiment.id)
         return None
 
-    analysis = compute_experiment_analysis(experiment)
-    save_experiment_analysis(experiment.id, analysis)
+    analysis = compute_experiment_analysis(repo, experiment)
+    repo.save_experiment_analysis(experiment.id, analysis)
     return analysis
 
 
@@ -135,16 +132,20 @@ def _analysis_needs_refresh(
 
 
 def _refresh_if_stale(
+    repo: ExperimentRepository,
     experiment: Experiment,
     analysis: ExperimentAnalysis | None,
 ) -> ExperimentAnalysis | None:
     if _analysis_needs_refresh(experiment, analysis):
-        return _persist_experiment_analysis(experiment)
+        return _persist_experiment_analysis(repo, experiment)
     return analysis
 
 
-def _load_current_analysis(experiment: Experiment) -> ExperimentAnalysis | None:
-    return _refresh_if_stale(experiment, load_experiment_analysis(experiment.id))
+def _load_current_analysis(
+    repo: ExperimentRepository,
+    experiment: Experiment,
+) -> ExperimentAnalysis | None:
+    return _refresh_if_stale(repo, experiment, repo.get_experiment_analysis(experiment.id))
 
 
 def _validate_metric_path(
@@ -177,6 +178,7 @@ _VALID_CHECKIN_FIELDS = {
 
 
 def _resolve_design_dates(
+    repo: ExperimentRepository,
     design: ExperimentDesign,
     linked_routine_ids: list[str],
 ) -> list[ExperimentPreviewIssue]:
@@ -215,7 +217,7 @@ def _resolve_design_dates(
         ))
         return issues
 
-    routine = load_routine_schedule(linked_routine_ids[0])
+    routine = repo.get_routine_schedule(linked_routine_ids[0])
     if routine is None:
         issues.append(ExperimentPreviewIssue(
             level="error",
@@ -238,7 +240,10 @@ def _resolve_design_dates(
     return issues
 
 
-def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
+def preview_experiment(
+    repo: ExperimentRepository,
+    experiment: Experiment,
+) -> ExperimentPreviewResponse:
     """Validate an experiment spec without persisting."""
     issues: list[ExperimentPreviewIssue] = []
 
@@ -253,7 +258,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
 
     # Resolve dates from linked routine if using baseline_duration_days
-    resolve_issues = _resolve_design_dates(design, experiment.linked_routine_ids)
+    resolve_issues = _resolve_design_dates(repo, design, experiment.linked_routine_ids)
     issues.extend(resolve_issues)
     if any(i.level == "error" for i in resolve_issues):
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
@@ -294,7 +299,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
     b_start_str = b_start.isoformat()
     b_end_str = b_end.isoformat()
 
-    all_metrics = load_daily_metrics()
+    all_metrics = repo.list_daily_metrics()
     metrics_in_baseline = [
         m for m in all_metrics
         if b_start_str <= m.date <= b_end_str
@@ -366,7 +371,7 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
             ))
 
     # Duplicate check
-    if experiment_exists(experiment.id):
+    if repo.get_experiment(experiment.id) is not None:
         issues.append(ExperimentPreviewIssue(
             level="warning",
             message=f"Experiment '{experiment.id}' already exists and will be overwritten.",
@@ -380,18 +385,21 @@ def preview_experiment(experiment: Experiment) -> ExperimentPreviewResponse:
     )
 
 
-def import_experiment(experiment: Experiment) -> ExperimentWithAnalysis:
+def import_experiment(
+    repo: ExperimentRepository,
+    experiment: Experiment,
+) -> ExperimentWithAnalysis:
     """Validate, persist, and run initial analysis."""
-    preview = preview_experiment(experiment)
+    preview = preview_experiment(repo, experiment)
     if not preview.valid:
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")
         raise ValueError(f"Experiment has validation errors: {msg}")
 
     experiment.status = "active"
-    save_experiment(experiment)
+    repo.save_experiment(experiment)
 
     # Run initial analysis
-    analysis = _persist_experiment_analysis(experiment)
+    analysis = _persist_experiment_analysis(repo, experiment)
 
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
 
@@ -401,25 +409,32 @@ def import_experiment(experiment: Experiment) -> ExperimentWithAnalysis:
 # ---------------------------------------------------------------------------
 
 
-def get_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
+def get_experiment_analysis(
+    repo: ExperimentRepository,
+    experiment_id: str,
+) -> ExperimentAnalysis | None:
     """Return current analysis for an experiment, refreshing stale cached rows."""
-    exp = get_experiment(experiment_id)
-    return _load_current_analysis(exp)
+    exp = get_experiment(repo, experiment_id)
+    return _load_current_analysis(repo, exp)
 
 
-def list_experiment_exposures(experiment_id: str) -> list[ExperimentExposure]:
+def list_experiment_exposures(
+    repo: ExperimentRepository,
+    experiment_id: str,
+) -> list[ExperimentExposure]:
     """Return all exposure entries for an experiment."""
-    return load_experiment_exposures(experiment_id=experiment_id)
+    return repo.list_experiment_exposures(experiment_id=experiment_id)
 
 
 def create_experiment_exposure(
+    repo: ExperimentRepository,
     experiment_id: str,
     exposure: ExperimentExposure,
 ) -> ExperimentExposure:
     """Persist a manual exposure entry for an experiment."""
     if exposure.experiment_id != experiment_id:
         raise ValueError("Exposure experiment_id mismatch")
-    experiment = get_experiment(experiment_id)
-    save_experiment_exposure(exposure)
-    _persist_experiment_analysis(experiment)
+    experiment = get_experiment(repo, experiment_id)
+    repo.save_experiment_exposure(exposure)
+    _persist_experiment_analysis(repo, experiment)
     return exposure

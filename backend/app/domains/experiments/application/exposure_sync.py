@@ -8,17 +8,10 @@ from dataclasses import dataclass
 
 from app.domains.routines.application.ports import RoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.infra.database import (
-    auto_experiment_exposure_id,
-    delete_experiment_analysis,
-    load_experiment_exposures,
-    load_experiments,
-    replace_experiment_exposure_for_date,
-    save_experiment_analysis,
-)
 from app.models import CardLog, Experiment, ExperimentExposure, ScheduleOccurrence
 
 from .analysis import compute_experiment_analysis
+from .ports import ExperimentRepository
 
 _PARTIAL_CARD_WEIGHT = 0.5
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
@@ -26,13 +19,23 @@ _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 
 @dataclass(frozen=True)
 class ExperimentExposureSyncService:
+    experiment_repo: ExperimentRepository
     routine_repo: RoutineRepository
 
     def sync_for_date(self, *, date: str) -> None:
-        sync_experiment_exposures_for_date(date, routine_repo=self.routine_repo)
+        sync_experiment_exposures_for_date(
+            date,
+            experiment_repo=self.experiment_repo,
+            routine_repo=self.routine_repo,
+        )
+
+
+def _auto_exposure_id(experiment_id: str, date: str) -> str:
+    return f"exposure:auto:{experiment_id}:{date}"
 
 
 def _refresh_persisted_analysis_if_changed(
+    repo: ExperimentRepository,
     experiment: Experiment,
     *,
     old_exposure: ExperimentExposure | None,
@@ -47,10 +50,10 @@ def _refresh_persisted_analysis_if_changed(
     if not changed:
         return
     if experiment.design is None:
-        delete_experiment_analysis(experiment.id)
+        repo.delete_experiment_analysis(experiment.id)
         return
-    analysis = compute_experiment_analysis(experiment)
-    save_experiment_analysis(experiment.id, analysis)
+    analysis = compute_experiment_analysis(repo, experiment)
+    repo.save_experiment_analysis(experiment.id, analysis)
 
 
 def _derive_experiment_exposure(
@@ -92,7 +95,7 @@ def _derive_experiment_exposure(
         adherence_state = "partial"
 
     return ExperimentExposure(
-        id=auto_experiment_exposure_id(experiment.id, date),
+        id=_auto_exposure_id(experiment.id, date),
         experiment_id=experiment.id,
         date=date,
         exposure_score=exposure_score,
@@ -104,6 +107,7 @@ def _derive_experiment_exposure(
 def sync_experiment_exposures_for_date(
     date: str,
     *,
+    experiment_repo: ExperimentRepository,
     routine_repo: RoutineRepository,
 ) -> None:
     """Recompute derived experiment exposures for one date from current card logs."""
@@ -126,13 +130,13 @@ def sync_experiment_exposures_for_date(
     }
     auto_exposures_by_experiment = {
         exposure.experiment_id: exposure
-        for exposure in load_experiment_exposures(date=date)
-        if exposure.id == auto_experiment_exposure_id(exposure.experiment_id, date)
+        for exposure in experiment_repo.list_experiment_exposures(date=date)
+        if exposure.id == _auto_exposure_id(exposure.experiment_id, date)
     }
     if not routine_ids_on_date and not auto_exposures_by_experiment:
         return
 
-    for experiment in load_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES):
+    for experiment in experiment_repo.list_experiments(statuses=_SYNCABLE_EXPERIMENT_STATUSES):
         old_auto_exposure = auto_exposures_by_experiment.get(experiment.id)
         if (
             not routine_ids_on_date.intersection(experiment.linked_routine_ids)
@@ -149,7 +153,10 @@ def sync_experiment_exposures_for_date(
             occurrences=relevant_occurrences,
             logs_by_occurrence_key=logs_by_occurrence_key,
         )
-        replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
+        experiment_repo.replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
         _refresh_persisted_analysis_if_changed(
-            experiment, old_exposure=old_auto_exposure, new_exposure=new_exposure,
+            experiment_repo,
+            experiment,
+            old_exposure=old_auto_exposure,
+            new_exposure=new_exposure,
         )

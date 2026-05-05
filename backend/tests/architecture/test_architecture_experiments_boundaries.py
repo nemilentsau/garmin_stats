@@ -1,9 +1,9 @@
-"""Architecture guard rails for the transitional experiments domain slice."""
+"""Architecture guard rails for the experiments domain slice."""
 
 from tests._architecture import (
     REPO_ROOT,
     assert_api_modules_are_boundary_only,
-    assert_transitional_application_modules,
+    assert_application_modules_are_strict,
     read_repo_file,
 )
 
@@ -15,23 +15,15 @@ def test_experiments_api_modules_do_not_import_flat_database_or_services():
     ])
 
 
-def test_experiments_application_is_explicitly_transitional():
-    assert_transitional_application_modules(
-        [
-            "backend/app/domains/experiments/application/analysis.py",
-            "backend/app/domains/experiments/application/experiments.py",
-            "backend/app/domains/experiments/application/exposure_sync.py",
-            "backend/app/domains/experiments/application/stats.py",
-            "backend/app/domains/experiments/application/target_metrics.py",
-        ],
-        allowed_violations=[
-            "app.infra.database",
-        ],
-        reason=(
-            "Experiments is domain-routed but not fully migrated: application code "
-            "still reaches shared SQLite helpers directly."
-        ),
-    )
+def test_experiments_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
+        "backend/app/domains/experiments/application/analysis.py",
+        "backend/app/domains/experiments/application/experiments.py",
+        "backend/app/domains/experiments/application/exposure_sync.py",
+        "backend/app/domains/experiments/application/stats.py",
+        "backend/app/domains/experiments/application/target_metrics.py",
+        "backend/app/domains/experiments/application/ports.py",
+    ])
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():

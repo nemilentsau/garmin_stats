@@ -6,6 +6,7 @@ from app.domains.assistant.application.types import AssistantEvidenceBundle, Ass
 from app.domains.experiments.application.experiments import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
+from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -125,7 +126,10 @@ class SqliteAssistantRepository:
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
-            return get_current_experiment_analysis(experiment_id)
+            return get_current_experiment_analysis(
+                SqliteExperimentRepository(),
+                experiment_id,
+            )
         except LookupError:
             return None
 
