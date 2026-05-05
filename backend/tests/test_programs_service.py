@@ -3,8 +3,8 @@
 import pytest
 
 from app.domains.experiments.application.experiments import list_experiments
+from app.infra.database import load_routines
 from app.services.programs import import_program, list_programs
-from app.services.routines import list_routines
 
 
 def _program_spec(
@@ -36,10 +36,10 @@ class TestImportProgram:
                     ],
                     experiments=[],
                 )
-            )
+        )
 
         assert list_programs().programs == []
-        assert list_routines().routines == []
+        assert load_routines() == []
         assert list_experiments().experiments == []
 
     def test_reimport_removes_deleted_protocols_and_experiments(self):
@@ -69,7 +69,7 @@ class TestImportProgram:
             )
         )
 
-        routines = list_routines().routines
+        routines = load_routines()
         experiments = list_experiments().experiments
 
         assert [routine.id for routine in routines] == ["program-1:protocol-1"]

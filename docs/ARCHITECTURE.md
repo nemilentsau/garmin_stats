@@ -89,12 +89,6 @@ There are two major paths:
 - `domains/artifacts/`
   Assistant-authored artifact staging and publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and `/api/assistant/artifact-bundles`. It validates/imports card and routine artifacts, tracks bundle revisions and capability requests, and delegates activation writes to the owning runtime domains.
 
-- `schedule_projection.py`
-  Compatibility wrapper over `domains/routines/application/schedule_window.py`.
-
-- `today.py`
-  Compatibility wrapper over `domains/routines/application/today.py`.
-
 - `profile.py`, `checkins.py`, `notes.py`, `programs.py`
   Secondary/parked domain services still present in the backend.
 
@@ -151,7 +145,7 @@ Experiment adherence is protocol-defined and day-grain.
 This is the most important current product boundary.
 
 - Domain routes now mount from `backend/app/domains/routines/api/`.
-- `backend/app/routers/routines.py` and `backend/app/routers/today.py` remain import-compatible wrappers while callers migrate.
+- Flat routine/today router and service compatibility shims have been removed.
 - `/routines/schedule` handles routine review and bundle import
 - `/today` reads one day of live compiled occurrences and writes logs only
 

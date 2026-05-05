@@ -1,17 +1,13 @@
-"""Regression tests for routines route compatibility seams."""
+"""Regression tests for routines route contracts."""
 
 import asyncio
 import json
-import subprocess
-import sys
-from pathlib import Path
 
 from starlette.types import Message
 
 import app.main as main_mod
 
 app = main_mod.app
-_BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 async def _asgi_request(path: str) -> tuple[int, bytes]:
@@ -59,25 +55,6 @@ async def _asgi_request(path: str) -> tuple[int, bytes]:
         if message["type"] == "http.response.body"
     ]
     return int(start["status"]), b"".join(body_parts)  # type: ignore[arg-type]
-
-
-def test_router_modules_import_in_clean_interpreter():
-    script = (
-        "import app.routers.routines\n"
-        "import app.routers.today\n"
-        "print('ok')\n"
-    )
-
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        cwd=_BACKEND_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == "ok"
 
 
 def test_monkeypatching_domain_routines_api_changes_live_http_behavior(monkeypatch):

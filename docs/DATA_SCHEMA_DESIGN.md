@@ -185,7 +185,7 @@ Create a new card template only when the user-facing interaction type materially
 
 The backend owns recurrence resolution.
 
-Schedule and Today both read the same projected 14-day window model from `schedule_projection.py`.
+Schedule and Today both read the same projected window model from `domains/routines/application/schedule_window.py`.
 
 That means:
 

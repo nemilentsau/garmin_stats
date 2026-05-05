@@ -9,7 +9,7 @@ from starlette.types import Message
 
 import app.domains.artifacts.api.artifacts as artifacts_mod
 import app.domains.artifacts.api.bundles as artifact_bundles_mod
-import app.routers.today as today_mod
+import app.domains.routines.api.today as today_mod
 
 
 async def _today_status(method: str, path: str) -> int:
