@@ -434,6 +434,34 @@ class TestExperimentPreviewAndImport:
         assert detail.analysis.analysis_date == "2026-05-04"
         assert detail.analysis.adherence_rate == 0.214
 
+    def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
+        """Simple CRUD experiments should remain readable without cached analysis."""
+        from app.domains.experiments.application.experiments import (
+            create_experiment,
+            get_experiment_with_analysis,
+            list_experiments,
+        )
+
+        experiment = Experiment(
+            id="unvalidated-crud",
+            name="Unvalidated CRUD",
+            status="draft",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-02",
+                treatment_start_date="not-a-date",
+            ),
+        )
+        create_experiment(experiment)
+
+        detail = get_experiment_with_analysis(experiment.id)
+        response = list_experiments()
+
+        assert detail.experiment.id == experiment.id
+        assert detail.analysis is None
+        assert response.experiments[0].experiment.id == experiment.id
+        assert response.experiments[0].analysis is None
+
     def test_preview_validates_metric_path_within_experiment_window(self):
         """Historical metrics inside the experiment window should still validate."""
         from app.domains.experiments.application.experiments import preview_experiment

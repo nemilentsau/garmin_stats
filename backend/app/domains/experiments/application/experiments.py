@@ -134,7 +134,7 @@ def _analysis_needs_refresh(
     if experiment.design is None:
         return analysis is not None
     if analysis is None:
-        return True
+        return False
 
     today = date_type.today().isoformat()
     if analysis.analysis_date != today:
