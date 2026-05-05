@@ -2,28 +2,30 @@
 
 from pathlib import Path
 
-from tests._architecture import REPO_ROOT, assert_no_repo_imports_of, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_application_modules_are_strict,
+    assert_no_repo_imports_of,
+    read_repo_file,
+)
 
 
 def test_routines_api_modules_do_not_import_flat_database_or_services():
-    for path in [
+    assert_api_modules_are_boundary_only([
         "backend/app/domains/routines/api/routines.py",
         "backend/app/domains/routines/api/today.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.infra.database" not in source
-        assert "app.services." not in source
-        assert "app.routers" not in source
+    ])
 
 
-def test_routines_application_modules_are_fastapi_free():
-    for path in [
+def test_routines_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
         "backend/app/domains/routines/application/catalog.py",
         "backend/app/domains/routines/application/schedule_window.py",
         "backend/app/domains/routines/application/today.py",
         "backend/app/domains/routines/application/activation.py",
-    ]:
-        assert "fastapi" not in read_repo_file(path)
+        "backend/app/domains/routines/application/ports.py",
+    ])
 
 
 def test_bootstrap_routing_mounts_domain_routines_router_directly():

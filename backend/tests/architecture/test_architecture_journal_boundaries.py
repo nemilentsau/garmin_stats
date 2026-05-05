@@ -2,39 +2,28 @@
 
 from pathlib import Path
 
-from tests._architecture import REPO_ROOT, assert_no_repo_imports_of, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_application_modules_are_strict,
+    assert_no_repo_imports_of,
+    read_repo_file,
+)
 
 
 def test_journal_api_modules_do_not_import_flat_database_or_services():
-    for path in [
+    assert_api_modules_are_boundary_only([
         "backend/app/domains/journal/api/checkins.py",
         "backend/app/domains/journal/api/notes.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.infra.database" not in source
-        assert "app.services." not in source
-        assert "app.routers" not in source
+    ])
 
 
-def test_journal_application_modules_are_fastapi_free():
-    for path in [
+def test_journal_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
         "backend/app/domains/journal/application/checkins.py",
         "backend/app/domains/journal/application/notes.py",
         "backend/app/domains/journal/application/ports.py",
-    ]:
-        assert "fastapi" not in read_repo_file(path)
-
-
-def test_journal_application_does_not_import_flat_services_routers_or_database():
-    for path in [
-        "backend/app/domains/journal/application/checkins.py",
-        "backend/app/domains/journal/application/notes.py",
-        "backend/app/domains/journal/application/ports.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.services" not in source
-        assert "app.routers" not in source
-        assert "app.infra.database" not in source
+    ])
 
 
 def test_journal_sqlite_adapter_is_the_database_boundary():

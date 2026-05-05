@@ -1,40 +1,37 @@
-"""Architecture guard rails for the experiments domain slice."""
+"""Architecture guard rails for the transitional experiments domain slice."""
 
-from tests._architecture import REPO_ROOT, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_transitional_application_modules,
+    read_repo_file,
+)
 
 
 def test_experiments_api_modules_do_not_import_flat_database_or_services():
-    for path in [
+    assert_api_modules_are_boundary_only([
         "backend/app/domains/experiments/api/experiments.py",
         "backend/app/domains/experiments/api/target_metrics.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.infra.database" not in source
-        assert "app.services." not in source
-        assert "app.routers" not in source
+    ])
 
 
-def test_experiments_application_modules_are_fastapi_free():
-    for path in [
-        "backend/app/domains/experiments/application/analysis.py",
-        "backend/app/domains/experiments/application/experiments.py",
-        "backend/app/domains/experiments/application/exposure_sync.py",
-        "backend/app/domains/experiments/application/stats.py",
-        "backend/app/domains/experiments/application/target_metrics.py",
-    ]:
-        assert "fastapi" not in read_repo_file(path)
-
-
-def test_experiments_application_does_not_import_flat_services():
-    for path in [
-        "backend/app/domains/experiments/application/analysis.py",
-        "backend/app/domains/experiments/application/experiments.py",
-        "backend/app/domains/experiments/application/exposure_sync.py",
-        "backend/app/domains/experiments/application/stats.py",
-        "backend/app/domains/experiments/application/target_metrics.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.services" not in source
+def test_experiments_application_is_explicitly_transitional():
+    assert_transitional_application_modules(
+        [
+            "backend/app/domains/experiments/application/analysis.py",
+            "backend/app/domains/experiments/application/experiments.py",
+            "backend/app/domains/experiments/application/exposure_sync.py",
+            "backend/app/domains/experiments/application/stats.py",
+            "backend/app/domains/experiments/application/target_metrics.py",
+        ],
+        allowed_violations=[
+            "app.infra.database",
+        ],
+        reason=(
+            "Experiments is domain-routed but not fully migrated: application code "
+            "still reaches shared SQLite helpers directly."
+        ),
+    )
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():

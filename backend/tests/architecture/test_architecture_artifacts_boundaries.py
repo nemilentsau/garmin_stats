@@ -1,34 +1,35 @@
-"""Architecture guard rails for the artifacts domain slice."""
+"""Architecture guard rails for the transitional artifacts domain slice."""
 
-from tests._architecture import REPO_ROOT, read_repo_file
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_transitional_application_modules,
+    read_repo_file,
+)
 
 
 def test_artifacts_api_modules_do_not_import_flat_database_or_services():
-    for path in [
+    assert_api_modules_are_boundary_only([
         "backend/app/domains/artifacts/api/artifacts.py",
         "backend/app/domains/artifacts/api/bundles.py",
         "backend/app/domains/artifacts/api/cards.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.infra.database" not in source
-        assert "app.services." not in source
-        assert "app.routers" not in source
+    ])
 
 
-def test_artifacts_application_modules_are_fastapi_free():
-    for path in [
-        "backend/app/domains/artifacts/application/artifacts.py",
-    ]:
-        assert "fastapi" not in read_repo_file(path)
-
-
-def test_artifacts_application_does_not_import_flat_services_or_routers():
-    for path in [
-        "backend/app/domains/artifacts/application/artifacts.py",
-    ]:
-        source = read_repo_file(path)
-        assert "app.services" not in source
-        assert "app.routers" not in source
+def test_artifacts_application_is_explicitly_transitional():
+    assert_transitional_application_modules(
+        [
+            "backend/app/domains/artifacts/application/artifacts.py",
+        ],
+        allowed_violations=[
+            "app.infra.database",
+            "build_container",
+        ],
+        reason=(
+            "Artifacts is domain-routed but not fully migrated: application code "
+            "still owns persistence helpers and routine activation composition."
+        ),
+    )
 
 
 def test_bootstrap_routing_mounts_domain_artifact_routers_directly():

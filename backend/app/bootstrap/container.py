@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
@@ -18,19 +18,24 @@ from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 
 @dataclass(frozen=True)
 class AppContainer:
-    assistant_repo: SqliteAssistantRepository = field(default_factory=SqliteAssistantRepository)
-    assistant_runtime: ClaudeCodeRuntime = field(default_factory=ClaudeCodeRuntime)
-    garmin_biometrics_repo: SqliteBiometricRepository = field(
-        default_factory=SqliteBiometricRepository
-    )
-    journal_repo: SqliteJournalRepository = field(default_factory=SqliteJournalRepository)
-    profile_repo: SqliteProfileRepository = field(default_factory=SqliteProfileRepository)
-    routines_repo: SqliteRoutineRepository = field(default_factory=SqliteRoutineRepository)
-    experiment_exposure_sync: ExperimentExposureSyncService = field(
-        default_factory=ExperimentExposureSyncService
-    )
+    assistant_repo: SqliteAssistantRepository
+    assistant_runtime: ClaudeCodeRuntime
+    garmin_biometrics_repo: SqliteBiometricRepository
+    journal_repo: SqliteJournalRepository
+    profile_repo: SqliteProfileRepository
+    routines_repo: SqliteRoutineRepository
+    experiment_exposure_sync: ExperimentExposureSyncService
 
 
 @lru_cache(maxsize=1)
 def build_container() -> AppContainer:
-    return AppContainer()
+    routines_repo = SqliteRoutineRepository()
+    return AppContainer(
+        assistant_repo=SqliteAssistantRepository(),
+        assistant_runtime=ClaudeCodeRuntime(),
+        garmin_biometrics_repo=SqliteBiometricRepository(),
+        journal_repo=SqliteJournalRepository(),
+        profile_repo=SqliteProfileRepository(),
+        routines_repo=routines_repo,
+        experiment_exposure_sync=ExperimentExposureSyncService(routines_repo),
+    )

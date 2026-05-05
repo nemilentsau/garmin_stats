@@ -10,10 +10,12 @@ from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import (
     load_experiment_analysis,
     load_experiment_exposures,
+    load_routine_schedule,
     save_card_log,
     save_experiment,
     save_experiment_analysis,
     save_experiment_exposure,
+    save_routine_schedule,
 )
 from app.models import (
     AssistantArtifactCreateRequest,
@@ -126,7 +128,7 @@ def test_sync_experiment_exposures_marks_day_full_when_all_linked_cards_complete
 
     from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
-    sync_experiment_exposures_for_date("2026-03-02")
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
 
     exposures = load_experiment_exposures(experiment_id="exp-full")
     assert len(exposures) == 1
@@ -159,7 +161,7 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
 
     from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
-    sync_experiment_exposures_for_date("2026-03-02")
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
 
     exposures = load_experiment_exposures(experiment_id="exp-partial")
     assert len(exposures) == 1
@@ -198,7 +200,7 @@ def test_sync_experiment_exposures_preserves_manual_same_day_entries():
 
     from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
-    sync_experiment_exposures_for_date("2026-03-02")
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
 
     exposures = load_experiment_exposures(experiment_id="exp-manual")
     assert len(exposures) == 1
@@ -246,7 +248,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
 
     from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
-    sync_experiment_exposures_for_date("2026-03-02")
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
 
     after = load_experiment_analysis("exp-analysis-refresh")
     assert after is not None
@@ -287,7 +289,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
 
     from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
 
-    sync_experiment_exposures_for_date("2026-03-02")
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
 
     exposures = load_experiment_exposures(experiment_id="exp-completed-refresh")
     assert len(exposures) == 1
@@ -297,3 +299,28 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
     assert after is not None
     assert after.adherence_rate == 0.0
     assert after.adherence_by_day[0].state == "partial"
+
+
+def test_sync_experiment_exposures_removes_stale_auto_entry_when_schedule_no_longer_matches():
+    _activate_two_card_routine("routine-exposure-stale")
+    _save_linked_experiment("exp-stale", "routine-exposure-stale")
+    save_experiment_exposure(
+        ExperimentExposure(
+            id="exposure:auto:exp-stale:2026-03-02",
+            experiment_id="exp-stale",
+            date="2026-03-02",
+            exposure_score=1.0,
+            adherence_state="full",
+            linked_routine_entry_ids=["scheduled:routine-exposure-stale-morning:2026-03-02"],
+        )
+    )
+
+    routine = load_routine_schedule("routine-exposure-stale")
+    assert routine is not None
+    save_routine_schedule(routine.model_copy(update={"status": "inactive"}))
+
+    from app.domains.experiments.application.exposure_sync import sync_experiment_exposures_for_date
+
+    sync_experiment_exposures_for_date("2026-03-02", routine_repo=SqliteRoutineRepository())
+
+    assert load_experiment_exposures(experiment_id="exp-stale") == []
