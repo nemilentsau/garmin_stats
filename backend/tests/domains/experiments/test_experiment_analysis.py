@@ -448,6 +448,53 @@ class TestExperimentPreviewAndImport:
         assert detail.analysis.analysis_date == "2026-05-04"
         assert detail.analysis.adherence_rate == 0.214
 
+    def test_get_experiment_analysis_persists_date_only_refresh(self, monkeypatch):
+        """A date-only stale analysis should update the cached analysis date."""
+        import app.domains.experiments.application.analysis as experiment_analysis_mod
+        import app.domains.experiments.application.analysis_cache as analysis_cache_mod
+
+        class Apr13(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 4, 13)
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        experiment = Experiment(
+            id="date-only-stale",
+            name="Date Only Stale",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-12",
+            ),
+            outcome_metrics=[],
+        )
+        db.save_experiment(experiment)
+
+        repo = SqliteExperimentRepository()
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
+        db.save_experiment_analysis(
+            experiment.id,
+            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+        )
+
+        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
+        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+
+        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        persisted = db.load_experiment_analysis(experiment.id)
+
+        assert analysis is not None
+        assert analysis.analysis_date == "2026-05-04"
+        assert persisted is not None
+        assert persisted.analysis_date == "2026-05-04"
+
     def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
         """Simple CRUD experiments should remain readable without cached analysis."""
         from app.domains.experiments.application.management import (

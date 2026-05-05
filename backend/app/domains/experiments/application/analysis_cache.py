@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -> bool:
-    return cached.model_copy(update={"analysis_date": fresh.analysis_date}) == fresh
+    return cached == fresh
 
 
 def persist_experiment_analysis(
