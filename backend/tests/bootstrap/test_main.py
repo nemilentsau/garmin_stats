@@ -7,7 +7,7 @@ from starlette.types import Message
 
 import app.bootstrap.lifespan as lifespan_mod
 import app.main as main_mod
-from app.models import IngestResult, IngestStatus
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 
 app = main_mod.app
 

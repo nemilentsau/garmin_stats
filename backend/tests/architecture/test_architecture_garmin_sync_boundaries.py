@@ -1,0 +1,145 @@
+"""Architecture guard rails for Garmin sync domain ownership."""
+
+from pathlib import Path
+
+from tests._architecture import (
+    REPO_ROOT,
+    assert_api_modules_are_boundary_only,
+    assert_application_modules_are_strict,
+    assert_no_repo_imports_of,
+    assert_no_text_in_files,
+    read_repo_file,
+)
+
+
+def test_garmin_sync_api_modules_do_not_import_flat_database_or_services():
+    assert_api_modules_are_boundary_only([
+        "backend/app/domains/garmin_sync/routes.py",
+    ])
+
+
+def test_garmin_sync_workflow_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
+        "backend/app/domains/garmin_sync/workflows.py",
+        "backend/app/domains/garmin_sync/dependencies.py",
+    ])
+
+
+def test_garmin_sync_infra_adapters_are_database_and_watcher_boundary():
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+
+    assert "app.infra.database" in source
+    assert "app.infra.watcher" in source
+    assert "class DatabaseIngestGateway" in source
+    assert "extract_archives=extract_existing_archives" in source
+    assert "suspend_watcher=suspend_watcher" in source
+    assert "resume_watcher=resume_watcher" in source
+
+
+def test_garmin_sync_adapters_do_not_wrap_single_function_dependencies():
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+
+    assert "class ArchiveExtractor" not in source
+    assert "class WatcherController" not in source
+    assert "class SystemClock" not in source
+    assert "class SystemSleeper" not in source
+
+
+def test_garmin_sync_imports_owned_contracts_directly():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/garmin_sync/routes.py",
+            "backend/app/domains/garmin_sync/workflows.py",
+            "backend/app/domains/garmin_sync/dependencies.py",
+            "backend/app/domains/garmin_sync/adapters.py",
+        ],
+        ["from app.models import", "import app.models"],
+    )
+
+
+def test_garmin_sync_contracts_are_not_exposed_from_app_models():
+    source = read_repo_file("backend/app/models.py")
+
+    assert "class IngestResult(" not in source
+    assert "class IngestStatus(" not in source
+    assert "class SyncResult(" not in source
+    assert "app.domains.garmin_sync.contracts" not in source
+    assert "garmin_sync.contracts" not in source
+
+
+def test_runtime_path_config_lives_in_shared_app_config_not_garmin_sync():
+    assert not (REPO_ROOT / "backend/app/domains/garmin_sync/config.py").exists()
+
+    source = read_repo_file("backend/app/core/config.py")
+    assert "GARMIN_DB_PATH" in source
+    assert "GARMIN_DATA_DIR" in source
+    assert "GARMINTOKENS" in source
+
+    garmin_sync_files = [
+        "backend/app/domains/garmin_sync/workflows.py",
+        "backend/app/domains/garmin_sync/dependencies.py",
+        "backend/app/domains/garmin_sync/adapters.py",
+    ]
+    assert_no_text_in_files(garmin_sync_files, ["GARMIN_SYNC_"])
+
+
+def test_garmin_connect_protocol_details_live_in_adapter_not_workflow():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/garmin_sync/workflows.py",
+            "backend/app/domains/garmin_sync/dependencies.py",
+        ],
+        [
+            "/download-service/files",
+            "MINIMUM_ARCHIVE_BYTES",
+            "REQUEST_SPACING_SECONDS",
+        ],
+    )
+
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+    assert "/download-service/files/wellness" in source
+    assert "_MINIMUM_ARCHIVE_BYTES" in source
+    assert "_REQUEST_SPACING_SECONDS" in source
+
+
+def test_garmin_sync_routes_use_container_dependencies():
+    source = read_repo_file("backend/app/domains/garmin_sync/routes.py")
+
+    assert "build_container" in source
+    assert "garmin_sync" in source
+
+
+def test_bootstrap_routing_mounts_domain_garmin_sync_router_directly():
+    source = read_repo_file("backend/app/bootstrap/routing.py")
+
+    assert "domains.garmin_sync.routes" in source
+    assert "from ..routers.ingest import router as ingest_router" not in source
+    assert "include_router(ingest_router)" in source
+
+
+def test_garmin_sync_uses_small_capability_layout_without_ceremonial_layers():
+    base = REPO_ROOT / "backend/app/domains/garmin_sync"
+
+    assert not list((base / "api").glob("*.py"))
+    assert not list((base / "application").glob("*.py"))
+    assert not list((base / "infra").glob("*.py"))
+
+
+def test_migrated_garmin_sync_service_shim_is_removed():
+    assert not (REPO_ROOT / "backend/app/services/garmin_sync.py").exists()
+
+
+def test_migrated_ingest_router_shim_is_removed():
+    assert not (REPO_ROOT / "backend/app/routers/ingest.py").exists()
+
+
+def test_backend_code_does_not_import_migrated_garmin_sync_shims():
+    assert_no_repo_imports_of(
+        [
+            "app.services.garmin_sync",
+            "app.routers.ingest",
+            "..services.garmin_sync",
+            "..routers.ingest",
+        ],
+        Path(__file__),
+    )

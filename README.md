@@ -54,12 +54,17 @@ backend API.
 ## High-Level Architecture
 
 The backend is a FastAPI app under `backend/app/`. Its current direction is a
-domain-oriented structure:
+vertical module structure with explicit ownership contracts. Some modules are
+product domains, some are operational capabilities, and some are analytical read
+models; the boundary rules matter more than the package label:
 
 - `bootstrap/` assembles the FastAPI app, registers routers, owns lifespan wiring,
   and provides the dependency container.
 - `infra/` contains shared infrastructure: SQLite persistence, ingest bookkeeping,
   cache invalidation, server-sent events, and file watching.
+- `domains/garmin_sync/` is a Garmin data acquisition capability. It owns
+  `/api/ingest`, Garmin Connect wellness archive download orchestration, archive
+  extraction, ingest status, and affected-date ingest decisions.
 - `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
   biometric reads, and recovery insights.
 - `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,
@@ -77,12 +82,15 @@ domain-oriented structure:
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 
-Fully migrated slices follow the same boundary convention: API modules handle
-FastAPI and dependency lookup, application modules own use cases and repository
-ports without importing SQLite helpers or the dependency container, and infra
-adapters are the SQLite boundary. Any future transitional slices should be
-explicitly allowlisted in architecture tests until their application persistence
-dependencies are moved behind ports/adapters.
+Fully migrated slices follow the same boundary convention: route/API modules
+handle FastAPI and dependency lookup, workflow/application modules own
+orchestration without importing SQLite helpers or the dependency container, and
+adapter modules are the infrastructure boundary. Larger migrated slices still
+use `application/ports.py` for repository contracts; small capability slices
+such as `garmin_sync` prefer clearer flat names like `workflows.py`,
+`dependencies.py`, and `contracts.py`. Any future transitional slices should be
+explicitly allowlisted in architecture tests until persistence dependencies are
+moved behind explicit contracts and adapters.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
 overview, metric detail pages, assistant chat, Today board, and routine schedule
@@ -176,6 +184,12 @@ uv run python ../scripts/reingest.py
 
 Garmin Connect download support is in `scripts/download_garmin.py`. FIT structure
 inspection support is in `scripts/explore_fit_files.py`.
+
+Runtime path overrides are centralized in backend app config:
+
+- `GARMIN_DB_PATH`
+- `GARMIN_DATA_DIR`
+- `GARMINTOKENS`
 
 ## Validation
 

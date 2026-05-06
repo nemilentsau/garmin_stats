@@ -1,5 +1,6 @@
 """Shared helpers for architecture boundary tests."""
 
+import ast
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -92,5 +93,117 @@ def assert_no_repo_imports_of(forbidden: list[str], caller_file: Path) -> None:
             source = path.read_text(encoding="utf-8")
             if any(import_path in source for import_path in forbidden):
                 offenders.append(str(path.relative_to(REPO_ROOT)))
+
+    assert offenders == []
+
+
+def _module_from_path(path: Path) -> str:
+    relative = path.relative_to(REPO_ROOT / "backend" / "app")
+    return ".".join(("app", *relative.with_suffix("").parts))
+
+
+def _slice_name(module: str) -> str | None:
+    parts = module.split(".")
+    if len(parts) >= 4 and parts[:2] == ["app", "domains"]:
+        return parts[2]
+    if len(parts) >= 3 and parts[:2] == ["app", "core"]:
+        return f"core/{parts[2]}"
+    return None
+
+
+def _source_imports(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imports: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.add(alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            imports.add(node.module)
+
+    return imports
+
+
+def _app_slice_sources() -> list[Path]:
+    roots = [
+        REPO_ROOT / "backend" / "app" / "domains",
+        REPO_ROOT / "backend" / "app" / "core",
+    ]
+    return sorted(
+        path
+        for root in roots
+        if root.exists()
+        for path in root.rglob("*.py")
+        if "__pycache__" not in path.parts
+    )
+
+
+def assert_cross_slice_imports_are_allowlisted(
+    allowlist: Mapping[str, set[str]],
+) -> None:
+    offenders: dict[str, list[str]] = {}
+
+    for path in _app_slice_sources():
+        relative_path = str(path.relative_to(REPO_ROOT))
+        source_module = _module_from_path(path)
+        source_slice = _slice_name(source_module)
+        if source_slice is None:
+            continue
+
+        allowed_for_file = allowlist.get(relative_path, set())
+        bad_imports: list[str] = []
+
+        for imported in _source_imports(path):
+            imported_slice = _slice_name(imported)
+            if imported_slice is None or imported_slice == source_slice:
+                continue
+            if imported not in allowed_for_file:
+                bad_imports.append(imported)
+
+        if bad_imports:
+            offenders[relative_path] = sorted(bad_imports)
+
+    assert offenders == {}
+
+
+def assert_imports_from_module_match_allowlist(
+    module: str,
+    allowlist: set[str],
+    *,
+    equivalent_imports: set[str] | None = None,
+    required_import_name: str | None = None,
+) -> None:
+    equivalent_imports = equivalent_imports or set()
+    offenders: list[str] = []
+
+    for root in [REPO_ROOT / "backend" / "app"]:
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+
+            relative_path = str(path.relative_to(REPO_ROOT))
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            imports_for_module = False
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imports_for_module = any(
+                        alias.name == module or alias.name.startswith(f"{module}.")
+                        for alias in node.names
+                    )
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module == module:
+                        imports_for_module = True
+                    elif node.module in equivalent_imports and required_import_name is not None:
+                        imports_for_module = any(
+                            alias.name == required_import_name for alias in node.names
+                        )
+
+                if imports_for_module:
+                    break
+
+            if imports_for_module and relative_path not in allowlist:
+                offenders.append(relative_path)
 
     assert offenders == []
