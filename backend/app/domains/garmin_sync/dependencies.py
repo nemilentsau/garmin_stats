@@ -1,4 +1,9 @@
-"""Dependency protocols for Garmin sync workflows."""
+"""Workflow ports for Garmin sync.
+
+This module describes what workflows need from the outside world: ingest,
+archive extraction, watcher control, Garmin downloads, filesystem writes, and clocks.
+API response shapes live in contracts.py; concrete implementations live in adapters.py.
+"""
 
 from __future__ import annotations
 
@@ -45,6 +50,8 @@ class SyncFileStore(Protocol):
 
 @dataclass(frozen=True)
 class GarminSyncDependencies:
+    """Concrete dependency bundle passed from the container into workflow functions."""
+
     data_dir: Path
     ingest: IngestGateway
     extract_archives: ArchiveExtractor

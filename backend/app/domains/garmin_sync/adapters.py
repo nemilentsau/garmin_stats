@@ -1,4 +1,9 @@
-"""Infrastructure adapters for Garmin sync workflows."""
+"""Infrastructure adapters for Garmin sync workflows.
+
+Adapters translate workflow ports into SQLite ingest helpers, archive watcher
+functions, the local archive layout, system clocks, and Garmin Connect client calls.
+Garmin protocol constants stay private here because they are adapter details.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +38,8 @@ class _RawGarminClient(Protocol):
 
 
 class DatabaseIngestGateway:
+    """Adapt existing database ingest functions to the workflow ingest port."""
+
     def check_status(self, data_dir: Path) -> IngestStatus:
         return check_ingest_status(data_dir)
 
@@ -44,6 +51,8 @@ class DatabaseIngestGateway:
 
 
 class GarminConnectWellnessClient:
+    """Download daily wellness archives through the logged-in Garmin Connect client."""
+
     def __init__(
         self,
         client: _RawGarminClient,
@@ -68,6 +77,8 @@ class GarminConnectWellnessClient:
 
 
 class GarminConnectClientFactory:
+    """Create Garmin wellness download clients from saved token-directory login state."""
+
     def __init__(self, token_dir: Path) -> None:
         self._token_dir = token_dir
 
@@ -84,6 +95,8 @@ class GarminConnectClientFactory:
 
 
 class FilesystemSyncFileStore:
+    """Read and mutate the local YYYY-MM-DD.zip / YYYY-MM-DD archive layout."""
+
     def latest_zip_date(self, data_dir: Path) -> date | None:
         zips: list[str] = []
         if not data_dir.exists():
@@ -123,6 +136,8 @@ def build_garmin_sync_dependencies(
     config: AppConfig | None = None,
     data_dir: Path | None = None,
 ) -> GarminSyncDependencies:
+    """Wire production implementations for the Garmin sync workflow."""
+
     app_config = get_app_config() if config is None else config
     sync_data_dir = app_config.data_dir if data_dir is None else data_dir
     return GarminSyncDependencies(

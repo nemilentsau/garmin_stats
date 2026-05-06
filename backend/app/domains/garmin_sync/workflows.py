@@ -1,4 +1,9 @@
-"""Garmin ingest and download sync workflows."""
+"""Garmin ingest and download sync workflows.
+
+The sync workflow treats the latest local archive as possibly partial, deletes it,
+downloads that day through today, extracts archives, and ingests only affected days.
+Filesystem, Garmin, clock, and watcher operations are injected through dependencies.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,8 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class _SyncDatePlan:
+    """Dates to inspect plus dates already affected before downloads begin."""
+
     deleted_latest: date | None
     dates: list[date]
     initial_affected_dates: list[str]
@@ -31,7 +38,7 @@ def get_ingest_status(deps: GarminSyncDependencies) -> IngestStatus:
 
 
 def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
-    """Download Garmin wellness archives for changed dates and ingest them."""
+    """Refresh Garmin wellness archives that may have changed and ingest affected dates."""
     t0 = deps.monotonic()
     client = deps.clients.create()
 
