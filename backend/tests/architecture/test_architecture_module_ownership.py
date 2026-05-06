@@ -2,7 +2,6 @@
 
 from tests._architecture import read_repo_file
 
-
 REQUIRED_MODULE_CHARTERS = [
     "assistant",
     "routines",

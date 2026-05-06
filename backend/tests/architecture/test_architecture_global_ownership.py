@@ -2,7 +2,6 @@
 
 from tests._architecture import assert_imports_from_module_match_allowlist
 
-
 ALLOWLISTED_APP_STATS_IMPORTERS = {
     "backend/app/domains/garmin_analytics/application/biometrics.py",
     "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
