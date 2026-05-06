@@ -16,15 +16,20 @@ from .ports import ProgramRepository
 
 def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
     """Import a placeholder program spec without activating child records."""
-    program_info = spec.get("program")
+    if "program" not in spec:
+        raise ValueError("Missing 'program' key in spec")
+    program_info = spec["program"]
     if (
         not isinstance(program_info, dict)
         or not program_info.get("id")
         or not program_info.get("name")
     ):
         raise ValueError("Program spec must have 'program.id' and 'program.name'")
+    try:
+        version = int(program_info["version"])
+    except (KeyError, TypeError, ValueError) as e:
+        raise ValueError("Program spec must include numeric 'program.version'") from e
     program_id = str(program_info["id"])
-    version = int(program_info["version"])
     now = now_iso()
 
     existing = repo.get_program(program_id)

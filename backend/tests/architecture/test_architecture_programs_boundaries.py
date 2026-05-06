@@ -25,6 +25,19 @@ def test_programs_application_modules_follow_strict_boundary():
     ])
 
 
+def test_programs_sqlite_adapter_is_the_database_boundary():
+    source = read_repo_file("backend/app/domains/programs/infra/sqlite_repository.py")
+
+    assert "app.infra.database" in source
+    assert "class SqliteProgramRepository" in source
+
+
+def test_programs_routes_use_container_repository():
+    source = read_repo_file("backend/app/domains/programs/api/programs.py")
+    assert "build_container" in source
+    assert "programs_repo" in source
+
+
 def test_bootstrap_routing_mounts_domain_programs_router_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "domains.programs.api.programs" in source
