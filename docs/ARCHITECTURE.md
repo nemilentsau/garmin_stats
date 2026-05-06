@@ -90,8 +90,8 @@ There are two major paths:
   Garmin ingest and Garmin Connect download orchestration. This domain owns
   `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
   small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
-  ingest/status/sync orchestration, `dependencies.py` owns dependency protocols
-  and callables, `adapters.py` wires SQLite ingest helpers, archive extraction,
+  ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
+  callables, `adapters.py` wires SQLite ingest helpers, archive extraction,
   watcher suspend/resume, filesystem archive writes/deletes, system clock, and
   Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
   API response models.
@@ -174,7 +174,7 @@ not proof that the design is sound.
 - Does not own: FIT parsing semantics, analytics calculations, dashboard reads,
   experiment refresh policy, routine scheduling, assistant evidence, or frontend
   presentation.
-- May import: its own dependency protocols, private workflow helpers, owned
+- May import: its own workflow ports, private workflow helpers, owned
   ingest/sync contracts, and infrastructure adapters that wrap database ingest,
   archive extraction, watcher control, filesystem writes, clock, and Garmin
   Connect login/download details.

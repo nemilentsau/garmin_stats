@@ -33,9 +33,12 @@ themselves.
 
 2. Split `app.models` by ownership when a touched contract clearly belongs to one
    module.
-   - First candidate: move ingest/sync response contracts near `garmin_sync`
-     after confirming OpenAPI generation remains unchanged.
-   - Success signal: no frontend API type diff except stable regeneration order.
+   - First candidate: move journal check-in/note contracts near `domains/journal`
+     because the slice is small and already has clear API/application boundaries.
+   - Next candidates: `core/profile` or `domains/programs`, whichever is touched
+     first during feature work.
+   - Success signal: one fewer contract family remains in `app.models`, and no
+     frontend API type diff appears except stable regeneration order.
 
 3. Split `app.infra.database` by repository ownership.
    - First candidate: move Garmin biometric read helpers behind the existing
@@ -50,5 +53,6 @@ themselves.
      importing experiment analysis internals.
 
 Follow-up implementation plan:
-- `docs/superpowers/plans/2026-05-06-model-contract-ownership-cleanup.md`
-  starts the `app.models` drain after these boundary guards are in place.
+- `docs/superpowers/plans/2026-05-06-domain-ownership-drain-roadmap.md`
+  defines the dependency order for draining `app.models`, `app.stats`, and
+  `app.infra.database` without creating new shared buckets.
