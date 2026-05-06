@@ -21,6 +21,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.experiments.application.analysis_cache",
         "app.domains.experiments.application.ports",
     },
+    "backend/app/domains/garmin_sync/adapters.py": {
+        "app.core.config",
+    },
 }
 
 

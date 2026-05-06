@@ -11,9 +11,6 @@ from .dependencies import DownloadOutcome, GarminDownloadClient, GarminSyncDepen
 
 log = logging.getLogger(__name__)
 
-DOWNLOAD_SERVICE_URL = "/download-service/files"
-MIN_DOWNLOAD_BYTES = 100
-
 
 @dataclass(frozen=True)
 class _SyncDatePlan:
@@ -52,7 +49,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         failed = 0
         affected_dates = list(plan.initial_affected_dates)
 
-        for index, day in enumerate(plan.dates):
+        for day in plan.dates:
             result = _download_day(deps, client, day)
             if result == "downloaded":
                 downloaded += 1
@@ -61,9 +58,6 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
                 skipped += 1
             else:
                 failed += 1
-
-            if index < len(plan.dates) - 1:
-                deps.sleep(1)
 
         deps.extract_archives(deps.data_dir)
         unique_dates = sorted(set(affected_dates))
@@ -115,19 +109,17 @@ def _download_day(
         log.info("  %s: already exists, skipping", date_str)
         return "skipped"
 
-    url = f"{DOWNLOAD_SERVICE_URL}/wellness/{date_str}"
     log.info("  %s: downloading...", date_str)
     try:
-        data = client.download(url)
+        data = client.download_wellness_archive(day)
     except Exception:
         log.exception("  %s: download failed", date_str)
         return "failed"
 
-    if not data or len(data) < MIN_DOWNLOAD_BYTES:
+    if data is None:
         log.info("  %s: no data available", date_str)
         return "failed"
 
-    payload = bytes(data)
-    deps.files.write_zip(deps.data_dir, day, payload)
-    log.info("  %s: OK (%d bytes)", date_str, len(payload))
+    deps.files.write_zip(deps.data_dir, day, data)
+    log.info("  %s: OK (%d bytes)", date_str, len(data))
     return "downloaded"

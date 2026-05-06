@@ -185,6 +185,12 @@ uv run python ../scripts/reingest.py
 Garmin Connect download support is in `scripts/download_garmin.py`. FIT structure
 inspection support is in `scripts/explore_fit_files.py`.
 
+Runtime path overrides are centralized in backend app config:
+
+- `GARMIN_DB_PATH`
+- `GARMIN_DATA_DIR`
+- `GARMINTOKENS`
+
 ## Validation
 
 Backend:

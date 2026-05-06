@@ -15,7 +15,6 @@ ArchiveExtractor = Callable[[Path], int]
 WatcherAction = Callable[[], None]
 TodayProvider = Callable[[], date]
 MonotonicClock = Callable[[], float]
-Sleeper = Callable[[float], None]
 
 
 class IngestGateway(Protocol):
@@ -27,7 +26,7 @@ class IngestGateway(Protocol):
 
 
 class GarminDownloadClient(Protocol):
-    def download(self, path: str) -> bytes | bytearray | None: ...
+    def download_wellness_archive(self, day: date) -> bytes | None: ...
 
 
 class GarminClientFactory(Protocol):
@@ -55,4 +54,3 @@ class GarminSyncDependencies:
     files: SyncFileStore
     today: TodayProvider
     monotonic: MonotonicClock
-    sleep: Sleeper

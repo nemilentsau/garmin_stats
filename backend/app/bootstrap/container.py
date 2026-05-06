@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.core.config import AppConfig, get_app_config
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
 from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
 from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
@@ -23,6 +24,7 @@ from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 
 @dataclass(frozen=True)
 class AppContainer:
+    config: AppConfig
     artifacts_repo: SqliteArtifactRepository
     assistant_repo: SqliteAssistantRepository
     assistant_runtime: ClaudeCodeRuntime
@@ -38,9 +40,11 @@ class AppContainer:
 
 @lru_cache(maxsize=1)
 def build_container() -> AppContainer:
+    config = get_app_config()
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
     return AppContainer(
+        config=config,
         artifacts_repo=SqliteArtifactRepository(),
         assistant_repo=SqliteAssistantRepository(experiment_repo=experiments_repo),
         assistant_runtime=ClaudeCodeRuntime(),
@@ -51,5 +55,5 @@ def build_container() -> AppContainer:
         routines_repo=routines_repo,
         experiments_repo=experiments_repo,
         experiment_exposure_sync=ExperimentExposureSyncService(experiments_repo, routines_repo),
-        garmin_sync=build_garmin_sync_dependencies(),
+        garmin_sync=build_garmin_sync_dependencies(config),
     )

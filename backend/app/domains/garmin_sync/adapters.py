@@ -3,23 +3,33 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import time
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 
 from garminconnect import Garmin
 
+from app.core.config import AppConfig, get_app_config
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 from app.domains.garmin_sync.dependencies import (
     GarminDownloadClient,
     GarminSyncDependencies,
 )
-from app.infra.database import DATA_DIR, check_ingest_status, ingest_all, ingest_dates
+from app.infra.database import check_ingest_status, ingest_all, ingest_dates
 from app.infra.watcher import extract_existing_archives, resume_watcher, suspend_watcher
 
 log = logging.getLogger(__name__)
+
+_WELLNESS_ARCHIVE_PATH_PREFIX = "/download-service/files/wellness"
+_MINIMUM_ARCHIVE_BYTES = 100
+_REQUEST_SPACING_SECONDS = 1.0
+
+
+class _RawGarminClient(Protocol):
+    def download(self, path: str) -> bytes | bytearray | None: ...
 
 
 class DatabaseIngestGateway:
@@ -33,21 +43,44 @@ class DatabaseIngestGateway:
         return ingest_dates(data_dir, dates)
 
 
+class GarminConnectWellnessClient:
+    def __init__(
+        self,
+        client: _RawGarminClient,
+        *,
+        sleep: Callable[[float], None],
+        request_spacing_seconds: float = _REQUEST_SPACING_SECONDS,
+    ) -> None:
+        self._client = client
+        self._sleep = sleep
+        self._request_spacing_seconds = request_spacing_seconds
+        self._has_requested = False
+
+    def download_wellness_archive(self, day: date) -> bytes | None:
+        if self._has_requested:
+            self._sleep(self._request_spacing_seconds)
+        self._has_requested = True
+
+        data = self._client.download(f"{_WELLNESS_ARCHIVE_PATH_PREFIX}/{day.isoformat()}")
+        if not data or len(data) < _MINIMUM_ARCHIVE_BYTES:
+            return None
+        return bytes(data)
+
+
 class GarminConnectClientFactory:
-    def __init__(self, token_dir: str | None = None) -> None:
+    def __init__(self, token_dir: Path) -> None:
         self._token_dir = token_dir
 
     def create(self) -> GarminDownloadClient:
-        token_dir = self._token_dir or os.environ.get("GARMINTOKENS", "~/.garminconnect")
-        token_path = os.path.expanduser(token_dir)
-        if not os.path.isdir(token_path):
+        token_path = self._token_dir
+        if not token_path.is_dir():
             raise RuntimeError(
                 f"No Garmin tokens found at {token_path}. "
                 "Run `scripts/download_garmin.py --login` first."
             )
         client = Garmin()
-        client.login(token_path)
-        return client
+        client.login(str(token_path))
+        return GarminConnectWellnessClient(client, sleep=time.sleep)
 
 
 class FilesystemSyncFileStore:
@@ -86,16 +119,20 @@ class FilesystemSyncFileStore:
         (data_dir / f"{day.isoformat()}.zip").write_bytes(data)
 
 
-def build_garmin_sync_dependencies(data_dir: Path = DATA_DIR) -> GarminSyncDependencies:
+def build_garmin_sync_dependencies(
+    config: AppConfig | None = None,
+    data_dir: Path | None = None,
+) -> GarminSyncDependencies:
+    app_config = get_app_config() if config is None else config
+    sync_data_dir = app_config.data_dir if data_dir is None else data_dir
     return GarminSyncDependencies(
-        data_dir=data_dir,
+        data_dir=sync_data_dir,
         ingest=DatabaseIngestGateway(),
         extract_archives=extract_existing_archives,
         suspend_watcher=suspend_watcher,
         resume_watcher=resume_watcher,
-        clients=GarminConnectClientFactory(),
+        clients=GarminConnectClientFactory(app_config.garmin_token_dir),
         files=FilesystemSyncFileStore(),
         today=date.today,
         monotonic=time.monotonic,
-        sleep=time.sleep,
     )

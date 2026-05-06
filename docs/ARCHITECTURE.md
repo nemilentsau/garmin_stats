@@ -92,8 +92,8 @@ There are two major paths:
   small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
   ingest/status/sync orchestration, `dependencies.py` owns dependency protocols
   and callables, `adapters.py` wires SQLite ingest helpers, archive extraction,
-  watcher suspend/resume, filesystem archive writes/deletes, system clock/sleep,
-  and Garmin Connect client login/download, and `contracts.py` owns ingest/sync
+  watcher suspend/resume, filesystem archive writes/deletes, system clock, and
+  Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
   API response models.
 
 - `domains/garmin_analytics/`
@@ -176,8 +176,8 @@ not proof that the design is sound.
   presentation.
 - May import: its own dependency protocols, private workflow helpers, owned
   ingest/sync contracts, and infrastructure adapters that wrap database ingest,
-  archive extraction, watcher control, filesystem writes, clock/sleep, and
-  Garmin Connect login/download.
+  archive extraction, watcher control, filesystem writes, clock, and Garmin
+  Connect login/download details.
 - Must not import: routines, experiments, assistant, artifacts, journal,
   programs, Garmin analytics application modules, FastAPI from application
   modules, or SQLite helpers from application modules.
@@ -426,6 +426,7 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - Environment overrides:
   - `GARMIN_DB_PATH`
   - `GARMIN_DATA_DIR`
+  - `GARMINTOKENS`
   - `BACKEND_CORS_ORIGINS`
   - `PUBLIC_API_BASE_URL`
 

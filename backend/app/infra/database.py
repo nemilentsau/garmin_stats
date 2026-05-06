@@ -8,7 +8,6 @@ Read path (API):      SQLite → reconstruct Pydantic models → API response
 import hashlib
 import json
 import logging
-import os
 import re
 import sqlite3
 import threading
@@ -17,6 +16,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
@@ -62,17 +62,10 @@ from . import cache
 
 log = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+_APP_CONFIG = get_app_config()
 
-DB_PATH = Path(os.environ.get(
-    "GARMIN_DB_PATH",
-    str(_PROJECT_ROOT / "storage" / "garmin_stats.db"),
-))
-
-DATA_DIR = Path(os.environ.get(
-    "GARMIN_DATA_DIR",
-    str(_PROJECT_ROOT / "data" / "garmin_health_stats"),
-))
+DB_PATH = _APP_CONFIG.database_path
+DATA_DIR = _APP_CONFIG.data_dir
 
 _ingest_lock = threading.Lock()
 _ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")

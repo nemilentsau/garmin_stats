@@ -67,6 +67,41 @@ def test_garmin_sync_contracts_are_not_exposed_from_app_models():
     assert "garmin_sync.contracts" not in source
 
 
+def test_runtime_path_config_lives_in_shared_app_config_not_garmin_sync():
+    assert not (REPO_ROOT / "backend/app/domains/garmin_sync/config.py").exists()
+
+    source = read_repo_file("backend/app/core/config.py")
+    assert "GARMIN_DB_PATH" in source
+    assert "GARMIN_DATA_DIR" in source
+    assert "GARMINTOKENS" in source
+
+    garmin_sync_files = [
+        "backend/app/domains/garmin_sync/workflows.py",
+        "backend/app/domains/garmin_sync/dependencies.py",
+        "backend/app/domains/garmin_sync/adapters.py",
+    ]
+    assert_no_text_in_files(garmin_sync_files, ["GARMIN_SYNC_"])
+
+
+def test_garmin_connect_protocol_details_live_in_adapter_not_workflow():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/garmin_sync/workflows.py",
+            "backend/app/domains/garmin_sync/dependencies.py",
+        ],
+        [
+            "/download-service/files",
+            "MINIMUM_ARCHIVE_BYTES",
+            "REQUEST_SPACING_SECONDS",
+        ],
+    )
+
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+    assert "/download-service/files/wellness" in source
+    assert "_MINIMUM_ARCHIVE_BYTES" in source
+    assert "_REQUEST_SPACING_SECONDS" in source
+
+
 def test_garmin_sync_routes_use_container_dependencies():
     source = read_repo_file("backend/app/domains/garmin_sync/routes.py")
 
