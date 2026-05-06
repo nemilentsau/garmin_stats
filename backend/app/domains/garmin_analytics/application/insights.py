@@ -1,15 +1,13 @@
 """Transitional insight use cases for Garmin analytics routes."""
 
 from app.domains.garmin_analytics.application import (
-    body_battery_analysis,
-    heart_rate,
-    heart_rate_analysis,
-    hrv,
-    hrv_analysis,
-    sleep_analysis,
-    stress_analysis,
+    analysis,
 )
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.domain.insights.heart_rate import (
+    compute_heart_rate_insights,
+)
+from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insights
 from app.models import (
     BodyBatteryAnalysisResponse,
     HeartRateAnalysisResponse,
@@ -23,43 +21,55 @@ from app.models import (
 
 
 def get_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
-    return sleep_analysis.load_sleep_analysis(repo)
+    return analysis.load_sleep_analysis(repo)
 
 
 def get_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
-    return hrv_analysis.load_hrv_analysis(repo)
+    return analysis.load_hrv_analysis(repo)
 
 
 def get_hrv_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
 ) -> HrvInsightsResponse:
-    return hrv.load_hrv_insights(repo, date)
+    metrics = repo.load_daily_metrics()
+    if not metrics:
+        raise LookupError("No HRV data available")
+
+    selected_date = date or metrics[-1].date
+    day_rows = repo.load_hrv(selected_date)
+    return compute_hrv_insights(metrics, selected_date, day_rows)
 
 
 def get_heart_rate_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
 ) -> HeartRateInsightsResponse:
-    return heart_rate.load_heart_rate_insights(repo, date)
+    metrics = repo.load_daily_metrics()
+    if not metrics:
+        raise LookupError("No heart-rate data available")
+
+    selected_date = date or metrics[-1].date
+    wellness_days = repo.load_wellness(selected_date)
+    return compute_heart_rate_insights(metrics, selected_date, wellness_days)
 
 
 def get_heart_rate_analysis(repo: BiometricReadRepository) -> HeartRateAnalysisResponse:
-    return heart_rate_analysis.load_heart_rate_analysis(repo)
+    return analysis.load_heart_rate_analysis(repo)
 
 
 def get_hr_distribution(
     repo: BiometricReadRepository,
     date: str,
 ) -> HRDistributionResponse:
-    return heart_rate_analysis.load_hr_distribution(repo, date)
+    return analysis.load_hr_distribution(repo, date)
 
 
 def get_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
-    return stress_analysis.load_stress_analysis(repo)
+    return analysis.load_stress_analysis(repo)
 
 
 def get_body_battery_analysis(
     repo: BiometricReadRepository,
 ) -> BodyBatteryAnalysisResponse:
-    return body_battery_analysis.load_body_battery_analysis(repo)
+    return analysis.load_body_battery_analysis(repo)

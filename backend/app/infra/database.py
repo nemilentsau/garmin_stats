@@ -20,7 +20,7 @@ from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
 )
-from ..domains.garmin_analytics.application.daily_aggregates import (
+from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus

@@ -1,7 +1,10 @@
 """Body Battery analysis calculations for Garmin analytics."""
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.infra import cache
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
 from app.models import (
     BodyBatteryAnalysisResponse,
     BodyBatteryTrendPoint,
@@ -9,11 +12,8 @@ from app.models import (
     WeeklyBodyBatteryBox,
 )
 
-from .numeric import safe_percentile
-from .trends import group_by_iso_week, trailing_ma7
 
-
-def _compute_body_battery_trend(
+def compute_body_battery_trend(
     metrics: list[DailyMetric],
 ) -> list[BodyBatteryTrendPoint]:
     min_values: list[float | None] = [
@@ -33,11 +33,12 @@ def _compute_body_battery_trend(
     ]
 
 
-def _compute_weekly_body_battery_boxplots(
+def compute_weekly_body_battery_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyBodyBatteryBox]:
     weeks = group_by_iso_week(
-        metrics, lambda m: float(m.body_battery.min) if m.body_battery.min is not None else None
+        metrics,
+        lambda m: float(m.body_battery.min) if m.body_battery.min is not None else None,
     )
     result: list[WeeklyBodyBatteryBox] = []
     for week_key in sorted(weeks):
@@ -56,20 +57,10 @@ def _compute_weekly_body_battery_boxplots(
     return result
 
 
-def load_body_battery_analysis(
-    repo: BiometricReadRepository,
+def compute_body_battery_analysis(
+    metrics: list[DailyMetric],
 ) -> BodyBatteryAnalysisResponse:
-    return cache.cached(
-        cache.BODY_BATTERY_ANALYSIS,
-        lambda: _compute_body_battery_analysis(repo),
-    )
-
-
-def _compute_body_battery_analysis(
-    repo: BiometricReadRepository,
-) -> BodyBatteryAnalysisResponse:
-    metrics = repo.load_daily_metrics()
     return BodyBatteryAnalysisResponse(
-        trend=_compute_body_battery_trend(metrics),
-        weekly_boxplots=_compute_weekly_body_battery_boxplots(metrics),
+        trend=compute_body_battery_trend(metrics),
+        weekly_boxplots=compute_weekly_body_battery_boxplots(metrics),
     )

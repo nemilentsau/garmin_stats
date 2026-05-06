@@ -4,9 +4,12 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.domains.garmin_analytics.domain.windows import compute_windows
-from app.infra import cache
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.models import (
     CircadianHRPoint,
     DailyAvgHRTrendPoint,
@@ -14,7 +17,6 @@ from app.models import (
     DaySleep,
     DayWellness,
     HeartRateAnalysisResponse,
-    HRDistributionResponse,
     HRHistogramBin,
     HRPatternWindow,
     RestingHRTrendPoint,
@@ -23,11 +25,8 @@ from app.models import (
 )
 from app.utils.timeutil import parse_iso as _parse_iso
 
-from .numeric import safe_percentile
-from .trends import group_by_iso_week, trailing_ma7
 
-
-def _compute_circadian_profile(
+def compute_circadian_profile(
     wellness_days: list[DayWellness],
 ) -> list[CircadianHRPoint]:
     """Avg HR by hour 0-23 across all days."""
@@ -53,7 +52,7 @@ def _compute_circadian_profile(
     ]
 
 
-def _compute_sleeping_hr_trend(
+def compute_sleeping_hr_trend(
     all_wellness: list[DayWellness],
     all_sleep: list[DaySleep],
 ) -> list[SleepingHRPoint]:
@@ -129,7 +128,7 @@ def _compute_sleeping_hr_trend(
     return result
 
 
-def _compute_resting_hr_trend(
+def compute_resting_hr_trend(
     metrics: list[DailyMetric],
 ) -> list[RestingHRTrendPoint]:
     """Raw resting HR + 7-day trailing moving average."""
@@ -149,7 +148,7 @@ def _compute_resting_hr_trend(
     ]
 
 
-def _compute_daily_avg_trend(
+def compute_daily_avg_trend(
     metrics: list[DailyMetric],
 ) -> list[DailyAvgHRTrendPoint]:
     """Raw daily avg HR + 7-day trailing moving average."""
@@ -166,7 +165,7 @@ def _compute_daily_avg_trend(
     ]
 
 
-def _compute_hr_distribution(
+def compute_hr_distribution(
     hr_readings: Sequence[tuple[int, str | None]],
     bin_width: int = 5,
 ) -> list[HRHistogramBin]:
@@ -195,7 +194,7 @@ def _compute_hr_distribution(
     return bins
 
 
-def _compute_weekly_boxplots(
+def compute_weekly_resting_hr_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyRestingHRBox]:
     """Group resting HR by ISO week, compute 5-number summary."""
@@ -218,45 +217,21 @@ def _compute_weekly_boxplots(
     return result
 
 
-def load_heart_rate_analysis(repo: BiometricReadRepository) -> HeartRateAnalysisResponse:
-    """Load all wellness + sleep + metrics, compute analysis features (cached)."""
-    return cache.cached(cache.HR_ANALYSIS, lambda: _compute_heart_rate_analysis(repo))
-
-
-def _compute_heart_rate_analysis(
-    repo: BiometricReadRepository,
+def compute_heart_rate_analysis(
+    all_wellness: list[DayWellness],
+    all_sleep: list[DaySleep],
+    metrics: list[DailyMetric],
 ) -> HeartRateAnalysisResponse:
-    all_wellness = repo.load_wellness()
-    all_sleep = repo.load_sleep()
-    metrics = repo.load_daily_metrics()
     pattern_windows = compute_windows(
         all_wellness,
         lambda subset: HRPatternWindow(
-            circadian_profile=_compute_circadian_profile(subset),
+            circadian_profile=compute_circadian_profile(subset),
         ),
     )
     return HeartRateAnalysisResponse(
-        sleeping_hr_trend=_compute_sleeping_hr_trend(all_wellness, all_sleep),
-        resting_hr_trend=_compute_resting_hr_trend(metrics),
-        daily_avg_trend=_compute_daily_avg_trend(metrics),
-        weekly_boxplots=_compute_weekly_boxplots(metrics),
+        sleeping_hr_trend=compute_sleeping_hr_trend(all_wellness, all_sleep),
+        resting_hr_trend=compute_resting_hr_trend(metrics),
+        daily_avg_trend=compute_daily_avg_trend(metrics),
+        weekly_boxplots=compute_weekly_resting_hr_boxplots(metrics),
         pattern_windows=pattern_windows,
-    )
-
-
-def load_hr_distribution(
-    repo: BiometricReadRepository,
-    date: str,
-) -> HRDistributionResponse:
-    """Load one day's wellness, build histogram."""
-    wellness_days = repo.load_wellness(date)
-    if not wellness_days:
-        return HRDistributionResponse(date=date, bins=[], sample_count=0)
-
-    readings = [(r.value, r.timestamp) for r in wellness_days[0].heart_rate if r.value > 0]
-    bins = _compute_hr_distribution(readings)
-    return HRDistributionResponse(
-        date=date,
-        bins=bins,
-        sample_count=len(readings),
     )

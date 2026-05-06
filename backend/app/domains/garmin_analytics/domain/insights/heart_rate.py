@@ -3,9 +3,11 @@
 from datetime import datetime
 from statistics import median
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.domain.aggregates.daily import HR_ZONE_THRESHOLDS
+from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.models import (
     DailyMetric,
+    DayWellness,
     HeartRateDataQuality,
     HeartRateInsight,
     HeartRateInsightsResponse,
@@ -15,18 +17,15 @@ from app.models import (
 )
 from app.utils.timeutil import parse_iso as _parse_iso
 
-from .daily_aggregates import HR_ZONE_THRESHOLDS
-from .trends import prior_7d_avg
 
-
-def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:
+def zone_for_value(value: int) -> tuple[str, int, int | None] | None:
     for label, lower, upper in HR_ZONE_THRESHOLDS:
         if value >= lower and (upper is None or value < upper):
             return (label, lower, upper)
     return None
 
 
-def _estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> float:
+def estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> float:
     if len(readings) < 2:
         return 1.0
     deltas = []
@@ -39,7 +38,7 @@ def _estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> 
     return max(0.25, min(float(median(deltas)), 5.0))
 
 
-def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDuration]:
+def compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDuration]:
     resolved: list[tuple[datetime, int]] = []
     for reading in hr_readings:
         if reading.value == 0:
@@ -53,12 +52,12 @@ def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDur
         return []
 
     resolved.sort(key=lambda item: item[0])
-    default_interval = _estimate_default_interval_minutes(resolved)
+    default_interval = estimate_default_interval_minutes(resolved)
     max_interval = max(default_interval * 3, 1.0)
 
     buckets: dict[tuple[str, int, int | None], float] = {}
     for i, (dt, value) in enumerate(resolved):
-        zone = _zone_for_value(value)
+        zone = zone_for_value(value)
         if zone is None:
             continue
 
@@ -91,7 +90,7 @@ def _compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDur
     return result
 
 
-def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
+def compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
     selected_resting = metrics[selected_index].heart_rate.resting
     baseline = prior_7d_avg(
         metrics,
@@ -121,7 +120,7 @@ def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartR
     )
 
 
-def _build_insights(
+def build_insights(
     selected: DailyMetric,
     recovery: HeartRateRecovery,
     quality: HeartRateDataQuality,
@@ -192,16 +191,11 @@ def _build_insights(
     return insights
 
 
-def load_heart_rate_insights(
-    repo: BiometricReadRepository,
-    date: str | None = None,
+def compute_heart_rate_insights(
+    metrics: list[DailyMetric],
+    selected_date: str,
+    wellness_days: list[DayWellness],
 ) -> HeartRateInsightsResponse:
-    """Load backend-derived heart-rate insights for a day (or latest if omitted)."""
-    metrics = repo.load_daily_metrics()
-    if not metrics:
-        raise LookupError("No heart-rate data available")
-
-    selected_date = date or metrics[-1].date
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,
@@ -209,7 +203,6 @@ def load_heart_rate_insights(
     if selected_index is None:
         raise LookupError(f"Day {selected_date} not found")
 
-    wellness_days = repo.load_wellness(selected_date)
     heart_rate_readings = wellness_days[0].heart_rate if wellness_days else []
     parsed_times = sorted(
         dt for dt in (_parse_iso(r.timestamp) for r in heart_rate_readings) if dt is not None
@@ -227,14 +220,14 @@ def load_heart_rate_insights(
         coverage_end=coverage_end,
         coverage_hours=coverage_hours,
     )
-    recovery = _compute_recovery(metrics, selected_index)
+    recovery = compute_recovery(metrics, selected_index)
     selected_metric = metrics[selected_index]
 
     return HeartRateInsightsResponse(
         date=selected_date,
         day_stats=selected_metric.heart_rate,
         recovery=recovery,
-        zones=_compute_zone_minutes(heart_rate_readings),
+        zones=compute_zone_minutes(heart_rate_readings),
         quality=quality,
-        insights=_build_insights(selected_metric, recovery, quality),
+        insights=build_insights(selected_metric, recovery, quality),
     )

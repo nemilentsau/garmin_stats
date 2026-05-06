@@ -1,19 +1,19 @@
 """Tests for Garmin analytics aggregation, flattening, and period summaries."""
 
-from app.domains.garmin_analytics.application.biometric_responses import (
+from app.domains.garmin_analytics.domain.aggregates.biometric_responses import (
     flatten_wellness,
 )
-from app.domains.garmin_analytics.application.daily_aggregates import (
+from app.domains.garmin_analytics.domain.aggregates.daily import (
     aggregate_day,
     compute_hr_zones,
 )
-from app.domains.garmin_analytics.application.numeric import (
+from app.domains.garmin_analytics.domain.aggregates.period import (
+    compute_period_summary,
+)
+from app.domains.garmin_analytics.domain.primitives.numeric import (
     safe_avg,
     safe_median,
     safe_percentile,
-)
-from app.domains.garmin_analytics.application.period_aggregates import (
-    compute_period_summary,
 )
 from app.models import (
     BodyBatteryReading,

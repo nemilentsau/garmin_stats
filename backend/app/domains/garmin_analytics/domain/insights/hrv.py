@@ -2,19 +2,21 @@
 
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
 
 import numpy as np
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.analysis.hrv import (
+    compute_day_of_week,
+    compute_hrv_distribution,
+    compute_trajectory,
+    extract_baseline_bands,
+)
+from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.models import (
     DailyMetric,
     DayHrv,
-    HrvBaselineBands,
     HrvDataQuality,
-    HrvDayOfWeekBucket,
-    HrvDistribution,
-    HrvDistributionBin,
     HrvInsight,
     HrvInsightsResponse,
     HrvIntradaySegment,
@@ -27,9 +29,6 @@ from app.models import (
     HrvValue,
 )
 from app.utils.timeutil import parse_iso as _parse_iso
-
-from .daily_aggregates import normalize_hrv_status
-from .trends import prior_7d_avg
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
@@ -216,7 +215,7 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
 
 
 @dataclass(frozen=True, slots=True)
-class _InsightContext:
+class InsightContext:
     selected: DailyMetric
     recovery: HrvRecovery
     quality: HrvDataQuality
@@ -227,7 +226,7 @@ class _InsightContext:
     trajectory: HrvTrajectory | None = None
 
 
-def _build_insights(ctx: _InsightContext) -> list[HrvInsight]:
+def _build_insights(ctx: InsightContext) -> list[HrvInsight]:
     insights: list[HrvInsight] = []
     status = ctx.recovery.status
 
@@ -377,159 +376,11 @@ def _build_insights(ctx: _InsightContext) -> list[HrvInsight]:
     return insights
 
 
-_HRV_DIST_MIN_DAYS = 7
-_HRV_BIN_WIDTH = 5
-
-
-def _extract_baseline_bands(day_rows: list[DayHrv]) -> HrvBaselineBands | None:
-    """Extract Garmin baseline bands from the first HRV summary of the day."""
-    for row in day_rows:
-        for summary in row.hrv_summaries:
-            fields = (
-                summary.baseline_low_upper,
-                summary.baseline_balanced_lower,
-                summary.baseline_balanced_upper,
-                summary.last_night_5_min_high,
-            )
-            if any(f is not None for f in fields):
-                return HrvBaselineBands(
-                    baseline_low_upper=summary.baseline_low_upper,
-                    baseline_balanced_lower=summary.baseline_balanced_lower,
-                    baseline_balanced_upper=summary.baseline_balanced_upper,
-                    five_min_high=summary.last_night_5_min_high,
-                )
-    return None
-
-
-def _compute_hrv_distribution(
-    nightly_vals: list[float],
-    selected_value: float | None,
-) -> HrvDistribution | None:
-    """5ms-wide histogram of nightly HRV across the full period."""
-    if len(nightly_vals) < _HRV_DIST_MIN_DAYS:
-        return None
-
-    min_val = min(nightly_vals)
-    max_val = max(nightly_vals)
-    bin_start = int(min_val // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
-    bin_end = (int(max_val // _HRV_BIN_WIDTH) + 1) * _HRV_BIN_WIDTH
-
-    counts: dict[int, int] = {}
-    for v in nightly_vals:
-        b = int(v // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
-        counts[b] = counts.get(b, 0) + 1
-
-    bins: list[HrvDistributionBin] = []
-    for b in range(bin_start, bin_end, _HRV_BIN_WIDTH):
-        c = counts.get(b, 0)
-        if c > 0:
-            bins.append(HrvDistributionBin(
-                bin_start=float(b), bin_end=float(b + _HRV_BIN_WIDTH), count=c,
-            ))
-
-    selected_percentile: float | None = None
-    if selected_value is not None:
-        arr = np.sort(nightly_vals)
-        idx = float(np.searchsorted(arr, selected_value, side="right"))
-        selected_percentile = round(idx / len(nightly_vals) * 100, 1)
-
-    return HrvDistribution(
-        bins=bins,
-        total_days=len(nightly_vals),
-        selected_value=selected_value,
-        selected_percentile=selected_percentile,
-    )
-
-
-def _compute_trajectory(hrv_values: list[HrvValue]) -> HrvTrajectory | None:
-    """Split overnight readings into 3 equal time segments and compare averages."""
-    parsed = sorted(
-        (dt, v.value)
-        for v in hrv_values
-        if (dt := _parse_iso(v.timestamp)) is not None
-    )
-    if len(parsed) < 6:
-        return None
-
-    t_start = parsed[0][0]
-    t_end = parsed[-1][0]
-    span = (t_end - t_start).total_seconds()
-    if span <= 0:
-        return None
-    third = span / 3
-    t_mid_start = t_start.timestamp() + third
-    t_late_start = t_start.timestamp() + 2 * third
-
-    early: list[float] = []
-    mid: list[float] = []
-    late: list[float] = []
-    for dt, val in parsed:
-        ts = dt.timestamp()
-        if ts < t_mid_start:
-            early.append(val)
-        elif ts < t_late_start:
-            mid.append(val)
-        else:
-            late.append(val)
-
-    if not early or not mid or not late:
-        return None
-
-    early_avg = round(sum(early) / len(early), 1)
-    mid_avg = round(sum(mid) / len(mid), 1)
-    late_avg = round(sum(late) / len(late), 1)
-
-    diff = late_avg - early_avg
-    if diff > 5:
-        direction = "rising"
-    elif diff < -5:
-        direction = "falling"
-    else:
-        direction = "flat"
-
-    return HrvTrajectory(
-        early_avg=early_avg,
-        mid_avg=mid_avg,
-        late_avg=late_avg,
-        direction=direction,
-    )
-
-
-_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-
-def _compute_day_of_week(metrics: list[DailyMetric]) -> list[HrvDayOfWeekBucket]:
-    """Average nightly HRV grouped by weekday across the full dataset."""
-    groups: dict[int, list[float]] = {i: [] for i in range(7)}
-    for m in metrics:
-        if m.hrv.nightly_avg is not None:
-            try:
-                weekday = datetime.strptime(m.date, "%Y-%m-%d").weekday()
-            except ValueError:
-                continue
-            groups[weekday].append(m.hrv.nightly_avg)
-
-    return [
-        HrvDayOfWeekBucket(
-            day=_DAY_NAMES[i],
-            day_index=i,
-            avg_nightly=round(sum(vals) / len(vals), 1) if vals else None,
-            sample_count=len(vals),
-        )
-        for i, vals in sorted(groups.items())
-    ]
-
-
-def load_hrv_insights(
-    repo: BiometricReadRepository,
-    date: str | None = None,
+def compute_hrv_insights(
+    metrics: list[DailyMetric],
+    selected_date: str,
+    day_rows: list[DayHrv],
 ) -> HrvInsightsResponse:
-    """Load backend-derived HRV insights for a day (or latest if omitted)."""
-    metrics = repo.load_daily_metrics()
-    if not metrics:
-        raise LookupError("No HRV data available")
-
-    selected_date = date or metrics[-1].date
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,
@@ -538,7 +389,6 @@ def load_hrv_insights(
         raise LookupError(f"Day {selected_date} not found")
 
     selected_metric = metrics[selected_index]
-    day_rows = repo.load_hrv(selected_date)
     day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
@@ -554,15 +404,15 @@ def load_hrv_insights(
     long_baseline = _compute_long_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d,
     )
-    baseline_bands = _extract_baseline_bands(day_rows)
-    distribution = _compute_hrv_distribution(
+    baseline_bands = extract_baseline_bands(day_rows)
+    distribution = compute_hrv_distribution(
         nightly_vals, selected_metric.hrv.nightly_avg,
     )
-    trajectory = _compute_trajectory(day_values)
+    trajectory = compute_trajectory(day_values)
     status_mix = _compute_status_mix(metrics, selected_index)
-    day_of_week = _compute_day_of_week(metrics)
+    day_of_week = compute_day_of_week(metrics)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
-    insights = _build_insights(_InsightContext(
+    insights = _build_insights(InsightContext(
         selected=selected_metric,
         recovery=recovery,
         quality=quality,

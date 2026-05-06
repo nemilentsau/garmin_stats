@@ -4,8 +4,8 @@ import pytest
 
 import app.infra.database as db
 import app.infra.sqlite as sqlite
-from app.domains.garmin_analytics.application.hrv import (
-    load_hrv_insights as _load_hrv_insights,
+from app.domains.garmin_analytics.application.insights import (
+    get_hrv_insights as _get_hrv_insights,
 )
 from app.domains.garmin_analytics.infra.biometric_repository import (
     SqliteBiometricRepository,
@@ -26,7 +26,7 @@ from app.models import (
 
 
 def load_hrv_insights(date: str | None = None):
-    return _load_hrv_insights(SqliteBiometricRepository(), date)
+    return _get_hrv_insights(SqliteBiometricRepository(), date)
 
 
 @pytest.fixture(autouse=True)

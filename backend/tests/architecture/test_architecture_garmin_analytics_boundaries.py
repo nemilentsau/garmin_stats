@@ -24,15 +24,36 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         "backend/app/domains/garmin_analytics/application/overview.py",
         "backend/app/domains/garmin_analytics/application/biometrics.py",
         "backend/app/domains/garmin_analytics/application/period_summary.py",
+        "backend/app/domains/garmin_analytics/application/analysis.py",
         "backend/app/domains/garmin_analytics/application/insights.py",
-        "backend/app/domains/garmin_analytics/application/heart_rate.py",
-        "backend/app/domains/garmin_analytics/application/heart_rate_analysis.py",
-        "backend/app/domains/garmin_analytics/application/hrv.py",
-        "backend/app/domains/garmin_analytics/application/hrv_analysis.py",
-        "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
-        "backend/app/domains/garmin_analytics/application/stress_analysis.py",
-        "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
     ])
+
+
+def test_garmin_analytics_domain_modules_do_not_import_application_or_infra():
+    paths = [
+        str(path.relative_to(REPO_ROOT))
+        for path in (REPO_ROOT / "backend/app/domains/garmin_analytics/domain").rglob(
+            "*.py",
+        )
+    ]
+    assert_no_text_in_files(
+        paths,
+        [
+            "app.domains.garmin_analytics.application",
+            "app.domains.garmin_analytics.infra",
+            "app.infra",
+            "fastapi",
+        ],
+    )
+
+
+def test_garmin_analytics_analysis_modules_do_not_import_insights():
+    analysis_root = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/analysis"
+    if not analysis_root.exists():
+        return
+
+    paths = [str(path.relative_to(REPO_ROOT)) for path in analysis_root.rglob("*.py")]
+    assert_no_text_in_files(paths, ["app.domains.garmin_analytics.domain.insights"])
 
 
 def test_migrated_garmin_analytics_service_shims_are_removed():

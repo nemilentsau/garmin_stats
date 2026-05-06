@@ -3,6 +3,11 @@
 import numpy as np
 
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    prior_7d_avg,
+    trailing_ma7,
+)
 from app.models import (
     CorrelationPoint,
     DailyMetric,
@@ -15,9 +20,6 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
-
-from .daily_aggregates import normalize_hrv_status
-from .trends import prior_7d_avg, trailing_ma7
 
 
 def _recovery_status(

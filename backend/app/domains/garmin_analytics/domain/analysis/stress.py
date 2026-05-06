@@ -1,7 +1,10 @@
 """Stress analysis calculations for Garmin analytics."""
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.infra import cache
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
 from app.models import (
     DailyMetric,
     StressAnalysisResponse,
@@ -9,11 +12,8 @@ from app.models import (
     WeeklyStressBox,
 )
 
-from .numeric import safe_percentile
-from .trends import group_by_iso_week, trailing_ma7
 
-
-def _compute_stress_trend(
+def compute_stress_trend(
     metrics: list[DailyMetric],
 ) -> list[StressTrendPoint]:
     avg_values: list[float | None] = [m.stress.avg for m in metrics]
@@ -29,7 +29,7 @@ def _compute_stress_trend(
     ]
 
 
-def _compute_weekly_stress_boxplots(
+def compute_weekly_stress_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyStressBox]:
     weeks = group_by_iso_week(metrics, lambda m: m.stress.avg)
@@ -50,13 +50,8 @@ def _compute_weekly_stress_boxplots(
     return result
 
 
-def load_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
-    return cache.cached(cache.STRESS_ANALYSIS, lambda: _compute_stress_analysis(repo))
-
-
-def _compute_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
-    metrics = repo.load_daily_metrics()
+def compute_stress_analysis(metrics: list[DailyMetric]) -> StressAnalysisResponse:
     return StressAnalysisResponse(
-        avg_trend=_compute_stress_trend(metrics),
-        weekly_boxplots=_compute_weekly_stress_boxplots(metrics),
+        avg_trend=compute_stress_trend(metrics),
+        weekly_boxplots=compute_weekly_stress_boxplots(metrics),
     )

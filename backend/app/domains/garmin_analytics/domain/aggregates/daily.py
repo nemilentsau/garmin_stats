@@ -2,6 +2,11 @@
 
 from collections.abc import Sequence
 
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_median,
+    safe_percentile,
+)
 from app.models import (
     DailyAggregatesResponse,
     DailyBodyBatteryStats,
@@ -14,8 +19,6 @@ from app.models import (
     DayData,
     HRZoneBucket,
 )
-
-from .numeric import safe_avg, safe_median, safe_percentile
 
 # HR zone definitions: (label, lower_bound_inclusive, upper_bound_exclusive_or_None)
 HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [

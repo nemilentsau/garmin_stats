@@ -1,7 +1,10 @@
 """Sleep analysis calculations for Garmin analytics."""
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.infra import cache
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
 from app.models import (
     DailyMetric,
     SleepAnalysisResponse,
@@ -9,11 +12,8 @@ from app.models import (
     WeeklySleepBox,
 )
 
-from .numeric import safe_percentile
-from .trends import group_by_iso_week, trailing_ma7
 
-
-def _compute_sleep_trend(
+def compute_sleep_trend(
     metrics: list[DailyMetric],
 ) -> list[SleepTrendPoint]:
     score_values: list[float | None] = [
@@ -34,11 +34,12 @@ def _compute_sleep_trend(
     ]
 
 
-def _compute_weekly_sleep_boxplots(
+def compute_weekly_sleep_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklySleepBox]:
     weeks = group_by_iso_week(
-        metrics, lambda m: float(m.sleep.score) if m.sleep.score is not None else None
+        metrics,
+        lambda m: float(m.sleep.score) if m.sleep.score is not None else None,
     )
     result: list[WeeklySleepBox] = []
     for week_key in sorted(weeks):
@@ -57,13 +58,8 @@ def _compute_weekly_sleep_boxplots(
     return result
 
 
-def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
-    return cache.cached(cache.SLEEP_ANALYSIS, lambda: _compute_sleep_analysis(repo))
-
-
-def _compute_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
-    metrics = repo.load_daily_metrics()
+def compute_sleep_analysis(metrics: list[DailyMetric]) -> SleepAnalysisResponse:
     return SleepAnalysisResponse(
-        score_trend=_compute_sleep_trend(metrics),
-        weekly_boxplots=_compute_weekly_sleep_boxplots(metrics),
+        score_trend=compute_sleep_trend(metrics),
+        weekly_boxplots=compute_weekly_sleep_boxplots(metrics),
     )

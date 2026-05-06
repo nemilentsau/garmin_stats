@@ -1,7 +1,8 @@
 """Windowed period summaries for Garmin biometric data."""
 
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.domains.garmin_analytics.domain.windows import compute_windows
+from app.domains.garmin_analytics.domain.aggregates.period import compute_period_summary
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.infra import cache
 from app.models import (
     DayData,
@@ -11,8 +12,6 @@ from app.models import (
     DayWellness,
     PeriodSummary,
 )
-
-from .period_aggregates import compute_period_summary
 
 
 def load_windowed_period_summary(
