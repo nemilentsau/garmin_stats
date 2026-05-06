@@ -71,6 +71,9 @@ domain-oriented structure:
   delegating live routine activation to `domains/routines`.
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
   derivation, and N=1 analysis through named application use-case modules.
+- `domains/programs/` owns placeholder program spec import, lifecycle, and
+  version history. Imports store program specs only; protocol, routine, and
+  experiment activation is intentionally not implemented yet.
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 

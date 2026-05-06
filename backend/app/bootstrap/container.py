@@ -15,6 +15,7 @@ from app.domains.garmin_analytics.infra.biometric_repository import (
     SqliteBiometricRepository,
 )
 from app.domains.journal.infra.sqlite_repository import SqliteJournalRepository
+from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 
 
@@ -26,6 +27,7 @@ class AppContainer:
     garmin_biometrics_repo: SqliteBiometricRepository
     journal_repo: SqliteJournalRepository
     profile_repo: SqliteProfileRepository
+    programs_repo: SqliteProgramRepository
     routines_repo: SqliteRoutineRepository
     experiments_repo: SqliteExperimentRepository
     experiment_exposure_sync: ExperimentExposureSyncService
@@ -42,6 +44,7 @@ def build_container() -> AppContainer:
         garmin_biometrics_repo=SqliteBiometricRepository(),
         journal_repo=SqliteJournalRepository(),
         profile_repo=SqliteProfileRepository(),
+        programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
         experiments_repo=experiments_repo,
         experiment_exposure_sync=ExperimentExposureSyncService(experiments_repo, routines_repo),

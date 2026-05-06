@@ -24,13 +24,13 @@ from app.domains.garmin_analytics.api.insights import (
 from app.domains.garmin_analytics.api.overview import router as dashboard_router
 from app.domains.journal.api.checkins import router as checkins_router
 from app.domains.journal.api.notes import router as notes_router
+from app.domains.programs.api.programs import router as programs_router
 from app.domains.routines.api.routines import router as routines_router
 from app.domains.routines.api.today import router as today_router
 
 from ..routers.days import router as days_router
 from ..routers.events import router as events_router
 from ..routers.ingest import router as ingest_router
-from ..routers.programs import router as programs_router
 
 
 def register_routers(app: FastAPI) -> None:

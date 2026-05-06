@@ -1736,16 +1736,12 @@ def delete_program(program_id: str) -> None:
         )
 
 
-def replace_program_import(
+def save_program_import(
     *,
     program: Program,
     previous_version: ProgramVersion | None,
-    routines: list[Routine],
-    experiments: list[Experiment],
-    stale_routine_ids: set[str],
-    stale_experiment_ids: set[str],
 ) -> None:
-    """Apply a program import atomically after the spec has been validated."""
+    """Persist a placeholder program import and optional previous version atomically."""
     timestamp = now_iso()
     with _connect() as con, con:
         if previous_version is not None:
@@ -1768,24 +1764,3 @@ def replace_program_import(
             program.id,
             program.model_dump_json(),
         )
-
-        for routine in routines:
-            _save_json_record_in_connection(
-                con,
-                "routines",
-                routine.id,
-                routine.model_dump_json(),
-            )
-
-        for experiment in experiments:
-            _save_json_record_in_connection(
-                con,
-                "experiments",
-                experiment.id,
-                experiment.model_dump_json(),
-            )
-
-        for routine_id in sorted(stale_routine_ids):
-            con.execute("DELETE FROM routines WHERE id = ?", (routine_id,))
-        for experiment_id in sorted(stale_experiment_ids):
-            con.execute("DELETE FROM experiments WHERE id = ?", (experiment_id,))

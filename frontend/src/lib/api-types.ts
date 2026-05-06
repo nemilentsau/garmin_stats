@@ -971,7 +971,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import Program
-         * @description Import a program spec JSON. Creates/updates program, routines, and experiments.
+         * @description Import a placeholder program spec JSON without activating child records.
          */
         post: operations["post_import_program_api_programs_import_post"];
         delete?: never;
@@ -5388,7 +5388,7 @@ export interface operations {
     get_programs_api_programs_get: {
         parameters: {
             query?: {
-                status?: string | null;
+                status?: ("active" | "retired") | null;
             };
             header?: never;
             path?: never;
