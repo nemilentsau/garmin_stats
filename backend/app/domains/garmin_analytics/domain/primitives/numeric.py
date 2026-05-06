@@ -18,3 +18,13 @@ def safe_median(values: Sequence[int | float]) -> float | None:
 def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
     """Percentile with rounding, or None if empty."""
     return round(float(np.percentile(values, pct)), 1) if values else None
+
+
+def safe_min(values: Sequence[int | float], ndigits: int = 1) -> float | None:
+    """Min with rounding, or None if empty."""
+    return round(float(min(values)), ndigits) if values else None
+
+
+def safe_max(values: Sequence[int | float], ndigits: int = 1) -> float | None:
+    """Max with rounding, or None if empty."""
+    return round(float(max(values)), ndigits) if values else None

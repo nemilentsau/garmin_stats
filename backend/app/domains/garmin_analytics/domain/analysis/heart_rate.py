@@ -4,7 +4,7 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
 from app.domains.garmin_analytics.domain.primitives.trends import (
     group_by_iso_week,
     trailing_ma7,
@@ -70,7 +70,6 @@ def compute_sleeping_hr_trend(
         if not levels:
             continue
 
-        # Sort by timestamp
         parsed_levels: list[tuple[datetime, str]] = []
         for sl in levels:
             dt = _parse_iso(sl.timestamp)
@@ -80,16 +79,13 @@ def compute_sleeping_hr_trend(
             continue
         parsed_levels.sort(key=lambda x: x[0])
 
-        # Build sorted interval start times for bisect
         interval_starts = [pl[0] for pl in parsed_levels]
         interval_stages = [pl[1] for pl in parsed_levels]
 
-        # Determine which calendar dates the sleep spans
         first_ts = parsed_levels[0][0]
         last_ts = parsed_levels[-1][0]
         dates_needed = {first_ts.strftime("%Y-%m-%d"), last_ts.strftime("%Y-%m-%d")}
 
-        # Collect HR readings from relevant dates
         hr_values: list[int] = []
         for d in dates_needed:
             w = wellness_by_date.get(d)
@@ -101,10 +97,8 @@ def compute_sleeping_hr_trend(
                 hr_dt = _parse_iso(r.timestamp)
                 if hr_dt is None:
                     continue
-                # Must fall within the sleep window
                 if hr_dt < first_ts or hr_dt > last_ts:
                     continue
-                # Find which sleep interval this reading falls in
                 idx = bisect_right(interval_starts, hr_dt) - 1
                 if idx < 0:
                     continue
@@ -113,14 +107,12 @@ def compute_sleeping_hr_trend(
                     hr_values.append(r.value)
 
         if hr_values:
-            avg = round(sum(hr_values) / len(hr_values), 1)
             result.append(SleepingHRPoint(
                 date=sleep_day.date,
-                avg_sleeping_bpm=avg,
+                avg_sleeping_bpm=safe_avg(hr_values),
                 sample_count=len(hr_values),
             ))
 
-    # Compute 7-day trailing moving average
     ma7_values = trailing_ma7([p.avg_sleeping_bpm for p in result])
     for i, point in enumerate(result):
         point.ma7_bpm = ma7_values[i]

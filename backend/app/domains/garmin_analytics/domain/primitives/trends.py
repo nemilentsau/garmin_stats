@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from datetime import date as date_type
 
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
 from app.models import DailyMetric
 
 
@@ -20,7 +21,7 @@ def prior_7d_avg(
         )
         if v is not None
     ]
-    return round(sum(previous) / len(previous), 1) if previous else None
+    return safe_avg(previous)
 
 
 def trailing_ma7(values: list[float | None]) -> list[float | None]:
@@ -29,7 +30,7 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
     for i in range(len(values)):
         window_start = max(0, i - 6)
         window = [v for v in values[window_start : i + 1] if v is not None]
-        result.append(round(sum(window) / len(window), 1) if window else None)
+        result.append(safe_avg(window))
     return result
 
 

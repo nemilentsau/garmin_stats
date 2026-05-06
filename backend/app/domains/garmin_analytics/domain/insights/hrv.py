@@ -12,6 +12,11 @@ from app.domains.garmin_analytics.domain.analysis.hrv import (
     compute_trajectory,
     extract_baseline_bands,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_max,
+    safe_min,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.models import (
     DailyMetric,
@@ -100,12 +105,6 @@ def _build_intraday_segment(
         if len(parsed_times) >= 2 else None
     )
     sample_values = [value.value for value in values]
-    avg = (
-        round(sum(sample_values) / len(sample_values), 1)
-        if sample_values else None
-    )
-    min_val = round(min(sample_values), 1) if sample_values else None
-    max_val = round(max(sample_values), 1) if sample_values else None
     stdev = (
         round(float(np.std(sample_values, ddof=1)), 1)
         if len(sample_values) >= 2 else None
@@ -115,9 +114,9 @@ def _build_intraday_segment(
         key=key,
         label=label,
         sample_count=len(values),
-        avg=avg,
-        min=min_val,
-        max=max_val,
+        avg=safe_avg(sample_values),
+        min=safe_min(sample_values),
+        max=safe_max(sample_values),
         stdev=stdev,
         coverage_start=coverage_start,
         coverage_end=coverage_end,
@@ -194,10 +193,10 @@ def _compute_long_baseline(
     ]
     if len(nightly_vals) < 14:
         return None
-    baseline_30d = round(sum(nightly_vals) / len(nightly_vals), 1)
+    baseline_30d = safe_avg(nightly_vals)
     delta = (
         round(baseline_7d - baseline_30d, 1)
-        if baseline_7d is not None else None
+        if baseline_7d is not None and baseline_30d is not None else None
     )
     return HrvLongBaseline(baseline_30d=baseline_30d, delta_7d_vs_30d=delta)
 
@@ -392,10 +391,10 @@ def compute_hrv_insights(
     day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
-    intraday_segments = [
-        _build_intraday_segment(key="all", label="Overnight HRV", values=day_values),
-    ]
-    overnight_stdev = intraday_segments[0].stdev if intraday_segments else None
+    overnight_segment = _build_intraday_segment(
+        key="all", label="Overnight HRV", values=day_values,
+    )
+    overnight_stdev = overnight_segment.stdev
     nightly_vals = [
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
@@ -428,7 +427,7 @@ def compute_hrv_insights(
         day_stats=selected_metric.hrv,
         recovery=recovery,
         quality=quality,
-        intraday_segments=intraday_segments,
+        intraday_segments=[overnight_segment],
         trend_band=trend_band,
         streak=streak,
         long_baseline=long_baseline,

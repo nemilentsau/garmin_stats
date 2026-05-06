@@ -4,7 +4,9 @@ from collections.abc import Sequence
 
 from app.domains.garmin_analytics.domain.primitives.numeric import (
     safe_avg,
+    safe_max,
     safe_median,
+    safe_min,
     safe_percentile,
 )
 from app.models import (
@@ -133,8 +135,8 @@ def aggregate_day(day: DayData) -> DailyMetric:
         ),
         respiration=DailyMetricStats(
             avg=safe_avg(resp_vals),
-            min=round(min(resp_vals), 1) if resp_vals else None,
-            max=round(max(resp_vals), 1) if resp_vals else None,
+            min=safe_min(resp_vals),
+            max=safe_max(resp_vals),
             median=safe_median(resp_vals),
             q1=safe_percentile(resp_vals, 25),
             q3=safe_percentile(resp_vals, 75),

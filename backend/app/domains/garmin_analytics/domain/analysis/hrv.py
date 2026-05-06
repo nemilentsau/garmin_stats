@@ -4,7 +4,7 @@ from datetime import datetime
 
 import numpy as np
 
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
 from app.domains.garmin_analytics.domain.primitives.trends import (
     group_by_iso_week,
     trailing_ma7,
@@ -127,9 +127,11 @@ def compute_trajectory(hrv_values: list[HrvValue]) -> HrvTrajectory | None:
     if not early or not mid or not late:
         return None
 
-    early_avg = round(sum(early) / len(early), 1)
-    mid_avg = round(sum(mid) / len(mid), 1)
-    late_avg = round(sum(late) / len(late), 1)
+    early_avg = safe_avg(early)
+    mid_avg = safe_avg(mid)
+    late_avg = safe_avg(late)
+    if early_avg is None or mid_avg is None or late_avg is None:
+        return None
 
     diff = late_avg - early_avg
     if diff > 5:
@@ -162,7 +164,7 @@ def compute_day_of_week(metrics: list[DailyMetric]) -> list[HrvDayOfWeekBucket]:
         HrvDayOfWeekBucket(
             day=_DAY_NAMES[i],
             day_index=i,
-            avg_nightly=round(sum(vals) / len(vals), 1) if vals else None,
+            avg_nightly=safe_avg(vals),
             sample_count=len(vals),
         )
         for i, vals in sorted(groups.items())

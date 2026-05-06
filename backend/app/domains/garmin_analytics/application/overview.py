@@ -4,6 +4,11 @@ import numpy as np
 
 from app.domains.garmin_analytics.application.ports import BiometricReadRepository
 from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_max,
+    safe_min,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import (
     prior_7d_avg,
     trailing_ma7,
@@ -189,9 +194,9 @@ def _build_series(
     ma_vals = trailing_ma7(raw_vals)
     non_null = [value for value in raw_vals if value is not None]
     summary = SparklineSummary(
-        avg=round(sum(non_null) / len(non_null), 1) if non_null else None,
-        min=round(min(non_null), 1) if non_null else None,
-        max=round(max(non_null), 1) if non_null else None,
+        avg=safe_avg(non_null),
+        min=safe_min(non_null),
+        max=safe_max(non_null),
     )
     points = [
         SparklinePoint(date=metric.date, value=raw_vals[index], ma7=ma_vals[index])
