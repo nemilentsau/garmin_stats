@@ -11,52 +11,52 @@ from app.domains.programs.application.programs import (
     list_programs,
     retire_program,
 )
-from app.models import Program, ProgramsResponse, ProgramVersionsResponse
+from app.models import Program, ProgramsResponse, ProgramStatus, ProgramVersionsResponse
 
 router = APIRouter(prefix="/api/programs", tags=["programs"])
 
 
 @router.get("", response_model=ProgramsResponse)
-def get_programs(status: str | None = None):
-    """Return all programs, optionally filtered by status."""
+def get_programs(status: ProgramStatus | None = None):
     return list_programs(build_container().programs_repo, status=status)
 
 
 @router.get("/{program_id}", response_model=Program)
 def get_program_detail(program_id: str):
-    """Return a single program with its full spec."""
-    return get_program(build_container().programs_repo, program_id)
+    try:
+        return get_program(build_container().programs_repo, program_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/import", response_model=Program)
 def post_import_program(spec: dict[str, object]):
     """Import a program spec JSON. Creates/updates program, routines, and experiments."""
-    if "program" not in spec:
-        raise HTTPException(status_code=400, detail="Missing 'program' key in spec")
-    program_info = spec["program"]
-    if not isinstance(program_info, dict) or not program_info.get("id") or not program_info.get(
-        "name"
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Program spec must have 'program.id' and 'program.name'",
-        )
-    return import_program(build_container().programs_repo, spec)
+    try:
+        return import_program(build_container().programs_repo, spec)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{program_id}/retire", response_model=Program)
 def put_retire_program(program_id: str):
-    """Set a program's status to retired, preserving all data."""
-    return retire_program(build_container().programs_repo, program_id)
+    try:
+        return retire_program(build_container().programs_repo, program_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.put("/{program_id}/activate", response_model=Program)
 def put_activate_program(program_id: str):
-    """Reactivate a retired program."""
-    return activate_program(build_container().programs_repo, program_id)
+    try:
+        return activate_program(build_container().programs_repo, program_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.get("/{program_id}/versions", response_model=ProgramVersionsResponse)
 def get_versions(program_id: str):
-    """Return version history for a program."""
-    return get_program_versions(build_container().programs_repo, program_id)
+    try:
+        return get_program_versions(build_container().programs_repo, program_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e

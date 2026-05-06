@@ -9,14 +9,14 @@ from app.infra.database import (
     replace_program_import,
     save_program,
 )
-from app.models import Experiment, Program, ProgramVersion, Routine
+from app.models import Experiment, Program, ProgramStatus, ProgramVersion, Routine
 
 
 class SqliteProgramRepository:
     def get_program(self, program_id: str) -> Program | None:
         return load_program(program_id)
 
-    def list_programs(self, *, status: str | None = None) -> list[Program]:
+    def list_programs(self, *, status: ProgramStatus | None = None) -> list[Program]:
         return load_programs(status=status)
 
     def save_program(self, program: Program) -> None:

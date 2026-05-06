@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import Experiment, Program, ProgramVersion, Routine
+from app.models import Experiment, Program, ProgramStatus, ProgramVersion, Routine
 
 
 class ProgramRepository(Protocol):
     def get_program(self, program_id: str) -> Program | None: ...
 
-    def list_programs(self, *, status: str | None = None) -> list[Program]: ...
+    def list_programs(self, *, status: ProgramStatus | None = None) -> list[Program]: ...
 
     def save_program(self, program: Program) -> None: ...
 

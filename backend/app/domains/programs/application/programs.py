@@ -9,6 +9,7 @@ from app.models import (
     OutcomeMetric,
     Program,
     ProgramsResponse,
+    ProgramStatus,
     ProgramVersion,
     ProgramVersionsResponse,
     Routine,
@@ -17,24 +18,25 @@ from app.utils.timeutil import now_iso
 
 from .ports import ProgramRepository
 
+_CORE_LIKE_TYPES = {"core", "supporting"}
+_DESCRIPTION_FIELDS: tuple[tuple[str, str | None], ...] = (
+    ("target", None),
+    ("pattern", None),
+    ("cues", None),
+    ("full_dose", "Full"),
+    ("reduced_dose", "Reduced"),
+    ("dose", None),
+)
+
 
 def _protocol_to_routine(program_id: str, protocol: dict[str, object]) -> Routine:
-    """Convert a program spec protocol entry to a legacy routine model."""
-    protocol_id = cast(str, protocol["id"])
-    routine_id = f"{program_id}:{protocol_id}"
+    routine_id = f"{program_id}:{cast(str, protocol['id'])}"
 
     desc_parts: list[str] = []
-    for key in ("target", "pattern", "cues"):
+    for key, label in _DESCRIPTION_FIELDS:
         value = protocol.get(key)
         if isinstance(value, str) and value:
-            desc_parts.append(value)
-    for key, label in (("full_dose", "Full"), ("reduced_dose", "Reduced")):
-        value = protocol.get(key)
-        if isinstance(value, str) and value:
-            desc_parts.append(f"{label}: {value}")
-    dose = protocol.get("dose")
-    if isinstance(dose, str) and dose:
-        desc_parts.append(dose)
+            desc_parts.append(f"{label}: {value}" if label else value)
 
     protocol_type = protocol.get("type", "")
     if protocol.get("default_duration_min"):
@@ -43,13 +45,13 @@ def _protocol_to_routine(program_id: str, protocol: dict[str, object]) -> Routin
         unit = "seconds"
     elif protocol.get("default_reps"):
         unit = "reps"
-    elif protocol_type in ("core", "supporting"):
+    elif protocol_type in _CORE_LIKE_TYPES:
         unit = "sets_x_reps"
     else:
         unit = "boolean"
 
     category = protocol.get("category", "general")
-    if protocol_type in ("core", "supporting"):
+    if protocol_type in _CORE_LIKE_TYPES:
         category = protocol_type
 
     tags = protocol.get("tags", [])
@@ -71,7 +73,6 @@ def _protocol_to_routine(program_id: str, protocol: dict[str, object]) -> Routin
 
 
 def _spec_experiment_to_model(program_id: str, exp: dict[str, object]) -> Experiment:
-    """Convert a program spec experiment entry to an experiment model."""
     exp_id = f"{program_id}:{cast(str, exp['id'])}"
     linked_protocol_ids = exp.get("linked_protocol_ids", [])
     if not isinstance(linked_protocol_ids, list):
@@ -119,9 +120,13 @@ def _spec_child_ids(spec: dict[str, object], program_id: str) -> tuple[set[str],
 
 def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
     """Import a program spec, creating/updating routines and experiments."""
-    program_info = spec["program"]
-    if not isinstance(program_info, dict):
-        raise TypeError("program must be an object")
+    program_info = spec.get("program")
+    if (
+        not isinstance(program_info, dict)
+        or not program_info.get("id")
+        or not program_info.get("name")
+    ):
+        raise ValueError("Program spec must have 'program.id' and 'program.name'")
     program_id = str(program_info["id"])
     version = int(program_info["version"])
     now = now_iso()
@@ -147,7 +152,8 @@ def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
     existing_routine_ids, existing_experiment_ids = (
         _spec_child_ids(existing.spec, program_id) if existing is not None else (set(), set())
     )
-    current_routine_ids, current_experiment_ids = _spec_child_ids(spec, program_id)
+    current_routine_ids = {r.id for r in routines}
+    current_experiment_ids = {e.id for e in experiments}
 
     previous_version = (
         ProgramVersion(
@@ -182,14 +188,14 @@ def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
     return program
 
 
-def list_programs(repo: ProgramRepository, status: str | None = None) -> ProgramsResponse:
-    """Return all programs, optionally filtered by status."""
+def list_programs(
+    repo: ProgramRepository, status: ProgramStatus | None = None
+) -> ProgramsResponse:
     programs = repo.list_programs(status=status)
     return ProgramsResponse(programs=programs)
 
 
 def get_program(repo: ProgramRepository, program_id: str) -> Program:
-    """Load a single program."""
     result = repo.get_program(program_id)
     if result is None:
         raise LookupError(f"Program {program_id} not found")
@@ -197,7 +203,6 @@ def get_program(repo: ProgramRepository, program_id: str) -> Program:
 
 
 def retire_program(repo: ProgramRepository, program_id: str) -> Program:
-    """Set a program's status to retired."""
     program = get_program(repo, program_id)
     program.status = "retired"
     program.retired_at = now_iso()
@@ -206,7 +211,6 @@ def retire_program(repo: ProgramRepository, program_id: str) -> Program:
 
 
 def activate_program(repo: ProgramRepository, program_id: str) -> Program:
-    """Reactivate a retired program."""
     program = get_program(repo, program_id)
     program.status = "active"
     program.retired_at = None
@@ -218,7 +222,6 @@ def get_program_versions(
     repo: ProgramRepository,
     program_id: str,
 ) -> ProgramVersionsResponse:
-    """Return version history for a program."""
     get_program(repo, program_id)
     versions = repo.list_program_versions(program_id)
     return ProgramVersionsResponse(versions=versions)
