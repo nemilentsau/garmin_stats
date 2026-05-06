@@ -11,7 +11,8 @@ from app.models import (
     DayWellness,
     PeriodSummary,
 )
-from app.stats import compute_period_summary
+
+from .period_aggregates import compute_period_summary
 
 
 def load_windowed_period_summary(

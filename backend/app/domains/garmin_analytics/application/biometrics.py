@@ -13,7 +13,13 @@ from app.models import (
     SleepResponse,
     WellnessResponse,
 )
-from app.stats import flatten_hrv, flatten_skin_temp, flatten_sleep, flatten_wellness
+
+from .biometric_responses import (
+    flatten_hrv,
+    flatten_skin_temp,
+    flatten_sleep,
+    flatten_wellness,
+)
 
 
 def _raise_if_missing(date: str | None, days: Sequence[object]) -> None:

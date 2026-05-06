@@ -21,8 +21,10 @@ from app.models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
 from app.utils.timeutil import parse_iso as _parse_iso
+
+from .numeric import safe_percentile
+from .trends import group_by_iso_week, trailing_ma7
 
 
 def _compute_circadian_profile(

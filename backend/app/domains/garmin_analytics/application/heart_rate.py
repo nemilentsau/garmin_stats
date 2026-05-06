@@ -13,8 +13,10 @@ from app.models import (
     HeartRateRecovery,
     HRZoneDuration,
 )
-from app.stats import HR_ZONE_THRESHOLDS, prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
+
+from .daily_aggregates import HR_ZONE_THRESHOLDS
+from .trends import prior_7d_avg
 
 
 def _zone_for_value(value: int) -> tuple[str, int, int | None] | None:

@@ -15,7 +15,9 @@ from app.models import (
     SparklineSummary,
     TodayVitals,
 )
-from app.stats import normalize_hrv_status, prior_7d_avg, trailing_ma7
+
+from .daily_aggregates import normalize_hrv_status
+from .trends import prior_7d_avg, trailing_ma7
 
 
 def _recovery_status(

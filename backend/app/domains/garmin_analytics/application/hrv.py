@@ -26,8 +26,10 @@ from app.models import (
     HrvTrendBand,
     HrvValue,
 )
-from app.stats import normalize_hrv_status, prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
+
+from .daily_aggregates import normalize_hrv_status
+from .trends import prior_7d_avg
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 

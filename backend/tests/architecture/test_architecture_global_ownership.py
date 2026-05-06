@@ -35,18 +35,22 @@ ALLOWLISTED_APP_MODELS_IMPORTERS = {
     "backend/app/domains/garmin_analytics/api/biometrics.py",
     "backend/app/domains/garmin_analytics/api/insights.py",
     "backend/app/domains/garmin_analytics/api/overview.py",
+    "backend/app/domains/garmin_analytics/application/biometric_responses.py",
     "backend/app/domains/garmin_analytics/application/biometrics.py",
     "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
+    "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
     "backend/app/domains/garmin_analytics/application/heart_rate.py",
     "backend/app/domains/garmin_analytics/application/heart_rate_analysis.py",
     "backend/app/domains/garmin_analytics/application/hrv.py",
     "backend/app/domains/garmin_analytics/application/hrv_analysis.py",
     "backend/app/domains/garmin_analytics/application/insights.py",
     "backend/app/domains/garmin_analytics/application/overview.py",
+    "backend/app/domains/garmin_analytics/application/period_aggregates.py",
     "backend/app/domains/garmin_analytics/application/period_summary.py",
     "backend/app/domains/garmin_analytics/application/ports.py",
     "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
     "backend/app/domains/garmin_analytics/application/stress_analysis.py",
+    "backend/app/domains/garmin_analytics/application/trends.py",
     "backend/app/domains/garmin_analytics/infra/biometric_repository.py",
     "backend/app/domains/journal/api/checkins.py",
     "backend/app/domains/journal/api/notes.py",
@@ -69,25 +73,13 @@ ALLOWLISTED_APP_MODELS_IMPORTERS = {
     "backend/app/domains/routines/infra/sqlite_repository.py",
 }
 
-ALLOWLISTED_APP_STATS_IMPORTERS = {
-    "backend/app/domains/garmin_analytics/application/biometrics.py",
-    "backend/app/domains/garmin_analytics/application/body_battery_analysis.py",
-    "backend/app/domains/garmin_analytics/application/heart_rate.py",
-    "backend/app/domains/garmin_analytics/application/heart_rate_analysis.py",
-    "backend/app/domains/garmin_analytics/application/hrv.py",
-    "backend/app/domains/garmin_analytics/application/hrv_analysis.py",
-    "backend/app/domains/garmin_analytics/application/overview.py",
-    "backend/app/domains/garmin_analytics/application/period_summary.py",
-    "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
-    "backend/app/domains/garmin_analytics/application/stress_analysis.py",
-}
+ALLOWLISTED_APP_STATS_IMPORTERS = set()
 
 ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/core/profile/infra/sqlite_repository.py",
     "backend/app/domains/artifacts/infra/sqlite_repository.py",
     "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/infra/sqlite_repository.py",
-    "backend/app/domains/garmin_analytics/infra/biometric_repository.py",
     "backend/app/domains/garmin_sync/adapters.py",
     "backend/app/domains/journal/infra/sqlite_repository.py",
     "backend/app/domains/programs/infra/sqlite_repository.py",
@@ -101,6 +93,7 @@ ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {
     "backend/app/domains/garmin_analytics/application/period_summary.py",
     "backend/app/domains/garmin_analytics/application/sleep_analysis.py",
     "backend/app/domains/garmin_analytics/application/stress_analysis.py",
+    "backend/app/domains/garmin_analytics/infra/biometric_repository.py",
 }
 
 

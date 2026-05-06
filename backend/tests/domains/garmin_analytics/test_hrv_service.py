@@ -3,6 +3,7 @@
 import pytest
 
 import app.infra.database as db
+import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.application.hrv import (
     load_hrv_insights as _load_hrv_insights,
 )
@@ -32,6 +33,7 @@ def load_hrv_insights(date: str | None = None):
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
     db.init_db()
     yield

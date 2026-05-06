@@ -12,7 +12,6 @@ import re
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +19,9 @@ from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+)
+from ..domains.garmin_analytics.application.daily_aggregates import (
+    compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
 from ..models import (
@@ -56,15 +58,14 @@ from ..models import (
     UserProfile,
 )
 from ..parser import get_files_by_day, parse_all_days, parse_day
-from ..stats import compute_daily_aggregates
 from ..utils.timeutil import now_iso
 from . import cache
+from .sqlite import DB_PATH, connect
 
 log = logging.getLogger(__name__)
 
 _APP_CONFIG = get_app_config()
 
-DB_PATH = _APP_CONFIG.database_path
 DATA_DIR = _APP_CONFIG.data_dir
 
 _ingest_lock = threading.Lock()
@@ -264,15 +265,9 @@ CREATE TABLE IF NOT EXISTS program_versions (
 """
 
 
-@contextmanager
 def _connect():
     """Yield a sqlite3 connection with Row factory; close on exit."""
-    con = sqlite3.connect(str(DB_PATH))
-    con.row_factory = sqlite3.Row
-    try:
-        yield con
-    finally:
-        con.close()
+    return connect(str(DB_PATH))
 
 
 def init_db() -> None:

@@ -8,7 +8,9 @@ from app.models import (
     SleepTrendPoint,
     WeeklySleepBox,
 )
-from app.stats import group_by_iso_week, safe_percentile, trailing_ma7
+
+from .numeric import safe_percentile
+from .trends import group_by_iso_week, trailing_ma7
 
 
 def _compute_sleep_trend(

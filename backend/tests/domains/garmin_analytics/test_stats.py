@@ -1,5 +1,20 @@
-"""Tests for stats.py — aggregation, flattening, period summary."""
+"""Tests for Garmin analytics aggregation, flattening, and period summaries."""
 
+from app.domains.garmin_analytics.application.biometric_responses import (
+    flatten_wellness,
+)
+from app.domains.garmin_analytics.application.daily_aggregates import (
+    aggregate_day,
+    compute_hr_zones,
+)
+from app.domains.garmin_analytics.application.numeric import (
+    safe_avg,
+    safe_median,
+    safe_percentile,
+)
+from app.domains.garmin_analytics.application.period_aggregates import (
+    compute_period_summary,
+)
 from app.models import (
     BodyBatteryReading,
     DayData,
@@ -15,15 +30,6 @@ from app.models import (
     SleepAssessment,
     SpO2Reading,
     StressReading,
-)
-from app.stats import (
-    aggregate_day,
-    compute_hr_zones,
-    compute_period_summary,
-    flatten_wellness,
-    safe_avg,
-    safe_median,
-    safe_percentile,
 )
 
 # ---------------------------------------------------------------------------
