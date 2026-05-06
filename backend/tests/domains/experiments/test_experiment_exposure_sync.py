@@ -21,7 +21,7 @@ from app.models import (
     ExperimentDesign,
     ExperimentExposure,
 )
-from tests._artifact_helpers import (
+from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )

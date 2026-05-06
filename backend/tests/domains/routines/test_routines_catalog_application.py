@@ -12,7 +12,7 @@ from app.domains.routines.application.catalog import (
 )
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.models import AssistantArtifactCreateRequest, RoutineAssignment, RoutineSchedule
-from tests._artifact_helpers import (
+from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )

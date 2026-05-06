@@ -20,7 +20,7 @@ from app.models import (
     TodayCardLogUpdateRequest,
 )
 from tests._architecture import REPO_ROOT
-from tests._artifact_helpers import (
+from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
     import_artifact_bundle,

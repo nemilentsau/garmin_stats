@@ -121,13 +121,6 @@ def _validate_card_template_payload(
 def _validate_routine_spec_payload(
     repo: ArtifactRepository,
     payload_json: dict[str, object],
-) -> list[str]:
-    return _validate_routine_spec_payload_with_available_ids(repo, payload_json)
-
-
-def _validate_routine_spec_payload_with_available_ids(
-    repo: ArtifactRepository,
-    payload_json: dict[str, object],
     *,
     additional_card_ids: set[str] | None = None,
 ) -> list[str]:
@@ -587,7 +580,7 @@ def _build_bundle_plan(
             continue
         routine_ids_seen.add(routine.id)
 
-        routine_errors = _validate_routine_spec_payload_with_available_ids(
+        routine_errors = _validate_routine_spec_payload(
             artifact_repo,
             payload,
             additional_card_ids=bundled_card_ids,

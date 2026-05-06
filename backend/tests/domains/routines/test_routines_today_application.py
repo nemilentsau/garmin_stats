@@ -17,7 +17,7 @@ from app.models import (
     Experiment,
     TodayCardLogUpdateRequest,
 )
-from tests._artifact_helpers import (
+from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
