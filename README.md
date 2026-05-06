@@ -66,9 +66,9 @@ domain-oriented structure:
   and runtime integration.
 - `domains/routines/` owns routine catalog, schedule projection, Today execution,
   and routine activation.
-- `domains/artifacts/` is a transitional domain-routed slice that validates and
-  imports assistant-authored cards and routine bundles before activating them
-  into live runtime data.
+- `domains/artifacts/` owns assistant-authored card/routine artifacts, bundle
+  preview/import, capability requests, and card-template persistence before
+  delegating live routine activation to `domains/routines`.
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
   derivation, and N=1 analysis through named application use-case modules.
 - `domains/journal/` owns daily check-ins and notes.
@@ -77,9 +77,9 @@ domain-oriented structure:
 Fully migrated slices follow the same boundary convention: API modules handle
 FastAPI and dependency lookup, application modules own use cases and repository
 ports without importing SQLite helpers or the dependency container, and infra
-adapters are the SQLite boundary. Transitional slices are explicitly allowlisted
-in architecture tests until their application persistence dependencies are moved
-behind ports/adapters.
+adapters are the SQLite boundary. Any future transitional slices should be
+explicitly allowlisted in architecture tests until their application persistence
+dependencies are moved behind ports/adapters.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
 overview, metric detail pages, assistant chat, Today board, and routine schedule

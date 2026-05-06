@@ -5,12 +5,6 @@ from typing import Any, cast
 
 import pytest
 
-from app.domains.artifacts.application.artifacts import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
-    import_artifact_bundle,
-    preview_artifact_bundle,
-)
 from app.infra.database import (
     load_assistant_artifacts,
     load_card_template,
@@ -26,6 +20,12 @@ from app.models import (
     TodayCardLogUpdateRequest,
 )
 from tests._architecture import REPO_ROOT
+from tests._artifacts_helpers import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
+    import_artifact_bundle,
+    preview_artifact_bundle,
+)
 from tests._routines_helpers import get_schedule_window, get_today, upsert_today_card_log
 
 _CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_core_bundle.json"

@@ -96,13 +96,12 @@ There are two major paths:
   rules need a dedicated pure domain model layer.
 
 - `domains/artifacts/`
-  Transitional domain-routed slice for assistant-authored artifact staging and
-  publishing. This domain owns `/api/cards`, `/api/assistant/artifacts`, and
+  Assistant-authored artifact staging and publishing. This domain owns
+  `/api/cards`, `/api/assistant/artifacts`, and
   `/api/assistant/artifact-bundles`. It validates/imports card and routine
-  artifacts, tracks bundle revisions and capability requests, and delegates
-  activation writes to the owning runtime domains. Routes and flat shims are
-  migrated, but application code still owns persistence helper calls and routine
-  activation composition.
+  artifacts, tracks bundle revisions and capability requests, persists
+  artifact/card data through its SQLite repository adapter, and delegates live
+  routine activation writes to `domains/routines`.
 
 - `domains/journal/`
   Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation. `api/` owns FastAPI routes, `application/` owns use cases and repository ports, and `infra/` owns the SQLite repository adapter.
@@ -125,9 +124,9 @@ strict boundary migration.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
 Fully migrated slices today: `domains/assistant`, `domains/routines`,
-`domains/garmin_analytics`, `domains/experiments`, `domains/journal`, and
-`core/profile`.
-Transitional domain-routed slices today: `domains/artifacts`.
+`domains/garmin_analytics`, `domains/experiments`, `domains/artifacts`,
+`domains/journal`, and `core/profile`.
+Transitional domain-routed slices today: none.
 
 ## Experiment Semantics
 
@@ -212,6 +211,7 @@ Artifacts is the staging and publishing layer for assistant-authored objects.
 
 - `domains/artifacts/api/` owns artifact, bundle, and card-template routes.
 - `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, and activation orchestration.
+- `domains/artifacts/infra/` owns the artifact/card SQLite repository adapter.
 - Activated cards/routines become live runtime data owned by `domains/routines`.
 - Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or a future `domains/programs`.
 

@@ -2,12 +2,12 @@
 
 import pytest
 
-from app.domains.artifacts.application.artifacts import (
+from app.infra.database import save_card_override
+from app.models import AssistantArtifactCreateRequest, CardOverride
+from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
-from app.infra.database import save_card_override
-from app.models import AssistantArtifactCreateRequest, CardOverride
 from tests._routines_helpers import get_schedule_window
 
 

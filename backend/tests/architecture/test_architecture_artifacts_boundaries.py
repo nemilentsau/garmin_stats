@@ -1,9 +1,9 @@
-"""Architecture guard rails for the transitional artifacts domain slice."""
+"""Architecture guard rails for the artifacts domain slice."""
 
 from tests._architecture import (
     REPO_ROOT,
     assert_api_modules_are_boundary_only,
-    assert_transitional_application_modules,
+    assert_application_modules_are_strict,
     read_repo_file,
 )
 
@@ -16,20 +16,11 @@ def test_artifacts_api_modules_do_not_import_flat_database_or_services():
     ])
 
 
-def test_artifacts_application_is_explicitly_transitional():
-    assert_transitional_application_modules(
-        [
-            "backend/app/domains/artifacts/application/artifacts.py",
-        ],
-        allowed_violations=[
-            "app.infra.database",
-            "build_container",
-        ],
-        reason=(
-            "Artifacts is domain-routed but not fully migrated: application code "
-            "still owns persistence helpers and routine activation composition."
-        ),
-    )
+def test_artifacts_application_modules_follow_strict_boundary():
+    assert_application_modules_are_strict([
+        "backend/app/domains/artifacts/application/artifacts.py",
+        "backend/app/domains/artifacts/application/ports.py",
+    ])
 
 
 def test_bootstrap_routing_mounts_domain_artifact_routers_directly():
