@@ -21,6 +21,7 @@ from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
 )
+from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
 from ..models import (
     DEFAULT_PROFILE_ID,
     AssistantArtifact,
@@ -43,8 +44,6 @@ from ..models import (
     ExperimentExposure,
     ExperimentReport,
     Goal,
-    IngestResult,
-    IngestStatus,
     Note,
     Plan,
     PlanItem,

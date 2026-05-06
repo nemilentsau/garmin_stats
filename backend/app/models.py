@@ -10,8 +10,6 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult  # noqa: F401
-
 
 class _DefaultsRequired(BaseModel):
     """Base for models where all fields (even those with defaults) should appear

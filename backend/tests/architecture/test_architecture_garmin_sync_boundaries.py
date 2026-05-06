@@ -57,12 +57,14 @@ def test_garmin_sync_imports_owned_contracts_directly():
     )
 
 
-def test_garmin_sync_contracts_are_not_defined_in_app_models():
+def test_garmin_sync_contracts_are_not_exposed_from_app_models():
     source = read_repo_file("backend/app/models.py")
 
     assert "class IngestResult(" not in source
     assert "class IngestStatus(" not in source
     assert "class SyncResult(" not in source
+    assert "app.domains.garmin_sync.contracts" not in source
+    assert "garmin_sync.contracts" not in source
 
 
 def test_garmin_sync_routes_use_container_dependencies():
