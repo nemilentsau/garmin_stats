@@ -54,14 +54,17 @@ backend API.
 ## High-Level Architecture
 
 The backend is a FastAPI app under `backend/app/`. Its current direction is a
-domain-oriented structure:
+vertical module structure with explicit ownership contracts. Some modules are
+product domains, some are operational capabilities, and some are analytical read
+models; the boundary rules matter more than the package label:
 
 - `bootstrap/` assembles the FastAPI app, registers routers, owns lifespan wiring,
   and provides the dependency container.
 - `infra/` contains shared infrastructure: SQLite persistence, ingest bookkeeping,
   cache invalidation, server-sent events, and file watching.
-- `domains/garmin_sync/` owns `/api/ingest`, Garmin Connect wellness archive
-  download orchestration, archive extraction, and ingest status/use cases.
+- `domains/garmin_sync/` is a Garmin data acquisition capability. It owns
+  `/api/ingest`, Garmin Connect wellness archive download orchestration, archive
+  extraction, ingest status, and affected-date ingest decisions.
 - `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
   biometric reads, and recovery insights.
 - `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,
