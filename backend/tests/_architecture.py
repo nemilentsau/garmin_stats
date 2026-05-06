@@ -166,3 +166,45 @@ def assert_cross_slice_imports_are_allowlisted(
             offenders[relative_path] = sorted(bad_imports)
 
     assert offenders == {}
+
+
+def assert_imports_from_module_match_allowlist(
+    module: str,
+    allowlist: set[str],
+    *,
+    equivalent_imports: set[str] | None = None,
+    required_import_name: str | None = None,
+) -> None:
+    equivalent_imports = equivalent_imports or set()
+    offenders: list[str] = []
+
+    for root in [REPO_ROOT / "backend" / "app"]:
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+
+            relative_path = str(path.relative_to(REPO_ROOT))
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            imports_for_module = False
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    imports_for_module = any(
+                        alias.name == module or alias.name.startswith(f"{module}.")
+                        for alias in node.names
+                    )
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module == module:
+                        imports_for_module = True
+                    elif node.module in equivalent_imports and required_import_name is not None:
+                        imports_for_module = any(
+                            alias.name == required_import_name for alias in node.names
+                        )
+
+                if imports_for_module:
+                    break
+
+            if imports_for_module and relative_path not in allowlist:
+                offenders.append(relative_path)
+
+    assert offenders == []
