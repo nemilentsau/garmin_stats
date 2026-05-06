@@ -10,6 +10,7 @@ import pytest
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.workflows import (
+    _plan_sync_dates,
     get_ingest_status,
     sync_garmin,
     trigger_ingest,
@@ -244,3 +245,27 @@ def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):
         sync_garmin(deps)
 
     assert watcher == ["suspend", "resume"]
+
+
+def test_plan_with_no_archives_starts_yesterday_and_marks_no_deletion():
+    plan = _plan_sync_dates(latest=None, today=date(2026, 3, 15))
+
+    assert plan.deleted_latest is None
+    assert plan.initial_affected_dates == []
+    assert plan.dates == [date(2026, 3, 14), date(2026, 3, 15)]
+
+
+def test_plan_with_older_latest_archive_redownloads_from_latest_through_today():
+    plan = _plan_sync_dates(latest=date(2026, 3, 14), today=date(2026, 3, 16))
+
+    assert plan.deleted_latest == date(2026, 3, 14)
+    assert plan.initial_affected_dates == ["2026-03-14"]
+    assert plan.dates == [date(2026, 3, 14), date(2026, 3, 15), date(2026, 3, 16)]
+
+
+def test_plan_with_latest_archive_at_today_re_syncs_only_today():
+    plan = _plan_sync_dates(latest=date(2026, 3, 15), today=date(2026, 3, 15))
+
+    assert plan.deleted_latest == date(2026, 3, 15)
+    assert plan.initial_affected_dates == ["2026-03-15"]
+    assert plan.dates == [date(2026, 3, 15)]
