@@ -21,6 +21,7 @@ def test_garmin_sync_application_modules_follow_strict_boundary():
     assert_application_modules_are_strict([
         "backend/app/domains/garmin_sync/application/ingest.py",
         "backend/app/domains/garmin_sync/application/ports.py",
+        "backend/app/domains/garmin_sync/application/sync_plan.py",
     ])
 
 

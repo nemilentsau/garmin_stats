@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date
 
 from app.models import IngestResult, IngestStatus, SyncResult
 
 from .ports import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
+from .sync_plan import plan_sync_dates
 
 log = logging.getLogger(__name__)
 
@@ -32,32 +33,20 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     client = deps.clients.create()
 
     latest = deps.files.latest_zip_date(deps.data_dir)
-    today = deps.clock.today()
-    deleted_latest: str | None = None
+    plan = plan_sync_dates(latest=latest, today=deps.clock.today())
+    deleted_latest = plan.deleted_latest.isoformat() if plan.deleted_latest else None
 
     deps.watcher.suspend()
     try:
-        if latest is not None:
-            deleted_latest = latest.isoformat()
-            deps.files.remove_day(deps.data_dir, latest)
-            start_date = latest
-        else:
-            start_date = today - timedelta(days=1)
-
-        dates = []
-        current = start_date
-        while current <= today:
-            dates.append(current)
-            current += timedelta(days=1)
+        if plan.deleted_latest is not None:
+            deps.files.remove_day(deps.data_dir, plan.deleted_latest)
 
         downloaded = 0
         skipped = 0
         failed = 0
-        affected_dates: list[str] = []
-        if deleted_latest is not None:
-            affected_dates.append(deleted_latest)
+        affected_dates = list(plan.initial_affected_dates)
 
-        for index, day in enumerate(dates):
+        for index, day in enumerate(plan.dates):
             result = _download_day(deps, client, day)
             if result == "downloaded":
                 downloaded += 1
@@ -67,7 +56,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
             else:
                 failed += 1
 
-            if index < len(dates) - 1:
+            if index < len(plan.dates) - 1:
                 deps.sleeper.sleep(1)
 
         deps.archives.extract_existing_archives(deps.data_dir)

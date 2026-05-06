@@ -187,6 +187,39 @@ def test_get_ingest_status_reads_current_data_root_status(tmp_path: Path):
     assert ingest.calls == [("status", tmp_path, None)]
 
 
+def test_sync_plan_redownloads_latest_archive_through_today():
+    from app.domains.garmin_sync.application.sync_plan import plan_sync_dates
+
+    plan = plan_sync_dates(
+        latest=date(2026, 3, 14),
+        today=date(2026, 3, 16),
+    )
+
+    assert plan.deleted_latest == date(2026, 3, 14)
+    assert plan.dates == [
+        date(2026, 3, 14),
+        date(2026, 3, 15),
+        date(2026, 3, 16),
+    ]
+    assert plan.initial_affected_dates == ["2026-03-14"]
+
+
+def test_sync_plan_starts_with_yesterday_when_no_archive_exists():
+    from app.domains.garmin_sync.application.sync_plan import plan_sync_dates
+
+    plan = plan_sync_dates(
+        latest=None,
+        today=date(2026, 3, 16),
+    )
+
+    assert plan.deleted_latest is None
+    assert plan.dates == [
+        date(2026, 3, 15),
+        date(2026, 3, 16),
+    ]
+    assert plan.initial_affected_dates == []
+
+
 def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
     tmp_path: Path,
 ):
