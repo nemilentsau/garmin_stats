@@ -15,7 +15,7 @@ from app.domains.garmin_analytics.infra.biometric_repository import (
     SqliteBiometricRepository,
 )
 from app.domains.garmin_sync.adapters import build_garmin_sync_dependencies
-from app.domains.garmin_sync.ports import GarminSyncDependencies
+from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.journal.infra.sqlite_repository import SqliteJournalRepository
 from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository

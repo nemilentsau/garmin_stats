@@ -82,12 +82,15 @@ models; the boundary rules matter more than the package label:
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 
-Fully migrated slices follow the same boundary convention: API modules handle
-FastAPI and dependency lookup, application modules own use cases and repository
-ports without importing SQLite helpers or the dependency container, and infra
-adapters are the SQLite boundary. Any future transitional slices should be
-explicitly allowlisted in architecture tests until their application persistence
-dependencies are moved behind ports/adapters.
+Fully migrated slices follow the same boundary convention: route/API modules
+handle FastAPI and dependency lookup, workflow/application modules own
+orchestration without importing SQLite helpers or the dependency container, and
+adapter modules are the infrastructure boundary. Larger migrated slices still
+use `application/ports.py` for repository contracts; small capability slices
+such as `garmin_sync` prefer clearer flat names like `workflows.py` and
+`dependencies.py`. Any future transitional slices should be explicitly
+allowlisted in architecture tests until persistence dependencies are moved
+behind explicit contracts and adapters.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
 overview, metric detail pages, assistant chat, Today board, and routine schedule

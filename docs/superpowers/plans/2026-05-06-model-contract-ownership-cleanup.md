@@ -283,8 +283,8 @@ def test_garmin_sync_imports_owned_contracts_directly():
     assert_no_text_in_files(
         [
             "backend/app/domains/garmin_sync/routes.py",
-            "backend/app/domains/garmin_sync/use_cases.py",
-            "backend/app/domains/garmin_sync/ports.py",
+            "backend/app/domains/garmin_sync/workflows.py",
+            "backend/app/domains/garmin_sync/dependencies.py",
             "backend/app/domains/garmin_sync/adapters.py",
         ],
         ["from app.models import", "import app.models"],
@@ -357,8 +357,8 @@ Do not commit this task yet. Commit after Tasks 3 and 4 make the guard pass.
 - Create: `backend/app/domains/garmin_sync/contracts.py`
 - Modify: `backend/app/models.py`
 - Modify: `backend/app/domains/garmin_sync/routes.py`
-- Modify: `backend/app/domains/garmin_sync/use_cases.py`
-- Modify: `backend/app/domains/garmin_sync/ports.py`
+- Modify: `backend/app/domains/garmin_sync/workflows.py`
+- Modify: `backend/app/domains/garmin_sync/dependencies.py`
 - Modify: `backend/app/domains/garmin_sync/adapters.py`
 - Modify: `backend/tests/domains/garmin_sync/test_ingest_api.py`
 - Modify: `backend/tests/domains/garmin_sync/test_ingest_application.py`
@@ -434,13 +434,13 @@ Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `back
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 ```
 
-Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/use_cases.py` with:
+Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/workflows.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 ```
 
-Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/ports.py` with:
+Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/dependencies.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus

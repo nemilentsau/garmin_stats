@@ -1,4 +1,4 @@
-"""Infrastructure adapters for Garmin sync use cases."""
+"""Infrastructure adapters for Garmin sync workflows."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
-from app.domains.garmin_sync.ports import (
+from app.domains.garmin_sync.dependencies import (
     GarminDownloadClient,
     GarminSyncDependencies,
 )

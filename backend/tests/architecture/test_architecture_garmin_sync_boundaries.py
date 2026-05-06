@@ -17,10 +17,10 @@ def test_garmin_sync_api_modules_do_not_import_flat_database_or_services():
     ])
 
 
-def test_garmin_sync_application_modules_follow_strict_boundary():
+def test_garmin_sync_workflow_modules_follow_strict_boundary():
     assert_application_modules_are_strict([
-        "backend/app/domains/garmin_sync/use_cases.py",
-        "backend/app/domains/garmin_sync/ports.py",
+        "backend/app/domains/garmin_sync/workflows.py",
+        "backend/app/domains/garmin_sync/dependencies.py",
     ])
 
 

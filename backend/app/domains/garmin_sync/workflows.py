@@ -1,4 +1,4 @@
-"""Garmin ingest and download sync use cases."""
+"""Garmin ingest and download sync workflows."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 from app.models import IngestResult, IngestStatus, SyncResult
 
-from .ports import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
+from .dependencies import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
 
 log = logging.getLogger(__name__)
 

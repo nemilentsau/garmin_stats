@@ -1,4 +1,4 @@
-"""Tests for Garmin sync ingest application use cases."""
+"""Tests for Garmin sync ingest workflows."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.garmin_sync.use_cases import (
+from app.domains.garmin_sync.workflows import (
     GarminSyncDependencies,
     get_ingest_status,
     sync_garmin,

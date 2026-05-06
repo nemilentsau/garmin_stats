@@ -1,4 +1,4 @@
-"""Ports for Garmin sync use cases."""
+"""Dependency protocols for Garmin sync workflows."""
 
 from __future__ import annotations
 
