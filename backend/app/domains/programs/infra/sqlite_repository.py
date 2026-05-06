@@ -6,10 +6,10 @@ from app.infra.database import (
     load_program,
     load_program_versions,
     load_programs,
-    replace_program_import,
     save_program,
+    save_program_import,
 )
-from app.models import Experiment, Program, ProgramStatus, ProgramVersion, Routine
+from app.models import Program, ProgramStatus, ProgramVersion
 
 
 class SqliteProgramRepository:
@@ -25,21 +25,13 @@ class SqliteProgramRepository:
     def list_program_versions(self, program_id: str) -> list[ProgramVersion]:
         return load_program_versions(program_id)
 
-    def replace_program_import(
+    def save_program_import(
         self,
         *,
         program: Program,
         previous_version: ProgramVersion | None,
-        routines: list[Routine],
-        experiments: list[Experiment],
-        stale_routine_ids: set[str],
-        stale_experiment_ids: set[str],
     ) -> None:
-        replace_program_import(
+        save_program_import(
             program=program,
             previous_version=previous_version,
-            routines=routines,
-            experiments=experiments,
-            stale_routine_ids=stale_routine_ids,
-            stale_experiment_ids=stale_experiment_ids,
         )

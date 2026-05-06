@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import Experiment, Program, ProgramStatus, ProgramVersion, Routine
+from app.models import Program, ProgramStatus, ProgramVersion
 
 
 class ProgramRepository(Protocol):
@@ -16,13 +16,9 @@ class ProgramRepository(Protocol):
 
     def list_program_versions(self, program_id: str) -> list[ProgramVersion]: ...
 
-    def replace_program_import(
+    def save_program_import(
         self,
         *,
         program: Program,
         previous_version: ProgramVersion | None,
-        routines: list[Routine],
-        experiments: list[Experiment],
-        stale_routine_ids: set[str],
-        stale_experiment_ids: set[str],
     ) -> None: ...

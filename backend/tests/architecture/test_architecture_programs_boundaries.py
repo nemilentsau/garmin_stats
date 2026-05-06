@@ -7,6 +7,7 @@ from tests._architecture import (
     assert_api_modules_are_boundary_only,
     assert_application_modules_are_strict,
     assert_no_repo_imports_of,
+    assert_no_text_in_files,
     read_repo_file,
 )
 
@@ -29,6 +30,23 @@ def test_bootstrap_routing_mounts_domain_programs_router_directly():
     assert "domains.programs.api.programs" in source
     assert "from ..routers.programs import router as programs_router" not in source
     assert "include_router(programs_router)" in source
+
+
+def test_programs_domain_does_not_write_legacy_routine_or_experiment_children():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/programs/application/ports.py",
+            "backend/app/domains/programs/application/programs.py",
+            "backend/app/domains/programs/infra/sqlite_repository.py",
+        ],
+        [
+            "Routine",
+            "Experiment",
+            "replace_program_import",
+            "_protocol_to_routine",
+            "_spec_experiment_to_model",
+        ],
+    )
 
 
 def test_migrated_programs_service_shim_is_removed():

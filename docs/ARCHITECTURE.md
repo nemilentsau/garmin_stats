@@ -113,9 +113,9 @@ There are two major paths:
   Secondary backend domain for program spec import and management. This domain
   owns `/api/programs`; `api/` owns FastAPI routes, `application/` owns import,
   activation/retirement, and version use cases plus repository ports, and
-  `infra/` owns the SQLite repository adapter. Program imports still create
-  legacy routine records and experiment records atomically through the program
-  repository.
+  `infra/` owns the SQLite repository adapter. Program imports currently persist
+  the program spec and version history only; protocol, routine, and experiment
+  activation is intentionally not implemented yet.
 
 ### Migrated slice boundary convention
 

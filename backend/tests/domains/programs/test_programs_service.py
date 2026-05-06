@@ -1,10 +1,14 @@
 """Tests for program import service behavior."""
 
-import pytest
 
 from app.domains.experiments.application.management import list_experiments
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
-from app.domains.programs.application.programs import import_program, list_programs
+from app.domains.programs.application.programs import (
+    get_program,
+    get_program_versions,
+    import_program,
+    list_programs,
+)
 from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.infra.database import load_routines
 
@@ -27,27 +31,29 @@ def _program_spec(
 
 
 class TestImportProgram:
-    def test_invalid_protocol_rolls_back_entire_import(self):
+    def test_import_stores_program_spec_without_creating_legacy_children(self):
         repo = SqliteProgramRepository()
 
-        with pytest.raises(KeyError, match="name"):
-            import_program(
-                repo,
-                _program_spec(
-                    version=1,
-                    protocols=[
-                        {"id": "protocol-1", "name": "Walk"},
-                        {"id": "protocol-2"},
-                    ],
-                    experiments=[],
-                )
+        imported = import_program(
+            repo,
+            _program_spec(
+                version=1,
+                protocols=[
+                    {"id": "protocol-1", "name": "Walk"},
+                    {"id": "protocol-2"},
+                ],
+                experiments=[
+                    {"id": "experiment-1", "name": "Walk test"},
+                ],
             )
+        )
 
-        assert list_programs(repo).programs == []
+        assert imported.id == "program-1"
+        assert list_programs(repo).programs == [imported]
         assert load_routines() == []
         assert list_experiments(SqliteExperimentRepository()).experiments == []
 
-    def test_reimport_removes_deleted_protocols_and_experiments(self):
+    def test_reimport_versions_program_without_touching_legacy_children(self):
         repo = SqliteProgramRepository()
 
         import_program(
@@ -78,10 +84,10 @@ class TestImportProgram:
             )
         )
 
-        routines = load_routines()
-        experiments = list_experiments(SqliteExperimentRepository()).experiments
+        program = get_program(repo, "program-1")
+        versions = get_program_versions(repo, "program-1").versions
 
-        assert [routine.id for routine in routines] == ["program-1:protocol-1"]
-        assert routines[0].name == "Walk updated"
-        assert [e.experiment.id for e in experiments] == ["program-1:experiment-1"]
-        assert experiments[0].experiment.name == "Walk test updated"
+        assert program.version == 2
+        assert versions[0].version == 1
+        assert load_routines() == []
+        assert list_experiments(SqliteExperimentRepository()).experiments == []
