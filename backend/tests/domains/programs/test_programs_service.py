@@ -4,8 +4,9 @@ import pytest
 
 from app.domains.experiments.application.management import list_experiments
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
+from app.domains.programs.application.programs import import_program, list_programs
+from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.infra.database import load_routines
-from app.services.programs import import_program, list_programs
 
 
 def _program_spec(
@@ -27,8 +28,11 @@ def _program_spec(
 
 class TestImportProgram:
     def test_invalid_protocol_rolls_back_entire_import(self):
+        repo = SqliteProgramRepository()
+
         with pytest.raises(KeyError, match="name"):
             import_program(
+                repo,
                 _program_spec(
                     version=1,
                     protocols=[
@@ -39,12 +43,15 @@ class TestImportProgram:
                 )
             )
 
-        assert list_programs().programs == []
+        assert list_programs(repo).programs == []
         assert load_routines() == []
         assert list_experiments(SqliteExperimentRepository()).experiments == []
 
     def test_reimport_removes_deleted_protocols_and_experiments(self):
+        repo = SqliteProgramRepository()
+
         import_program(
+            repo,
             _program_spec(
                 version=1,
                 protocols=[
@@ -59,6 +66,7 @@ class TestImportProgram:
         )
 
         import_program(
+            repo,
             _program_spec(
                 version=2,
                 protocols=[

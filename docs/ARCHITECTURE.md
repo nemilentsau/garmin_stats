@@ -109,8 +109,13 @@ There are two major paths:
 - `core/profile/`
   App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. The route uses the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `infra/` owns the SQLite adapter.
 
-- `programs.py`
-  Secondary/parked domain services still present in the backend.
+- `domains/programs/`
+  Secondary backend domain for program spec import and management. This domain
+  owns `/api/programs`; `api/` owns FastAPI routes, `application/` owns import,
+  activation/retirement, and version use cases plus repository ports, and
+  `infra/` owns the SQLite repository adapter. Program imports still create
+  legacy routine records and experiment records atomically through the program
+  repository.
 
 ### Migrated slice boundary convention
 
@@ -125,7 +130,7 @@ strict boundary migration.
 
 Fully migrated slices today: `domains/assistant`, `domains/routines`,
 `domains/garmin_analytics`, `domains/experiments`, `domains/artifacts`,
-`domains/journal`, and `core/profile`.
+`domains/programs`, `domains/journal`, and `core/profile`.
 Transitional domain-routed slices today: none.
 
 ## Experiment Semantics
@@ -181,7 +186,7 @@ Experiment adherence is protocol-defined and day-grain.
 
 - `/api/profile`
 
-### Secondary or parked backend domains
+### Secondary backend domains
 
 - `/api/programs`
 
@@ -213,7 +218,7 @@ Artifacts is the staging and publishing layer for assistant-authored objects.
 - `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, and activation orchestration.
 - `domains/artifacts/infra/` owns the artifact/card SQLite repository adapter.
 - Activated cards/routines become live runtime data owned by `domains/routines`.
-- Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or a future `domains/programs`.
+- Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or `domains/programs`.
 
 Normal artifact flow:
 
