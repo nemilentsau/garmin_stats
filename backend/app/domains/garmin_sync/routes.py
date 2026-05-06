@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.bootstrap.container import build_container
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 from app.domains.garmin_sync.workflows import (
     get_ingest_status as read_ingest_status,
 )
@@ -12,7 +13,6 @@ from app.domains.garmin_sync.workflows import (
 from app.domains.garmin_sync.workflows import (
     trigger_ingest as run_ingest,
 )
-from app.models import IngestResult, IngestStatus, SyncResult
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 

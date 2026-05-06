@@ -20,6 +20,12 @@ docs/superpowers/plans/2026-05-06-architecture-boundary-cleanup.md
 
 This follow-up assumes the module ownership charters and architecture helpers from that plan are available.
 
+Status note: the Garmin sync portion of this plan is already complete in the
+`garmin-sync-migration` branch. `domains/garmin_sync/contracts.py` now owns
+`IngestResult`, `IngestStatus`, and `SyncResult`; `app.models` re-exports those
+names for compatibility. The remaining contract cleanup should continue with the
+journal slice and the broader shared-base extraction.
+
 ---
 
 ## File Structure
@@ -351,7 +357,7 @@ Do not commit this task yet. Commit after Tasks 3 and 4 make the guard pass.
 
 ---
 
-### Task 3: Move Garmin Sync Contracts To `garmin_sync/contracts.py`
+### Task 3: Move Garmin Sync Contracts To `garmin_sync/contracts.py` - Completed
 
 **Files:**
 - Create: `backend/app/domains/garmin_sync/contracts.py`

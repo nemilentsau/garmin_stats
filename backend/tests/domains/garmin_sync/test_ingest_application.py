@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 from app.domains.garmin_sync.workflows import (
     GarminSyncDependencies,
     get_ingest_status,
     sync_garmin,
     trigger_ingest,
 )
-from app.models import IngestResult, IngestStatus
 
 
 class FakeIngestGateway:
@@ -42,26 +42,6 @@ class FakeIngestGateway:
         if self.ingest_dates_error is not None:
             raise self.ingest_dates_error
         return self.ingest_dates_result
-
-
-class FakeArchiveExtractor:
-    def __init__(self) -> None:
-        self.calls: list[Path] = []
-
-    def extract_existing_archives(self, data_dir: Path) -> int:
-        self.calls.append(data_dir)
-        return 2
-
-
-class FakeWatcherController:
-    def __init__(self) -> None:
-        self.calls: list[str] = []
-
-    def suspend(self) -> None:
-        self.calls.append("suspend")
-
-    def resume(self) -> None:
-        self.calls.append("resume")
 
 
 class FakeGarminClient:
@@ -107,26 +87,6 @@ class FakeSyncFileStore:
         self.existing.add(day)
 
 
-class FakeClock:
-    def __init__(self, *, today: date) -> None:
-        self._today = today
-        self.monotonic_values = [10.0, 11.25]
-
-    def today(self) -> date:
-        return self._today
-
-    def monotonic(self) -> float:
-        return self.monotonic_values.pop(0)
-
-
-class FakeSleeper:
-    def __init__(self) -> None:
-        self.calls: list[float] = []
-
-    def sleep(self, seconds: float) -> None:
-        self.calls.append(seconds)
-
-
 def _deps(
     tmp_path: Path,
     *,
@@ -137,15 +97,28 @@ def _deps(
 ) -> tuple[
     GarminSyncDependencies,
     FakeIngestGateway,
-    FakeArchiveExtractor,
-    FakeWatcherController,
+    list[Path],
+    list[str],
     FakeGarminClient,
     FakeSyncFileStore,
-    FakeSleeper,
+    list[float],
 ]:
     ingest = FakeIngestGateway()
-    archives = FakeArchiveExtractor()
-    watcher = FakeWatcherController()
+    archive_calls: list[Path] = []
+    watcher_calls: list[str] = []
+    monotonic_values = [10.0, 11.25]
+    sleep_calls: list[float] = []
+
+    def extract_archives(data_dir: Path) -> int:
+        archive_calls.append(data_dir)
+        return 2
+
+    def suspend_watcher() -> None:
+        watcher_calls.append("suspend")
+
+    def resume_watcher() -> None:
+        watcher_calls.append("resume")
+
     client = FakeGarminClient(
         responses
         or {
@@ -158,18 +131,19 @@ def _deps(
         latest=latest,
         existing=existing if existing is not None else {date(2026, 3, 15)},
     )
-    sleeper = FakeSleeper()
     deps = GarminSyncDependencies(
         data_dir=tmp_path,
         ingest=ingest,
-        archives=archives,
-        watcher=watcher,
+        extract_archives=extract_archives,
+        suspend_watcher=suspend_watcher,
+        resume_watcher=resume_watcher,
         clients=FakeGarminClientFactory(client),
         files=files,
-        clock=FakeClock(today=today),
-        sleeper=sleeper,
+        today=lambda: today,
+        monotonic=lambda: monotonic_values.pop(0),
+        sleep=sleep_calls.append,
     )
-    return deps, ingest, archives, watcher, client, files, sleeper
+    return deps, ingest, archive_calls, watcher_calls, client, files, sleep_calls
 
 
 def test_trigger_ingest_reconciles_archives_before_ingesting(tmp_path: Path):
@@ -178,7 +152,7 @@ def test_trigger_ingest_reconciles_archives_before_ingesting(tmp_path: Path):
     result = trigger_ingest(deps)
 
     assert result == IngestResult(days_ingested=2, duration_ms=50)
-    assert archives.calls == [tmp_path]
+    assert archives == [tmp_path]
     assert ingest.calls == [("ingest_all", tmp_path, None)]
 
 
@@ -207,10 +181,10 @@ def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
     assert client.urls == [
         "/download-service/files/wellness/2026-03-14",
     ]
-    assert archives.calls == [tmp_path]
+    assert archives == [tmp_path]
     assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-14"])]
-    assert watcher.calls == ["suspend", "resume"]
-    assert sleeper.calls == [1]
+    assert watcher == ["suspend", "resume"]
+    assert sleeper == [1]
 
 
 def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):
@@ -236,7 +210,7 @@ def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):
     assert ingest.calls == [
         ("ingest_dates", tmp_path, ["2026-03-14", "2026-03-16"]),
     ]
-    assert sleeper.calls == [1, 1]
+    assert sleeper == [1, 1]
 
 
 def test_sync_starts_with_yesterday_when_no_archives_exist(tmp_path: Path):
@@ -258,7 +232,7 @@ def test_sync_starts_with_yesterday_when_no_archives_exist(tmp_path: Path):
     assert ingest.calls == [
         ("ingest_dates", tmp_path, ["2026-03-14", "2026-03-15"]),
     ]
-    assert watcher.calls == ["suspend", "resume"]
+    assert watcher == ["suspend", "resume"]
 
 
 def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):
@@ -268,4 +242,4 @@ def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):
     with pytest.raises(RuntimeError, match="Ingest already in progress"):
         sync_garmin(deps)
 
-    assert watcher.calls == ["suspend", "resume"]
+    assert watcher == ["suspend", "resume"]

@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 import app.domains.garmin_sync.routes as ingest_mod
-from app.models import IngestResult, IngestStatus, SyncResult
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 
 
 class _Container:

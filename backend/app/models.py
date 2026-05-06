@@ -10,6 +10,8 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult  # noqa: F401
+
 
 class _DefaultsRequired(BaseModel):
     """Base for models where all fields (even those with defaults) should appear
@@ -1429,27 +1431,6 @@ class DaySummaryResponse(_DefaultsRequired):
 class DaysResponse(_AutoTotalResponse, items_field="days"):
     days: list[str]
     total: int = 0
-
-
-class IngestResult(_DefaultsRequired):
-    days_ingested: int
-    duration_ms: int
-
-
-class IngestStatus(_DefaultsRequired):
-    needs_ingest: bool
-    last_ingest_time: str | None = None
-    days_in_db: int
-    days_on_disk: int
-
-
-class SyncResult(_DefaultsRequired):
-    downloaded: int
-    skipped: int
-    failed: int
-    deleted_latest: str | None = None
-    days_ingested: int
-    duration_ms: int
 
 
 # ---------------------------------------------------------------------------

@@ -6,8 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from app.models import IngestResult, IngestStatus, SyncResult
-
+from .contracts import IngestResult, IngestStatus, SyncResult
 from .dependencies import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
 
 log = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ class _SyncDatePlan:
 
 def trigger_ingest(deps: GarminSyncDependencies) -> IngestResult:
     """Extract all known archives and re-ingest the configured data tree."""
-    deps.archives.extract_existing_archives(deps.data_dir)
+    deps.extract_archives(deps.data_dir)
     return deps.ingest.ingest_all(deps.data_dir)
 
 
@@ -36,14 +35,14 @@ def get_ingest_status(deps: GarminSyncDependencies) -> IngestStatus:
 
 def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     """Download Garmin wellness archives for changed dates and ingest them."""
-    t0 = deps.clock.monotonic()
+    t0 = deps.monotonic()
     client = deps.clients.create()
 
     latest = deps.files.latest_zip_date(deps.data_dir)
-    plan = _plan_sync_dates(latest=latest, today=deps.clock.today())
+    plan = _plan_sync_dates(latest=latest, today=deps.today())
     deleted_latest = plan.deleted_latest.isoformat() if plan.deleted_latest else None
 
-    deps.watcher.suspend()
+    deps.suspend_watcher()
     try:
         if plan.deleted_latest is not None:
             deps.files.remove_day(deps.data_dir, plan.deleted_latest)
@@ -64,15 +63,15 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
                 failed += 1
 
             if index < len(plan.dates) - 1:
-                deps.sleeper.sleep(1)
+                deps.sleep(1)
 
-        deps.archives.extract_existing_archives(deps.data_dir)
+        deps.extract_archives(deps.data_dir)
         unique_dates = sorted(set(affected_dates))
         ingest_result = deps.ingest.ingest_dates(deps.data_dir, unique_dates)
     finally:
-        deps.watcher.resume()
+        deps.resume_watcher()
 
-    duration_ms = int((deps.clock.monotonic() - t0) * 1000)
+    duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(
         downloaded=downloaded,
         skipped=skipped,

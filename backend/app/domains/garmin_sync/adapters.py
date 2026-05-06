@@ -11,13 +11,13 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
+from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 from app.domains.garmin_sync.dependencies import (
     GarminDownloadClient,
     GarminSyncDependencies,
 )
 from app.infra.database import DATA_DIR, check_ingest_status, ingest_all, ingest_dates
 from app.infra.watcher import extract_existing_archives, resume_watcher, suspend_watcher
-from app.models import IngestResult, IngestStatus
 
 log = logging.getLogger(__name__)
 
@@ -31,19 +31,6 @@ class DatabaseIngestGateway:
 
     def ingest_dates(self, data_dir: Path, dates: list[str]) -> IngestResult:
         return ingest_dates(data_dir, dates)
-
-
-class ArchiveExtractor:
-    def extract_existing_archives(self, data_dir: Path) -> int:
-        return extract_existing_archives(data_dir)
-
-
-class WatcherController:
-    def suspend(self) -> None:
-        suspend_watcher()
-
-    def resume(self) -> None:
-        resume_watcher()
 
 
 class GarminConnectClientFactory:
@@ -99,27 +86,16 @@ class FilesystemSyncFileStore:
         (data_dir / f"{day.isoformat()}.zip").write_bytes(data)
 
 
-class SystemClock:
-    def today(self) -> date:
-        return date.today()
-
-    def monotonic(self) -> float:
-        return time.monotonic()
-
-
-class SystemSleeper:
-    def sleep(self, seconds: float) -> None:
-        time.sleep(seconds)
-
-
 def build_garmin_sync_dependencies(data_dir: Path = DATA_DIR) -> GarminSyncDependencies:
     return GarminSyncDependencies(
         data_dir=data_dir,
         ingest=DatabaseIngestGateway(),
-        archives=ArchiveExtractor(),
-        watcher=WatcherController(),
+        extract_archives=extract_existing_archives,
+        suspend_watcher=suspend_watcher,
+        resume_watcher=resume_watcher,
         clients=GarminConnectClientFactory(),
         files=FilesystemSyncFileStore(),
-        clock=SystemClock(),
-        sleeper=SystemSleeper(),
+        today=date.today,
+        monotonic=time.monotonic,
+        sleep=time.sleep,
     )
