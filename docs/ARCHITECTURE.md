@@ -37,7 +37,7 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
 There are two major paths:
 
 - Ingest path: FIT files -> `parser.py` -> `stats.py` -> SQLite
-- Read path: SQLite -> repository adapters -> domain/core application slices or legacy services -> JSON API -> frontend
+- Read path: SQLite -> repository adapters -> domain/core application slices -> JSON API -> frontend
 
 ### Core modules
 
@@ -80,6 +80,14 @@ There are two major paths:
 
 - `domains/routines/`
   The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
+
+- `domains/garmin_sync/`
+  Garmin ingest and Garmin Connect download orchestration. This domain owns
+  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. `api/` owns the
+  FastAPI routes, `application/` owns the ingest/status/sync use cases, and
+  `infra/` adapts SQLite ingest helpers, archive extraction, watcher
+  suspend/resume, filesystem archive writes/deletes, system clock/sleep, and
+  Garmin Connect client login/download.
 
 - `domains/garmin_analytics/`
   Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
@@ -129,8 +137,8 @@ strict boundary migration.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
 Fully migrated slices today: `domains/assistant`, `domains/routines`,
-`domains/garmin_analytics`, `domains/experiments`, `domains/artifacts`,
-`domains/programs`, `domains/journal`, and `core/profile`.
+`domains/garmin_sync`, `domains/garmin_analytics`, `domains/experiments`,
+`domains/artifacts`, `domains/programs`, `domains/journal`, and `core/profile`.
 Transitional domain-routed slices today: none.
 
 ## Experiment Semantics
