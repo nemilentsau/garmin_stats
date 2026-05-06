@@ -3,16 +3,8 @@
 from fastapi import APIRouter, HTTPException
 
 from app.bootstrap.container import build_container
+from app.domains.garmin_sync import workflows
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
-from app.domains.garmin_sync.workflows import (
-    get_ingest_status as read_ingest_status,
-)
-from app.domains.garmin_sync.workflows import (
-    sync_garmin,
-)
-from app.domains.garmin_sync.workflows import (
-    trigger_ingest as run_ingest,
-)
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
@@ -21,7 +13,7 @@ router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 def trigger_ingest():
     """Re-ingest all FIT files into the database."""
     try:
-        return run_ingest(build_container().garmin_sync)
+        return workflows.trigger_ingest(build_container().garmin_sync)
     except RuntimeError as err:
         raise HTTPException(
             status_code=409,
@@ -32,13 +24,13 @@ def trigger_ingest():
 @router.get("/status", response_model=IngestStatus)
 def get_ingest_status():
     """Check whether new data needs ingesting."""
-    return read_ingest_status(build_container().garmin_sync)
+    return workflows.get_ingest_status(build_container().garmin_sync)
 
 
 @router.post("/sync", response_model=SyncResult)
 def trigger_sync():
     """Download new data from Garmin Connect and ingest."""
     try:
-        return sync_garmin(build_container().garmin_sync)
+        return workflows.sync_garmin(build_container().garmin_sync)
     except RuntimeError as err:
         raise HTTPException(status_code=409, detail=str(err)) from err

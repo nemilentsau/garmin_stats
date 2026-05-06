@@ -21,15 +21,15 @@ class TestIngestRoutes:
             assert deps is _Container.garmin_sync
             return expected
 
-        monkeypatch.setattr(ingest_mod, "run_ingest", fake_run_ingest)
+        monkeypatch.setattr(ingest_mod.workflows, "trigger_ingest", fake_run_ingest)
 
         assert ingest_mod.trigger_ingest() == expected
 
     def test_trigger_ingest_returns_409_when_ingest_busy(self, monkeypatch):
         monkeypatch.setattr(ingest_mod, "build_container", lambda: _Container())
         monkeypatch.setattr(
-            ingest_mod,
-            "run_ingest",
+            ingest_mod.workflows,
+            "trigger_ingest",
             lambda _deps: (_ for _ in ()).throw(RuntimeError("Ingest already in progress")),
         )
 
@@ -52,7 +52,11 @@ class TestIngestRoutes:
             assert deps is _Container.garmin_sync
             return expected
 
-        monkeypatch.setattr(ingest_mod, "read_ingest_status", fake_read_ingest_status)
+        monkeypatch.setattr(
+            ingest_mod.workflows,
+            "get_ingest_status",
+            fake_read_ingest_status,
+        )
 
         assert ingest_mod.get_ingest_status() == expected
 
@@ -72,14 +76,14 @@ class TestIngestRoutes:
             assert deps is _Container.garmin_sync
             return expected
 
-        monkeypatch.setattr(ingest_mod, "sync_garmin", fake_sync_garmin)
+        monkeypatch.setattr(ingest_mod.workflows, "sync_garmin", fake_sync_garmin)
 
         assert ingest_mod.trigger_sync() == expected
 
     def test_trigger_sync_returns_409_when_sync_cannot_start(self, monkeypatch):
         monkeypatch.setattr(ingest_mod, "build_container", lambda: _Container())
         monkeypatch.setattr(
-            ingest_mod,
+            ingest_mod.workflows,
             "sync_garmin",
             lambda _deps: (_ for _ in ()).throw(RuntimeError("No Garmin tokens found")),
         )
