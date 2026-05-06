@@ -13,20 +13,19 @@ from tests._architecture import (
 
 def test_garmin_sync_api_modules_do_not_import_flat_database_or_services():
     assert_api_modules_are_boundary_only([
-        "backend/app/domains/garmin_sync/api/ingest.py",
+        "backend/app/domains/garmin_sync/routes.py",
     ])
 
 
 def test_garmin_sync_application_modules_follow_strict_boundary():
     assert_application_modules_are_strict([
-        "backend/app/domains/garmin_sync/application/ingest.py",
-        "backend/app/domains/garmin_sync/application/ports.py",
-        "backend/app/domains/garmin_sync/application/sync_plan.py",
+        "backend/app/domains/garmin_sync/use_cases.py",
+        "backend/app/domains/garmin_sync/ports.py",
     ])
 
 
 def test_garmin_sync_infra_adapters_are_database_and_watcher_boundary():
-    source = read_repo_file("backend/app/domains/garmin_sync/infra/adapters.py")
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
 
     assert "app.infra.database" in source
     assert "app.infra.watcher" in source
@@ -35,7 +34,7 @@ def test_garmin_sync_infra_adapters_are_database_and_watcher_boundary():
 
 
 def test_garmin_sync_routes_use_container_dependencies():
-    source = read_repo_file("backend/app/domains/garmin_sync/api/ingest.py")
+    source = read_repo_file("backend/app/domains/garmin_sync/routes.py")
 
     assert "build_container" in source
     assert "garmin_sync" in source
@@ -44,9 +43,17 @@ def test_garmin_sync_routes_use_container_dependencies():
 def test_bootstrap_routing_mounts_domain_garmin_sync_router_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
 
-    assert "domains.garmin_sync.api.ingest" in source
+    assert "domains.garmin_sync.routes" in source
     assert "from ..routers.ingest import router as ingest_router" not in source
     assert "include_router(ingest_router)" in source
+
+
+def test_garmin_sync_uses_small_capability_layout_without_ceremonial_layers():
+    base = REPO_ROOT / "backend/app/domains/garmin_sync"
+
+    assert not list((base / "api").glob("*.py"))
+    assert not list((base / "application").glob("*.py"))
+    assert not list((base / "infra").glob("*.py"))
 
 
 def test_migrated_garmin_sync_service_shim_is_removed():

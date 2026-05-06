@@ -282,10 +282,10 @@ def test_moved_contracts_are_not_defined_in_app_models():
 def test_garmin_sync_imports_owned_contracts_directly():
     assert_no_text_in_files(
         [
-            "backend/app/domains/garmin_sync/api/ingest.py",
-            "backend/app/domains/garmin_sync/application/ingest.py",
-            "backend/app/domains/garmin_sync/application/ports.py",
-            "backend/app/domains/garmin_sync/infra/adapters.py",
+            "backend/app/domains/garmin_sync/routes.py",
+            "backend/app/domains/garmin_sync/use_cases.py",
+            "backend/app/domains/garmin_sync/ports.py",
+            "backend/app/domains/garmin_sync/adapters.py",
         ],
         ["from app.models import", "import app.models"],
     )
@@ -356,10 +356,10 @@ Do not commit this task yet. Commit after Tasks 3 and 4 make the guard pass.
 **Files:**
 - Create: `backend/app/domains/garmin_sync/contracts.py`
 - Modify: `backend/app/models.py`
-- Modify: `backend/app/domains/garmin_sync/api/ingest.py`
-- Modify: `backend/app/domains/garmin_sync/application/ingest.py`
-- Modify: `backend/app/domains/garmin_sync/application/ports.py`
-- Modify: `backend/app/domains/garmin_sync/infra/adapters.py`
+- Modify: `backend/app/domains/garmin_sync/routes.py`
+- Modify: `backend/app/domains/garmin_sync/use_cases.py`
+- Modify: `backend/app/domains/garmin_sync/ports.py`
+- Modify: `backend/app/domains/garmin_sync/adapters.py`
 - Modify: `backend/tests/domains/garmin_sync/test_ingest_api.py`
 - Modify: `backend/tests/domains/garmin_sync/test_ingest_application.py`
 
@@ -428,25 +428,25 @@ class SyncResult(_DefaultsRequired):
 
 - [ ] **Step 3: Update Garmin sync implementation imports**
 
-Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/api/ingest.py` with:
+Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/routes.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 ```
 
-Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/application/ingest.py` with:
+Replace `from app.models import IngestResult, IngestStatus, SyncResult` in `backend/app/domains/garmin_sync/use_cases.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus, SyncResult
 ```
 
-Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/application/ports.py` with:
+Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/ports.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 ```
 
-Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/infra/adapters.py` with:
+Replace `from app.models import IngestResult, IngestStatus` in `backend/app/domains/garmin_sync/adapters.py` with:
 
 ```python
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
@@ -932,4 +932,3 @@ cd backend && uv run ruff check
 cd backend && uv run pyright app/ tests/
 cd backend && uv run pytest tests/ -v
 ```
-

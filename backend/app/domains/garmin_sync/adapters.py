@@ -11,7 +11,7 @@ from pathlib import Path
 
 from garminconnect import Garmin
 
-from app.domains.garmin_sync.application.ports import (
+from app.domains.garmin_sync.ports import (
     GarminDownloadClient,
     GarminSyncDependencies,
 )

@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, timedelta
 
 from app.models import IngestResult, IngestStatus, SyncResult
 
 from .ports import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
-from .sync_plan import plan_sync_dates
 
 log = logging.getLogger(__name__)
 
 DOWNLOAD_SERVICE_URL = "/download-service/files"
 MIN_DOWNLOAD_BYTES = 100
+
+
+@dataclass(frozen=True)
+class _SyncDatePlan:
+    deleted_latest: date | None
+    dates: list[date]
+    initial_affected_dates: list[str]
 
 
 def trigger_ingest(deps: GarminSyncDependencies) -> IngestResult:
@@ -33,7 +40,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     client = deps.clients.create()
 
     latest = deps.files.latest_zip_date(deps.data_dir)
-    plan = plan_sync_dates(latest=latest, today=deps.clock.today())
+    plan = _plan_sync_dates(latest=latest, today=deps.clock.today())
     deleted_latest = plan.deleted_latest.isoformat() if plan.deleted_latest else None
 
     deps.watcher.suspend()
@@ -73,6 +80,29 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deleted_latest=deleted_latest,
         days_ingested=ingest_result.days_ingested,
         duration_ms=duration_ms,
+    )
+
+
+def _plan_sync_dates(*, latest: date | None, today: date) -> _SyncDatePlan:
+    if latest is None:
+        start_date = today - timedelta(days=1)
+        deleted_latest = None
+        initial_affected_dates: list[str] = []
+    else:
+        start_date = latest
+        deleted_latest = latest
+        initial_affected_dates = [latest.isoformat()]
+
+    dates: list[date] = []
+    current = start_date
+    while current <= today:
+        dates.append(current)
+        current += timedelta(days=1)
+
+    return _SyncDatePlan(
+        deleted_latest=deleted_latest,
+        dates=dates,
+        initial_affected_dates=initial_affected_dates,
     )
 
 

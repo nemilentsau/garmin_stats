@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.garmin_sync.application.ingest import (
+from app.domains.garmin_sync.use_cases import (
     GarminSyncDependencies,
     get_ingest_status,
     sync_garmin,
@@ -131,6 +131,7 @@ def _deps(
     tmp_path: Path,
     *,
     latest: date | None = date(2026, 3, 14),
+    today: date = date(2026, 3, 15),
     existing: set[date] | None = None,
     responses: dict[str, bytes] | None = None,
 ) -> tuple[
@@ -150,6 +151,7 @@ def _deps(
         or {
             "2026-03-14": b"x" * 101,
             "2026-03-15": b"y" * 101,
+            "2026-03-16": b"z" * 101,
         }
     )
     files = FakeSyncFileStore(
@@ -164,7 +166,7 @@ def _deps(
         watcher=watcher,
         clients=FakeGarminClientFactory(client),
         files=files,
-        clock=FakeClock(today=date(2026, 3, 15)),
+        clock=FakeClock(today=today),
         sleeper=sleeper,
     )
     return deps, ingest, archives, watcher, client, files, sleeper
@@ -185,39 +187,6 @@ def test_get_ingest_status_reads_current_data_root_status(tmp_path: Path):
 
     assert get_ingest_status(deps) == ingest.status
     assert ingest.calls == [("status", tmp_path, None)]
-
-
-def test_sync_plan_redownloads_latest_archive_through_today():
-    from app.domains.garmin_sync.application.sync_plan import plan_sync_dates
-
-    plan = plan_sync_dates(
-        latest=date(2026, 3, 14),
-        today=date(2026, 3, 16),
-    )
-
-    assert plan.deleted_latest == date(2026, 3, 14)
-    assert plan.dates == [
-        date(2026, 3, 14),
-        date(2026, 3, 15),
-        date(2026, 3, 16),
-    ]
-    assert plan.initial_affected_dates == ["2026-03-14"]
-
-
-def test_sync_plan_starts_with_yesterday_when_no_archive_exists():
-    from app.domains.garmin_sync.application.sync_plan import plan_sync_dates
-
-    plan = plan_sync_dates(
-        latest=None,
-        today=date(2026, 3, 16),
-    )
-
-    assert plan.deleted_latest is None
-    assert plan.dates == [
-        date(2026, 3, 15),
-        date(2026, 3, 16),
-    ]
-    assert plan.initial_affected_dates == []
 
 
 def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
@@ -242,6 +211,32 @@ def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
     assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-14"])]
     assert watcher.calls == ["suspend", "resume"]
     assert sleeper.calls == [1]
+
+
+def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):
+    deps, ingest, _archives, _watcher, client, files, sleeper = _deps(
+        tmp_path,
+        today=date(2026, 3, 16),
+    )
+
+    result = sync_garmin(deps)
+
+    assert result.downloaded == 2
+    assert result.skipped == 1
+    assert result.deleted_latest == "2026-03-14"
+    assert files.deleted == [(tmp_path, date(2026, 3, 14))]
+    assert files.written == [
+        (tmp_path, date(2026, 3, 14), b"x" * 101),
+        (tmp_path, date(2026, 3, 16), b"z" * 101),
+    ]
+    assert client.urls == [
+        "/download-service/files/wellness/2026-03-14",
+        "/download-service/files/wellness/2026-03-16",
+    ]
+    assert ingest.calls == [
+        ("ingest_dates", tmp_path, ["2026-03-14", "2026-03-16"]),
+    ]
+    assert sleeper.calls == [1, 1]
 
 
 def test_sync_starts_with_yesterday_when_no_archives_exist(tmp_path: Path):

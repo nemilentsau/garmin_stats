@@ -3,13 +3,13 @@
 from fastapi import APIRouter, HTTPException
 
 from app.bootstrap.container import build_container
-from app.domains.garmin_sync.application.ingest import (
+from app.domains.garmin_sync.use_cases import (
     get_ingest_status as read_ingest_status,
 )
-from app.domains.garmin_sync.application.ingest import (
+from app.domains.garmin_sync.use_cases import (
     sync_garmin,
 )
-from app.domains.garmin_sync.application.ingest import (
+from app.domains.garmin_sync.use_cases import (
     trigger_ingest as run_ingest,
 )
 from app.models import IngestResult, IngestStatus, SyncResult

@@ -32,6 +32,11 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
 
 ## Backend
 
+Boundary tests guard module intent, not a mandatory folder template. Larger
+slices may use `api/`, `application/`, and `infra/` packages when those layers
+contain multiple stable concepts. Small capability slices should stay flatter
+when subpackages would only hold one file.
+
 ### Main flow
 
 There are two major paths:
@@ -83,9 +88,10 @@ There are two major paths:
 
 - `domains/garmin_sync/`
   Garmin ingest and Garmin Connect download orchestration. This domain owns
-  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. `api/` owns the
-  FastAPI routes, `application/` owns the ingest/status/sync use cases, and
-  `infra/` adapts SQLite ingest helpers, archive extraction, watcher
+  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
+  small-capability layout: `routes.py` owns FastAPI routes, `use_cases.py` owns
+  ingest/status/sync orchestration, `ports.py` owns use-case protocols, and
+  `adapters.py` wires SQLite ingest helpers, archive extraction, watcher
   suspend/resume, filesystem archive writes/deletes, system clock/sleep, and
   Garmin Connect client login/download.
 
@@ -167,10 +173,10 @@ not proof that the design is sound.
 - Does not own: FIT parsing semantics, analytics calculations, dashboard reads,
   experiment refresh policy, routine scheduling, assistant evidence, or frontend
   presentation.
-- May import: its own ports, its own sync-planning helpers, `app.models`
-  ingest/sync contracts, and infrastructure adapters that wrap database ingest,
-  archive extraction, watcher control, filesystem writes, clock/sleep, and Garmin
-  Connect login/download.
+- May import: its own ports, private use-case helpers, `app.models` ingest/sync
+  contracts, and infrastructure adapters that wrap database ingest, archive
+  extraction, watcher control, filesystem writes, clock/sleep, and Garmin Connect
+  login/download.
 - Must not import: routines, experiments, assistant, artifacts, journal,
   programs, Garmin analytics application modules, FastAPI from application
   modules, or SQLite helpers from application modules.
