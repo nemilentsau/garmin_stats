@@ -1,9 +1,5 @@
 """Tests for experiment exposure sync derived from routine card logs."""
 
-from app.domains.artifacts.application.artifacts import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
-)
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.domains.routines.application.today import get_today
@@ -24,6 +20,10 @@ from app.models import (
     Experiment,
     ExperimentDesign,
     ExperimentExposure,
+)
+from tests._artifact_helpers import (
+    activate_assistant_artifact,
+    create_assistant_artifact,
 )
 
 

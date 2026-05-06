@@ -33,9 +33,13 @@ def test_experiments_application_files_are_named_by_responsibility():
     for path in [
         "backend/app/domains/experiments/application/experiments.py",
         "backend/app/domains/experiments/application/stats.py",
-        "backend/app/domains/experiments/domain",
     ]:
         assert not (REPO_ROOT / path).exists()
+
+    experiment_domain_sources = list(
+        (REPO_ROOT / "backend/app/domains/experiments/domain").rglob("*.py")
+    )
+    assert experiment_domain_sources == []
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():

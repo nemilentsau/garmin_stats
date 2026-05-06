@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
+from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
 from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
@@ -19,6 +20,7 @@ from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 
 @dataclass(frozen=True)
 class AppContainer:
+    artifacts_repo: SqliteArtifactRepository
     assistant_repo: SqliteAssistantRepository
     assistant_runtime: ClaudeCodeRuntime
     garmin_biometrics_repo: SqliteBiometricRepository
@@ -34,6 +36,7 @@ def build_container() -> AppContainer:
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
     return AppContainer(
+        artifacts_repo=SqliteArtifactRepository(),
         assistant_repo=SqliteAssistantRepository(experiment_repo=experiments_repo),
         assistant_runtime=ClaudeCodeRuntime(),
         garmin_biometrics_repo=SqliteBiometricRepository(),
