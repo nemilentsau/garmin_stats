@@ -4,14 +4,13 @@ import pytest
 
 import app.infra.database as db
 import app.infra.sqlite as sqlite
+from app.domains.garmin_analytics.adapters import (
+    SqliteBiometricRepository,
+)
 from app.domains.garmin_analytics.application.insights import (
     get_hrv_insights as _get_hrv_insights,
 )
-from app.domains.garmin_analytics.infra.biometric_repository import (
-    SqliteBiometricRepository,
-)
-from app.infra import cache
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -23,6 +22,7 @@ from app.models import (
     HrvSummary,
     HrvValue,
 )
+from app.infra import cache
 
 
 def load_hrv_insights(date: str | None = None):

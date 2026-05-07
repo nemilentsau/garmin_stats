@@ -3,8 +3,8 @@
 from collections.abc import Callable
 from datetime import date as date_type
 
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
-from app.models import DailyMetric
 
 
 def prior_7d_avg(

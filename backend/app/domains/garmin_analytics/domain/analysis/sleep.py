@@ -1,15 +1,15 @@
 """Sleep analysis calculations for Garmin analytics."""
 
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
-from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
-    trailing_ma7,
-)
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     SleepAnalysisResponse,
     SleepTrendPoint,
     WeeklySleepBox,
+)
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
 )
 
 

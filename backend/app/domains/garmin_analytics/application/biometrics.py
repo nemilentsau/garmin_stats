@@ -2,22 +2,22 @@
 
 from collections.abc import Sequence
 
+from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.application.period_summary import (
     load_windowed_period_summary,
 )
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.domains.garmin_analytics.domain.aggregates.biometric_responses import (
-    flatten_hrv,
-    flatten_skin_temp,
-    flatten_sleep,
-    flatten_wellness,
-)
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyAggregatesResponse,
     HrvResponse,
     SkinTempResponse,
     SleepResponse,
     WellnessResponse,
+)
+from app.domains.garmin_analytics.domain.aggregates.biometric_responses import (
+    flatten_hrv,
+    flatten_skin_temp,
+    flatten_sleep,
+    flatten_wellness,
 )
 
 

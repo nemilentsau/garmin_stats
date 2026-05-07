@@ -4,13 +4,7 @@ from bisect import bisect_right
 from collections.abc import Sequence
 from datetime import datetime
 
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
-from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
-    trailing_ma7,
-)
-from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     CircadianHRPoint,
     DailyAvgHRTrendPoint,
     DailyMetric,
@@ -23,6 +17,12 @@ from app.models import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.utils.timeutil import parse_iso as _parse_iso
 
 

@@ -3,12 +3,8 @@
 from app.domains.garmin_analytics.application import (
     analysis,
 )
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.domains.garmin_analytics.domain.insights.heart_rate import (
-    compute_heart_rate_insights,
-)
-from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insights
-from app.models import (
+from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
+from app.domains.garmin_analytics.contracts import (
     BodyBatteryAnalysisResponse,
     HeartRateAnalysisResponse,
     HeartRateInsightsResponse,
@@ -18,6 +14,10 @@ from app.models import (
     SleepAnalysisResponse,
     StressAnalysisResponse,
 )
+from app.domains.garmin_analytics.domain.insights.heart_rate import (
+    compute_heart_rate_insights,
+)
+from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insights
 
 
 def get_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:

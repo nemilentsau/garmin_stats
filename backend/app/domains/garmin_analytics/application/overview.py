@@ -2,18 +2,8 @@
 
 import numpy as np
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
-from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    safe_avg,
-    safe_max,
-    safe_min,
-)
-from app.domains.garmin_analytics.domain.primitives.trends import (
-    prior_7d_avg,
-    trailing_ma7,
-)
-from app.models import (
+from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
+from app.domains.garmin_analytics.contracts import (
     CorrelationPoint,
     DailyMetric,
     DashboardOverviewResponse,
@@ -24,6 +14,16 @@ from app.models import (
     SparklineSeries,
     SparklineSummary,
     TodayVitals,
+)
+from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_max,
+    safe_min,
+)
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    prior_7d_avg,
+    trailing_ma7,
 )
 
 

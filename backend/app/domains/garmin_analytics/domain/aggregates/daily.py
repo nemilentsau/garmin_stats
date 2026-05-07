@@ -2,14 +2,7 @@
 
 from collections.abc import Sequence
 
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    safe_avg,
-    safe_max,
-    safe_median,
-    safe_min,
-    safe_percentile,
-)
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyAggregatesResponse,
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -20,6 +13,13 @@ from app.models import (
     DailySleepStats,
     DayData,
     HRZoneBucket,
+)
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_max,
+    safe_median,
+    safe_min,
+    safe_percentile,
 )
 
 # HR zone definitions: (label, lower_bound_inclusive, upper_bound_exclusive_or_None)

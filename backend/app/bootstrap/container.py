@@ -12,7 +12,7 @@ from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
-from app.domains.garmin_analytics.infra.biometric_repository import (
+from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
 from app.domains.garmin_sync.adapters import build_garmin_sync_dependencies

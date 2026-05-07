@@ -10,6 +10,277 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+# ---------------------------------------------------------------------------
+# Garmin analytics contracts
+# ---------------------------------------------------------------------------
+from app.domains.garmin_analytics.contracts import (
+    ActivityReading as ActivityReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    BodyBatteryAnalysisResponse as BodyBatteryAnalysisResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    BodyBatteryReading as BodyBatteryReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    BodyBatteryTrendPoint as BodyBatteryTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    CircadianHRPoint as CircadianHRPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    CorrelationPoint as CorrelationPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyAggregatesResponse as DailyAggregatesResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyAvgHRTrendPoint as DailyAvgHRTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyBodyBatteryStats as DailyBodyBatteryStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyHeartRateStats as DailyHeartRateStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyHrvStats as DailyHrvStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyMetric as DailyMetric,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailyMetricStats as DailyMetricStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailySkinTempStats as DailySkinTempStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DailySleepStats as DailySleepStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    DashboardOverviewResponse as DashboardOverviewResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    DashboardSparklines as DashboardSparklines,
+)
+from app.domains.garmin_analytics.contracts import (
+    DayData as DayData,
+)
+from app.domains.garmin_analytics.contracts import (
+    DayHrv as DayHrv,
+)
+from app.domains.garmin_analytics.contracts import (
+    DaySkinTemp as DaySkinTemp,
+)
+from app.domains.garmin_analytics.contracts import (
+    DaySleep as DaySleep,
+)
+from app.domains.garmin_analytics.contracts import (
+    DayWellness as DayWellness,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateAnalysisResponse as HeartRateAnalysisResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateDataQuality as HeartRateDataQuality,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateInsight as HeartRateInsight,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateInsightsResponse as HeartRateInsightsResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateReading as HeartRateReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    HeartRateRecovery as HeartRateRecovery,
+)
+from app.domains.garmin_analytics.contracts import (
+    HRDistributionResponse as HRDistributionResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HRHistogramBin as HRHistogramBin,
+)
+from app.domains.garmin_analytics.contracts import (
+    HRPatternWindow as HRPatternWindow,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvAnalysisResponse as HrvAnalysisResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvBaselineBands as HrvBaselineBands,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvDataQuality as HrvDataQuality,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvDayOfWeekBucket as HrvDayOfWeekBucket,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvDistribution as HrvDistribution,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvDistributionBin as HrvDistributionBin,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvInsight as HrvInsight,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvInsightsResponse as HrvInsightsResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvIntradaySegment as HrvIntradaySegment,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvLongBaseline as HrvLongBaseline,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvPatternWindow as HrvPatternWindow,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvRecovery as HrvRecovery,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvResponse as HrvResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvStatusBucket as HrvStatusBucket,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvStreak as HrvStreak,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvSummary as HrvSummary,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvTrajectory as HrvTrajectory,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvTrendBand as HrvTrendBand,
+)
+from app.domains.garmin_analytics.contracts import (
+    HrvValue as HrvValue,
+)
+from app.domains.garmin_analytics.contracts import (
+    HRZoneBucket as HRZoneBucket,
+)
+from app.domains.garmin_analytics.contracts import (
+    HRZoneDuration as HRZoneDuration,
+)
+from app.domains.garmin_analytics.contracts import (
+    MetricCorrelation as MetricCorrelation,
+)
+from app.domains.garmin_analytics.contracts import (
+    NightlyHrvTrendPoint as NightlyHrvTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodBodyBatteryStats as PeriodBodyBatteryStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodHeartRateStats as PeriodHeartRateStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodHrvStats as PeriodHrvStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodMetricStats as PeriodMetricStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodSkinTempStats as PeriodSkinTempStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodSleepStats as PeriodSleepStats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodSpo2Stats as PeriodSpo2Stats,
+)
+from app.domains.garmin_analytics.contracts import (
+    PeriodSummary as PeriodSummary,
+)
+from app.domains.garmin_analytics.contracts import (
+    ReadinessScore as ReadinessScore,
+)
+from app.domains.garmin_analytics.contracts import (
+    RespirationReading as RespirationReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    RestingHRReading as RestingHRReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    RestingHRTrendPoint as RestingHRTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    SkinTempOvernight as SkinTempOvernight,
+)
+from app.domains.garmin_analytics.contracts import (
+    SkinTempResponse as SkinTempResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepAnalysisResponse as SleepAnalysisResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepAssessment as SleepAssessment,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepingHRPoint as SleepingHRPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepLevel as SleepLevel,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepResponse as SleepResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    SleepTrendPoint as SleepTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    SparklinePoint as SparklinePoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    SparklineSeries as SparklineSeries,
+)
+from app.domains.garmin_analytics.contracts import (
+    SparklineSummary as SparklineSummary,
+)
+from app.domains.garmin_analytics.contracts import (
+    SpO2Reading as SpO2Reading,
+)
+from app.domains.garmin_analytics.contracts import (
+    StepsReading as StepsReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    StressAnalysisResponse as StressAnalysisResponse,
+)
+from app.domains.garmin_analytics.contracts import (
+    StressReading as StressReading,
+)
+from app.domains.garmin_analytics.contracts import (
+    StressTrendPoint as StressTrendPoint,
+)
+from app.domains.garmin_analytics.contracts import (
+    TodayVitals as TodayVitals,
+)
+from app.domains.garmin_analytics.contracts import (
+    WeeklyBodyBatteryBox as WeeklyBodyBatteryBox,
+)
+from app.domains.garmin_analytics.contracts import (
+    WeeklyHrvBox as WeeklyHrvBox,
+)
+from app.domains.garmin_analytics.contracts import (
+    WeeklyRestingHRBox as WeeklyRestingHRBox,
+)
+from app.domains.garmin_analytics.contracts import (
+    WeeklySleepBox as WeeklySleepBox,
+)
+from app.domains.garmin_analytics.contracts import (
+    WeeklyStressBox as WeeklyStressBox,
+)
+from app.domains.garmin_analytics.contracts import (
+    WellnessResponse as WellnessResponse,
+)
+
 
 class _DefaultsRequired(BaseModel):
     """Base for models where all fields (even those with defaults) should appear
@@ -75,456 +346,6 @@ EvidenceConfidence = Literal["insufficient", "low", "moderate", "high"]
 AssistantMessageRole = Literal["user", "assistant", "system"]
 AssistantRunStatus = Literal["running", "completed", "failed"]
 AssistantRunTaskType = Literal["chat", "analysis", "planning"]
-
-
-# ---------------------------------------------------------------------------
-# Tier 1 — Reading-level models
-# ---------------------------------------------------------------------------
-
-class HeartRateReading(_DefaultsRequired):
-    timestamp: str | None = None
-    value: int
-
-
-class StressReading(_DefaultsRequired):
-    timestamp: str | None = None
-    value: int
-
-
-class BodyBatteryReading(_DefaultsRequired):
-    timestamp: str | None = None
-    value: int
-
-
-class SpO2Reading(_DefaultsRequired):
-    timestamp: str | None = None
-    value: int
-    confidence: int | None = None
-    mode: str
-
-
-class RespirationReading(_DefaultsRequired):
-    timestamp: str | None = None
-    value: float
-
-
-class ActivityReading(_DefaultsRequired):
-    timestamp: str | None = None
-    activity_type: str
-    intensity: int | None = None
-    steps: int | None = None
-    calories: int | None = None
-    distance: float | None = None
-
-
-class StepsReading(_DefaultsRequired):
-    timestamp: str | None = None
-    steps: int
-    distance: float | None = None
-    calories: int | None = None
-
-
-class RestingHRReading(_DefaultsRequired):
-    timestamp: str | None = None
-    resting_hr: int | None = None
-    current_day_resting_hr: int | None = None
-
-
-class SleepLevel(_DefaultsRequired):
-    date: str
-    timestamp: str | None = None
-    level: str
-
-
-class SleepAssessment(_DefaultsRequired):
-    date: str
-    overall_score: int | None = None
-    deep_sleep_score: int | None = None
-    light_sleep_score: int | None = None
-    rem_sleep_score: int | None = None
-    awake_time_score: int | None = None
-    awakenings_count: int | None = None
-    average_stress: float | None = None
-
-
-class HrvValue(_DefaultsRequired):
-    date: str
-    timestamp: str | None = None
-    value: float
-
-
-class HrvSummary(_DefaultsRequired):
-    date: str
-    weekly_average: float | None = None
-    last_night_average: float | None = None
-    last_night_5_min_high: float | None = None
-    baseline_low_upper: float | None = None
-    baseline_balanced_lower: float | None = None
-    baseline_balanced_upper: float | None = None
-    status: str
-
-
-class SkinTempOvernight(_DefaultsRequired):
-    date: str
-    timestamp: str | None = None
-    local_timestamp: float | None = None
-    nightly_value: float | None = None
-    average_deviation: float | None = None
-    average_7_day_deviation: float | None = None
-
-
-# ---------------------------------------------------------------------------
-# Tier 2 — Day-level containers
-# ---------------------------------------------------------------------------
-
-class DayWellness(_DefaultsRequired):
-    date: str
-    heart_rate: list[HeartRateReading] = []
-    stress: list[StressReading] = []
-    body_battery: list[BodyBatteryReading] = []
-    spo2: list[SpO2Reading] = []
-    respiration: list[RespirationReading] = []
-    activity: list[ActivityReading] = []
-    steps_summary: list[StepsReading] = []
-    resting_hr: list[RestingHRReading] = []
-
-
-class DaySleep(_DefaultsRequired):
-    date: str
-    sleep_levels: list[SleepLevel] = []
-    sleep_assessments: list[SleepAssessment] = []
-
-
-class DayHrv(_DefaultsRequired):
-    date: str
-    hrv_values: list[HrvValue] = []
-    hrv_summaries: list[HrvSummary] = []
-
-
-class DaySkinTemp(_DefaultsRequired):
-    date: str
-    skin_temp_overnight: list[SkinTempOvernight] = []
-
-
-class DayData(_DefaultsRequired):
-    date: str
-    utc_offset_hours: float | None = None
-    wellness: DayWellness
-    sleep: DaySleep
-    hrv: DayHrv
-    skin_temp: DaySkinTemp
-
-
-# ---------------------------------------------------------------------------
-# Tier 3 — API response models (match frontend TypeScript interfaces)
-# ---------------------------------------------------------------------------
-
-class WellnessResponse(_DefaultsRequired):
-    days: list[str]
-    heart_rate: list[HeartRateReading]
-    stress: list[StressReading]
-    body_battery: list[BodyBatteryReading]
-    spo2: list[SpO2Reading]
-    respiration: list[RespirationReading]
-    activity: list[ActivityReading]
-    steps_summary: list[StepsReading]
-    resting_hr: list[RestingHRReading]
-
-
-class SleepResponse(_DefaultsRequired):
-    days: list[str]
-    sleep_levels: list[SleepLevel]
-    sleep_assessments: list[SleepAssessment]
-
-
-class HrvResponse(_DefaultsRequired):
-    days: list[str]
-    hrv_values: list[HrvValue]
-    hrv_summaries: list[HrvSummary]
-
-
-class SkinTempResponse(_DefaultsRequired):
-    days: list[str]
-    skin_temp_overnight: list[SkinTempOvernight]
-
-
-# Daily aggregate sub-models
-
-
-class HRZoneBucket(_DefaultsRequired):
-    label: str
-    min_bpm: int
-    max_bpm: int | None = None
-    count: int
-    pct: float
-
-
-class DailyHeartRateStats(_DefaultsRequired):
-    avg: float | None = None
-    min: int | None = None
-    max: int | None = None
-    median: float | None = None
-    q1: float | None = None
-    q3: float | None = None
-    resting: int | None = None
-    zones: list[HRZoneBucket] = []
-
-
-class HeartRateRecovery(_DefaultsRequired):
-    baseline_resting_7d: float | None = None
-    delta_from_baseline: float | None = None
-    status: str | None = None
-
-
-class HeartRateDataQuality(_DefaultsRequired):
-    sample_count: int = 0
-    coverage_start: str | None = None
-    coverage_end: str | None = None
-    coverage_hours: float | None = None
-
-
-class HRZoneDuration(_DefaultsRequired):
-    label: str
-    min_bpm: int
-    max_bpm: int | None = None
-    minutes: float
-    pct: float
-
-
-class HeartRateInsight(_DefaultsRequired):
-    level: str
-    title: str
-    detail: str
-
-
-class HeartRateInsightsResponse(_DefaultsRequired):
-    date: str
-    day_stats: DailyHeartRateStats
-    recovery: HeartRateRecovery
-    zones: list[HRZoneDuration]
-    quality: HeartRateDataQuality
-    insights: list[HeartRateInsight] = []
-
-
-class DailyMetricStats(_DefaultsRequired):
-    avg: float | None = None
-    min: float | None = None
-    max: float | None = None
-    median: float | None = None
-    q1: float | None = None
-    q3: float | None = None
-
-
-class DailyBodyBatteryStats(_DefaultsRequired):
-    avg: float | None = None
-    min: int | None = None
-    max: int | None = None
-    median: float | None = None
-    q1: float | None = None
-    q3: float | None = None
-
-
-class DailyHrvStats(_DefaultsRequired):
-    weekly_avg: float | None = None
-    nightly_avg: float | None = None
-    status: str | None = None
-
-
-class HrvRecovery(_DefaultsRequired):
-    baseline_nightly_7d: float | None = None
-    delta_nightly_from_baseline: float | None = None
-    acute_gap_vs_weekly: float | None = None
-    status: str | None = None
-
-
-class HrvDataQuality(_DefaultsRequired):
-    sample_count: int = 0
-    coverage_start: str | None = None
-    coverage_end: str | None = None
-    coverage_hours: float | None = None
-
-
-class HrvIntradaySegment(_DefaultsRequired):
-    key: str
-    label: str
-    sample_count: int = 0
-    avg: float | None = None
-    min: float | None = None
-    max: float | None = None
-    stdev: float | None = None
-    coverage_start: str | None = None
-    coverage_end: str | None = None
-    coverage_hours: float | None = None
-    values: list[HrvValue] = []
-
-
-class HrvStatusBucket(_DefaultsRequired):
-    label: str
-    count: int
-    pct: float
-
-
-class HrvTrendBand(_DefaultsRequired):
-    nightly_typical_low: float | None = None
-    nightly_typical_high: float | None = None
-
-
-class HrvStreak(_DefaultsRequired):
-    current_status: str | None = None
-    streak_days: int = 0
-    worst_recent_streak: int = 0
-
-
-class HrvLongBaseline(_DefaultsRequired):
-    baseline_30d: float | None = None
-    delta_7d_vs_30d: float | None = None
-
-
-class HrvBaselineBands(_DefaultsRequired):
-    baseline_low_upper: float | None = None
-    baseline_balanced_lower: float | None = None
-    baseline_balanced_upper: float | None = None
-    five_min_high: float | None = None
-
-
-class HrvDistributionBin(_DefaultsRequired):
-    bin_start: float
-    bin_end: float
-    count: int
-
-
-class HrvDistribution(_DefaultsRequired):
-    bins: list[HrvDistributionBin] = []
-    total_days: int = 0
-    selected_value: float | None = None
-    selected_percentile: float | None = None
-
-
-class HrvTrajectory(_DefaultsRequired):
-    early_avg: float | None = None
-    mid_avg: float | None = None
-    late_avg: float | None = None
-    direction: str | None = None  # "rising", "falling", "flat", or None
-
-
-class HrvDayOfWeekBucket(_DefaultsRequired):
-    day: str             # "Mon", "Tue", ..., "Sun"
-    day_index: int       # 0=Mon, 6=Sun
-    avg_nightly: float | None = None
-    sample_count: int = 0
-
-
-class HrvInsight(_DefaultsRequired):
-    level: str
-    title: str
-    detail: str
-
-
-class HrvInsightsResponse(_DefaultsRequired):
-    date: str
-    day_stats: DailyHrvStats
-    recovery: HrvRecovery
-    quality: HrvDataQuality
-    intraday_segments: list[HrvIntradaySegment] = []
-    trend_band: HrvTrendBand
-    streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
-    baseline_bands: HrvBaselineBands | None = None
-    distribution: HrvDistribution | None = None
-    trajectory: HrvTrajectory | None = None
-    status_mix: list[HrvStatusBucket] = []
-    day_of_week: list[HrvDayOfWeekBucket] = []
-    insights: list[HrvInsight] = []
-
-
-class DailySleepStats(_DefaultsRequired):
-    score: int | None = None
-    deep_score: int | None = None
-    rem_score: int | None = None
-
-
-class DailySkinTempStats(_DefaultsRequired):
-    deviation: float | None = None
-    deviation_7_day: float | None = None
-    nightly_value: float | None = None
-
-
-class DailyMetric(_DefaultsRequired):
-    date: str
-    utc_offset_hours: float | None = None
-    heart_rate: DailyHeartRateStats
-    stress: DailyMetricStats
-    body_battery: DailyBodyBatteryStats
-    spo2: DailyMetricStats
-    respiration: DailyMetricStats
-    hrv: DailyHrvStats
-    sleep: DailySleepStats
-    skin_temp: DailySkinTempStats
-
-
-class PeriodHeartRateStats(_DefaultsRequired):
-    avg: float | None = None
-    avg_resting: float | None = None
-    typical_low: float | None = None
-    typical_high: float | None = None
-    zones: list[HRZoneBucket] = []
-
-
-class PeriodMetricStats(_DefaultsRequired):
-    avg: float | None = None
-    typical_low: float | None = None
-    typical_high: float | None = None
-
-
-class PeriodHrvStats(_DefaultsRequired):
-    avg_nightly: float | None = None
-    avg_weekly: float | None = None
-    balanced_pct: float | None = None
-    total_days: int = 0
-
-
-class PeriodSpo2Stats(_DefaultsRequired):
-    avg: float | None = None
-    lowest_min: float | None = None
-    low_days: int = 0
-    total_days: int = 0
-
-
-class PeriodSkinTempStats(_DefaultsRequired):
-    avg_deviation: float | None = None
-    max_deviation: float | None = None
-    min_deviation: float | None = None
-    avg_nightly: float | None = None
-    days_tracked: int = 0
-
-
-class PeriodSleepStats(_DefaultsRequired):
-    avg_score: float | None = None
-    avg_deep_score: float | None = None
-    days_tracked: int = 0
-
-
-class PeriodBodyBatteryStats(_DefaultsRequired):
-    avg_min: float | None = None
-    avg_max: float | None = None
-    days_tracked: int = 0
-
-
-class PeriodSummary(_DefaultsRequired):
-    heart_rate: PeriodHeartRateStats
-    stress: PeriodMetricStats
-    respiration: PeriodMetricStats
-    hrv: PeriodHrvStats
-    spo2: PeriodSpo2Stats
-    skin_temp: PeriodSkinTempStats
-    sleep: PeriodSleepStats
-    body_battery: PeriodBodyBatteryStats
-
-
-class DailyAggregatesResponse(_DefaultsRequired):
-    days: list[str]
-    daily: list[DailyMetric]
-    period_windows: dict[str, PeriodSummary] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -1245,180 +1066,6 @@ class AssistantMessagesResponse(_AutoTotalResponse, items_field="messages"):
     total: int = 0
 
 
-# ---------------------------------------------------------------------------
-# Heart Rate Analysis models
-# ---------------------------------------------------------------------------
-
-
-class CircadianHRPoint(_DefaultsRequired):
-    hour: int
-    avg_bpm: float | None = None
-    sample_count: int = 0
-
-
-class SleepingHRPoint(_DefaultsRequired):
-    date: str
-    avg_sleeping_bpm: float | None = None
-    ma7_bpm: float | None = None
-    sample_count: int = 0
-
-
-class RestingHRTrendPoint(_DefaultsRequired):
-    date: str
-    resting_bpm: int | None = None
-    ma7_bpm: float | None = None
-
-
-class DailyAvgHRTrendPoint(_DefaultsRequired):
-    date: str
-    avg_bpm: float | None = None
-    ma7_bpm: float | None = None
-
-
-class HRHistogramBin(_DefaultsRequired):
-    bin_start: int
-    bin_end: int
-    count: int
-
-
-class HRDistributionResponse(_DefaultsRequired):
-    date: str
-    bins: list[HRHistogramBin] = []
-    sample_count: int = 0
-
-
-class WeeklyRestingHRBox(_DefaultsRequired):
-    iso_week: str
-    min_bpm: float | None = None
-    q1_bpm: float | None = None
-    median_bpm: float | None = None
-    q3_bpm: float | None = None
-    max_bpm: float | None = None
-    day_count: int = 0
-
-
-class HRPatternWindow(_DefaultsRequired):
-    """Pre-computed circadian profile for a time window."""
-    circadian_profile: list[CircadianHRPoint] = []
-
-
-class HeartRateAnalysisResponse(_DefaultsRequired):
-    sleeping_hr_trend: list[SleepingHRPoint] = []
-    resting_hr_trend: list[RestingHRTrendPoint] = []
-    daily_avg_trend: list[DailyAvgHRTrendPoint] = []
-    weekly_boxplots: list[WeeklyRestingHRBox] = []
-    pattern_windows: dict[str, HRPatternWindow] = {}
-
-
-class NightlyHrvTrendPoint(_DefaultsRequired):
-    date: str
-    nightly_avg: float | None = None
-    ma7: float | None = None
-
-
-class WeeklyHrvBox(_DefaultsRequired):
-    iso_week: str
-    min_ms: float | None = None
-    q1_ms: float | None = None
-    median_ms: float | None = None
-    q3_ms: float | None = None
-    max_ms: float | None = None
-    day_count: int = 0
-
-
-class HrvPatternWindow(_DefaultsRequired):
-    """Pre-computed distribution + day-of-week for a time window."""
-    distribution: HrvDistribution | None = None
-    day_of_week: list[HrvDayOfWeekBucket] = []
-
-
-class HrvAnalysisResponse(_DefaultsRequired):
-    nightly_trend: list[NightlyHrvTrendPoint] = []
-    weekly_boxplots: list[WeeklyHrvBox] = []
-    pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
-
-
-# ---------------------------------------------------------------------------
-# Sleep analysis models
-# ---------------------------------------------------------------------------
-
-
-class SleepTrendPoint(_DefaultsRequired):
-    date: str
-    score: int | None = None
-    deep_score: int | None = None
-    rem_score: int | None = None
-    ma7: float | None = None  # 7d MA of score
-
-
-class WeeklySleepBox(_DefaultsRequired):
-    iso_week: str
-    min_score: float | None = None
-    q1_score: float | None = None
-    median_score: float | None = None
-    q3_score: float | None = None
-    max_score: float | None = None
-    day_count: int = 0
-
-
-class SleepAnalysisResponse(_DefaultsRequired):
-    score_trend: list[SleepTrendPoint] = []
-    weekly_boxplots: list[WeeklySleepBox] = []
-
-
-# ---------------------------------------------------------------------------
-# Stress analysis models
-# ---------------------------------------------------------------------------
-
-
-class StressTrendPoint(_DefaultsRequired):
-    date: str
-    avg: float | None = None
-    ma7: float | None = None
-
-
-class WeeklyStressBox(_DefaultsRequired):
-    iso_week: str
-    min_avg: float | None = None
-    q1_avg: float | None = None
-    median_avg: float | None = None
-    q3_avg: float | None = None
-    max_avg: float | None = None
-    day_count: int = 0
-
-
-class StressAnalysisResponse(_DefaultsRequired):
-    avg_trend: list[StressTrendPoint] = []
-    weekly_boxplots: list[WeeklyStressBox] = []
-
-
-# ---------------------------------------------------------------------------
-# Body Battery analysis models
-# ---------------------------------------------------------------------------
-
-
-class BodyBatteryTrendPoint(_DefaultsRequired):
-    date: str
-    min_val: int | None = None
-    max_val: int | None = None
-    ma7_min: float | None = None  # 7d MA of daily min
-
-
-class WeeklyBodyBatteryBox(_DefaultsRequired):
-    iso_week: str
-    min_val: float | None = None
-    q1_val: float | None = None
-    median_val: float | None = None
-    q3_val: float | None = None
-    max_val: float | None = None
-    day_count: int = 0
-
-
-class BodyBatteryAnalysisResponse(_DefaultsRequired):
-    trend: list[BodyBatteryTrendPoint] = []
-    weekly_boxplots: list[WeeklyBodyBatteryBox] = []
-
-
 class DaySummaryResponse(_DefaultsRequired):
     date: str
     total_files: int
@@ -1429,74 +1076,6 @@ class DaySummaryResponse(_DefaultsRequired):
 class DaysResponse(_AutoTotalResponse, items_field="days"):
     days: list[str]
     total: int = 0
-
-
-# ---------------------------------------------------------------------------
-# Dashboard overview models
-# ---------------------------------------------------------------------------
-
-
-class ReadinessScore(_DefaultsRequired):
-    score: int | None = None
-    components: dict[str, float] = {}
-    component_hints: dict[str, str] = {}  # human-readable explanation per component
-    label: str | None = None  # "Ready", "Moderate", "Rest"
-
-
-class CorrelationPoint(_DefaultsRequired):
-    date: str
-    hrv_nightly: float
-    other_value: float
-
-
-class MetricCorrelation(_DefaultsRequired):
-    metric: str              # "sleep_score", "resting_hr"
-    label: str               # "Sleep Score", "Resting HR"
-    points: list[CorrelationPoint] = []
-    r_value: float | None = None
-    sample_count: int = 0
-
-
-class TodayVitals(_DefaultsRequired):
-    resting_hr: int | None = None
-    resting_hr_delta_7d: float | None = None
-    nightly_hrv: float | None = None
-    nightly_hrv_delta_7d: float | None = None
-    hrv_status: str | None = None
-    sleep_score: int | None = None
-    stress_avg: float | None = None
-
-
-class SparklinePoint(_DefaultsRequired):
-    date: str
-    value: float | None = None
-    ma7: float | None = None
-
-
-class SparklineSummary(_DefaultsRequired):
-    avg: float | None = None
-    min: float | None = None
-    max: float | None = None
-
-
-class SparklineSeries(_DefaultsRequired):
-    points: list[SparklinePoint] = []
-    summary: SparklineSummary = SparklineSummary()
-
-
-class DashboardSparklines(_DefaultsRequired):
-    resting_hr: SparklineSeries = SparklineSeries()
-    nightly_hrv: SparklineSeries = SparklineSeries()
-    sleep_score: SparklineSeries = SparklineSeries()
-    stress_avg: SparklineSeries = SparklineSeries()
-
-
-class DashboardOverviewResponse(_DefaultsRequired):
-    date: str
-    readiness: ReadinessScore | None = None
-    vitals: TodayVitals | None = None
-    sparklines: DashboardSparklines | None = None
-    correlations: list[MetricCorrelation] = []
 
 
 # ---------------------------------------------------------------------------

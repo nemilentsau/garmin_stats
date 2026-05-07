@@ -1,13 +1,6 @@
 """Tests for heart-rate analysis service compute functions."""
 
-from app.domains.garmin_analytics.domain.analysis.heart_rate import (
-    compute_circadian_profile,
-    compute_hr_distribution,
-    compute_resting_hr_trend,
-    compute_sleeping_hr_trend,
-    compute_weekly_resting_hr_boxplots,
-)
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -19,6 +12,13 @@ from app.models import (
     DayWellness,
     HeartRateReading,
     SleepLevel,
+)
+from app.domains.garmin_analytics.domain.analysis.heart_rate import (
+    compute_circadian_profile,
+    compute_hr_distribution,
+    compute_resting_hr_trend,
+    compute_sleeping_hr_trend,
+    compute_weekly_resting_hr_boxplots,
 )
 
 # ---------------------------------------------------------------------------

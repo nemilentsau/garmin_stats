@@ -1,6 +1,14 @@
 """Analysis use cases for Garmin analytics."""
 
-from app.domains.garmin_analytics.application.ports import BiometricReadRepository
+from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
+from app.domains.garmin_analytics.contracts import (
+    BodyBatteryAnalysisResponse,
+    HeartRateAnalysisResponse,
+    HRDistributionResponse,
+    HrvAnalysisResponse,
+    SleepAnalysisResponse,
+    StressAnalysisResponse,
+)
 from app.domains.garmin_analytics.domain.analysis.body_battery import (
     compute_body_battery_analysis,
 )
@@ -12,14 +20,6 @@ from app.domains.garmin_analytics.domain.analysis.hrv import compute_hrv_analysi
 from app.domains.garmin_analytics.domain.analysis.sleep import compute_sleep_analysis
 from app.domains.garmin_analytics.domain.analysis.stress import compute_stress_analysis
 from app.infra import cache
-from app.models import (
-    BodyBatteryAnalysisResponse,
-    HeartRateAnalysisResponse,
-    HRDistributionResponse,
-    HrvAnalysisResponse,
-    SleepAnalysisResponse,
-    StressAnalysisResponse,
-)
 
 
 def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:

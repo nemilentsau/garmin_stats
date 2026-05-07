@@ -2,9 +2,15 @@
 
 from pydantic import BaseModel
 
+from app.domains.garmin_analytics.contracts import (
+    DailyMetric,
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
+    DayWellness,
+)
 from app.infra import cache
 from app.infra.sqlite import connect
-from app.models import DailyMetric, DayHrv, DaySkinTemp, DaySleep, DayWellness
 
 
 def _load_daily_metrics() -> list[DailyMetric]:

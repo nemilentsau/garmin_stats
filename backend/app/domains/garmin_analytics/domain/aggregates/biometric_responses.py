@@ -1,6 +1,6 @@
 """Raw biometric response shaping for Garmin analytics."""
 
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     ActivityReading,
     BodyBatteryReading,
     DayHrv,

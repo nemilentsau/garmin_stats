@@ -2,7 +2,13 @@
 
 from typing import Protocol
 
-from app.models import DailyMetric, DayHrv, DaySkinTemp, DaySleep, DayWellness
+from app.domains.garmin_analytics.contracts import (
+    DailyMetric,
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
+    DayWellness,
+)
 
 
 class BiometricReadRepository(Protocol):

@@ -11,9 +11,7 @@ from tests._architecture import (
 
 def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
     paths = [
-        "backend/app/domains/garmin_analytics/api/overview.py",
-        "backend/app/domains/garmin_analytics/api/biometrics.py",
-        "backend/app/domains/garmin_analytics/api/insights.py",
+        "backend/app/domains/garmin_analytics/routes.py",
     ]
     assert_api_modules_are_boundary_only(paths)
     assert_no_text_in_files(paths, ["app.stats"])
@@ -26,7 +24,34 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         "backend/app/domains/garmin_analytics/application/period_summary.py",
         "backend/app/domains/garmin_analytics/application/analysis.py",
         "backend/app/domains/garmin_analytics/application/insights.py",
+        "backend/app/domains/garmin_analytics/application/dependencies.py",
     ])
+
+
+def test_garmin_analytics_uses_contract_dependency_adapter_route_layout():
+    base = REPO_ROOT / "backend/app/domains/garmin_analytics"
+
+    assert (base / "contracts.py").exists()
+    assert (base / "application/dependencies.py").exists()
+    assert (base / "adapters.py").exists()
+    assert (base / "routes.py").exists()
+    assert not (base / "application/ports.py").exists()
+    assert not list((base / "api").glob("*.py"))
+    assert not list((base / "infra").glob("*.py"))
+
+
+def test_garmin_analytics_imports_owned_contracts_directly():
+    paths = [
+        str(path.relative_to(REPO_ROOT))
+        for path in (REPO_ROOT / "backend/app/domains/garmin_analytics").rglob(
+            "*.py",
+        )
+        if "__pycache__" not in path.parts
+    ]
+    assert_no_text_in_files(
+        paths,
+        ["from app.models import", "import app.models"],
+    )
 
 
 def test_garmin_analytics_domain_modules_do_not_import_application_or_infra():
@@ -72,9 +97,8 @@ def test_migrated_garmin_analytics_service_shims_are_removed():
 
 def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
-    assert "domains.garmin_analytics.api.overview" in source
-    assert "domains.garmin_analytics.api.biometrics" in source
-    assert "domains.garmin_analytics.api.insights" in source
+    assert "domains.garmin_analytics.routes" in source
+    assert "domains.garmin_analytics.api." not in source
     assert "from ..routers.dashboard import router as dashboard_router" not in source
     assert "from ..routers.wellness import router as wellness_router" not in source
     assert "from ..routers.sleep import router as sleep_router" not in source

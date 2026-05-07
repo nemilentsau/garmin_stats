@@ -3,9 +3,7 @@
 from datetime import datetime
 from statistics import median
 
-from app.domains.garmin_analytics.domain.aggregates.daily import HR_ZONE_THRESHOLDS
-from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     DayWellness,
     HeartRateDataQuality,
@@ -15,6 +13,8 @@ from app.models import (
     HeartRateRecovery,
     HRZoneDuration,
 )
+from app.domains.garmin_analytics.domain.aggregates.daily import HR_ZONE_THRESHOLDS
+from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
 

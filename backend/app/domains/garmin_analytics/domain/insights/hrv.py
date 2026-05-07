@@ -5,20 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
-from app.domains.garmin_analytics.domain.analysis.hrv import (
-    compute_day_of_week,
-    compute_hrv_distribution,
-    compute_trajectory,
-    extract_baseline_bands,
-)
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    safe_avg,
-    safe_max,
-    safe_min,
-)
-from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     DayHrv,
     HrvDataQuality,
@@ -33,6 +20,19 @@ from app.models import (
     HrvTrendBand,
     HrvValue,
 )
+from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.analysis.hrv import (
+    compute_day_of_week,
+    compute_hrv_distribution,
+    compute_trajectory,
+    extract_baseline_bands,
+)
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_max,
+    safe_min,
+)
+from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}

@@ -4,13 +4,7 @@ from datetime import datetime
 
 import numpy as np
 
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
-from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
-    trailing_ma7,
-)
-from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     DayHrv,
     HrvAnalysisResponse,
@@ -24,6 +18,12 @@ from app.models import (
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    group_by_iso_week,
+    trailing_ma7,
+)
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.utils.timeutil import parse_iso as _parse_iso
 
 _HRV_DIST_MIN_DAYS = 7

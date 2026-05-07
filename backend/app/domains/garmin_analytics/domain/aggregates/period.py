@@ -1,11 +1,6 @@
 """Period aggregate read-model construction for Garmin analytics."""
 
-from app.domains.garmin_analytics.domain.aggregates.daily import compute_hr_zones
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    safe_avg,
-    safe_percentile,
-)
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DayData,
     PeriodBodyBatteryStats,
     PeriodHeartRateStats,
@@ -15,6 +10,11 @@ from app.models import (
     PeriodSleepStats,
     PeriodSpo2Stats,
     PeriodSummary,
+)
+from app.domains.garmin_analytics.domain.aggregates.daily import compute_hr_zones
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_percentile,
 )
 
 
