@@ -203,8 +203,8 @@ is reserved for shared app primitives rather than important product workflows.
 - Public entrypoints: dashboard, wellness, sleep, HRV, skin temperature, daily
   aggregate, heart-rate, stress, and body-battery API routes. Application files
   are named by concern: `raw_biometrics.py` reads raw biometric tables,
-  `daily_aggregates.py` composes daily metrics and period windows, `periods.py`
-  reconstructs period windows, `dashboard.py` loads overview inputs,
+  `daily_aggregates.py` composes daily metrics and period windows,
+  `dashboard.py` loads overview inputs,
   `metric_analysis.py` loads cached chart/trend analysis read models, and
   `metric_insights.py` loads selected-day insight read models.
 

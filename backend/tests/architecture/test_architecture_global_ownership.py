@@ -67,8 +67,8 @@ ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
 }
 
 ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {
+    "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
     "backend/app/domains/garmin_analytics/application/metric_analysis.py",
-    "backend/app/domains/garmin_analytics/application/periods.py",
     "backend/app/domains/garmin_analytics/adapters.py",
 }
 

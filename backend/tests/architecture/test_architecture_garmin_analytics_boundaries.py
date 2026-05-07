@@ -22,7 +22,6 @@ def test_garmin_analytics_application_does_not_import_flat_services_or_database(
         "backend/app/domains/garmin_analytics/application/dashboard.py",
         "backend/app/domains/garmin_analytics/application/raw_biometrics.py",
         "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
-        "backend/app/domains/garmin_analytics/application/periods.py",
         "backend/app/domains/garmin_analytics/application/metric_analysis.py",
         "backend/app/domains/garmin_analytics/application/metric_insights.py",
         "backend/app/domains/garmin_analytics/application/dependencies.py",
@@ -36,7 +35,6 @@ def test_garmin_analytics_application_files_are_named_by_use_case_concern():
         "dashboard.py",
         "raw_biometrics.py",
         "daily_aggregates.py",
-        "periods.py",
         "metric_analysis.py",
         "metric_insights.py",
         "dependencies.py",
@@ -47,10 +45,21 @@ def test_garmin_analytics_application_files_are_named_by_use_case_concern():
         "overview.py",
         "biometrics.py",
         "period_summary.py",
+        "periods.py",
         "analysis.py",
         "insights.py",
     ]:
         assert not (app_root / filename).exists()
+
+
+def test_daily_aggregates_owns_period_window_orchestration():
+    source = read_repo_file(
+        "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
+    )
+
+    assert "load_windowed_period_summary" in source
+    assert "_reconstruct_day_data" in source
+    assert "app.domains.garmin_analytics.application.periods" not in source
 
 
 def test_garmin_analytics_dashboard_calculations_live_in_domain():
