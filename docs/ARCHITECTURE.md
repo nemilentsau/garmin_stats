@@ -391,7 +391,7 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - Domain routes now mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, wellness, sleep, HRV, skin temperature, daily aggregates, heart-rate insights/analysis/distribution, stress analysis, and body-battery analysis.
 - Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
-- `domain/aggregates/` owns deterministic aggregate response shaping, `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
+- `domain/aggregates/` owns deterministic aggregate response shaping. Its composers stay thin: `daily_metrics/` owns metric-specific single-day rules, `period_metrics/` owns metric-specific raw-period rules, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
 - `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 

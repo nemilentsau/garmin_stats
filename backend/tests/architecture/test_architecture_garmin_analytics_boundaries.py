@@ -91,6 +91,63 @@ def test_garmin_analytics_metric_insights_do_not_proxy_metric_analysis():
     )
 
 
+def test_daily_aggregate_composer_delegates_to_metric_modules():
+    base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
+    for filename in [
+        "__init__.py",
+        "heart_rate.py",
+        "stress.py",
+        "body_battery.py",
+        "spo2.py",
+        "respiration.py",
+        "hrv.py",
+        "sleep.py",
+        "skin_temp.py",
+    ]:
+        assert (base / "daily_metrics" / filename).exists()
+
+    source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/daily.py",
+    )
+    assert "_vals =" not in source
+    assert "DailyMetricStats(" not in source
+    assert "DailyHeartRateStats(" not in source
+    assert "DailyBodyBatteryStats(" not in source
+    assert "day.wellness." not in source
+    assert "day.sleep." not in source
+    assert "day.hrv." not in source
+    assert "day.skin_temp." not in source
+
+
+def test_period_aggregate_composer_delegates_to_metric_modules():
+    base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
+    for filename in [
+        "__init__.py",
+        "heart_rate.py",
+        "stress.py",
+        "body_battery.py",
+        "spo2.py",
+        "respiration.py",
+        "hrv.py",
+        "sleep.py",
+        "skin_temp.py",
+    ]:
+        assert (base / "period_metrics" / filename).exists()
+
+    source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/period.py",
+    )
+    assert "all_hr =" not in source
+    assert "all_stress =" not in source
+    assert "spo2_day_mins" not in source
+    assert "skin_devs" not in source
+    assert "sleep_scores" not in source
+    assert "bb_mins" not in source
+    assert "PeriodHeartRateStats(" not in source
+    assert "PeriodMetricStats(" not in source
+    assert "PeriodBodyBatteryStats(" not in source
+
+
 def test_garmin_analytics_uses_contract_dependency_adapter_route_layout():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics"
 
