@@ -19,13 +19,67 @@ def test_garmin_analytics_api_modules_do_not_import_global_database_or_stats():
 
 def test_garmin_analytics_application_does_not_import_flat_services_or_database():
     assert_application_modules_are_strict([
-        "backend/app/domains/garmin_analytics/application/overview.py",
-        "backend/app/domains/garmin_analytics/application/biometrics.py",
-        "backend/app/domains/garmin_analytics/application/period_summary.py",
-        "backend/app/domains/garmin_analytics/application/analysis.py",
-        "backend/app/domains/garmin_analytics/application/insights.py",
+        "backend/app/domains/garmin_analytics/application/dashboard.py",
+        "backend/app/domains/garmin_analytics/application/raw_biometrics.py",
+        "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
+        "backend/app/domains/garmin_analytics/application/periods.py",
+        "backend/app/domains/garmin_analytics/application/metric_analysis.py",
+        "backend/app/domains/garmin_analytics/application/metric_insights.py",
         "backend/app/domains/garmin_analytics/application/dependencies.py",
     ])
+
+
+def test_garmin_analytics_application_files_are_named_by_use_case_concern():
+    app_root = REPO_ROOT / "backend/app/domains/garmin_analytics/application"
+
+    for filename in [
+        "dashboard.py",
+        "raw_biometrics.py",
+        "daily_aggregates.py",
+        "periods.py",
+        "metric_analysis.py",
+        "metric_insights.py",
+        "dependencies.py",
+    ]:
+        assert (app_root / filename).exists()
+
+    for filename in [
+        "overview.py",
+        "biometrics.py",
+        "period_summary.py",
+        "analysis.py",
+        "insights.py",
+    ]:
+        assert not (app_root / filename).exists()
+
+
+def test_garmin_analytics_dashboard_calculations_live_in_domain():
+    assert (REPO_ROOT / "backend/app/domains/garmin_analytics/domain/dashboard.py").exists()
+    assert_no_text_in_files(
+        ["backend/app/domains/garmin_analytics/application/dashboard.py"],
+        [
+            "import numpy",
+            "np.",
+            "def _compute_",
+            "def _build_",
+            "def _recovery_status",
+        ],
+    )
+
+
+def test_garmin_analytics_metric_insights_do_not_proxy_metric_analysis():
+    assert_no_text_in_files(
+        ["backend/app/domains/garmin_analytics/application/metric_insights.py"],
+        [
+            "metric_analysis",
+            "get_sleep_analysis",
+            "get_hrv_analysis",
+            "get_heart_rate_analysis",
+            "get_stress_analysis",
+            "get_body_battery_analysis",
+            "get_hr_distribution",
+        ],
+    )
 
 
 def test_garmin_analytics_uses_contract_dependency_adapter_route_layout():

@@ -41,7 +41,7 @@ class _FakeBiometricRepository:
 
 
 def test_wellness_read_returns_flattened_day_payload():
-    from app.domains.garmin_analytics.application.biometrics import get_wellness
+    from app.domains.garmin_analytics.application.raw_biometrics import get_wellness
 
     repo = _FakeBiometricRepository()
     repo.wellness = [DayWellness(date="2026-04-12")]
@@ -53,7 +53,7 @@ def test_wellness_read_returns_flattened_day_payload():
 
 
 def test_date_filtered_biometric_read_raises_lookup_error_when_day_missing():
-    from app.domains.garmin_analytics.application.biometrics import get_sleep
+    from app.domains.garmin_analytics.application.raw_biometrics import get_sleep
 
     repo = _FakeBiometricRepository()
 
@@ -62,7 +62,7 @@ def test_date_filtered_biometric_read_raises_lookup_error_when_day_missing():
 
 
 def test_daily_aggregates_include_windowed_period_summaries():
-    from app.domains.garmin_analytics.application.biometrics import get_daily_aggregates
+    from app.domains.garmin_analytics.application.daily_aggregates import get_daily_aggregates
 
     repo = _FakeBiometricRepository()
 
@@ -75,7 +75,7 @@ def test_daily_aggregates_include_windowed_period_summaries():
 
 
 def test_daily_aggregates_reuse_cached_period_summaries_when_unchanged():
-    from app.domains.garmin_analytics.application.biometrics import get_daily_aggregates
+    from app.domains.garmin_analytics.application.daily_aggregates import get_daily_aggregates
 
     repo = _FakeBiometricRepository()
 
@@ -89,7 +89,7 @@ def test_daily_aggregates_reuse_cached_period_summaries_when_unchanged():
 
 
 def test_dashboard_overview_raises_lookup_error_when_metrics_missing():
-    from app.domains.garmin_analytics.application.overview import get_dashboard_overview
+    from app.domains.garmin_analytics.application.dashboard import get_dashboard_overview
 
     repo = _FakeBiometricRepository()
 

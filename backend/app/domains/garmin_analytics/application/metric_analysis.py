@@ -1,4 +1,4 @@
-"""Analysis use cases for Garmin analytics."""
+"""Metric analysis read use cases for Garmin analytics routes."""
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (

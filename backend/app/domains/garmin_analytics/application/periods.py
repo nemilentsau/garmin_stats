@@ -1,4 +1,4 @@
-"""Windowed period summaries for Garmin biometric data."""
+"""Windowed period summary use cases for Garmin biometric data."""
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (

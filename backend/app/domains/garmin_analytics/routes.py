@@ -3,9 +3,13 @@
 from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
-from app.domains.garmin_analytics.application import biometrics as biometrics_uc
-from app.domains.garmin_analytics.application import insights as insights_uc
-from app.domains.garmin_analytics.application.overview import (
+from app.domains.garmin_analytics.application import (
+    daily_aggregates as daily_aggregates_uc,
+)
+from app.domains.garmin_analytics.application import metric_analysis as metric_analysis_uc
+from app.domains.garmin_analytics.application import metric_insights as metric_insights_uc
+from app.domains.garmin_analytics.application import raw_biometrics as raw_biometrics_uc
+from app.domains.garmin_analytics.application.dashboard import (
     get_dashboard_overview as load_dashboard_overview,
 )
 from app.domains.garmin_analytics.contracts import (
@@ -50,7 +54,10 @@ def get_wellness(
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
     """Get wellness data (HR, stress, SpO2, respiration, activity)."""
-    return biometrics_uc.get_wellness(build_container().garmin_biometrics_repo, date=date)
+    return raw_biometrics_uc.get_wellness(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
 
 
 @sleep_router.get("", response_model=SleepResponse)
@@ -58,13 +65,18 @@ def get_sleep(
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
     """Get sleep data (stages, assessment scores)."""
-    return biometrics_uc.get_sleep(build_container().garmin_biometrics_repo, date=date)
+    return raw_biometrics_uc.get_sleep(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
 
 
 @sleep_router.get("/analysis", response_model=SleepAnalysisResponse)
 def get_sleep_analysis():
     """Return period-level sleep analysis (score trend, weekly boxplots)."""
-    return insights_uc.get_sleep_analysis(build_container().garmin_biometrics_repo)
+    return metric_analysis_uc.load_sleep_analysis(
+        build_container().garmin_biometrics_repo,
+    )
 
 
 @hrv_router.get("", response_model=HrvResponse)
@@ -72,13 +84,18 @@ def get_hrv(
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
     """Get HRV data (values, summaries)."""
-    return biometrics_uc.get_hrv(build_container().garmin_biometrics_repo, date=date)
+    return raw_biometrics_uc.get_hrv(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
 
 
 @hrv_router.get("/analysis", response_model=HrvAnalysisResponse)
 def get_hrv_analysis():
     """Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots)."""
-    return insights_uc.get_hrv_analysis(build_container().garmin_biometrics_repo)
+    return metric_analysis_uc.load_hrv_analysis(
+        build_container().garmin_biometrics_repo,
+    )
 
 
 @hrv_router.get("/insights", response_model=HrvInsightsResponse)
@@ -86,7 +103,7 @@ def get_hrv_insights(
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    return insights_uc.get_hrv_insights(
+    return metric_insights_uc.get_hrv_insights(
         build_container().garmin_biometrics_repo,
         date,
     )
@@ -97,13 +114,18 @@ def get_skin_temp(
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
     """Get skin temperature data."""
-    return biometrics_uc.get_skin_temp(build_container().garmin_biometrics_repo, date=date)
+    return raw_biometrics_uc.get_skin_temp(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
 
 
 @daily_aggregates_router.get("", response_model=DailyAggregatesResponse)
 def get_daily_agg():
     """Get per-day aggregate stats for all metrics, plus windowed period summaries."""
-    return biometrics_uc.get_daily_aggregates(build_container().garmin_biometrics_repo)
+    return daily_aggregates_uc.get_daily_aggregates(
+        build_container().garmin_biometrics_repo,
+    )
 
 
 @heart_rate_router.get("/insights", response_model=HeartRateInsightsResponse)
@@ -111,7 +133,7 @@ def get_heart_rate_insights(
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
 ):
     """Return backend-derived heart-rate insights for UI rendering."""
-    return insights_uc.get_heart_rate_insights(
+    return metric_insights_uc.get_heart_rate_insights(
         build_container().garmin_biometrics_repo,
         date,
     )
@@ -120,7 +142,9 @@ def get_heart_rate_insights(
 @heart_rate_router.get("/analysis", response_model=HeartRateAnalysisResponse)
 def get_heart_rate_analysis():
     """Return period-level heart-rate analysis (circadian, sleeping HR, resting trend, boxplots)."""
-    return insights_uc.get_heart_rate_analysis(build_container().garmin_biometrics_repo)
+    return metric_analysis_uc.load_heart_rate_analysis(
+        build_container().garmin_biometrics_repo,
+    )
 
 
 @heart_rate_router.get("/distribution", response_model=HRDistributionResponse)
@@ -128,16 +152,23 @@ def get_hr_distribution(
     date: str = Query(..., description="Day (YYYY-MM-DD)"),
 ):
     """Return heart-rate histogram for a single day."""
-    return insights_uc.get_hr_distribution(build_container().garmin_biometrics_repo, date)
+    return metric_analysis_uc.load_hr_distribution(
+        build_container().garmin_biometrics_repo,
+        date,
+    )
 
 
 @stress_router.get("/analysis", response_model=StressAnalysisResponse)
 def get_stress_analysis():
     """Return period-level stress analysis (avg trend, weekly boxplots)."""
-    return insights_uc.get_stress_analysis(build_container().garmin_biometrics_repo)
+    return metric_analysis_uc.load_stress_analysis(
+        build_container().garmin_biometrics_repo,
+    )
 
 
 @body_battery_router.get("/analysis", response_model=BodyBatteryAnalysisResponse)
 def get_body_battery_analysis():
     """Return period-level body battery analysis (trend, weekly boxplots)."""
-    return insights_uc.get_body_battery_analysis(build_container().garmin_biometrics_repo)
+    return metric_analysis_uc.load_body_battery_analysis(
+        build_container().garmin_biometrics_repo,
+    )

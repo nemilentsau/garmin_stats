@@ -1,13 +1,9 @@
-"""Biometric read use cases for Garmin analytics."""
+"""Raw biometric table read use cases for Garmin analytics."""
 
 from collections.abc import Sequence
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
-from app.domains.garmin_analytics.application.period_summary import (
-    load_windowed_period_summary,
-)
 from app.domains.garmin_analytics.contracts import (
-    DailyAggregatesResponse,
     HrvResponse,
     SkinTempResponse,
     SleepResponse,
@@ -60,14 +56,3 @@ def get_skin_temp(
     days = repo.load_skin_temp(date)
     _raise_if_missing(date, days)
     return flatten_skin_temp(days)
-
-
-def get_daily_aggregates(
-    repo: BiometricReadRepository,
-) -> DailyAggregatesResponse:
-    metrics = repo.load_daily_metrics()
-    return DailyAggregatesResponse(
-        days=[metric.date for metric in metrics],
-        daily=metrics,
-        period_windows=load_windowed_period_summary(repo),
-    )

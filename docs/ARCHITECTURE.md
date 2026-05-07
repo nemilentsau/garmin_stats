@@ -97,7 +97,7 @@ There are two major paths:
   API response models.
 
 - `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current recovery insight/analysis implementations for heart rate, HRV, sleep, stress, and body battery. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
+  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, raw biometric routes for wellness, sleep, HRV, and skin temperature, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts.py` owns API/read-model contracts. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
   Experiment CRUD, design preview/import, target metric registry, exposure
@@ -195,14 +195,18 @@ is reserved for shared app primitives rather than important product workflows.
 - Does not own: archive acquisition, parser timestamp normalization, routine
   execution, experiment exposure derivation, assistant runtime behavior, or
   subjective journal writes.
-- May import: its biometric repository port, Garmin analytics domain helpers,
-  `app.models` Garmin analytics contracts, and currently allowlisted global
-  analytics helpers while those helpers remain in `app.stats`.
+- May import: its biometric repository dependency protocol, Garmin analytics
+  domain helpers, and Garmin analytics contracts.
 - Must not import: Garmin sync, routines, experiments, assistant, artifacts,
   journal, programs, FastAPI from application modules, or SQLite helpers from
   application modules.
 - Public entrypoints: dashboard, wellness, sleep, HRV, skin temperature, daily
-  aggregate, heart-rate, stress, and body-battery API routes.
+  aggregate, heart-rate, stress, and body-battery API routes. Application files
+  are named by concern: `raw_biometrics.py` reads raw biometric tables,
+  `daily_aggregates.py` composes daily metrics and period windows, `periods.py`
+  reconstructs period windows, `dashboard.py` loads overview inputs,
+  `metric_analysis.py` loads cached chart/trend analysis read models, and
+  `metric_insights.py` loads selected-day insight read models.
 
 #### `experiments`
 
@@ -384,8 +388,10 @@ Normal artifact flow:
 
 Garmin analytics is biometric-first but not `DailyMetric`-only.
 
-- Domain routes now mount from `backend/app/domains/garmin_analytics/api/` for dashboard overview, wellness, sleep, HRV, skin temperature, daily aggregates, heart-rate insights/analysis/distribution, stress analysis, and body-battery analysis.
+- Domain routes now mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, wellness, sleep, HRV, skin temperature, daily aggregates, heart-rate insights/analysis/distribution, stress analysis, and body-battery analysis.
 - Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
+- `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
+- `domain/aggregates/` owns deterministic aggregate response shaping, `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
 - `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 

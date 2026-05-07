@@ -7,7 +7,7 @@ import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
-from app.domains.garmin_analytics.application.insights import (
+from app.domains.garmin_analytics.application.metric_insights import (
     get_heart_rate_insights as _get_heart_rate_insights,
 )
 from app.domains.garmin_analytics.contracts import (

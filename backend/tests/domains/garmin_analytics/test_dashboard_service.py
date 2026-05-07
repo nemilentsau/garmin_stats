@@ -9,7 +9,7 @@ import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
-from app.domains.garmin_analytics.application.overview import (
+from app.domains.garmin_analytics.application.dashboard import (
     get_dashboard_overview,
 )
 from app.domains.garmin_analytics.contracts import (

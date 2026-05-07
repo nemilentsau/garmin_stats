@@ -1,8 +1,7 @@
-"""Dashboard overview use case for Garmin analytics."""
+"""Dashboard overview calculations for Garmin analytics."""
 
 import numpy as np
 
-from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
     CorrelationPoint,
     DailyMetric,
@@ -288,13 +287,7 @@ def _compute_correlations(metrics: list[DailyMetric]) -> list[MetricCorrelation]
     return results
 
 
-def get_dashboard_overview(
-    repo: BiometricReadRepository,
-) -> DashboardOverviewResponse:
-    metrics = repo.load_daily_metrics()
-    if not metrics:
-        raise LookupError("No data available")
-
+def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewResponse:
     selected_index = len(metrics) - 1
     selected = metrics[selected_index]
 
