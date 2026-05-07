@@ -70,6 +70,13 @@ DATA_DIR = _APP_CONFIG.data_dir
 
 _ingest_lock = threading.Lock()
 _ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_RAW_DAY_TABLES = (
+    "wellness_data",
+    "sleep_data",
+    "hrv_data",
+    "skin_temp_data",
+)
+_PER_DAY_TABLES = (*_RAW_DAY_TABLES, "daily_metrics")
 
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
@@ -501,17 +508,56 @@ def _count_rows(table: str) -> int:
         return row["cnt"]
 
 
+def _table_dates(con: sqlite3.Connection, table: str) -> set[str]:
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+    rows = con.execute(f"SELECT date FROM {table}").fetchall()
+    return {row["date"] for row in rows}
+
+
+def _has_stale_daily_metrics(con: sqlite3.Connection) -> bool:
+    row = con.execute(
+        """
+        SELECT 1
+        FROM daily_metrics dm
+        JOIN (
+            SELECT date, MAX(updated_at) AS updated_at
+            FROM (
+                SELECT date, updated_at FROM wellness_data
+                UNION ALL SELECT date, updated_at FROM sleep_data
+                UNION ALL SELECT date, updated_at FROM hrv_data
+                UNION ALL SELECT date, updated_at FROM skin_temp_data
+            )
+            GROUP BY date
+        ) raw ON raw.date = dm.date
+        WHERE raw.updated_at > dm.updated_at
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
 def check_ingest_status(data_dir: Path) -> IngestStatus:
-    """Compare stored vs current fingerprint."""
+    """Compare stored fingerprint and derived table integrity."""
     stored = _get_meta("data_fingerprint")
     current = compute_data_fingerprint(data_dir)
-    days_in_db = _count_rows("daily_metrics")
-    days_on_disk = len(get_files_by_day(data_dir))
+    disk_dates = set(get_files_by_day(data_dir))
+    with _connect() as con:
+        daily_dates = _table_dates(con, "daily_metrics")
+        raw_dates_mismatch = any(
+            _table_dates(con, table) != disk_dates
+            for table in _RAW_DAY_TABLES
+        )
+        derived_out_of_sync = (
+            daily_dates != disk_dates
+            or raw_dates_mismatch
+            or _has_stale_daily_metrics(con)
+        )
     return IngestStatus(
-        needs_ingest=stored != current,
+        needs_ingest=stored != current or derived_out_of_sync,
         last_ingest_time=_get_meta("last_ingest_time"),
-        days_in_db=days_in_db,
-        days_on_disk=days_on_disk,
+        days_in_db=len(daily_dates),
+        days_on_disk=len(disk_dates),
     )
 
 
@@ -660,20 +706,13 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
 
 def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> None:
     """Delete DB rows for dates no longer present in parsed input."""
-    per_day_tables = (
-        "wellness_data",
-        "sleep_data",
-        "hrv_data",
-        "skin_temp_data",
-        "daily_metrics",
-    )
     if not parsed_dates:
-        for table in per_day_tables:
+        for table in _PER_DAY_TABLES:
             con.execute(f"DELETE FROM {table}")
         return
 
     placeholders = ", ".join("?" for _ in parsed_dates)
-    for table in per_day_tables:
+    for table in _PER_DAY_TABLES:
         con.execute(
             f"DELETE FROM {table} WHERE date NOT IN ({placeholders})",
             parsed_dates,

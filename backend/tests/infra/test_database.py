@@ -202,6 +202,173 @@ def _make_daily_metric(date: str, utc_offset_hours: float | None = None) -> Dail
     )
 
 
+def _write_fit_day(data_dir, date: str, filename: str = "001_WELLNESS.fit"):
+    fit_file = data_dir / date / filename
+    fit_file.parent.mkdir(parents=True, exist_ok=True)
+    fit_file.write_bytes(f"{date}:{filename}".encode())
+
+
+def _store_current_fingerprint(data_dir):
+    with db._connect() as con:
+        con.execute(
+            "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
+            ("data_fingerprint", db.compute_data_fingerprint(data_dir)),
+        )
+        con.commit()
+
+
+def _insert_raw_day(date: str, updated_at: str):
+    rows = (
+        ("wellness_data", DayWellness(date=date).model_dump_json()),
+        ("sleep_data", DaySleep(date=date).model_dump_json()),
+        ("hrv_data", DayHrv(date=date).model_dump_json()),
+        ("skin_temp_data", DaySkinTemp(date=date).model_dump_json()),
+    )
+    with db._connect() as con:
+        for table, payload in rows:
+            con.execute(
+                f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
+                (date, payload, updated_at),
+            )
+        con.commit()
+
+
+def _insert_daily_metric(date: str, updated_at: str):
+    with db._connect() as con:
+        con.execute(
+            "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
+            (date, _make_daily_metric(date).model_dump_json(), updated_at),
+        )
+        con.commit()
+
+
+class TestIngestStatus:
+    def test_needs_ingest_when_fingerprint_is_missing(self, tmp_path):
+        data_dir = tmp_path / "data"
+        _write_fit_day(data_dir, "2026-01-15")
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 0
+        assert status.days_on_disk == 1
+
+    def test_in_sync_when_fingerprint_dates_and_timestamps_match(self, tmp_path):
+        data_dir = tmp_path / "data"
+        date = "2026-01-15"
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _write_fit_day(data_dir, date)
+        _insert_raw_day(date, updated_at)
+        _insert_daily_metric(date, updated_at)
+        _store_current_fingerprint(data_dir)
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is False
+        assert status.days_in_db == 1
+        assert status.days_on_disk == 1
+
+    def test_in_sync_status_is_idempotent_for_unchanged_inputs(self, tmp_path):
+        data_dir = tmp_path / "data"
+        date = "2026-01-15"
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _write_fit_day(data_dir, date)
+        _insert_raw_day(date, updated_at)
+        _insert_daily_metric(date, updated_at)
+        _store_current_fingerprint(data_dir)
+
+        first = db.check_ingest_status(data_dir)
+        second = db.check_ingest_status(data_dir)
+
+        assert first == second
+        assert second.needs_ingest is False
+
+    def test_needs_ingest_when_source_fingerprint_changed(self, tmp_path):
+        data_dir = tmp_path / "data"
+        date = "2026-01-15"
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _write_fit_day(data_dir, date)
+        _insert_raw_day(date, updated_at)
+        _insert_daily_metric(date, updated_at)
+        with db._connect() as con:
+            con.execute(
+                "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
+                ("data_fingerprint", "old-fingerprint"),
+            )
+            con.commit()
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 1
+        assert status.days_on_disk == 1
+
+    def test_needs_ingest_when_daily_metrics_are_missing_disk_days(self, tmp_path):
+        data_dir = tmp_path / "data"
+        _write_fit_day(data_dir, "2026-01-15")
+        _write_fit_day(data_dir, "2026-01-16")
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _insert_raw_day("2026-01-15", updated_at)
+        _insert_raw_day("2026-01-16", updated_at)
+        _insert_daily_metric("2026-01-15", updated_at)
+        _store_current_fingerprint(data_dir)
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 1
+        assert status.days_on_disk == 2
+
+    def test_needs_ingest_when_daily_metrics_include_dates_not_on_disk(self, tmp_path):
+        data_dir = tmp_path / "data"
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _write_fit_day(data_dir, "2026-01-15")
+        _insert_raw_day("2026-01-15", updated_at)
+        _insert_daily_metric("2026-01-15", updated_at)
+        _insert_daily_metric("2026-01-16", updated_at)
+        _store_current_fingerprint(data_dir)
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 2
+        assert status.days_on_disk == 1
+
+    def test_needs_ingest_when_raw_day_tables_are_incomplete(self, tmp_path):
+        data_dir = tmp_path / "data"
+        date = "2026-01-15"
+        updated_at = "2026-01-15T00:00:00+00:00"
+        _write_fit_day(data_dir, date)
+        _insert_daily_metric(date, updated_at)
+        with db._connect() as con:
+            con.execute(
+                "INSERT INTO wellness_data (date, data, updated_at) VALUES (?, ?, ?)",
+                (date, DayWellness(date=date).model_dump_json(), updated_at),
+            )
+            con.commit()
+        _store_current_fingerprint(data_dir)
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 1
+        assert status.days_on_disk == 1
+
+    def test_needs_ingest_when_daily_metrics_are_older_than_raw_tables(self, tmp_path):
+        data_dir = tmp_path / "data"
+        date = "2026-01-15"
+        _write_fit_day(data_dir, date)
+        _insert_raw_day(date, "2026-04-08T15:18:35+00:00")
+        _insert_daily_metric(date, "2026-03-01T00:00:00+00:00")
+        _store_current_fingerprint(data_dir)
+
+        status = db.check_ingest_status(data_dir)
+
+        assert status.needs_ingest is True
+        assert status.days_in_db == 1
+        assert status.days_on_disk == 1
+
+
 class TestStoreAndLoad:
     def test_wellness_survives_round_trip(self):
         wellness = DayWellness(date="2026-01-15")
