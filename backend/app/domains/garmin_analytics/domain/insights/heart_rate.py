@@ -18,6 +18,9 @@ from app.domains.garmin_analytics.domain.aggregates.daily import (
     is_balanced_hrv_status,
     is_unfavorable_hrv_status,
 )
+from app.domains.garmin_analytics.domain.primitives.timestamps import (
+    summarize_timestamp_coverage,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
@@ -204,21 +207,15 @@ def compute_heart_rate_insights(
         raise LookupError(f"Day {selected_date} not found")
 
     heart_rate_readings = wellness_days[0].heart_rate if wellness_days else []
-    parsed_times = sorted(
-        dt for dt in (_parse_iso(r.timestamp) for r in heart_rate_readings) if dt is not None
-    )
-    coverage_start = parsed_times[0].isoformat() if parsed_times else None
-    coverage_end = parsed_times[-1].isoformat() if parsed_times else None
-    coverage_hours = (
-        round((parsed_times[-1] - parsed_times[0]).total_seconds() / 3600, 2)
-        if len(parsed_times) >= 2 else None
+    coverage = summarize_timestamp_coverage(
+        [reading.timestamp for reading in heart_rate_readings]
     )
 
     quality = HeartRateDataQuality(
-        sample_count=len(heart_rate_readings),
-        coverage_start=coverage_start,
-        coverage_end=coverage_end,
-        coverage_hours=coverage_hours,
+        sample_count=coverage.sample_count,
+        coverage_start=coverage.coverage_start,
+        coverage_end=coverage.coverage_end,
+        coverage_hours=coverage.coverage_hours,
     )
     recovery = compute_recovery(metrics, selected_index)
     selected_metric = metrics[selected_index]

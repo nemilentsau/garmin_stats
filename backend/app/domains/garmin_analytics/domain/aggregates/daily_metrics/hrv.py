@@ -32,6 +32,19 @@ def is_unfavorable_hrv_status(raw: str | None) -> bool:
     return normalize_hrv_status(raw) in UNFAVORABLE_HRV_STATUSES
 
 
+def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | None:
+    """Classify HRV recovery from nightly delta and Garmin status."""
+    if delta is None:
+        return None
+    if delta <= -10 or is_unfavorable_hrv_status(status):
+        return "suppressed"
+    if delta <= -5:
+        return "below_baseline"
+    if delta >= 8:
+        return "elevated"
+    return "stable"
+
+
 def compute_daily_hrv(hrv: DayHrv) -> DailyHrvStats:
     summary = hrv.hrv_summaries[0] if hrv.hrv_summaries else None
     return DailyHrvStats(

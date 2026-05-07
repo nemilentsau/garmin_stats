@@ -17,10 +17,10 @@ from app.domains.garmin_analytics.contracts import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
 from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
     trailing_ma7,
+    weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.utils.timeutil import parse_iso as _parse_iso
@@ -190,23 +190,22 @@ def compute_weekly_resting_hr_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyRestingHRBox]:
     """Group resting HR by ISO week, compute 5-number summary."""
-    weeks = group_by_iso_week(
+    summaries = weekly_five_number_summaries(
         metrics,
         lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
     )
-    result: list[WeeklyRestingHRBox] = []
-    for week_key in sorted(weeks):
-        vals = sorted(weeks[week_key])
-        result.append(WeeklyRestingHRBox(
-            iso_week=week_key,
-            min_bpm=float(vals[0]),
-            q1_bpm=safe_percentile(vals, 25),
-            median_bpm=safe_percentile(vals, 50),
-            q3_bpm=safe_percentile(vals, 75),
-            max_bpm=float(vals[-1]),
-            day_count=len(vals),
-        ))
-    return result
+    return [
+        WeeklyRestingHRBox(
+            iso_week=summary.iso_week,
+            min_bpm=summary.min,
+            q1_bpm=summary.q1,
+            median_bpm=summary.median,
+            q3_bpm=summary.q3,
+            max_bpm=summary.max,
+            day_count=summary.count,
+        )
+        for summary in summaries
+    ]
 
 
 def compute_heart_rate_analysis(

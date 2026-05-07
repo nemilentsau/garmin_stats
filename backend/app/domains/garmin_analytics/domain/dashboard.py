@@ -15,6 +15,7 @@ from app.domains.garmin_analytics.contracts import (
     TodayVitals,
 )
 from app.domains.garmin_analytics.domain.aggregates.daily import (
+    classify_hrv_recovery,
     is_unfavorable_hrv_status,
     normalize_hrv_status,
 )
@@ -37,15 +38,14 @@ def _recovery_status(
     if nightly is None or hrv_baseline_7d is None:
         return None
     delta = nightly - hrv_baseline_7d
-    if delta <= -10:
+    status = classify_hrv_recovery(delta=delta, status=selected.hrv.status)
+    if status == "suppressed":
+        if delta <= -10:
+            return "suppressed_delta"
+        if is_unfavorable_hrv_status(selected.hrv.status):
+            return "suppressed_status"
         return "suppressed_delta"
-    if is_unfavorable_hrv_status(selected.hrv.status):
-        return "suppressed_status"
-    if delta <= -5:
-        return "below_baseline"
-    if delta >= 8:
-        return "elevated"
-    return "stable"
+    return status
 
 
 def _format_delta_magnitude(value: float) -> str:

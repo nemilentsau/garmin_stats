@@ -6,10 +6,9 @@ from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     WeeklyBodyBatteryBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
 from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
     trailing_ma7,
+    weekly_five_number_summaries,
 )
 
 
@@ -36,25 +35,22 @@ def compute_body_battery_trend(
 def compute_weekly_body_battery_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyBodyBatteryBox]:
-    weeks = group_by_iso_week(
+    summaries = weekly_five_number_summaries(
         metrics,
         lambda m: float(m.body_battery.min) if m.body_battery.min is not None else None,
     )
-    result: list[WeeklyBodyBatteryBox] = []
-    for week_key in sorted(weeks):
-        vals = sorted(weeks[week_key])
-        result.append(
-            WeeklyBodyBatteryBox(
-                iso_week=week_key,
-                min_val=float(vals[0]),
-                q1_val=safe_percentile(vals, 25),
-                median_val=safe_percentile(vals, 50),
-                q3_val=safe_percentile(vals, 75),
-                max_val=float(vals[-1]),
-                day_count=len(vals),
-            )
+    return [
+        WeeklyBodyBatteryBox(
+            iso_week=summary.iso_week,
+            min_val=summary.min,
+            q1_val=summary.q1,
+            median_val=summary.median,
+            q3_val=summary.q3,
+            max_val=summary.max,
+            day_count=summary.count,
         )
-    return result
+        for summary in summaries
+    ]
 
 
 def compute_body_battery_analysis(

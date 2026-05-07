@@ -6,10 +6,9 @@ from app.domains.garmin_analytics.contracts import (
     SleepTrendPoint,
     WeeklySleepBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_percentile
 from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
     trailing_ma7,
+    weekly_five_number_summaries,
 )
 
 
@@ -37,25 +36,22 @@ def compute_sleep_trend(
 def compute_weekly_sleep_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklySleepBox]:
-    weeks = group_by_iso_week(
+    summaries = weekly_five_number_summaries(
         metrics,
         lambda m: float(m.sleep.score) if m.sleep.score is not None else None,
     )
-    result: list[WeeklySleepBox] = []
-    for week_key in sorted(weeks):
-        vals = sorted(weeks[week_key])
-        result.append(
-            WeeklySleepBox(
-                iso_week=week_key,
-                min_score=float(vals[0]),
-                q1_score=safe_percentile(vals, 25),
-                median_score=safe_percentile(vals, 50),
-                q3_score=safe_percentile(vals, 75),
-                max_score=float(vals[-1]),
-                day_count=len(vals),
-            )
+    return [
+        WeeklySleepBox(
+            iso_week=summary.iso_week,
+            min_score=summary.min,
+            q1_score=summary.q1,
+            median_score=summary.median,
+            q3_score=summary.q3,
+            max_score=summary.max,
+            day_count=summary.count,
         )
-    return result
+        for summary in summaries
+    ]
 
 
 def compute_sleep_analysis(metrics: list[DailyMetric]) -> SleepAnalysisResponse:

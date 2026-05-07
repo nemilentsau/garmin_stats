@@ -18,10 +18,13 @@ from app.domains.garmin_analytics.contracts import (
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg, safe_percentile
+from app.domains.garmin_analytics.domain.aggregates.daily_metrics.hrv import (
+    classify_hrv_recovery as _classify_hrv_recovery,
+)
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
 from app.domains.garmin_analytics.domain.primitives.trends import (
-    group_by_iso_week,
     trailing_ma7,
+    weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.utils.timeutil import parse_iso as _parse_iso
@@ -29,6 +32,11 @@ from app.utils.timeutil import parse_iso as _parse_iso
 _HRV_DIST_MIN_DAYS = 7
 _HRV_BIN_WIDTH = 5
 _DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | None:
+    """Compatibility export for shared HRV recovery status classification."""
+    return _classify_hrv_recovery(delta=delta, status=status)
 
 
 def extract_baseline_bands(day_rows: list[DayHrv]) -> HrvBaselineBands | None:
@@ -192,22 +200,19 @@ def compute_weekly_hrv_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyHrvBox]:
     """Group nightly HRV by ISO week, compute 5-number summary."""
-    weeks = group_by_iso_week(metrics, lambda m: m.hrv.nightly_avg)
-    result: list[WeeklyHrvBox] = []
-    for week_key in sorted(weeks):
-        vals = sorted(weeks[week_key])
-        result.append(
-            WeeklyHrvBox(
-                iso_week=week_key,
-                min_ms=float(vals[0]),
-                q1_ms=safe_percentile(vals, 25),
-                median_ms=safe_percentile(vals, 50),
-                q3_ms=safe_percentile(vals, 75),
-                max_ms=float(vals[-1]),
-                day_count=len(vals),
-            )
+    summaries = weekly_five_number_summaries(metrics, lambda m: m.hrv.nightly_avg)
+    return [
+        WeeklyHrvBox(
+            iso_week=summary.iso_week,
+            min_ms=summary.min,
+            q1_ms=summary.q1,
+            median_ms=summary.median,
+            q3_ms=summary.q3,
+            max_ms=summary.max,
+            day_count=summary.count,
         )
-    return result
+        for summary in summaries
+    ]
 
 
 def compute_pattern_window(

@@ -21,8 +21,8 @@ from app.domains.garmin_analytics.contracts import (
     HrvValue,
 )
 from app.domains.garmin_analytics.domain.aggregates.daily import (
+    classify_hrv_recovery,
     is_balanced_hrv_status,
-    is_unfavorable_hrv_status,
     normalize_hrv_status,
 )
 from app.domains.garmin_analytics.domain.analysis.hrv import (
@@ -36,8 +36,10 @@ from app.domains.garmin_analytics.domain.primitives.numeric import (
     safe_max,
     safe_min,
 )
+from app.domains.garmin_analytics.domain.primitives.timestamps import (
+    summarize_timestamp_coverage,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
-from app.utils.timeutil import parse_iso as _parse_iso
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
@@ -54,40 +56,21 @@ def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRec
         round(nightly - selected.weekly_avg, 1)
         if nightly is not None and selected.weekly_avg is not None else None
     )
-    if delta is None:
-        status = None
-    elif delta <= -10 or is_unfavorable_hrv_status(selected.status):
-        status = "suppressed"
-    elif delta <= -5:
-        status = "below_baseline"
-    elif delta >= 8:
-        status = "elevated"
-    else:
-        status = "stable"
-
     return HrvRecovery(
         baseline_nightly_7d=baseline,
         delta_nightly_from_baseline=delta,
         acute_gap_vs_weekly=acute_gap,
-        status=status,
+        status=classify_hrv_recovery(delta=delta, status=selected.status),
     )
 
 
 def _compute_quality(hrv_values: list[HrvValue]) -> HrvDataQuality:
-    parsed_times = sorted(
-        dt for dt in (_parse_iso(value.timestamp) for value in hrv_values) if dt is not None
-    )
-    coverage_start = parsed_times[0].isoformat() if parsed_times else None
-    coverage_end = parsed_times[-1].isoformat() if parsed_times else None
-    coverage_hours = (
-        round((parsed_times[-1] - parsed_times[0]).total_seconds() / 3600, 2)
-        if len(parsed_times) >= 2 else None
-    )
+    coverage = summarize_timestamp_coverage([value.timestamp for value in hrv_values])
     return HrvDataQuality(
-        sample_count=len(hrv_values),
-        coverage_start=coverage_start,
-        coverage_end=coverage_end,
-        coverage_hours=coverage_hours,
+        sample_count=coverage.sample_count,
+        coverage_start=coverage.coverage_start,
+        coverage_end=coverage.coverage_end,
+        coverage_hours=coverage.coverage_hours,
     )
 
 
@@ -98,15 +81,7 @@ def _build_intraday_segment(
     values: list[HrvValue],
 ) -> HrvIntradaySegment:
     values = sorted(values, key=lambda v: v.timestamp or "")
-    parsed_times = sorted(
-        dt for dt in (_parse_iso(value.timestamp) for value in values) if dt is not None
-    )
-    coverage_start = parsed_times[0].isoformat() if parsed_times else None
-    coverage_end = parsed_times[-1].isoformat() if parsed_times else None
-    coverage_hours = (
-        round((parsed_times[-1] - parsed_times[0]).total_seconds() / 3600, 2)
-        if len(parsed_times) >= 2 else None
-    )
+    coverage = summarize_timestamp_coverage([value.timestamp for value in values])
     sample_values = [value.value for value in values]
     stdev = (
         round(float(np.std(sample_values, ddof=1)), 1)
@@ -116,14 +91,14 @@ def _build_intraday_segment(
     return HrvIntradaySegment(
         key=key,
         label=label,
-        sample_count=len(values),
+        sample_count=coverage.sample_count,
         avg=safe_avg(sample_values),
         min=safe_min(sample_values),
         max=safe_max(sample_values),
         stdev=stdev,
-        coverage_start=coverage_start,
-        coverage_end=coverage_end,
-        coverage_hours=coverage_hours,
+        coverage_start=coverage.coverage_start,
+        coverage_end=coverage.coverage_end,
+        coverage_hours=coverage.coverage_hours,
         values=values,
     )
 

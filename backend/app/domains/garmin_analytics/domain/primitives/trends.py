@@ -1,10 +1,31 @@
 """Time-series helpers for Garmin analytics daily metric views."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date as date_type
+from typing import Protocol
 
 from app.domains.garmin_analytics.contracts import DailyMetric
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    safe_avg,
+    safe_percentile,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WeeklyFiveNumberSummary:
+    iso_week: str
+    min: float
+    q1: float | None
+    median: float | None
+    q3: float | None
+    max: float
+    count: int
+
+
+class _HasDate(Protocol):
+    @property
+    def date(self) -> str: ...
 
 
 def prior_7d_avg(
@@ -52,3 +73,38 @@ def group_by_iso_week(
         key = f"{iso_year}-W{iso_week:02d}"
         weeks.setdefault(key, []).append(val)
     return weeks
+
+
+def weekly_five_number_summaries[T: _HasDate](
+    items: list[T],
+    value_fn: Callable[[T], float | None],
+) -> list[WeeklyFiveNumberSummary]:
+    """Build per-ISO-week five-number summaries, skipping missing values."""
+    weeks: dict[str, list[float]] = {}
+    for item in items:
+        val = value_fn(item)
+        if val is None:
+            continue
+        try:
+            item_date = date_type.fromisoformat(item.date)
+        except ValueError:
+            continue
+        iso_year, iso_week, _ = item_date.isocalendar()
+        key = f"{iso_year}-W{iso_week:02d}"
+        weeks.setdefault(key, []).append(val)
+
+    summaries: list[WeeklyFiveNumberSummary] = []
+    for week_key in sorted(weeks):
+        values = sorted(weeks[week_key])
+        summaries.append(
+            WeeklyFiveNumberSummary(
+                iso_week=week_key,
+                min=float(values[0]),
+                q1=safe_percentile(values, 25),
+                median=safe_percentile(values, 50),
+                q3=safe_percentile(values, 75),
+                max=float(values[-1]),
+                count=len(values),
+            )
+        )
+    return summaries

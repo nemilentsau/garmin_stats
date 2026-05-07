@@ -7,6 +7,7 @@ from app.domains.garmin_analytics.contracts import (
 )
 from app.domains.garmin_analytics.domain.aggregates.daily_metrics import (
     HR_ZONE_THRESHOLDS,
+    classify_hrv_recovery,
     compute_daily_body_battery,
     compute_daily_heart_rate,
     compute_daily_hrv,
@@ -24,6 +25,7 @@ from app.domains.garmin_analytics.domain.aggregates.daily_metrics import (
 __all__ = [
     "HR_ZONE_THRESHOLDS",
     "aggregate_day",
+    "classify_hrv_recovery",
     "compute_daily_aggregates",
     "compute_hr_zones",
     "is_balanced_hrv_status",

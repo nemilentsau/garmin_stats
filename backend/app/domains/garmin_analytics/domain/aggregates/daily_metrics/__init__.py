@@ -7,6 +7,7 @@ from .heart_rate import (
     compute_hr_zones,
 )
 from .hrv import (
+    classify_hrv_recovery,
     compute_daily_hrv,
     is_balanced_hrv_status,
     is_unfavorable_hrv_status,
@@ -29,6 +30,7 @@ __all__ = [
     "compute_daily_spo2",
     "compute_daily_stress",
     "compute_hr_zones",
+    "classify_hrv_recovery",
     "is_balanced_hrv_status",
     "is_unfavorable_hrv_status",
     "normalize_hrv_status",
