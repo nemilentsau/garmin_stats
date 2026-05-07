@@ -20,7 +20,11 @@ from app.domains.garmin_analytics.contracts import (
     HrvTrendBand,
     HrvValue,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.aggregates.daily import (
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+    normalize_hrv_status,
+)
 from app.domains.garmin_analytics.domain.analysis.hrv import (
     compute_day_of_week,
     compute_hrv_distribution,
@@ -50,10 +54,9 @@ def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRec
         round(nightly - selected.weekly_avg, 1)
         if nightly is not None and selected.weekly_avg is not None else None
     )
-    status_text = selected.status.lower() if selected.status else ""
     if delta is None:
         status = None
-    elif delta <= -10 or "low" in status_text or "unbalanced" in status_text:
+    elif delta <= -10 or is_unfavorable_hrv_status(selected.status):
         status = "suppressed"
     elif delta <= -5:
         status = "below_baseline"
@@ -354,7 +357,7 @@ def _build_insights(ctx: InsightContext) -> list[HrvInsight]:
         and sleep_score is not None
         and sleep_score >= 80
         and ctx.selected.hrv.status
-        and "balanced" in ctx.selected.hrv.status.lower()
+        and is_balanced_hrv_status(ctx.selected.hrv.status)
     ):
         insights.append(HrvInsight(
             level="good",

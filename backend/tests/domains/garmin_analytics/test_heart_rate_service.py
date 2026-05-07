@@ -163,3 +163,21 @@ class TestHeartRateInsights:
         insights = load_heart_rate_insights("2026-01-15")
         assert any(item.title == "Recovery signals look stable" for item in insights.insights)
         assert all(item.title != "Low sample coverage" for item in insights.insights)
+
+    def test_unbalanced_hrv_status_does_not_trigger_stable_signal_without_baseline(self):
+        _insert_metric("2026-01-15", 46, sleep_score=90, hrv_status="unbalanced")
+        _insert_wellness("2026-01-15", [
+            HeartRateReading(
+                timestamp=f"2026-01-15T00:{minute:02d}:00+00:00",
+                value=70,
+            )
+            for minute in range(31)
+        ])
+
+        insights = load_heart_rate_insights("2026-01-15")
+
+        assert all(
+            item.title != "Recovery signals look stable"
+            for item in insights.insights
+        )
+        assert all(item.title != "Low sample coverage" for item in insights.insights)

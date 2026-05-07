@@ -14,7 +14,10 @@ from app.domains.garmin_analytics.contracts import (
     SparklineSummary,
     TodayVitals,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import normalize_hrv_status
+from app.domains.garmin_analytics.domain.aggregates.daily import (
+    is_unfavorable_hrv_status,
+    normalize_hrv_status,
+)
 from app.domains.garmin_analytics.domain.primitives.numeric import (
     safe_avg,
     safe_max,
@@ -34,10 +37,9 @@ def _recovery_status(
     if nightly is None or hrv_baseline_7d is None:
         return None
     delta = nightly - hrv_baseline_7d
-    status_text = selected.hrv.status.lower() if selected.hrv.status else ""
     if delta <= -10:
         return "suppressed_delta"
-    if "low" in status_text or "unbalanced" in status_text:
+    if is_unfavorable_hrv_status(selected.hrv.status):
         return "suppressed_status"
     if delta <= -5:
         return "below_baseline"

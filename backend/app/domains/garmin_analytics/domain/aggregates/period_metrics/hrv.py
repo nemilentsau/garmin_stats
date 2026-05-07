@@ -1,6 +1,9 @@
 """HRV raw-period aggregate calculations."""
 
 from app.domains.garmin_analytics.contracts import DayData, PeriodHrvStats
+from app.domains.garmin_analytics.domain.aggregates.daily_metrics.hrv import (
+    is_balanced_hrv_status,
+)
 from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
 
 
@@ -18,7 +21,7 @@ def compute_period_hrv(days: list[DayData]) -> PeriodHrvStats:
             if summary.status:
                 statuses.append(summary.status)
 
-    balanced = sum(1 for status in statuses if "balanced" in status.lower())
+    balanced = sum(1 for status in statuses if is_balanced_hrv_status(status))
     return PeriodHrvStats(
         avg_nightly=safe_avg(nightly_values),
         avg_weekly=safe_avg(weekly_values),

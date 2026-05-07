@@ -6,7 +6,12 @@ from .heart_rate import (
     compute_daily_heart_rate,
     compute_hr_zones,
 )
-from .hrv import compute_daily_hrv, normalize_hrv_status
+from .hrv import (
+    compute_daily_hrv,
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+    normalize_hrv_status,
+)
 from .respiration import compute_daily_respiration
 from .skin_temp import compute_daily_skin_temp
 from .sleep import compute_daily_sleep
@@ -24,5 +29,7 @@ __all__ = [
     "compute_daily_spo2",
     "compute_daily_stress",
     "compute_hr_zones",
+    "is_balanced_hrv_status",
+    "is_unfavorable_hrv_status",
     "normalize_hrv_status",
 ]

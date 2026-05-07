@@ -16,6 +16,8 @@ from app.domains.garmin_analytics.domain.aggregates.daily_metrics import (
     compute_daily_spo2,
     compute_daily_stress,
     compute_hr_zones,
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
     normalize_hrv_status,
 )
 
@@ -24,6 +26,8 @@ __all__ = [
     "aggregate_day",
     "compute_daily_aggregates",
     "compute_hr_zones",
+    "is_balanced_hrv_status",
+    "is_unfavorable_hrv_status",
     "normalize_hrv_status",
 ]
 

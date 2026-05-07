@@ -131,6 +131,24 @@ def test_hrv_status_normalization_lives_with_hrv_daily_metric():
     assert "normalize_hrv_status" not in heart_rate_source
 
 
+def test_hrv_status_consumers_use_normalized_labels_not_substring_matching():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/garmin_analytics/domain/dashboard.py",
+            "backend/app/domains/garmin_analytics/domain/insights/heart_rate.py",
+            "backend/app/domains/garmin_analytics/domain/insights/hrv.py",
+            "backend/app/domains/garmin_analytics/domain/aggregates/period_metrics/hrv.py",
+        ],
+        [
+            ".status.lower()",
+            "status.lower()",
+            '"balanced" in',
+            '"unbalanced" in',
+            '"low" in',
+        ],
+    )
+
+
 def test_period_aggregate_composer_delegates_to_metric_modules():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
     for filename in [

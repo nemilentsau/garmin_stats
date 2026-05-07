@@ -13,7 +13,11 @@ from app.domains.garmin_analytics.contracts import (
     HeartRateRecovery,
     HRZoneDuration,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import HR_ZONE_THRESHOLDS
+from app.domains.garmin_analytics.domain.aggregates.daily import (
+    HR_ZONE_THRESHOLDS,
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 from app.utils.timeutil import parse_iso as _parse_iso
 
@@ -130,7 +134,6 @@ def build_insights(
     delta = recovery.delta_from_baseline
     status = recovery.status
     sleep_score = selected.sleep.score
-    hrv_status = selected.hrv.status.lower() if selected.hrv.status else None
 
     if status == "high":
         insights.append(HeartRateInsight(
@@ -158,9 +161,7 @@ def build_insights(
             detail=f"Sleep score is {sleep_score}, which often coincides with elevated resting HR.",
         ))
 
-    hrv_unfavorable = bool(
-        hrv_status and ("low" in hrv_status or "unbalanced" in hrv_status)
-    )
+    hrv_unfavorable = is_unfavorable_hrv_status(selected.hrv.status)
     if hrv_unfavorable and status in {"high", "elevated"}:
         insights.append(HeartRateInsight(
             level="warning",
@@ -168,12 +169,11 @@ def build_insights(
             detail=f"HRV status is '{selected.hrv.status}', while resting HR is above baseline.",
         ))
 
-    hrv_balanced = bool(hrv_status and "balanced" in hrv_status)
     if (
         not insights
         and sleep_score is not None
         and sleep_score >= 80
-        and hrv_balanced
+        and is_balanced_hrv_status(selected.hrv.status)
     ):
         insights.append(HeartRateInsight(
             level="good",

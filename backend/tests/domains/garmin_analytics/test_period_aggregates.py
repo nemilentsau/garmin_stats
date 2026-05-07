@@ -192,6 +192,47 @@ def test_period_hrv_excludes_null_values_and_rounds_balanced_status_percentage()
     assert result.total_days == 3
 
 
+def test_period_hrv_does_not_count_unbalanced_status_as_balanced():
+    result = compute_period_hrv([
+        _day(
+            "2026-01-01",
+            hrv_summaries=[
+                HrvSummary(
+                    date="2026-01-01",
+                    last_night_average=50.0,
+                    weekly_average=55.0,
+                    status="balanced",
+                )
+            ],
+        ),
+        _day(
+            "2026-01-02",
+            hrv_summaries=[
+                HrvSummary(
+                    date="2026-01-02",
+                    last_night_average=45.0,
+                    weekly_average=50.0,
+                    status="unbalanced",
+                )
+            ],
+        ),
+        _day(
+            "2026-01-03",
+            hrv_summaries=[
+                HrvSummary(
+                    date="2026-01-03",
+                    last_night_average=40.0,
+                    weekly_average=45.0,
+                    status="low",
+                )
+            ],
+        ),
+    ])
+
+    assert result.balanced_pct == 33
+    assert result.total_days == 3
+
+
 def test_period_spo2_empty_readings_return_nulls_and_zero_counts():
     result = compute_period_spo2([])
     assert result.avg is None

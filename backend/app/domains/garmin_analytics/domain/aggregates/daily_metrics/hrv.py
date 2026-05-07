@@ -2,6 +2,8 @@
 
 from app.domains.garmin_analytics.contracts import DailyHrvStats, DayHrv
 
+UNFAVORABLE_HRV_STATUSES = {"Low", "Unbalanced"}
+
 
 def normalize_hrv_status(raw: str | None) -> str:
     """Normalize Garmin HRV status strings to clean labels."""
@@ -20,6 +22,14 @@ def normalize_hrv_status(raw: str | None) -> str:
     if "high" in value:
         return "High"
     return raw.title()
+
+
+def is_balanced_hrv_status(raw: str | None) -> bool:
+    return normalize_hrv_status(raw) == "Balanced"
+
+
+def is_unfavorable_hrv_status(raw: str | None) -> bool:
+    return normalize_hrv_status(raw) in UNFAVORABLE_HRV_STATUSES
 
 
 def compute_daily_hrv(hrv: DayHrv) -> DailyHrvStats:
