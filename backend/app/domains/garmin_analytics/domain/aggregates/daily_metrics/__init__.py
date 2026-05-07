@@ -5,9 +5,8 @@ from .heart_rate import (
     HR_ZONE_THRESHOLDS,
     compute_daily_heart_rate,
     compute_hr_zones,
-    normalize_hrv_status,
 )
-from .hrv import compute_daily_hrv
+from .hrv import compute_daily_hrv, normalize_hrv_status
 from .respiration import compute_daily_respiration
 from .skin_temp import compute_daily_skin_temp
 from .sleep import compute_daily_sleep

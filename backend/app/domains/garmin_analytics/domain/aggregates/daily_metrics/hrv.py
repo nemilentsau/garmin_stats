@@ -2,7 +2,24 @@
 
 from app.domains.garmin_analytics.contracts import DailyHrvStats, DayHrv
 
-from .heart_rate import normalize_hrv_status
+
+def normalize_hrv_status(raw: str | None) -> str:
+    """Normalize Garmin HRV status strings to clean labels."""
+    if not raw:
+        return "Unknown"
+    value = raw.lower()
+    if value == "none":
+        return "Unknown"
+    # "unbalanced" check must precede "balanced" since the latter is a substring.
+    if "unbalanced" in value:
+        return "Unbalanced"
+    if "balanced" in value:
+        return "Balanced"
+    if "low" in value:
+        return "Low"
+    if "high" in value:
+        return "High"
+    return raw.title()
 
 
 def compute_daily_hrv(hrv: DayHrv) -> DailyHrvStats:

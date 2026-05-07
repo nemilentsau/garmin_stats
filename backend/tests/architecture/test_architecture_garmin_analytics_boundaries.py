@@ -119,6 +119,18 @@ def test_daily_aggregate_composer_delegates_to_metric_modules():
     assert "day.skin_temp." not in source
 
 
+def test_hrv_status_normalization_lives_with_hrv_daily_metric():
+    hrv_source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/hrv.py",
+    )
+    heart_rate_source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/heart_rate.py",
+    )
+
+    assert "def normalize_hrv_status" in hrv_source
+    assert "normalize_hrv_status" not in heart_rate_source
+
+
 def test_period_aggregate_composer_delegates_to_metric_modules():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
     for filename in [
