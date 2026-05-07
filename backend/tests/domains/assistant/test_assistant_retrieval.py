@@ -11,16 +11,18 @@ from app.domains.assistant.application.types import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
-from app.models import (
-    CardLog,
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
-    DailyCheckIn,
     DailyHeartRateStats,
     DailyHrvStats,
     DailyMetric,
     DailyMetricStats,
     DailySkinTempStats,
     DailySleepStats,
+)
+from app.models import (
+    CardLog,
+    DailyCheckIn,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

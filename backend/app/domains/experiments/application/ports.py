@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

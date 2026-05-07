@@ -54,6 +54,12 @@ def test_garmin_analytics_imports_owned_contracts_directly():
     )
 
 
+def test_global_models_do_not_reexport_garmin_analytics_contracts():
+    source = read_repo_file("backend/app/models.py")
+
+    assert "app.domains.garmin_analytics.contracts" not in source
+
+
 def test_garmin_analytics_domain_modules_do_not_import_application_or_infra():
     paths = [
         str(path.relative_to(REPO_ROOT))

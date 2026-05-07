@@ -21,7 +21,7 @@ from typing import Any
 
 from garmin_fit_sdk import Decoder, Stream
 
-from .models import (
+from app.domains.garmin_analytics.contracts import (
     ActivityReading,
     BodyBatteryReading,
     DayData,

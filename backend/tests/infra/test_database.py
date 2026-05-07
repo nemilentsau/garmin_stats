@@ -12,17 +12,8 @@ from app.domains.assistant.application.types import (
     AssistantMemoryRecord,
     AssistantResolvedEntity,
 )
-from app.models import (
-    AssistantArtifact,
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
-    CardLog,
-    CardOverride,
-    CardTemplate,
-    ContextSnapshot,
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
-    DailyCheckIn,
     DailyHeartRateStats,
     DailyHrvStats,
     DailyMetric,
@@ -33,6 +24,17 @@ from app.models import (
     DaySkinTemp,
     DaySleep,
     DayWellness,
+)
+from app.models import (
+    AssistantArtifact,
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    ContextSnapshot,
+    DailyCheckIn,
     EvidenceCard,
     Experiment,
     ExperimentExposure,

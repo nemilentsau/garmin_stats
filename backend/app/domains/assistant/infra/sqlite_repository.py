@@ -9,6 +9,7 @@ from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
 from app.domains.experiments.application.ports import ExperimentRepository
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -36,7 +37,6 @@ from app.models import (
     AssistantThread,
     CardLog,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

@@ -10,11 +10,11 @@ from datetime import timedelta
 
 import numpy as np
 
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     AdherenceDayEntry,
     ConfounderCheck,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentDesign,

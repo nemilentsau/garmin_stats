@@ -6,12 +6,12 @@ from typing import Any, cast
 
 from app.domains.assistant.application.chat import stream_reply
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     AssistantMessageCreateRequest,
     AssistantRun,
     CardLog,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

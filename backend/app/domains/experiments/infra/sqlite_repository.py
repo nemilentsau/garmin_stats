@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.infra.database import (
     delete_experiment_analysis,
     experiment_exists,
@@ -19,7 +20,6 @@ from app.infra.database import (
 )
 from app.models import (
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

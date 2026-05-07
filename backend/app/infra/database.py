@@ -15,6 +15,14 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.domains.garmin_analytics.contracts import (
+    DailyMetric,
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
+    DayWellness,
+)
+
 from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
@@ -35,11 +43,6 @@ from ..models import (
     CardTemplate,
     ContextSnapshot,
     DailyCheckIn,
-    DailyMetric,
-    DayHrv,
-    DaySkinTemp,
-    DaySleep,
-    DayWellness,
     EvidenceCard,
     Experiment,
     ExperimentAnalysis,
