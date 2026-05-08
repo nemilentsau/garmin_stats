@@ -372,31 +372,6 @@ class TestIngestStatus:
 
 
 class TestStoreAndLoad:
-    def test_wellness_survives_round_trip(self):
-        wellness = DayWellness(date="2026-01-15")
-        with db._connect() as con:
-            con.execute(
-                "INSERT INTO wellness_data (date, data, updated_at) VALUES (?, ?, ?)",
-                ("2026-01-15", wellness.model_dump_json(), "2026-01-15T00:00:00Z"),
-            )
-            con.commit()
-        loaded = db.load_wellness("2026-01-15")
-        assert len(loaded) == 1
-        assert loaded[0].date == "2026-01-15"
-
-    def test_daily_metrics_survive_round_trip(self):
-        metric = _make_daily_metric("2026-01-15")
-        with db._connect() as con:
-            con.execute(
-                "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                ("2026-01-15", metric.model_dump_json(), "2026-01-15T00:00:00Z"),
-            )
-            con.commit()
-        loaded = db.load_daily_metrics()
-        assert len(loaded) == 1
-        assert loaded[0].heart_rate.avg == 70.0
-        assert loaded[0].heart_rate.resting == 48
-
     def test_available_days_returned_sorted(self):
         for date in ["2026-01-15", "2026-01-16", "2026-01-17"]:
             metric = _make_daily_metric(date)

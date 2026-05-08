@@ -244,12 +244,33 @@ def test_garmin_analytics_imports_owned_contracts_directly():
 def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
     database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/garmin_analytics/adapters.py")
+    assistant_repo_source = read_repo_file(
+        "backend/app/domains/assistant/infra/sqlite_repository.py",
+    )
+    experiment_repo_source = read_repo_file(
+        "backend/app/domains/experiments/infra/sqlite_repository.py",
+    )
 
-    assert "from ..domains.garmin_analytics.adapters import (" in database_source
+    assert "domains.garmin_analytics.adapters" not in database_source
     assert "def _load_day_table" not in database_source
     assert "def _fetch_daily_metrics" not in database_source
+    for wrapper_name in [
+        "load_daily_metrics",
+        "load_wellness",
+        "load_sleep",
+        "load_hrv",
+        "load_skin_temp",
+    ]:
+        assert f"def {wrapper_name}" not in database_source
+
     assert "def load_daily_metrics" in adapter_source
     assert "class SqliteBiometricRepository" in adapter_source
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+        assistant_repo_source
+    )
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+        experiment_repo_source
+    )
 
 
 def test_global_models_do_not_reexport_garmin_analytics_contracts():

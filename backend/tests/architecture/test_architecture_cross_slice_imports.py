@@ -28,6 +28,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.routines.application.schedule_window",
     },
     "backend/app/domains/experiments/infra/sqlite_repository.py": {
+        "app.domains.garmin_analytics.adapters",
         "app.domains.garmin_analytics.contracts",
     },
     "backend/app/domains/assistant/application/ports.py": {
@@ -39,6 +40,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/assistant/infra/sqlite_repository.py": {
         "app.domains.experiments.application.analysis_cache",
         "app.domains.experiments.application.ports",
+        "app.domains.garmin_analytics.adapters",
         "app.domains.garmin_analytics.contracts",
     },
     "backend/app/domains/garmin_sync/adapters.py": {

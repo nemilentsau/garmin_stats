@@ -15,33 +15,10 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
-    DayHrv,
-    DaySkinTemp,
-    DaySleep,
-    DayWellness,
-)
-
 from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
-)
-from ..domains.garmin_analytics.adapters import (
-    load_daily_metrics as _load_garmin_daily_metrics,
-)
-from ..domains.garmin_analytics.adapters import (
-    load_hrv as _load_garmin_hrv,
-)
-from ..domains.garmin_analytics.adapters import (
-    load_skin_temp as _load_garmin_skin_temp,
-)
-from ..domains.garmin_analytics.adapters import (
-    load_sleep as _load_garmin_sleep,
-)
-from ..domains.garmin_analytics.adapters import (
-    load_wellness as _load_garmin_wellness,
 )
 from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
@@ -740,31 +717,6 @@ def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> 
 def is_db_empty() -> bool:
     """Check if the DB has any ingested data."""
     return _count_rows("daily_metrics") == 0
-
-
-def load_daily_metrics() -> list[DailyMetric]:
-    """Compatibility wrapper for Garmin analytics daily metrics."""
-    return _load_garmin_daily_metrics()
-
-
-def load_wellness(date: str | None = None) -> list[DayWellness]:
-    """Compatibility wrapper for Garmin analytics wellness data."""
-    return _load_garmin_wellness(date)
-
-
-def load_sleep(date: str | None = None) -> list[DaySleep]:
-    """Compatibility wrapper for Garmin analytics sleep data."""
-    return _load_garmin_sleep(date)
-
-
-def load_hrv(date: str | None = None) -> list[DayHrv]:
-    """Compatibility wrapper for Garmin analytics HRV data."""
-    return _load_garmin_hrv(date)
-
-
-def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
-    """Compatibility wrapper for Garmin analytics skin temperature data."""
-    return _load_garmin_skin_temp(date)
 
 
 def load_available_days() -> list[str]:
