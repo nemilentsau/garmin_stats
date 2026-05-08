@@ -1,4 +1,8 @@
-"""Application ports for Garmin analytics read models."""
+"""Application-facing dependency protocols for Garmin analytics.
+
+Use cases depend on these protocols instead of SQLite details so tests can pass
+plain in-memory repositories and the domain layer stays persistence-free.
+"""
 
 from typing import Protocol
 

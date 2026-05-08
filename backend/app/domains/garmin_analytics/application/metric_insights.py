@@ -1,4 +1,8 @@
-"""Selected-day metric insight use cases for Garmin analytics routes."""
+"""Selected-day metric insight use cases for Garmin analytics routes.
+
+Use cases resolve the selected day and retrieve the raw rows needed by insight
+calculators. Interpretation rules and messages live in `domain.insights`.
+"""
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (

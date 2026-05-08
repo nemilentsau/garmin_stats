@@ -1,4 +1,8 @@
-"""HTTP routes for Garmin analytics."""
+"""HTTP routes for Garmin analytics.
+
+Routes bind FastAPI request/response metadata to application use cases. They
+should not own repository queries, cache policy, or metric calculations.
+"""
 
 from fastapi import APIRouter, Query
 

@@ -1,4 +1,10 @@
-"""SQLite-backed Garmin biometric read repository."""
+"""SQLite-backed Garmin biometric read repository.
+
+This module is the single read implementation for ingested Garmin biometric
+tables. `SqliteBiometricRepository` satisfies application ports, while the
+module-level loaders remain as compatibility entrypoints for slices that still
+read persisted `DailyMetric` rows directly.
+"""
 
 from pydantic import BaseModel
 
@@ -14,6 +20,7 @@ from app.infra.sqlite import connect
 
 
 def load_daily_metrics() -> list[DailyMetric]:
+    """Load persisted daily metrics ordered by date."""
     return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
 
 
@@ -29,6 +36,7 @@ def _load_day_table[M: BaseModel](
     cache_key: str,
     date: str | None = None,
 ) -> list[M]:
+    """Load one JSON-backed day table with shared all-days caching semantics."""
     if date is not None:
         all_cached = cache.get(cache_key)
         if all_cached is not None:
@@ -54,7 +62,7 @@ def _load_day_table[M: BaseModel](
 
 
 class SqliteBiometricRepository:
-    """Adapter around the current ingested biometric tables."""
+    """Repository adapter used by Garmin analytics application use cases."""
 
     def load_daily_metrics(self) -> list[DailyMetric]:
         return load_daily_metrics()

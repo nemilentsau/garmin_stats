@@ -1,4 +1,9 @@
-"""Daily aggregate read use cases for Garmin analytics."""
+"""Daily aggregate read use cases for Garmin analytics.
+
+This module returns the persisted daily aggregate mart and computes standard
+period windows from raw day tables. Period summaries are recomputed from raw
+readings so they do not become averages of daily aggregates.
+"""
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
@@ -37,6 +42,7 @@ def load_windowed_period_summary(
 
 
 def _reconstruct_day_data(repo: BiometricReadRepository) -> list[DayData]:
+    """Rejoin persisted day-table slices into the raw shape expected by aggregates."""
     wellness_by_date = {day.date: day for day in repo.load_wellness()}
     sleep_by_date = {day.date: day for day in repo.load_sleep()}
     hrv_by_date = {day.date: day for day in repo.load_hrv()}

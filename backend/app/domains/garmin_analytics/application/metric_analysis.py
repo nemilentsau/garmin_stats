@@ -1,4 +1,8 @@
-"""Metric analysis read use cases for Garmin analytics routes."""
+"""Metric analysis read use cases for Garmin analytics routes.
+
+Application functions load the needed marts and choose cache keys. The returned
+chart series, distributions, and boxplots are computed in `domain.analysis`.
+"""
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (

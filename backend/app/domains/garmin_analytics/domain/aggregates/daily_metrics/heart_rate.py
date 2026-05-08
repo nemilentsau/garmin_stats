@@ -63,6 +63,7 @@ def compute_daily_heart_rate(wellness: DayWellness) -> DailyHeartRateStats:
 
 
 def latest_resting_hr(wellness: DayWellness) -> int | None:
+    """Return Garmin's latest resting HR, preferring current-day values."""
     value: int | None = None
     for reading in wellness.resting_hr:
         current = reading.current_day_resting_hr or reading.resting_hr

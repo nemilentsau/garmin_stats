@@ -1,4 +1,8 @@
-"""Raw biometric table read use cases for Garmin analytics."""
+"""Raw biometric table read use cases for Garmin analytics.
+
+This layer owns date filtering and missing-date behavior for raw metric
+endpoints. It delegates response shaping to pure aggregate helpers.
+"""
 
 from collections.abc import Sequence
 

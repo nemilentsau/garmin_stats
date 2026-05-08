@@ -1,4 +1,8 @@
-"""Period aggregate read-model construction for Garmin analytics."""
+"""Period aggregate read-model construction for Garmin analytics.
+
+This module is only the window-level composer. Metric-specific raw-reading
+policy lives in `period_metrics/`.
+"""
 
 from app.domains.garmin_analytics.contracts import DayData, PeriodSummary
 from app.domains.garmin_analytics.domain.aggregates.period_metrics import (

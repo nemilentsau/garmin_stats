@@ -1,4 +1,8 @@
-"""Daily aggregate read-model construction for Garmin analytics."""
+"""Daily aggregate read-model construction for Garmin analytics.
+
+This module is only the per-day composer. Metric-specific extraction, null
+handling, thresholds, and rounding stay in `daily_metrics/`.
+"""
 
 from app.domains.garmin_analytics.contracts import (
     DailyAggregatesResponse,

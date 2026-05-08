@@ -1,4 +1,8 @@
-"""Pydantic contracts for Garmin analytics read models and API responses."""
+"""Pydantic contracts for Garmin analytics read models and API responses.
+
+These models describe persisted biometric rows and route payloads. Calculation
+policy belongs in domain modules so contracts stay mostly declarative.
+"""
 
 from app.contracts.base import DefaultsRequired
 
