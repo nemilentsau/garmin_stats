@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import {
 		api,
+		type BodyBatteryRawData,
 		type DailyAggregates,
-		type WellnessData,
 		type BodyBatteryAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
@@ -19,7 +19,7 @@
 
 	let agg: DailyAggregates | null = $state(null);
 	let analysis: BodyBatteryAnalysis | null = $state(null);
-	let intradayData: WellnessData | null = $state(null);
+	let intradayData: BodyBatteryRawData | null = $state(null);
 	let selectedDate = $state('');
 	let trendRange: TrendRange = $state('3M');
 	let loading = $state(true);
@@ -33,7 +33,7 @@
 		agg = nextAgg;
 		analysis = nextAnalysis;
 		if (selectedDate) {
-			const data = await api.getWellness(selectedDate);
+			const data = await api.getBodyBatteryRaw(selectedDate);
 			intradayData = data;
 		}
 	}
@@ -46,10 +46,10 @@
 		});
 	});
 
-	const onDateChange = createDateLoader<WellnessData>({
+	const onDateChange = createDateLoader<BodyBatteryRawData>({
 		setSelectedDate: (date) => { selectedDate = date; },
 		clearData: () => { intradayData = null; },
-		fetchByDate: (date) => api.getWellness(date),
+		fetchByDate: (date) => api.getBodyBatteryRaw(date),
 		setData: (data) => { intradayData = data; },
 		setError: (message) => { error = message; }
 	});

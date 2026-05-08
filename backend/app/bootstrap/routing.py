@@ -15,10 +15,11 @@ from app.domains.garmin_analytics.routes import (
     dashboard_router,
     heart_rate_router,
     hrv_router,
+    pulse_ox_router,
+    respiration_router,
     skin_temp_router,
     sleep_router,
     stress_router,
-    wellness_router,
 )
 from app.domains.garmin_sync.routes import router as ingest_router
 from app.domains.journal.api.checkins import router as checkins_router
@@ -36,7 +37,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(ingest_router)
     app.include_router(dashboard_router)
     app.include_router(days_router)
-    app.include_router(wellness_router)
     app.include_router(sleep_router)
     app.include_router(daily_aggregates_router)
     app.include_router(skin_temp_router)
@@ -44,6 +44,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(hrv_router)
     app.include_router(stress_router)
     app.include_router(body_battery_router)
+    app.include_router(respiration_router)
+    app.include_router(pulse_ox_router)
     app.include_router(events_router)
     app.include_router(assistant_router)
     app.include_router(assistant_artifact_bundles_router)

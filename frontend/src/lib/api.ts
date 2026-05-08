@@ -11,7 +11,11 @@ import { API_BASE } from './config';
 type Schemas = components['schemas'];
 
 // Re-export generated types with existing frontend names
-export type WellnessData = Schemas['WellnessResponse'];
+export type HeartRateRawData = Schemas['HeartRateRawResponse'];
+export type StressRawData = Schemas['StressRawResponse'];
+export type BodyBatteryRawData = Schemas['BodyBatteryRawResponse'];
+export type SpO2RawData = Schemas['SpO2RawResponse'];
+export type RespirationRawData = Schemas['RespirationRawResponse'];
 export type SleepData = Schemas['SleepResponse'];
 export type HrvData = Schemas['HrvResponse'];
 export type SkinTempData = Schemas['SkinTempResponse'];
@@ -105,8 +109,16 @@ async function sendJson<T>(endpoint: string, method: 'POST' | 'PUT', body: unkno
 export const api = {
 	getDailyAggregates: () => fetchJson<DailyAggregates>('/api/daily-aggregates'),
 	getDashboardOverview: () => fetchJson<DashboardOverview>('/api/dashboard'),
-	getWellness: (date?: string) =>
-		fetchJson<WellnessData>(`/api/wellness${date ? `?date=${date}` : ''}`),
+	getHeartRateRaw: (date?: string) =>
+		fetchJson<HeartRateRawData>(`/api/heart-rate/raw${date ? `?date=${date}` : ''}`),
+	getStressRaw: (date?: string) =>
+		fetchJson<StressRawData>(`/api/stress/raw${date ? `?date=${date}` : ''}`),
+	getBodyBatteryRaw: (date?: string) =>
+		fetchJson<BodyBatteryRawData>(`/api/body-battery/raw${date ? `?date=${date}` : ''}`),
+	getPulseOxRaw: (date?: string) =>
+		fetchJson<SpO2RawData>(`/api/pulse-ox/raw${date ? `?date=${date}` : ''}`),
+	getRespirationRaw: (date?: string) =>
+		fetchJson<RespirationRawData>(`/api/respiration/raw${date ? `?date=${date}` : ''}`),
 	getSleep: (date?: string) => fetchJson<SleepData>(`/api/sleep${date ? `?date=${date}` : ''}`),
 	getHrv: (date?: string) => fetchJson<HrvData>(`/api/hrv${date ? `?date=${date}` : ''}`),
 	getHrvInsights: (date?: string) =>

@@ -14,23 +14,26 @@ from app.domains.garmin_analytics.application.dashboard import (
 )
 from app.domains.garmin_analytics.contracts import (
     BodyBatteryAnalysisResponse,
+    BodyBatteryRawResponse,
     DailyAggregatesResponse,
     DashboardOverviewResponse,
     HeartRateAnalysisResponse,
     HeartRateInsightsResponse,
+    HeartRateRawResponse,
     HRDistributionResponse,
     HrvAnalysisResponse,
     HrvInsightsResponse,
     HrvResponse,
+    RespirationRawResponse,
     SkinTempResponse,
     SleepAnalysisResponse,
     SleepResponse,
+    SpO2RawResponse,
     StressAnalysisResponse,
-    WellnessResponse,
+    StressRawResponse,
 )
 
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-wellness_router = APIRouter(prefix="/api/wellness", tags=["wellness"])
 sleep_router = APIRouter(prefix="/api/sleep", tags=["sleep"])
 hrv_router = APIRouter(prefix="/api/hrv", tags=["hrv"])
 skin_temp_router = APIRouter(prefix="/api/skin-temp", tags=["skin-temp"])
@@ -41,23 +44,14 @@ daily_aggregates_router = APIRouter(
 heart_rate_router = APIRouter(prefix="/api/heart-rate", tags=["heart-rate"])
 stress_router = APIRouter(prefix="/api/stress", tags=["stress"])
 body_battery_router = APIRouter(prefix="/api/body-battery", tags=["body-battery"])
+respiration_router = APIRouter(prefix="/api/respiration", tags=["respiration"])
+pulse_ox_router = APIRouter(prefix="/api/pulse-ox", tags=["pulse-ox"])
 
 
 @dashboard_router.get("", response_model=DashboardOverviewResponse)
 def get_dashboard_overview():
     """Return readiness score and cross-domain correlations."""
     return load_dashboard_overview(build_container().garmin_biometrics_repo)
-
-
-@wellness_router.get("", response_model=WellnessResponse)
-def get_wellness(
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
-):
-    """Get wellness data (HR, stress, SpO2, respiration, activity)."""
-    return raw_biometrics_uc.get_wellness(
-        build_container().garmin_biometrics_repo,
-        date=date,
-    )
 
 
 @sleep_router.get("", response_model=SleepResponse)
@@ -139,6 +133,17 @@ def get_heart_rate_insights(
     )
 
 
+@heart_rate_router.get("/raw", response_model=HeartRateRawResponse)
+def get_heart_rate_raw(
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+):
+    """Get raw heart-rate and resting-heart-rate readings."""
+    return raw_biometrics_uc.get_heart_rate_raw(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
+
+
 @heart_rate_router.get("/analysis", response_model=HeartRateAnalysisResponse)
 def get_heart_rate_analysis():
     """Return period-level heart-rate analysis (circadian, sleeping HR, resting trend, boxplots)."""
@@ -158,6 +163,17 @@ def get_hr_distribution(
     )
 
 
+@stress_router.get("/raw", response_model=StressRawResponse)
+def get_stress_raw(
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+):
+    """Get raw stress readings."""
+    return raw_biometrics_uc.get_stress_raw(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
+
+
 @stress_router.get("/analysis", response_model=StressAnalysisResponse)
 def get_stress_analysis():
     """Return period-level stress analysis (avg trend, weekly boxplots)."""
@@ -166,9 +182,42 @@ def get_stress_analysis():
     )
 
 
+@body_battery_router.get("/raw", response_model=BodyBatteryRawResponse)
+def get_body_battery_raw(
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+):
+    """Get raw body-battery readings."""
+    return raw_biometrics_uc.get_body_battery_raw(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
+
+
 @body_battery_router.get("/analysis", response_model=BodyBatteryAnalysisResponse)
 def get_body_battery_analysis():
     """Return period-level body battery analysis (trend, weekly boxplots)."""
     return metric_analysis_uc.load_body_battery_analysis(
         build_container().garmin_biometrics_repo,
+    )
+
+
+@respiration_router.get("/raw", response_model=RespirationRawResponse)
+def get_respiration_raw(
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+):
+    """Get raw respiration readings."""
+    return raw_biometrics_uc.get_respiration_raw(
+        build_container().garmin_biometrics_repo,
+        date=date,
+    )
+
+
+@pulse_ox_router.get("/raw", response_model=SpO2RawResponse)
+def get_pulse_ox_raw(
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+):
+    """Get raw pulse-ox readings."""
+    return raw_biometrics_uc.get_spo2_raw(
+        build_container().garmin_biometrics_repo,
+        date=date,
     )

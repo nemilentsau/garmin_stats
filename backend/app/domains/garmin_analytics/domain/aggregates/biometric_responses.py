@@ -1,55 +1,77 @@
 """Raw biometric response shaping for Garmin analytics."""
 
 from app.domains.garmin_analytics.contracts import (
-    ActivityReading,
+    BodyBatteryRawResponse,
     BodyBatteryReading,
     DayHrv,
     DaySkinTemp,
     DaySleep,
     DayWellness,
+    HeartRateRawResponse,
     HeartRateReading,
     HrvResponse,
+    RespirationRawResponse,
     RespirationReading,
     RestingHRReading,
     SkinTempResponse,
     SleepResponse,
+    SpO2RawResponse,
     SpO2Reading,
-    StepsReading,
+    StressRawResponse,
     StressReading,
-    WellnessResponse,
 )
 
 
-def flatten_wellness(days: list[DayWellness]) -> WellnessResponse:
-    dates: list[str] = []
+def flatten_heart_rate(days: list[DayWellness]) -> HeartRateRawResponse:
     heart_rate: list[HeartRateReading] = []
-    stress: list[StressReading] = []
-    body_battery: list[BodyBatteryReading] = []
-    spo2: list[SpO2Reading] = []
-    respiration: list[RespirationReading] = []
-    activity: list[ActivityReading] = []
-    steps_summary: list[StepsReading] = []
     resting_hr: list[RestingHRReading] = []
-    for d in days:
-        dates.append(d.date)
-        heart_rate.extend(d.heart_rate)
-        stress.extend(d.stress)
-        body_battery.extend(d.body_battery)
-        spo2.extend(d.spo2)
-        respiration.extend(d.respiration)
-        activity.extend(d.activity)
-        steps_summary.extend(d.steps_summary)
-        resting_hr.extend(d.resting_hr)
-    return WellnessResponse(
-        days=dates,
+    for day in days:
+        heart_rate.extend(day.heart_rate)
+        resting_hr.extend(day.resting_hr)
+    return HeartRateRawResponse(
+        days=[day.date for day in days],
         heart_rate=heart_rate,
-        stress=stress,
-        body_battery=body_battery,
-        spo2=spo2,
-        respiration=respiration,
-        activity=activity,
-        steps_summary=steps_summary,
         resting_hr=resting_hr,
+    )
+
+
+def flatten_stress(days: list[DayWellness]) -> StressRawResponse:
+    stress: list[StressReading] = []
+    for day in days:
+        stress.extend(day.stress)
+    return StressRawResponse(
+        days=[day.date for day in days],
+        stress=stress,
+    )
+
+
+def flatten_body_battery(days: list[DayWellness]) -> BodyBatteryRawResponse:
+    body_battery: list[BodyBatteryReading] = []
+    for day in days:
+        body_battery.extend(day.body_battery)
+    return BodyBatteryRawResponse(
+        days=[day.date for day in days],
+        body_battery=body_battery,
+    )
+
+
+def flatten_spo2(days: list[DayWellness]) -> SpO2RawResponse:
+    spo2: list[SpO2Reading] = []
+    for day in days:
+        spo2.extend(day.spo2)
+    return SpO2RawResponse(
+        days=[day.date for day in days],
+        spo2=spo2,
+    )
+
+
+def flatten_respiration(days: list[DayWellness]) -> RespirationRawResponse:
+    respiration: list[RespirationReading] = []
+    for day in days:
+        respiration.extend(day.respiration)
+    return RespirationRawResponse(
+        days=[day.date for day in days],
+        respiration=respiration,
     )
 
 

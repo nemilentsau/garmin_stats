@@ -124,26 +124,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/wellness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Wellness
-         * @description Get wellness data (HR, stress, SpO2, respiration, activity).
-         */
-        get: operations["get_wellness_api_wellness_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/sleep": {
         parameters: {
             query?: never;
@@ -236,6 +216,26 @@ export interface paths {
          * @description Return backend-derived heart-rate insights for UI rendering.
          */
         get: operations["get_heart_rate_insights_api_heart_rate_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/heart-rate/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heart Rate Raw
+         * @description Get raw heart-rate and resting-heart-rate readings.
+         */
+        get: operations["get_heart_rate_raw_api_heart_rate_raw_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -344,6 +344,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stress/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stress Raw
+         * @description Get raw stress readings.
+         */
+        get: operations["get_stress_raw_api_stress_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stress/analysis": {
         parameters: {
             query?: never;
@@ -364,6 +384,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/body-battery/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Body Battery Raw
+         * @description Get raw body-battery readings.
+         */
+        get: operations["get_body_battery_raw_api_body_battery_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/body-battery/analysis": {
         parameters: {
             query?: never;
@@ -376,6 +416,46 @@ export interface paths {
          * @description Return period-level body battery analysis (trend, weekly boxplots).
          */
         get: operations["get_body_battery_analysis_api_body_battery_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/respiration/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Respiration Raw
+         * @description Get raw respiration readings.
+         */
+        get: operations["get_respiration_raw_api_respiration_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pulse-ox/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pulse Ox Raw
+         * @description Get raw pulse-ox readings.
+         */
+        get: operations["get_pulse_ox_raw_api_pulse_ox_raw_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1124,21 +1204,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActivityReading */
-        ActivityReading: {
-            /** Timestamp */
-            timestamp: string | null;
-            /** Activity Type */
-            activity_type: string;
-            /** Intensity */
-            intensity: number | null;
-            /** Steps */
-            steps: number | null;
-            /** Calories */
-            calories: number | null;
-            /** Distance */
-            distance: number | null;
-        };
         /** AdherenceDayEntry */
         AdherenceDayEntry: {
             /** Date */
@@ -1445,6 +1510,13 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyBodyBatteryBox"][];
+        };
+        /** BodyBatteryRawResponse */
+        BodyBatteryRawResponse: {
+            /** Days */
+            days: string[];
+            /** Body Battery */
+            body_battery: components["schemas"]["BodyBatteryReading"][];
         };
         /** BodyBatteryReading */
         BodyBatteryReading: {
@@ -2334,6 +2406,15 @@ export interface components {
              */
             insights: components["schemas"]["HeartRateInsight"][];
         };
+        /** HeartRateRawResponse */
+        HeartRateRawResponse: {
+            /** Days */
+            days: string[];
+            /** Heart Rate */
+            heart_rate: components["schemas"]["HeartRateReading"][];
+            /** Resting Hr */
+            resting_hr: components["schemas"]["RestingHRReading"][];
+        };
         /** HeartRateReading */
         HeartRateReading: {
             /** Timestamp */
@@ -3000,6 +3081,13 @@ export interface components {
             /** Label */
             label: string | null;
         };
+        /** RespirationRawResponse */
+        RespirationRawResponse: {
+            /** Days */
+            days: string[];
+            /** Respiration */
+            respiration: components["schemas"]["RespirationReading"][];
+        };
         /** RespirationReading */
         RespirationReading: {
             /** Timestamp */
@@ -3342,6 +3430,13 @@ export interface components {
              */
             sample_count: number;
         };
+        /** SpO2RawResponse */
+        SpO2RawResponse: {
+            /** Days */
+            days: string[];
+            /** Spo2 */
+            spo2: components["schemas"]["SpO2Reading"][];
+        };
         /** SpO2Reading */
         SpO2Reading: {
             /** Timestamp */
@@ -3381,17 +3476,6 @@ export interface components {
             /** Max */
             max: number | null;
         };
-        /** StepsReading */
-        StepsReading: {
-            /** Timestamp */
-            timestamp: string | null;
-            /** Steps */
-            steps: number;
-            /** Distance */
-            distance: number | null;
-            /** Calories */
-            calories: number | null;
-        };
         /** StressAnalysisResponse */
         StressAnalysisResponse: {
             /**
@@ -3404,6 +3488,13 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyStressBox"][];
+        };
+        /** StressRawResponse */
+        StressRawResponse: {
+            /** Days */
+            days: string[];
+            /** Stress */
+            stress: components["schemas"]["StressReading"][];
         };
         /** StressReading */
         StressReading: {
@@ -3856,27 +3947,6 @@ export interface components {
              */
             day_count: number;
         };
-        /** WellnessResponse */
-        WellnessResponse: {
-            /** Days */
-            days: string[];
-            /** Heart Rate */
-            heart_rate: components["schemas"]["HeartRateReading"][];
-            /** Stress */
-            stress: components["schemas"]["StressReading"][];
-            /** Body Battery */
-            body_battery: components["schemas"]["BodyBatteryReading"][];
-            /** Spo2 */
-            spo2: components["schemas"]["SpO2Reading"][];
-            /** Respiration */
-            respiration: components["schemas"]["RespirationReading"][];
-            /** Activity */
-            activity: components["schemas"]["ActivityReading"][];
-            /** Steps Summary */
-            steps_summary: components["schemas"]["StepsReading"][];
-            /** Resting Hr */
-            resting_hr: components["schemas"]["RestingHRReading"][];
-        };
     };
     responses: never;
     parameters: never;
@@ -4004,38 +4074,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DaySummaryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_wellness_api_wellness_get: {
-        parameters: {
-            query?: {
-                /** @description Filter by date (YYYY-MM-DD) */
-                date?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WellnessResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4185,6 +4223,38 @@ export interface operations {
             };
         };
     };
+    get_heart_rate_raw_api_heart_rate_raw_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartRateRawResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_heart_rate_analysis_api_heart_rate_analysis_get: {
         parameters: {
             query?: never;
@@ -4321,6 +4391,38 @@ export interface operations {
             };
         };
     };
+    get_stress_raw_api_stress_raw_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StressRawResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_stress_analysis_api_stress_analysis_get: {
         parameters: {
             query?: never;
@@ -4341,6 +4443,38 @@ export interface operations {
             };
         };
     };
+    get_body_battery_raw_api_body_battery_raw_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyBatteryRawResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_body_battery_analysis_api_body_battery_analysis_get: {
         parameters: {
             query?: never;
@@ -4357,6 +4491,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BodyBatteryAnalysisResponse"];
+                };
+            };
+        };
+    };
+    get_respiration_raw_api_respiration_raw_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespirationRawResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pulse_ox_raw_api_pulse_ox_raw_get: {
+        parameters: {
+            query?: {
+                /** @description Filter by date (YYYY-MM-DD) */
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpO2RawResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

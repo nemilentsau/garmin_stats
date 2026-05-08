@@ -266,6 +266,26 @@ def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
     assert "from ..routers.body_battery import router as body_battery_router" not in source
 
 
+def test_broad_wellness_raw_endpoint_has_been_removed():
+    routes = read_repo_file("backend/app/domains/garmin_analytics/routes.py")
+    contracts = read_repo_file("backend/app/domains/garmin_analytics/contracts.py")
+    raw_biometrics = read_repo_file(
+        "backend/app/domains/garmin_analytics/application/raw_biometrics.py",
+    )
+    responses = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/biometric_responses.py",
+    )
+    routing = read_repo_file("backend/app/bootstrap/routing.py")
+
+    assert 'prefix="/api/wellness"' not in routes
+    assert "wellness_router" not in routes
+    assert "wellness_router" not in routing
+    assert "def get_wellness" not in routes
+    assert "def get_wellness" not in raw_biometrics
+    assert "class WellnessResponse" not in contracts
+    assert "def flatten_wellness" not in responses
+
+
 def test_migrated_garmin_analytics_router_shims_are_removed():
     for path in [
         "backend/app/routers/dashboard.py",

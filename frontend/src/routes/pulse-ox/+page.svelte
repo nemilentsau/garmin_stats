@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type WellnessData } from '$lib/api';
+	import { api, type DailyAggregates, type SpO2RawData } from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
@@ -14,7 +14,7 @@
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: DailyAggregates | null = $state(null);
-	let intradayData: WellnessData | null = $state(null);
+	let intradayData: SpO2RawData | null = $state(null);
 	let selectedDate = $state('');
 	let trendRange: TrendRange = $state('3M');
 	let loading = $state(true);
@@ -24,7 +24,7 @@
 		agg = await api.getDailyAggregates();
 		const date = selectedDate;
 		if (date) {
-			const data = await api.getWellness(date);
+			const data = await api.getPulseOxRaw(date);
 			if (selectedDate === date) {
 				intradayData = data;
 			}
@@ -43,14 +43,14 @@
 		});
 	});
 
-	const onDateChange = createDateLoader<WellnessData>({
+	const onDateChange = createDateLoader<SpO2RawData>({
 		setSelectedDate: (date) => {
 			selectedDate = date;
 		},
 		clearData: () => {
 			intradayData = null;
 		},
-		fetchByDate: (date) => api.getWellness(date),
+		fetchByDate: (date) => api.getPulseOxRaw(date),
 		setData: (data) => {
 			intradayData = data;
 		},

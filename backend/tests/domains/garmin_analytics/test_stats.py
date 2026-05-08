@@ -17,7 +17,11 @@ from app.domains.garmin_analytics.contracts import (
     StressReading,
 )
 from app.domains.garmin_analytics.domain.aggregates.biometric_responses import (
-    flatten_wellness,
+    flatten_body_battery,
+    flatten_heart_rate,
+    flatten_respiration,
+    flatten_spo2,
+    flatten_stress,
 )
 from app.domains.garmin_analytics.domain.aggregates.daily import (
     aggregate_day,
@@ -342,18 +346,60 @@ class TestHRZones:
 
 
 # ---------------------------------------------------------------------------
-# flatten_wellness
+# raw wellness metric projections
 # ---------------------------------------------------------------------------
 
-class TestFlattenWellness:
-    def test_concatenates_readings_across_days(self):
+class TestFlattenWellnessMetricResponses:
+    def test_heart_rate_response_contains_only_days_heart_rate_and_resting_hr(self):
         day1 = _make_day(date="2026-01-01", hr_values=[60, 70])
         day2 = _make_day(date="2026-01-02", hr_values=[80])
-        resp = flatten_wellness([day1.wellness, day2.wellness])
-        assert resp.days == ["2026-01-01", "2026-01-02"]
-        assert len(resp.heart_rate) == 3  # 2 + 1
 
-    def test_returns_empty_lists_for_no_days(self):
-        resp = flatten_wellness([])
+        resp = flatten_heart_rate([day1.wellness, day2.wellness])
+
+        assert resp.days == ["2026-01-01", "2026-01-02"]
+        assert [reading.value for reading in resp.heart_rate] == [60, 70, 80]
+        assert [reading.resting_hr for reading in resp.resting_hr] == [48, 48]
+        assert not hasattr(resp, "stress")
+
+    def test_stress_response_contains_only_days_and_stress(self):
+        day = _make_day(date="2026-01-01", stress_values=[20, 30])
+
+        resp = flatten_stress([day.wellness])
+
+        assert resp.days == ["2026-01-01"]
+        assert [reading.value for reading in resp.stress] == [20, 30]
+        assert not hasattr(resp, "heart_rate")
+
+    def test_body_battery_response_contains_only_days_and_body_battery(self):
+        day = _make_day(date="2026-01-01", bb_values=[40, 80])
+
+        resp = flatten_body_battery([day.wellness])
+
+        assert resp.days == ["2026-01-01"]
+        assert [reading.value for reading in resp.body_battery] == [40, 80]
+        assert not hasattr(resp, "stress")
+
+    def test_spo2_response_contains_only_days_and_spo2(self):
+        day = _make_day(date="2026-01-01", spo2_values=[95, 96])
+
+        resp = flatten_spo2([day.wellness])
+
+        assert resp.days == ["2026-01-01"]
+        assert [reading.value for reading in resp.spo2] == [95, 96]
+        assert not hasattr(resp, "respiration")
+
+    def test_respiration_response_contains_only_days_and_respiration(self):
+        day = _make_day(date="2026-01-01", resp_values=[12.0, 13.0])
+
+        resp = flatten_respiration([day.wellness])
+
+        assert resp.days == ["2026-01-01"]
+        assert [reading.value for reading in resp.respiration] == [12.0, 13.0]
+        assert not hasattr(resp, "spo2")
+
+    def test_metric_response_returns_empty_lists_for_no_days(self):
+        resp = flatten_heart_rate([])
+
         assert resp.days == []
         assert resp.heart_rate == []
+        assert resp.resting_hr == []

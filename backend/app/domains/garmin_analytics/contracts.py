@@ -144,16 +144,30 @@ class DayData(DefaultsRequired):
 # Tier 3 — API response models (match frontend TypeScript interfaces)
 # ---------------------------------------------------------------------------
 
-class WellnessResponse(DefaultsRequired):
+class HeartRateRawResponse(DefaultsRequired):
     days: list[str]
     heart_rate: list[HeartRateReading]
-    stress: list[StressReading]
-    body_battery: list[BodyBatteryReading]
-    spo2: list[SpO2Reading]
-    respiration: list[RespirationReading]
-    activity: list[ActivityReading]
-    steps_summary: list[StepsReading]
     resting_hr: list[RestingHRReading]
+
+
+class StressRawResponse(DefaultsRequired):
+    days: list[str]
+    stress: list[StressReading]
+
+
+class BodyBatteryRawResponse(DefaultsRequired):
+    days: list[str]
+    body_battery: list[BodyBatteryReading]
+
+
+class SpO2RawResponse(DefaultsRequired):
+    days: list[str]
+    spo2: list[SpO2Reading]
+
+
+class RespirationRawResponse(DefaultsRequired):
+    days: list[str]
+    respiration: list[RespirationReading]
 
 
 class SleepResponse(DefaultsRequired):
