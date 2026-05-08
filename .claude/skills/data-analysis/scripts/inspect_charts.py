@@ -33,7 +33,9 @@ from datetime import datetime
 
 from app.infra.database import DATA_DIR
 from app.parser import parse_all_days
-from app.stats import compute_daily_aggregates
+from app.domains.garmin_analytics.domain.aggregates.daily import (
+    compute_daily_aggregates,
+)
 
 
 def _looks_like_day_dir(path: Path) -> bool:

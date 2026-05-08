@@ -121,7 +121,7 @@ Example bundles live in `docs/*_bundle.json`.
 
 ```text
 backend/
-  app/          FastAPI app, domain slices, parser, stats, infrastructure
+  app/          FastAPI app, domain slices, parser, analytics, infrastructure
   tests/        Backend tests organized by architecture, infra, core, and domain
 frontend/
   src/          SvelteKit routes, components, API client, chart helpers
