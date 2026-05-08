@@ -6,6 +6,7 @@ from app.domains.garmin_analytics.contracts import (
     SleepTrendPoint,
     WeeklySleepBox,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
@@ -15,10 +16,7 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
 def compute_sleep_trend(
     metrics: list[DailyMetric],
 ) -> list[SleepTrendPoint]:
-    score_values: list[float | None] = [
-        float(m.sleep.score) if m.sleep.score is not None else None
-        for m in metrics
-    ]
+    score_values = [optional_float(m.sleep.score) for m in metrics]
     ma7_values = trailing_ma7(score_values)
 
     return [
@@ -38,7 +36,7 @@ def compute_weekly_sleep_boxplots(
 ) -> list[WeeklySleepBox]:
     summaries = weekly_five_number_summaries(
         metrics,
-        lambda m: float(m.sleep.score) if m.sleep.score is not None else None,
+        lambda m: optional_float(m.sleep.score),
     )
     return [
         WeeklySleepBox(

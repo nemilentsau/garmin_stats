@@ -18,6 +18,7 @@ from app.domains.garmin_analytics.domain.aggregates.daily import (
     is_balanced_hrv_status,
     is_unfavorable_hrv_status,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.timestamps import (
     summarize_timestamp_coverage,
 )
@@ -102,7 +103,7 @@ def compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRa
     baseline = prior_7d_avg(
         metrics,
         selected_index,
-        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+        lambda m: optional_float(m.heart_rate.resting),
     )
     delta = (
         round(selected_resting - baseline, 1)

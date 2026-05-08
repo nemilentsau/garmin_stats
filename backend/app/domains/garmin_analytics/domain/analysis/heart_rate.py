@@ -17,7 +17,11 @@ from app.domains.garmin_analytics.contracts import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    histogram_bins,
+    optional_float,
+    safe_avg,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
@@ -124,10 +128,7 @@ def compute_resting_hr_trend(
     metrics: list[DailyMetric],
 ) -> list[RestingHRTrendPoint]:
     """Raw resting HR + 7-day trailing moving average."""
-    resting_values: list[float | None] = [
-        float(m.heart_rate.resting) if m.heart_rate.resting is not None else None
-        for m in metrics
-    ]
+    resting_values = [optional_float(m.heart_rate.resting) for m in metrics]
     ma7_values = trailing_ma7(resting_values)
 
     return [
@@ -162,28 +163,11 @@ def compute_hr_distribution(
     bin_width: int = 5,
 ) -> list[HRHistogramBin]:
     """5-bpm histogram bins for heart rate readings."""
-    if not hr_readings:
-        return []
     values = [v for v, _ in hr_readings if v > 0]
-    if not values:
-        return []
-
-    min_val = min(values)
-    max_val = max(values)
-    bin_start = (min_val // bin_width) * bin_width
-    bin_end = ((max_val // bin_width) + 1) * bin_width
-
-    counts: dict[int, int] = {}
-    for v in values:
-        b = (v // bin_width) * bin_width
-        counts[b] = counts.get(b, 0) + 1
-
-    bins: list[HRHistogramBin] = []
-    for b in range(bin_start, bin_end, bin_width):
-        c = counts.get(b, 0)
-        if c > 0:
-            bins.append(HRHistogramBin(bin_start=b, bin_end=b + bin_width, count=c))
-    return bins
+    return [
+        HRHistogramBin(bin_start=b.bin_start, bin_end=b.bin_end, count=b.count)
+        for b in histogram_bins(values, bin_width)
+    ]
 
 
 def compute_weekly_resting_hr_boxplots(
@@ -192,7 +176,7 @@ def compute_weekly_resting_hr_boxplots(
     """Group resting HR by ISO week, compute 5-number summary."""
     summaries = weekly_five_number_summaries(
         metrics,
-        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+        lambda m: optional_float(m.heart_rate.resting),
     )
     return [
         WeeklyRestingHRBox(

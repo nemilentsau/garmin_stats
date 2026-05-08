@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import numpy as np
-
 from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     DayHrv,
@@ -21,7 +19,11 @@ from app.domains.garmin_analytics.contracts import (
 from app.domains.garmin_analytics.domain.aggregates.daily_metrics.hrv import (
     classify_hrv_recovery as _classify_hrv_recovery,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.domain.primitives.numeric import (
+    histogram_bins,
+    percentile_rank,
+    safe_avg,
+)
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
@@ -67,31 +69,18 @@ def compute_hrv_distribution(
     if len(nightly_vals) < _HRV_DIST_MIN_DAYS:
         return None
 
-    min_val = min(nightly_vals)
-    max_val = max(nightly_vals)
-    bin_start = int(min_val // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
-    bin_end = (int(max_val // _HRV_BIN_WIDTH) + 1) * _HRV_BIN_WIDTH
-
-    counts: dict[int, int] = {}
-    for v in nightly_vals:
-        b = int(v // _HRV_BIN_WIDTH) * _HRV_BIN_WIDTH
-        counts[b] = counts.get(b, 0) + 1
-
-    bins: list[HrvDistributionBin] = []
-    for b in range(bin_start, bin_end, _HRV_BIN_WIDTH):
-        c = counts.get(b, 0)
-        if c > 0:
-            bins.append(HrvDistributionBin(
-                bin_start=float(b),
-                bin_end=float(b + _HRV_BIN_WIDTH),
-                count=c,
-            ))
-
-    selected_percentile: float | None = None
-    if selected_value is not None:
-        arr = np.sort(nightly_vals)
-        idx = float(np.searchsorted(arr, selected_value, side="right"))
-        selected_percentile = round(idx / len(nightly_vals) * 100, 1)
+    bins = [
+        HrvDistributionBin(
+            bin_start=float(b.bin_start),
+            bin_end=float(b.bin_end),
+            count=b.count,
+        )
+        for b in histogram_bins(nightly_vals, _HRV_BIN_WIDTH)
+    ]
+    selected_percentile = (
+        percentile_rank(nightly_vals, selected_value)
+        if selected_value is not None else None
+    )
 
     return HrvDistribution(
         bins=bins,

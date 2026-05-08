@@ -6,6 +6,7 @@ from app.domains.garmin_analytics.contracts import (
     DailyMetric,
     WeeklyBodyBatteryBox,
 )
+from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
@@ -15,10 +16,7 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
 def compute_body_battery_trend(
     metrics: list[DailyMetric],
 ) -> list[BodyBatteryTrendPoint]:
-    min_values: list[float | None] = [
-        float(m.body_battery.min) if m.body_battery.min is not None else None
-        for m in metrics
-    ]
+    min_values = [optional_float(m.body_battery.min) for m in metrics]
     ma7_min_values = trailing_ma7(min_values)
 
     return [
@@ -37,7 +35,7 @@ def compute_weekly_body_battery_boxplots(
 ) -> list[WeeklyBodyBatteryBox]:
     summaries = weekly_five_number_summaries(
         metrics,
-        lambda m: float(m.body_battery.min) if m.body_battery.min is not None else None,
+        lambda m: optional_float(m.body_battery.min),
     )
     return [
         WeeklyBodyBatteryBox(

@@ -20,6 +20,7 @@ from app.domains.garmin_analytics.domain.aggregates.daily import (
     normalize_hrv_status,
 )
 from app.domains.garmin_analytics.domain.primitives.numeric import (
+    optional_float,
     safe_avg,
     safe_max,
     safe_min,
@@ -211,20 +212,12 @@ def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
     return DashboardSparklines(
         resting_hr=_build_series(
             window,
-            [
-                float(metric.heart_rate.resting)
-                if metric.heart_rate.resting is not None
-                else None
-                for metric in window
-            ],
+            [optional_float(metric.heart_rate.resting) for metric in window],
         ),
         nightly_hrv=_build_series(window, [metric.hrv.nightly_avg for metric in window]),
         sleep_score=_build_series(
             window,
-            [
-                float(metric.sleep.score) if metric.sleep.score is not None else None
-                for metric in window
-            ],
+            [optional_float(metric.sleep.score) for metric in window],
         ),
         stress_avg=_build_series(window, [metric.stress.avg for metric in window]),
     )
@@ -296,7 +289,7 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
     hrv_baseline_7d = prior_7d_avg(metrics, selected_index, lambda m: m.hrv.nightly_avg)
     resting_baseline_7d = prior_7d_avg(
         metrics, selected_index,
-        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+        lambda m: optional_float(m.heart_rate.resting),
     )
     resting_delta = (
         round(selected.heart_rate.resting - resting_baseline_7d, 1)

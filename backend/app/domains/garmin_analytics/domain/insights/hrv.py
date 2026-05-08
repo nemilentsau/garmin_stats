@@ -32,6 +32,7 @@ from app.domains.garmin_analytics.domain.analysis.hrv import (
     extract_baseline_bands,
 )
 from app.domains.garmin_analytics.domain.primitives.numeric import (
+    optional_float,
     safe_avg,
     safe_max,
     safe_min,
@@ -184,7 +185,7 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
     baseline = prior_7d_avg(
         metrics,
         selected_index,
-        lambda m: float(m.heart_rate.resting) if m.heart_rate.resting is not None else None,
+        lambda m: optional_float(m.heart_rate.resting),
     )
     if selected_resting is None or baseline is None:
         return None

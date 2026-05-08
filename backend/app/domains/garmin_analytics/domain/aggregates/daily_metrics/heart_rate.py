@@ -1,16 +1,14 @@
 """Heart-rate daily aggregate calculations."""
 
 from collections.abc import Sequence
-from typing import cast
 
 from app.domains.garmin_analytics.contracts import (
     DailyHeartRateStats,
     DayWellness,
     HRZoneBucket,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    summarize_scalar_values,
-)
+
+from .common import compute_daily_int_extrema_stats
 
 # HR zone definitions: (label, lower_bound_inclusive, upper_bound_exclusive_or_None)
 HR_ZONE_THRESHOLDS: list[tuple[str, int, int | None]] = [
@@ -49,14 +47,14 @@ def compute_hr_zones(hr_values: Sequence[int]) -> list[HRZoneBucket]:
 
 def compute_daily_heart_rate(wellness: DayWellness) -> DailyHeartRateStats:
     values = [r.value for r in wellness.heart_rate if r.value > 0]
-    summary = summarize_scalar_values(values)
+    stats = compute_daily_int_extrema_stats(values)
     return DailyHeartRateStats(
-        avg=summary.avg,
-        min=cast("int | None", summary.min),
-        max=cast("int | None", summary.max),
-        median=summary.median,
-        q1=summary.q1,
-        q3=summary.q3,
+        avg=stats.avg,
+        min=stats.min,
+        max=stats.max,
+        median=stats.median,
+        q1=stats.q1,
+        q3=stats.q3,
         resting=latest_resting_hr(wellness),
         zones=compute_hr_zones(values),
     )
