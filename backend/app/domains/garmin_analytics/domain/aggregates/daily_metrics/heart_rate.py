@@ -57,12 +57,12 @@ def compute_daily_heart_rate(wellness: DayWellness) -> DailyHeartRateStats:
         median=summary.median,
         q1=summary.q1,
         q3=summary.q3,
-        resting=_latest_resting_hr(wellness),
+        resting=latest_resting_hr(wellness),
         zones=compute_hr_zones(values),
     )
 
 
-def _latest_resting_hr(wellness: DayWellness) -> int | None:
+def latest_resting_hr(wellness: DayWellness) -> int | None:
     value: int | None = None
     for reading in wellness.resting_hr:
         current = reading.current_day_resting_hr or reading.resting_hr

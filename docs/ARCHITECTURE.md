@@ -41,7 +41,7 @@ when subpackages would only hold one file.
 
 There are two major paths:
 
-- Ingest path: FIT files -> `parser.py` -> `stats.py` -> SQLite
+- Ingest path: FIT files -> `parser.py` -> Garmin analytics aggregate calculators -> SQLite
 - Read path: SQLite -> repository adapters -> domain/core application slices -> JSON API -> frontend
 
 ### Core modules
@@ -58,8 +58,8 @@ There are two major paths:
 - `backend/app/parser.py`
   FIT parsing and timestamp normalization into local time.
 
-- `backend/app/stats.py`
-  Deterministic aggregations and response shaping.
+- `backend/app/domains/garmin_analytics/domain/aggregates/`
+  Deterministic Garmin aggregate calculations and response shaping.
 
 - `backend/app/main.py`
   Compatibility entrypoint that exposes the assembled FastAPI app.

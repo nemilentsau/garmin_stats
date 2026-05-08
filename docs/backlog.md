@@ -25,13 +25,7 @@ Selection rule: the next cleanup must reduce coupling, shrink a shared bucket, o
 make an illegal dependency executable in tests. Package renames do not qualify by
 themselves.
 
-1. Split `app.stats` by ownership.
-   - First candidate: move Garmin-only period/window helpers behind
-     `domains/garmin_analytics` contracts.
-   - Success signal: one fewer file imports `app.stats`, and
-     `test_architecture_global_ownership.py` allowlist shrinks.
-
-2. Split `app.models` by ownership when a touched contract clearly belongs to one
+1. Split `app.models` by ownership when a touched contract clearly belongs to one
    module.
    - First candidate: move journal check-in/note contracts near `domains/journal`
      because the slice is small and already has clear API/application boundaries.
@@ -54,5 +48,5 @@ themselves.
 
 Follow-up implementation plan:
 - `docs/superpowers/plans/2026-05-06-domain-ownership-drain-roadmap.md`
-  defines the dependency order for draining `app.models`, `app.stats`, and
-  `app.infra.database` without creating new shared buckets.
+  defines the dependency order for the remaining `app.models` and
+  `app.infra.database` ownership drain without creating new shared buckets.

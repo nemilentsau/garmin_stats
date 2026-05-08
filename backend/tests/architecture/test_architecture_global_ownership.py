@@ -1,6 +1,9 @@
 """Architecture guard rails for global shared bucket imports."""
 
-from tests._architecture import assert_imports_from_module_match_allowlist
+from tests._architecture import (
+    assert_imports_from_module_match_allowlist,
+    assert_no_text_in_files,
+)
 
 ALLOWLISTED_APP_MODELS_IMPORTERS = {
     "backend/app/core/profile/api.py",
@@ -100,4 +103,22 @@ def test_app_infra_cache_importers_are_explicitly_allowlisted():
         ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS,
         equivalent_imports={"app.infra"},
         required_import_name="cache",
+    )
+
+
+def test_current_docs_do_not_reference_removed_app_stats_module():
+    assert_no_text_in_files(
+        [
+            "README.md",
+            "docs/ARCHITECTURE.md",
+            "backend/app/infra/database.py",
+        ],
+        [
+            "backend/app/stats.py",
+            "`backend/app/stats.py`",
+            "`stats.py`",
+            "parser → stats",
+            "parser -> `stats.py`",
+            "parser → `stats.py`",
+        ],
     )

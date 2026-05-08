@@ -13,7 +13,7 @@ from app.infra import cache
 from app.infra.sqlite import connect
 
 
-def _load_daily_metrics() -> list[DailyMetric]:
+def load_daily_metrics() -> list[DailyMetric]:
     return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
 
 
@@ -57,16 +57,32 @@ class SqliteBiometricRepository:
     """Adapter around the current ingested biometric tables."""
 
     def load_daily_metrics(self) -> list[DailyMetric]:
-        return _load_daily_metrics()
+        return load_daily_metrics()
 
     def load_wellness(self, date: str | None = None) -> list[DayWellness]:
-        return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
+        return load_wellness(date)
 
     def load_sleep(self, date: str | None = None) -> list[DaySleep]:
-        return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
+        return load_sleep(date)
 
     def load_hrv(self, date: str | None = None) -> list[DayHrv]:
-        return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
+        return load_hrv(date)
 
     def load_skin_temp(self, date: str | None = None) -> list[DaySkinTemp]:
-        return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
+        return load_skin_temp(date)
+
+
+def load_wellness(date: str | None = None) -> list[DayWellness]:
+    return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
+
+
+def load_sleep(date: str | None = None) -> list[DaySleep]:
+    return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
+
+
+def load_hrv(date: str | None = None) -> list[DayHrv]:
+    return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
+
+
+def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
+    return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)

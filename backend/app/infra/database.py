@@ -1,7 +1,7 @@
 """
 SQLite persistence layer for Garmin Stats.
 
-Write path (ingest):  FIT files → parser → stats → SQLite
+Write path (ingest):  FIT files → parser → Garmin analytics aggregates → SQLite
 Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
@@ -27,6 +27,21 @@ from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+)
+from ..domains.garmin_analytics.adapters import (
+    load_daily_metrics as _load_garmin_daily_metrics,
+)
+from ..domains.garmin_analytics.adapters import (
+    load_hrv as _load_garmin_hrv,
+)
+from ..domains.garmin_analytics.adapters import (
+    load_skin_temp as _load_garmin_skin_temp,
+)
+from ..domains.garmin_analytics.adapters import (
+    load_sleep as _load_garmin_sleep,
+)
+from ..domains.garmin_analytics.adapters import (
+    load_wellness as _load_garmin_wellness,
 )
 from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
@@ -727,75 +742,29 @@ def is_db_empty() -> bool:
     return _count_rows("daily_metrics") == 0
 
 
-# ---------------------------------------------------------------------------
-# Read path
-# ---------------------------------------------------------------------------
-
-def _load_day_table[M](
-    table: str,
-    model: type[M],
-    cache_key: str,
-    date: str | None = None,
-) -> list[M]:
-    """Generic loader for per-day data tables with caching.
-
-    All-days results are cached.  Per-date queries filter from the warm
-    all-days cache when available, falling back to a direct DB query.
-    """
-    if date is not None:
-        all_cached = cache.get(cache_key)
-        if all_cached is not None:
-            return [item for item in all_cached if item.date == date]  # type: ignore[union-attr]
-        with _connect() as con:
-            rows = con.execute(
-                f"SELECT data FROM {table} WHERE date = ?", (date,)  # noqa: S608
-            ).fetchall()
-        return [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
-    # All-days path with caching
-    hit = cache.get(cache_key)
-    if hit is not None:
-        return hit
-    gen = cache.generation()
-    with _connect() as con:
-        rows = con.execute(
-            f"SELECT data FROM {table} ORDER BY date"  # noqa: S608
-        ).fetchall()
-    result = [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
-    cache.put(cache_key, result, gen)
-    return result
-
-
 def load_daily_metrics() -> list[DailyMetric]:
-    """Load all daily metrics from DB (cached until next ingest)."""
-    return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
-
-
-def _fetch_daily_metrics() -> list[DailyMetric]:
-    with _connect() as con:
-        rows = con.execute(
-            "SELECT data FROM daily_metrics ORDER BY date"
-        ).fetchall()
-    return [DailyMetric.model_validate_json(r["data"]) for r in rows]
+    """Compatibility wrapper for Garmin analytics daily metrics."""
+    return _load_garmin_daily_metrics()
 
 
 def load_wellness(date: str | None = None) -> list[DayWellness]:
-    """Load wellness data, optionally filtered by date."""
-    return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
+    """Compatibility wrapper for Garmin analytics wellness data."""
+    return _load_garmin_wellness(date)
 
 
 def load_sleep(date: str | None = None) -> list[DaySleep]:
-    """Load sleep data, optionally filtered by date."""
-    return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
+    """Compatibility wrapper for Garmin analytics sleep data."""
+    return _load_garmin_sleep(date)
 
 
 def load_hrv(date: str | None = None) -> list[DayHrv]:
-    """Load HRV data, optionally filtered by date."""
-    return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
+    """Compatibility wrapper for Garmin analytics HRV data."""
+    return _load_garmin_hrv(date)
 
 
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
-    """Load skin temp data, optionally filtered by date."""
-    return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
+    """Compatibility wrapper for Garmin analytics skin temperature data."""
+    return _load_garmin_skin_temp(date)
 
 
 def load_available_days() -> list[str]:

@@ -36,7 +36,7 @@ The `data/` and `storage/` directories are gitignored.
 Garmin day zip
   -> extracted FIT files
   -> backend/app/parser.py
-  -> backend/app/stats.py
+  -> Garmin analytics aggregate calculators
   -> SQLite storage
   -> backend domain/application services
   -> FastAPI JSON endpoints

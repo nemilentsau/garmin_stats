@@ -119,6 +119,20 @@ def test_daily_aggregate_composer_delegates_to_metric_modules():
     assert "day.skin_temp." not in source
 
 
+def test_heart_rate_resting_policy_has_single_metric_helper():
+    daily_source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/heart_rate.py",
+    )
+    period_source = read_repo_file(
+        "backend/app/domains/garmin_analytics/domain/aggregates/period_metrics/heart_rate.py",
+    )
+
+    assert "def latest_resting_hr" in daily_source
+    assert "def _latest_resting_hr" not in daily_source
+    assert "def _latest_resting_hr" not in period_source
+    assert "latest_resting_hr(day.wellness)" in period_source
+
+
 def test_hrv_status_normalization_lives_with_hrv_daily_metric():
     hrv_source = read_repo_file(
         "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/hrv.py",
@@ -202,6 +216,17 @@ def test_garmin_analytics_imports_owned_contracts_directly():
         paths,
         ["from app.models import", "import app.models"],
     )
+
+
+def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
+    database_source = read_repo_file("backend/app/infra/database.py")
+    adapter_source = read_repo_file("backend/app/domains/garmin_analytics/adapters.py")
+
+    assert "from ..domains.garmin_analytics.adapters import (" in database_source
+    assert "def _load_day_table" not in database_source
+    assert "def _fetch_daily_metrics" not in database_source
+    assert "def load_daily_metrics" in adapter_source
+    assert "class SqliteBiometricRepository" in adapter_source
 
 
 def test_global_models_do_not_reexport_garmin_analytics_contracts():
