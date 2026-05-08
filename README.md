@@ -86,7 +86,8 @@ Fully migrated slices follow the same boundary convention: route/API modules
 handle FastAPI and dependency lookup, workflow/application modules own
 orchestration without importing SQLite helpers or the dependency container, and
 adapter modules are the infrastructure boundary. Larger migrated slices still
-use `application/ports.py` for repository contracts; small capability slices
+use `application/ports.py` for repository contracts and may split large API
+contract surfaces into packages; small capability slices
 such as `garmin_sync` prefer clearer flat names like `workflows.py`,
 `dependencies.py`, and `contracts.py`. Any future transitional slices should be
 explicitly allowlisted in architecture tests until persistence dependencies are

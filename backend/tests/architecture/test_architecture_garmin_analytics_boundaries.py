@@ -195,13 +195,36 @@ def test_period_aggregate_composer_delegates_to_metric_modules():
 def test_garmin_analytics_uses_contract_dependency_adapter_route_layout():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics"
 
-    assert (base / "contracts.py").exists()
+    assert (base / "contracts").is_dir()
     assert (base / "application/dependencies.py").exists()
     assert (base / "adapters.py").exists()
     assert (base / "routes.py").exists()
     assert not (base / "application/ports.py").exists()
     assert not list((base / "api").glob("*.py"))
     assert not list((base / "infra").glob("*.py"))
+
+
+def test_garmin_analytics_contracts_are_split_by_concern_with_stable_imports():
+    import app.domains.garmin_analytics.contracts as contracts
+
+    base = REPO_ROOT / "backend/app/domains/garmin_analytics"
+    contracts_root = base / "contracts"
+
+    assert not (base / "contracts.py").exists()
+    for filename in [
+        "__init__.py",
+        "readings.py",
+        "raw.py",
+        "daily.py",
+        "period.py",
+        "insights.py",
+        "analysis.py",
+        "dashboard.py",
+    ]:
+        assert (contracts_root / filename).exists()
+
+    assert contracts.DailyMetric.__name__ == "DailyMetric"
+    assert contracts.DashboardOverviewResponse.__name__ == "DashboardOverviewResponse"
 
 
 def test_garmin_analytics_imports_owned_contracts_directly():
@@ -293,7 +316,14 @@ def test_bootstrap_routing_mounts_domain_garmin_analytics_routers_directly():
 
 def test_broad_wellness_raw_endpoint_has_been_removed():
     routes = read_repo_file("backend/app/domains/garmin_analytics/routes.py")
-    contracts = read_repo_file("backend/app/domains/garmin_analytics/contracts.py")
+    contracts = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(
+            (
+                REPO_ROOT / "backend/app/domains/garmin_analytics/contracts"
+            ).glob("*.py"),
+        )
+    )
     raw_biometrics = read_repo_file(
         "backend/app/domains/garmin_analytics/application/raw_biometrics.py",
     )

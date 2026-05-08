@@ -97,7 +97,7 @@ There are two major paths:
   API response models.
 
 - `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, metric-specific raw biometric routes, sleep, HRV, and skin temperature reads, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts.py` owns API/read-model contracts. Activity/session marts are reserved here for future runs, meditations, and strength sessions.
+  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, metric-specific raw biometric routes, sleep, HRV, and skin temperature reads, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`readings`, `raw`, `daily`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
   Experiment CRUD, design preview/import, target metric registry, exposure
