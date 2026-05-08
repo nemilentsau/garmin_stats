@@ -32,9 +32,12 @@
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
-		if (selectedDate) {
-			const data = await api.getBodyBatteryRaw(selectedDate);
-			intradayData = data;
+		const date = selectedDate;
+		if (date) {
+			const data = await api.getBodyBatteryRaw(date);
+			if (selectedDate === date) {
+				intradayData = data;
+			}
 		}
 	}
 

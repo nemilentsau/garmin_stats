@@ -2,76 +2,53 @@
 
 from app.domains.garmin_analytics.contracts import (
     BodyBatteryRawResponse,
-    BodyBatteryReading,
     DayHrv,
     DaySkinTemp,
     DaySleep,
     DayWellness,
     HeartRateRawResponse,
-    HeartRateReading,
     HrvResponse,
     RespirationRawResponse,
-    RespirationReading,
-    RestingHRReading,
     SkinTempResponse,
     SleepResponse,
     SpO2RawResponse,
-    SpO2Reading,
     StressRawResponse,
-    StressReading,
 )
 
 
 def flatten_heart_rate(days: list[DayWellness]) -> HeartRateRawResponse:
-    heart_rate: list[HeartRateReading] = []
-    resting_hr: list[RestingHRReading] = []
-    for day in days:
-        heart_rate.extend(day.heart_rate)
-        resting_hr.extend(day.resting_hr)
     return HeartRateRawResponse(
-        days=[day.date for day in days],
-        heart_rate=heart_rate,
-        resting_hr=resting_hr,
+        days=[d.date for d in days],
+        heart_rate=[r for d in days for r in d.heart_rate],
+        resting_hr=[r for d in days for r in d.resting_hr],
     )
 
 
 def flatten_stress(days: list[DayWellness]) -> StressRawResponse:
-    stress: list[StressReading] = []
-    for day in days:
-        stress.extend(day.stress)
     return StressRawResponse(
-        days=[day.date for day in days],
-        stress=stress,
+        days=[d.date for d in days],
+        stress=[r for d in days for r in d.stress],
     )
 
 
 def flatten_body_battery(days: list[DayWellness]) -> BodyBatteryRawResponse:
-    body_battery: list[BodyBatteryReading] = []
-    for day in days:
-        body_battery.extend(day.body_battery)
     return BodyBatteryRawResponse(
-        days=[day.date for day in days],
-        body_battery=body_battery,
+        days=[d.date for d in days],
+        body_battery=[r for d in days for r in d.body_battery],
     )
 
 
 def flatten_spo2(days: list[DayWellness]) -> SpO2RawResponse:
-    spo2: list[SpO2Reading] = []
-    for day in days:
-        spo2.extend(day.spo2)
     return SpO2RawResponse(
-        days=[day.date for day in days],
-        spo2=spo2,
+        days=[d.date for d in days],
+        spo2=[r for d in days for r in d.spo2],
     )
 
 
 def flatten_respiration(days: list[DayWellness]) -> RespirationRawResponse:
-    respiration: list[RespirationReading] = []
-    for day in days:
-        respiration.extend(day.respiration)
     return RespirationRawResponse(
-        days=[day.date for day in days],
-        respiration=respiration,
+        days=[d.date for d in days],
+        respiration=[r for d in days for r in d.respiration],
     )
 
 

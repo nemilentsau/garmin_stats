@@ -32,9 +32,12 @@
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
-		if (selectedDate) {
-			const data = await api.getStressRaw(selectedDate);
-			intradayData = data;
+		const date = selectedDate;
+		if (date) {
+			const data = await api.getStressRaw(date);
+			if (selectedDate === date) {
+				intradayData = data;
+			}
 		}
 	}
 
