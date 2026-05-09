@@ -76,5 +76,5 @@ def test_today_card_logs_openapi_metadata_stays_compatible():
 
     assert operation["operationId"] == "get_card_logs_range_api_today_card_logs_get"
     assert operation["description"] == (
-        "Return completion statuses for all card occurrences in a date range."
+        "Return non-pending card log statuses for schedule-calendar rendering."
     )

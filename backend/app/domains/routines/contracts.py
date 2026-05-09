@@ -1,4 +1,9 @@
-"""API and persistence contracts for the live routine runtime."""
+"""Pydantic contracts owned by the routines domain.
+
+These models describe the compiled live runtime: card templates, routine
+schedules, dated occurrences, Today-board responses, and card logs. Draft
+artifact specs are owned by the artifacts domain.
+"""
 
 from __future__ import annotations
 

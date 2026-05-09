@@ -1,4 +1,9 @@
-"""Today board use cases for routines."""
+"""Today-board use cases for routines.
+
+The Today board is a one-day schedule projection enriched with persisted card
+logs. Updating a card log may notify an observer, such as experiment exposure
+sync, without coupling this module to that domain.
+"""
 
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ def get_card_log_range(
     start_date: str,
     end_date: str,
 ) -> CardLogRangeResponse:
+    """Return non-pending card log statuses in a date range."""
     logs = repo.list_card_logs_range(start_date=start_date, end_date=end_date)
     entries = [
         CardLogStatusEntry(occurrence_key=log.occurrence_key, status=log.status)
@@ -42,6 +48,7 @@ def get_card_log_range(
 
 
 def get_today(repo: RoutineRepository, *, date: str) -> TodayResponse:
+    """Return one day's scheduled cards grouped by slot with completion stats."""
     window = get_schedule_window(repo, start_date=date, duration_days=1)
     occurrences = window.days[0].occurrences if window.days else []
     cards = {
@@ -89,6 +96,7 @@ def upsert_today_card_log(
     request: TodayCardLogUpdateRequest,
     observer: TodayCardLogObserver | None = None,
 ) -> CardLog:
+    """Validate and save a card log for an existing Today occurrence."""
     scheduled_cards = {
         card.occurrence_key: card
         for slot in get_today(repo, date=date).slots

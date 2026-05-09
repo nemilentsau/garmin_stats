@@ -1,4 +1,9 @@
-"""Routine activation use case."""
+"""Routine activation use case.
+
+Activation compiles assistant-authored day-relative assignments into live dated
+routine assignments. Card dependencies are activated by the caller so routines
+stay decoupled from artifact storage.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ def compile_routine_activation(
     *,
     activate_card_template_dependency: CardTemplateDependencyActivator,
 ) -> RoutineSchedule:
+    """Persist a live routine schedule and its compiled dated assignments."""
     for assignment in command.assignments:
         activate_card_template_dependency(assignment.card_template_id)
 

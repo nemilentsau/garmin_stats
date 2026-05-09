@@ -1,4 +1,8 @@
-"""SQLite repository adapter for the routines domain."""
+"""SQLite-backed routine repository adapter.
+
+This module is the database boundary for the live routine runtime. It maps the
+routine application port onto shared JSON-record persistence helpers.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +30,8 @@ from app.infra.database import (
 
 
 class SqliteRoutineRepository:
+    """Repository adapter used by routine application use cases."""
+
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
         return load_routine_schedules(status=status)
 

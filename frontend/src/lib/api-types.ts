@@ -709,7 +709,7 @@ export interface paths {
         };
         /**
          * Get Routines
-         * @description Return compiled live routines.
+         * @description Return compiled live routine schedules, optionally filtered by status.
          */
         get: operations["get_routines_api_routines_get"];
         put?: never;
@@ -729,7 +729,7 @@ export interface paths {
         };
         /**
          * Get Routine Schedule Window
-         * @description Return resolved dated occurrences for the next 14 days.
+         * @description Return a 14-day window of scheduled and override-driven card occurrences.
          */
         get: operations["get_routine_schedule_window_api_routines_schedule_window_get"];
         put?: never;
@@ -749,7 +749,7 @@ export interface paths {
         };
         /**
          * Get Routine Detail
-         * @description Return a single compiled live routine.
+         * @description Return one compiled live routine schedule.
          */
         get: operations["get_routine_detail_api_routines__routine_id__get"];
         put?: never;
@@ -769,7 +769,7 @@ export interface paths {
         };
         /**
          * Get Assignments
-         * @description Return recurring card assignments for a routine.
+         * @description Return dated card assignments belonging to one compiled routine.
          */
         get: operations["get_assignments_api_routines__routine_id__assignments_get"];
         put?: never;
@@ -1129,7 +1129,7 @@ export interface paths {
         };
         /**
          * Get Today View
-         * @description Return compiled cards for a single day.
+         * @description Return the Today board with schedule occurrences merged with card logs.
          */
         get: operations["get_today_view_api_today_get"];
         put?: never;
@@ -1149,7 +1149,7 @@ export interface paths {
         };
         /**
          * Get Card Logs Range
-         * @description Return completion statuses for all card occurrences in a date range.
+         * @description Return non-pending card log statuses for schedule-calendar rendering.
          */
         get: operations["get_card_logs_range_api_today_card_logs_get"];
         put?: never;
@@ -1170,7 +1170,7 @@ export interface paths {
         get?: never;
         /**
          * Put Today Card Log
-         * @description Create or replace the log for a single card occurrence.
+         * @description Create or replace one Today card log and notify exposure sync observers.
          */
         put: operations["put_today_card_log_api_today__date__cards__occurrence_key__put"];
         post?: never;

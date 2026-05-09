@@ -1,4 +1,9 @@
-"""HTTP routes for the routines domain."""
+"""HTTP routes for routines and Today-board views.
+
+Routes bind FastAPI request/response metadata to routine application use cases.
+They should not perform schedule projection, persistence queries, or exposure
+sync decisions directly.
+"""
 
 from fastapi import APIRouter, Query
 
@@ -31,7 +36,7 @@ today_router = APIRouter(prefix="/api/today", tags=["today"])
 
 @routines_router.get("", response_model=RoutineSchedulesResponse)
 def get_routines(status: str | None = None):
-    """Return compiled live routines."""
+    """Return compiled live routine schedules, optionally filtered by status."""
     return list_routines(build_container().routines_repo, status=status)
 
 
@@ -39,25 +44,25 @@ def get_routines(status: str | None = None):
 def get_routine_schedule_window(
     start_date: str = Query(..., description="Start date for the 14-day schedule window"),
 ):
-    """Return resolved dated occurrences for the next 14 days."""
+    """Return a 14-day window of scheduled and override-driven card occurrences."""
     return get_schedule_window(build_container().routines_repo, start_date=start_date)
 
 
 @routines_router.get("/{routine_id}", response_model=RoutineSchedule)
 def get_routine_detail(routine_id: str):
-    """Return a single compiled live routine."""
+    """Return one compiled live routine schedule."""
     return get_routine(build_container().routines_repo, routine_id)
 
 
 @routines_router.get("/{routine_id}/assignments", response_model=RoutineAssignmentsResponse)
 def get_assignments(routine_id: str):
-    """Return recurring card assignments for a routine."""
+    """Return dated card assignments belonging to one compiled routine."""
     return list_routine_assignments(build_container().routines_repo, routine_id=routine_id)
 
 
 @today_router.get("", response_model=TodayResponse)
 def get_today_view(date: str = Query(..., description="Date (YYYY-MM-DD)")):
-    """Return compiled cards for a single day."""
+    """Return the Today board with schedule occurrences merged with card logs."""
     return get_today(build_container().routines_repo, date=date)
 
 
@@ -66,14 +71,14 @@ def get_card_logs_range(
     start_date: str = Query(..., description="Start date (YYYY-MM-DD, inclusive)"),
     end_date: str = Query(..., description="End date (YYYY-MM-DD, inclusive)"),
 ):
-    """Return completion statuses for all card occurrences in a date range."""
+    """Return non-pending card log statuses for schedule-calendar rendering."""
     repo = build_container().routines_repo
     return get_card_log_range(repo, start_date=start_date, end_date=end_date)
 
 
 @today_router.put("/{date}/cards/{occurrence_key}", response_model=CardLog)
 def put_today_card_log(date: str, occurrence_key: str, request: TodayCardLogUpdateRequest):
-    """Create or replace the log for a single card occurrence."""
+    """Create or replace one Today card log and notify exposure sync observers."""
     container = build_container()
     return upsert_today_card_log(
         container.routines_repo,

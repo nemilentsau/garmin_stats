@@ -1,4 +1,9 @@
-"""Schedule projection use case for routines."""
+"""Schedule projection use cases for routines.
+
+Projection expands compiled routine assignments into dated card occurrences,
+then applies persisted add, hide, and replace overrides. It is the shared source
+for the schedule calendar and Today-board views.
+"""
 
 from __future__ import annotations
 
@@ -56,6 +61,7 @@ def _schedule_occurrence_from_template(
     target_occurrence_key: str | None = None,
     payload_json: dict[str, object] | None = None,
 ) -> ScheduleOccurrence:
+    """Build a schedule occurrence from a card template plus source metadata."""
     return ScheduleOccurrence(
         occurrence_key=occurrence_key,
         date=date,
@@ -181,6 +187,7 @@ def get_schedule_window(
     start_date: str,
     duration_days: int = 14,
 ) -> ScheduleWindow:
+    """Return a dated occurrence window beginning at ``start_date``."""
     if duration_days <= 0:
         raise ValueError("duration_days must be greater than 0")
 
