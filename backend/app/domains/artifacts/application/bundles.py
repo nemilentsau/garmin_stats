@@ -70,7 +70,6 @@ def _build_existing_draft_ids(
 
 
 def _bundle_delta_summary(
-    artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
     kind: ArtifactBundleItemKind,
     target_id: str,
@@ -109,7 +108,6 @@ def _bundle_delta_for_artifact(
     existing_draft_ids: set[str],
 ) -> ArtifactBundleDelta:
     action, summary = _bundle_delta_summary(
-        artifact_repo,
         routines_repo,
         kind,
         target_id,
