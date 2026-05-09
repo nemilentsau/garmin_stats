@@ -8,6 +8,7 @@ without directly compiling them.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from pydantic import ValidationError
@@ -34,12 +35,10 @@ from .validation import validate_card_template_payload, validate_routine_spec_pa
 
 @dataclass(frozen=True)
 class _PreparedBundleArtifact:
-    artifact_id: str
-    kind: ArtifactBundleItemKind
-    target_id: str
+    """Planned bundle artifact: the public delta plus the payload to persist."""
+
+    delta: ArtifactBundleDelta
     payload_json: dict[str, object]
-    action: ArtifactBundleDeltaAction
-    summary: str
 
 
 _RESERVED_PLACEHOLDER_BUNDLE_IDS = frozenset({"proper-routine-bundle"})
@@ -163,116 +162,192 @@ def _contains_reserved_placeholder_phrase(value: str | None) -> bool:
     return any(phrase in normalized for phrase in _RESERVED_PLACEHOLDER_PHRASES)
 
 
+def _reserved_value_issue(
+    *, path: str, descriptor: str, value: str
+) -> ArtifactBundleIssue:
+    return ArtifactBundleIssue(
+        path=path,
+        message=(
+            f"{descriptor} '{value}' is reserved for placeholder/demo content "
+            "and cannot be imported"
+        ),
+    )
+
+
+def _reserved_text_issue(
+    *, path: str, descriptor: str, follow_up: str
+) -> ArtifactBundleIssue:
+    return ArtifactBundleIssue(
+        path=path,
+        message=(
+            f"{descriptor} still contains placeholder authoring instructions; "
+            f"{follow_up}"
+        ),
+    )
+
+
+def _reserved_tags_issue(
+    *, path: str, reserved_tags: list[str]
+) -> ArtifactBundleIssue:
+    return ArtifactBundleIssue(
+        path=path,
+        message=(
+            f"Reserved placeholder/demo tag(s) {', '.join(reserved_tags)} found; "
+            "remove them before import"
+        ),
+    )
+
+
+def _placeholder_item_issues(
+    *,
+    path_prefix: str,
+    kind_label: str,
+    item_id: str,
+    text_field_name: str,
+    text_field_value: str | None,
+    tags: Iterable[str],
+) -> list[ArtifactBundleIssue]:
+    """Issues for one card_template or routine_spec entry in a bundle."""
+    issues: list[ArtifactBundleIssue] = []
+    if _starts_with_reserved_placeholder_prefix(item_id):
+        issues.append(
+            _reserved_value_issue(
+                path=f"{path_prefix}.id",
+                descriptor=f"{kind_label} id",
+                value=item_id,
+            )
+        )
+    if _contains_reserved_placeholder_phrase(text_field_value):
+        issues.append(
+            _reserved_text_issue(
+                path=f"{path_prefix}.{text_field_name}",
+                descriptor=f"{kind_label} {text_field_name}",
+                follow_up="replace it with real bundle metadata",
+            )
+        )
+    reserved_tags = sorted(set(tags) & _RESERVED_PLACEHOLDER_TAGS)
+    if reserved_tags:
+        issues.append(
+            _reserved_tags_issue(
+                path=f"{path_prefix}.tags",
+                reserved_tags=reserved_tags,
+            )
+        )
+    return issues
+
+
 def _validate_placeholder_bundle_content(bundle: ArtifactBundleSpec) -> list[ArtifactBundleIssue]:
     issues: list[ArtifactBundleIssue] = []
 
     if bundle.id in _RESERVED_PLACEHOLDER_BUNDLE_IDS:
         issues.append(
-            ArtifactBundleIssue(
-                path="bundle.id",
-                message=(
-                    f"Bundle id '{bundle.id}' is reserved for placeholder/demo content and "
-                    "cannot be imported"
-                ),
+            _reserved_value_issue(
+                path="bundle.id", descriptor="Bundle id", value=bundle.id,
             )
         )
     if bundle.name in _RESERVED_PLACEHOLDER_BUNDLE_NAMES:
         issues.append(
-            ArtifactBundleIssue(
-                path="bundle.name",
-                message=(
-                    f"Bundle name '{bundle.name}' is reserved for placeholder/demo content "
-                    "and cannot be imported"
-                ),
+            _reserved_value_issue(
+                path="bundle.name", descriptor="Bundle name", value=bundle.name,
             )
         )
     if _contains_reserved_placeholder_phrase(bundle.description):
         issues.append(
-            ArtifactBundleIssue(
+            _reserved_text_issue(
                 path="bundle.description",
-                message=(
-                    "Bundle description still contains placeholder authoring instructions; "
-                    "paste a real bundle before preview/import"
-                ),
+                descriptor="Bundle description",
+                follow_up="paste a real bundle before preview/import",
             )
         )
 
     for index, card in enumerate(bundle.card_templates):
-        if _starts_with_reserved_placeholder_prefix(card.id):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"card_templates.{index}.id",
-                    message=(
-                        f"card_template id '{card.id}' is reserved for placeholder/demo "
-                        "content and cannot be imported"
-                    ),
-                )
+        issues.extend(
+            _placeholder_item_issues(
+                path_prefix=f"card_templates.{index}",
+                kind_label="card_template",
+                item_id=card.id,
+                text_field_name="summary",
+                text_field_value=card.summary,
+                tags=card.tags,
             )
-        if _contains_reserved_placeholder_phrase(card.summary):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"card_templates.{index}.summary",
-                    message=(
-                        "card_template summary still contains placeholder authoring "
-                        "instructions; replace it with real bundle metadata"
-                    ),
-                )
-            )
-        if reserved_tags := sorted(set(card.tags) & _RESERVED_PLACEHOLDER_TAGS):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"card_templates.{index}.tags",
-                    message=(
-                        f"Reserved placeholder/demo tag(s) {', '.join(reserved_tags)} found; "
-                        "remove them before import"
-                    ),
-                )
-            )
+        )
 
     for index, routine in enumerate(bundle.routine_specs):
-        if _starts_with_reserved_placeholder_prefix(routine.id):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"routine_specs.{index}.id",
-                    message=(
-                        f"routine_spec id '{routine.id}' is reserved for placeholder/demo "
-                        "content and cannot be imported"
-                    ),
-                )
+        issues.extend(
+            _placeholder_item_issues(
+                path_prefix=f"routine_specs.{index}",
+                kind_label="routine_spec",
+                item_id=routine.id,
+                text_field_name="notes",
+                text_field_value=routine.notes,
+                tags=routine.tags,
             )
-        if _contains_reserved_placeholder_phrase(routine.notes):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"routine_specs.{index}.notes",
-                    message=(
-                        "routine_spec notes still contain placeholder authoring instructions; "
-                        "replace them with real bundle metadata"
-                    ),
-                )
-            )
-        if reserved_tags := sorted(set(routine.tags) & _RESERVED_PLACEHOLDER_TAGS):
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"routine_specs.{index}.tags",
-                    message=(
-                        f"Reserved placeholder/demo tag(s) {', '.join(reserved_tags)} found; "
-                        "remove them before import"
-                    ),
-                )
-            )
+        )
         for assignment_index, assignment in enumerate(routine.assignments):
             if _starts_with_reserved_placeholder_prefix(assignment.id):
                 issues.append(
-                    ArtifactBundleIssue(
+                    _reserved_value_issue(
                         path=f"routine_specs.{index}.assignments.{assignment_index}.id",
-                        message=(
-                            f"Assignment id '{assignment.id}' is reserved for placeholder/demo "
-                            "content and cannot be imported"
-                        ),
+                        descriptor="Assignment id",
+                        value=assignment.id,
                     )
                 )
 
     return issues
+
+
+def _record_duplicate_id_issue(
+    *,
+    ids_seen: set[str],
+    kind: ArtifactBundleItemKind,
+    item_id: str,
+    path_prefix: str,
+    issues: list[ArtifactBundleIssue],
+) -> bool:
+    """Record a duplicate-id issue and return True; otherwise mark id seen."""
+    if item_id in ids_seen:
+        issues.append(
+            ArtifactBundleIssue(
+                path=f"{path_prefix}.id",
+                message=f"Duplicate {kind} id '{item_id}' in bundle",
+            )
+        )
+        return True
+    ids_seen.add(item_id)
+    return False
+
+
+def _record_payload_issues(
+    errors: list[str],
+    *,
+    path_prefix: str,
+    issues: list[ArtifactBundleIssue],
+) -> None:
+    for error in errors:
+        issues.append(ArtifactBundleIssue(path=path_prefix, message=error))
+
+
+def _record_prepared_artifact(
+    *,
+    artifact_repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
+    bundle_id: str,
+    kind: ArtifactBundleItemKind,
+    target_id: str,
+    payload: dict[str, object],
+    existing_draft_ids: set[str],
+    prepared: list[_PreparedBundleArtifact],
+) -> None:
+    delta = _bundle_delta_for_artifact(
+        artifact_repo=artifact_repo,
+        routines_repo=routines_repo,
+        bundle_id=bundle_id,
+        kind=kind,
+        target_id=target_id,
+        payload_json=payload,
+        existing_draft_ids=existing_draft_ids,
+    )
+    prepared.append(_PreparedBundleArtifact(delta=delta, payload_json=payload))
 
 
 def _build_bundle_plan(
@@ -308,77 +383,57 @@ def _build_bundle_plan(
     )
 
     for index, card in enumerate(bundle.card_templates):
-        payload = card.model_dump()
-        if card.id in card_ids_seen:
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"card_templates.{index}.id",
-                    message=f"Duplicate card_template id '{card.id}' in bundle",
-                )
-            )
+        path_prefix = f"card_templates.{index}"
+        if _record_duplicate_id_issue(
+            ids_seen=card_ids_seen,
+            kind="card_template",
+            item_id=card.id,
+            path_prefix=path_prefix,
+            issues=issues,
+        ):
             continue
-        card_ids_seen.add(card.id)
 
+        payload = card.model_dump()
         card_errors, _requested_renderer = validate_card_template_payload(payload)
-        for error in card_errors:
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"card_templates.{index}",
-                    message=error,
-                )
-            )
+        _record_payload_issues(card_errors, path_prefix=path_prefix, issues=issues)
 
-        delta = _bundle_delta_for_artifact(
+        _record_prepared_artifact(
             artifact_repo=artifact_repo,
             routines_repo=routines_repo,
             bundle_id=bundle.id,
             kind="card_template",
             target_id=card.id,
-            payload_json=payload,
+            payload=payload,
             existing_draft_ids=existing_draft_ids,
-        )
-        prepared.append(
-            _PreparedBundleArtifact(
-                artifact_id=delta.artifact_id,
-                kind="card_template",
-                target_id=card.id,
-                payload_json=payload,
-                action=delta.action,
-                summary=delta.summary,
-            )
+            prepared=prepared,
         )
 
     for index, routine in enumerate(bundle.routine_specs):
-        payload = routine.model_dump()
-        if routine.id in routine_ids_seen:
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"routine_specs.{index}.id",
-                    message=f"Duplicate routine_spec id '{routine.id}' in bundle",
-                )
-            )
+        path_prefix = f"routine_specs.{index}"
+        if _record_duplicate_id_issue(
+            ids_seen=routine_ids_seen,
+            kind="routine_spec",
+            item_id=routine.id,
+            path_prefix=path_prefix,
+            issues=issues,
+        ):
             continue
-        routine_ids_seen.add(routine.id)
 
+        payload = routine.model_dump()
         routine_errors = validate_routine_spec_payload(
             artifact_repo,
             routines_repo,
             payload,
             additional_card_ids=bundled_card_ids,
         )
-        for error in routine_errors:
-            issues.append(
-                ArtifactBundleIssue(
-                    path=f"routine_specs.{index}",
-                    message=error,
-                )
-            )
+        _record_payload_issues(routine_errors, path_prefix=path_prefix, issues=issues)
 
         for assignment_index, assignment in enumerate(routine.assignments):
+            assignment_path = f"{path_prefix}.assignments.{assignment_index}.id"
             if assignment.id in assignment_ids_seen:
                 issues.append(
                     ArtifactBundleIssue(
-                        path=f"routine_specs.{index}.assignments.{assignment_index}.id",
+                        path=assignment_path,
                         message=f"Duplicate assignment id '{assignment.id}' in bundle",
                     )
                 )
@@ -391,7 +446,7 @@ def _build_bundle_plan(
                 routine_names = ", ".join(conflicting_routine_ids)
                 issues.append(
                     ArtifactBundleIssue(
-                        path=f"routine_specs.{index}.assignments.{assignment_index}.id",
+                        path=assignment_path,
                         message=(
                             f"Assignment id '{assignment.id}' already belongs to routine "
                             f"{routine_names}"
@@ -399,40 +454,18 @@ def _build_bundle_plan(
                     )
                 )
 
-        delta = _bundle_delta_for_artifact(
+        _record_prepared_artifact(
             artifact_repo=artifact_repo,
             routines_repo=routines_repo,
             bundle_id=bundle.id,
             kind="routine_spec",
             target_id=routine.id,
-            payload_json=payload,
+            payload=payload,
             existing_draft_ids=existing_draft_ids,
-        )
-        prepared.append(
-            _PreparedBundleArtifact(
-                artifact_id=delta.artifact_id,
-                kind="routine_spec",
-                target_id=routine.id,
-                payload_json=payload,
-                action=delta.action,
-                summary=delta.summary,
-            )
+            prepared=prepared,
         )
 
     return issues, prepared
-
-
-def _deltas_from_prepared(prepared: list[_PreparedBundleArtifact]) -> list[ArtifactBundleDelta]:
-    return [
-        ArtifactBundleDelta(
-            artifact_id=item.artifact_id,
-            kind=item.kind,
-            target_id=item.target_id,
-            action=item.action,
-            summary=item.summary,
-        )
-        for item in prepared
-    ]
 
 
 def preview_artifact_bundle(
@@ -447,7 +480,7 @@ def preview_artifact_bundle(
         bundle_name=bundle.name,
         valid=not issues,
         issues=issues,
-        deltas=_deltas_from_prepared(prepared),
+        deltas=[item.delta for item in prepared],
     )
 
 
@@ -464,8 +497,8 @@ def import_artifact_bundle(
     now = now_iso()
     artifacts = [
         AssistantArtifact(
-            id=item.artifact_id,
-            kind=item.kind,
+            id=item.delta.artifact_id,
+            kind=item.delta.kind,
             schema_version=bundle.schema_version,
             status="validated",
             payload_json=item.payload_json,
@@ -481,7 +514,7 @@ def import_artifact_bundle(
         bundle_name=bundle.name,
         imported_artifact_ids=[artifact.id for artifact in artifacts],
         total_imported=len(artifacts),
-        deltas=_deltas_from_prepared(prepared),
+        deltas=[item.delta for item in prepared],
     )
 
 
