@@ -1564,10 +1564,7 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
-        /**
-         * CardLogRangeResponse
-         * @description Completion statuses for a date range of card occurrences.
-         */
+        /** CardLogRangeResponse */
         CardLogRangeResponse: {
             /** Start Date */
             start_date: string;
@@ -1579,10 +1576,7 @@ export interface components {
              */
             entries: components["schemas"]["CardLogStatusEntry"][];
         };
-        /**
-         * CardLogStatusEntry
-         * @description Lightweight completion status for a single card occurrence.
-         */
+        /** CardLogStatusEntry */
         CardLogStatusEntry: {
             /** Occurrence Key */
             occurrence_key: string;
@@ -1637,8 +1631,16 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            renderer: components["schemas"]["RendererFamily"];
-            slot_default: components["schemas"]["SlotName"];
+            /**
+             * Renderer
+             * @enum {string}
+             */
+            renderer: "timer_session" | "checklist_block" | "exercise_block";
+            /**
+             * Slot Default
+             * @enum {string}
+             */
+            slot_default: "morning" | "midday" | "evening" | "anytime";
             /** Summary */
             summary?: string | null;
             /**
@@ -3073,8 +3075,6 @@ export interface components {
             /** Label */
             label: string | null;
         };
-        /** @enum {string} */
-        RendererFamily: "timer_session" | "checklist_block" | "exercise_block";
         /** RespirationRawResponse */
         RespirationRawResponse: {
             /** Days */
@@ -3143,7 +3143,11 @@ export interface components {
             card_template_id: string;
             /** Day */
             day: number;
-            slot: components["schemas"]["SlotName"];
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
             /**
              * Position
              * @default 0
@@ -3420,8 +3424,6 @@ export interface components {
              */
             sample_count: number;
         };
-        /** @enum {string} */
-        SlotName: "morning" | "midday" | "evening" | "anytime";
         /** SpO2RawResponse */
         SpO2RawResponse: {
             /** Days */

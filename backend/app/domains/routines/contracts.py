@@ -2,47 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from app.contracts.base import (
+    AutoTotalResponse,
+    DefaultsRequired,
+    EntityStatus,
+    StrictDefaultsRequired,
+)
 
-
-class _DefaultsRequired(BaseModel):
-    """Base for models where defaulted fields stay required in JSON schema output."""
-
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
-
-
-class _AutoTotalResponse(_DefaultsRequired):
-    """Response base that auto-computes ``total`` from the items list field."""
-
-    _items_field: ClassVar[str]
-
-    def __init_subclass__(cls, items_field: str = "", **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        if items_field:
-            cls._items_field = items_field
-
-    @model_validator(mode="before")
-    @classmethod
-    def _auto_fill_total(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "total" not in data:
-            items = data.get(cls._items_field)
-            if isinstance(items, list):
-                data["total"] = len(items)
-        return data
-
-
-class _StrictDefaultsRequired(_DefaultsRequired):
-    """Base for request models that must reject unknown keys."""
-
-    model_config = ConfigDict(
-        json_schema_serialization_defaults_required=True,
-        extra="forbid",
-    )
-
-
-EntityStatus = Literal["active", "retired", "paused"]
 RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
 SlotName = Literal["morning", "midday", "evening", "anytime"]
 WeekdayName = Literal[
@@ -59,7 +27,7 @@ CardOverrideAction = Literal["add", "hide", "replace"]
 ScheduleOccurrenceSourceKind = Literal["scheduled", "override_add", "override_replace"]
 
 
-class CardTemplate(_DefaultsRequired):
+class CardTemplate(DefaultsRequired):
     id: str
     name: str
     renderer: RendererFamily
@@ -71,12 +39,12 @@ class CardTemplate(_DefaultsRequired):
     source_artifact_id: str | None = None
 
 
-class CardTemplatesResponse(_AutoTotalResponse, items_field="cards"):
+class CardTemplatesResponse(AutoTotalResponse, items_field="cards"):
     cards: list[CardTemplate] = []
     total: int = 0
 
 
-class RoutineSchedule(_DefaultsRequired):
+class RoutineSchedule(DefaultsRequired):
     id: str
     name: str
     status: EntityStatus = "active"
@@ -87,7 +55,7 @@ class RoutineSchedule(_DefaultsRequired):
     source_artifact_id: str | None = None
 
 
-class RoutineAssignment(_DefaultsRequired):
+class RoutineAssignment(DefaultsRequired):
     id: str
     routine_id: str
     card_template_id: str
@@ -97,17 +65,17 @@ class RoutineAssignment(_DefaultsRequired):
     prescription_override_json: dict[str, object] = {}
 
 
-class RoutineSchedulesResponse(_AutoTotalResponse, items_field="routines"):
+class RoutineSchedulesResponse(AutoTotalResponse, items_field="routines"):
     routines: list[RoutineSchedule] = []
     total: int = 0
 
 
-class RoutineAssignmentsResponse(_AutoTotalResponse, items_field="assignments"):
+class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
     assignments: list[RoutineAssignment] = []
     total: int = 0
 
 
-class CardLog(_DefaultsRequired):
+class CardLog(DefaultsRequired):
     id: str
     date: str
     occurrence_key: str
@@ -118,7 +86,7 @@ class CardLog(_DefaultsRequired):
     notes: str | None = None
 
 
-class CardOverride(_DefaultsRequired):
+class CardOverride(DefaultsRequired):
     id: str
     date: str
     action: CardOverrideAction
@@ -129,7 +97,7 @@ class CardOverride(_DefaultsRequired):
     notes: str | None = None
 
 
-class TodayCardLogUpdateRequest(_StrictDefaultsRequired):
+class TodayCardLogUpdateRequest(StrictDefaultsRequired):
     card_template_id: str
     assignment_id: str | None = None
     status: CardLogStatus = "completed"
@@ -137,7 +105,7 @@ class TodayCardLogUpdateRequest(_StrictDefaultsRequired):
     notes: str | None = None
 
 
-class TodayStats(_DefaultsRequired):
+class TodayStats(DefaultsRequired):
     total: int = 0
     completed: int = 0
     partial: int = 0
@@ -145,7 +113,7 @@ class TodayStats(_DefaultsRequired):
     pending: int = 0
 
 
-class TodayCard(_DefaultsRequired):
+class TodayCard(DefaultsRequired):
     occurrence_key: str
     date: str
     slot: SlotName
@@ -167,34 +135,30 @@ class TodayCard(_DefaultsRequired):
     notes: str | None = None
 
 
-class TodaySlot(_DefaultsRequired):
+class TodaySlot(DefaultsRequired):
     slot: SlotName
     label: str
     cards: list[TodayCard] = []
 
 
-class TodayResponse(_DefaultsRequired):
+class TodayResponse(DefaultsRequired):
     date: str
     stats: TodayStats
     slots: list[TodaySlot] = []
 
 
-class CardLogStatusEntry(_DefaultsRequired):
-    """Lightweight completion status for a single card occurrence."""
-
+class CardLogStatusEntry(DefaultsRequired):
     occurrence_key: str
     status: CardLogStatus
 
 
-class CardLogRangeResponse(_DefaultsRequired):
-    """Completion statuses for a date range of card occurrences."""
-
+class CardLogRangeResponse(DefaultsRequired):
     start_date: str
     end_date: str
     entries: list[CardLogStatusEntry] = []
 
 
-class ScheduleOccurrence(_DefaultsRequired):
+class ScheduleOccurrence(DefaultsRequired):
     occurrence_key: str
     date: str
     slot: SlotName
@@ -213,13 +177,13 @@ class ScheduleOccurrence(_DefaultsRequired):
     payload_json: dict[str, object] = {}
 
 
-class ScheduleDay(_DefaultsRequired):
+class ScheduleDay(DefaultsRequired):
     date: str
     weekday: WeekdayName
     occurrences: list[ScheduleOccurrence] = []
 
 
-class ScheduleWindow(_DefaultsRequired):
+class ScheduleWindow(DefaultsRequired):
     start_date: str
     end_date: str
     days: list[ScheduleDay] = []
