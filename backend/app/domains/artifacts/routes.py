@@ -13,7 +13,6 @@ from app.domains.artifacts.application.bundles import (
     import_artifact_bundle,
     preview_artifact_bundle,
 )
-from app.domains.artifacts.application.cards import list_cards
 from app.domains.artifacts.application.staging import (
     create_assistant_artifact,
     get_assistant_artifact,
@@ -93,22 +92,18 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
     response_model=ArtifactBundleImportResponse,
 )
 def post_import_bundle(bundle: ArtifactBundleSpec):
-    """Persist a valid bundle and activate cards before dependent routines."""
     container = build_container()
     result = import_artifact_bundle(container.artifacts_repo, container.routines_repo, bundle)
-    # Activate card templates first because routine activation depends on them.
-    card_ids = [d.artifact_id for d in result.deltas if d.kind == "card_template"]
-    routine_ids = [d.artifact_id for d in result.deltas if d.kind == "routine_spec"]
-    for artifact_id in card_ids + routine_ids:
+    for delta in result.deltas:
         activate_assistant_artifact(
             container.artifacts_repo,
             container.routines_repo,
-            artifact_id,
+            delta.artifact_id,
         )
     return result
 
 
 @cards_router.get("", response_model=CardTemplatesResponse)
 def get_cards(status: str | None = None):
-    """Return live card templates created from activated artifacts."""
-    return list_cards(build_container().routines_repo, status=status)
+    cards = build_container().routines_repo.list_card_templates(status=status)
+    return CardTemplatesResponse(cards=cards)

@@ -19,7 +19,6 @@ def test_artifacts_application_modules_follow_strict_boundary():
         "backend/app/domains/artifacts/application/activation.py",
         "backend/app/domains/artifacts/application/bundle_ids.py",
         "backend/app/domains/artifacts/application/bundles.py",
-        "backend/app/domains/artifacts/application/cards.py",
         "backend/app/domains/artifacts/application/staging.py",
         "backend/app/domains/artifacts/application/validation.py",
     ])

@@ -33,7 +33,6 @@ def _system_capability_request(
     requested_renderer: str,
     source_artifact: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
-    """Create a system artifact for an unsupported renderer request."""
     now = now_iso()
     artifact = AssistantArtifact(
         id=f"capreq-{uuid4().hex}",
@@ -63,7 +62,6 @@ def create_assistant_artifact(
     routines_repo: RoutineRepository,
     request: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
-    """Validate, timestamp, and persist one assistant-authored draft."""
     now = now_iso()
     errors: list[str] = []
     requested_renderer: str | None = None
@@ -110,13 +108,11 @@ def list_assistant_artifacts(
     kind: str | None = None,
     status: str | None = None,
 ) -> AssistantArtifactsResponse:
-    """List staged artifacts using optional kind/status filters."""
     artifacts = repo.list_assistant_artifacts(kind=kind, status=status)
     return AssistantArtifactsResponse(artifacts=artifacts)
 
 
 def get_assistant_artifact(repo: ArtifactRepository, artifact_id: str) -> AssistantArtifact:
-    """Load one staged artifact or raise for a missing id."""
     artifact = repo.get_assistant_artifact(artifact_id)
     if artifact is None:
         raise LookupError(f"Assistant artifact {artifact_id} not found")

@@ -31,7 +31,6 @@ def _compile_card_template_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> CardTemplate:
-    """Persist one validated card-template artifact as a live card template."""
     spec = CardTemplateSpec.model_validate(artifact.payload_json)
     card = CardTemplate(
         id=spec.id,
@@ -73,29 +72,26 @@ def _activate_card_template_dependency(
     routines_repo: RoutineRepository,
     card_id: str,
     *,
-    source_artifact: AssistantArtifact | None = None,
+    source_artifact: AssistantArtifact,
 ) -> None:
-    """Ensure a routine's referenced card template exists in live storage."""
     live_card = routines_repo.get_card_template(card_id)
-    bundle_dependency = (
-        _bundle_card_artifact_for_routine_artifact(artifact_repo, source_artifact, card_id)
-        if source_artifact is not None
-        else None
+    bundle_dependency = _bundle_card_artifact_for_routine_artifact(
+        artifact_repo, source_artifact, card_id
     )
+
     if bundle_dependency is not None:
-        if (
-            bundle_dependency.status == "activated"
-            and live_card is not None
-            and live_card.source_artifact_id == bundle_dependency.id
-        ):
+        if bundle_dependency.status == "validated":
+            activate_assistant_artifact(artifact_repo, routines_repo, bundle_dependency.id)
             return
-        if bundle_dependency.status != "validated":
-            if bundle_dependency.status == "activated":
+        if bundle_dependency.status == "activated":
+            already_compiled = (
+                live_card is not None
+                and live_card.source_artifact_id == bundle_dependency.id
+            )
+            if not already_compiled:
                 _compile_card_template_artifact(routines_repo, bundle_dependency)
-                return
-            raise ValueError(f"Card template {card_id} is not ready for activation")
-        activate_assistant_artifact(artifact_repo, routines_repo, bundle_dependency.id)
-        return
+            return
+        raise ValueError(f"Card template {card_id} is not ready for activation")
 
     dependency = card_spec_artifact_by_card_id(artifact_repo, card_id)
     if dependency is not None:
@@ -106,10 +102,8 @@ def _activate_card_template_dependency(
             _compile_card_template_artifact(routines_repo, dependency)
         return
 
-    if live_card is not None:
-        return
-
-    raise LookupError(f"Card template {card_id} is not available for activation")
+    if live_card is None:
+        raise LookupError(f"Card template {card_id} is not available for activation")
 
 
 def _compile_routine_spec_artifact(
@@ -117,7 +111,6 @@ def _compile_routine_spec_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> RoutineSchedule:
-    """Compile one routine-spec artifact through the routines domain."""
     spec = RoutineSpec.model_validate(artifact.payload_json)
     command = RoutineActivationCommand(
         id=spec.id,
@@ -149,7 +142,6 @@ def activate_assistant_artifact(
     routines_repo: RoutineRepository,
     artifact_id: str,
 ) -> AssistantArtifact:
-    """Activate a validated artifact and record its activated status."""
     artifact = get_assistant_artifact(artifact_repo, artifact_id)
     if artifact.status == "activated":
         return artifact
