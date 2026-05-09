@@ -78,8 +78,7 @@ _VALID_TABLES = frozenset({
     "assistant_messages", "assistant_runs", "context_snapshots",
     "assistant_evidence_bundles", "assistant_memory_records",
     "evidence_cards", "programs", "program_versions",
-    "assistant_artifacts", "card_templates", "routine_schedules",
-    "routine_assignments", "card_logs", "card_overrides",
+    "assistant_artifacts",
 })
 
 
@@ -301,81 +300,6 @@ def _normalize_alias_text(value: str | None) -> str | None:
 
 
 _STORE = JsonStore(_VALID_TABLES)
-
-
-def _save_json_record(
-    table: str,
-    record_id: str,
-    data_json: str,
-    *,
-    extra_columns: dict[str, object | None] | None = None,
-    created_at: str | None = None,
-    updated_at: str | None = None,
-) -> None:
-    _STORE.save(
-        table,
-        record_id,
-        data_json,
-        extra_columns=extra_columns,
-        created_at=created_at,
-        updated_at=updated_at,
-    )
-
-
-def _save_json_record_in_connection(
-    con: sqlite3.Connection,
-    table: str,
-    record_id: str,
-    data_json: str,
-    *,
-    extra_columns: dict[str, object | None] | None = None,
-    created_at: str | None = None,
-    updated_at: str | None = None,
-) -> None:
-    _STORE.save_in_connection(
-        con,
-        table,
-        record_id,
-        data_json,
-        extra_columns=extra_columns,
-        created_at=created_at,
-        updated_at=updated_at,
-    )
-
-
-def _record_exists(table: str, record_id: str) -> bool:
-    return _STORE.exists(table, record_id)
-
-
-def _delete_json_record(table: str, record_id: str) -> None:
-    _STORE.delete(table, record_id)
-
-
-def _load_json_record[M](
-    table: str,
-    model: type[M],
-    record_id: str,
-) -> M | None:
-    return _STORE.load(table, model, record_id)
-
-
-def _load_json_records[M](
-    table: str,
-    model: type[M],
-    *,
-    where_sql: str = "",
-    params: tuple[object, ...] = (),
-    order_by: str = "created_at, id",
-    last_n: int | None = None,
-) -> list[M]:
-    return _STORE.load_many(
-        table,
-        model,
-        where_sql=where_sql,
-        params=params,
-        order_by=order_by,
-        last_n=last_n,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -647,23 +571,23 @@ def _fetch_available_days() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def save_user_profile(profile: UserProfile) -> None:
-    _save_json_record("user_profile", profile.id, profile.model_dump_json())
+    _STORE.save("user_profile", profile.id, profile.model_dump_json())
 
 
 def load_user_profile(profile_id: str = DEFAULT_PROFILE_ID) -> UserProfile | None:
-    return _load_json_record("user_profile", UserProfile, profile_id)
+    return _STORE.load("user_profile", UserProfile, profile_id)
 
 
 def save_goal(goal: Goal) -> None:
-    _save_json_record("goals", goal.id, goal.model_dump_json())
+    _STORE.save("goals", goal.id, goal.model_dump_json())
 
 
 def load_goals() -> list[Goal]:
-    return _load_json_records("goals", Goal)
+    return _STORE.load_many("goals", Goal)
 
 
 def save_daily_checkin(checkin: DailyCheckIn) -> None:
-    _save_json_record(
+    _STORE.save(
         "daily_checkins",
         checkin.id,
         checkin.model_dump_json(),
@@ -678,7 +602,7 @@ def load_daily_checkins(
 ) -> list[DailyCheckIn]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "daily_checkins",
         DailyCheckIn,
         where_sql=where_sql,
@@ -689,7 +613,7 @@ def load_daily_checkins(
 
 
 def save_note(note: Note) -> None:
-    _save_json_record(
+    _STORE.save(
         "notes",
         note.id,
         note.model_dump_json(),
@@ -704,7 +628,7 @@ def load_notes(
 ) -> list[Note]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "notes",
         Note,
         where_sql=where_sql,
@@ -715,19 +639,19 @@ def load_notes(
 
 
 def experiment_exists(experiment_id: str) -> bool:
-    return _record_exists("experiments", experiment_id)
+    return _STORE.exists("experiments", experiment_id)
 
 
 def load_experiment(experiment_id: str) -> Experiment | None:
-    return _load_json_record("experiments", Experiment, experiment_id)
+    return _STORE.load("experiments", Experiment, experiment_id)
 
 
 def save_experiment(experiment: Experiment) -> None:
-    _save_json_record("experiments", experiment.id, experiment.model_dump_json())
+    _STORE.save("experiments", experiment.id, experiment.model_dump_json())
 
 
 def delete_experiment(experiment_id: str) -> None:
-    _delete_json_record("experiments", experiment_id)
+    _STORE.delete("experiments", experiment_id)
 
 
 def load_experiments(
@@ -740,11 +664,11 @@ def load_experiments(
         placeholders = ", ".join("?" for _ in statuses)
         where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
         params = statuses
-    return _load_json_records("experiments", Experiment, where_sql=where_sql, params=params)
+    return _STORE.load_many("experiments", Experiment, where_sql=where_sql, params=params)
 
 
 def save_experiment_exposure(exposure: ExperimentExposure) -> None:
-    _save_json_record(
+    _STORE.save(
         "experiment_exposures",
         exposure.id,
         exposure.model_dump_json(),
@@ -786,7 +710,7 @@ def replace_experiment_exposure_for_date(
         con.execute("DELETE FROM experiment_exposures WHERE id = ?", (auto_id,))
         if exposure is None or manual_exists:
             return
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "experiment_exposures",
             exposure.id,
@@ -810,7 +734,7 @@ def load_experiment_exposures(
     if date is not None:
         clauses.append("entry_date = ?")
         params.append(date)
-    return _load_json_records(
+    return _STORE.load_many(
         "experiment_exposures",
         ExperimentExposure,
         where_sql=" AND ".join(clauses),
@@ -820,7 +744,7 @@ def load_experiment_exposures(
 
 
 def save_experiment_report(report: ExperimentReport) -> None:
-    _save_json_record(
+    _STORE.save(
         "experiment_reports",
         report.id,
         report.model_dump_json(),
@@ -834,7 +758,7 @@ def save_experiment_report(report: ExperimentReport) -> None:
 def load_experiment_reports(experiment_id: str | None = None) -> list[ExperimentReport]:
     where_sql = "experiment_id = ?" if experiment_id is not None else ""
     params = (experiment_id,) if experiment_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "experiment_reports",
         ExperimentReport,
         where_sql=where_sql,
@@ -888,15 +812,15 @@ def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
 
 
 def save_plan(plan: Plan) -> None:
-    _save_json_record("plans", plan.id, plan.model_dump_json())
+    _STORE.save("plans", plan.id, plan.model_dump_json())
 
 
 def load_plans() -> list[Plan]:
-    return _load_json_records("plans", Plan)
+    return _STORE.load_many("plans", Plan)
 
 
 def save_plan_item(item: PlanItem) -> None:
-    _save_json_record(
+    _STORE.save(
         "plan_items",
         item.id,
         item.model_dump_json(),
@@ -910,7 +834,7 @@ def save_plan_item(item: PlanItem) -> None:
 def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
     where_sql = "plan_id = ?" if plan_id is not None else ""
     params = (plan_id,) if plan_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "plan_items",
         PlanItem,
         where_sql=where_sql,
@@ -936,19 +860,19 @@ def create_assistant_thread(thread: AssistantThread) -> None:
 
 
 def save_assistant_thread(thread: AssistantThread) -> None:
-    _save_json_record("assistant_threads", thread.id, thread.model_dump_json())
+    _STORE.save("assistant_threads", thread.id, thread.model_dump_json())
 
 
 def load_assistant_thread(thread_id: str) -> AssistantThread | None:
-    return _load_json_record("assistant_threads", AssistantThread, thread_id)
+    return _STORE.load("assistant_threads", AssistantThread, thread_id)
 
 
 def load_assistant_threads() -> list[AssistantThread]:
-    return _load_json_records("assistant_threads", AssistantThread)
+    return _STORE.load_many("assistant_threads", AssistantThread)
 
 
 def save_assistant_message(message: AssistantMessage) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_messages",
         message.id,
         message.model_dump_json(),
@@ -958,7 +882,7 @@ def save_assistant_message(message: AssistantMessage) -> None:
 
 
 def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_messages",
         AssistantMessage,
         where_sql="thread_id = ?",
@@ -968,7 +892,7 @@ def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
 
 
 def save_assistant_run(run: AssistantRun) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_runs",
         run.id,
         run.model_dump_json(),
@@ -987,7 +911,7 @@ def finalize_assistant_reply(
 ) -> None:
     """Persist assistant reply + thread metadata + completed run atomically."""
     with _connect() as con, con:
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_messages",
             assistant_message.id,
@@ -995,13 +919,13 @@ def finalize_assistant_reply(
             extra_columns={"thread_id": assistant_message.thread_id},
             created_at=assistant_message.created_at,
         )
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_threads",
             updated_thread.id,
             updated_thread.model_dump_json(),
         )
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_runs",
             completed_run.id,
@@ -1011,7 +935,7 @@ def finalize_assistant_reply(
             updated_at=completed_run.finished_at or completed_run.started_at,
         )
         if memory_record is not None:
-            _save_json_record_in_connection(
+            _STORE.save_in_connection(
                 con,
                 "assistant_memory_records",
                 memory_record.id,
@@ -1030,7 +954,7 @@ def finalize_assistant_reply(
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_runs",
         AssistantRun,
         where_sql=where_sql,
@@ -1040,7 +964,7 @@ def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
 
 
 def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_evidence_bundles",
         bundle.id,
         bundle.model_dump_json(),
@@ -1061,7 +985,7 @@ def load_assistant_evidence_bundles(
 ) -> list[AssistantEvidenceBundle]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_evidence_bundles",
         AssistantEvidenceBundle,
         where_sql=where_sql,
@@ -1072,7 +996,7 @@ def load_assistant_evidence_bundles(
 
 
 def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_memory_records",
         record.id,
         record.model_dump_json(),
@@ -1113,7 +1037,7 @@ def load_assistant_memory_records(
         clauses.append(f"alias_normalized IN ({placeholders})")
         params.extend(normalized_candidates)
 
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_memory_records",
         AssistantMemoryRecord,
         where_sql=" AND ".join(clauses),
@@ -1124,7 +1048,7 @@ def load_assistant_memory_records(
 
 
 def save_context_snapshot(snapshot: ContextSnapshot) -> None:
-    _save_json_record(
+    _STORE.save(
         "context_snapshots",
         snapshot.id,
         snapshot.model_dump_json(),
@@ -1133,19 +1057,19 @@ def save_context_snapshot(snapshot: ContextSnapshot) -> None:
 
 
 def load_context_snapshot(snapshot_id: str) -> ContextSnapshot | None:
-    return _load_json_record("context_snapshots", ContextSnapshot, snapshot_id)
+    return _STORE.load("context_snapshots", ContextSnapshot, snapshot_id)
 
 
 def load_context_snapshots() -> list[ContextSnapshot]:
-    return _load_json_records("context_snapshots", ContextSnapshot)
+    return _STORE.load_many("context_snapshots", ContextSnapshot)
 
 
 def save_evidence_card(card: EvidenceCard) -> None:
-    _save_json_record("evidence_cards", card.id, card.model_dump_json())
+    _STORE.save("evidence_cards", card.id, card.model_dump_json())
 
 
 def load_evidence_cards() -> list[EvidenceCard]:
-    return _load_json_records("evidence_cards", EvidenceCard)
+    return _STORE.load_many("evidence_cards", EvidenceCard)
 
 
 # ---------------------------------------------------------------------------
@@ -1154,7 +1078,7 @@ def load_evidence_cards() -> list[EvidenceCard]:
 
 
 def save_assistant_artifact(artifact: AssistantArtifact) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_artifacts",
         artifact.id,
         artifact.model_dump_json(),
@@ -1182,7 +1106,7 @@ def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
 
 
 def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
-    return _load_json_record("assistant_artifacts", AssistantArtifact, artifact_id)
+    return _STORE.load("assistant_artifacts", AssistantArtifact, artifact_id)
 
 
 def load_assistant_artifacts(
@@ -1198,7 +1122,7 @@ def load_assistant_artifacts(
     if status is not None:
         clauses.append("json_extract(data, '$.status') = ?")
         params.append(status)
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_artifacts",
         AssistantArtifact,
         where_sql=" AND ".join(clauses),
@@ -1251,11 +1175,11 @@ def load_max_artifact_revision(kind: str, id_prefix: str) -> int:
 
 
 def save_program(program: Program) -> None:
-    _save_json_record("programs", program.id, program.model_dump_json())
+    _STORE.save("programs", program.id, program.model_dump_json())
 
 
 def load_program(program_id: str) -> Program | None:
-    return _load_json_record("programs", Program, program_id)
+    return _STORE.load("programs", Program, program_id)
 
 
 def load_programs(status: str | None = None) -> list[Program]:
@@ -1264,7 +1188,7 @@ def load_programs(status: str | None = None) -> list[Program]:
     if status is not None:
         where_sql = "json_extract(data, '$.status') = ?"
         params = (status,)
-    return _load_json_records(
+    return _STORE.load_many(
         "programs",
         Program,
         where_sql=where_sql,
@@ -1325,7 +1249,7 @@ def save_program_import(
                 ),
             )
 
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "programs",
             program.id,
