@@ -11,7 +11,7 @@ from app.domains.assistant.application.threads import (
     list_messages,
     list_threads,
 )
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessageCreateRequest,
     AssistantMessagesResponse,
     AssistantThread,

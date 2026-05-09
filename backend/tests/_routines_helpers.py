@@ -10,7 +10,7 @@ from app.domains.routines.application.today import (
 from app.domains.routines.application.today import (
     upsert_today_card_log as _upsert_today_card_log,
 )
-from app.models import TodayCardLogUpdateRequest
+from app.domains.routines.contracts import TodayCardLogUpdateRequest
 
 
 def get_schedule_window(start_date: str, duration_days: int = 14):

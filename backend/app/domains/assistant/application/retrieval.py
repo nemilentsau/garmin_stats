@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import date, timedelta
 
+from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.ports import AssistantReadModelStore
 from app.domains.assistant.application.types import (
     AssistantEvidenceItem,
@@ -13,16 +14,17 @@ from app.domains.assistant.application.types import (
     AssistantRouteDecision,
     dedupe_strings,
 )
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
-from app.models import (
-    DailyCheckIn,
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
-    Note,
-    UserProfile,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
+from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 
 
 def retrieve_experiment_review(

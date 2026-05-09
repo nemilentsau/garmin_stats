@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, HTTPException
 
+from ..infra.contracts import DaysResponse, DaySummaryResponse
 from ..infra.database import DATA_DIR, load_available_days
-from ..models import DaysResponse, DaySummaryResponse
 from ..parser import get_day_summary
 
 router = APIRouter(prefix="/api/days", tags=["days"])

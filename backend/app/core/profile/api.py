@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.bootstrap.container import build_container
 from app.core.profile.application import get_user_profile, update_user_profile
-from app.models import UserProfile
+from app.core.profile.contracts import UserProfile
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 

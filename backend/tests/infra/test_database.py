@@ -6,11 +6,30 @@ import os
 import pytest
 
 import app.infra.database as db
+from app.core.profile.contracts import (
+    Goal,
+    UserProfile,
+)
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
+)
+from app.domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    ContextSnapshot,
+    EvidenceCard,
+    Plan,
+    PlanItem,
+)
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentExposure,
+    OutcomeMetric,
 )
 from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
@@ -25,29 +44,18 @@ from app.domains.garmin_analytics.contracts import (
     DaySleep,
     DayWellness,
 )
-from app.models import (
-    AssistantArtifact,
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
+from app.domains.routines.contracts import (
     CardLog,
     CardOverride,
     CardTemplate,
-    ContextSnapshot,
-    DailyCheckIn,
-    EvidenceCard,
-    Experiment,
-    ExperimentExposure,
-    Goal,
-    Note,
-    OutcomeMetric,
-    Plan,
-    PlanItem,
     Routine,
     RoutineAssignment,
     RoutineEntry,
     RoutineSchedule,
-    UserProfile,
 )
 from app.utils.timeutil import now_iso
 
@@ -989,14 +997,14 @@ class TestLastNQuery:
 
 class TestAutoTotal:
     def test_auto_total_computed_from_items(self):
-        from app.models import GoalsResponse
+        from app.core.profile.contracts import GoalsResponse
 
         response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")])
 
         assert response.total == 1
 
     def test_explicit_total_is_respected(self):
-        from app.models import GoalsResponse
+        from app.core.profile.contracts import GoalsResponse
 
         response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")], total=42)
 

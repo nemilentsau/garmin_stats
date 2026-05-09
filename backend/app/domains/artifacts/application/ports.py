@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.routines.contracts import CardTemplate
-from app.models import AssistantArtifact
 
 
 class ArtifactRepository(Protocol):

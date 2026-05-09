@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import DEFAULT_PROFILE_ID, UserProfile
+from app.core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    UserProfile,
+)
 
 
 class ProfileRepository(Protocol):

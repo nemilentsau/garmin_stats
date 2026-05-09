@@ -19,7 +19,7 @@ from app.domains.experiments.application.management import (
     update_experiment,
 )
 from app.domains.experiments.application.preview import preview_experiment
-from app.models import (
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentAnalysisRefreshResponse,

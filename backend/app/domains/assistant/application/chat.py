@@ -27,7 +27,11 @@ from app.domains.assistant.application.types import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
-from app.models import AssistantMessage, AssistantMessageCreateRequest, AssistantRun
+from app.domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantMessageCreateRequest,
+    AssistantRun,
+)
 from app.utils.timeutil import now_iso
 
 _MAX_ALIAS_PHRASE_TOKENS = 6

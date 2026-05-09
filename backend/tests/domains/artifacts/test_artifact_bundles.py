@@ -5,6 +5,14 @@ from typing import Any, cast
 
 import pytest
 
+from app.domains.artifacts.contracts import (
+    ArtifactBundleSpec,
+    AssistantArtifactCreateRequest,
+)
+from app.domains.routines.contracts import (
+    CardOverride,
+    TodayCardLogUpdateRequest,
+)
 from app.infra.database import (
     load_assistant_artifacts,
     load_card_template,
@@ -12,12 +20,6 @@ from app.infra.database import (
     load_routine_assignments,
     load_routine_schedules,
     save_card_override,
-)
-from app.models import (
-    ArtifactBundleSpec,
-    AssistantArtifactCreateRequest,
-    CardOverride,
-    TodayCardLogUpdateRequest,
 )
 from tests._architecture import REPO_ROOT
 from tests._artifacts_helpers import (

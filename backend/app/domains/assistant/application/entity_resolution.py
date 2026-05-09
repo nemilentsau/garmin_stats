@@ -14,7 +14,7 @@ from app.domains.assistant.application.types import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
-from app.models import Experiment
+from app.domains.experiments.contracts import Experiment
 
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {

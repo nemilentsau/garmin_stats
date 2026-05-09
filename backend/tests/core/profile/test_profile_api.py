@@ -1,7 +1,7 @@
 """Profile API tests."""
 
 import app.core.profile.api as profile_mod
-from app.models import UserProfile
+from app.core.profile.contracts import UserProfile
 
 
 class TestProfileApi:

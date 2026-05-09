@@ -16,43 +16,45 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..core.config import get_app_config
+from ..core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    Goal,
+    UserProfile,
+)
+from ..domains.artifacts.contracts import AssistantArtifact
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+)
+from ..domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    ContextSnapshot,
+    EvidenceCard,
+    Plan,
+    PlanItem,
+)
+from ..domains.experiments.contracts import (
+    Experiment,
+    ExperimentAnalysis,
+    ExperimentExposure,
+    ExperimentReport,
 )
 from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
+from ..domains.journal.contracts import DailyCheckIn, Note
+from ..domains.programs.contracts import Program, ProgramVersion
 from ..domains.routines.contracts import (
     CardLog,
     CardOverride,
     CardTemplate,
-    RoutineAssignment,
-    RoutineSchedule,
-)
-from ..models import (
-    DEFAULT_PROFILE_ID,
-    AssistantArtifact,
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
-    ContextSnapshot,
-    DailyCheckIn,
-    EvidenceCard,
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
-    ExperimentReport,
-    Goal,
-    Note,
-    Plan,
-    PlanItem,
-    Program,
-    ProgramVersion,
     Routine,
+    RoutineAssignment,
     RoutineEntry,
-    UserProfile,
+    RoutineSchedule,
 )
 from ..parser import get_files_by_day, parse_all_days, parse_day
 from ..utils.timeutil import now_iso

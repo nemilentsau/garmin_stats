@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from app.domains.experiments.application.target_metrics import get_target_metrics
-from app.models import TargetMetricsResponse
+from app.domains.experiments.contracts import TargetMetricsResponse
 
 router = APIRouter(prefix="/api/target-metrics", tags=["target-metrics"])
 

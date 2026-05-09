@@ -9,7 +9,11 @@ from app.domains.artifacts.application.artifacts import (
     get_assistant_artifact,
     list_assistant_artifacts,
 )
-from app.models import AssistantArtifact, AssistantArtifactCreateRequest, AssistantArtifactsResponse
+from app.domains.artifacts.contracts import (
+    AssistantArtifact,
+    AssistantArtifactCreateRequest,
+    AssistantArtifactsResponse,
+)
 
 router = APIRouter(prefix="/api/assistant/artifacts", tags=["assistant-artifacts"])
 

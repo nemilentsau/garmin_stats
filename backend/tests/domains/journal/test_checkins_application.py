@@ -1,7 +1,10 @@
 """Daily check-in application tests."""
 
 from app.domains.journal.application.checkins import create_checkin, list_checkins
-from app.models import DailyCheckIn, Note
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
 
 
 class _FakeJournalRepository:

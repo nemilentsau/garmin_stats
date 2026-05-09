@@ -9,14 +9,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from app.domains.routines.application.activation import compile_routine_artifact
-from app.domains.routines.application.ports import RoutineRepository
-from app.domains.routines.contracts import (
-    CardTemplate,
-    CardTemplatesResponse,
-    RoutineSchedule,
-)
-from app.models import (
+from app.domains.artifacts.contracts import (
     ArtifactBundleDelta,
     ArtifactBundleDeltaAction,
     ArtifactBundleImportResponse,
@@ -33,6 +26,13 @@ from app.models import (
     ExerciseBlockPayloadSpec,
     RoutineSpec,
     TimerSessionPayloadSpec,
+)
+from app.domains.routines.application.activation import compile_routine_artifact
+from app.domains.routines.application.ports import RoutineRepository
+from app.domains.routines.contracts import (
+    CardTemplate,
+    CardTemplatesResponse,
+    RoutineSchedule,
 )
 from app.utils.timeutil import now_iso
 

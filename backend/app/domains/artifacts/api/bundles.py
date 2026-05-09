@@ -8,7 +8,7 @@ from app.domains.artifacts.application.artifacts import (
     import_artifact_bundle,
     preview_artifact_bundle,
 )
-from app.models import (
+from app.domains.artifacts.contracts import (
     ArtifactBundleImportResponse,
     ArtifactBundlePreviewResponse,
     ArtifactBundleSpec,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.routines.contracts import CardTemplate
 from app.infra.database import (
     load_assistant_artifact,
@@ -14,7 +15,6 @@ from app.infra.database import (
     save_assistant_artifacts_batch,
     save_card_template,
 )
-from app.models import AssistantArtifact
 
 
 class SqliteArtifactRepository:

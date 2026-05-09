@@ -1,7 +1,7 @@
 """Routine API tests."""
 
 import app.domains.routines.api.routines as routines_api_mod
-from app.models import ScheduleWindow
+from app.domains.routines.contracts import ScheduleWindow
 
 
 class TestRoutineApi:

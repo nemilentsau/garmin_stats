@@ -2,8 +2,9 @@
 
 import pytest
 
+from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
+from app.domains.routines.contracts import CardOverride
 from app.infra.database import save_card_override
-from app.models import AssistantArtifactCreateRequest, CardOverride
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,

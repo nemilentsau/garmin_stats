@@ -4,7 +4,10 @@ from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
 from app.domains.journal.application.notes import create_note, list_notes
-from app.models import Note, NotesResponse
+from app.domains.journal.contracts import (
+    Note,
+    NotesResponse,
+)
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 

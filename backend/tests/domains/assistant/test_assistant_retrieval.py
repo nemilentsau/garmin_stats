@@ -3,6 +3,7 @@
 from datetime import date
 
 import app.domains.assistant.application.retrieval as retrieval_mod
+from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.evidence import build_evidence_bundle
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
@@ -10,6 +11,11 @@ from app.domains.assistant.application.types import (
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
+)
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentAnalysis,
+    ExperimentExposure,
 )
 from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
@@ -20,16 +26,14 @@ from app.domains.garmin_analytics.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.models import (
-    CardLog,
+from app.domains.journal.contracts import (
     DailyCheckIn,
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
     Note,
+)
+from app.domains.routines.contracts import (
+    CardLog,
     RoutineAssignment,
     RoutineSchedule,
-    UserProfile,
 )
 
 

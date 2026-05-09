@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentsResponse,
+    ExperimentWithAnalysis,
+)
 from app.domains.routines.application.ports import RoutineRepository
-from app.models import Experiment, ExperimentsResponse, ExperimentWithAnalysis
 
 from .analysis_cache import (
     load_current_analysis,

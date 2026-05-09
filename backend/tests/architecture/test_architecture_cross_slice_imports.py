@@ -25,12 +25,15 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     },
     "backend/app/domains/experiments/application/analysis.py": {
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
     },
     "backend/app/domains/experiments/application/analysis_math.py": {
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
     },
     "backend/app/domains/experiments/application/ports.py": {
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
     },
     "backend/app/domains/experiments/application/preview.py": {
         "app.domains.garmin_analytics.contracts",
@@ -44,21 +47,37 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/experiments/infra/sqlite_repository.py": {
         "app.domains.garmin_analytics.adapters",
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
     },
     "backend/app/domains/assistant/application/ports.py": {
+        "app.core.profile.contracts",
+        "app.domains.experiments.contracts",
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
         "app.domains.routines.contracts",
     },
+    "backend/app/domains/assistant/application/entity_resolution.py": {
+        "app.domains.experiments.contracts",
+    },
     "backend/app/domains/assistant/application/retrieval.py": {
+        "app.core.profile.contracts",
+        "app.domains.experiments.contracts",
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
         "app.domains.routines.contracts",
     },
     "backend/app/domains/assistant/infra/sqlite_repository.py": {
+        "app.core.profile.contracts",
         "app.domains.experiments.application.analysis_cache",
         "app.domains.experiments.application.ports",
+        "app.domains.experiments.contracts",
         "app.domains.garmin_analytics.adapters",
         "app.domains.garmin_analytics.contracts",
+        "app.domains.journal.contracts",
         "app.domains.routines.contracts",
+    },
+    "backend/app/domains/routines/application/activation.py": {
+        "app.domains.artifacts.contracts",
     },
     "backend/app/domains/garmin_sync/adapters.py": {
         "app.core.config",

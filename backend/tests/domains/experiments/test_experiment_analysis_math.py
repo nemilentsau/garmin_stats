@@ -26,7 +26,7 @@ from app.domains.garmin_analytics.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.models import DailyCheckIn
+from app.domains.journal.contracts import DailyCheckIn
 
 
 def _make_metric(

@@ -3,10 +3,10 @@
 import pytest
 
 import app.infra.database as db
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.routines.application.activation import compile_routine_artifact
 from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import load_routine_assignments, load_routine_schedule
-from app.models import AssistantArtifact
 
 
 def test_compile_routine_artifact_persists_schedule_and_assignments():

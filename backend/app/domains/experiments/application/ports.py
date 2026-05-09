@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.models import (
-    DailyCheckIn,
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import DailyCheckIn
 
 
 class ExperimentRepository(Protocol):

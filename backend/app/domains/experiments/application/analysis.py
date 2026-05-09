@@ -10,11 +10,9 @@ from datetime import timedelta
 
 import numpy as np
 
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.models import (
+from app.domains.experiments.contracts import (
     AdherenceDayEntry,
     ConfounderCheck,
-    DailyCheckIn,
     Experiment,
     ExperimentAnalysis,
     ExperimentDesign,
@@ -23,6 +21,8 @@ from app.models import (
     MetricLagResult,
     OutcomeMetric,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import DailyCheckIn
 
 from .analysis_math import (
     autocorrelation_lag1,

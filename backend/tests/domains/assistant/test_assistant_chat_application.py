@@ -4,21 +4,27 @@ import asyncio
 import json
 from typing import Any, cast
 
+from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.chat import stream_reply
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessageCreateRequest,
     AssistantRun,
-    CardLog,
-    DailyCheckIn,
+)
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
+)
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import (
+    DailyCheckIn,
     Note,
+)
+from app.domains.routines.contracts import (
+    CardLog,
     RoutineAssignment,
     RoutineSchedule,
-    UserProfile,
 )
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models import ExperimentExposure
+from app.domains.experiments.contracts import ExperimentExposure
 
 from .analysis_cache import persist_experiment_analysis
 from .ports import ExperimentRepository

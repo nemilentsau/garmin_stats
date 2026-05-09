@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
+from app.domains.experiments.contracts import Experiment
 from app.domains.routines.application.today import (
     get_card_log_range,
     get_today,
@@ -9,14 +11,12 @@ from app.domains.routines.application.today import (
 from app.domains.routines.application.today import (
     upsert_today_card_log as _upsert_today_card_log,
 )
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.infra.database import load_experiment_exposures, save_experiment
-from app.models import (
-    AssistantArtifactCreateRequest,
+from app.domains.routines.contracts import (
     CardLog,
-    Experiment,
     TodayCardLogUpdateRequest,
 )
+from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.infra.database import load_experiment_exposures, save_experiment
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,

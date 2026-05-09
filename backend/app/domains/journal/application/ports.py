@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import DailyCheckIn, Note
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
 
 
 class JournalRepository(Protocol):

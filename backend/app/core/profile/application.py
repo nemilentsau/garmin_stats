@@ -1,6 +1,9 @@
 """Profile configuration use cases."""
 
-from app.models import DEFAULT_PROFILE_ID, UserProfile
+from app.core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    UserProfile,
+)
 
 from .ports import ProfileRepository
 

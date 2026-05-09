@@ -4,13 +4,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+)
 from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
 from app.domains.experiments.application.ports import ExperimentRepository
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentAnalysis,
+    ExperimentExposure,
+)
 from app.domains.garmin_analytics.adapters import load_daily_metrics
 from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.infra.database import (
     create_assistant_thread,
@@ -31,17 +46,6 @@ from app.infra.database import (
     save_assistant_message,
     save_assistant_run,
     save_assistant_thread,
-)
-from app.models import (
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
-    DailyCheckIn,
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
-    Note,
-    UserProfile,
 )
 
 

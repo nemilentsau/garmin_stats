@@ -274,9 +274,7 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
 
 
 def test_global_models_do_not_reexport_garmin_analytics_contracts():
-    source = read_repo_file("backend/app/models.py")
-
-    assert "app.domains.garmin_analytics.contracts" not in source
+    assert not (REPO_ROOT / "backend/app/models.py").exists()
 
 
 def test_garmin_analytics_domain_modules_do_not_import_application_or_infra():
