@@ -12,6 +12,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.routines.contracts",
     },
     "backend/app/domains/artifacts/infra/sqlite_repository.py": {
+        "app.domains.routines.adapters",
         "app.domains.routines.contracts",
     },
     "backend/app/domains/artifacts/api/cards.py": {
@@ -74,6 +75,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.garmin_analytics.adapters",
         "app.domains.garmin_analytics.contracts",
         "app.domains.journal.contracts",
+        "app.domains.routines.adapters",
         "app.domains.routines.contracts",
     },
     "backend/app/domains/garmin_sync/adapters.py": {

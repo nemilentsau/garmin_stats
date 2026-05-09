@@ -26,6 +26,11 @@ from app.domains.journal.contracts import (
     DailyCheckIn,
     Note,
 )
+from app.domains.routines.adapters import (
+    load_card_logs_range,
+    load_routine_assignments,
+    load_routine_schedules,
+)
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.infra.database import (
     create_assistant_thread,
@@ -35,11 +40,8 @@ from app.infra.database import (
     load_assistant_messages,
     load_assistant_thread,
     load_assistant_threads,
-    load_card_logs_range,
     load_daily_checkins,
     load_notes,
-    load_routine_assignments,
-    load_routine_schedules,
     load_user_profile,
     save_assistant_evidence_bundle,
     save_assistant_memory_record,

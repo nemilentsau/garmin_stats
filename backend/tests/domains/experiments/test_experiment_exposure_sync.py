@@ -8,18 +8,20 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
 )
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
-from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.routines.adapters import (
+    SqliteRoutineRepository,
+    load_routine_schedule,
+    save_card_log,
+    save_routine_schedule,
+)
 from app.domains.routines.application.today import get_today
 from app.domains.routines.contracts import CardLog
 from app.infra.database import (
     load_experiment_analysis,
     load_experiment_exposures,
-    load_routine_schedule,
-    save_card_log,
     save_experiment,
     save_experiment_analysis,
     save_experiment_exposure,
-    save_routine_schedule,
 )
 from tests._artifacts_helpers import (
     activate_assistant_artifact,

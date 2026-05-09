@@ -2,8 +2,8 @@
 
 import pytest
 
+from app.domains.routines.adapters import save_card_override
 from app.domains.routines.contracts import CardOverride
-from app.infra.database import save_card_override
 from tests._routines_helpers import (
     activate_routine_card as _activate_card,
 )

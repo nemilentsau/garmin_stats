@@ -10,7 +10,7 @@ from app.domains.programs.application.programs import (
     list_programs,
 )
 from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
-from app.infra.database import load_routines
+from app.domains.routines.adapters import load_routines
 
 
 def _program_spec(

@@ -2,14 +2,17 @@
 
 import pytest
 
-import app.infra.database as db
-from app.domains.routines.adapters import SqliteRoutineRepository
+import app.domains.routines.adapters as routine_db
+from app.domains.routines.adapters import (
+    SqliteRoutineRepository,
+    load_routine_assignments,
+    load_routine_schedule,
+)
 from app.domains.routines.application.activation import compile_routine_activation
 from app.domains.routines.contracts import (
     RoutineActivationAssignment,
     RoutineActivationCommand,
 )
-from app.infra.database import load_routine_assignments, load_routine_schedule
 
 
 def test_compile_routine_activation_persists_schedule_and_assignments():
@@ -78,7 +81,7 @@ def test_compile_routine_activation_rolls_back_schedule_when_assignment_write_fa
             ),
         ],
     )
-    original_save = db._save_json_record_in_connection
+    original_save = routine_db._save_json_record_in_connection
     assignment_write_calls = 0
 
     def fail_on_second_assignment_write(*args, **kwargs):
@@ -89,7 +92,11 @@ def test_compile_routine_activation_rolls_back_schedule_when_assignment_write_fa
                 raise RuntimeError("simulated assignment failure")
         return original_save(*args, **kwargs)
 
-    monkeypatch.setattr(db, "_save_json_record_in_connection", fail_on_second_assignment_write)
+    monkeypatch.setattr(
+        routine_db,
+        "_save_json_record_in_connection",
+        fail_on_second_assignment_write,
+    )
 
     with pytest.raises(RuntimeError, match="simulated assignment failure"):
         compile_routine_activation(

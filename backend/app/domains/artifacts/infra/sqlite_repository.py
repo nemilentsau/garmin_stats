@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from app.domains.artifacts.contracts import AssistantArtifact
+from app.domains.routines.adapters import (
+    load_card_template,
+    load_card_templates,
+    save_card_template,
+)
 from app.domains.routines.contracts import CardTemplate
 from app.infra.database import (
     load_assistant_artifact,
     load_assistant_artifact_by_payload_id,
     load_assistant_artifacts,
-    load_card_template,
-    load_card_templates,
     load_max_artifact_revision,
     save_assistant_artifact,
     save_assistant_artifacts_batch,
-    save_card_template,
 )
 
 

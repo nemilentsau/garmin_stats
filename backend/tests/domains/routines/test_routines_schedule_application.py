@@ -2,10 +2,9 @@
 
 import pytest
 
-from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.routines.adapters import SqliteRoutineRepository, save_card_override
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.domains.routines.contracts import CardOverride
-from app.infra.database import save_card_override
 from tests._routines_helpers import (
     activate_routine_card as _activate_card,
 )

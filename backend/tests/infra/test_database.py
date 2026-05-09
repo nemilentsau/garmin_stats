@@ -5,6 +5,7 @@ import os
 
 import pytest
 
+import app.domains.routines.adapters as routine_db
 import app.infra.database as db
 from app.core.profile.contracts import (
     Goal,
@@ -464,9 +465,9 @@ class TestStoreAndLoad:
             name="Meditation",
             category="mindfulness",
         )
-        db.save_routine(routine)
+        routine_db.save_routine(routine)
 
-        db.save_routine_entry(
+        routine_db.save_routine_entry(
             RoutineEntry(
                 id="entry-1",
                 routine_id="routine-1",
@@ -474,7 +475,7 @@ class TestStoreAndLoad:
                 value_numeric=10,
             )
         )
-        db.save_routine_entry(
+        routine_db.save_routine_entry(
             RoutineEntry(
                 id="entry-2",
                 routine_id="routine-1",
@@ -482,7 +483,7 @@ class TestStoreAndLoad:
                 value_numeric=5,
             )
         )
-        db.save_routine_entry(
+        routine_db.save_routine_entry(
             RoutineEntry(
                 id="entry-3",
                 routine_id="routine-2",
@@ -491,7 +492,7 @@ class TestStoreAndLoad:
             )
         )
 
-        loaded = db.load_routine_entries(routine_id="routine-1", date="2026-01-15")
+        loaded = routine_db.load_routine_entries(routine_id="routine-1", date="2026-01-15")
 
         assert [entry.id for entry in loaded] == ["entry-1"]
 
@@ -737,18 +738,22 @@ class TestStoreAndLoad:
         )
 
         db.save_assistant_artifact(artifact)
-        db.save_card_template(card)
-        db.save_routine_schedule(routine)
-        db.save_routine_assignment(assignment)
-        db.save_card_log(log)
-        db.save_card_override(override)
+        routine_db.save_card_template(card)
+        routine_db.save_routine_schedule(routine)
+        routine_db.save_routine_assignment(assignment)
+        routine_db.save_card_log(log)
+        routine_db.save_card_override(override)
 
         assert db.load_assistant_artifact("artifact-1") is not None
-        assert [entry.id for entry in db.load_card_templates()] == ["card-1"]
-        assert [entry.id for entry in db.load_routine_schedules()] == ["routine-1"]
-        assert [entry.id for entry in db.load_routine_assignments("routine-1")] == ["assignment-1"]
-        assert [entry.id for entry in db.load_card_logs("2026-03-02")] == ["log-1"]
-        assert [entry.id for entry in db.load_card_overrides("2026-03-02")] == ["override-1"]
+        assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
+        assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
+        assert [entry.id for entry in routine_db.load_routine_assignments("routine-1")] == [
+            "assignment-1"
+        ]
+        assert [entry.id for entry in routine_db.load_card_logs("2026-03-02")] == ["log-1"]
+        assert [entry.id for entry in routine_db.load_card_overrides("2026-03-02")] == [
+            "override-1"
+        ]
 
     def test_assistant_evidence_bundle_round_trips(self):
         bundle = AssistantEvidenceBundle(
@@ -914,17 +919,17 @@ class TestCardOverridesRange:
     def test_range_query_matches_individual_date_queries(self):
         dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
         for i, date in enumerate(dates):
-            db.save_card_override(CardOverride(
+            routine_db.save_card_override(CardOverride(
                 id=f"override-{i}",
                 date=date,
                 action="hide",
                 target_occurrence_key=f"key-{i}",
             ))
 
-        range_result = db.load_card_overrides_range("2026-03-02", "2026-03-04")
+        range_result = routine_db.load_card_overrides_range("2026-03-02", "2026-03-04")
         individual_results = []
         for date in dates:
-            individual_results.extend(db.load_card_overrides(date=date))
+            individual_results.extend(routine_db.load_card_overrides(date=date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
 
