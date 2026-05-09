@@ -453,15 +453,16 @@ Important rules:
 
 Artifacts is the staging and publishing layer for assistant-authored objects.
 
-- `domains/artifacts/api/` owns artifact, bundle, and card-template routes.
-- `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, and activation orchestration.
-- `domains/artifacts/infra/` owns the artifact/card SQLite repository adapter.
+- `domains/artifacts/routes.py` owns artifact, bundle, and card-template routes.
+- `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, bundle id revisioning, and activation orchestration.
+- `domains/artifacts/adapters.py` owns the SQLite artifact repository adapter.
+- `domains/artifacts/dependencies.py` owns the artifact repository port.
 - Activated cards/routines become live runtime data owned by `domains/routines`.
 - Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or `domains/programs`.
 
 Normal artifact flow:
 
-`assistant/generated JSON -> artifact draft -> validated artifact -> imported bundle -> activation -> live domain record`
+`assistant/generated JSON -> staged artifact or bundle import -> validated artifact -> activation -> live domain record`
 
 ## Garmin Analytics Boundary
 
