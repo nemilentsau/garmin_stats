@@ -31,7 +31,6 @@ from app.domains.routines.application.activation import compile_routine_activati
 from app.domains.routines.contracts import (
     CardTemplate,
     CardTemplatesResponse,
-    RoutineActivationAssignment,
     RoutineActivationCommand,
     RoutineSchedule,
 )
@@ -820,17 +819,7 @@ def _compile_routine_spec_artifact(
         tags=spec.tags,
         notes=spec.notes,
         source_artifact_id=artifact.id,
-        assignments=[
-            RoutineActivationAssignment(
-                id=assignment.id,
-                card_template_id=assignment.card_template_id,
-                day=assignment.day,
-                slot=assignment.slot,
-                position=assignment.position,
-                prescription_override_json=assignment.prescription_override_json,
-            )
-            for assignment in spec.assignments
-        ],
+        assignments=spec.assignments,
     )
     return compile_routine_activation(
         routines_repo,

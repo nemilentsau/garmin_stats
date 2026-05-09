@@ -98,7 +98,7 @@ class RoutineAssignment(DefaultsRequired):
     prescription_override_json: dict[str, object] = {}
 
 
-class RoutineActivationAssignment(DefaultsRequired):
+class RoutineActivationAssignment(StrictDefaultsRequired):
     id: str
     card_template_id: str
     day: int

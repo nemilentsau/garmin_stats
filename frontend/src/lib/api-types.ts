@@ -2715,8 +2715,11 @@ export interface components {
         MetricAnalysis: {
             /** Path */
             path: string;
-            /** Direction */
-            direction: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher_is_better" | "lower_is_better";
             /** Lag Results */
             lag_results: components["schemas"]["MetricLagResult"][];
             /** Best Lag */
@@ -3107,16 +3110,14 @@ export interface components {
             /** Ma7 Bpm */
             ma7_bpm: number | null;
         };
-        /** RoutineAssignment */
-        RoutineAssignment: {
+        /** RoutineActivationAssignment */
+        RoutineActivationAssignment: {
             /** Id */
             id: string;
-            /** Routine Id */
-            routine_id: string;
             /** Card Template Id */
             card_template_id: string;
-            /** Date */
-            date: string;
+            /** Day */
+            day: number;
             /**
              * Slot
              * @enum {string}
@@ -3135,14 +3136,16 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** RoutineAssignmentSpec */
-        RoutineAssignmentSpec: {
+        /** RoutineAssignment */
+        RoutineAssignment: {
             /** Id */
             id: string;
+            /** Routine Id */
+            routine_id: string;
             /** Card Template Id */
             card_template_id: string;
-            /** Day */
-            day: number;
+            /** Date */
+            date: string;
             /**
              * Slot
              * @enum {string}
@@ -3240,7 +3243,7 @@ export interface components {
              * Assignments
              * @default []
              */
-            assignments: components["schemas"]["RoutineAssignmentSpec"][];
+            assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
         /** ScheduleDay */
         ScheduleDay: {

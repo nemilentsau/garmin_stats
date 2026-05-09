@@ -10,7 +10,11 @@ from app.contracts.base import (
     EntityStatus,
     StrictDefaultsRequired,
 )
-from app.domains.routines.contracts import RendererFamily, SlotName
+from app.domains.routines.contracts import (
+    RendererFamily,
+    RoutineActivationAssignment,
+    SlotName,
+)
 
 AssistantArtifactKind = Literal["routine_spec", "card_template", "capability_request"]
 AssistantArtifactStatus = Literal["draft", "validated", "invalid", "activated"]
@@ -72,15 +76,6 @@ class CardTemplateSpec(StrictDefaultsRequired):
     payload: dict[str, object] = {}
 
 
-class RoutineAssignmentSpec(StrictDefaultsRequired):
-    id: str
-    card_template_id: str
-    day: int
-    slot: SlotName
-    position: int = 0
-    prescription_override_json: dict[str, object] = {}
-
-
 class RoutineSpec(StrictDefaultsRequired):
     id: str
     name: str
@@ -89,7 +84,7 @@ class RoutineSpec(StrictDefaultsRequired):
     status: EntityStatus = "active"
     tags: list[str] = []
     notes: str | None = None
-    assignments: list[RoutineAssignmentSpec] = []
+    assignments: list[RoutineActivationAssignment] = []
 
 
 class CapabilityRequestSpec(StrictDefaultsRequired):

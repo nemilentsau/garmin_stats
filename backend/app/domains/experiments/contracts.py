@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.contracts.base import AutoTotalResponse, DefaultsRequired
+from app.contracts.base import AutoTotalResponse, ConfidenceLevel, DefaultsRequired
 
 ExperimentStatus = Literal["draft", "active", "completed"]
 ExperimentAdherenceState = Literal["full", "partial", "missed", "completed", "unknown"]
-ExperimentReportConfidence = Literal["insufficient", "low", "moderate", "high"]
+ExperimentReportConfidence = ConfidenceLevel
 OutcomeMetricDirection = Literal["higher_is_better", "lower_is_better"]
 ExperimentDesignType = Literal["ab_intervention"]
 
@@ -104,7 +104,7 @@ class MetricLagResult(DefaultsRequired):
 
 class MetricAnalysis(DefaultsRequired):
     path: str
-    direction: str
+    direction: OutcomeMetricDirection
     lag_results: list[MetricLagResult]
     best_lag: int
     best_result: MetricLagResult

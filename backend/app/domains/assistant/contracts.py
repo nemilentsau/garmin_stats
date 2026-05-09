@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.contracts.base import AutoTotalResponse, DefaultsRequired
+from app.contracts.base import AutoTotalResponse, ConfidenceLevel, DefaultsRequired
 
 PlanStatus = Literal["draft", "active", "completed"]
 PlanItemCompletionState = Literal["pending", "in_progress", "completed", "skipped"]
 ThreadStatus = Literal["active", "archived"]
-EvidenceConfidence = Literal["insufficient", "low", "moderate", "high"]
+EvidenceConfidence = ConfidenceLevel
 AssistantMessageRole = Literal["user", "assistant", "system"]
 AssistantRunStatus = Literal["running", "completed", "failed"]
 AssistantRunTaskType = Literal["chat", "analysis", "planning"]
