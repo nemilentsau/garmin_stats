@@ -20,7 +20,6 @@ from ..core.profile.contracts import (
     Goal,
     UserProfile,
 )
-from ..domains.artifacts.contracts import AssistantArtifact
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
@@ -1070,103 +1069,6 @@ def save_evidence_card(card: EvidenceCard) -> None:
 
 def load_evidence_cards() -> list[EvidenceCard]:
     return _STORE.load_many("evidence_cards", EvidenceCard)
-
-
-# ---------------------------------------------------------------------------
-# Training spec platform storage
-# ---------------------------------------------------------------------------
-
-
-def save_assistant_artifact(artifact: AssistantArtifact) -> None:
-    _STORE.save(
-        "assistant_artifacts",
-        artifact.id,
-        artifact.model_dump_json(),
-        created_at=artifact.created_at,
-        updated_at=artifact.updated_at,
-    )
-
-
-def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
-    """Persist a batch of assistant artifacts atomically."""
-    with _connect() as con, con:
-        for artifact in artifacts:
-            con.execute(
-                (
-                    "INSERT OR REPLACE INTO assistant_artifacts "
-                    "(id, data, created_at, updated_at) VALUES (?, ?, ?, ?)"
-                ),
-                (
-                    artifact.id,
-                    artifact.model_dump_json(),
-                    artifact.created_at or now_iso(),
-                    artifact.updated_at or now_iso(),
-                ),
-            )
-
-
-def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
-    return _STORE.load("assistant_artifacts", AssistantArtifact, artifact_id)
-
-
-def load_assistant_artifacts(
-    *,
-    kind: str | None = None,
-    status: str | None = None,
-) -> list[AssistantArtifact]:
-    clauses: list[str] = []
-    params: list[object] = []
-    if kind is not None:
-        clauses.append("json_extract(data, '$.kind') = ?")
-        params.append(kind)
-    if status is not None:
-        clauses.append("json_extract(data, '$.status') = ?")
-        params.append(status)
-    return _STORE.load_many(
-        "assistant_artifacts",
-        AssistantArtifact,
-        where_sql=" AND ".join(clauses),
-        params=tuple(params),
-        order_by="created_at DESC, id",
-    )
-
-
-def load_assistant_artifact_by_payload_id(
-    kind: str,
-    payload_id: str,
-    statuses: tuple[str, ...],
-) -> AssistantArtifact | None:
-    """Find an artifact whose payload_json.id matches, filtered by kind+statuses."""
-    if not statuses:
-        return None
-    placeholders = ", ".join("?" for _ in statuses)
-    rows_query = (
-        "SELECT data, created_at, updated_at FROM assistant_artifacts "
-        f"WHERE json_extract(data, '$.kind') = ? "
-        f"AND json_extract(data, '$.payload_json.id') = ? "
-        f"AND json_extract(data, '$.status') IN ({placeholders}) "
-        "ORDER BY created_at DESC LIMIT 1"
-    )
-    with _connect() as con:
-        row = con.execute(rows_query, (kind, payload_id, *statuses)).fetchone()
-    if row is None:
-        return None
-    return _model_from_row(AssistantArtifact, row)
-
-
-def load_max_artifact_revision(kind: str, id_prefix: str) -> int:
-    """Return the highest revision number for artifacts matching a bundle id prefix."""
-    query = (
-        "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) AS max_rev "
-        "FROM assistant_artifacts "
-        "WHERE json_extract(data, '$.kind') = ? AND id LIKE ? || '%'"
-    )
-    prefix_len = len(id_prefix) + 1  # +1 for 1-based SUBSTR
-    with _connect() as con:
-        row = con.execute(query, (prefix_len, kind, id_prefix)).fetchone()
-    if row is None or row["max_rev"] is None:
-        return 0
-    return int(row["max_rev"])
 
 
 # ---------------------------------------------------------------------------

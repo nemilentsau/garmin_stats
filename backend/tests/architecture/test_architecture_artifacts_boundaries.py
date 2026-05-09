@@ -25,6 +25,16 @@ def test_artifacts_application_modules_follow_strict_boundary():
     ])
 
 
+def test_artifact_persistence_lives_in_artifact_adapter_not_global_database():
+    adapter_source = read_repo_file("backend/app/domains/artifacts/adapters.py")
+    database_source = read_repo_file("backend/app/infra/database.py")
+
+    assert "class SqliteArtifactRepository" in adapter_source
+    assert "assistant_artifacts" in adapter_source
+    assert "domains.artifacts.contracts" not in database_source
+    assert "AssistantArtifact" not in database_source
+
+
 def test_bootstrap_routing_mounts_domain_artifact_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "domains.artifacts.routes" in source

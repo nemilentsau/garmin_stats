@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import pytest
 
+from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.artifacts.contracts import (
     ArtifactBundleSpec,
     AssistantArtifactCreateRequest,
@@ -20,9 +21,6 @@ from app.domains.routines.contracts import (
     CardOverride,
     TodayCardLogUpdateRequest,
 )
-from app.infra.database import (
-    load_assistant_artifacts,
-)
 from tests._architecture import REPO_ROOT
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
@@ -33,6 +31,11 @@ from tests._artifacts_helpers import (
 from tests._routines_helpers import get_schedule_window, get_today, upsert_today_card_log
 
 _CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_core_bundle.json"
+_ARTIFACT_REPO = SqliteArtifactRepository()
+
+
+def load_assistant_artifacts(*, kind: str | None = None, status: str | None = None):
+    return _ARTIFACT_REPO.list_assistant_artifacts(kind=kind, status=status)
 _MEDITATION_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
 
 

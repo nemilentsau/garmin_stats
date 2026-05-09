@@ -12,7 +12,6 @@ ALLOWLISTED_APP_STATS_IMPORTERS = set()
 
 ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/core/profile/infra/sqlite_repository.py",
-    "backend/app/domains/artifacts/adapters.py",
     "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/infra/sqlite_repository.py",
     "backend/app/domains/garmin_sync/adapters.py",

@@ -11,7 +11,6 @@ from app.core.profile.contracts import (
     Goal,
     UserProfile,
 )
-from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
@@ -56,7 +55,6 @@ from app.domains.routines.contracts import (
     RoutineAssignment,
     RoutineSchedule,
 )
-from app.utils.timeutil import now_iso
 
 # ---------------------------------------------------------------------------
 # init & schema
@@ -656,13 +654,6 @@ class TestStoreAndLoad:
         assert db.load_context_snapshot("missing") is None
 
     def test_routine_runtime_records_survive_round_trip(self):
-        artifact = AssistantArtifact(
-            id="artifact-1",
-            kind="card_template",
-            schema_version=1,
-            status="validated",
-            payload_json={"id": "card-1"},
-        )
         card = CardTemplate(
             id="card-1",
             name="Open Monitoring",
@@ -697,13 +688,11 @@ class TestStoreAndLoad:
             target_occurrence_key="scheduled:assignment-1:2026-03-02",
         )
 
-        db.save_assistant_artifact(artifact)
         routine_db.save_card_template(card)
         routine_db.save_routine_schedule_with_assignments(routine, [assignment])
         routine_db.save_card_log(log)
         routine_db.save_card_override(override)
 
-        assert db.load_assistant_artifact("artifact-1") is not None
         assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
         assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
         assert [entry.id for entry in routine_db.load_routine_assignments("routine-1")] == [
@@ -891,50 +880,6 @@ class TestCardOverridesRange:
             individual_results.extend(routine_db.load_card_overrides(date=date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
-
-
-# ---------------------------------------------------------------------------
-# Targeted artifact DB queries (Task 4)
-# ---------------------------------------------------------------------------
-
-class TestArtifactQueryFunctions:
-    def test_load_artifact_by_payload_id_finds_matching_artifact(self):
-        now = now_iso()
-        artifact = AssistantArtifact(
-            id="bundle:test-bundle:card_template:card-1:r1",
-            kind="card_template",
-            schema_version=1,
-            status="validated",
-            payload_json={"id": "card-1", "name": "Test"},
-            created_at=now,
-            updated_at=now,
-        )
-        db.save_assistant_artifact(artifact)
-
-        result = db.load_assistant_artifact_by_payload_id(
-            "card_template", "card-1", ("validated", "activated"),
-        )
-
-        assert result is not None
-        assert result.id == artifact.id
-
-    def test_load_max_artifact_revision_returns_highest(self):
-        now = now_iso()
-        prefix = "bundle:test:card_template:card-1:r"
-        for rev in [1, 2, 5]:
-            db.save_assistant_artifact(AssistantArtifact(
-                id=f"{prefix}{rev}",
-                kind="card_template",
-                schema_version=1,
-                status="validated",
-                payload_json={"id": "card-1"},
-                created_at=now,
-                updated_at=now,
-            ))
-
-        result = db.load_max_artifact_revision("card_template", prefix)
-
-        assert result == 5
 
 
 # ---------------------------------------------------------------------------
