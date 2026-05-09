@@ -7,18 +7,16 @@ from typing import Any, Protocol
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.models import (
     AssistantMessage,
     AssistantRun,
     AssistantThread,
-    CardLog,
     DailyCheckIn,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
     Note,
-    RoutineAssignment,
-    RoutineSchedule,
     UserProfile,
 )
 

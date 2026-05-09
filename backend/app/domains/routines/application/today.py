@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.domains.routines.domain.schedule import SLOT_ORDER
-from app.models import (
+from app.domains.routines.contracts import (
     CardLog,
     CardLogRangeResponse,
     CardLogStatusEntry,
@@ -16,6 +15,7 @@ from app.models import (
     TodaySlot,
     TodayStats,
 )
+from app.domains.routines.domain.schedule import SLOT_ORDER
 
 from .ports import RoutineRepository, TodayCardLogObserver
 

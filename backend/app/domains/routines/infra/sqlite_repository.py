@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from app.domains.routines.contracts import (
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+)
 from app.infra.database import (
     load_card_logs,
     load_card_logs_range,
@@ -15,13 +22,6 @@ from app.infra.database import (
     save_card_log,
     save_routine_schedule,
     save_routine_schedule_with_assignments,
-)
-from app.models import (
-    CardLog,
-    CardOverride,
-    CardTemplate,
-    RoutineAssignment,
-    RoutineSchedule,
 )
 
 

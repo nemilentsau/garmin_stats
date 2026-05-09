@@ -6,16 +6,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import cast
 
-from app.domains.routines.domain.schedule import (
-    assignment_matches_date,
-    merge_schedule_payload,
-    occurrence_sort_key,
-    override_occurrence_key,
-    parse_schedule_date,
-    routine_is_active_on_date,
-    scheduled_occurrence_key,
-)
-from app.models import (
+from app.domains.routines.contracts import (
     CardOverride,
     CardTemplate,
     RoutineAssignment,
@@ -25,6 +16,15 @@ from app.models import (
     ScheduleOccurrenceSourceKind,
     ScheduleWindow,
     WeekdayName,
+)
+from app.domains.routines.domain.schedule import (
+    assignment_matches_date,
+    merge_schedule_payload,
+    occurrence_sort_key,
+    override_occurrence_key,
+    parse_schedule_date,
+    routine_is_active_on_date,
+    scheduled_occurrence_key,
 )
 
 from .ports import RoutineRepository

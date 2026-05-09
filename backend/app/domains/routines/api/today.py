@@ -12,7 +12,7 @@ from app.domains.routines.application.today import (
 from app.domains.routines.application.today import (
     upsert_today_card_log as _upsert_today_card_log,
 )
-from app.models import (
+from app.domains.routines.contracts import (
     CardLog,
     CardLogRangeResponse,
     TodayCardLogUpdateRequest,

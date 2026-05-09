@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import CardLog, CardOverride, CardTemplate, RoutineAssignment, RoutineSchedule
+from app.domains.routines.contracts import (
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+)
 
 
 class TodayCardLogObserver(Protocol):

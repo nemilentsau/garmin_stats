@@ -9,7 +9,7 @@ from app.domains.routines.application.catalog import (
     list_routines,
 )
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.models import (
+from app.domains.routines.contracts import (
     RoutineAssignmentsResponse,
     RoutineSchedule,
     RoutineSchedulesResponse,

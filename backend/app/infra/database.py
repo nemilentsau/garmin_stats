@@ -24,15 +24,19 @@ from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
+from ..domains.routines.contracts import (
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+)
 from ..models import (
     DEFAULT_PROFILE_ID,
     AssistantArtifact,
     AssistantMessage,
     AssistantRun,
     AssistantThread,
-    CardLog,
-    CardOverride,
-    CardTemplate,
     ContextSnapshot,
     DailyCheckIn,
     EvidenceCard,
@@ -47,9 +51,7 @@ from ..models import (
     Program,
     ProgramVersion,
     Routine,
-    RoutineAssignment,
     RoutineEntry,
-    RoutineSchedule,
     UserProfile,
 )
 from ..parser import get_files_by_day, parse_all_days, parse_day

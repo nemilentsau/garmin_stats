@@ -1637,16 +1637,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /**
-             * Renderer
-             * @enum {string}
-             */
-            renderer: "timer_session" | "checklist_block" | "exercise_block";
-            /**
-             * Slot Default
-             * @enum {string}
-             */
-            slot_default: "morning" | "midday" | "evening" | "anytime";
+            renderer: components["schemas"]["RendererFamily"];
+            slot_default: components["schemas"]["SlotName"];
             /** Summary */
             summary?: string | null;
             /**
@@ -3081,6 +3073,8 @@ export interface components {
             /** Label */
             label: string | null;
         };
+        /** @enum {string} */
+        RendererFamily: "timer_session" | "checklist_block" | "exercise_block";
         /** RespirationRawResponse */
         RespirationRawResponse: {
             /** Days */
@@ -3149,11 +3143,7 @@ export interface components {
             card_template_id: string;
             /** Day */
             day: number;
-            /**
-             * Slot
-             * @enum {string}
-             */
-            slot: "morning" | "midday" | "evening" | "anytime";
+            slot: components["schemas"]["SlotName"];
             /**
              * Position
              * @default 0
@@ -3430,6 +3420,8 @@ export interface components {
              */
             sample_count: number;
         };
+        /** @enum {string} */
+        SlotName: "morning" | "midday" | "evening" | "anytime";
         /** SpO2RawResponse */
         SpO2RawResponse: {
             /** Days */

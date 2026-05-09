@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from app.models import RoutineAssignmentsResponse, RoutineSchedule, RoutineSchedulesResponse
+from app.domains.routines.contracts import (
+    RoutineAssignmentsResponse,
+    RoutineSchedule,
+    RoutineSchedulesResponse,
+)
 
 from .ports import RoutineRepository
 

@@ -12,7 +12,6 @@ ALLOWLISTED_APP_MODELS_IMPORTERS = {
     "backend/app/core/profile/ports.py",
     "backend/app/domains/artifacts/api/artifacts.py",
     "backend/app/domains/artifacts/api/bundles.py",
-    "backend/app/domains/artifacts/api/cards.py",
     "backend/app/domains/artifacts/application/artifacts.py",
     "backend/app/domains/artifacts/application/ports.py",
     "backend/app/domains/artifacts/infra/sqlite_repository.py",
@@ -45,15 +44,7 @@ ALLOWLISTED_APP_MODELS_IMPORTERS = {
     "backend/app/domains/programs/application/ports.py",
     "backend/app/domains/programs/application/programs.py",
     "backend/app/domains/programs/infra/sqlite_repository.py",
-    "backend/app/domains/routines/api/routines.py",
-    "backend/app/domains/routines/api/today.py",
     "backend/app/domains/routines/application/activation.py",
-    "backend/app/domains/routines/application/catalog.py",
-    "backend/app/domains/routines/application/ports.py",
-    "backend/app/domains/routines/application/schedule_window.py",
-    "backend/app/domains/routines/application/today.py",
-    "backend/app/domains/routines/domain/schedule.py",
-    "backend/app/domains/routines/infra/sqlite_repository.py",
 }
 
 ALLOWLISTED_APP_STATS_IMPORTERS = set()

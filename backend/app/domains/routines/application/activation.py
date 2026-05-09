@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date, timedelta
 
-from app.models import AssistantArtifact, RoutineAssignment, RoutineSchedule, RoutineSpec
+from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
+from app.models import AssistantArtifact, RoutineSpec
 
 from .ports import RoutineRepository
 

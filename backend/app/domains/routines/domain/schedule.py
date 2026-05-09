@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date as date_cls
 
-from app.models import (
+from app.domains.routines.contracts import (
     CardOverride,
     CardTemplate,
     RoutineAssignment,

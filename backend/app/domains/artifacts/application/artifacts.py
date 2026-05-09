@@ -11,6 +11,11 @@ from pydantic import ValidationError
 
 from app.domains.routines.application.activation import compile_routine_artifact
 from app.domains.routines.application.ports import RoutineRepository
+from app.domains.routines.contracts import (
+    CardTemplate,
+    CardTemplatesResponse,
+    RoutineSchedule,
+)
 from app.models import (
     ArtifactBundleDelta,
     ArtifactBundleDeltaAction,
@@ -23,12 +28,9 @@ from app.models import (
     AssistantArtifactCreateRequest,
     AssistantArtifactsResponse,
     CapabilityRequestSpec,
-    CardTemplate,
     CardTemplateSpec,
-    CardTemplatesResponse,
     ChecklistBlockPayloadSpec,
     ExerciseBlockPayloadSpec,
-    RoutineSchedule,
     RoutineSpec,
     TimerSessionPayloadSpec,
 )

@@ -11,6 +11,7 @@ from app.domains.experiments.application.analysis_cache import (
 from app.domains.experiments.application.ports import ExperimentRepository
 from app.domains.garmin_analytics.adapters import load_daily_metrics
 from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.infra.database import (
     create_assistant_thread,
     finalize_assistant_reply,
@@ -35,14 +36,11 @@ from app.models import (
     AssistantMessage,
     AssistantRun,
     AssistantThread,
-    CardLog,
     DailyCheckIn,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
     Note,
-    RoutineAssignment,
-    RoutineSchedule,
     UserProfile,
 )
 

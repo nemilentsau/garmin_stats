@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.bootstrap.container import build_container
 from app.domains.artifacts.application.artifacts import list_cards
-from app.models import CardTemplatesResponse
+from app.domains.routines.contracts import CardTemplatesResponse
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 

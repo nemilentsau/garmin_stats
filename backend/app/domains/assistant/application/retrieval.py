@@ -14,15 +14,13 @@ from app.domains.assistant.application.types import (
     dedupe_strings,
 )
 from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.models import (
-    CardLog,
     DailyCheckIn,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
     Note,
-    RoutineAssignment,
-    RoutineSchedule,
     UserProfile,
 )
 
