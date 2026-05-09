@@ -6,7 +6,6 @@ Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
 import hashlib
-import json
 import logging
 import re
 import sqlite3
@@ -16,45 +15,42 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..core.config import get_app_config
+from ..core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    Goal,
+    UserProfile,
+)
+from ..domains.artifacts.contracts import AssistantArtifact
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+)
+from ..domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    ContextSnapshot,
+    EvidenceCard,
+    Plan,
+    PlanItem,
+)
+from ..domains.experiments.contracts import (
+    Experiment,
+    ExperimentAnalysis,
+    ExperimentExposure,
+    ExperimentReport,
 )
 from ..domains.garmin_analytics.domain.aggregates.daily import (
     compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
-from ..models import (
-    DEFAULT_PROFILE_ID,
-    AssistantArtifact,
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
-    CardLog,
-    CardOverride,
-    CardTemplate,
-    ContextSnapshot,
-    DailyCheckIn,
-    EvidenceCard,
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
-    ExperimentReport,
-    Goal,
-    Note,
-    Plan,
-    PlanItem,
-    Program,
-    ProgramVersion,
-    Routine,
-    RoutineAssignment,
-    RoutineEntry,
-    RoutineSchedule,
-    UserProfile,
-)
+from ..domains.journal.contracts import DailyCheckIn, Note
+from ..domains.programs.contracts import Program, ProgramVersion
 from ..parser import get_files_by_day, parse_all_days, parse_day
 from ..utils.timeutil import now_iso
 from . import cache
+from .jsonstore import JsonStore
+from .jsonstore import model_from_row as _model_from_row
 from .sqlite import DB_PATH, connect
 
 log = logging.getLogger(__name__)
@@ -76,14 +72,13 @@ _PER_DAY_TABLES = (*_RAW_DAY_TABLES, "daily_metrics")
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
     "skin_temp_data", "daily_metrics", "ingest_meta",
-    "user_profile", "goals", "routines", "routine_entries",
+    "user_profile", "goals",
     "daily_checkins", "notes", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
     "assistant_evidence_bundles", "assistant_memory_records",
     "evidence_cards", "programs", "program_versions",
-    "assistant_artifacts", "card_templates", "routine_schedules",
-    "routine_assignments", "card_logs", "card_overrides",
+    "assistant_artifacts",
 })
 
 
@@ -105,7 +100,6 @@ CREATE TABLE IF NOT EXISTS daily_metrics  ({_COLS_3});
 CREATE TABLE IF NOT EXISTS ingest_meta    (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS user_profile   ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS goals          ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS routines       ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS experiments    ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS plans          ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS assistant_threads ({_JSON_COLS});
@@ -114,14 +108,6 @@ CREATE TABLE IF NOT EXISTS evidence_cards ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS assistant_artifacts ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS card_templates ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS routine_schedules ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS routine_entries (
-    id TEXT PRIMARY KEY,
-    routine_id TEXT NOT NULL,
-    entry_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS daily_checkins (
     id TEXT PRIMARY KEY,
     entry_date TEXT NOT NULL,
@@ -223,8 +209,6 @@ CREATE TABLE IF NOT EXISTS card_overrides (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_routine_entries_routine_date
-    ON routine_entries (routine_id, entry_date);
 CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_date
     ON routine_assignments (routine_id, assignment_date, slot, position);
 CREATE INDEX IF NOT EXISTS idx_card_logs_date_occurrence
@@ -315,157 +299,7 @@ def _normalize_alias_text(value: str | None) -> str | None:
     return " ".join(tokens)
 
 
-def _save_json_record(
-    table: str,
-    record_id: str,
-    data_json: str,
-    *,
-    extra_columns: dict[str, object | None] | None = None,
-    created_at: str | None = None,
-    updated_at: str | None = None,
-) -> None:
-    """Store a JSON-backed record in one of the assistant foundation tables."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    with _connect() as con, con:
-        _save_json_record_in_connection(
-            con,
-            table,
-            record_id,
-            data_json,
-            extra_columns=extra_columns,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-
-
-def _save_json_record_in_connection(
-    con: sqlite3.Connection,
-    table: str,
-    record_id: str,
-    data_json: str,
-    *,
-    extra_columns: dict[str, object | None] | None = None,
-    created_at: str | None = None,
-    updated_at: str | None = None,
-) -> None:
-    """Store a JSON-backed record using an existing transaction/connection."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    extra_columns = extra_columns or {}
-    updated_value = updated_at or now_iso()
-    existing_created_at: str | None = None
-    if created_at is None:
-        row = con.execute(
-            f"SELECT created_at FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-        existing_created_at = row["created_at"] if row is not None else None
-
-    created_value = created_at or existing_created_at or now_iso()
-
-    columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
-    placeholders = ", ".join("?" for _ in columns)
-    values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
-
-    con.execute(
-        f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608
-        values,
-    )
-
-
-def _model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
-    payload = json.loads(row["data"])
-    for key in ("created_at", "updated_at"):
-        if payload.get(key) is None and row[key] is not None:
-            payload[key] = row[key]
-    return model.model_validate(payload)  # type: ignore[union-attr]
-
-
-def _record_exists(table: str, record_id: str) -> bool:
-    """Check whether a record with the given id exists (without loading JSON)."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-    with _connect() as con:
-        row = con.execute(
-            f"SELECT 1 FROM {table} WHERE id = ? LIMIT 1",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-    return row is not None
-
-
-def _delete_json_record(table: str, record_id: str) -> None:
-    """Delete a single JSON-backed record by id."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-    with _connect() as con, con:
-        con.execute(
-            f"DELETE FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        )
-
-
-def _load_json_record[M](
-    table: str,
-    model: type[M],
-    record_id: str,
-) -> M | None:
-    """Load a single JSON-backed record by id."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    with _connect() as con:
-        row = con.execute(
-            f"SELECT data, created_at, updated_at FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    return _model_from_row(model, row)
-
-
-def _load_json_records[M](
-    table: str,
-    model: type[M],
-    *,
-    where_sql: str = "",
-    params: tuple[object, ...] = (),
-    order_by: str = "created_at, id",
-    last_n: int | None = None,
-) -> list[M]:
-    """Load JSON-backed records with optional filtering.
-
-    When *last_n* is set the query returns only the last N rows (by
-    *order_by*) while preserving ascending order in the result.
-    """
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    if last_n is not None and last_n > 0:
-        # Reverse each column in order_by for the inner DESC query.
-        desc_cols = ", ".join(f"{col.strip()} DESC" for col in order_by.split(","))
-        inner = f"SELECT * FROM {table}"  # noqa: S608
-        if where_sql:
-            inner += f" WHERE {where_sql}"  # noqa: S608
-        inner += f" ORDER BY {desc_cols} LIMIT ?"  # noqa: S608
-        query = (
-            f"SELECT data, created_at, updated_at FROM ({inner}) "  # noqa: S608
-            f"ORDER BY {order_by}"  # noqa: S608
-        )
-        with _connect() as con:
-            rows = con.execute(query, (*params, last_n)).fetchall()
-        return [_model_from_row(model, row) for row in rows]
-
-    query = f"SELECT data, created_at, updated_at FROM {table}"  # noqa: S608
-    if where_sql:
-        query += f" WHERE {where_sql}"  # noqa: S608
-    query += f" ORDER BY {order_by}"  # noqa: S608
-
-    with _connect() as con:
-        rows = con.execute(query, params).fetchall()
-    return [_model_from_row(model, row) for row in rows]
+_STORE = JsonStore(_VALID_TABLES)
 
 
 # ---------------------------------------------------------------------------
@@ -737,72 +571,23 @@ def _fetch_available_days() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def save_user_profile(profile: UserProfile) -> None:
-    _save_json_record("user_profile", profile.id, profile.model_dump_json())
+    _STORE.save("user_profile", profile.id, profile.model_dump_json())
 
 
 def load_user_profile(profile_id: str = DEFAULT_PROFILE_ID) -> UserProfile | None:
-    return _load_json_record("user_profile", UserProfile, profile_id)
+    return _STORE.load("user_profile", UserProfile, profile_id)
 
 
 def save_goal(goal: Goal) -> None:
-    _save_json_record("goals", goal.id, goal.model_dump_json())
+    _STORE.save("goals", goal.id, goal.model_dump_json())
 
 
 def load_goals() -> list[Goal]:
-    return _load_json_records("goals", Goal)
-
-
-def routine_exists(routine_id: str) -> bool:
-    return _record_exists("routines", routine_id)
-
-
-def save_routine(routine: Routine) -> None:
-    _save_json_record("routines", routine.id, routine.model_dump_json())
-
-
-def delete_routine(routine_id: str) -> None:
-    _delete_json_record("routines", routine_id)
-
-
-def load_routines() -> list[Routine]:
-    return _load_json_records("routines", Routine)
-
-
-def save_routine_entry(entry: RoutineEntry) -> None:
-    _save_json_record(
-        "routine_entries",
-        entry.id,
-        entry.model_dump_json(),
-        extra_columns={
-            "routine_id": entry.routine_id,
-            "entry_date": entry.date,
-        },
-    )
-
-
-def load_routine_entries(
-    routine_id: str | None = None,
-    date: str | None = None,
-) -> list[RoutineEntry]:
-    clauses: list[str] = []
-    params: list[object] = []
-    if routine_id is not None:
-        clauses.append("routine_id = ?")
-        params.append(routine_id)
-    if date is not None:
-        clauses.append("entry_date = ?")
-        params.append(date)
-    return _load_json_records(
-        "routine_entries",
-        RoutineEntry,
-        where_sql=" AND ".join(clauses),
-        params=tuple(params),
-        order_by="entry_date, created_at, id",
-    )
+    return _STORE.load_many("goals", Goal)
 
 
 def save_daily_checkin(checkin: DailyCheckIn) -> None:
-    _save_json_record(
+    _STORE.save(
         "daily_checkins",
         checkin.id,
         checkin.model_dump_json(),
@@ -817,7 +602,7 @@ def load_daily_checkins(
 ) -> list[DailyCheckIn]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "daily_checkins",
         DailyCheckIn,
         where_sql=where_sql,
@@ -828,7 +613,7 @@ def load_daily_checkins(
 
 
 def save_note(note: Note) -> None:
-    _save_json_record(
+    _STORE.save(
         "notes",
         note.id,
         note.model_dump_json(),
@@ -843,7 +628,7 @@ def load_notes(
 ) -> list[Note]:
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "notes",
         Note,
         where_sql=where_sql,
@@ -854,19 +639,19 @@ def load_notes(
 
 
 def experiment_exists(experiment_id: str) -> bool:
-    return _record_exists("experiments", experiment_id)
+    return _STORE.exists("experiments", experiment_id)
 
 
 def load_experiment(experiment_id: str) -> Experiment | None:
-    return _load_json_record("experiments", Experiment, experiment_id)
+    return _STORE.load("experiments", Experiment, experiment_id)
 
 
 def save_experiment(experiment: Experiment) -> None:
-    _save_json_record("experiments", experiment.id, experiment.model_dump_json())
+    _STORE.save("experiments", experiment.id, experiment.model_dump_json())
 
 
 def delete_experiment(experiment_id: str) -> None:
-    _delete_json_record("experiments", experiment_id)
+    _STORE.delete("experiments", experiment_id)
 
 
 def load_experiments(
@@ -879,11 +664,11 @@ def load_experiments(
         placeholders = ", ".join("?" for _ in statuses)
         where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
         params = statuses
-    return _load_json_records("experiments", Experiment, where_sql=where_sql, params=params)
+    return _STORE.load_many("experiments", Experiment, where_sql=where_sql, params=params)
 
 
 def save_experiment_exposure(exposure: ExperimentExposure) -> None:
-    _save_json_record(
+    _STORE.save(
         "experiment_exposures",
         exposure.id,
         exposure.model_dump_json(),
@@ -925,7 +710,7 @@ def replace_experiment_exposure_for_date(
         con.execute("DELETE FROM experiment_exposures WHERE id = ?", (auto_id,))
         if exposure is None or manual_exists:
             return
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "experiment_exposures",
             exposure.id,
@@ -949,7 +734,7 @@ def load_experiment_exposures(
     if date is not None:
         clauses.append("entry_date = ?")
         params.append(date)
-    return _load_json_records(
+    return _STORE.load_many(
         "experiment_exposures",
         ExperimentExposure,
         where_sql=" AND ".join(clauses),
@@ -959,7 +744,7 @@ def load_experiment_exposures(
 
 
 def save_experiment_report(report: ExperimentReport) -> None:
-    _save_json_record(
+    _STORE.save(
         "experiment_reports",
         report.id,
         report.model_dump_json(),
@@ -973,7 +758,7 @@ def save_experiment_report(report: ExperimentReport) -> None:
 def load_experiment_reports(experiment_id: str | None = None) -> list[ExperimentReport]:
     where_sql = "experiment_id = ?" if experiment_id is not None else ""
     params = (experiment_id,) if experiment_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "experiment_reports",
         ExperimentReport,
         where_sql=where_sql,
@@ -1027,15 +812,15 @@ def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
 
 
 def save_plan(plan: Plan) -> None:
-    _save_json_record("plans", plan.id, plan.model_dump_json())
+    _STORE.save("plans", plan.id, plan.model_dump_json())
 
 
 def load_plans() -> list[Plan]:
-    return _load_json_records("plans", Plan)
+    return _STORE.load_many("plans", Plan)
 
 
 def save_plan_item(item: PlanItem) -> None:
-    _save_json_record(
+    _STORE.save(
         "plan_items",
         item.id,
         item.model_dump_json(),
@@ -1049,7 +834,7 @@ def save_plan_item(item: PlanItem) -> None:
 def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
     where_sql = "plan_id = ?" if plan_id is not None else ""
     params = (plan_id,) if plan_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "plan_items",
         PlanItem,
         where_sql=where_sql,
@@ -1075,19 +860,19 @@ def create_assistant_thread(thread: AssistantThread) -> None:
 
 
 def save_assistant_thread(thread: AssistantThread) -> None:
-    _save_json_record("assistant_threads", thread.id, thread.model_dump_json())
+    _STORE.save("assistant_threads", thread.id, thread.model_dump_json())
 
 
 def load_assistant_thread(thread_id: str) -> AssistantThread | None:
-    return _load_json_record("assistant_threads", AssistantThread, thread_id)
+    return _STORE.load("assistant_threads", AssistantThread, thread_id)
 
 
 def load_assistant_threads() -> list[AssistantThread]:
-    return _load_json_records("assistant_threads", AssistantThread)
+    return _STORE.load_many("assistant_threads", AssistantThread)
 
 
 def save_assistant_message(message: AssistantMessage) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_messages",
         message.id,
         message.model_dump_json(),
@@ -1097,7 +882,7 @@ def save_assistant_message(message: AssistantMessage) -> None:
 
 
 def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_messages",
         AssistantMessage,
         where_sql="thread_id = ?",
@@ -1107,7 +892,7 @@ def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
 
 
 def save_assistant_run(run: AssistantRun) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_runs",
         run.id,
         run.model_dump_json(),
@@ -1126,7 +911,7 @@ def finalize_assistant_reply(
 ) -> None:
     """Persist assistant reply + thread metadata + completed run atomically."""
     with _connect() as con, con:
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_messages",
             assistant_message.id,
@@ -1134,13 +919,13 @@ def finalize_assistant_reply(
             extra_columns={"thread_id": assistant_message.thread_id},
             created_at=assistant_message.created_at,
         )
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_threads",
             updated_thread.id,
             updated_thread.model_dump_json(),
         )
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "assistant_runs",
             completed_run.id,
@@ -1150,7 +935,7 @@ def finalize_assistant_reply(
             updated_at=completed_run.finished_at or completed_run.started_at,
         )
         if memory_record is not None:
-            _save_json_record_in_connection(
+            _STORE.save_in_connection(
                 con,
                 "assistant_memory_records",
                 memory_record.id,
@@ -1169,7 +954,7 @@ def finalize_assistant_reply(
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_runs",
         AssistantRun,
         where_sql=where_sql,
@@ -1179,7 +964,7 @@ def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
 
 
 def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_evidence_bundles",
         bundle.id,
         bundle.model_dump_json(),
@@ -1200,7 +985,7 @@ def load_assistant_evidence_bundles(
 ) -> list[AssistantEvidenceBundle]:
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_evidence_bundles",
         AssistantEvidenceBundle,
         where_sql=where_sql,
@@ -1211,7 +996,7 @@ def load_assistant_evidence_bundles(
 
 
 def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_memory_records",
         record.id,
         record.model_dump_json(),
@@ -1252,7 +1037,7 @@ def load_assistant_memory_records(
         clauses.append(f"alias_normalized IN ({placeholders})")
         params.extend(normalized_candidates)
 
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_memory_records",
         AssistantMemoryRecord,
         where_sql=" AND ".join(clauses),
@@ -1263,7 +1048,7 @@ def load_assistant_memory_records(
 
 
 def save_context_snapshot(snapshot: ContextSnapshot) -> None:
-    _save_json_record(
+    _STORE.save(
         "context_snapshots",
         snapshot.id,
         snapshot.model_dump_json(),
@@ -1272,19 +1057,19 @@ def save_context_snapshot(snapshot: ContextSnapshot) -> None:
 
 
 def load_context_snapshot(snapshot_id: str) -> ContextSnapshot | None:
-    return _load_json_record("context_snapshots", ContextSnapshot, snapshot_id)
+    return _STORE.load("context_snapshots", ContextSnapshot, snapshot_id)
 
 
 def load_context_snapshots() -> list[ContextSnapshot]:
-    return _load_json_records("context_snapshots", ContextSnapshot)
+    return _STORE.load_many("context_snapshots", ContextSnapshot)
 
 
 def save_evidence_card(card: EvidenceCard) -> None:
-    _save_json_record("evidence_cards", card.id, card.model_dump_json())
+    _STORE.save("evidence_cards", card.id, card.model_dump_json())
 
 
 def load_evidence_cards() -> list[EvidenceCard]:
-    return _load_json_records("evidence_cards", EvidenceCard)
+    return _STORE.load_many("evidence_cards", EvidenceCard)
 
 
 # ---------------------------------------------------------------------------
@@ -1293,7 +1078,7 @@ def load_evidence_cards() -> list[EvidenceCard]:
 
 
 def save_assistant_artifact(artifact: AssistantArtifact) -> None:
-    _save_json_record(
+    _STORE.save(
         "assistant_artifacts",
         artifact.id,
         artifact.model_dump_json(),
@@ -1321,7 +1106,7 @@ def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
 
 
 def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
-    return _load_json_record("assistant_artifacts", AssistantArtifact, artifact_id)
+    return _STORE.load("assistant_artifacts", AssistantArtifact, artifact_id)
 
 
 def load_assistant_artifacts(
@@ -1337,7 +1122,7 @@ def load_assistant_artifacts(
     if status is not None:
         clauses.append("json_extract(data, '$.status') = ?")
         params.append(status)
-    return _load_json_records(
+    return _STORE.load_many(
         "assistant_artifacts",
         AssistantArtifact,
         where_sql=" AND ".join(clauses),
@@ -1384,261 +1169,17 @@ def load_max_artifact_revision(kind: str, id_prefix: str) -> int:
     return int(row["max_rev"])
 
 
-def save_card_template(card: CardTemplate) -> None:
-    _save_json_record("card_templates", card.id, card.model_dump_json())
-
-
-def load_card_template(card_id: str) -> CardTemplate | None:
-    return _load_json_record("card_templates", CardTemplate, card_id)
-
-
-def load_card_templates(status: str | None = None) -> list[CardTemplate]:
-    where_sql = ""
-    params: tuple[object, ...] = ()
-    if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
-    return _load_json_records(
-        "card_templates",
-        CardTemplate,
-        where_sql=where_sql,
-        params=params,
-    )
-
-
-def save_routine_schedule(routine: RoutineSchedule) -> None:
-    _save_json_record("routine_schedules", routine.id, routine.model_dump_json())
-
-
-def load_routine_schedule(routine_id: str) -> RoutineSchedule | None:
-    return _load_json_record("routine_schedules", RoutineSchedule, routine_id)
-
-
-def load_routine_schedules(status: str | None = None) -> list[RoutineSchedule]:
-    where_sql = ""
-    params: tuple[object, ...] = ()
-    if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
-    return _load_json_records(
-        "routine_schedules",
-        RoutineSchedule,
-        where_sql=where_sql,
-        params=params,
-    )
-
-
-def delete_routine_assignments(routine_id: str) -> None:
-    with _connect() as con, con:
-        con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
-
-
-def save_routine_assignment(assignment: RoutineAssignment) -> None:
-    _save_json_record(
-        "routine_assignments",
-        assignment.id,
-        assignment.model_dump_json(),
-        extra_columns={
-            "routine_id": assignment.routine_id,
-            "card_template_id": assignment.card_template_id,
-            "assignment_date": assignment.date,
-            "slot": assignment.slot,
-            "position": assignment.position,
-        },
-    )
-
-
-def _validate_routine_assignment_ids(
-    routine_id: str,
-    assignments: list[RoutineAssignment],
-) -> None:
-    if any(assignment.routine_id != routine_id for assignment in assignments):
-        raise ValueError("All assignments must match the provided routine_id")
-
-
-def _guard_assignment_ownership(
-    con: sqlite3.Connection,
-    routine_id: str,
-    assignments: list[RoutineAssignment],
-) -> None:
-    if not assignments:
-        return
-
-    placeholders = ", ".join("?" for _ in assignments)
-    rows = con.execute(
-        "SELECT id, routine_id FROM routine_assignments WHERE id IN "
-        f"({placeholders})",
-        [assignment.id for assignment in assignments],
-    ).fetchall()
-    existing_routine_ids = {str(row["id"]): str(row["routine_id"]) for row in rows}
-    for assignment in assignments:
-        owner_routine_id = existing_routine_ids.get(assignment.id)
-        if owner_routine_id is not None and owner_routine_id != routine_id:
-            raise ValueError(
-                f"Assignment id '{assignment.id}' already belongs to routine "
-                f"{owner_routine_id}"
-            )
-
-
-def _replace_routine_assignments_in_connection(
-    con: sqlite3.Connection,
-    routine_id: str,
-    assignments: list[RoutineAssignment],
-) -> None:
-    _validate_routine_assignment_ids(routine_id, assignments)
-    _guard_assignment_ownership(con, routine_id, assignments)
-    con.execute("DELETE FROM routine_assignments WHERE routine_id = ?", (routine_id,))
-    for assignment in assignments:
-        _save_json_record_in_connection(
-            con,
-            "routine_assignments",
-            assignment.id,
-            assignment.model_dump_json(),
-            extra_columns={
-                "routine_id": assignment.routine_id,
-                "card_template_id": assignment.card_template_id,
-                "assignment_date": assignment.date,
-                "slot": assignment.slot,
-                "position": assignment.position,
-            },
-        )
-
-
-def save_routine_schedule_with_assignments(
-    routine: RoutineSchedule,
-    assignments: list[RoutineAssignment],
-) -> None:
-    with _connect() as con:
-        con.execute("BEGIN IMMEDIATE")
-        try:
-            _save_json_record_in_connection(
-                con,
-                "routine_schedules",
-                routine.id,
-                routine.model_dump_json(),
-            )
-            _replace_routine_assignments_in_connection(con, routine.id, assignments)
-        except Exception:
-            con.rollback()
-            raise
-        else:
-            con.commit()
-
-
-def replace_routine_assignments(
-    routine_id: str,
-    assignments: list[RoutineAssignment],
-) -> None:
-    with _connect() as con:
-        con.execute("BEGIN IMMEDIATE")
-        try:
-            _replace_routine_assignments_in_connection(con, routine_id, assignments)
-        except Exception:
-            con.rollback()
-            raise
-        else:
-            con.commit()
-
-
-def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:
-    where_sql = "routine_id = ?" if routine_id is not None else ""
-    params = (routine_id,) if routine_id is not None else ()
-    return _load_json_records(
-        "routine_assignments",
-        RoutineAssignment,
-        where_sql=where_sql,
-        params=params,
-        order_by="routine_id, assignment_date, slot, position, id",
-    )
-
-
-def save_card_log(log: CardLog) -> None:
-    _save_json_record(
-        "card_logs",
-        log.id,
-        log.model_dump_json(),
-        extra_columns={
-            "occurrence_key": log.occurrence_key,
-            "log_date": log.date,
-            "card_template_id": log.card_template_id,
-            "assignment_id": log.assignment_id,
-        },
-    )
-
-
-def load_card_logs(date: str | None = None) -> list[CardLog]:
-    where_sql = "log_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _load_json_records(
-        "card_logs",
-        CardLog,
-        where_sql=where_sql,
-        params=params,
-        order_by="log_date, created_at, id",
-    )
-
-
-def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
-    """Load card logs for a date range (inclusive on both ends)."""
-    return _load_json_records(
-        "card_logs",
-        CardLog,
-        where_sql="log_date >= ? AND log_date <= ?",
-        params=(start_date, end_date),
-        order_by="log_date, created_at, id",
-    )
-
-
-def save_card_override(override: CardOverride) -> None:
-    _save_json_record(
-        "card_overrides",
-        override.id,
-        override.model_dump_json(),
-        extra_columns={
-            "override_date": override.date,
-            "action": override.action,
-            "target_occurrence_key": override.target_occurrence_key,
-        },
-    )
-
-
-def load_card_overrides(date: str | None = None) -> list[CardOverride]:
-    where_sql = "override_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _load_json_records(
-        "card_overrides",
-        CardOverride,
-        where_sql=where_sql,
-        params=params,
-        order_by="override_date, created_at, id",
-    )
-
-
-def load_card_overrides_range(
-    start_date: str,
-    end_date: str,
-) -> list[CardOverride]:
-    """Load card overrides for a contiguous date range (inclusive)."""
-    return _load_json_records(
-        "card_overrides",
-        CardOverride,
-        where_sql="override_date >= ? AND override_date <= ?",
-        params=(start_date, end_date),
-        order_by="override_date, created_at, id",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Program storage
 # ---------------------------------------------------------------------------
 
 
 def save_program(program: Program) -> None:
-    _save_json_record("programs", program.id, program.model_dump_json())
+    _STORE.save("programs", program.id, program.model_dump_json())
 
 
 def load_program(program_id: str) -> Program | None:
-    return _load_json_record("programs", Program, program_id)
+    return _STORE.load("programs", Program, program_id)
 
 
 def load_programs(status: str | None = None) -> list[Program]:
@@ -1647,7 +1188,7 @@ def load_programs(status: str | None = None) -> list[Program]:
     if status is not None:
         where_sql = "json_extract(data, '$.status') = ?"
         params = (status,)
-    return _load_json_records(
+    return _STORE.load_many(
         "programs",
         Program,
         where_sql=where_sql,
@@ -1708,7 +1249,7 @@ def save_program_import(
                 ),
             )
 
-        _save_json_record_in_connection(
+        _STORE.save_in_connection(
             con,
             "programs",
             program.id,

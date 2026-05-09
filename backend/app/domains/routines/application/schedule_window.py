@@ -1,12 +1,31 @@
-"""Schedule projection use case for routines."""
+"""Schedule projection use cases for routines.
+
+Projection expands compiled routine assignments into dated card occurrences,
+then applies persisted add, hide, and replace overrides. It is the shared source
+for the schedule calendar and Today-board views.
+"""
 
 from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import cast
+from typing import cast, get_args
 
-from app.domains.routines.domain.schedule import (
+from app.domains.routines.contracts import (
+    CardOverride,
+    CardOverrideAction,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+    ScheduleDay,
+    ScheduleOccurrence,
+    ScheduleOccurrenceSourceKind,
+    ScheduleWindow,
+    SlotName,
+    WeekdayName,
+)
+from app.domains.routines.dependencies import RoutineRepository
+from app.domains.routines.schedule import (
     assignment_matches_date,
     merge_schedule_payload,
     occurrence_sort_key,
@@ -15,29 +34,44 @@ from app.domains.routines.domain.schedule import (
     routine_is_active_on_date,
     scheduled_occurrence_key,
 )
-from app.models import (
-    CardOverride,
-    CardTemplate,
-    RoutineAssignment,
-    RoutineSchedule,
-    ScheduleDay,
-    ScheduleOccurrence,
-    ScheduleOccurrenceSourceKind,
-    ScheduleWindow,
-    WeekdayName,
-)
 
-from .ports import RoutineRepository
+_WEEKDAY_NAMES = cast(tuple[WeekdayName, ...], get_args(WeekdayName))
 
-_WEEKDAY_NAMES: tuple[WeekdayName, ...] = (
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-)
+
+def _schedule_occurrence_from_template(
+    *,
+    occurrence_key: str,
+    date: str,
+    card: CardTemplate,
+    slot: SlotName,
+    position: int,
+    source_kind: ScheduleOccurrenceSourceKind,
+    routine_id: str | None = None,
+    routine_name: str | None = None,
+    assignment_id: str | None = None,
+    schedule_override_action: CardOverrideAction | None = None,
+    target_occurrence_key: str | None = None,
+    payload_json: dict[str, object] | None = None,
+) -> ScheduleOccurrence:
+    """Build a schedule occurrence from a card template plus source metadata."""
+    return ScheduleOccurrence(
+        occurrence_key=occurrence_key,
+        date=date,
+        slot=slot,
+        position=position,
+        source_kind=source_kind,
+        schedule_override_action=schedule_override_action,
+        target_occurrence_key=target_occurrence_key,
+        routine_id=routine_id,
+        routine_name=routine_name,
+        assignment_id=assignment_id,
+        card_template_id=card.id,
+        name=card.name,
+        renderer=card.renderer,
+        summary=card.summary,
+        tags=card.tags,
+        payload_json=payload_json if payload_json is not None else dict(card.payload_json),
+    )
 
 
 def _base_occurrences_for_day(
@@ -59,20 +93,16 @@ def _base_occurrences_for_day(
             if card is None:
                 continue
             occurrences.append(
-                ScheduleOccurrence(
+                _schedule_occurrence_from_template(
                     occurrence_key=scheduled_occurrence_key(assignment.id, date_str),
                     date=date_str,
+                    card=card,
                     slot=assignment.slot,
                     position=assignment.position,
                     source_kind="scheduled",
                     routine_id=routine.id,
                     routine_name=routine.name,
                     assignment_id=assignment.id,
-                    card_template_id=card.id,
-                    name=card.name,
-                    renderer=card.renderer,
-                    summary=card.summary,
-                    tags=card.tags,
                     payload_json=merge_schedule_payload(card, assignment),
                 )
             )
@@ -121,9 +151,10 @@ def _apply_overrides(
             else (target_occurrence.position if target_occurrence is not None else 999)
         )
         source_kind = cast(ScheduleOccurrenceSourceKind, f"override_{override.action}")
-        occurrence = ScheduleOccurrence(
+        occurrence = _schedule_occurrence_from_template(
             occurrence_key=override_occurrence_key(override, date),
             date=date,
+            card=template,
             slot=slot,
             position=position,
             source_kind=source_kind,
@@ -134,11 +165,6 @@ def _apply_overrides(
             assignment_id=(
                 target_occurrence.assignment_id if target_occurrence is not None else None
             ),
-            card_template_id=template.id,
-            name=template.name,
-            renderer=template.renderer,
-            summary=template.summary,
-            tags=template.tags,
             payload_json=dict(template.payload_json),
         )
         if override.action == "replace" and override.target_occurrence_key is not None:
@@ -153,6 +179,7 @@ def get_schedule_window(
     start_date: str,
     duration_days: int = 14,
 ) -> ScheduleWindow:
+    """Return a dated occurrence window beginning at ``start_date``."""
     if duration_days <= 0:
         raise ValueError("duration_days must be greater than 0")
 

@@ -1,6 +1,9 @@
 """Note use cases."""
 
-from app.models import Note, NotesResponse
+from app.domains.journal.contracts import (
+    Note,
+    NotesResponse,
+)
 
 from .ports import JournalRepository
 

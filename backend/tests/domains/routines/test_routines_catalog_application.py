@@ -4,92 +4,24 @@ from contextlib import contextmanager
 
 import pytest
 
-import app.infra.database as db
+import app.domains.routines.adapters as routine_db
+from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.catalog import (
     get_routine,
     list_routine_assignments,
     list_routines,
 )
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import AssistantArtifactCreateRequest, RoutineAssignment, RoutineSchedule
-from tests._artifacts_helpers import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
+from tests._routines_helpers import (
+    activate_routine_card,
+    activate_routine_spec,
+    routine_assignment_spec,
 )
-
-
-def _card_request(card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{card_id}",
-        kind="card_template",
-        schema_version=1,
-        payload_json={
-            "id": card_id,
-            "name": f"Card {card_id}",
-            "renderer": "timer_session",
-            "slot_default": "morning",
-            "summary": "Catalog fixture card",
-            "tags": ["training"],
-            "payload": {
-                "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
-                "instructions": "Stay relaxed.",
-            },
-        },
-    )
-
-
-def _routine_request(
-    routine_id: str,
-    *,
-    card_id: str,
-) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Catalog fixture",
-            "assignments": [
-                {
-                    "id": f"{routine_id}-assignment",
-                    "card_template_id": card_id,
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 10,
-                    "prescription_override_json": {},
-                }
-            ],
-        },
-    )
-
-
-def _live_routine(routine_id: str) -> RoutineSchedule:
-    return RoutineSchedule(
-        id=routine_id,
-        name=f"Routine {routine_id}",
-        start_date="2026-03-02",
-        status="active",
-        tags=["training"],
-        notes="Catalog fixture",
-    )
-
-
-def _assignment(assignment_id: str, *, routine_id: str) -> RoutineAssignment:
-    return RoutineAssignment(
-        id=assignment_id,
-        routine_id=routine_id,
-        card_template_id="card-catalog",
-        date="2026-03-02",
-        slot="morning",
-        position=10,
-        prescription_override_json={},
-    )
+from tests._routines_helpers import (
+    live_routine as _live_routine,
+)
+from tests._routines_helpers import (
+    live_routine_assignment as _assignment,
+)
 
 
 def test_list_routines_reads_live_schedules():
@@ -104,12 +36,16 @@ def test_list_routines_reads_live_schedules():
 
 def test_get_routine_and_assignments_read_same_routine():
     repo = SqliteRoutineRepository()
-    card_artifact = create_assistant_artifact(_card_request("card-catalog"))
-    activate_assistant_artifact(card_artifact.id)
-    artifact = create_assistant_artifact(
-        _routine_request("routine-catalog", card_id="card-catalog")
+    activate_routine_card("card-catalog")
+    activate_routine_spec(
+        "routine-catalog",
+        assignments=[
+            routine_assignment_spec(
+                "routine-catalog-assignment",
+                card_template_id="card-catalog",
+            )
+        ],
     )
-    activate_assistant_artifact(artifact.id)
 
     routine = get_routine(repo, "routine-catalog")
     assignments = list_routine_assignments(repo, "routine-catalog")
@@ -135,8 +71,11 @@ def test_list_routine_assignments_raises_lookup_error_for_missing_routine():
 def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-atomic"))
-    db.save_routine_assignment(_assignment("existing-assignment", routine_id="routine-atomic"))
-    original_save = db._save_json_record_in_connection
+    repo.replace_assignments(
+        routine_id="routine-atomic",
+        assignments=[_assignment("existing-assignment", routine_id="routine-atomic")],
+    )
+    original_save = routine_db._STORE.save_in_connection
     save_calls = 0
 
     def fail_on_second_assignment_write(*args, **kwargs):
@@ -147,7 +86,9 @@ def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
                 raise RuntimeError("simulated write failure")
         return original_save(*args, **kwargs)
 
-    monkeypatch.setattr(db, "_save_json_record_in_connection", fail_on_second_assignment_write)
+    monkeypatch.setattr(
+        routine_db._STORE, "save_in_connection", fail_on_second_assignment_write
+    )
 
     with pytest.raises(RuntimeError, match="simulated write failure"):
         repo.replace_assignments(
@@ -158,7 +99,7 @@ def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
             ],
         )
 
-    assert [item.id for item in db.load_routine_assignments("routine-atomic")] == [
+    assert [item.id for item in routine_db.load_routine_assignments("routine-atomic")] == [
         "existing-assignment"
     ]
 
@@ -166,7 +107,10 @@ def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
 def test_replace_assignments_rejects_assignments_for_other_routines():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-guard"))
-    db.save_routine_assignment(_assignment("existing-assignment", routine_id="routine-guard"))
+    repo.replace_assignments(
+        routine_id="routine-guard",
+        assignments=[_assignment("existing-assignment", routine_id="routine-guard")],
+    )
 
     with pytest.raises(ValueError, match="routine_id"):
         repo.replace_assignments(
@@ -174,7 +118,7 @@ def test_replace_assignments_rejects_assignments_for_other_routines():
             assignments=[_assignment("wrong-routine-assignment", routine_id="other-routine")],
         )
 
-    assert [item.id for item in db.load_routine_assignments("routine-guard")] == [
+    assert [item.id for item in routine_db.load_routine_assignments("routine-guard")] == [
         "existing-assignment"
     ]
 
@@ -183,8 +127,14 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-target"))
     repo.save_routine(_live_routine("routine-owner"))
-    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
-    db.save_routine_assignment(_assignment("shared-assignment", routine_id="routine-owner"))
+    repo.replace_assignments(
+        routine_id="routine-target",
+        assignments=[_assignment("target-existing", routine_id="routine-target")],
+    )
+    repo.replace_assignments(
+        routine_id="routine-owner",
+        assignments=[_assignment("shared-assignment", routine_id="routine-owner")],
+    )
 
     with pytest.raises(ValueError, match="already belongs to routine routine-owner"):
         repo.replace_assignments(
@@ -192,10 +142,10 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
             assignments=[_assignment("shared-assignment", routine_id="routine-target")],
         )
 
-    assert [item.id for item in db.load_routine_assignments("routine-target")] == [
+    assert [item.id for item in routine_db.load_routine_assignments("routine-target")] == [
         "target-existing"
     ]
-    owner_assignments = db.load_routine_assignments("routine-owner")
+    owner_assignments = routine_db.load_routine_assignments("routine-owner")
     assert [item.id for item in owner_assignments] == ["shared-assignment"]
     assert owner_assignments[0].routine_id == "routine-owner"
 
@@ -203,8 +153,13 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
 def test_replace_assignments_replaces_existing_assignments_for_target_routine():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-replace"))
-    db.save_routine_assignment(_assignment("old-assignment-1", routine_id="routine-replace"))
-    db.save_routine_assignment(_assignment("old-assignment-2", routine_id="routine-replace"))
+    repo.replace_assignments(
+        routine_id="routine-replace",
+        assignments=[
+            _assignment("old-assignment-1", routine_id="routine-replace"),
+            _assignment("old-assignment-2", routine_id="routine-replace"),
+        ],
+    )
 
     repo.replace_assignments(
         routine_id="routine-replace",
@@ -214,7 +169,7 @@ def test_replace_assignments_replaces_existing_assignments_for_target_routine():
         ],
     )
 
-    assert [item.id for item in db.load_routine_assignments("routine-replace")] == [
+    assert [item.id for item in routine_db.load_routine_assignments("routine-replace")] == [
         "new-assignment-1",
         "new-assignment-2",
     ]
@@ -223,8 +178,11 @@ def test_replace_assignments_replaces_existing_assignments_for_target_routine():
 def test_replace_routine_assignments_begins_transaction_before_ownership_query(monkeypatch):
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-target"))
-    db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
-    original_connect = db._connect
+    repo.replace_assignments(
+        routine_id="routine-target",
+        assignments=[_assignment("target-existing", routine_id="routine-target")],
+    )
+    original_connect = routine_db.connect
     executed_sql: list[str] = []
 
     class SpyConnection:
@@ -243,9 +201,9 @@ def test_replace_routine_assignments_begins_transaction_before_ownership_query(m
         with original_connect() as con:
             yield SpyConnection(con)
 
-    monkeypatch.setattr(db, "_connect", spy_connect)
+    monkeypatch.setattr(routine_db, "connect", spy_connect)
 
-    db.replace_routine_assignments(
+    routine_db.replace_routine_assignments(
         "routine-target",
         [_assignment("new-assignment", routine_id="routine-target")],
     )

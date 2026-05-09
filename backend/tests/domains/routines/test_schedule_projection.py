@@ -2,109 +2,20 @@
 
 import pytest
 
-from app.infra.database import save_card_override
-from app.models import AssistantArtifactCreateRequest, CardOverride
-from tests._artifacts_helpers import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
+from app.domains.routines.adapters import save_card_override
+from app.domains.routines.contracts import CardOverride
+from tests._routines_helpers import (
+    activate_routine_card as _activate_card,
 )
-from tests._routines_helpers import get_schedule_window
-
-
-def _card_request(
-    card_id: str,
-    *,
-    name: str | None = None,
-    slot_default: str = "morning",
-) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{card_id}",
-        kind="card_template",
-        schema_version=1,
-        payload_json={
-            "id": card_id,
-            "name": name or f"Card {card_id}",
-            "renderer": "timer_session",
-            "slot_default": slot_default,
-            "summary": f"Summary for {card_id}",
-            "tags": ["training"],
-            "payload": {
-                "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
-                "instructions": "Stay relaxed.",
-            },
-        },
-    )
-
-
-def _routine_request(
-    routine_id: str,
-    *,
-    assignments: list[dict[str, object]],
-    start_date: str = "2026-03-02",
-    end_date: str | None = None,
-    status: str = "active",
-) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": start_date,
-            "end_date": end_date,
-            "status": status,
-            "tags": ["training"],
-            "notes": f"Schedule for {routine_id}",
-            "assignments": assignments,
-        },
-    )
-
-
-def _activate_card(card_id: str, *, name: str | None = None, slot_default: str = "morning") -> None:
-    artifact = create_assistant_artifact(
-        _card_request(card_id, name=name, slot_default=slot_default)
-    )
-    activate_assistant_artifact(artifact.id)
-
-
-def _activate_routine(
-    routine_id: str,
-    *,
-    assignments: list[dict[str, object]],
-    start_date: str = "2026-03-02",
-    end_date: str | None = None,
-    status: str = "active",
-) -> None:
-    artifact = create_assistant_artifact(
-        _routine_request(
-            routine_id,
-            assignments=assignments,
-            start_date=start_date,
-            end_date=end_date,
-            status=status,
-        )
-    )
-    activate_assistant_artifact(artifact.id)
-
-
-def _assignment(
-    assignment_id: str,
-    *,
-    card_template_id: str,
-    day: int,
-    slot: str,
-    position: int,
-) -> dict[str, object]:
-    return {
-        "id": assignment_id,
-        "card_template_id": card_template_id,
-        "day": day,
-        "slot": slot,
-        "position": position,
-        "prescription_override_json": {},
-    }
+from tests._routines_helpers import (
+    activate_routine_spec as _activate_routine,
+)
+from tests._routines_helpers import (
+    get_schedule_window,
+)
+from tests._routines_helpers import (
+    routine_assignment_spec as _assignment,
+)
 
 
 def _days_by_date(window):

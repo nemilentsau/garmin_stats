@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 from app.domains.artifacts.application import artifacts as artifact_use_cases
-from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import (
+from app.domains.artifacts.contracts import (
     ArtifactBundleImportResponse,
     ArtifactBundlePreviewResponse,
     ArtifactBundleSpec,
     AssistantArtifact,
     AssistantArtifactCreateRequest,
 )
+from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
+from app.domains.routines.adapters import SqliteRoutineRepository
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:
-    return artifact_use_cases.create_assistant_artifact(SqliteArtifactRepository(), request)
+    return artifact_use_cases.create_assistant_artifact(
+        SqliteArtifactRepository(),
+        SqliteRoutineRepository(),
+        request,
+    )
 
 
 def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:

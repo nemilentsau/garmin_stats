@@ -5,12 +5,32 @@ import os
 
 import pytest
 
+import app.domains.routines.adapters as routine_db
 import app.infra.database as db
+from app.core.profile.contracts import (
+    Goal,
+    UserProfile,
+)
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
+)
+from app.domains.assistant.contracts import (
+    AssistantMessage,
+    AssistantRun,
+    AssistantThread,
+    ContextSnapshot,
+    EvidenceCard,
+    Plan,
+    PlanItem,
+)
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentExposure,
+    OutcomeMetric,
 )
 from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
@@ -25,29 +45,16 @@ from app.domains.garmin_analytics.contracts import (
     DaySleep,
     DayWellness,
 )
-from app.models import (
-    AssistantArtifact,
-    AssistantMessage,
-    AssistantRun,
-    AssistantThread,
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
+from app.domains.routines.contracts import (
     CardLog,
     CardOverride,
     CardTemplate,
-    ContextSnapshot,
-    DailyCheckIn,
-    EvidenceCard,
-    Experiment,
-    ExperimentExposure,
-    Goal,
-    Note,
-    OutcomeMetric,
-    Plan,
-    PlanItem,
-    Routine,
     RoutineAssignment,
-    RoutineEntry,
     RoutineSchedule,
-    UserProfile,
 )
 from app.utils.timeutil import now_iso
 
@@ -65,7 +72,6 @@ class TestInit:
         assert "daily_metrics" in tables
         assert "ingest_meta" in tables
         assert "user_profile" in tables
-        assert "routines" in tables
         assert "assistant_threads" in tables
         assert "assistant_evidence_bundles" in tables
         assert "assistant_memory_records" in tables
@@ -450,43 +456,6 @@ class TestStoreAndLoad:
         assert loaded_snapshot is not None
         assert loaded_snapshot.created_at is not None
 
-    def test_routine_entries_filter_by_routine_and_date(self):
-        routine = Routine(
-            id="routine-1",
-            name="Meditation",
-            category="mindfulness",
-        )
-        db.save_routine(routine)
-
-        db.save_routine_entry(
-            RoutineEntry(
-                id="entry-1",
-                routine_id="routine-1",
-                date="2026-01-15",
-                value_numeric=10,
-            )
-        )
-        db.save_routine_entry(
-            RoutineEntry(
-                id="entry-2",
-                routine_id="routine-1",
-                date="2026-01-16",
-                value_numeric=5,
-            )
-        )
-        db.save_routine_entry(
-            RoutineEntry(
-                id="entry-3",
-                routine_id="routine-2",
-                date="2026-01-15",
-                value_numeric=20,
-            )
-        )
-
-        loaded = db.load_routine_entries(routine_id="routine-1", date="2026-01-15")
-
-        assert [entry.id for entry in loaded] == ["entry-1"]
-
     def test_daily_checkin_and_note_survive_round_trip(self):
         db.save_daily_checkin(
             DailyCheckIn(
@@ -729,18 +698,21 @@ class TestStoreAndLoad:
         )
 
         db.save_assistant_artifact(artifact)
-        db.save_card_template(card)
-        db.save_routine_schedule(routine)
-        db.save_routine_assignment(assignment)
-        db.save_card_log(log)
-        db.save_card_override(override)
+        routine_db.save_card_template(card)
+        routine_db.save_routine_schedule_with_assignments(routine, [assignment])
+        routine_db.save_card_log(log)
+        routine_db.save_card_override(override)
 
         assert db.load_assistant_artifact("artifact-1") is not None
-        assert [entry.id for entry in db.load_card_templates()] == ["card-1"]
-        assert [entry.id for entry in db.load_routine_schedules()] == ["routine-1"]
-        assert [entry.id for entry in db.load_routine_assignments("routine-1")] == ["assignment-1"]
-        assert [entry.id for entry in db.load_card_logs("2026-03-02")] == ["log-1"]
-        assert [entry.id for entry in db.load_card_overrides("2026-03-02")] == ["override-1"]
+        assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
+        assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
+        assert [entry.id for entry in routine_db.load_routine_assignments("routine-1")] == [
+            "assignment-1"
+        ]
+        assert [entry.id for entry in routine_db.load_card_logs("2026-03-02")] == ["log-1"]
+        assert [entry.id for entry in routine_db.load_card_overrides("2026-03-02")] == [
+            "override-1"
+        ]
 
     def test_assistant_evidence_bundle_round_trips(self):
         bundle = AssistantEvidenceBundle(
@@ -906,17 +878,17 @@ class TestCardOverridesRange:
     def test_range_query_matches_individual_date_queries(self):
         dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
         for i, date in enumerate(dates):
-            db.save_card_override(CardOverride(
+            routine_db.save_card_override(CardOverride(
                 id=f"override-{i}",
                 date=date,
                 action="hide",
                 target_occurrence_key=f"key-{i}",
             ))
 
-        range_result = db.load_card_overrides_range("2026-03-02", "2026-03-04")
+        range_result = routine_db.load_card_overrides_range("2026-03-02", "2026-03-04")
         individual_results = []
         for date in dates:
-            individual_results.extend(db.load_card_overrides(date=date))
+            individual_results.extend(routine_db.load_card_overrides(date=date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
 
@@ -989,14 +961,14 @@ class TestLastNQuery:
 
 class TestAutoTotal:
     def test_auto_total_computed_from_items(self):
-        from app.models import GoalsResponse
+        from app.core.profile.contracts import GoalsResponse
 
         response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")])
 
         assert response.total == 1
 
     def test_explicit_total_is_respected(self):
-        from app.models import GoalsResponse
+        from app.core.profile.contracts import GoalsResponse
 
         response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")], total=42)
 

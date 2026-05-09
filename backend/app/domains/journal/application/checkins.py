@@ -1,6 +1,9 @@
 """Daily check-in use cases."""
 
-from app.models import DailyCheckIn, DailyCheckInsResponse
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    DailyCheckInsResponse,
+)
 
 from .ports import JournalRepository
 

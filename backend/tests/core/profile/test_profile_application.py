@@ -1,7 +1,10 @@
 """Profile application tests."""
 
 from app.core.profile.application import get_user_profile, update_user_profile
-from app.models import DEFAULT_PROFILE_ID, UserProfile
+from app.core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    UserProfile,
+)
 
 
 class _FakeProfileRepository:

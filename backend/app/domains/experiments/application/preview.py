@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import date as date_type
 from datetime import timedelta
 
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.domains.routines.application.ports import RoutineRepository
-from app.models import (
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentDesign,
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.routines.dependencies import RoutineRepository
 
 from .analysis_math import resolve_metric_path
 from .ports import ExperimentRepository

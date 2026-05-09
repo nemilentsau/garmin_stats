@@ -6,6 +6,12 @@ import pytest
 
 import app.infra.database as db
 from app.domains.experiments.application.analysis import compute_experiment_analysis
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentDesign,
+    ExperimentExposure,
+    OutcomeMetric,
+)
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
@@ -16,13 +22,7 @@ from app.domains.garmin_analytics.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import (
-    Experiment,
-    ExperimentDesign,
-    ExperimentExposure,
-    OutcomeMetric,
-)
+from app.domains.routines.adapters import SqliteRoutineRepository
 
 
 def _make_metric(

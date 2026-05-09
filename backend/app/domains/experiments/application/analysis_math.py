@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from scipy import stats as sp_stats
 
 from app.domains.garmin_analytics.contracts import DailyMetric
-from app.models import DailyCheckIn
+from app.domains.journal.contracts import DailyCheckIn
 
 # ---------------------------------------------------------------------------
 # Metric path resolution

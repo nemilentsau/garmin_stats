@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.models import Program, ProgramStatus, ProgramVersion
+from app.domains.programs.contracts import (
+    Program,
+    ProgramStatus,
+    ProgramVersion,
+)
 
 
 class ProgramRepository(Protocol):

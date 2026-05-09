@@ -2,71 +2,30 @@
 
 import pytest
 
+from app.domains.routines.adapters import SqliteRoutineRepository, save_card_override
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.infra.database import save_card_override
-from app.models import AssistantArtifactCreateRequest, CardOverride
-from tests._artifacts_helpers import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
+from app.domains.routines.contracts import CardOverride
+from tests._routines_helpers import (
+    activate_routine_card as _activate_card,
+)
+from tests._routines_helpers import (
+    activate_routine_spec,
+    routine_assignment_spec,
 )
 
 
-def _card_request(card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{card_id}",
-        kind="card_template",
-        schema_version=1,
-        payload_json={
-            "id": card_id,
-            "name": f"Card {card_id}",
-            "renderer": "timer_session",
-            "slot_default": "evening",
-            "summary": "Schedule fixture card",
-            "tags": ["training"],
-            "payload": {
-                "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
-                "instructions": "Stay relaxed.",
-            },
-        },
-    )
-
-
-def _routine_request(routine_id: str, *, card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Schedule fixture routine",
-            "assignments": [
-                {
-                    "id": f"{routine_id}-morning-late",
-                    "card_template_id": card_id,
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 30,
-                    "prescription_override_json": {},
-                }
-            ],
-        },
-    )
-
-
-def _activate_card(card_id: str) -> None:
-    artifact = create_assistant_artifact(_card_request(card_id))
-    activate_assistant_artifact(artifact.id)
-
-
 def _activate_routine(routine_id: str, *, card_id: str) -> None:
-    artifact = create_assistant_artifact(_routine_request(routine_id, card_id=card_id))
-    activate_assistant_artifact(artifact.id)
+    activate_routine_spec(
+        routine_id,
+        assignments=[
+            routine_assignment_spec(
+                f"{routine_id}-morning-late",
+                card_template_id=card_id,
+                slot="morning",
+                position=30,
+            )
+        ],
+    )
 
 
 def test_schedule_window_returns_sorted_occurrences():

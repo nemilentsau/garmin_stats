@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessagesResponse,
     AssistantThread,
     AssistantThreadCreateRequest,

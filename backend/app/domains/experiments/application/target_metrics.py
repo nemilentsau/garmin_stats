@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from app.models import TargetMetricDefinition, TargetMetricsResponse
+from app.domains.experiments.contracts import (
+    TargetMetricDefinition,
+    TargetMetricsResponse,
+)
 
 _TARGET_METRICS = {
     "resting_hr": TargetMetricDefinition(

@@ -1,7 +1,10 @@
 """SQLite repository adapter for profile configuration."""
 
+from app.core.profile.contracts import (
+    DEFAULT_PROFILE_ID,
+    UserProfile,
+)
 from app.infra.database import load_user_profile, save_user_profile
-from app.models import DEFAULT_PROFILE_ID, UserProfile
 
 
 class SqliteProfileRepository:

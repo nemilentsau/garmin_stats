@@ -9,9 +9,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from app.domains.routines.application.activation import compile_routine_artifact
-from app.domains.routines.application.ports import RoutineRepository
-from app.models import (
+from app.domains.artifacts.contracts import (
     ArtifactBundleDelta,
     ArtifactBundleDeltaAction,
     ArtifactBundleImportResponse,
@@ -23,15 +21,20 @@ from app.models import (
     AssistantArtifactCreateRequest,
     AssistantArtifactsResponse,
     CapabilityRequestSpec,
-    CardTemplate,
     CardTemplateSpec,
-    CardTemplatesResponse,
     ChecklistBlockPayloadSpec,
     ExerciseBlockPayloadSpec,
-    RoutineSchedule,
     RoutineSpec,
     TimerSessionPayloadSpec,
 )
+from app.domains.routines.application.activation import compile_routine_activation
+from app.domains.routines.contracts import (
+    CardTemplate,
+    CardTemplatesResponse,
+    RoutineActivationCommand,
+    RoutineSchedule,
+)
+from app.domains.routines.dependencies import RoutineRepository
 from app.utils.timeutil import now_iso
 
 from .ports import ArtifactRepository
@@ -119,7 +122,8 @@ def _validate_card_template_payload(
 
 
 def _validate_routine_spec_payload(
-    repo: ArtifactRepository,
+    artifact_repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
     payload_json: dict[str, object],
     *,
     additional_card_ids: set[str] | None = None,
@@ -139,8 +143,8 @@ def _validate_routine_spec_payload(
         if (
             assignment.card_template_id not in additional_card_ids
             and (
-            repo.get_card_template(assignment.card_template_id) is None
-            and _card_spec_artifact_by_card_id(repo, assignment.card_template_id) is None
+            routines_repo.get_card_template(assignment.card_template_id) is None
+            and _card_spec_artifact_by_card_id(artifact_repo, assignment.card_template_id) is None
             )
         ):
             errors.append(
@@ -191,6 +195,7 @@ def _system_capability_request(
 
 def create_assistant_artifact(
     repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
     request: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
     now = now_iso()
@@ -200,7 +205,7 @@ def create_assistant_artifact(
     if request.kind == "card_template":
         errors, requested_renderer = _validate_card_template_payload(request.payload_json)
     elif request.kind == "routine_spec":
-        errors = _validate_routine_spec_payload(repo, request.payload_json)
+        errors = _validate_routine_spec_payload(repo, routines_repo, request.payload_json)
     else:
         errors = _validate_capability_request_payload(request.payload_json)
 
@@ -270,13 +275,12 @@ def _parse_bundle_artifact_id(artifact_id: str) -> _BundleArtifactRef | None:
 
 
 def _artifact_target_exists(
-    artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
     kind: ArtifactBundleItemKind,
     target_id: str,
 ) -> bool:
     if kind == "card_template":
-        return artifact_repo.get_card_template(target_id) is not None
+        return routines_repo.get_card_template(target_id) is not None
     return routines_repo.get_routine(target_id) is not None
 
 
@@ -305,7 +309,7 @@ def _bundle_delta_summary(
     action: ArtifactBundleDeltaAction = (
         "update"
         if (
-            _artifact_target_exists(artifact_repo, routines_repo, kind, target_id)
+            _artifact_target_exists(routines_repo, kind, target_id)
             or f"{kind}:{target_id}" in existing_draft_ids
         )
         else "create"
@@ -582,6 +586,7 @@ def _build_bundle_plan(
 
         routine_errors = _validate_routine_spec_payload(
             artifact_repo,
+            routines_repo,
             payload,
             additional_card_ids=bundled_card_ids,
         )
@@ -720,7 +725,7 @@ def get_assistant_artifact(repo: ArtifactRepository, artifact_id: str) -> Assist
 
 
 def _compile_card_template_artifact(
-    repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> CardTemplate:
     spec = CardTemplateSpec.model_validate(artifact.payload_json)
@@ -734,7 +739,7 @@ def _compile_card_template_artifact(
         payload_json=spec.payload,
         source_artifact_id=artifact.id,
     )
-    repo.save_card_template(card)
+    routines_repo.save_card_template(card)
     return card
 
 
@@ -765,7 +770,7 @@ def _activate_card_template_dependency(
     *,
     source_artifact: AssistantArtifact | None = None,
 ) -> None:
-    live_card = artifact_repo.get_card_template(card_id)
+    live_card = routines_repo.get_card_template(card_id)
     bundle_dependency = (
         _bundle_card_artifact_for_routine_artifact(artifact_repo, source_artifact, card_id)
         if source_artifact is not None
@@ -780,7 +785,7 @@ def _activate_card_template_dependency(
             return
         if bundle_dependency.status != "validated":
             if bundle_dependency.status == "activated":
-                _compile_card_template_artifact(artifact_repo, bundle_dependency)
+                _compile_card_template_artifact(routines_repo, bundle_dependency)
                 return
             raise ValueError(f"Card template {card_id} is not ready for activation")
         activate_assistant_artifact(artifact_repo, routines_repo, bundle_dependency.id)
@@ -792,7 +797,7 @@ def _activate_card_template_dependency(
             activate_assistant_artifact(artifact_repo, routines_repo, dependency.id)
             return
         if live_card is None or live_card.source_artifact_id != dependency.id:
-            _compile_card_template_artifact(artifact_repo, dependency)
+            _compile_card_template_artifact(routines_repo, dependency)
         return
 
     if live_card is not None:
@@ -806,15 +811,27 @@ def _compile_routine_spec_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> RoutineSchedule:
-    return compile_routine_artifact(
+    spec = RoutineSpec.model_validate(artifact.payload_json)
+    command = RoutineActivationCommand(
+        id=spec.id,
+        name=spec.name,
+        status=spec.status,
+        start_date=spec.start_date,
+        end_date=spec.end_date,
+        tags=spec.tags,
+        notes=spec.notes,
+        source_artifact_id=artifact.id,
+        assignments=spec.assignments,
+    )
+    return compile_routine_activation(
         routines_repo,
-        artifact,
-        activate_card_template_dependency=lambda card_id, source_artifact: (
+        command,
+        activate_card_template_dependency=lambda card_id: (
             _activate_card_template_dependency(
                 artifact_repo,
                 routines_repo,
                 card_id,
-                source_artifact=source_artifact,
+                source_artifact=artifact,
             )
         ),
     )
@@ -832,7 +849,7 @@ def activate_assistant_artifact(
         raise ValueError(f"Assistant artifact {artifact_id} is not ready for activation")
 
     if artifact.kind == "card_template":
-        _compile_card_template_artifact(artifact_repo, artifact)
+        _compile_card_template_artifact(routines_repo, artifact)
     elif artifact.kind == "routine_spec":
         _compile_routine_spec_artifact(artifact_repo, routines_repo, artifact)
     else:
@@ -843,6 +860,9 @@ def activate_assistant_artifact(
     return updated
 
 
-def list_cards(repo: ArtifactRepository, status: str | None = None) -> CardTemplatesResponse:
-    cards = repo.list_card_templates(status=status)
+def list_cards(
+    routines_repo: RoutineRepository,
+    status: str | None = None,
+) -> CardTemplatesResponse:
+    cards = routines_repo.list_card_templates(status=status)
     return CardTemplatesResponse(cards=cards)

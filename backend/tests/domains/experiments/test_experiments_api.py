@@ -4,7 +4,10 @@ import pytest
 from fastapi import HTTPException
 
 import app.domains.experiments.api.experiments as experiments_mod
-from app.models import Experiment, OutcomeMetric
+from app.domains.experiments.contracts import (
+    Experiment,
+    OutcomeMetric,
+)
 
 
 def _experiment() -> Experiment:

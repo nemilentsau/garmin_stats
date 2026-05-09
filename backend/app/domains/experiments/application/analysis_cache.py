@@ -5,7 +5,10 @@ from __future__ import annotations
 import logging
 from datetime import date as date_type
 
-from app.models import Experiment, ExperimentAnalysis
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentAnalysis,
+)
 
 from .analysis import (
     compute_experiment_analysis,

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
 from app.infra.database import load_daily_checkins, load_notes, save_daily_checkin, save_note
-from app.models import DailyCheckIn, Note
 
 
 class SqliteJournalRepository:

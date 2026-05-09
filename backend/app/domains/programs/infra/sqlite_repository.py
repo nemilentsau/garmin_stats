@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from app.domains.programs.contracts import (
+    Program,
+    ProgramStatus,
+    ProgramVersion,
+)
 from app.infra.database import (
     load_program,
     load_program_versions,
@@ -9,7 +14,6 @@ from app.infra.database import (
     save_program,
     save_program_import,
 )
-from app.models import Program, ProgramStatus, ProgramVersion
 
 
 class SqliteProgramRepository:

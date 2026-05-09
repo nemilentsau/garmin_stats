@@ -6,7 +6,7 @@ import pytest
 
 from app.domains.assistant.application.threads import create_thread, list_messages, list_threads
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessage,
     AssistantMessagesResponse,
     AssistantRun,

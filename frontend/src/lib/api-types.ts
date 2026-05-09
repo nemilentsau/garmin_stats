@@ -709,7 +709,7 @@ export interface paths {
         };
         /**
          * Get Routines
-         * @description Return compiled live routines.
+         * @description Return compiled live routine schedules, optionally filtered by status.
          */
         get: operations["get_routines_api_routines_get"];
         put?: never;
@@ -729,7 +729,7 @@ export interface paths {
         };
         /**
          * Get Routine Schedule Window
-         * @description Return resolved dated occurrences for the next 14 days.
+         * @description Return a 14-day window of scheduled and override-driven card occurrences.
          */
         get: operations["get_routine_schedule_window_api_routines_schedule_window_get"];
         put?: never;
@@ -749,7 +749,7 @@ export interface paths {
         };
         /**
          * Get Routine Detail
-         * @description Return a single compiled live routine.
+         * @description Return one compiled live routine schedule.
          */
         get: operations["get_routine_detail_api_routines__routine_id__get"];
         put?: never;
@@ -769,7 +769,7 @@ export interface paths {
         };
         /**
          * Get Assignments
-         * @description Return recurring card assignments for a routine.
+         * @description Return dated card assignments belonging to one compiled routine.
          */
         get: operations["get_assignments_api_routines__routine_id__assignments_get"];
         put?: never;
@@ -1129,7 +1129,7 @@ export interface paths {
         };
         /**
          * Get Today View
-         * @description Return compiled cards for a single day.
+         * @description Return the Today board with schedule occurrences merged with card logs.
          */
         get: operations["get_today_view_api_today_get"];
         put?: never;
@@ -1149,7 +1149,7 @@ export interface paths {
         };
         /**
          * Get Card Logs Range
-         * @description Return completion statuses for all card occurrences in a date range.
+         * @description Return non-pending card log statuses for schedule-calendar rendering.
          */
         get: operations["get_card_logs_range_api_today_card_logs_get"];
         put?: never;
@@ -1170,7 +1170,7 @@ export interface paths {
         get?: never;
         /**
          * Put Today Card Log
-         * @description Create or replace the log for a single card occurrence.
+         * @description Create or replace one Today card log and notify exposure sync observers.
          */
         put: operations["put_today_card_log_api_today__date__cards__occurrence_key__put"];
         post?: never;
@@ -1379,15 +1379,15 @@ export interface components {
         /** AssistantArtifactsResponse */
         AssistantArtifactsResponse: {
             /**
-             * Artifacts
-             * @default []
-             */
-            artifacts: components["schemas"]["AssistantArtifact"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Artifacts
+             * @default []
+             */
+            artifacts: components["schemas"]["AssistantArtifact"][];
         };
         /** AssistantMessage */
         AssistantMessage: {
@@ -1427,15 +1427,15 @@ export interface components {
         /** AssistantMessagesResponse */
         AssistantMessagesResponse: {
             /**
-             * Messages
-             * @default []
-             */
-            messages: components["schemas"]["AssistantMessage"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["AssistantMessage"][];
         };
         /** AssistantThread */
         AssistantThread: {
@@ -1488,15 +1488,15 @@ export interface components {
         /** AssistantThreadsResponse */
         AssistantThreadsResponse: {
             /**
-             * Threads
-             * @default []
-             */
-            threads: components["schemas"]["AssistantThread"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["AssistantThread"][];
         };
         /** BodyBatteryAnalysisResponse */
         BodyBatteryAnalysisResponse: {
@@ -1564,10 +1564,7 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
-        /**
-         * CardLogRangeResponse
-         * @description Completion statuses for a date range of card occurrences.
-         */
+        /** CardLogRangeResponse */
         CardLogRangeResponse: {
             /** Start Date */
             start_date: string;
@@ -1579,10 +1576,7 @@ export interface components {
              */
             entries: components["schemas"]["CardLogStatusEntry"][];
         };
-        /**
-         * CardLogStatusEntry
-         * @description Lightweight completion status for a single card occurrence.
-         */
+        /** CardLogStatusEntry */
         CardLogStatusEntry: {
             /** Occurrence Key */
             occurrence_key: string;
@@ -1665,15 +1659,15 @@ export interface components {
         /** CardTemplatesResponse */
         CardTemplatesResponse: {
             /**
-             * Cards
-             * @default []
-             */
-            cards: components["schemas"]["CardTemplate"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["CardTemplate"][];
         };
         /** CircadianHRPoint */
         CircadianHRPoint: {
@@ -1844,15 +1838,15 @@ export interface components {
         /** DailyCheckInsResponse */
         DailyCheckInsResponse: {
             /**
-             * Checkins
-             * @default []
-             */
-            checkins: components["schemas"]["DailyCheckIn-Output"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Checkins
+             * @default []
+             */
+            checkins: components["schemas"]["DailyCheckIn-Output"][];
         };
         /** DailyHeartRateStats */
         DailyHeartRateStats: {
@@ -1992,13 +1986,13 @@ export interface components {
         };
         /** DaysResponse */
         DaysResponse: {
-            /** Days */
-            days: string[];
             /**
              * Total
              * @default 0
              */
             total: number;
+            /** Days */
+            days: string[];
         };
         /** Experiment */
         "Experiment-Input": {
@@ -2262,15 +2256,15 @@ export interface components {
         /** ExperimentsResponse */
         ExperimentsResponse: {
             /**
-             * Experiments
-             * @default []
-             */
-            experiments: components["schemas"]["ExperimentWithAnalysis"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Experiments
+             * @default []
+             */
+            experiments: components["schemas"]["ExperimentWithAnalysis"][];
         };
         /** HRDistributionResponse */
         HRDistributionResponse: {
@@ -2721,8 +2715,11 @@ export interface components {
         MetricAnalysis: {
             /** Path */
             path: string;
-            /** Direction */
-            direction: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "higher_is_better" | "lower_is_better";
             /** Lag Results */
             lag_results: components["schemas"]["MetricLagResult"][];
             /** Best Lag */
@@ -2841,15 +2838,15 @@ export interface components {
         /** NotesResponse */
         NotesResponse: {
             /**
-             * Notes
-             * @default []
-             */
-            notes: components["schemas"]["Note-Output"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note-Output"][];
         };
         /** OutcomeMetric */
         "OutcomeMetric-Input": {
@@ -3037,28 +3034,28 @@ export interface components {
         /** ProgramVersionsResponse */
         ProgramVersionsResponse: {
             /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
              * Versions
              * @default []
              */
             versions: components["schemas"]["ProgramVersion"][];
+        };
+        /** ProgramsResponse */
+        ProgramsResponse: {
             /**
              * Total
              * @default 0
              */
             total: number;
-        };
-        /** ProgramsResponse */
-        ProgramsResponse: {
             /**
              * Programs
              * @default []
              */
             programs: components["schemas"]["Program"][];
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
         };
         /** ReadinessScore */
         ReadinessScore: {
@@ -3113,6 +3110,32 @@ export interface components {
             /** Ma7 Bpm */
             ma7_bpm: number | null;
         };
+        /** RoutineActivationAssignment */
+        RoutineActivationAssignment: {
+            /** Id */
+            id: string;
+            /** Card Template Id */
+            card_template_id: string;
+            /** Day */
+            day: number;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening" | "anytime";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Prescription Override Json
+             * @default {}
+             */
+            prescription_override_json: {
+                [key: string]: unknown;
+            };
+        };
         /** RoutineAssignment */
         RoutineAssignment: {
             /** Id */
@@ -3141,44 +3164,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** RoutineAssignmentSpec */
-        RoutineAssignmentSpec: {
-            /** Id */
-            id: string;
-            /** Card Template Id */
-            card_template_id: string;
-            /** Day */
-            day: number;
-            /**
-             * Slot
-             * @enum {string}
-             */
-            slot: "morning" | "midday" | "evening" | "anytime";
-            /**
-             * Position
-             * @default 0
-             */
-            position: number;
-            /**
-             * Prescription Override Json
-             * @default {}
-             */
-            prescription_override_json: {
-                [key: string]: unknown;
-            };
-        };
         /** RoutineAssignmentsResponse */
         RoutineAssignmentsResponse: {
-            /**
-             * Assignments
-             * @default []
-             */
-            assignments: components["schemas"]["RoutineAssignment"][];
             /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Assignments
+             * @default []
+             */
+            assignments: components["schemas"]["RoutineAssignment"][];
         };
         /** RoutineSchedule */
         RoutineSchedule: {
@@ -3209,15 +3206,15 @@ export interface components {
         /** RoutineSchedulesResponse */
         RoutineSchedulesResponse: {
             /**
-             * Routines
-             * @default []
-             */
-            routines: components["schemas"]["RoutineSchedule"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Routines
+             * @default []
+             */
+            routines: components["schemas"]["RoutineSchedule"][];
         };
         /** RoutineSpec */
         RoutineSpec: {
@@ -3246,7 +3243,7 @@ export interface components {
              * Assignments
              * @default []
              */
-            assignments: components["schemas"]["RoutineAssignmentSpec"][];
+            assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
         /** ScheduleDay */
         ScheduleDay: {
@@ -3281,7 +3278,6 @@ export interface components {
             position: number;
             /**
              * Source Kind
-             * @default scheduled
              * @enum {string}
              */
             source_kind: "scheduled" | "override_add" | "override_replace";
@@ -3541,15 +3537,15 @@ export interface components {
         /** TargetMetricsResponse */
         TargetMetricsResponse: {
             /**
-             * Metrics
-             * @default []
-             */
-            metrics: components["schemas"]["TargetMetricDefinition"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["TargetMetricDefinition"][];
         };
         /** TodayCard */
         TodayCard: {

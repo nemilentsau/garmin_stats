@@ -11,7 +11,12 @@ from app.domains.programs.application.programs import (
     list_programs,
     retire_program,
 )
-from app.models import Program, ProgramsResponse, ProgramStatus, ProgramVersionsResponse
+from app.domains.programs.contracts import (
+    Program,
+    ProgramsResponse,
+    ProgramStatus,
+    ProgramVersionsResponse,
+)
 
 router = APIRouter(prefix="/api/programs", tags=["programs"])
 

@@ -6,9 +6,13 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from app.domains.routines.application.ports import RoutineRepository
+from app.domains.experiments.contracts import (
+    Experiment,
+    ExperimentExposure,
+)
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.models import CardLog, Experiment, ExperimentExposure, ScheduleOccurrence
+from app.domains.routines.contracts import CardLog, ScheduleOccurrence
+from app.domains.routines.dependencies import RoutineRepository
 
 from .analysis_cache import persist_experiment_analysis
 from .ports import ExperimentRepository

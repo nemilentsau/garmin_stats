@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessageCreateRequest,
     AssistantThread,
     AssistantThreadCreateRequest,

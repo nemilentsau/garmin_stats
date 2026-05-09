@@ -46,8 +46,11 @@ There are two major paths:
 
 ### Core modules
 
-- `backend/app/models.py`
-  Pydantic contracts for Garmin metrics, assistant state, routine runtime, and API responses.
+- `backend/app/contracts/base.py`
+  Shared Pydantic response-base helpers. User-facing contracts live with their
+  owning slices, for example `domains/routines/contracts.py`,
+  `domains/experiments/contracts.py`, `core/profile/contracts.py`, and
+  `infra/contracts.py`.
 
 - `backend/app/bootstrap/`
   App factory, lifespan wiring, router registration, and the current composition root.
@@ -84,7 +87,13 @@ There are two major paths:
   Assistant domain slice. `api/threads.py` owns `/api/assistant` endpoints, `application/` owns retrieval-first chat and thread use-cases, and `infra/` owns SQLite repository + Claude runtime adapters.
 
 - `domains/routines/`
-  The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
+  Routine catalog, schedule projection, activation, and Today execution. This
+  slice uses a flat small-capability layout: `routes.py` owns `/api/routines`
+  and `/api/today`, `application/` owns use cases for catalog, activation,
+  schedule, and today, `schedule.py` owns pure schedule helpers,
+  `dependencies.py` owns repository/observer/callable dependencies,
+  `adapters.py` owns the SQLite repository adapter, and `contracts.py` owns
+  routine API/persistence/activation command shapes.
 
 - `domains/garmin_sync/`
   Garmin ingest and Garmin Connect download orchestration. This domain owns
@@ -144,8 +153,8 @@ not proof that the design is sound.
   assistant memory records, and runtime interaction.
 - Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
   experiment exposure derivation, or artifact activation.
-- May import: its own application/types/ports, `app.models` contracts, and
-  explicitly allowlisted read dependencies needed to build evidence context.
+- May import: its own contracts/application/types/ports, and explicitly
+  allowlisted read dependencies needed to build evidence context.
 - Must not import: Garmin sync, Garmin analytics application internals, routine
   activation internals, FastAPI from application modules, or SQLite helpers from
   application modules.
@@ -158,8 +167,8 @@ not proof that the design is sound.
   card presentation, and Today log writes.
 - Does not own: assistant artifact staging, experiment analysis, program import,
   Garmin ingest, or Garmin analytics.
-- May import: its own pure schedule helpers, routine repository ports, and
-  `app.models` routine/card contracts.
+- May import: its own pure schedule helpers, routine dependencies, and
+  routine-owned contracts.
 - Must not import: artifacts, experiments, assistant, Garmin sync, Garmin
   analytics, FastAPI from application modules, or SQLite helpers from application
   modules.
@@ -213,10 +222,10 @@ is reserved for shared app primitives rather than important product workflows.
 - Owns: experiment definitions, design preview/import, target metric registry,
   experiment-day exposures, cached N=1 analysis, and active-analysis refresh.
 - Does not own: Today log storage, routine schedule projection internals beyond
-  explicit routine ports/use cases, Garmin ingest, assistant runtime, or artifact
+  explicit routine dependencies/use cases, Garmin ingest, assistant runtime, or artifact
   staging.
-- May import: experiment repository ports, allowlisted routine read/projection
-  contracts needed for exposure derivation, `app.models` experiment contracts,
+- May import: experiment repository ports, experiment-owned contracts,
+  allowlisted routine read/projection contracts needed for exposure derivation,
   and local analysis math helpers.
 - Must not import: Garmin sync, Garmin analytics application internals except
   through persisted metric contracts, assistant runtime, artifact persistence
@@ -233,9 +242,8 @@ is reserved for shared app primitives rather than important product workflows.
 - Does not own: live routine schedule semantics after activation, experiment
   protocol semantics, program lifecycle semantics, assistant chat runtime, or
   Garmin data.
-- May import: artifact repository ports, `app.models` artifact/card/bundle
-  contracts, and allowlisted routine activation contracts for publishing live
-  cards/routines.
+- May import: artifact repository ports, artifact-owned contracts, and
+  allowlisted routine activation contracts for publishing live cards/routines.
 - Must not import: Garmin sync, Garmin analytics, journal, programs,
   experiments application internals, assistant runtime internals, FastAPI from
   application modules, or SQLite helpers from application modules.
@@ -248,7 +256,7 @@ is reserved for shared app primitives rather than important product workflows.
   can later be read by assistant or experiment interpretation.
 - Does not own: Garmin metrics, routine execution, experiment definitions,
   assistant runtime, or analytics computations.
-- May import: journal repository ports and `app.models` journal contracts.
+- May import: journal repository ports and journal-owned contracts.
 - Must not import: Garmin sync, Garmin analytics, routines, experiments,
   assistant, artifacts, programs, FastAPI from application modules, or SQLite
   helpers from application modules.
@@ -261,7 +269,7 @@ is reserved for shared app primitives rather than important product workflows.
   history.
 - Does not own: protocol activation, routine activation, experiment creation,
   artifact staging, Garmin data, or assistant runtime behavior.
-- May import: program repository ports and `app.models` program contracts.
+- May import: program repository ports and program-owned contracts.
 - Must not import: Garmin sync, Garmin analytics, assistant, artifacts, journal,
   routine activation internals, experiment management internals, FastAPI from
   application modules, or SQLite helpers from application modules.
@@ -272,7 +280,7 @@ is reserved for shared app primitives rather than important product workflows.
 - Owns: app-level user profile configuration and profile persistence contracts.
 - Does not own: Garmin data, routine runtime, experiments, assistant behavior,
   artifacts, journal content, programs, or analytics.
-- May import: profile repository ports and `app.models` profile contracts.
+- May import: profile repository ports and profile-owned contracts.
 - Must not import: any `app.domains.*` package, FastAPI from application modules,
   or unrelated SQLite helpers from application modules.
 - Public entrypoints: `/api/profile` and profile read/write use cases.
@@ -355,7 +363,7 @@ Experiment adherence is protocol-defined and day-grain.
 
 This is the most important current product boundary.
 
-- Domain routes now mount from `backend/app/domains/routines/api/`.
+- Domain routes now mount from `backend/app/domains/routines/routes.py`.
 - Flat routine/today router and service compatibility shims have been removed.
 - `/routines/schedule` handles routine review and bundle import
 - `/today` reads one day of live compiled occurrences and writes logs only

@@ -1,17 +1,36 @@
-"""Repository contracts for routines schedule and today use cases."""
+"""Ports consumed by routine application use cases.
+
+Application modules depend on these protocols instead of concrete persistence or
+cross-domain services. Bootstrap code wires the SQLite adapter and optional
+observers.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
-from app.models import CardLog, CardOverride, CardTemplate, RoutineAssignment, RoutineSchedule
+from app.domains.routines.contracts import (
+    CardLog,
+    CardOverride,
+    CardTemplate,
+    RoutineAssignment,
+    RoutineSchedule,
+)
+
+CardTemplateDependencyActivator = Callable[[str], None]
 
 
 class TodayCardLogObserver(Protocol):
+    """Observer notified after a Today card log changes for a date."""
+
     def sync_for_date(self, *, date: str) -> None: ...
 
 
 class RoutineRepository(Protocol):
+    """Persistence port for compiled routines, cards, overrides, and logs."""
+
+    def save_card_template(self, card: CardTemplate) -> None: ...
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]: ...
     def get_routine(self, routine_id: str) -> RoutineSchedule | None: ...
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]: ...

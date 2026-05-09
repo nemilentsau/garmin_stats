@@ -5,22 +5,24 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol
 
+from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.models import (
+from app.domains.assistant.contracts import (
     AssistantMessage,
     AssistantRun,
     AssistantThread,
-    CardLog,
-    DailyCheckIn,
+)
+from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
-    Note,
-    RoutineAssignment,
-    RoutineSchedule,
-    UserProfile,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.journal.contracts import (
+    DailyCheckIn,
+    Note,
+)
+from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 
 
 class AssistantConversationStore(Protocol):

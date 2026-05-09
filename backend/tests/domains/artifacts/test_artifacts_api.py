@@ -9,12 +9,12 @@ from starlette.types import Message
 
 import app.domains.artifacts.api.artifacts as artifacts_mod
 import app.domains.artifacts.api.bundles as artifact_bundles_mod
-import app.domains.routines.api.today as today_mod
+import app.domains.routines.routes as today_mod
 
 
 async def _today_status(method: str, path: str) -> int:
     app = FastAPI()
-    app.include_router(today_mod.router)
+    app.include_router(today_mod.today_router)
 
     messages: list[Message] = []
 

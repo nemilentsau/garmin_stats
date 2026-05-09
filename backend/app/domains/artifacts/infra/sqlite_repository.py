@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
+from app.domains.artifacts.contracts import AssistantArtifact
 from app.infra.database import (
     load_assistant_artifact,
     load_assistant_artifact_by_payload_id,
     load_assistant_artifacts,
-    load_card_template,
-    load_card_templates,
     load_max_artifact_revision,
     save_assistant_artifact,
     save_assistant_artifacts_batch,
-    save_card_template,
 )
-from app.models import AssistantArtifact, CardTemplate
 
 
 class SqliteArtifactRepository:
@@ -44,12 +41,3 @@ class SqliteArtifactRepository:
 
     def get_max_artifact_revision(self, *, kind: str, id_prefix: str) -> int:
         return load_max_artifact_revision(kind, id_prefix)
-
-    def save_card_template(self, card: CardTemplate) -> None:
-        save_card_template(card)
-
-    def get_card_template(self, card_id: str) -> CardTemplate | None:
-        return load_card_template(card_id)
-
-    def list_card_templates(self, *, status: str | None = None) -> list[CardTemplate]:
-        return load_card_templates(status=status)
