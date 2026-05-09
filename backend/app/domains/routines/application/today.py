@@ -15,9 +15,8 @@ from app.domains.routines.contracts import (
     TodaySlot,
     TodayStats,
 )
-from app.domains.routines.domain.schedule import SLOT_ORDER
-
-from .ports import RoutineRepository, TodayCardLogObserver
+from app.domains.routines.dependencies import RoutineRepository, TodayCardLogObserver
+from app.domains.routines.schedule import SLOT_ORDER
 
 _SLOT_LABELS = {
     "morning": "Morning",

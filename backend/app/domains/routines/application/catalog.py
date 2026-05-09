@@ -7,8 +7,7 @@ from app.domains.routines.contracts import (
     RoutineSchedule,
     RoutineSchedulesResponse,
 )
-
-from .ports import RoutineRepository
+from app.domains.routines.dependencies import RoutineRepository
 
 
 def list_routines(

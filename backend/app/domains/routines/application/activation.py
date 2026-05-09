@@ -2,39 +2,39 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import date, timedelta
 
-from app.domains.artifacts.contracts import (
-    AssistantArtifact,
-    RoutineSpec,
+from app.domains.routines.contracts import (
+    RoutineActivationCommand,
+    RoutineAssignment,
+    RoutineSchedule,
 )
-from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
+from app.domains.routines.dependencies import (
+    CardTemplateDependencyActivator,
+    RoutineRepository,
+)
 
-from .ports import RoutineRepository
 
-
-def compile_routine_artifact(
+def compile_routine_activation(
     repo: RoutineRepository,
-    artifact: AssistantArtifact,
+    command: RoutineActivationCommand,
     *,
-    activate_card_template_dependency: Callable[[str, AssistantArtifact | None], None],
+    activate_card_template_dependency: CardTemplateDependencyActivator,
 ) -> RoutineSchedule:
-    spec = RoutineSpec.model_validate(artifact.payload_json)
-    for assignment in spec.assignments:
-        activate_card_template_dependency(assignment.card_template_id, artifact)
+    for assignment in command.assignments:
+        activate_card_template_dependency(assignment.card_template_id)
 
     routine = RoutineSchedule(
-        id=spec.id,
-        name=spec.name,
-        status=spec.status,
-        start_date=spec.start_date,
-        end_date=spec.end_date,
-        tags=spec.tags,
-        notes=spec.notes,
-        source_artifact_id=artifact.id,
+        id=command.id,
+        name=command.name,
+        status=command.status,
+        start_date=command.start_date,
+        end_date=command.end_date,
+        tags=command.tags,
+        notes=command.notes,
+        source_artifact_id=command.source_artifact_id,
     )
-    start = date.fromisoformat(spec.start_date)
+    start = date.fromisoformat(command.start_date)
     compiled_assignments = [
         RoutineAssignment(
             id=assignment.id,
@@ -45,7 +45,7 @@ def compile_routine_artifact(
             position=assignment.position,
             prescription_override_json=assignment.prescription_override_json,
         )
-        for assignment in spec.assignments
+        for assignment in command.assignments
     ]
     repo.save_routine_with_assignments(
         routine=routine,

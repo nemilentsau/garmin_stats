@@ -1,7 +1,8 @@
-"""Repository contracts for routines schedule and today use cases."""
+"""Application-facing dependencies for routine use cases."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol
 
 from app.domains.routines.contracts import (
@@ -11,6 +12,8 @@ from app.domains.routines.contracts import (
     RoutineAssignment,
     RoutineSchedule,
 )
+
+CardTemplateDependencyActivator = Callable[[str], None]
 
 
 class TodayCardLogObserver(Protocol):

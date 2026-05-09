@@ -12,7 +12,7 @@ from app.domains.experiments.contracts import (
     ExperimentPreviewResponse,
 )
 from app.domains.garmin_analytics.contracts import DailyMetric
-from app.domains.routines.application.ports import RoutineRepository
+from app.domains.routines.dependencies import RoutineRepository
 
 from .analysis_math import resolve_metric_path
 from .ports import ExperimentRepository

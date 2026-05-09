@@ -27,13 +27,15 @@ from app.domains.artifacts.contracts import (
     RoutineSpec,
     TimerSessionPayloadSpec,
 )
-from app.domains.routines.application.activation import compile_routine_artifact
-from app.domains.routines.application.ports import RoutineRepository
+from app.domains.routines.application.activation import compile_routine_activation
 from app.domains.routines.contracts import (
     CardTemplate,
     CardTemplatesResponse,
+    RoutineActivationAssignment,
+    RoutineActivationCommand,
     RoutineSchedule,
 )
+from app.domains.routines.dependencies import RoutineRepository
 from app.utils.timeutil import now_iso
 
 from .ports import ArtifactRepository
@@ -808,15 +810,37 @@ def _compile_routine_spec_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> RoutineSchedule:
-    return compile_routine_artifact(
+    spec = RoutineSpec.model_validate(artifact.payload_json)
+    command = RoutineActivationCommand(
+        id=spec.id,
+        name=spec.name,
+        status=spec.status,
+        start_date=spec.start_date,
+        end_date=spec.end_date,
+        tags=spec.tags,
+        notes=spec.notes,
+        source_artifact_id=artifact.id,
+        assignments=[
+            RoutineActivationAssignment(
+                id=assignment.id,
+                card_template_id=assignment.card_template_id,
+                day=assignment.day,
+                slot=assignment.slot,
+                position=assignment.position,
+                prescription_override_json=assignment.prescription_override_json,
+            )
+            for assignment in spec.assignments
+        ],
+    )
+    return compile_routine_activation(
         routines_repo,
-        artifact,
-        activate_card_template_dependency=lambda card_id, source_artifact: (
+        command,
+        activate_card_template_dependency=lambda card_id: (
             _activate_card_template_dependency(
                 artifact_repo,
                 routines_repo,
                 card_id,
-                source_artifact=source_artifact,
+                source_artifact=artifact,
             )
         ),
     )

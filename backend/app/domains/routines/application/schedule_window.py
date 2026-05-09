@@ -17,7 +17,8 @@ from app.domains.routines.contracts import (
     ScheduleWindow,
     WeekdayName,
 )
-from app.domains.routines.domain.schedule import (
+from app.domains.routines.dependencies import RoutineRepository
+from app.domains.routines.schedule import (
     assignment_matches_date,
     merge_schedule_payload,
     occurrence_sort_key,
@@ -26,8 +27,6 @@ from app.domains.routines.domain.schedule import (
     routine_is_active_on_date,
     scheduled_occurrence_key,
 )
-
-from .ports import RoutineRepository
 
 _WEEKDAY_NAMES: tuple[WeekdayName, ...] = (
     "monday",

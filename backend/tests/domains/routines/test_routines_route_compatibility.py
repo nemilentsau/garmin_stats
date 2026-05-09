@@ -59,7 +59,7 @@ async def _asgi_request(path: str) -> tuple[int, bytes]:
 
 def test_monkeypatching_domain_routines_api_changes_live_http_behavior(monkeypatch):
     monkeypatch.setattr(
-        "app.domains.routines.api.routines.get_schedule_window",
+        "app.domains.routines.routes.get_schedule_window",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("domain route patch hit")),
     )
 

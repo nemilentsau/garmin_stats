@@ -11,7 +11,7 @@ from app.domains.artifacts.contracts import (
     AssistantArtifactCreateRequest,
 )
 from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.domains.routines.adapters import SqliteRoutineRepository
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:

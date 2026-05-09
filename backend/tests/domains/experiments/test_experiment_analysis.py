@@ -22,7 +22,7 @@ from app.domains.garmin_analytics.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.domains.routines.adapters import SqliteRoutineRepository
 
 
 def _make_metric(

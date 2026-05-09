@@ -6,6 +6,7 @@ import pytest
 
 import app.infra.database as db
 from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
+from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.catalog import (
     get_routine,
     list_routine_assignments,
@@ -15,7 +16,6 @@ from app.domains.routines.contracts import (
     RoutineAssignment,
     RoutineSchedule,
 )
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,

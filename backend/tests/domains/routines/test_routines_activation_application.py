@@ -1,48 +1,43 @@
-"""Routine artifact compilation tests for the routines domain."""
+"""Routine activation command tests for the routines domain."""
 
 import pytest
 
 import app.infra.database as db
-from app.domains.artifacts.contracts import AssistantArtifact
-from app.domains.routines.application.activation import compile_routine_artifact
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.routines.application.activation import compile_routine_activation
+from app.domains.routines.contracts import (
+    RoutineActivationAssignment,
+    RoutineActivationCommand,
+)
 from app.infra.database import load_routine_assignments, load_routine_schedule
 
 
-def test_compile_routine_artifact_persists_schedule_and_assignments():
+def test_compile_routine_activation_persists_schedule_and_assignments():
     repo = SqliteRoutineRepository()
-    artifact = AssistantArtifact(
-        id="artifact-routine-activation",
-        kind="routine_spec",
-        schema_version=1,
-        status="validated",
-        payload_json={
-            "id": "routine-activation",
-            "name": "Routine Activation",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Activation fixture",
-            "assignments": [
-                {
-                    "id": "assignment-activation",
-                    "card_template_id": "card-activation",
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 10,
-                    "prescription_override_json": {},
-                }
-            ],
-        },
-        validation_errors=[],
-        created_at="2026-03-01T00:00:00Z",
-        updated_at="2026-03-01T00:00:00Z",
+    command = RoutineActivationCommand(
+        id="routine-activation",
+        name="Routine Activation",
+        start_date="2026-03-02",
+        status="active",
+        tags=["training"],
+        notes="Activation fixture",
+        source_artifact_id="artifact-routine-activation",
+        assignments=[
+            RoutineActivationAssignment(
+                id="assignment-activation",
+                card_template_id="card-activation",
+                day=1,
+                slot="morning",
+                position=10,
+                prescription_override_json={},
+            )
+        ],
     )
 
-    compile_routine_artifact(
+    compile_routine_activation(
         repo,
-        artifact,
-        activate_card_template_dependency=lambda *_args, **_kwargs: None,
+        command,
+        activate_card_template_dependency=lambda *_args: None,
     )
 
     assert load_routine_schedule("routine-activation") is not None
@@ -52,42 +47,36 @@ def test_compile_routine_artifact_persists_schedule_and_assignments():
     )
 
 
-def test_compile_routine_artifact_rolls_back_schedule_when_assignment_write_fails(monkeypatch):
+def test_compile_routine_activation_rolls_back_schedule_when_assignment_write_fails(
+    monkeypatch,
+):
     repo = SqliteRoutineRepository()
-    artifact = AssistantArtifact(
-        id="artifact-routine-atomic",
-        kind="routine_spec",
-        schema_version=1,
-        status="validated",
-        payload_json={
-            "id": "routine-atomic",
-            "name": "Routine Atomic",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Atomic fixture",
-            "assignments": [
-                {
-                    "id": "assignment-atomic-1",
-                    "card_template_id": "card-atomic-1",
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 10,
-                    "prescription_override_json": {},
-                },
-                {
-                    "id": "assignment-atomic-2",
-                    "card_template_id": "card-atomic-2",
-                    "day": 2,
-                    "slot": "evening",
-                    "position": 20,
-                    "prescription_override_json": {},
-                },
-            ],
-        },
-        validation_errors=[],
-        created_at="2026-03-01T00:00:00Z",
-        updated_at="2026-03-01T00:00:00Z",
+    command = RoutineActivationCommand(
+        id="routine-atomic",
+        name="Routine Atomic",
+        start_date="2026-03-02",
+        status="active",
+        tags=["training"],
+        notes="Atomic fixture",
+        source_artifact_id="artifact-routine-atomic",
+        assignments=[
+            RoutineActivationAssignment(
+                id="assignment-atomic-1",
+                card_template_id="card-atomic-1",
+                day=1,
+                slot="morning",
+                position=10,
+                prescription_override_json={},
+            ),
+            RoutineActivationAssignment(
+                id="assignment-atomic-2",
+                card_template_id="card-atomic-2",
+                day=2,
+                slot="evening",
+                position=20,
+                prescription_override_json={},
+            ),
+        ],
     )
     original_save = db._save_json_record_in_connection
     assignment_write_calls = 0
@@ -103,10 +92,10 @@ def test_compile_routine_artifact_rolls_back_schedule_when_assignment_write_fail
     monkeypatch.setattr(db, "_save_json_record_in_connection", fail_on_second_assignment_write)
 
     with pytest.raises(RuntimeError, match="simulated assignment failure"):
-        compile_routine_artifact(
+        compile_routine_activation(
             repo,
-            artifact,
-            activate_card_template_dependency=lambda *_args, **_kwargs: None,
+            command,
+            activate_card_template_dependency=lambda *_args: None,
         )
 
     assert load_routine_schedule("routine-atomic") is None

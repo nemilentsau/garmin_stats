@@ -7,7 +7,7 @@ from app.domains.experiments.contracts import (
     ExperimentsResponse,
     ExperimentWithAnalysis,
 )
-from app.domains.routines.application.ports import RoutineRepository
+from app.domains.routines.dependencies import RoutineRepository
 
 from .analysis_cache import (
     load_current_analysis,

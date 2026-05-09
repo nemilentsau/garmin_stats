@@ -87,7 +87,13 @@ There are two major paths:
   Assistant domain slice. `api/threads.py` owns `/api/assistant` endpoints, `application/` owns retrieval-first chat and thread use-cases, and `infra/` owns SQLite repository + Claude runtime adapters.
 
 - `domains/routines/`
-  The first migrated domain slice. `api/` owns mounted routes, `application/` owns use cases for catalog, activation, schedule, and today, and `infra/` owns the SQLite repository adapter.
+  Routine catalog, schedule projection, activation, and Today execution. This
+  slice uses a flat small-capability layout: `routes.py` owns `/api/routines`
+  and `/api/today`, `application/` owns use cases for catalog, activation,
+  schedule, and today, `schedule.py` owns pure schedule helpers,
+  `dependencies.py` owns repository/observer/callable dependencies,
+  `adapters.py` owns the SQLite repository adapter, and `contracts.py` owns
+  routine API/persistence/activation command shapes.
 
 - `domains/garmin_sync/`
   Garmin ingest and Garmin Connect download orchestration. This domain owns
@@ -161,7 +167,7 @@ not proof that the design is sound.
   card presentation, and Today log writes.
 - Does not own: assistant artifact staging, experiment analysis, program import,
   Garmin ingest, or Garmin analytics.
-- May import: its own pure schedule helpers, routine repository ports, and
+- May import: its own pure schedule helpers, routine dependencies, and
   routine-owned contracts.
 - Must not import: artifacts, experiments, assistant, Garmin sync, Garmin
   analytics, FastAPI from application modules, or SQLite helpers from application
@@ -216,7 +222,7 @@ is reserved for shared app primitives rather than important product workflows.
 - Owns: experiment definitions, design preview/import, target metric registry,
   experiment-day exposures, cached N=1 analysis, and active-analysis refresh.
 - Does not own: Today log storage, routine schedule projection internals beyond
-  explicit routine ports/use cases, Garmin ingest, assistant runtime, or artifact
+  explicit routine dependencies/use cases, Garmin ingest, assistant runtime, or artifact
   staging.
 - May import: experiment repository ports, experiment-owned contracts,
   allowlisted routine read/projection contracts needed for exposure derivation,
@@ -357,7 +363,7 @@ Experiment adherence is protocol-defined and day-grain.
 
 This is the most important current product boundary.
 
-- Domain routes now mount from `backend/app/domains/routines/api/`.
+- Domain routes now mount from `backend/app/domains/routines/routes.py`.
 - Flat routine/today router and service compatibility shims have been removed.
 - `/routines/schedule` handles routine review and bundle import
 - `/today` reads one day of live compiled occurrences and writes logs only

@@ -98,6 +98,27 @@ class RoutineAssignment(DefaultsRequired):
     prescription_override_json: dict[str, object] = {}
 
 
+class RoutineActivationAssignment(DefaultsRequired):
+    id: str
+    card_template_id: str
+    day: int
+    slot: SlotName
+    position: int = 0
+    prescription_override_json: dict[str, object] = {}
+
+
+class RoutineActivationCommand(DefaultsRequired):
+    id: str
+    name: str
+    status: EntityStatus = "active"
+    start_date: str
+    end_date: str | None = None
+    tags: list[str] = []
+    notes: str | None = None
+    source_artifact_id: str | None = None
+    assignments: list[RoutineActivationAssignment] = []
+
+
 class RoutineSchedulesResponse(AutoTotalResponse, items_field="routines"):
     routines: list[RoutineSchedule] = []
 

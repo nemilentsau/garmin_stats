@@ -206,7 +206,7 @@ class TestExceptionHandlers:
 
     def test_value_error_returns_400(self, monkeypatch):
         monkeypatch.setattr(
-            "app.domains.routines.api.routines.get_schedule_window",
+            "app.domains.routines.routes.get_schedule_window",
             lambda *_args, **_kwargs: (
                 _ for _ in ()
             ).throw(ValueError("duration_days must be > 0")),

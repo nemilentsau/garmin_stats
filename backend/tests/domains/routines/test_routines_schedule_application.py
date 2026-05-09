@@ -3,9 +3,9 @@
 import pytest
 
 from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
+from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.domains.routines.contracts import CardOverride
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import save_card_override
 from tests._artifacts_helpers import (
     activate_assistant_artifact,

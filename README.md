@@ -85,13 +85,13 @@ models; the boundary rules matter more than the package label:
 Fully migrated slices follow the same boundary convention: route/API modules
 handle FastAPI and dependency lookup, workflow/application modules own
 orchestration without importing SQLite helpers or the dependency container, and
-adapter modules are the infrastructure boundary. Larger migrated slices still
-use `application/ports.py` for repository contracts and may split large API
-contract surfaces into packages; small capability slices
-such as `garmin_sync` prefer clearer flat names like `workflows.py`,
-`dependencies.py`, and `contracts.py`. Any future transitional slices should be
-explicitly allowlisted in architecture tests until persistence dependencies are
-moved behind explicit contracts and adapters.
+adapter modules are the infrastructure boundary. Repository and callable
+dependencies live in `dependencies.py`; API and persistence shapes live in
+`contracts.py`. Larger slices may split large route or contract surfaces into
+packages, while small capability slices prefer clearer flat names like
+`routes.py`, `adapters.py`, `dependencies.py`, and `contracts.py`. Any future
+transitional slices should be explicitly allowlisted in architecture tests until
+persistence dependencies are moved behind explicit contracts and adapters.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
 overview, metric detail pages, assistant chat, Today board, and routine schedule

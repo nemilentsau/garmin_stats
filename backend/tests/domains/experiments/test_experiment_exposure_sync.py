@@ -8,9 +8,9 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
 )
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
+from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.today import get_today
 from app.domains.routines.contracts import CardLog
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
 from app.infra.database import (
     load_experiment_analysis,
     load_experiment_exposures,
