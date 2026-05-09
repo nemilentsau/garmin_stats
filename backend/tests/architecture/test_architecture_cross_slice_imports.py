@@ -17,6 +17,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/artifacts/api/cards.py": {
         "app.domains.routines.contracts",
     },
+    "backend/app/domains/artifacts/contracts.py": {
+        "app.domains.routines.contracts",
+    },
     "backend/app/domains/experiments/application/management.py": {
         "app.domains.routines.application.ports",
     },

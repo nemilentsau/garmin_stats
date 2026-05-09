@@ -11,6 +11,7 @@ from app.contracts.base import (
     StrictDefaultsRequired,
 )
 
+RoutineEntryCompletionState = Literal["completed", "partial", "skipped"]
 RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
 SlotName = Literal["morning", "midday", "evening", "anytime"]
 WeekdayName = Literal[
@@ -25,6 +26,41 @@ WeekdayName = Literal[
 CardLogStatus = Literal["pending", "completed", "partial", "skipped"]
 CardOverrideAction = Literal["add", "hide", "replace"]
 ScheduleOccurrenceSourceKind = Literal["scheduled", "override_add", "override_replace"]
+
+
+class Routine(DefaultsRequired):
+    id: str
+    name: str
+    category: str
+    status: EntityStatus = "active"
+    description: str | None = None
+    default_unit: str = "boolean"
+    target_frequency: str | None = None
+    default_time_of_day: str | None = None
+    tags: list[str] = []
+    linked_goal_ids: list[str] = []
+
+
+class RoutineEntry(DefaultsRequired):
+    id: str
+    routine_id: str
+    date: str
+    timestamp_local: str | None = None
+    value_numeric: float | None = None
+    value_text: str | None = None
+    completion_state: RoutineEntryCompletionState = "completed"
+    source: str = "manual"
+    notes: str | None = None
+
+
+class RoutinesResponse(AutoTotalResponse, items_field="routines"):
+    routines: list[Routine] = []
+    total: int = 0
+
+
+class RoutineEntriesResponse(AutoTotalResponse, items_field="entries"):
+    entries: list[RoutineEntry] = []
+    total: int = 0
 
 
 class CardTemplate(DefaultsRequired):

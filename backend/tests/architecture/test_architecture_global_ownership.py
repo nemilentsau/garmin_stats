@@ -3,6 +3,7 @@
 from tests._architecture import (
     assert_imports_from_module_match_allowlist,
     assert_no_text_in_files,
+    read_repo_file,
 )
 
 ALLOWLISTED_APP_MODELS_IMPORTERS = {
@@ -72,6 +73,19 @@ def test_app_models_importers_are_explicitly_allowlisted():
         "app.models",
         ALLOWLISTED_APP_MODELS_IMPORTERS,
     )
+
+
+def test_app_models_remains_compatibility_exports_only():
+    source = read_repo_file("backend/app/models.py")
+
+    forbidden_fragments = [
+        "app.contracts.base",
+        "BaseModel",
+        "ConfigDict",
+        "model_validator",
+        "class ",
+    ]
+    assert [fragment for fragment in forbidden_fragments if fragment in source] == []
 
 
 def test_app_stats_importers_are_explicitly_allowlisted():
