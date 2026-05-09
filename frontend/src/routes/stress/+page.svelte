@@ -3,7 +3,7 @@
 	import {
 		api,
 		type DailyAggregates,
-		type WellnessData,
+		type StressRawData,
 		type StressAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
@@ -19,7 +19,7 @@
 
 	let agg: DailyAggregates | null = $state(null);
 	let analysis: StressAnalysis | null = $state(null);
-	let intradayData: WellnessData | null = $state(null);
+	let intradayData: StressRawData | null = $state(null);
 	let selectedDate = $state('');
 	let trendRange: TrendRange = $state('3M');
 	let loading = $state(true);
@@ -32,9 +32,12 @@
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
-		if (selectedDate) {
-			const data = await api.getWellness(selectedDate);
-			intradayData = data;
+		const date = selectedDate;
+		if (date) {
+			const data = await api.getStressRaw(date);
+			if (selectedDate === date) {
+				intradayData = data;
+			}
 		}
 	}
 
@@ -46,10 +49,10 @@
 		});
 	});
 
-	const onDateChange = createDateLoader<WellnessData>({
+	const onDateChange = createDateLoader<StressRawData>({
 		setSelectedDate: (date) => { selectedDate = date; },
 		clearData: () => { intradayData = null; },
-		fetchByDate: (date) => api.getWellness(date),
+		fetchByDate: (date) => api.getStressRaw(date),
 		setData: (data) => { intradayData = data; },
 		setError: (message) => { error = message; }
 	});

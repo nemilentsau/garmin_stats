@@ -1,7 +1,7 @@
 """
 SQLite persistence layer for Garmin Stats.
 
-Write path (ingest):  FIT files → parser → stats → SQLite
+Write path (ingest):  FIT files → parser → Garmin analytics aggregates → SQLite
 Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
@@ -12,7 +12,6 @@ import re
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +19,9 @@ from ..core.config import get_app_config
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+)
+from ..domains.garmin_analytics.domain.aggregates.daily import (
+    compute_daily_aggregates,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
 from ..models import (
@@ -33,11 +35,6 @@ from ..models import (
     CardTemplate,
     ContextSnapshot,
     DailyCheckIn,
-    DailyMetric,
-    DayHrv,
-    DaySkinTemp,
-    DaySleep,
-    DayWellness,
     EvidenceCard,
     Experiment,
     ExperimentAnalysis,
@@ -56,19 +53,25 @@ from ..models import (
     UserProfile,
 )
 from ..parser import get_files_by_day, parse_all_days, parse_day
-from ..stats import compute_daily_aggregates
 from ..utils.timeutil import now_iso
 from . import cache
+from .sqlite import DB_PATH, connect
 
 log = logging.getLogger(__name__)
 
 _APP_CONFIG = get_app_config()
 
-DB_PATH = _APP_CONFIG.database_path
 DATA_DIR = _APP_CONFIG.data_dir
 
 _ingest_lock = threading.Lock()
 _ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_RAW_DAY_TABLES = (
+    "wellness_data",
+    "sleep_data",
+    "hrv_data",
+    "skin_temp_data",
+)
+_PER_DAY_TABLES = (*_RAW_DAY_TABLES, "daily_metrics")
 
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
@@ -264,15 +267,9 @@ CREATE TABLE IF NOT EXISTS program_versions (
 """
 
 
-@contextmanager
 def _connect():
     """Yield a sqlite3 connection with Row factory; close on exit."""
-    con = sqlite3.connect(str(DB_PATH))
-    con.row_factory = sqlite3.Row
-    try:
-        yield con
-    finally:
-        con.close()
+    return connect(str(DB_PATH))
 
 
 def init_db() -> None:
@@ -506,17 +503,56 @@ def _count_rows(table: str) -> int:
         return row["cnt"]
 
 
+def _table_dates(con: sqlite3.Connection, table: str) -> set[str]:
+    if table not in _VALID_TABLES:
+        raise ValueError(f"Invalid table name: {table}")
+    rows = con.execute(f"SELECT date FROM {table}").fetchall()
+    return {row["date"] for row in rows}
+
+
+def _has_stale_daily_metrics(con: sqlite3.Connection) -> bool:
+    row = con.execute(
+        """
+        SELECT 1
+        FROM daily_metrics dm
+        JOIN (
+            SELECT date, MAX(updated_at) AS updated_at
+            FROM (
+                SELECT date, updated_at FROM wellness_data
+                UNION ALL SELECT date, updated_at FROM sleep_data
+                UNION ALL SELECT date, updated_at FROM hrv_data
+                UNION ALL SELECT date, updated_at FROM skin_temp_data
+            )
+            GROUP BY date
+        ) raw ON raw.date = dm.date
+        WHERE raw.updated_at > dm.updated_at
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
 def check_ingest_status(data_dir: Path) -> IngestStatus:
-    """Compare stored vs current fingerprint."""
+    """Compare stored fingerprint and derived table integrity."""
     stored = _get_meta("data_fingerprint")
     current = compute_data_fingerprint(data_dir)
-    days_in_db = _count_rows("daily_metrics")
-    days_on_disk = len(get_files_by_day(data_dir))
+    disk_dates = set(get_files_by_day(data_dir))
+    with _connect() as con:
+        daily_dates = _table_dates(con, "daily_metrics")
+        raw_dates_mismatch = any(
+            _table_dates(con, table) != disk_dates
+            for table in _RAW_DAY_TABLES
+        )
+        derived_out_of_sync = (
+            daily_dates != disk_dates
+            or raw_dates_mismatch
+            or _has_stale_daily_metrics(con)
+        )
     return IngestStatus(
-        needs_ingest=stored != current,
+        needs_ingest=stored != current or derived_out_of_sync,
         last_ingest_time=_get_meta("last_ingest_time"),
-        days_in_db=days_in_db,
-        days_on_disk=days_on_disk,
+        days_in_db=len(daily_dates),
+        days_on_disk=len(disk_dates),
     )
 
 
@@ -665,20 +701,13 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
 
 def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> None:
     """Delete DB rows for dates no longer present in parsed input."""
-    per_day_tables = (
-        "wellness_data",
-        "sleep_data",
-        "hrv_data",
-        "skin_temp_data",
-        "daily_metrics",
-    )
     if not parsed_dates:
-        for table in per_day_tables:
+        for table in _PER_DAY_TABLES:
             con.execute(f"DELETE FROM {table}")
         return
 
     placeholders = ", ".join("?" for _ in parsed_dates)
-    for table in per_day_tables:
+    for table in _PER_DAY_TABLES:
         con.execute(
             f"DELETE FROM {table} WHERE date NOT IN ({placeholders})",
             parsed_dates,
@@ -688,77 +717,6 @@ def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> 
 def is_db_empty() -> bool:
     """Check if the DB has any ingested data."""
     return _count_rows("daily_metrics") == 0
-
-
-# ---------------------------------------------------------------------------
-# Read path
-# ---------------------------------------------------------------------------
-
-def _load_day_table[M](
-    table: str,
-    model: type[M],
-    cache_key: str,
-    date: str | None = None,
-) -> list[M]:
-    """Generic loader for per-day data tables with caching.
-
-    All-days results are cached.  Per-date queries filter from the warm
-    all-days cache when available, falling back to a direct DB query.
-    """
-    if date is not None:
-        all_cached = cache.get(cache_key)
-        if all_cached is not None:
-            return [item for item in all_cached if item.date == date]  # type: ignore[union-attr]
-        with _connect() as con:
-            rows = con.execute(
-                f"SELECT data FROM {table} WHERE date = ?", (date,)  # noqa: S608
-            ).fetchall()
-        return [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
-    # All-days path with caching
-    hit = cache.get(cache_key)
-    if hit is not None:
-        return hit
-    gen = cache.generation()
-    with _connect() as con:
-        rows = con.execute(
-            f"SELECT data FROM {table} ORDER BY date"  # noqa: S608
-        ).fetchall()
-    result = [model.model_validate_json(r["data"]) for r in rows]  # type: ignore[union-attr]
-    cache.put(cache_key, result, gen)
-    return result
-
-
-def load_daily_metrics() -> list[DailyMetric]:
-    """Load all daily metrics from DB (cached until next ingest)."""
-    return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
-
-
-def _fetch_daily_metrics() -> list[DailyMetric]:
-    with _connect() as con:
-        rows = con.execute(
-            "SELECT data FROM daily_metrics ORDER BY date"
-        ).fetchall()
-    return [DailyMetric.model_validate_json(r["data"]) for r in rows]
-
-
-def load_wellness(date: str | None = None) -> list[DayWellness]:
-    """Load wellness data, optionally filtered by date."""
-    return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
-
-
-def load_sleep(date: str | None = None) -> list[DaySleep]:
-    """Load sleep data, optionally filtered by date."""
-    return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
-
-
-def load_hrv(date: str | None = None) -> list[DayHrv]:
-    """Load HRV data, optionally filtered by date."""
-    return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
-
-
-def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
-    """Load skin temp data, optionally filtered by date."""
-    return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
 
 
 def load_available_days() -> list[str]:

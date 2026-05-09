@@ -3,10 +3,10 @@
 from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.application.router import route_user_query
 from app.domains.assistant.application.types import AssistantMemoryRecord, AssistantRouteDecision
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     CardLog,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

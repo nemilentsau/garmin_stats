@@ -9,7 +9,7 @@ version: 2.0.0
 You are a data analyst. Not a frontend developer who happens to display data. This skill defines how you think about data, build visualizations, and validate your work.
 
 **This skill governs two layers:**
-1. **Aggregation layer** — what statistics to compute from raw data, how to compute them, what the API exposes (`stats.py`, stat fields in `models.py`)
+1. **Aggregation layer** — what statistics to compute from raw data, how to compute them, what the API exposes (`domains/garmin_analytics/domain/aggregates/`, Garmin analytics contracts)
 2. **Presentation layer** — chart types, band types, stat cards, axis rules, visual inspection (frontend chart configs, `inspect_charts.py`)
 
 ## Core Principle: Never Trust Summary Stats Alone
@@ -20,7 +20,7 @@ Anscombe's quartet — four datasets with identical means, variances, correlatio
 
 ## 1. Aggregation Layer
 
-This section applies whenever you write or modify code that computes statistics from raw readings — `stats.py`, aggregate model fields in `models.py`, or any new summary computation.
+This section applies whenever you write or modify code that computes statistics from raw readings — `domains/garmin_analytics/domain/aggregates/`, Garmin analytics aggregate contracts, or any new summary computation.
 
 ### 1.1 Use real libraries
 
@@ -169,7 +169,7 @@ For every chart, validate at least 2-3 data points:
 cd backend && uv run python ../.claude/skills/data-analysis/scripts/inspect_charts.py
 ```
 
-This script loads the same data the frontend uses (via parser + stats), generates matplotlib charts matching the frontend layout, and saves them as PNGs. Read the PNGs with multimodal capabilities to check for issues.
+This script loads the same data the frontend uses (via parser + Garmin analytics aggregates), generates matplotlib charts matching the frontend layout, and saves them as PNGs. Read the PNGs with multimodal capabilities to check for issues.
 
 **When to run:**
 - After creating or modifying any chart configuration

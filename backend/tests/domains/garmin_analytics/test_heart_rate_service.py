@@ -3,14 +3,14 @@
 import pytest
 
 import app.infra.database as db
-from app.domains.garmin_analytics.application.heart_rate import (
-    load_heart_rate_insights as _load_heart_rate_insights,
-)
-from app.domains.garmin_analytics.infra.biometric_repository import (
+import app.infra.sqlite as sqlite
+from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
-from app.infra import cache
-from app.models import (
+from app.domains.garmin_analytics.application.metric_insights import (
+    get_heart_rate_insights as _get_heart_rate_insights,
+)
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -21,16 +21,18 @@ from app.models import (
     DayWellness,
     HeartRateReading,
 )
+from app.infra import cache
 
 
 def load_heart_rate_insights(date: str | None = None):
-    return _load_heart_rate_insights(SqliteBiometricRepository(), date)
+    return _get_heart_rate_insights(SqliteBiometricRepository(), date)
 
 
 @pytest.fixture(autouse=True)
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
     db.init_db()
     yield
@@ -160,4 +162,22 @@ class TestHeartRateInsights:
 
         insights = load_heart_rate_insights("2026-01-15")
         assert any(item.title == "Recovery signals look stable" for item in insights.insights)
+        assert all(item.title != "Low sample coverage" for item in insights.insights)
+
+    def test_unbalanced_hrv_status_does_not_trigger_stable_signal_without_baseline(self):
+        _insert_metric("2026-01-15", 46, sleep_score=90, hrv_status="unbalanced")
+        _insert_wellness("2026-01-15", [
+            HeartRateReading(
+                timestamp=f"2026-01-15T00:{minute:02d}:00+00:00",
+                value=70,
+            )
+            for minute in range(31)
+        ])
+
+        insights = load_heart_rate_insights("2026-01-15")
+
+        assert all(
+            item.title != "Recovery signals look stable"
+            for item in insights.insights
+        )
         assert all(item.title != "Low sample coverage" for item in insights.insights)

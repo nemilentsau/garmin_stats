@@ -17,9 +17,8 @@ from app.domains.experiments.application.analysis_math import (
     resolve_path,
     welch_t_test,
 )
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
-    DailyCheckIn,
     DailyHeartRateStats,
     DailyHrvStats,
     DailyMetric,
@@ -27,6 +26,7 @@ from app.models import (
     DailySkinTempStats,
     DailySleepStats,
 )
+from app.models import DailyCheckIn
 
 
 def _make_metric(

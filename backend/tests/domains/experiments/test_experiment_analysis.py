@@ -7,8 +7,7 @@ import pytest
 import app.infra.database as db
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
-from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
-from app.models import (
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -16,6 +15,9 @@ from app.models import (
     DailyMetricStats,
     DailySkinTempStats,
     DailySleepStats,
+)
+from app.domains.routines.infra.sqlite_repository import SqliteRoutineRepository
+from app.models import (
     Experiment,
     ExperimentDesign,
     ExperimentExposure,

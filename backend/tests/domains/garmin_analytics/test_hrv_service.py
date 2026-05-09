@@ -3,14 +3,14 @@
 import pytest
 
 import app.infra.database as db
-from app.domains.garmin_analytics.application.hrv import (
-    load_hrv_insights as _load_hrv_insights,
-)
-from app.domains.garmin_analytics.infra.biometric_repository import (
+import app.infra.sqlite as sqlite
+from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
-from app.infra import cache
-from app.models import (
+from app.domains.garmin_analytics.application.metric_insights import (
+    get_hrv_insights as _get_hrv_insights,
+)
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -22,16 +22,18 @@ from app.models import (
     HrvSummary,
     HrvValue,
 )
+from app.infra import cache
 
 
 def load_hrv_insights(date: str | None = None):
-    return _load_hrv_insights(SqliteBiometricRepository(), date)
+    return _get_hrv_insights(SqliteBiometricRepository(), date)
 
 
 @pytest.fixture(autouse=True)
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
     db.init_db()
     yield
@@ -155,6 +157,32 @@ class TestHrvInsights:
         assert any(item.title == "HRV recovery signals look stable" for item in insights.insights)
         assert all(item.title != "Low HRV sample coverage" for item in insights.insights)
         assert sum(bucket.count for bucket in insights.status_mix) == 2
+
+    def test_unbalanced_status_does_not_trigger_stable_signal_without_baseline(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=61.0,
+            weekly_avg=60.5,
+            hrv_status="unbalanced",
+            sleep_score=90,
+            resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(
+                date="2026-01-15",
+                timestamp=f"2026-01-15T00:{minute:02d}:00",
+                value=60.0 + minute * 0.1,
+            )
+            for minute in range(25)
+        ])
+
+        insights = load_hrv_insights("2026-01-15")
+
+        assert all(
+            item.title != "HRV recovery signals look stable"
+            for item in insights.insights
+        )
+        assert all(item.title != "Low HRV sample coverage" for item in insights.insights)
 
     def test_unknown_date_raises_lookup_error(self):
         _insert_metric(_make_daily_metric(

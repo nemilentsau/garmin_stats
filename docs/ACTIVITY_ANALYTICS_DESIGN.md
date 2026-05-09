@@ -66,7 +66,7 @@ Do not start with full generic sports science ontology work.
 
 The current ingest path is:
 
-`FIT files -> parser.py -> stats.py -> daily tables + daily_metrics`
+`FIT files -> parser.py -> Garmin analytics aggregate calculators -> daily tables + daily_metrics`
 
 That works for:
 
@@ -409,7 +409,7 @@ Recommended current-module changes:
   Add `ActivitySession`, `ActivityDailyFeatures`, and new sleep timing fields.
 - `infra/database.py`
   Add tables, loaders, savers, and ingest wiring.
-- `stats.py`
+- `domains/garmin_analytics/domain/aggregates/`
   Extend daily recovery features only for sleep timing, not activities.
 
 ## Query Boundaries

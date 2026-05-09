@@ -36,7 +36,7 @@ The `data/` and `storage/` directories are gitignored.
 Garmin day zip
   -> extracted FIT files
   -> backend/app/parser.py
-  -> backend/app/stats.py
+  -> Garmin analytics aggregate calculators
   -> SQLite storage
   -> backend domain/application services
   -> FastAPI JSON endpoints
@@ -86,7 +86,8 @@ Fully migrated slices follow the same boundary convention: route/API modules
 handle FastAPI and dependency lookup, workflow/application modules own
 orchestration without importing SQLite helpers or the dependency container, and
 adapter modules are the infrastructure boundary. Larger migrated slices still
-use `application/ports.py` for repository contracts; small capability slices
+use `application/ports.py` for repository contracts and may split large API
+contract surfaces into packages; small capability slices
 such as `garmin_sync` prefer clearer flat names like `workflows.py`,
 `dependencies.py`, and `contracts.py`. Any future transitional slices should be
 explicitly allowlisted in architecture tests until persistence dependencies are
@@ -120,7 +121,7 @@ Example bundles live in `docs/*_bundle.json`.
 
 ```text
 backend/
-  app/          FastAPI app, domain slices, parser, stats, infrastructure
+  app/          FastAPI app, domain slices, parser, analytics, infrastructure
   tests/        Backend tests organized by architecture, infra, core, and domain
 frontend/
   src/          SvelteKit routes, components, API client, chart helpers

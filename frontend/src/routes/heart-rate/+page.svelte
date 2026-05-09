@@ -4,10 +4,10 @@
 	import {
 		api,
 		type DailyAggregates,
+		type HeartRateRawData,
 		type HeartRateInsights,
 		type HRAnalysis,
-		type HRDistribution,
-		type WellnessData
+		type HRDistribution
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
@@ -32,14 +32,14 @@
 
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HeartRateInsights | null = $state(null);
-	let latestIntraday: WellnessData | null = $state(null);
+	let latestIntraday: HeartRateRawData | null = $state(null);
 	let latestDistribution: HRDistribution | null = $state(null);
 
 	// Historical day (Tier 2 — selected via bar)
 	let selectedDate = $state('');
 	let historyOpen = $state(false);
 	let historicalInsights: HeartRateInsights | null = $state(null);
-	let historicalIntraday: WellnessData | null = $state(null);
+	let historicalIntraday: HeartRateRawData | null = $state(null);
 	let historicalDistribution: HRDistribution | null = $state(null);
 	let dateRequestId = 0;
 
@@ -57,7 +57,7 @@
 			const latest = nextAgg.days[nextAgg.days.length - 1];
 			const [ins, intra, dist] = await Promise.all([
 				api.getHeartRateInsights(latest),
-				api.getWellness(latest),
+				api.getHeartRateRaw(latest),
 				api.getHRDistribution(latest)
 			]);
 			latestInsights = ins;
@@ -92,7 +92,7 @@
 		try {
 			const [nextInsights, nextIntraday, nextDistribution] = await Promise.all([
 				api.getHeartRateInsights(date),
-				api.getWellness(date),
+				api.getHeartRateRaw(date),
 				api.getHRDistribution(date)
 			]);
 			if (requestId !== dateRequestId) return;
@@ -243,7 +243,7 @@
 		}
 	} as const;
 
-	function buildIntradayConfig(intraday: WellnessData, resting: number | null | undefined): ChartConfiguration<'line'> {
+	function buildIntradayConfig(intraday: HeartRateRawData, resting: number | null | undefined): ChartConfiguration<'line'> {
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
 			{
 				label: 'Heart Rate',

@@ -195,7 +195,7 @@ class TestStartupIngest:
 class TestExceptionHandlers:
     def test_lookup_error_returns_404(self, monkeypatch):
         monkeypatch.setattr(
-            "app.domains.garmin_analytics.api.overview.load_dashboard_overview",
+            "app.domains.garmin_analytics.routes.load_dashboard_overview",
             lambda *_args: (_ for _ in ()).throw(LookupError("No dashboard data")),
         )
 

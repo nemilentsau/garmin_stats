@@ -6,13 +6,13 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol
 
 from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     AssistantMessage,
     AssistantRun,
     AssistantThread,
     CardLog,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,

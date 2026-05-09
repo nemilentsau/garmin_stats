@@ -1,0 +1,21 @@
+"""Sleep raw-period aggregate calculations."""
+
+from app.domains.garmin_analytics.contracts import DayData, PeriodSleepStats
+from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+
+
+def compute_period_sleep(days: list[DayData]) -> PeriodSleepStats:
+    scores: list[float] = []
+    deep_scores: list[float] = []
+    for day in days:
+        for assessment in day.sleep.sleep_assessments:
+            if assessment.overall_score is not None:
+                scores.append(assessment.overall_score)
+            if assessment.deep_sleep_score is not None:
+                deep_scores.append(assessment.deep_sleep_score)
+
+    return PeriodSleepStats(
+        avg_score=safe_avg(scores),
+        avg_deep_score=safe_avg(deep_scores),
+        days_tracked=len(scores),
+    )

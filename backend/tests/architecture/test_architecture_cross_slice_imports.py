@@ -10,16 +10,38 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/experiments/application/management.py": {
         "app.domains.routines.application.ports",
     },
+    "backend/app/domains/experiments/application/analysis.py": {
+        "app.domains.garmin_analytics.contracts",
+    },
+    "backend/app/domains/experiments/application/analysis_math.py": {
+        "app.domains.garmin_analytics.contracts",
+    },
+    "backend/app/domains/experiments/application/ports.py": {
+        "app.domains.garmin_analytics.contracts",
+    },
     "backend/app/domains/experiments/application/preview.py": {
+        "app.domains.garmin_analytics.contracts",
         "app.domains.routines.application.ports",
     },
     "backend/app/domains/experiments/application/exposure_sync.py": {
         "app.domains.routines.application.ports",
         "app.domains.routines.application.schedule_window",
     },
+    "backend/app/domains/experiments/infra/sqlite_repository.py": {
+        "app.domains.garmin_analytics.adapters",
+        "app.domains.garmin_analytics.contracts",
+    },
+    "backend/app/domains/assistant/application/ports.py": {
+        "app.domains.garmin_analytics.contracts",
+    },
+    "backend/app/domains/assistant/application/retrieval.py": {
+        "app.domains.garmin_analytics.contracts",
+    },
     "backend/app/domains/assistant/infra/sqlite_repository.py": {
         "app.domains.experiments.application.analysis_cache",
         "app.domains.experiments.application.ports",
+        "app.domains.garmin_analytics.adapters",
+        "app.domains.garmin_analytics.contracts",
     },
     "backend/app/domains/garmin_sync/adapters.py": {
         "app.core.config",

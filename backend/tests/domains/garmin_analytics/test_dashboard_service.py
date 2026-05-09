@@ -5,14 +5,14 @@ import warnings
 import pytest
 
 import app.infra.database as db
-from app.domains.garmin_analytics.application.overview import (
-    get_dashboard_overview,
-)
-from app.domains.garmin_analytics.infra.biometric_repository import (
+import app.infra.sqlite as sqlite
+from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
-from app.infra import cache
-from app.models import (
+from app.domains.garmin_analytics.application.dashboard import (
+    get_dashboard_overview,
+)
+from app.domains.garmin_analytics.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
@@ -21,6 +21,7 @@ from app.models import (
     DailySkinTempStats,
     DailySleepStats,
 )
+from app.infra import cache
 
 
 def load_dashboard_overview():
@@ -31,6 +32,7 @@ def load_dashboard_overview():
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
     monkeypatch.setattr(db, "DB_PATH", test_db)
+    monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
     db.init_db()
     yield

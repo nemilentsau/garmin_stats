@@ -13,10 +13,10 @@ from app.domains.assistant.application.types import (
     AssistantRouteDecision,
     dedupe_strings,
 )
+from app.domains.garmin_analytics.contracts import DailyMetric
 from app.models import (
     CardLog,
     DailyCheckIn,
-    DailyMetric,
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
