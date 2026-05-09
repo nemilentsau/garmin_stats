@@ -1,4 +1,9 @@
-"""Payload validation helpers for assistant-authored artifacts."""
+"""Payload validation helpers for assistant-authored artifacts.
+
+Validation keeps assistant payloads strict before they can be staged or bundled:
+card templates must use a supported renderer payload, and routine specs must
+reference known live or staged card templates.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ PAYLOAD_MODELS = {
 
 
 def format_validation_errors(exc: ValidationError) -> list[str]:
+    """Flatten Pydantic validation errors into artifact-facing messages."""
     errors: list[str] = []
     for err in exc.errors():
         loc = ".".join(str(part) for part in err["loc"])
@@ -36,6 +42,7 @@ def card_spec_artifact_by_card_id(
     repo: ArtifactRepository,
     card_id: str,
 ) -> AssistantArtifact | None:
+    """Find the newest staged or activated card-template artifact for a card id."""
     return repo.get_assistant_artifact_by_payload_id(
         "card_template", card_id, ("validated", "activated"),
     )
@@ -44,6 +51,7 @@ def card_spec_artifact_by_card_id(
 def validate_card_template_payload(
     payload_json: dict[str, object],
 ) -> tuple[list[str], str | None]:
+    """Validate a card template and its renderer-specific payload body."""
     requested_renderer = payload_json.get("renderer")
     if not isinstance(requested_renderer, str):
         return ["renderer: Field required"], None
@@ -72,6 +80,7 @@ def validate_routine_spec_payload(
     *,
     additional_card_ids: set[str] | None = None,
 ) -> list[str]:
+    """Validate a routine spec and all referenced card-template ids."""
     try:
         spec = RoutineSpec.model_validate(payload_json)
     except ValidationError as exc:
@@ -96,6 +105,7 @@ def validate_routine_spec_payload(
 
 
 def validate_capability_request_payload(payload_json: dict[str, object]) -> list[str]:
+    """Validate an unsupported-renderer capability request payload."""
     try:
         CapabilityRequestSpec.model_validate(payload_json)
     except ValidationError as exc:

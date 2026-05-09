@@ -1,4 +1,9 @@
-"""SQLite repository adapter for assistant artifact use cases."""
+"""SQLite-backed artifact repository adapter.
+
+This module is the persistence boundary for staged assistant artifacts. It owns
+assistant artifact JSON-store access and keeps artifact CRUD out of the global
+database helper module.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,10 @@ _STORE = JsonStore({"assistant_artifacts"})
 
 
 class SqliteArtifactRepository:
+    """Repository adapter used by artifact application use cases."""
+
     def save_assistant_artifact(self, artifact: AssistantArtifact) -> None:
+        """Insert or replace one staged assistant artifact."""
         _STORE.save(
             "assistant_artifacts",
             artifact.id,
@@ -22,6 +30,7 @@ class SqliteArtifactRepository:
         )
 
     def save_assistant_artifacts_batch(self, artifacts: list[AssistantArtifact]) -> None:
+        """Persist a bundle import in one transaction."""
         with connect() as con, con:
             for artifact in artifacts:
                 con.execute(
@@ -38,6 +47,7 @@ class SqliteArtifactRepository:
                 )
 
     def get_assistant_artifact(self, artifact_id: str) -> AssistantArtifact | None:
+        """Load one artifact by stable artifact id."""
         return _STORE.load("assistant_artifacts", AssistantArtifact, artifact_id)
 
     def list_assistant_artifacts(
@@ -46,6 +56,7 @@ class SqliteArtifactRepository:
         kind: str | None = None,
         status: str | None = None,
     ) -> list[AssistantArtifact]:
+        """List artifacts newest-first, optionally filtered by kind and status."""
         clauses: list[str] = []
         params: list[object] = []
         if kind is not None:
@@ -68,6 +79,7 @@ class SqliteArtifactRepository:
         payload_id: str,
         statuses: tuple[str, ...],
     ) -> AssistantArtifact | None:
+        """Load the newest artifact whose embedded payload owns ``payload_id``."""
         if not statuses:
             return None
         placeholders = ", ".join("?" for _ in statuses)
@@ -85,6 +97,7 @@ class SqliteArtifactRepository:
         return _model_from_row(AssistantArtifact, row)
 
     def get_max_artifact_revision(self, *, kind: str, id_prefix: str) -> int:
+        """Return the highest bundle revision stored for an artifact id prefix."""
         query = (
             "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) AS max_rev "
             "FROM assistant_artifacts "

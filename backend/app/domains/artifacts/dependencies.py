@@ -1,4 +1,8 @@
-"""Dependencies consumed by assistant artifact use cases."""
+"""Ports consumed by assistant artifact use cases.
+
+Application modules depend on these protocols instead of concrete SQLite
+persistence. Bootstrap wires the production adapter into routes.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +12,8 @@ from app.domains.artifacts.contracts import AssistantArtifact
 
 
 class ArtifactRepository(Protocol):
+    """Persistence port for staged artifacts and bundle revision lookups."""
+
     def save_assistant_artifact(self, artifact: AssistantArtifact) -> None: ...
 
     def save_assistant_artifacts_batch(self, artifacts: list[AssistantArtifact]) -> None: ...

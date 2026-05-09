@@ -1,4 +1,9 @@
-"""Artifact publishing use cases."""
+"""Artifact activation use cases.
+
+Activation converts validated assistant artifacts into live routine-domain
+records. Card templates are compiled directly; routine specs delegate schedule
+and assignment persistence to the routine activation use case.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ def _compile_card_template_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> CardTemplate:
+    """Persist one validated card-template artifact as a live card template."""
     spec = CardTemplateSpec.model_validate(artifact.payload_json)
     card = CardTemplate(
         id=spec.id,
@@ -46,6 +52,7 @@ def _bundle_card_artifact_for_routine_artifact(
     routine_artifact: AssistantArtifact,
     card_id: str,
 ) -> AssistantArtifact | None:
+    """Find the same-revision card artifact referenced by a bundle routine."""
     bundle_ref = parse_bundle_artifact_id(routine_artifact.id)
     if bundle_ref is None or bundle_ref.kind != "routine_spec":
         return None
@@ -68,6 +75,7 @@ def _activate_card_template_dependency(
     *,
     source_artifact: AssistantArtifact | None = None,
 ) -> None:
+    """Ensure a routine's referenced card template exists in live storage."""
     live_card = routines_repo.get_card_template(card_id)
     bundle_dependency = (
         _bundle_card_artifact_for_routine_artifact(artifact_repo, source_artifact, card_id)
@@ -109,6 +117,7 @@ def _compile_routine_spec_artifact(
     routines_repo: RoutineRepository,
     artifact: AssistantArtifact,
 ) -> RoutineSchedule:
+    """Compile one routine-spec artifact through the routines domain."""
     spec = RoutineSpec.model_validate(artifact.payload_json)
     command = RoutineActivationCommand(
         id=spec.id,
@@ -140,6 +149,7 @@ def activate_assistant_artifact(
     routines_repo: RoutineRepository,
     artifact_id: str,
 ) -> AssistantArtifact:
+    """Activate a validated artifact and record its activated status."""
     artifact = get_assistant_artifact(artifact_repo, artifact_id)
     if artifact.status == "activated":
         return artifact

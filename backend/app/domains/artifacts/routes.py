@@ -1,4 +1,9 @@
-"""HTTP routes for artifact staging, bundles, and card templates."""
+"""HTTP routes for artifact staging, bundles, and card templates.
+
+Routes bind FastAPI metadata to artifact application use cases. They keep
+validation, bundle planning, activation, and persistence decisions inside the
+domain layer.
+"""
 
 from fastapi import APIRouter
 
@@ -37,7 +42,7 @@ cards_router = APIRouter(prefix="/api/cards", tags=["cards"])
 
 @assistant_artifacts_router.get("", response_model=AssistantArtifactsResponse)
 def get_artifacts(kind: str | None = None, status: str | None = None):
-    """Return assistant-authored artifacts."""
+    """Return staged assistant artifacts, optionally filtered by kind or status."""
     return list_assistant_artifacts(
         build_container().artifacts_repo,
         kind=kind,
@@ -47,13 +52,13 @@ def get_artifacts(kind: str | None = None, status: str | None = None):
 
 @assistant_artifacts_router.get("/{artifact_id}", response_model=AssistantArtifact)
 def get_artifact_detail(artifact_id: str):
-    """Return a single assistant artifact."""
+    """Return one staged assistant artifact by id."""
     return get_assistant_artifact(build_container().artifacts_repo, artifact_id)
 
 
 @assistant_artifacts_router.post("", response_model=AssistantArtifact)
 def post_artifact(request: AssistantArtifactCreateRequest):
-    """Create and validate an assistant artifact draft."""
+    """Validate and persist one assistant artifact draft."""
     container = build_container()
     return create_assistant_artifact(
         container.artifacts_repo,
@@ -64,7 +69,7 @@ def post_artifact(request: AssistantArtifactCreateRequest):
 
 @assistant_artifacts_router.post("/{artifact_id}/activate", response_model=AssistantArtifact)
 def post_activate_artifact(artifact_id: str):
-    """Compile a validated artifact into live routine/card data."""
+    """Publish a validated artifact into live routine/card data."""
     container = build_container()
     return activate_assistant_artifact(
         container.artifacts_repo,
@@ -78,7 +83,7 @@ def post_activate_artifact(artifact_id: str):
     response_model=ArtifactBundlePreviewResponse,
 )
 def post_preview_bundle(bundle: ArtifactBundleSpec):
-    """Validate a structured artifact bundle without persisting anything."""
+    """Validate a structured artifact bundle and report planned deltas."""
     container = build_container()
     return preview_artifact_bundle(container.artifacts_repo, container.routines_repo, bundle)
 
@@ -88,7 +93,7 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
     response_model=ArtifactBundleImportResponse,
 )
 def post_import_bundle(bundle: ArtifactBundleSpec):
-    """Import a validated bundle and auto-activate all artifacts."""
+    """Persist a valid bundle and activate cards before dependent routines."""
     container = build_container()
     result = import_artifact_bundle(container.artifacts_repo, container.routines_repo, bundle)
     # Activate card templates first because routine activation depends on them.
@@ -105,5 +110,5 @@ def post_import_bundle(bundle: ArtifactBundleSpec):
 
 @cards_router.get("", response_model=CardTemplatesResponse)
 def get_cards(status: str | None = None):
-    """Return compiled live card templates."""
+    """Return live card templates created from activated artifacts."""
     return list_cards(build_container().routines_repo, status=status)

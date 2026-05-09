@@ -1,4 +1,9 @@
-"""Contracts for assistant-authored artifacts and routine bundles."""
+"""Pydantic contracts owned by the artifacts domain.
+
+These models describe staged assistant output, supported card payload families,
+bundle preview/import responses, and capability requests for unsupported
+renderers. Live routine/card contracts remain owned by the routines domain.
+"""
 
 from __future__ import annotations
 

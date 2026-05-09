@@ -1,4 +1,9 @@
-"""Artifact bundle preview and import use cases."""
+"""Artifact bundle preview and import use cases.
+
+Bundle planning validates card and routine payloads together, reports whether
+each target creates or updates live runtime data, and persists versioned drafts
+without directly compiling them.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +33,8 @@ from .validation import validate_card_template_payload, validate_routine_spec_pa
 
 @dataclass(frozen=True)
 class _PreparedBundleArtifact:
+    """Validated bundle item plus the artifact id it will be saved under."""
+
     artifact_id: str
     kind: ArtifactBundleItemKind
     target_id: str
@@ -128,6 +135,7 @@ def _existing_assignment_routine_ids(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
 ) -> dict[str, set[str]]:
+    """Map assignment ids to existing live or staged routine owners."""
     routine_ids_by_assignment_id: dict[str, set[str]] = defaultdict(set)
 
     for assignment in routines_repo.list_assignments():
@@ -158,6 +166,7 @@ def _contains_reserved_placeholder_phrase(value: str | None) -> bool:
 
 
 def _validate_placeholder_bundle_content(bundle: ArtifactBundleSpec) -> list[ArtifactBundleIssue]:
+    """Reject known sample/starter bundle content before preview or import."""
     issues: list[ArtifactBundleIssue] = []
 
     if bundle.id in _RESERVED_PLACEHOLDER_BUNDLE_IDS:
@@ -274,6 +283,7 @@ def _build_bundle_plan(
     routines_repo: RoutineRepository,
     bundle: ArtifactBundleSpec,
 ) -> tuple[list[ArtifactBundleIssue], list[_PreparedBundleArtifact]]:
+    """Validate a bundle and prepare revisioned artifact records for saving."""
     issues: list[ArtifactBundleIssue] = []
     prepared: list[_PreparedBundleArtifact] = []
 
@@ -434,6 +444,7 @@ def preview_artifact_bundle(
     routines_repo: RoutineRepository,
     bundle: ArtifactBundleSpec,
 ) -> ArtifactBundlePreviewResponse:
+    """Return validation issues and planned bundle deltas without writing."""
     issues, prepared = _build_bundle_plan(artifact_repo, routines_repo, bundle)
     return ArtifactBundlePreviewResponse(
         bundle_id=bundle.id,
@@ -449,6 +460,7 @@ def import_artifact_bundle(
     routines_repo: RoutineRepository,
     bundle: ArtifactBundleSpec,
 ) -> ArtifactBundleImportResponse:
+    """Persist all artifacts from a valid bundle as validated drafts."""
     issues, prepared = _build_bundle_plan(artifact_repo, routines_repo, bundle)
     if issues:
         raise ValueError("Bundle has blocking issues; preview and resolve them before import")
