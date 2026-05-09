@@ -173,9 +173,7 @@ class TargetMetricDefinition(DefaultsRequired):
 
 class ExperimentsResponse(AutoTotalResponse, items_field="experiments"):
     experiments: list[ExperimentWithAnalysis] = []
-    total: int = 0
 
 
 class TargetMetricsResponse(AutoTotalResponse, items_field="metrics"):
     metrics: list[TargetMetricDefinition] = []
-    total: int = 0

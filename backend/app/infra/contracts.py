@@ -14,4 +14,3 @@ class DaySummaryResponse(DefaultsRequired):
 
 class DaysResponse(AutoTotalResponse, items_field="days"):
     days: list[str]
-    total: int = 0

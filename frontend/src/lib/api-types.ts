@@ -1379,15 +1379,15 @@ export interface components {
         /** AssistantArtifactsResponse */
         AssistantArtifactsResponse: {
             /**
-             * Artifacts
-             * @default []
-             */
-            artifacts: components["schemas"]["AssistantArtifact"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Artifacts
+             * @default []
+             */
+            artifacts: components["schemas"]["AssistantArtifact"][];
         };
         /** AssistantMessage */
         AssistantMessage: {
@@ -1427,15 +1427,15 @@ export interface components {
         /** AssistantMessagesResponse */
         AssistantMessagesResponse: {
             /**
-             * Messages
-             * @default []
-             */
-            messages: components["schemas"]["AssistantMessage"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["AssistantMessage"][];
         };
         /** AssistantThread */
         AssistantThread: {
@@ -1488,15 +1488,15 @@ export interface components {
         /** AssistantThreadsResponse */
         AssistantThreadsResponse: {
             /**
-             * Threads
-             * @default []
-             */
-            threads: components["schemas"]["AssistantThread"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["AssistantThread"][];
         };
         /** BodyBatteryAnalysisResponse */
         BodyBatteryAnalysisResponse: {
@@ -1659,15 +1659,15 @@ export interface components {
         /** CardTemplatesResponse */
         CardTemplatesResponse: {
             /**
-             * Cards
-             * @default []
-             */
-            cards: components["schemas"]["CardTemplate"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["CardTemplate"][];
         };
         /** CircadianHRPoint */
         CircadianHRPoint: {
@@ -1838,15 +1838,15 @@ export interface components {
         /** DailyCheckInsResponse */
         DailyCheckInsResponse: {
             /**
-             * Checkins
-             * @default []
-             */
-            checkins: components["schemas"]["DailyCheckIn-Output"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Checkins
+             * @default []
+             */
+            checkins: components["schemas"]["DailyCheckIn-Output"][];
         };
         /** DailyHeartRateStats */
         DailyHeartRateStats: {
@@ -1986,13 +1986,13 @@ export interface components {
         };
         /** DaysResponse */
         DaysResponse: {
-            /** Days */
-            days: string[];
             /**
              * Total
              * @default 0
              */
             total: number;
+            /** Days */
+            days: string[];
         };
         /** Experiment */
         "Experiment-Input": {
@@ -2256,15 +2256,15 @@ export interface components {
         /** ExperimentsResponse */
         ExperimentsResponse: {
             /**
-             * Experiments
-             * @default []
-             */
-            experiments: components["schemas"]["ExperimentWithAnalysis"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Experiments
+             * @default []
+             */
+            experiments: components["schemas"]["ExperimentWithAnalysis"][];
         };
         /** HRDistributionResponse */
         HRDistributionResponse: {
@@ -2835,15 +2835,15 @@ export interface components {
         /** NotesResponse */
         NotesResponse: {
             /**
-             * Notes
-             * @default []
-             */
-            notes: components["schemas"]["Note-Output"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note-Output"][];
         };
         /** OutcomeMetric */
         "OutcomeMetric-Input": {
@@ -3031,28 +3031,28 @@ export interface components {
         /** ProgramVersionsResponse */
         ProgramVersionsResponse: {
             /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
              * Versions
              * @default []
              */
             versions: components["schemas"]["ProgramVersion"][];
+        };
+        /** ProgramsResponse */
+        ProgramsResponse: {
             /**
              * Total
              * @default 0
              */
             total: number;
-        };
-        /** ProgramsResponse */
-        ProgramsResponse: {
             /**
              * Programs
              * @default []
              */
             programs: components["schemas"]["Program"][];
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
         };
         /** ReadinessScore */
         ReadinessScore: {
@@ -3164,15 +3164,15 @@ export interface components {
         /** RoutineAssignmentsResponse */
         RoutineAssignmentsResponse: {
             /**
-             * Assignments
-             * @default []
-             */
-            assignments: components["schemas"]["RoutineAssignment"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Assignments
+             * @default []
+             */
+            assignments: components["schemas"]["RoutineAssignment"][];
         };
         /** RoutineSchedule */
         RoutineSchedule: {
@@ -3203,15 +3203,15 @@ export interface components {
         /** RoutineSchedulesResponse */
         RoutineSchedulesResponse: {
             /**
-             * Routines
-             * @default []
-             */
-            routines: components["schemas"]["RoutineSchedule"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Routines
+             * @default []
+             */
+            routines: components["schemas"]["RoutineSchedule"][];
         };
         /** RoutineSpec */
         RoutineSpec: {
@@ -3535,15 +3535,15 @@ export interface components {
         /** TargetMetricsResponse */
         TargetMetricsResponse: {
             /**
-             * Metrics
-             * @default []
-             */
-            metrics: components["schemas"]["TargetMetricDefinition"][];
-            /**
              * Total
              * @default 0
              */
             total: number;
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["TargetMetricDefinition"][];
         };
         /** TodayCard */
         TodayCard: {

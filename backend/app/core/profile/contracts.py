@@ -36,4 +36,3 @@ class UserProfile(DefaultsRequired):
 
 class GoalsResponse(AutoTotalResponse, items_field="goals"):
     goals: list[Goal] = []
-    total: int = 0

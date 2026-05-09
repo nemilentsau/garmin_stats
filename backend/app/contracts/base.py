@@ -20,13 +20,13 @@ class AutoTotalResponse(DefaultsRequired):
 
         class FoosResponse(AutoTotalResponse, items_field="foos"):
             foos: list[Foo] = []
-            total: int = 0
 
     If ``total`` is supplied explicitly it is respected; otherwise it is set
     to ``len(items_field)``.
     """
 
     _items_field: ClassVar[str]
+    total: int = 0
 
     def __init_subclass__(cls, items_field: str = "", **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

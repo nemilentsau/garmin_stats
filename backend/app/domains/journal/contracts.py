@@ -32,9 +32,7 @@ class Note(DefaultsRequired):
 
 class DailyCheckInsResponse(AutoTotalResponse, items_field="checkins"):
     checkins: list[DailyCheckIn] = []
-    total: int = 0
 
 
 class NotesResponse(AutoTotalResponse, items_field="notes"):
     notes: list[Note] = []
-    total: int = 0

@@ -123,7 +123,6 @@ class AssistantArtifactCreateRequest(StrictDefaultsRequired):
 
 class AssistantArtifactsResponse(AutoTotalResponse, items_field="artifacts"):
     artifacts: list[AssistantArtifact] = []
-    total: int = 0
 
 
 class ArtifactBundleSpec(StrictDefaultsRequired):

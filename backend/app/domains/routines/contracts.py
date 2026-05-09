@@ -55,12 +55,10 @@ class RoutineEntry(DefaultsRequired):
 
 class RoutinesResponse(AutoTotalResponse, items_field="routines"):
     routines: list[Routine] = []
-    total: int = 0
 
 
 class RoutineEntriesResponse(AutoTotalResponse, items_field="entries"):
     entries: list[RoutineEntry] = []
-    total: int = 0
 
 
 class CardTemplate(DefaultsRequired):
@@ -77,7 +75,6 @@ class CardTemplate(DefaultsRequired):
 
 class CardTemplatesResponse(AutoTotalResponse, items_field="cards"):
     cards: list[CardTemplate] = []
-    total: int = 0
 
 
 class RoutineSchedule(DefaultsRequired):
@@ -103,12 +100,10 @@ class RoutineAssignment(DefaultsRequired):
 
 class RoutineSchedulesResponse(AutoTotalResponse, items_field="routines"):
     routines: list[RoutineSchedule] = []
-    total: int = 0
 
 
 class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
     assignments: list[RoutineAssignment] = []
-    total: int = 0
 
 
 class CardLog(DefaultsRequired):

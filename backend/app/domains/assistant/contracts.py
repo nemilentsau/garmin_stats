@@ -112,9 +112,7 @@ class AssistantMessageCreateRequest(DefaultsRequired):
 
 class AssistantThreadsResponse(AutoTotalResponse, items_field="threads"):
     threads: list[AssistantThread] = []
-    total: int = 0
 
 
 class AssistantMessagesResponse(AutoTotalResponse, items_field="messages"):
     messages: list[AssistantMessage] = []
-    total: int = 0

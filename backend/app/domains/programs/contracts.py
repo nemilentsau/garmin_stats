@@ -29,9 +29,7 @@ class ProgramVersion(DefaultsRequired):
 
 class ProgramsResponse(AutoTotalResponse, items_field="programs"):
     programs: list[Program] = []
-    total: int = 0
 
 
 class ProgramVersionsResponse(AutoTotalResponse, items_field="versions"):
     versions: list[ProgramVersion] = []
-    total: int = 0
