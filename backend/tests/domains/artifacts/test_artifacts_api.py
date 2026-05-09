@@ -67,7 +67,7 @@ class TestAssistantArtifactBundleRoutes:
     def test_import_bundle_raises_value_error_when_service_rejects_it(self, monkeypatch):
         monkeypatch.setattr(
             artifacts_mod,
-            "import_artifact_bundle",
+            "import_and_activate_artifact_bundle",
             lambda *_args: (_ for _ in ()).throw(ValueError("Bundle has blocking issues")),
         )
 

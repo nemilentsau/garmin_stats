@@ -25,6 +25,7 @@ from tests._architecture import REPO_ROOT
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
+    import_and_activate_artifact_bundle,
     import_artifact_bundle,
     preview_artifact_bundle,
 )
@@ -361,6 +362,16 @@ class TestArtifactBundles:
         assert {artifact.kind for artifact in artifacts} == {"routine_spec", "card_template"}
         assert load_card_templates() == []
         assert load_routine_schedules() == []
+
+    def test_import_and_activate_bundle_compiles_live_runtime(self):
+        result = import_and_activate_artifact_bundle(_bundle_spec())
+
+        artifacts = load_assistant_artifacts()
+
+        assert result.total_imported == 2
+        assert [artifact.status for artifact in artifacts] == ["activated", "activated"]
+        assert [card.id for card in load_card_templates()] == ["bundle-card"]
+        assert [routine.id for routine in load_routine_schedules()] == ["bundle-routine"]
 
     def test_preview_bundle_rejects_reserved_placeholder_content(self):
         preview = preview_artifact_bundle(_starter_bundle_spec())

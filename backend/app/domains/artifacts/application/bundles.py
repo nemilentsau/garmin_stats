@@ -27,6 +27,7 @@ from app.domains.artifacts.dependencies import ArtifactRepository
 from app.domains.routines.dependencies import RoutineRepository
 from app.utils.timeutil import now_iso
 
+from .activation import activate_assistant_artifact
 from .bundle_ids import bundle_artifact_id, next_bundle_artifact_revision
 from .validation import validate_card_template_payload, validate_routine_spec_payload
 
@@ -482,3 +483,19 @@ def import_artifact_bundle(
         total_imported=len(artifacts),
         deltas=_deltas_from_prepared(prepared),
     )
+
+
+def import_and_activate_artifact_bundle(
+    artifact_repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
+    bundle: ArtifactBundleSpec,
+) -> ArtifactBundleImportResponse:
+    """Persist a valid bundle and activate the imported artifacts."""
+    result = import_artifact_bundle(artifact_repo, routines_repo, bundle)
+    for delta in result.deltas:
+        activate_assistant_artifact(
+            artifact_repo,
+            routines_repo,
+            delta.artifact_id,
+        )
+    return result

@@ -10,7 +10,7 @@ from fastapi import APIRouter
 from app.bootstrap.container import build_container
 from app.domains.artifacts.application.activation import activate_assistant_artifact
 from app.domains.artifacts.application.bundles import (
-    import_artifact_bundle,
+    import_and_activate_artifact_bundle,
     preview_artifact_bundle,
 )
 from app.domains.artifacts.application.staging import (
@@ -94,14 +94,11 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
 def post_import_bundle(bundle: ArtifactBundleSpec):
     """Import and activate a validated artifact bundle."""
     container = build_container()
-    result = import_artifact_bundle(container.artifacts_repo, container.routines_repo, bundle)
-    for delta in result.deltas:
-        activate_assistant_artifact(
-            container.artifacts_repo,
-            container.routines_repo,
-            delta.artifact_id,
-        )
-    return result
+    return import_and_activate_artifact_bundle(
+        container.artifacts_repo,
+        container.routines_repo,
+        bundle,
+    )
 
 
 @cards_router.get("", response_model=CardTemplatesResponse)

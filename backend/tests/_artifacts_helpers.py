@@ -7,6 +7,9 @@ from app.domains.artifacts.application.activation import (
     activate_assistant_artifact as activate_artifact_use_case,
 )
 from app.domains.artifacts.application.bundles import (
+    import_and_activate_artifact_bundle as import_and_activate_bundle_use_case,
+)
+from app.domains.artifacts.application.bundles import (
     import_artifact_bundle as import_bundle_use_case,
 )
 from app.domains.artifacts.application.bundles import (
@@ -51,6 +54,16 @@ def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreview
 
 def import_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundleImportResponse:
     return import_bundle_use_case(
+        SqliteArtifactRepository(),
+        SqliteRoutineRepository(),
+        bundle,
+    )
+
+
+def import_and_activate_artifact_bundle(
+    bundle: ArtifactBundleSpec,
+) -> ArtifactBundleImportResponse:
+    return import_and_activate_bundle_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
         bundle,

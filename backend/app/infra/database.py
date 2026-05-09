@@ -39,8 +39,8 @@ from ..domains.experiments.contracts import (
     ExperimentExposure,
     ExperimentReport,
 )
+from ..domains.garmin_health.contracts import DayData
 from ..domains.garmin_health.domain.daily import (
-    compute_daily_metric,
     compute_daily_metrics,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
@@ -408,38 +408,11 @@ def ingest_all(data_dir: Path) -> IngestResult:
 
         # Parse everything
         all_days = parse_all_days(data_dir)
-        daily_metrics = compute_daily_metrics(all_days)
 
         now = datetime.now(UTC).isoformat()
-        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
         with _connect() as con, con:
             _delete_stale_day_rows(con, [d.date for d in all_days])
-
-            # Per-day data
-            for day in all_days:
-                con.execute(
-                    upsert.format("wellness_data"),
-                    (day.date, day.wellness.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("sleep_data"),
-                    (day.date, day.sleep.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("hrv_data"),
-                    (day.date, day.hrv.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("skin_temp_data"),
-                    (day.date, day.skin_temp.model_dump_json(), now),
-                )
-
-            # Daily aggregates
-            for metric in daily_metrics:
-                con.execute(
-                    upsert.format("daily_metrics"),
-                    (metric.date, metric.model_dump_json(), now),
-                )
+            _upsert_parsed_day_data(con, all_days, now)
 
             # Metadata
             meta_upsert = (
@@ -489,32 +462,8 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
         ]
 
         now = datetime.now(UTC).isoformat()
-        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
         with _connect() as con, con:
-            for day in parsed_days:
-                con.execute(
-                    upsert.format("wellness_data"),
-                    (day.date, day.wellness.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("sleep_data"),
-                    (day.date, day.sleep.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("hrv_data"),
-                    (day.date, day.hrv.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("skin_temp_data"),
-                    (day.date, day.skin_temp.model_dump_json(), now),
-                )
-
-            for day in parsed_days:
-                metric = compute_daily_metric(day)
-                con.execute(
-                    upsert.format("daily_metrics"),
-                    (metric.date, metric.model_dump_json(), now),
-                )
+            _upsert_parsed_day_data(con, parsed_days, now)
 
             # Update fingerprint so startup check stays in sync
             meta_upsert = (
@@ -531,6 +480,39 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
         return IngestResult(days_ingested=len(parsed_days), duration_ms=duration_ms)
     finally:
         _ingest_lock.release()
+
+
+def _upsert_parsed_day_data(
+    con: sqlite3.Connection,
+    days: list[DayData],
+    updated_at: str,
+) -> None:
+    """Persist parsed raw day slices and their derived canonical daily metrics."""
+    upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
+
+    for day in days:
+        con.execute(
+            upsert.format("wellness_data"),
+            (day.date, day.wellness.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("sleep_data"),
+            (day.date, day.sleep.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("hrv_data"),
+            (day.date, day.hrv.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("skin_temp_data"),
+            (day.date, day.skin_temp.model_dump_json(), updated_at),
+        )
+
+    for metric in compute_daily_metrics(days):
+        con.execute(
+            upsert.format("daily_metrics"),
+            (metric.date, metric.model_dump_json(), updated_at),
+        )
 
 
 def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> None:
