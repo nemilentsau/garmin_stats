@@ -3278,7 +3278,6 @@ export interface components {
             position: number;
             /**
              * Source Kind
-             * @default scheduled
              * @enum {string}
              */
             source_kind: "scheduled" | "override_add" | "override_replace";

@@ -165,7 +165,7 @@ class TodayStats(DefaultsRequired):
     pending: int = 0
 
 
-class TodayCard(DefaultsRequired):
+class ScheduleOccurrence(DefaultsRequired):
     occurrence_key: str
     date: str
     slot: SlotName
@@ -182,6 +182,9 @@ class TodayCard(DefaultsRequired):
     summary: str | None = None
     tags: list[str] = []
     payload_json: dict[str, object] = {}
+
+
+class TodayCard(ScheduleOccurrence):
     status: CardLogStatus = "pending"
     actual_json: dict[str, object] = {}
     notes: str | None = None
@@ -208,25 +211,6 @@ class CardLogRangeResponse(DefaultsRequired):
     start_date: str
     end_date: str
     entries: list[CardLogStatusEntry] = []
-
-
-class ScheduleOccurrence(DefaultsRequired):
-    occurrence_key: str
-    date: str
-    slot: SlotName
-    position: int = 0
-    source_kind: ScheduleOccurrenceSourceKind = "scheduled"
-    schedule_override_action: CardOverrideAction | None = None
-    target_occurrence_key: str | None = None
-    routine_id: str | None = None
-    routine_name: str | None = None
-    assignment_id: str | None = None
-    card_template_id: str
-    name: str
-    renderer: RendererFamily
-    summary: str | None = None
-    tags: list[str] = []
-    payload_json: dict[str, object] = {}
 
 
 class ScheduleDay(DefaultsRequired):

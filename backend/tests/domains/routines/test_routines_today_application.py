@@ -2,7 +2,6 @@
 
 import pytest
 
-from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
 from app.domains.experiments.contracts import Experiment
 from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.today import (
@@ -17,101 +16,27 @@ from app.domains.routines.contracts import (
     TodayCardLogUpdateRequest,
 )
 from app.infra.database import load_experiment_exposures, save_experiment
-from tests._artifacts_helpers import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
+from tests._routines_helpers import (
+    activate_routine_card,
+    activate_routine_spec,
+    routine_assignment_spec,
+    upsert_today_card_log,
 )
-from tests._routines_helpers import upsert_today_card_log
-
-
-def _card_request(card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{card_id}",
-        kind="card_template",
-        schema_version=1,
-        payload_json={
-            "id": card_id,
-            "name": f"Card {card_id}",
-            "renderer": "timer_session",
-            "slot_default": "evening",
-            "summary": "Today fixture card",
-            "tags": ["training"],
-            "payload": {
-                "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
-                "instructions": "Stay relaxed.",
-            },
-        },
-    )
-
-
-def _routine_request(routine_id: str, *, card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Today fixture routine",
-            "assignments": [
-                {
-                    "id": f"{routine_id}-assignment",
-                    "card_template_id": card_id,
-                    "day": 1,
-                    "slot": "evening",
-                    "position": 20,
-                    "prescription_override_json": {},
-                }
-            ],
-        },
-    )
-
-
-def _two_card_routine_request(routine_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Today fixture routine",
-            "assignments": [
-                {
-                    "id": f"{routine_id}-morning",
-                    "card_template_id": "card-morning",
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 10,
-                    "prescription_override_json": {},
-                },
-                {
-                    "id": f"{routine_id}-evening",
-                    "card_template_id": "card-evening",
-                    "day": 1,
-                    "slot": "evening",
-                    "position": 10,
-                    "prescription_override_json": {},
-                },
-            ],
-        },
-    )
 
 
 def test_get_today_returns_grouped_slots_and_stats():
-    card_artifact = create_assistant_artifact(_card_request("card-today"))
-    activate_assistant_artifact(card_artifact.id)
-    routine_artifact = create_assistant_artifact(
-        _routine_request("routine-today", card_id="card-today")
+    activate_routine_card("card-today")
+    activate_routine_spec(
+        "routine-today",
+        assignments=[
+            routine_assignment_spec(
+                "routine-today-assignment",
+                card_template_id="card-today",
+                slot="evening",
+                position=20,
+            )
+        ],
     )
-    activate_assistant_artifact(routine_artifact.id)
 
     repo = SqliteRoutineRepository()
     response = get_today(repo, date="2026-03-02")
@@ -172,12 +97,18 @@ def test_upsert_today_card_log_validates_occurrence_identity():
 
 
 def test_upsert_today_card_log_rejects_assignment_mismatch():
-    card_artifact = create_assistant_artifact(_card_request("card-assignment"))
-    activate_assistant_artifact(card_artifact.id)
-    routine_artifact = create_assistant_artifact(
-        _routine_request("routine-assignment", card_id="card-assignment")
+    activate_routine_card("card-assignment")
+    activate_routine_spec(
+        "routine-assignment",
+        assignments=[
+            routine_assignment_spec(
+                "routine-assignment-assignment",
+                card_template_id="card-assignment",
+                slot="evening",
+                position=20,
+            )
+        ],
     )
-    activate_assistant_artifact(routine_artifact.id)
 
     repo = SqliteRoutineRepository()
     today = get_today(repo, date="2026-03-02")
@@ -199,12 +130,23 @@ def test_upsert_today_card_log_rejects_assignment_mismatch():
 
 
 def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
-    morning_card_artifact = create_assistant_artifact(_card_request("card-morning"))
-    activate_assistant_artifact(morning_card_artifact.id)
-    evening_card_artifact = create_assistant_artifact(_card_request("card-evening"))
-    activate_assistant_artifact(evening_card_artifact.id)
-    routine_artifact = create_assistant_artifact(_two_card_routine_request("routine-exposure"))
-    activate_assistant_artifact(routine_artifact.id)
+    activate_routine_card("card-morning")
+    activate_routine_card("card-evening")
+    activate_routine_spec(
+        "routine-exposure",
+        assignments=[
+            routine_assignment_spec(
+                "routine-exposure-morning",
+                card_template_id="card-morning",
+                slot="morning",
+            ),
+            routine_assignment_spec(
+                "routine-exposure-evening",
+                card_template_id="card-evening",
+                slot="evening",
+            ),
+        ],
+    )
     save_experiment(
         Experiment(
             id="exp-today-sync",

@@ -12,6 +12,12 @@ from tests._architecture import (
 )
 
 
+def test_today_card_extends_schedule_occurrence_contract():
+    from app.domains.routines.contracts import ScheduleOccurrence, TodayCard
+
+    assert issubclass(TodayCard, ScheduleOccurrence)
+
+
 def test_routines_api_modules_do_not_import_flat_database_or_services():
     assert_api_modules_are_boundary_only([
         "backend/app/domains/routines/routes.py",

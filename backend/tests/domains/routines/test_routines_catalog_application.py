@@ -5,95 +5,23 @@ from contextlib import contextmanager
 import pytest
 
 import app.infra.database as db
-from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
 from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.catalog import (
     get_routine,
     list_routine_assignments,
     list_routines,
 )
-from app.domains.routines.contracts import (
-    RoutineAssignment,
-    RoutineSchedule,
+from tests._routines_helpers import (
+    activate_routine_card,
+    activate_routine_spec,
+    routine_assignment_spec,
 )
-from tests._artifacts_helpers import (
-    activate_assistant_artifact,
-    create_assistant_artifact,
+from tests._routines_helpers import (
+    live_routine as _live_routine,
 )
-
-
-def _card_request(card_id: str) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{card_id}",
-        kind="card_template",
-        schema_version=1,
-        payload_json={
-            "id": card_id,
-            "name": f"Card {card_id}",
-            "renderer": "timer_session",
-            "slot_default": "morning",
-            "summary": "Catalog fixture card",
-            "tags": ["training"],
-            "payload": {
-                "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
-                "instructions": "Stay relaxed.",
-            },
-        },
-    )
-
-
-def _routine_request(
-    routine_id: str,
-    *,
-    card_id: str,
-) -> AssistantArtifactCreateRequest:
-    return AssistantArtifactCreateRequest(
-        id=f"artifact-{routine_id}",
-        kind="routine_spec",
-        schema_version=1,
-        payload_json={
-            "id": routine_id,
-            "name": f"Routine {routine_id}",
-            "start_date": "2026-03-02",
-            "status": "active",
-            "tags": ["training"],
-            "notes": "Catalog fixture",
-            "assignments": [
-                {
-                    "id": f"{routine_id}-assignment",
-                    "card_template_id": card_id,
-                    "day": 1,
-                    "slot": "morning",
-                    "position": 10,
-                    "prescription_override_json": {},
-                }
-            ],
-        },
-    )
-
-
-def _live_routine(routine_id: str) -> RoutineSchedule:
-    return RoutineSchedule(
-        id=routine_id,
-        name=f"Routine {routine_id}",
-        start_date="2026-03-02",
-        status="active",
-        tags=["training"],
-        notes="Catalog fixture",
-    )
-
-
-def _assignment(assignment_id: str, *, routine_id: str) -> RoutineAssignment:
-    return RoutineAssignment(
-        id=assignment_id,
-        routine_id=routine_id,
-        card_template_id="card-catalog",
-        date="2026-03-02",
-        slot="morning",
-        position=10,
-        prescription_override_json={},
-    )
+from tests._routines_helpers import (
+    live_routine_assignment as _assignment,
+)
 
 
 def test_list_routines_reads_live_schedules():
@@ -108,12 +36,16 @@ def test_list_routines_reads_live_schedules():
 
 def test_get_routine_and_assignments_read_same_routine():
     repo = SqliteRoutineRepository()
-    card_artifact = create_assistant_artifact(_card_request("card-catalog"))
-    activate_assistant_artifact(card_artifact.id)
-    artifact = create_assistant_artifact(
-        _routine_request("routine-catalog", card_id="card-catalog")
+    activate_routine_card("card-catalog")
+    activate_routine_spec(
+        "routine-catalog",
+        assignments=[
+            routine_assignment_spec(
+                "routine-catalog-assignment",
+                card_template_id="card-catalog",
+            )
+        ],
     )
-    activate_assistant_artifact(artifact.id)
 
     routine = get_routine(repo, "routine-catalog")
     assignments = list_routine_assignments(repo, "routine-catalog")
