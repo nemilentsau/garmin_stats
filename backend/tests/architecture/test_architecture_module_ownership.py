@@ -6,6 +6,7 @@ REQUIRED_MODULE_CHARTERS = [
     "assistant",
     "routines",
     "garmin_sync",
+    "garmin_health",
     "garmin_analytics",
     "experiments",
     "artifacts",

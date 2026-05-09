@@ -8,7 +8,7 @@ read persisted `DailyMetric` rows directly.
 
 from pydantic import BaseModel
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyMetric,
     DayHrv,
     DaySkinTemp,

@@ -1,4 +1,4 @@
-"""Daily Garmin aggregate stat contracts."""
+"""Canonical persisted Garmin daily metric contracts."""
 
 from app.contracts.base import DefaultsRequired
 

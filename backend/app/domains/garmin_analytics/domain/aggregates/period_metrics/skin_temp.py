@@ -1,7 +1,8 @@
 """Skin-temperature raw-period aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSkinTempStats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodSkinTempStats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_skin_temp(days: list[DayData]) -> PeriodSkinTempStats:

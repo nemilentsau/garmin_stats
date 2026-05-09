@@ -10,7 +10,7 @@ from app.domains.garmin_analytics.adapters import (
 from app.domains.garmin_analytics.application.metric_insights import (
     get_hrv_insights as _get_hrv_insights,
 )
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,

@@ -1,7 +1,7 @@
 """Tests for Garmin analytics persistence adapters."""
 
 from app.domains.garmin_analytics import adapters
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,

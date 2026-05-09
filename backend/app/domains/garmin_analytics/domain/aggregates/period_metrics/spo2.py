@@ -1,7 +1,8 @@
 """SpO2 raw-period aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSpo2Stats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodSpo2Stats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_spo2(days: list[DayData]) -> PeriodSpo2Stats:

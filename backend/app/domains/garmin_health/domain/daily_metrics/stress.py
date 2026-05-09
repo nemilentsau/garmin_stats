@@ -1,6 +1,6 @@
 """Stress daily aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DailyMetricStats, DayWellness
+from app.domains.garmin_health.contracts import DailyMetricStats, DayWellness
 
 from .common import compute_daily_metric_stats
 

@@ -1,6 +1,6 @@
 """HRV daily aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DailyHrvStats, DayHrv
+from app.domains.garmin_health.contracts import DailyHrvStats, DayHrv
 
 UNFAVORABLE_HRV_STATUSES = {"Low", "Unbalanced"}
 

@@ -4,25 +4,27 @@ from datetime import datetime
 from statistics import median
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
-    DayWellness,
     HeartRateDataQuality,
     HeartRateInsight,
     HeartRateInsightsResponse,
-    HeartRateReading,
     HeartRateRecovery,
     HRZoneDuration,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import (
-    HR_ZONE_THRESHOLDS,
-    is_balanced_hrv_status,
-    is_unfavorable_hrv_status,
-)
-from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.timestamps import (
     summarize_timestamp_coverage,
 )
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
+from app.domains.garmin_health.contracts import (
+    DailyMetric,
+    DayWellness,
+    HeartRateReading,
+)
+from app.domains.garmin_health.domain.daily_metrics import (
+    HR_ZONE_THRESHOLDS,
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+)
+from app.utils.numeric import optional_float
 from app.utils.timeutil import parse_iso as _parse_iso
 
 

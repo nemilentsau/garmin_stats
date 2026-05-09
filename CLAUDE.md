@@ -32,6 +32,7 @@
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
+- **Where new helpers go**: default to the closest domain. Only promote to `app/utils/` when *all three* rules hold — primitive-only signatures, no domain vocabulary in names, and two-plus consumers already exist. Read `docs/ARCHITECTURE.md` → "Shared Utilities" before adding anything to `app/utils/` or creating a new shared module.
 
 ## Skills
 

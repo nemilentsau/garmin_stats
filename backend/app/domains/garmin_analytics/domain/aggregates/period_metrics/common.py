@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from app.domains.garmin_analytics.contracts import PeriodMetricStats
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.utils.numeric import (
     safe_avg,
     safe_percentile,
 )

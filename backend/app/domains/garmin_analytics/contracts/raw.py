@@ -1,8 +1,7 @@
 """Raw Garmin biometric endpoint response contracts."""
 
 from app.contracts.base import DefaultsRequired
-
-from .readings import (
+from app.domains.garmin_health.contracts import (
     BodyBatteryReading,
     HeartRateReading,
     HrvSummary,

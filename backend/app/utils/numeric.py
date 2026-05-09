@@ -1,4 +1,4 @@
-"""Nullable numeric helpers for Garmin analytics read models."""
+"""Null-tolerant scalar summary, histogram, and percentile helpers."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass

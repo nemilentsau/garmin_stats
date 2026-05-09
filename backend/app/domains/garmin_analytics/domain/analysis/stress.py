@@ -1,7 +1,6 @@
 """Stress analysis calculations for Garmin analytics."""
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
     StressAnalysisResponse,
     StressTrendPoint,
     WeeklyStressBox,
@@ -10,6 +9,7 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
 )
+from app.domains.garmin_health.contracts import DailyMetric
 
 
 def compute_stress_trend(

@@ -2,10 +2,6 @@
 
 from app.domains.garmin_analytics.contracts import (
     BodyBatteryRawResponse,
-    DayHrv,
-    DaySkinTemp,
-    DaySleep,
-    DayWellness,
     HeartRateRawResponse,
     HrvResponse,
     RespirationRawResponse,
@@ -13,6 +9,12 @@ from app.domains.garmin_analytics.contracts import (
     SleepResponse,
     SpO2RawResponse,
     StressRawResponse,
+)
+from app.domains.garmin_health.contracts import (
+    DayHrv,
+    DaySkinTemp,
+    DaySleep,
+    DayWellness,
 )
 
 

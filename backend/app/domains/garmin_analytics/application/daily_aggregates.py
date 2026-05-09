@@ -8,15 +8,17 @@ readings so they do not become averages of daily aggregates.
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
     DailyAggregatesResponse,
+    PeriodSummary,
+)
+from app.domains.garmin_analytics.domain.aggregates.period import compute_period_summary
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
+from app.domains.garmin_health.contracts import (
     DayData,
     DayHrv,
     DaySkinTemp,
     DaySleep,
     DayWellness,
-    PeriodSummary,
 )
-from app.domains.garmin_analytics.domain.aggregates.period import compute_period_summary
-from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.infra import cache
 
 

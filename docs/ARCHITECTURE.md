@@ -41,8 +41,17 @@ when subpackages would only hold one file.
 
 There are two major paths:
 
-- Ingest path: FIT files -> `parser.py` -> Garmin analytics aggregate calculators -> SQLite
+- Ingest path: FIT files -> `parser.py` -> Garmin health daily metric composer -> SQLite
 - Read path: SQLite -> repository adapters -> domain/core application slices -> JSON API -> frontend
+
+The Garmin health dependency direction is:
+
+- `parser.py` and `infra/database.py` -> `garmin_health`, `app.utils`
+- `garmin_analytics` -> `garmin_health`, `app.utils`
+- `experiments` and `assistant` -> `garmin_health` contracts, and analytics
+  adapters only when loading analytics read data
+- `garmin_health` -> `app.contracts.base`, `app.utils`
+- `app.utils` -> stdlib and numpy only
 
 ### Core modules
 
@@ -61,11 +70,41 @@ There are two major paths:
 - `backend/app/parser.py`
   FIT parsing and timestamp normalization into local time.
 
-- `backend/app/domains/garmin_analytics/domain/aggregates/`
-  Deterministic Garmin aggregate calculations and response shaping.
+- `backend/app/utils/`
+  Shared, domain-agnostic helpers. See "Shared Utilities" below for the rule on what may live here.
+
+- `backend/app/domains/garmin_health/`
+  Canonical Garmin health contracts and deterministic daily metric composition
+  used by parser, ingest persistence, analytics, experiments, and assistant.
 
 - `backend/app/main.py`
   Compatibility entrypoint that exposes the assembled FastAPI app.
+
+### Shared Utilities (`app/utils/`)
+
+`app/utils/` is the only place above the domain layer where general-purpose helpers may live. It exists so two or more domains can share a primitive operation without one domain importing from another.
+
+A helper belongs in `app/utils/` only when **all three** rules hold:
+
+1. **Primitive-only signatures.** Inputs and outputs are language types (numbers, strings, datetimes, sequences, mappings) — never domain models like `DayData`, `DailyMetric`, `RoutineCard`, or `ExperimentExposure`.
+2. **No domain vocabulary in names.** Function and type names use generic terms (`safe_avg`, `percentile_rank`, `ScalarSummary`, `now_utc`). Names like `normalize_hrv_status`, `compute_hr_zones`, `classify_recovery` are domain-bound even when small, and stay in their owning domain.
+3. **Two or more consumers already need it.** Don't promote on speculation. A helper used by exactly one domain stays in that domain. Promote on the second real consumer, in the same PR that introduces it.
+
+Counter-examples (these belong in a domain, not `app/utils/`):
+- `compute_daily_heart_rate(wellness: DayWellness)` — takes a domain type. → `garmin_health/domain/daily_metrics/`.
+- `prior_7d_avg(...)` — encodes a period-window concept specific to analytics. → `garmin_analytics/domain/primitives/trends.py`.
+- `format_routine_card_label(card)` — single consumer + domain type. → `routines/`.
+
+Forbidden in `app/utils/`:
+- Imports from `app.domains.*`, `app.infra.*`, `app.routers.*`, or `app.bootstrap.*`. Allowed dependencies are stdlib and numpy.
+- Functions whose name or signature names a Garmin metric, routine concept, experiment concept, assistant concept, or persistence detail.
+- Re-exports from a domain (use the domain directly).
+
+Adding a helper here is a deliberate promotion, not a default landing spot. When in doubt, keep it domain-local — promotion is cheap to do later, demotion is not.
+
+Current contents:
+- `app/utils/timeutil.py` — UTC clock helpers.
+- `app/utils/numeric.py` — null-tolerant scalar summary, histogram, and percentile helpers used by `garmin_health` daily-metric calculators and `garmin_analytics` dashboard / insights / analysis modules.
 
 ### Infrastructure
 
@@ -105,8 +144,15 @@ There are two major paths:
   Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
   API response models.
 
+- `domains/garmin_health/`
+  Canonical Garmin health data slice. This domain owns parsed reading containers,
+  persisted `DailyMetric` rows, nullable daily metric stat contracts,
+  Garmin-vocabulary daily metric calculators, and pure day-to-metric
+  composition. It has no routes, repositories, sync workflows, dashboard reads,
+  experiment analysis, or assistant retrieval logic.
+
 - `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, metric-specific raw biometric routes, sleep, HRV, and skin temperature reads, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`readings`, `raw`, `daily`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
+  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily aggregates, period summaries, metric-specific raw biometric routes, sleep, HRV, and skin temperature reads, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns read-model calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`raw`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
   Experiment CRUD, design preview/import, target metric registry, exposure
@@ -156,7 +202,8 @@ not proof that the design is sound.
 - Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
   experiment exposure derivation, or artifact activation.
 - May import: its own contracts/application/types/ports, and explicitly
-  allowlisted read dependencies needed to build evidence context.
+  allowlisted read dependencies needed to build evidence context, including
+  canonical Garmin health contracts.
 - Must not import: Garmin sync, Garmin analytics application internals, routine
   activation internals, FastAPI from application modules, or SQLite helpers from
   application modules.
@@ -199,22 +246,42 @@ not proof that the design is sound.
 to the product because the app depends on current local Garmin data, but `core/`
 is reserved for shared app primitives rather than important product workflows.
 
+#### `garmin_health`
+
+- Owns: canonical parsed Garmin reading rows, day-level containers, persisted
+  daily metric contracts, Garmin-vocabulary daily metric calculators, and pure
+  raw-day-to-daily-metric composition.
+- Does not own: archive acquisition, watcher/startup ingest orchestration,
+  SQLite persistence, dashboard reads, period summaries, experiment analysis,
+  assistant retrieval, frontend presentation, or API routing.
+- May import: `app.contracts.base`, `app.utils`, and its own contracts/domain
+  modules.
+- Must not import: Garmin sync, Garmin analytics, experiments, assistant,
+  routines, artifacts, journal, programs, infrastructure adapters, FastAPI from
+  application modules, or SQLite helpers from application modules.
+- Public entrypoints: canonical contracts under
+  `app.domains.garmin_health.contracts`, daily metric composition under
+  `app.domains.garmin_health.domain.daily`, and daily metric calculators under
+  `app.domains.garmin_health.domain.daily_metrics`.
+
 #### `garmin_analytics`
 
 - Owns: Garmin-derived read models, biometric API reads, dashboard overview,
-  period summaries, metric drill-down insights, and recovery analysis responses.
+  daily aggregate API response wrapping, period summaries, metric drill-down
+  insights, and recovery analysis responses.
 - Does not own: archive acquisition, parser timestamp normalization, routine
-  execution, experiment exposure derivation, assistant runtime behavior, or
-  subjective journal writes.
+  execution, canonical daily metric composition, experiment exposure derivation,
+  assistant runtime behavior, or subjective journal writes.
 - May import: its biometric repository dependency protocol, Garmin analytics
-  domain helpers, and Garmin analytics contracts.
+  domain helpers, Garmin analytics contracts, canonical Garmin health
+  contracts/calculators, and domain-agnostic helpers from `app.utils`.
 - Must not import: Garmin sync, routines, experiments, assistant, artifacts,
   journal, programs, FastAPI from application modules, or SQLite helpers from
   application modules.
 - Public entrypoints: dashboard, sleep, HRV, skin temperature, daily aggregate,
   heart-rate, stress, body-battery, respiration, and pulse-ox API routes. Application files
   are named by concern: `raw_biometrics.py` reads raw biometric tables,
-  `daily_aggregates.py` composes daily metrics and period windows,
+  `daily_aggregates.py` wraps persisted daily metrics and computes period windows,
   `dashboard.py` loads overview inputs,
   `metric_analysis.py` loads cached chart/trend analysis read models, and
   `metric_insights.py` loads selected-day insight read models.
@@ -228,9 +295,9 @@ is reserved for shared app primitives rather than important product workflows.
   staging.
 - May import: experiment repository ports, experiment-owned contracts,
   allowlisted routine read/projection contracts needed for exposure derivation,
-  and local analysis math helpers.
+  canonical Garmin health contracts, and local analysis math helpers.
 - Must not import: Garmin sync, Garmin analytics application internals except
-  through persisted metric contracts, assistant runtime, artifact persistence
+  through analytics read adapters, assistant runtime, artifact persistence
   internals, FastAPI from application modules, or SQLite helpers from application
   modules.
 - Public entrypoints: `/api/experiments`, `/api/target-metrics`, experiment

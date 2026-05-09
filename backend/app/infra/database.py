@@ -1,7 +1,7 @@
 """
 SQLite persistence layer for Garmin Stats.
 
-Write path (ingest):  FIT files → parser → Garmin analytics aggregates → SQLite
+Write path (ingest):  FIT files → parser → Garmin health daily metrics → SQLite
 Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
@@ -39,8 +39,9 @@ from ..domains.experiments.contracts import (
     ExperimentExposure,
     ExperimentReport,
 )
-from ..domains.garmin_analytics.domain.aggregates.daily import (
-    compute_daily_aggregates,
+from ..domains.garmin_health.domain.daily import (
+    compute_daily_metric,
+    compute_daily_metrics,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
 from ..domains.journal.contracts import DailyCheckIn, Note
@@ -407,7 +408,7 @@ def ingest_all(data_dir: Path) -> IngestResult:
 
         # Parse everything
         all_days = parse_all_days(data_dir)
-        agg = compute_daily_aggregates(all_days)
+        daily_metrics = compute_daily_metrics(all_days)
 
         now = datetime.now(UTC).isoformat()
         upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
@@ -434,7 +435,7 @@ def ingest_all(data_dir: Path) -> IngestResult:
                 )
 
             # Daily aggregates
-            for metric in agg.daily:
+            for metric in daily_metrics:
                 con.execute(
                     upsert.format("daily_metrics"),
                     (metric.date, metric.model_dump_json(), now),
@@ -509,7 +510,7 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
                 )
 
             for day in parsed_days:
-                metric = compute_daily_aggregates([day]).daily[0]
+                metric = compute_daily_metric(day)
                 con.execute(
                     upsert.format("daily_metrics"),
                     (metric.date, metric.model_dump_json(), now),

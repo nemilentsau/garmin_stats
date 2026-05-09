@@ -1,4 +1,4 @@
-"""Persisted Garmin reading rows and day-level biometric containers."""
+"""Canonical parsed Garmin reading rows and day-level containers."""
 
 from app.contracts.base import DefaultsRequired
 

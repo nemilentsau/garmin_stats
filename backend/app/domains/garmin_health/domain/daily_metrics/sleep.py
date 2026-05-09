@@ -1,6 +1,6 @@
 """Sleep daily aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DailySleepStats, DaySleep
+from app.domains.garmin_health.contracts import DailySleepStats, DaySleep
 
 
 def compute_daily_sleep(sleep: DaySleep) -> DailySleepStats:

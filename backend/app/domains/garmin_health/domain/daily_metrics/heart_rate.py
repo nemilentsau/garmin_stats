@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyHeartRateStats,
     DayWellness,
     HRZoneBucket,

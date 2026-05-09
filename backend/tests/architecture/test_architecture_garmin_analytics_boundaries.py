@@ -91,37 +91,27 @@ def test_garmin_analytics_metric_insights_do_not_proxy_metric_analysis():
     )
 
 
-def test_daily_aggregate_composer_delegates_to_metric_modules():
+def test_garmin_analytics_does_not_own_canonical_daily_metric_composer():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
-    for filename in [
-        "__init__.py",
-        "heart_rate.py",
-        "stress.py",
-        "body_battery.py",
-        "spo2.py",
-        "respiration.py",
-        "hrv.py",
-        "sleep.py",
-        "skin_temp.py",
-    ]:
-        assert (base / "daily_metrics" / filename).exists()
+    analytics_root = REPO_ROOT / "backend/app/domains/garmin_analytics"
+    database_source = read_repo_file("backend/app/infra/database.py")
 
-    source = read_repo_file(
-        "backend/app/domains/garmin_analytics/domain/aggregates/daily.py",
-    )
-    assert "_vals =" not in source
-    assert "DailyMetricStats(" not in source
-    assert "DailyHeartRateStats(" not in source
-    assert "DailyBodyBatteryStats(" not in source
-    assert "day.wellness." not in source
-    assert "day.sleep." not in source
-    assert "day.hrv." not in source
-    assert "day.skin_temp." not in source
+    assert not (analytics_root / "utils.py").exists()
+    assert not (analytics_root / "contracts/daily.py").exists()
+    assert not (analytics_root / "contracts/readings.py").exists()
+    assert not (base / "daily.py").exists()
+    assert not (base / "daily_metrics").exists()
+    assert not (
+        REPO_ROOT
+        / "backend/app/domains/garmin_analytics/domain/primitives/numeric.py"
+    ).exists()
+    assert "domains.garmin_analytics.utils" not in database_source
+    assert "domains.garmin_analytics.domain.aggregates.daily" not in database_source
 
 
 def test_heart_rate_resting_policy_has_single_metric_helper():
     daily_source = read_repo_file(
-        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/heart_rate.py",
+        "backend/app/domains/garmin_health/domain/daily_metrics/heart_rate.py",
     )
     period_source = read_repo_file(
         "backend/app/domains/garmin_analytics/domain/aggregates/period_metrics/heart_rate.py",
@@ -135,10 +125,10 @@ def test_heart_rate_resting_policy_has_single_metric_helper():
 
 def test_hrv_status_normalization_lives_with_hrv_daily_metric():
     hrv_source = read_repo_file(
-        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/hrv.py",
+        "backend/app/domains/garmin_health/domain/daily_metrics/hrv.py",
     )
     heart_rate_source = read_repo_file(
-        "backend/app/domains/garmin_analytics/domain/aggregates/daily_metrics/heart_rate.py",
+        "backend/app/domains/garmin_health/domain/daily_metrics/heart_rate.py",
     )
 
     assert "def normalize_hrv_status" in hrv_source
@@ -213,9 +203,7 @@ def test_garmin_analytics_contracts_are_split_by_concern_with_stable_imports():
     assert not (base / "contracts.py").exists()
     for filename in [
         "__init__.py",
-        "readings.py",
         "raw.py",
-        "daily.py",
         "period.py",
         "insights.py",
         "analysis.py",
@@ -223,7 +211,7 @@ def test_garmin_analytics_contracts_are_split_by_concern_with_stable_imports():
     ]:
         assert (contracts_root / filename).exists()
 
-    assert contracts.DailyMetric.__name__ == "DailyMetric"
+    assert contracts.DailyAggregatesResponse.__name__ == "DailyAggregatesResponse"
     assert contracts.DashboardOverviewResponse.__name__ == "DashboardOverviewResponse"
 
 

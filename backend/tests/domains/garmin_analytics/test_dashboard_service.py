@@ -12,7 +12,7 @@ from app.domains.garmin_analytics.adapters import (
 from app.domains.garmin_analytics.application.dashboard import (
     get_dashboard_overview,
 )
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,

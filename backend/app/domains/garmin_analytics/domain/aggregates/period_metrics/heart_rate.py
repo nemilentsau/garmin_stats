@@ -1,11 +1,12 @@
 """Heart-rate raw-period aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodHeartRateStats
-from app.domains.garmin_analytics.domain.aggregates.daily_metrics.heart_rate import (
+from app.domains.garmin_analytics.contracts import PeriodHeartRateStats
+from app.domains.garmin_health.contracts import DayData
+from app.domains.garmin_health.domain.daily_metrics.heart_rate import (
     compute_hr_zones,
     latest_resting_hr,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.utils.numeric import (
     safe_avg,
     safe_percentile,
 )

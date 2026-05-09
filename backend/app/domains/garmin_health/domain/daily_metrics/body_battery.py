@@ -1,6 +1,6 @@
 """Body battery daily aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DayWellness,
 )

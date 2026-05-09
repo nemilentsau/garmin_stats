@@ -1,6 +1,11 @@
 """Selected-day insight response contracts."""
 
 from app.contracts.base import DefaultsRequired
+from app.domains.garmin_health.contracts import (
+    DailyHeartRateStats,
+    DailyHrvStats,
+    HrvValue,
+)
 
 from .analysis import (
     HrvBaselineBands,
@@ -8,8 +13,6 @@ from .analysis import (
     HrvDistribution,
     HrvTrajectory,
 )
-from .daily import DailyHeartRateStats, DailyHrvStats
-from .readings import HrvValue
 
 
 class HeartRateRecovery(DefaultsRequired):

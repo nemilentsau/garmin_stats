@@ -31,7 +31,7 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     OutcomeMetric,
 )
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,

@@ -2,9 +2,9 @@
 
 import pytest
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_analytics.contracts import DailyAggregatesResponse
+from app.domains.garmin_health.contracts import (
     BodyBatteryReading,
-    DailyAggregatesResponse,
     DayHrv,
     DaySkinTemp,
     DaySleep,

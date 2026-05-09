@@ -563,7 +563,7 @@ export interface paths {
         put?: never;
         /**
          * Post Preview Bundle
-         * @description Validate a structured artifact bundle without persisting anything.
+         * @description Validate a structured artifact bundle and report planned deltas.
          */
         post: operations["post_preview_bundle_api_assistant_artifact_bundles_preview_post"];
         delete?: never;
@@ -583,7 +583,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import Bundle
-         * @description Import a validated bundle and auto-activate all artifacts.
+         * @description Persist a valid bundle and activate cards before dependent routines.
          */
         post: operations["post_import_bundle_api_assistant_artifact_bundles_import_post"];
         delete?: never;
@@ -601,13 +601,13 @@ export interface paths {
         };
         /**
          * Get Artifacts
-         * @description Return assistant-authored artifacts.
+         * @description Return staged assistant artifacts, optionally filtered by kind or status.
          */
         get: operations["get_artifacts_api_assistant_artifacts_get"];
         put?: never;
         /**
          * Post Artifact
-         * @description Create and validate an assistant artifact draft.
+         * @description Validate and persist one assistant artifact draft.
          */
         post: operations["post_artifact_api_assistant_artifacts_post"];
         delete?: never;
@@ -625,7 +625,7 @@ export interface paths {
         };
         /**
          * Get Artifact Detail
-         * @description Return a single assistant artifact.
+         * @description Return one staged assistant artifact by id.
          */
         get: operations["get_artifact_detail_api_assistant_artifacts__artifact_id__get"];
         put?: never;
@@ -647,7 +647,7 @@ export interface paths {
         put?: never;
         /**
          * Post Activate Artifact
-         * @description Compile a validated artifact into live routine/card data.
+         * @description Publish a validated artifact into live routine/card data.
          */
         post: operations["post_activate_artifact_api_assistant_artifacts__artifact_id__activate_post"];
         delete?: never;
@@ -665,7 +665,7 @@ export interface paths {
         };
         /**
          * Get Cards
-         * @description Return compiled live card templates.
+         * @description Return live card templates created from activated artifacts.
          */
         get: operations["get_cards_api_cards_get"];
         put?: never;

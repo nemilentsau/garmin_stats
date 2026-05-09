@@ -3,8 +3,6 @@
 from datetime import datetime
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
-    DayHrv,
     HrvAnalysisResponse,
     HrvBaselineBands,
     HrvDayOfWeekBucket,
@@ -12,23 +10,27 @@ from app.domains.garmin_analytics.contracts import (
     HrvDistributionBin,
     HrvPatternWindow,
     HrvTrajectory,
-    HrvValue,
     NightlyHrvTrendPoint,
     WeeklyHrvBox,
-)
-from app.domains.garmin_analytics.domain.aggregates.daily_metrics.hrv import (
-    classify_hrv_recovery as _classify_hrv_recovery,
-)
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    histogram_bins,
-    percentile_rank,
-    safe_avg,
 )
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
+from app.domains.garmin_health.contracts import (
+    DailyMetric,
+    DayHrv,
+    HrvValue,
+)
+from app.domains.garmin_health.domain.daily_metrics.hrv import (
+    classify_hrv_recovery as _classify_hrv_recovery,
+)
+from app.utils.numeric import (
+    histogram_bins,
+    percentile_rank,
+    safe_avg,
+)
 from app.utils.timeutil import parse_iso as _parse_iso
 
 _HRV_DIST_MIN_DAYS = 7

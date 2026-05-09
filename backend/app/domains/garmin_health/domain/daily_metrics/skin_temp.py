@@ -1,6 +1,6 @@
 """Skin-temperature daily aggregate calculations."""
 
-from app.domains.garmin_analytics.contracts import DailySkinTempStats, DaySkinTemp
+from app.domains.garmin_health.contracts import DailySkinTempStats, DaySkinTemp
 
 
 def compute_daily_skin_temp(skin_temp: DaySkinTemp) -> DailySkinTempStats:

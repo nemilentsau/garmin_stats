@@ -3,8 +3,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.domains.garmin_analytics.contracts import DailyMetricStats
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.domains.garmin_health.contracts import DailyMetricStats
+from app.utils.numeric import (
     summarize_scalar_values,
 )
 

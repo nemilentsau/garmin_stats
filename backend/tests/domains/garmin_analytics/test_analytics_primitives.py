@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from importlib import import_module
 
 from app.domains.garmin_analytics.domain.analysis import hrv
-from app.domains.garmin_analytics.domain.primitives import numeric, trends
+from app.domains.garmin_analytics.domain.primitives import trends
+from app.utils import numeric
 
 
 @dataclass(frozen=True)

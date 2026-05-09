@@ -9,7 +9,6 @@ from collections.abc import Sequence
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
     BodyBatteryRawResponse,
-    DayWellness,
     HeartRateRawResponse,
     HrvResponse,
     RespirationRawResponse,
@@ -28,6 +27,7 @@ from app.domains.garmin_analytics.domain.aggregates.biometric_responses import (
     flatten_spo2,
     flatten_stress,
 )
+from app.domains.garmin_health.contracts import DayWellness
 
 
 def _raise_if_missing(date: str | None, days: Sequence[object]) -> None:

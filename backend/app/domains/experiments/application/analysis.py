@@ -21,7 +21,7 @@ from app.domains.experiments.contracts import (
     MetricLagResult,
     OutcomeMetric,
 )
-from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 
 from .analysis_math import (

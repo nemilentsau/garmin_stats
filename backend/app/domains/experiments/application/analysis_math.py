@@ -12,7 +12,7 @@ import numpy as np
 from pydantic import BaseModel
 from scipy import stats as sp_stats
 
-from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 
 # ---------------------------------------------------------------------------

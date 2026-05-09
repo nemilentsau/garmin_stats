@@ -1,8 +1,7 @@
 """Period-window Garmin aggregate stat contracts."""
 
 from app.contracts.base import DefaultsRequired
-
-from .daily import DailyMetric, HRZoneBucket
+from app.domains.garmin_health.contracts import DailyMetric, HRZoneBucket
 
 
 class PeriodHeartRateStats(DefaultsRequired):
