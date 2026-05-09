@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
-from app.domains.artifacts.application import artifacts as artifact_use_cases
+from app.domains.artifacts.adapters import SqliteArtifactRepository
+from app.domains.artifacts.application.activation import (
+    activate_assistant_artifact as activate_artifact_use_case,
+)
+from app.domains.artifacts.application.bundles import (
+    import_artifact_bundle as import_bundle_use_case,
+)
+from app.domains.artifacts.application.bundles import (
+    preview_artifact_bundle as preview_bundle_use_case,
+)
+from app.domains.artifacts.application.staging import (
+    create_assistant_artifact as create_artifact_use_case,
+)
 from app.domains.artifacts.contracts import (
     ArtifactBundleImportResponse,
     ArtifactBundlePreviewResponse,
@@ -10,12 +22,12 @@ from app.domains.artifacts.contracts import (
     AssistantArtifact,
     AssistantArtifactCreateRequest,
 )
-from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.routines.application.activation import compile_routine_activation
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:
-    return artifact_use_cases.create_assistant_artifact(
+    return create_artifact_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
         request,
@@ -23,15 +35,16 @@ def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> Assist
 
 
 def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
-    return artifact_use_cases.activate_assistant_artifact(
+    return activate_artifact_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
+        compile_routine_activation,
         artifact_id,
     )
 
 
 def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreviewResponse:
-    return artifact_use_cases.preview_artifact_bundle(
+    return preview_bundle_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
         bundle,
@@ -39,7 +52,7 @@ def preview_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundlePreview
 
 
 def import_artifact_bundle(bundle: ArtifactBundleSpec) -> ArtifactBundleImportResponse:
-    return artifact_use_cases.import_artifact_bundle(
+    return import_bundle_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
         bundle,

@@ -3,19 +3,28 @@
 from tests._architecture import assert_cross_slice_imports_are_allowlisted
 
 ALLOWLISTED_CROSS_SLICE_IMPORTS = {
-    "backend/app/domains/artifacts/application/artifacts.py": {
-        "app.domains.routines.application.activation",
+    "backend/app/domains/artifacts/application/activation.py": {
         "app.domains.routines.contracts",
         "app.domains.routines.dependencies",
     },
-    "backend/app/domains/artifacts/application/ports.py": {
+    "backend/app/domains/artifacts/dependencies.py": {
         "app.domains.routines.contracts",
+        "app.domains.routines.dependencies",
     },
-    "backend/app/domains/artifacts/infra/sqlite_repository.py": {
-        "app.domains.routines.adapters",
+    "backend/app/domains/artifacts/application/bundles.py": {
+        "app.domains.routines.dependencies",
+    },
+    "backend/app/domains/artifacts/application/cards.py": {
         "app.domains.routines.contracts",
+        "app.domains.routines.dependencies",
     },
-    "backend/app/domains/artifacts/api/cards.py": {
+    "backend/app/domains/artifacts/application/staging.py": {
+        "app.domains.routines.dependencies",
+    },
+    "backend/app/domains/artifacts/application/validation.py": {
+        "app.domains.routines.dependencies",
+    },
+    "backend/app/domains/artifacts/routes.py": {
         "app.domains.routines.contracts",
     },
     "backend/app/domains/artifacts/contracts.py": {

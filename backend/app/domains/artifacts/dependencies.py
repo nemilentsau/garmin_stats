@@ -1,10 +1,25 @@
-"""Repository contracts for assistant artifact use cases."""
+"""Dependencies consumed by assistant artifact use cases."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
 from app.domains.artifacts.contracts import AssistantArtifact
+from app.domains.routines.contracts import RoutineActivationCommand, RoutineSchedule
+from app.domains.routines.dependencies import (
+    CardTemplateDependencyActivator,
+    RoutineRepository,
+)
+
+
+class RoutineActivationCompiler(Protocol):
+    def __call__(
+        self,
+        repo: RoutineRepository,
+        command: RoutineActivationCommand,
+        *,
+        activate_card_template_dependency: CardTemplateDependencyActivator,
+    ) -> RoutineSchedule: ...
 
 
 class ArtifactRepository(Protocol):

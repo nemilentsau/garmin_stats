@@ -122,10 +122,12 @@ There are two major paths:
 - `domains/artifacts/`
   Assistant-authored artifact staging and publishing. This domain owns
   `/api/cards`, `/api/assistant/artifacts`, and
-  `/api/assistant/artifact-bundles`. It validates/imports card and routine
-  artifacts, tracks bundle revisions and capability requests, persists
-  artifact/card data through its SQLite repository adapter, and delegates live
-  routine activation writes to `domains/routines`.
+  `/api/assistant/artifact-bundles`. It uses a flat small-capability layout:
+  `routes.py` owns HTTP routes, `application/` owns staging, bundle planning,
+  activation, validation, and card catalog use cases, `dependencies.py` owns
+  repository dependencies, `adapters.py` owns SQLite persistence wiring, and
+  `contracts.py` owns staged artifact and bundle API shapes. Artifacts delegates
+  live routine activation writes to `domains/routines`.
 
 - `domains/journal/`
   Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation. `api/` owns FastAPI routes, `application/` owns use cases and repository ports, and `infra/` owns the SQLite repository adapter.
@@ -242,8 +244,9 @@ is reserved for shared app primitives rather than important product workflows.
 - Does not own: live routine schedule semantics after activation, experiment
   protocol semantics, program lifecycle semantics, assistant chat runtime, or
   Garmin data.
-- May import: artifact repository ports, artifact-owned contracts, and
-  allowlisted routine activation contracts for publishing live cards/routines.
+- May import: artifact repository dependencies, artifact-owned contracts, and
+  allowlisted routine activation contracts/dependencies for publishing live
+  cards/routines.
 - Must not import: Garmin sync, Garmin analytics, journal, programs,
   experiments application internals, assistant runtime internals, FastAPI from
   application modules, or SQLite helpers from application modules.
