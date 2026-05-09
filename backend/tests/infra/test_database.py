@@ -53,9 +53,7 @@ from app.domains.routines.contracts import (
     CardLog,
     CardOverride,
     CardTemplate,
-    Routine,
     RoutineAssignment,
-    RoutineEntry,
     RoutineSchedule,
 )
 from app.utils.timeutil import now_iso
@@ -74,7 +72,6 @@ class TestInit:
         assert "daily_metrics" in tables
         assert "ingest_meta" in tables
         assert "user_profile" in tables
-        assert "routines" in tables
         assert "assistant_threads" in tables
         assert "assistant_evidence_bundles" in tables
         assert "assistant_memory_records" in tables
@@ -459,43 +456,6 @@ class TestStoreAndLoad:
         assert loaded_snapshot is not None
         assert loaded_snapshot.created_at is not None
 
-    def test_routine_entries_filter_by_routine_and_date(self):
-        routine = Routine(
-            id="routine-1",
-            name="Meditation",
-            category="mindfulness",
-        )
-        routine_db.save_routine(routine)
-
-        routine_db.save_routine_entry(
-            RoutineEntry(
-                id="entry-1",
-                routine_id="routine-1",
-                date="2026-01-15",
-                value_numeric=10,
-            )
-        )
-        routine_db.save_routine_entry(
-            RoutineEntry(
-                id="entry-2",
-                routine_id="routine-1",
-                date="2026-01-16",
-                value_numeric=5,
-            )
-        )
-        routine_db.save_routine_entry(
-            RoutineEntry(
-                id="entry-3",
-                routine_id="routine-2",
-                date="2026-01-15",
-                value_numeric=20,
-            )
-        )
-
-        loaded = routine_db.load_routine_entries(routine_id="routine-1", date="2026-01-15")
-
-        assert [entry.id for entry in loaded] == ["entry-1"]
-
     def test_daily_checkin_and_note_survive_round_trip(self):
         db.save_daily_checkin(
             DailyCheckIn(
@@ -739,8 +699,7 @@ class TestStoreAndLoad:
 
         db.save_assistant_artifact(artifact)
         routine_db.save_card_template(card)
-        routine_db.save_routine_schedule(routine)
-        routine_db.save_routine_assignment(assignment)
+        routine_db.save_routine_schedule_with_assignments(routine, [assignment])
         routine_db.save_card_log(log)
         routine_db.save_card_override(override)
 

@@ -15,7 +15,11 @@ from app.domains.routines.adapters import SqliteRoutineRepository
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:
-    return artifact_use_cases.create_assistant_artifact(SqliteArtifactRepository(), request)
+    return artifact_use_cases.create_assistant_artifact(
+        SqliteArtifactRepository(),
+        SqliteRoutineRepository(),
+        request,
+    )
 
 
 def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:

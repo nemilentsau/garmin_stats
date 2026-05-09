@@ -23,13 +23,6 @@ from app.domains.routines.contracts import (
 from app.domains.routines.dependencies import RoutineRepository, TodayCardLogObserver
 from app.domains.routines.schedule import SLOT_ORDER
 
-_SLOT_LABELS = {
-    "morning": "Morning",
-    "midday": "Midday",
-    "evening": "Evening",
-    "anytime": "Anytime",
-}
-
 
 def get_card_log_range(
     repo: RoutineRepository,
@@ -73,7 +66,7 @@ def get_today(repo: RoutineRepository, *, date: str) -> TodayResponse:
     stats = TodayStats()
     for slot in SLOT_ORDER:
         slot_cards = sorted(grouped.get(slot, []), key=lambda card: (card.position, card.name))
-        slots.append(TodaySlot(slot=slot, label=_SLOT_LABELS[slot], cards=slot_cards))
+        slots.append(TodaySlot(slot=slot, label=slot.title(), cards=slot_cards))
         for card in slot_cards:
             stats.total += 1
             if card.status == "completed":

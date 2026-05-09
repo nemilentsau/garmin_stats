@@ -37,7 +37,12 @@ def get_artifact_detail(artifact_id: str):
 @router.post("", response_model=AssistantArtifact)
 def post_artifact(request: AssistantArtifactCreateRequest):
     """Create and validate an assistant artifact draft."""
-    return create_assistant_artifact(build_container().artifacts_repo, request)
+    container = build_container()
+    return create_assistant_artifact(
+        container.artifacts_repo,
+        container.routines_repo,
+        request,
+    )
 
 
 @router.post("/{artifact_id}/activate", response_model=AssistantArtifact)

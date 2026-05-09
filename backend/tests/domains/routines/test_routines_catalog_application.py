@@ -71,10 +71,11 @@ def test_list_routine_assignments_raises_lookup_error_for_missing_routine():
 def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-atomic"))
-    routine_db.save_routine_assignment(
-        _assignment("existing-assignment", routine_id="routine-atomic")
+    repo.replace_assignments(
+        routine_id="routine-atomic",
+        assignments=[_assignment("existing-assignment", routine_id="routine-atomic")],
     )
-    original_save = routine_db._save_json_record_in_connection
+    original_save = routine_db._STORE.save_in_connection
     save_calls = 0
 
     def fail_on_second_assignment_write(*args, **kwargs):
@@ -86,7 +87,7 @@ def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
         return original_save(*args, **kwargs)
 
     monkeypatch.setattr(
-        routine_db, "_save_json_record_in_connection", fail_on_second_assignment_write
+        routine_db._STORE, "save_in_connection", fail_on_second_assignment_write
     )
 
     with pytest.raises(RuntimeError, match="simulated write failure"):
@@ -106,8 +107,9 @@ def test_replace_assignments_rolls_back_when_a_write_fails(monkeypatch):
 def test_replace_assignments_rejects_assignments_for_other_routines():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-guard"))
-    routine_db.save_routine_assignment(
-        _assignment("existing-assignment", routine_id="routine-guard")
+    repo.replace_assignments(
+        routine_id="routine-guard",
+        assignments=[_assignment("existing-assignment", routine_id="routine-guard")],
     )
 
     with pytest.raises(ValueError, match="routine_id"):
@@ -125,8 +127,14 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-target"))
     repo.save_routine(_live_routine("routine-owner"))
-    routine_db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
-    routine_db.save_routine_assignment(_assignment("shared-assignment", routine_id="routine-owner"))
+    repo.replace_assignments(
+        routine_id="routine-target",
+        assignments=[_assignment("target-existing", routine_id="routine-target")],
+    )
+    repo.replace_assignments(
+        routine_id="routine-owner",
+        assignments=[_assignment("shared-assignment", routine_id="routine-owner")],
+    )
 
     with pytest.raises(ValueError, match="already belongs to routine routine-owner"):
         repo.replace_assignments(
@@ -145,11 +153,12 @@ def test_replace_assignments_rejects_assignment_ids_owned_by_other_routines():
 def test_replace_assignments_replaces_existing_assignments_for_target_routine():
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-replace"))
-    routine_db.save_routine_assignment(
-        _assignment("old-assignment-1", routine_id="routine-replace")
-    )
-    routine_db.save_routine_assignment(
-        _assignment("old-assignment-2", routine_id="routine-replace")
+    repo.replace_assignments(
+        routine_id="routine-replace",
+        assignments=[
+            _assignment("old-assignment-1", routine_id="routine-replace"),
+            _assignment("old-assignment-2", routine_id="routine-replace"),
+        ],
     )
 
     repo.replace_assignments(
@@ -169,7 +178,10 @@ def test_replace_assignments_replaces_existing_assignments_for_target_routine():
 def test_replace_routine_assignments_begins_transaction_before_ownership_query(monkeypatch):
     repo = SqliteRoutineRepository()
     repo.save_routine(_live_routine("routine-target"))
-    routine_db.save_routine_assignment(_assignment("target-existing", routine_id="routine-target"))
+    repo.replace_assignments(
+        routine_id="routine-target",
+        assignments=[_assignment("target-existing", routine_id="routine-target")],
+    )
     original_connect = routine_db.connect
     executed_sql: list[str] = []
 

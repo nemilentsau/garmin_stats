@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import cast
+from typing import cast, get_args
 
 from app.domains.routines.contracts import (
     CardOverride,
@@ -35,15 +35,7 @@ from app.domains.routines.schedule import (
     scheduled_occurrence_key,
 )
 
-_WEEKDAY_NAMES: tuple[WeekdayName, ...] = (
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-)
+_WEEKDAY_NAMES = cast(tuple[WeekdayName, ...], get_args(WeekdayName))
 
 
 def _schedule_occurrence_from_template(

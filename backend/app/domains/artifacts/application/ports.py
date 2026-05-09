@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Protocol
 
 from app.domains.artifacts.contracts import AssistantArtifact
-from app.domains.routines.contracts import CardTemplate
 
 
 class ArtifactRepository(Protocol):
@@ -30,9 +29,3 @@ class ArtifactRepository(Protocol):
     ) -> AssistantArtifact | None: ...
 
     def get_max_artifact_revision(self, *, kind: str, id_prefix: str) -> int: ...
-
-    def save_card_template(self, card: CardTemplate) -> None: ...
-
-    def get_card_template(self, card_id: str) -> CardTemplate | None: ...
-
-    def list_card_templates(self, *, status: str | None = None) -> list[CardTemplate]: ...

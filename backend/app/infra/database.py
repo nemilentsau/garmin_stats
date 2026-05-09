@@ -6,7 +6,6 @@ Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
 import hashlib
-import json
 import logging
 import re
 import sqlite3
@@ -50,6 +49,8 @@ from ..domains.programs.contracts import Program, ProgramVersion
 from ..parser import get_files_by_day, parse_all_days, parse_day
 from ..utils.timeutil import now_iso
 from . import cache
+from .jsonstore import JsonStore
+from .jsonstore import model_from_row as _model_from_row
 from .sqlite import DB_PATH, connect
 
 log = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ _PER_DAY_TABLES = (*_RAW_DAY_TABLES, "daily_metrics")
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
     "skin_temp_data", "daily_metrics", "ingest_meta",
-    "user_profile", "goals", "routines", "routine_entries",
+    "user_profile", "goals",
     "daily_checkins", "notes", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
@@ -100,7 +101,6 @@ CREATE TABLE IF NOT EXISTS daily_metrics  ({_COLS_3});
 CREATE TABLE IF NOT EXISTS ingest_meta    (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS user_profile   ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS goals          ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS routines       ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS experiments    ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS plans          ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS assistant_threads ({_JSON_COLS});
@@ -109,14 +109,6 @@ CREATE TABLE IF NOT EXISTS evidence_cards ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS assistant_artifacts ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS card_templates ({_JSON_COLS});
 CREATE TABLE IF NOT EXISTS routine_schedules ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS routine_entries (
-    id TEXT PRIMARY KEY,
-    routine_id TEXT NOT NULL,
-    entry_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS daily_checkins (
     id TEXT PRIMARY KEY,
     entry_date TEXT NOT NULL,
@@ -218,8 +210,6 @@ CREATE TABLE IF NOT EXISTS card_overrides (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_routine_entries_routine_date
-    ON routine_entries (routine_id, entry_date);
 CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_date
     ON routine_assignments (routine_id, assignment_date, slot, position);
 CREATE INDEX IF NOT EXISTS idx_card_logs_date_occurrence
@@ -310,6 +300,9 @@ def _normalize_alias_text(value: str | None) -> str | None:
     return " ".join(tokens)
 
 
+_STORE = JsonStore(_VALID_TABLES)
+
+
 def _save_json_record(
     table: str,
     record_id: str,
@@ -319,20 +312,14 @@ def _save_json_record(
     created_at: str | None = None,
     updated_at: str | None = None,
 ) -> None:
-    """Store a JSON-backed record in one of the assistant foundation tables."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    with _connect() as con, con:
-        _save_json_record_in_connection(
-            con,
-            table,
-            record_id,
-            data_json,
-            extra_columns=extra_columns,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+    _STORE.save(
+        table,
+        record_id,
+        data_json,
+        extra_columns=extra_columns,
+        created_at=created_at,
+        updated_at=updated_at,
+    )
 
 
 def _save_json_record_in_connection(
@@ -345,61 +332,23 @@ def _save_json_record_in_connection(
     created_at: str | None = None,
     updated_at: str | None = None,
 ) -> None:
-    """Store a JSON-backed record using an existing transaction/connection."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    extra_columns = extra_columns or {}
-    updated_value = updated_at or now_iso()
-    existing_created_at: str | None = None
-    if created_at is None:
-        row = con.execute(
-            f"SELECT created_at FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-        existing_created_at = row["created_at"] if row is not None else None
-
-    created_value = created_at or existing_created_at or now_iso()
-
-    columns = ["id", *extra_columns.keys(), "data", "created_at", "updated_at"]
-    placeholders = ", ".join("?" for _ in columns)
-    values = [record_id, *extra_columns.values(), data_json, created_value, updated_value]
-
-    con.execute(
-        f"INSERT OR REPLACE INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",  # noqa: S608
-        values,
+    _STORE.save_in_connection(
+        con,
+        table,
+        record_id,
+        data_json,
+        extra_columns=extra_columns,
+        created_at=created_at,
+        updated_at=updated_at,
     )
 
 
-def _model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
-    payload = json.loads(row["data"])
-    for key in ("created_at", "updated_at"):
-        if payload.get(key) is None and row[key] is not None:
-            payload[key] = row[key]
-    return model.model_validate(payload)  # type: ignore[union-attr]
-
-
 def _record_exists(table: str, record_id: str) -> bool:
-    """Check whether a record with the given id exists (without loading JSON)."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-    with _connect() as con:
-        row = con.execute(
-            f"SELECT 1 FROM {table} WHERE id = ? LIMIT 1",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-    return row is not None
+    return _STORE.exists(table, record_id)
 
 
 def _delete_json_record(table: str, record_id: str) -> None:
-    """Delete a single JSON-backed record by id."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-    with _connect() as con, con:
-        con.execute(
-            f"DELETE FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        )
+    _STORE.delete(table, record_id)
 
 
 def _load_json_record[M](
@@ -407,18 +356,7 @@ def _load_json_record[M](
     model: type[M],
     record_id: str,
 ) -> M | None:
-    """Load a single JSON-backed record by id."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    with _connect() as con:
-        row = con.execute(
-            f"SELECT data, created_at, updated_at FROM {table} WHERE id = ?",  # noqa: S608
-            (record_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    return _model_from_row(model, row)
+    return _STORE.load(table, model, record_id)
 
 
 def _load_json_records[M](
@@ -430,37 +368,14 @@ def _load_json_records[M](
     order_by: str = "created_at, id",
     last_n: int | None = None,
 ) -> list[M]:
-    """Load JSON-backed records with optional filtering.
-
-    When *last_n* is set the query returns only the last N rows (by
-    *order_by*) while preserving ascending order in the result.
-    """
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-
-    if last_n is not None and last_n > 0:
-        # Reverse each column in order_by for the inner DESC query.
-        desc_cols = ", ".join(f"{col.strip()} DESC" for col in order_by.split(","))
-        inner = f"SELECT * FROM {table}"  # noqa: S608
-        if where_sql:
-            inner += f" WHERE {where_sql}"  # noqa: S608
-        inner += f" ORDER BY {desc_cols} LIMIT ?"  # noqa: S608
-        query = (
-            f"SELECT data, created_at, updated_at FROM ({inner}) "  # noqa: S608
-            f"ORDER BY {order_by}"  # noqa: S608
-        )
-        with _connect() as con:
-            rows = con.execute(query, (*params, last_n)).fetchall()
-        return [_model_from_row(model, row) for row in rows]
-
-    query = f"SELECT data, created_at, updated_at FROM {table}"  # noqa: S608
-    if where_sql:
-        query += f" WHERE {where_sql}"  # noqa: S608
-    query += f" ORDER BY {order_by}"  # noqa: S608
-
-    with _connect() as con:
-        rows = con.execute(query, params).fetchall()
-    return [_model_from_row(model, row) for row in rows]
+    return _STORE.load_many(
+        table,
+        model,
+        where_sql=where_sql,
+        params=params,
+        order_by=order_by,
+        last_n=last_n,
+    )
 
 
 # ---------------------------------------------------------------------------

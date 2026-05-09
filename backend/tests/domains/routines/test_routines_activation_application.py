@@ -81,7 +81,7 @@ def test_compile_routine_activation_rolls_back_schedule_when_assignment_write_fa
             ),
         ],
     )
-    original_save = routine_db._save_json_record_in_connection
+    original_save = routine_db._STORE.save_in_connection
     assignment_write_calls = 0
 
     def fail_on_second_assignment_write(*args, **kwargs):
@@ -93,8 +93,8 @@ def test_compile_routine_activation_rolls_back_schedule_when_assignment_write_fa
         return original_save(*args, **kwargs)
 
     monkeypatch.setattr(
-        routine_db,
-        "_save_json_record_in_connection",
+        routine_db._STORE,
+        "save_in_connection",
         fail_on_second_assignment_write,
     )
 
