@@ -69,7 +69,6 @@ def post_activate_artifact(artifact_id: str):
     return activate_assistant_artifact(
         container.artifacts_repo,
         container.routines_repo,
-        container.routine_activation_compiler,
         artifact_id,
     )
 
@@ -99,7 +98,6 @@ def post_import_bundle(bundle: ArtifactBundleSpec):
         activate_assistant_artifact(
             container.artifacts_repo,
             container.routines_repo,
-            container.routine_activation_compiler,
             artifact_id,
         )
     return result

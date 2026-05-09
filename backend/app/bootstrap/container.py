@@ -8,7 +8,6 @@ from functools import lru_cache
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
-from app.domains.artifacts.dependencies import RoutineActivationCompiler
 from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
@@ -21,14 +20,12 @@ from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.journal.infra.sqlite_repository import SqliteJournalRepository
 from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
-from app.domains.routines.application.activation import compile_routine_activation
 
 
 @dataclass(frozen=True)
 class AppContainer:
     config: AppConfig
     artifacts_repo: SqliteArtifactRepository
-    routine_activation_compiler: RoutineActivationCompiler
     assistant_repo: SqliteAssistantRepository
     assistant_runtime: ClaudeCodeRuntime
     garmin_biometrics_repo: SqliteBiometricRepository
@@ -49,7 +46,6 @@ def build_container() -> AppContainer:
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
-        routine_activation_compiler=compile_routine_activation,
         assistant_repo=SqliteAssistantRepository(experiment_repo=experiments_repo),
         assistant_runtime=ClaudeCodeRuntime(),
         garmin_biometrics_repo=SqliteBiometricRepository(),

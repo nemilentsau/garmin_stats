@@ -23,7 +23,6 @@ from app.domains.artifacts.contracts import (
     AssistantArtifactCreateRequest,
 )
 from app.domains.routines.adapters import SqliteRoutineRepository
-from app.domains.routines.application.activation import compile_routine_activation
 
 
 def create_assistant_artifact(request: AssistantArtifactCreateRequest) -> AssistantArtifact:
@@ -38,7 +37,6 @@ def activate_assistant_artifact(artifact_id: str) -> AssistantArtifact:
     return activate_artifact_use_case(
         SqliteArtifactRepository(),
         SqliteRoutineRepository(),
-        compile_routine_activation,
         artifact_id,
     )
 

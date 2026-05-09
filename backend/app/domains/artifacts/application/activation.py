@@ -7,7 +7,8 @@ from app.domains.artifacts.contracts import (
     CardTemplateSpec,
     RoutineSpec,
 )
-from app.domains.artifacts.dependencies import ArtifactRepository, RoutineActivationCompiler
+from app.domains.artifacts.dependencies import ArtifactRepository
+from app.domains.routines.application.activation import compile_routine_activation
 from app.domains.routines.contracts import (
     CardTemplate,
     RoutineActivationCommand,
@@ -63,7 +64,6 @@ def _bundle_card_artifact_for_routine_artifact(
 def _activate_card_template_dependency(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
-    routine_activation_compiler: RoutineActivationCompiler,
     card_id: str,
     *,
     source_artifact: AssistantArtifact | None = None,
@@ -86,23 +86,13 @@ def _activate_card_template_dependency(
                 _compile_card_template_artifact(routines_repo, bundle_dependency)
                 return
             raise ValueError(f"Card template {card_id} is not ready for activation")
-        activate_assistant_artifact(
-            artifact_repo,
-            routines_repo,
-            routine_activation_compiler,
-            bundle_dependency.id,
-        )
+        activate_assistant_artifact(artifact_repo, routines_repo, bundle_dependency.id)
         return
 
     dependency = card_spec_artifact_by_card_id(artifact_repo, card_id)
     if dependency is not None:
         if dependency.status == "validated":
-            activate_assistant_artifact(
-                artifact_repo,
-                routines_repo,
-                routine_activation_compiler,
-                dependency.id,
-            )
+            activate_assistant_artifact(artifact_repo, routines_repo, dependency.id)
             return
         if live_card is None or live_card.source_artifact_id != dependency.id:
             _compile_card_template_artifact(routines_repo, dependency)
@@ -117,7 +107,6 @@ def _activate_card_template_dependency(
 def _compile_routine_spec_artifact(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
-    routine_activation_compiler: RoutineActivationCompiler,
     artifact: AssistantArtifact,
 ) -> RoutineSchedule:
     spec = RoutineSpec.model_validate(artifact.payload_json)
@@ -132,14 +121,13 @@ def _compile_routine_spec_artifact(
         source_artifact_id=artifact.id,
         assignments=spec.assignments,
     )
-    return routine_activation_compiler(
+    return compile_routine_activation(
         routines_repo,
         command,
         activate_card_template_dependency=lambda card_id: (
             _activate_card_template_dependency(
                 artifact_repo,
                 routines_repo,
-                routine_activation_compiler,
                 card_id,
                 source_artifact=artifact,
             )
@@ -150,7 +138,6 @@ def _compile_routine_spec_artifact(
 def activate_assistant_artifact(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
-    routine_activation_compiler: RoutineActivationCompiler,
     artifact_id: str,
 ) -> AssistantArtifact:
     artifact = get_assistant_artifact(artifact_repo, artifact_id)
@@ -162,12 +149,7 @@ def activate_assistant_artifact(
     if artifact.kind == "card_template":
         _compile_card_template_artifact(routines_repo, artifact)
     elif artifact.kind == "routine_spec":
-        _compile_routine_spec_artifact(
-            artifact_repo,
-            routines_repo,
-            routine_activation_compiler,
-            artifact,
-        )
+        _compile_routine_spec_artifact(artifact_repo, routines_repo, artifact)
     else:
         raise ValueError("Capability requests cannot be activated")
 

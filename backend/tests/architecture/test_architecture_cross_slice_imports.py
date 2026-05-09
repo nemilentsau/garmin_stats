@@ -4,10 +4,7 @@ from tests._architecture import assert_cross_slice_imports_are_allowlisted
 
 ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/artifacts/application/activation.py": {
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/artifacts/dependencies.py": {
+        "app.domains.routines.application.activation",
         "app.domains.routines.contracts",
         "app.domains.routines.dependencies",
     },
