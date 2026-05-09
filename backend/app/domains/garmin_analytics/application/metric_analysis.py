@@ -27,6 +27,7 @@ from app.infra import cache
 
 
 def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
+    """Load cached sleep trend and weekly distribution analysis."""
     return cache.cached(
         cache.SLEEP_ANALYSIS,
         lambda: compute_sleep_analysis(repo.load_daily_metrics()),
@@ -34,6 +35,7 @@ def load_sleep_analysis(repo: BiometricReadRepository) -> SleepAnalysisResponse:
 
 
 def load_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisResponse:
+    """Load cached stress trend and weekly distribution analysis."""
     return cache.cached(
         cache.STRESS_ANALYSIS,
         lambda: compute_stress_analysis(repo.load_daily_metrics()),
@@ -43,6 +45,7 @@ def load_stress_analysis(repo: BiometricReadRepository) -> StressAnalysisRespons
 def load_body_battery_analysis(
     repo: BiometricReadRepository,
 ) -> BodyBatteryAnalysisResponse:
+    """Load cached Body Battery trend and weekly distribution analysis."""
     return cache.cached(
         cache.BODY_BATTERY_ANALYSIS,
         lambda: compute_body_battery_analysis(repo.load_daily_metrics()),
@@ -50,6 +53,7 @@ def load_body_battery_analysis(
 
 
 def load_heart_rate_analysis(repo: BiometricReadRepository) -> HeartRateAnalysisResponse:
+    """Load cached heart-rate trend, circadian, and distribution analysis."""
     return cache.cached(
         cache.HR_ANALYSIS,
         lambda: compute_heart_rate_analysis(
@@ -64,6 +68,7 @@ def load_hr_distribution(
     repo: BiometricReadRepository,
     date: str,
 ) -> HRDistributionResponse:
+    """Load one day's heart-rate readings as histogram bins."""
     wellness_days = repo.load_wellness(date)
     if not wellness_days:
         return HRDistributionResponse(date=date, bins=[], sample_count=0)
@@ -77,6 +82,7 @@ def load_hr_distribution(
 
 
 def load_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
+    """Load cached HRV trend, pattern, and distribution analysis."""
     return cache.cached(
         cache.HRV_ANALYSIS,
         lambda: compute_hrv_analysis(repo.load_daily_metrics()),

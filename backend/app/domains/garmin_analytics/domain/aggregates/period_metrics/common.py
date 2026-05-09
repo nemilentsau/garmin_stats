@@ -1,4 +1,4 @@
-"""Shared helpers for raw-period scalar metric aggregates."""
+"""Shared helpers for period scalar metric summaries."""
 
 from collections.abc import Sequence
 
@@ -10,6 +10,7 @@ from app.utils.numeric import (
 
 
 def compute_period_metric_stats(values: Sequence[int | float]) -> PeriodMetricStats:
+    """Compute shared period stats for raw scalar readings."""
     return PeriodMetricStats(
         avg=safe_avg(values),
         typical_low=safe_percentile(values, 25),

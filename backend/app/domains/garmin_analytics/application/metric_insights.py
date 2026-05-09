@@ -19,6 +19,7 @@ def get_hrv_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
 ) -> HrvInsightsResponse:
+    """Return HRV insights for the selected date or latest metric date."""
     metrics = repo.load_daily_metrics()
     if not metrics:
         raise LookupError("No HRV data available")
@@ -32,6 +33,7 @@ def get_heart_rate_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
 ) -> HeartRateInsightsResponse:
+    """Return heart-rate insights for the selected date or latest metric date."""
     metrics = repo.load_daily_metrics()
     if not metrics:
         raise LookupError("No heart-rate data available")

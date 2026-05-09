@@ -29,6 +29,7 @@ PAYLOAD_MODELS = {
 
 
 def format_validation_errors(exc: ValidationError) -> list[str]:
+    """Flatten Pydantic errors into artifact validation messages."""
     errors: list[str] = []
     for err in exc.errors():
         loc = ".".join(str(part) for part in err["loc"])
@@ -41,6 +42,7 @@ def card_spec_artifact_by_card_id(
     repo: ArtifactRepository,
     card_id: str,
 ) -> AssistantArtifact | None:
+    """Find a validated or activated card-template artifact by template id."""
     return repo.get_assistant_artifact_by_payload_id(
         "card_template", card_id, ("validated", "activated"),
     )
@@ -49,6 +51,7 @@ def card_spec_artifact_by_card_id(
 def validate_card_template_payload(
     payload_json: dict[str, object],
 ) -> tuple[list[str], str | None]:
+    """Validate a card-template artifact and return errors plus renderer."""
     requested_renderer = payload_json.get("renderer")
     if not isinstance(requested_renderer, str):
         return ["renderer: Field required"], None
@@ -77,6 +80,7 @@ def validate_routine_spec_payload(
     *,
     additional_card_ids: set[str] | None = None,
 ) -> list[str]:
+    """Validate a routine spec against live and staged card templates."""
     try:
         spec = RoutineSpec.model_validate(payload_json)
     except ValidationError as exc:
@@ -101,6 +105,7 @@ def validate_routine_spec_payload(
 
 
 def validate_capability_request_payload(payload_json: dict[str, object]) -> list[str]:
+    """Validate a capability-request artifact payload."""
     try:
         CapabilityRequestSpec.model_validate(payload_json)
     except ValidationError as exc:

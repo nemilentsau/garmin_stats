@@ -1,9 +1,10 @@
-"""Skin-temperature daily aggregate calculations."""
+"""Skin-temperature daily metric calculations."""
 
 from app.domains.garmin_health.contracts import DailySkinTempStats, DaySkinTemp
 
 
 def compute_daily_skin_temp(skin_temp: DaySkinTemp) -> DailySkinTempStats:
+    """Compute persisted overnight skin-temperature stats."""
     reading = skin_temp.skin_temp_overnight[0] if skin_temp.skin_temp_overnight else None
     return DailySkinTempStats(
         deviation=reading.average_deviation if reading else None,

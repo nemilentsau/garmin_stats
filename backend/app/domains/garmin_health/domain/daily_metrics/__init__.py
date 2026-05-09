@@ -1,4 +1,4 @@
-"""Metric-owned daily aggregate calculations."""
+"""Metric-owned daily metric calculations."""
 
 from .body_battery import compute_daily_body_battery
 from .heart_rate import (

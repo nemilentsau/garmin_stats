@@ -16,7 +16,7 @@ assistant + routines.
 
 - Imports daily Garmin health archives from `data/garmin_health_stats/`.
 - Parses FIT files into local-time records and stores derived data in SQLite.
-- Computes all statistics in the backend, including daily aggregates, period
+- Computes all statistics in the backend, including daily metrics, period
   summaries, moving averages, readiness signals, and metric insights.
 - Renders a frontend recovery dashboard with metric drill-downs for HRV, sleep,
   heart rate, stress, body battery, respiration, skin temperature, and pulse ox.

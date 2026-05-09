@@ -142,6 +142,7 @@ def activate_assistant_artifact(
     routines_repo: RoutineRepository,
     artifact_id: str,
 ) -> AssistantArtifact:
+    """Publish a validated artifact into live routine/card records."""
     artifact = get_assistant_artifact(artifact_repo, artifact_id)
     if artifact.status == "activated":
         return artifact

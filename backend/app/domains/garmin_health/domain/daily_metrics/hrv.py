@@ -1,4 +1,4 @@
-"""HRV daily aggregate calculations."""
+"""HRV daily metric calculations."""
 
 from app.domains.garmin_health.contracts import DailyHrvStats, DayHrv
 
@@ -25,10 +25,12 @@ def normalize_hrv_status(raw: str | None) -> str:
 
 
 def is_balanced_hrv_status(raw: str | None) -> bool:
+    """Return whether a raw Garmin HRV status normalizes to Balanced."""
     return normalize_hrv_status(raw) == "Balanced"
 
 
 def is_unfavorable_hrv_status(raw: str | None) -> bool:
+    """Return whether a raw Garmin HRV status indicates low recovery."""
     return normalize_hrv_status(raw) in UNFAVORABLE_HRV_STATUSES
 
 
@@ -46,6 +48,7 @@ def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | N
 
 
 def compute_daily_hrv(hrv: DayHrv) -> DailyHrvStats:
+    """Compute persisted daily HRV stats from the first overnight summary."""
     summary = hrv.hrv_summaries[0] if hrv.hrv_summaries else None
     return DailyHrvStats(
         weekly_avg=summary.weekly_average if summary else None,

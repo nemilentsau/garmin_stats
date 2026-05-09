@@ -62,6 +62,7 @@ def create_assistant_artifact(
     routines_repo: RoutineRepository,
     request: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
+    """Validate and persist one assistant-authored artifact draft."""
     now = now_iso()
     errors: list[str] = []
     requested_renderer: str | None = None
@@ -108,11 +109,13 @@ def list_assistant_artifacts(
     kind: str | None = None,
     status: str | None = None,
 ) -> AssistantArtifactsResponse:
+    """Return staged assistant artifacts with optional kind/status filters."""
     artifacts = repo.list_assistant_artifacts(kind=kind, status=status)
     return AssistantArtifactsResponse(artifacts=artifacts)
 
 
 def get_assistant_artifact(repo: ArtifactRepository, artifact_id: str) -> AssistantArtifact:
+    """Return one staged assistant artifact or raise when it is unknown."""
     artifact = repo.get_assistant_artifact(artifact_id)
     if artifact is None:
         raise LookupError(f"Assistant artifact {artifact_id} not found")

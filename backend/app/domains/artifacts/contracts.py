@@ -28,11 +28,15 @@ ArtifactBundleDeltaAction = Literal["create", "update"]
 
 
 class TimerSegmentSpec(StrictDefaultsRequired):
+    """One timed segment inside a timer-session card payload."""
+
     label: str
     duration_seconds: int
 
 
 class RatingPromptSpec(StrictDefaultsRequired):
+    """One rating prompt collected after a timer-session card."""
+
     key: str
     label: str
     scale_min: int | None = None
@@ -40,12 +44,16 @@ class RatingPromptSpec(StrictDefaultsRequired):
 
 
 class ChecklistItemSpec(StrictDefaultsRequired):
+    """One checklist item inside a checklist-block card payload."""
+
     id: str
     label: str
     detail: str | None = None
 
 
 class ExerciseItemSpec(StrictDefaultsRequired):
+    """One exercise item inside an exercise-block card payload."""
+
     id: str
     label: str
     detail: str | None = None
@@ -54,6 +62,8 @@ class ExerciseItemSpec(StrictDefaultsRequired):
 
 
 class TimerSessionPayloadSpec(StrictDefaultsRequired):
+    """Supported payload shape for timer-session cards."""
+
     duration_minutes: int | None = None
     pattern: str | None = None
     instructions: str | None = None
@@ -62,16 +72,22 @@ class TimerSessionPayloadSpec(StrictDefaultsRequired):
 
 
 class ChecklistBlockPayloadSpec(StrictDefaultsRequired):
+    """Supported payload shape for checklist-block cards."""
+
     instructions: str | None = None
     items: list[ChecklistItemSpec] = []
 
 
 class ExerciseBlockPayloadSpec(StrictDefaultsRequired):
+    """Supported payload shape for exercise-block cards."""
+
     instructions: str | None = None
     exercises: list[ExerciseItemSpec] = []
 
 
 class CardTemplateSpec(StrictDefaultsRequired):
+    """Assistant-authored card template draft before activation."""
+
     id: str
     name: str
     renderer: RendererFamily
@@ -82,6 +98,8 @@ class CardTemplateSpec(StrictDefaultsRequired):
 
 
 class RoutineSpec(StrictDefaultsRequired):
+    """Assistant-authored routine draft before activation."""
+
     id: str
     name: str
     start_date: str
@@ -93,6 +111,8 @@ class RoutineSpec(StrictDefaultsRequired):
 
 
 class CapabilityRequestSpec(StrictDefaultsRequired):
+    """Record of an unsupported renderer or artifact capability request."""
+
     requested_renderer: str
     reason: str
     source_artifact_id: str | None = None
@@ -100,6 +120,8 @@ class CapabilityRequestSpec(StrictDefaultsRequired):
 
 
 class AssistantArtifact(DefaultsRequired):
+    """Persisted assistant-authored artifact with validation state."""
+
     id: str
     kind: AssistantArtifactKind
     schema_version: int
@@ -113,6 +135,8 @@ class AssistantArtifact(DefaultsRequired):
 
 
 class AssistantArtifactCreateRequest(StrictDefaultsRequired):
+    """Request body for staging one assistant-authored artifact."""
+
     id: str
     kind: AssistantArtifactKind
     schema_version: int
@@ -122,10 +146,14 @@ class AssistantArtifactCreateRequest(StrictDefaultsRequired):
 
 
 class AssistantArtifactsResponse(AutoTotalResponse, items_field="artifacts"):
+    """List response for staged assistant artifacts."""
+
     artifacts: list[AssistantArtifact] = []
 
 
 class ArtifactBundleSpec(StrictDefaultsRequired):
+    """Structured bundle of card and routine specs to preview or import."""
+
     id: str
     name: str
     schema_version: int = 1
@@ -135,12 +163,16 @@ class ArtifactBundleSpec(StrictDefaultsRequired):
 
 
 class ArtifactBundleIssue(DefaultsRequired):
+    """Validation issue found while previewing an artifact bundle."""
+
     path: str
     message: str
     blocking: bool = True
 
 
 class ArtifactBundleDelta(DefaultsRequired):
+    """Planned create/update change for one bundle artifact target."""
+
     artifact_id: str
     kind: ArtifactBundleItemKind
     target_id: str
@@ -149,6 +181,8 @@ class ArtifactBundleDelta(DefaultsRequired):
 
 
 class ArtifactBundlePreviewResponse(DefaultsRequired):
+    """Preview result for a structured artifact bundle."""
+
     bundle_id: str
     bundle_name: str
     valid: bool = False
@@ -157,6 +191,8 @@ class ArtifactBundlePreviewResponse(DefaultsRequired):
 
 
 class ArtifactBundleImportResponse(DefaultsRequired):
+    """Import result for a structured artifact bundle."""
+
     bundle_id: str
     bundle_name: str
     imported_artifact_ids: list[str] = []

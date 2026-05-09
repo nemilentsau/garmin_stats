@@ -2,8 +2,8 @@
 
 This module is the single read implementation for ingested Garmin biometric
 tables. `SqliteBiometricRepository` satisfies application ports, while the
-module-level loaders remain as compatibility entrypoints for slices that still
-read persisted `DailyMetric` rows directly.
+module-level loaders expose the same reads for legacy callers that have not yet
+accepted the repository port.
 """
 
 from pydantic import BaseModel
@@ -81,16 +81,20 @@ class SqliteBiometricRepository:
 
 
 def load_wellness(date: str | None = None) -> list[DayWellness]:
+    """Load parsed wellness rows, optionally restricted to one local date."""
     return _load_day_table("wellness_data", DayWellness, cache.WELLNESS_ALL, date)
 
 
 def load_sleep(date: str | None = None) -> list[DaySleep]:
+    """Load parsed sleep rows, optionally restricted to one local date."""
     return _load_day_table("sleep_data", DaySleep, cache.SLEEP_ALL, date)
 
 
 def load_hrv(date: str | None = None) -> list[DayHrv]:
+    """Load parsed HRV rows, optionally restricted to one local date."""
     return _load_day_table("hrv_data", DayHrv, cache.HRV_ALL, date)
 
 
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
+    """Load parsed skin-temperature rows, optionally restricted to one local date."""
     return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)

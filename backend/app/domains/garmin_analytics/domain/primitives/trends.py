@@ -14,6 +14,8 @@ from app.utils.numeric import (
 
 @dataclass(frozen=True, slots=True)
 class WeeklyFiveNumberSummary:
+    """Five-number summary for values grouped by ISO week."""
+
     iso_week: str
     min: float
     q1: float | None

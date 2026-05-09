@@ -16,6 +16,7 @@ from app.utils.numeric import optional_float
 def compute_body_battery_trend(
     metrics: list[DailyMetric],
 ) -> list[BodyBatteryTrendPoint]:
+    """Build daily Body Battery min/max trend points with 7-day smoothing."""
     min_values = [optional_float(m.body_battery.min) for m in metrics]
     ma7_min_values = trailing_ma7(min_values)
 
@@ -33,6 +34,7 @@ def compute_body_battery_trend(
 def compute_weekly_body_battery_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyBodyBatteryBox]:
+    """Build weekly five-number summaries of daily Body Battery minimums."""
     summaries = weekly_five_number_summaries(
         metrics,
         lambda m: optional_float(m.body_battery.min),
@@ -54,6 +56,7 @@ def compute_weekly_body_battery_boxplots(
 def compute_body_battery_analysis(
     metrics: list[DailyMetric],
 ) -> BodyBatteryAnalysisResponse:
+    """Compute Body Battery analysis read model from daily metrics."""
     return BodyBatteryAnalysisResponse(
         trend=compute_body_battery_trend(metrics),
         weekly_boxplots=compute_weekly_body_battery_boxplots(metrics),

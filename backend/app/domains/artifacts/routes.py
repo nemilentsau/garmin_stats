@@ -92,6 +92,7 @@ def post_preview_bundle(bundle: ArtifactBundleSpec):
     response_model=ArtifactBundleImportResponse,
 )
 def post_import_bundle(bundle: ArtifactBundleSpec):
+    """Import and activate a validated artifact bundle."""
     container = build_container()
     result = import_artifact_bundle(container.artifacts_repo, container.routines_repo, bundle)
     for delta in result.deltas:
@@ -105,5 +106,6 @@ def post_import_bundle(bundle: ArtifactBundleSpec):
 
 @cards_router.get("", response_model=CardTemplatesResponse)
 def get_cards(status: str | None = None):
+    """Return live card templates, optionally filtered by status."""
     cards = build_container().routines_repo.list_card_templates(status=status)
     return CardTemplatesResponse(cards=cards)

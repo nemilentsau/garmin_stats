@@ -232,6 +232,7 @@ def compute_pattern_windows(
 
 
 def compute_hrv_analysis(metrics: list[DailyMetric]) -> HrvAnalysisResponse:
+    """Compute HRV analysis read model from daily metrics."""
     selected_nightly: float | None = None
     if metrics and metrics[-1].hrv.nightly_avg is not None:
         selected_nightly = metrics[-1].hrv.nightly_avg

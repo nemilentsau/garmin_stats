@@ -1,4 +1,4 @@
-"""Metric-owned raw-period aggregate calculations."""
+"""Metric-owned period summary calculations from raw readings."""
 
 from .body_battery import compute_period_body_battery
 from .heart_rate import compute_period_heart_rate

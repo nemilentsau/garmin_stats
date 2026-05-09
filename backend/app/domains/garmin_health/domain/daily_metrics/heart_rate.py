@@ -1,4 +1,4 @@
-"""Heart-rate daily aggregate calculations."""
+"""Heart-rate daily metric calculations."""
 
 from collections.abc import Sequence
 
@@ -46,6 +46,7 @@ def compute_hr_zones(hr_values: Sequence[int]) -> list[HRZoneBucket]:
 
 
 def compute_daily_heart_rate(wellness: DayWellness) -> DailyHeartRateStats:
+    """Compute persisted daily heart-rate stats, resting HR, and zones."""
     values = [r.value for r in wellness.heart_rate if r.value > 0]
     stats = compute_daily_int_extrema_stats(values)
     return DailyHeartRateStats(

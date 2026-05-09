@@ -196,6 +196,8 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
 
 @dataclass(frozen=True, slots=True)
 class InsightContext:
+    """Selected-day context used while composing HRV insight messages."""
+
     selected: DailyMetric
     recovery: HrvRecovery
     quality: HrvDataQuality
@@ -361,6 +363,7 @@ def compute_hrv_insights(
     selected_date: str,
     day_rows: list[DayHrv],
 ) -> HrvInsightsResponse:
+    """Compute selected-day HRV insights from daily metrics and raw rows."""
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,

@@ -15,6 +15,7 @@ from app.domains.garmin_health.contracts import DailyMetric
 def compute_stress_trend(
     metrics: list[DailyMetric],
 ) -> list[StressTrendPoint]:
+    """Build daily stress trend points with 7-day smoothing."""
     avg_values: list[float | None] = [m.stress.avg for m in metrics]
     ma7_values = trailing_ma7(avg_values)
 
@@ -31,6 +32,7 @@ def compute_stress_trend(
 def compute_weekly_stress_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklyStressBox]:
+    """Build weekly five-number summaries of daily average stress."""
     summaries = weekly_five_number_summaries(metrics, lambda m: m.stress.avg)
     return [
         WeeklyStressBox(
@@ -47,6 +49,7 @@ def compute_weekly_stress_boxplots(
 
 
 def compute_stress_analysis(metrics: list[DailyMetric]) -> StressAnalysisResponse:
+    """Compute stress analysis read model from daily metrics."""
     return StressAnalysisResponse(
         avg_trend=compute_stress_trend(metrics),
         weekly_boxplots=compute_weekly_stress_boxplots(metrics),

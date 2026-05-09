@@ -283,6 +283,7 @@ def _compute_correlations(metrics: list[DailyMetric]) -> list[MetricCorrelation]
 
 
 def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewResponse:
+    """Compute the latest dashboard overview from ordered daily metrics."""
     selected_index = len(metrics) - 1
     selected = metrics[selected_index]
 

@@ -33,6 +33,8 @@ ScheduleOccurrenceSourceKind = Literal["scheduled", "override_add", "override_re
 
 
 class CardTemplate(DefaultsRequired):
+    """Live reusable routine card template."""
+
     id: str
     name: str
     renderer: RendererFamily
@@ -45,10 +47,14 @@ class CardTemplate(DefaultsRequired):
 
 
 class CardTemplatesResponse(AutoTotalResponse, items_field="cards"):
+    """List response for live routine card templates."""
+
     cards: list[CardTemplate] = []
 
 
 class RoutineSchedule(DefaultsRequired):
+    """Live routine schedule metadata."""
+
     id: str
     name: str
     status: EntityStatus = "active"
@@ -60,6 +66,8 @@ class RoutineSchedule(DefaultsRequired):
 
 
 class RoutineAssignment(DefaultsRequired):
+    """Dated card assignment compiled from an active routine schedule."""
+
     id: str
     routine_id: str
     card_template_id: str
@@ -70,6 +78,8 @@ class RoutineAssignment(DefaultsRequired):
 
 
 class RoutineActivationAssignment(StrictDefaultsRequired):
+    """Relative-day card assignment accepted by routine activation."""
+
     id: str
     card_template_id: str
     day: int
@@ -79,6 +89,8 @@ class RoutineActivationAssignment(StrictDefaultsRequired):
 
 
 class RoutineActivationCommand(DefaultsRequired):
+    """Command for compiling a routine spec into live dated assignments."""
+
     id: str
     name: str
     status: EntityStatus = "active"
@@ -91,14 +103,20 @@ class RoutineActivationCommand(DefaultsRequired):
 
 
 class RoutineSchedulesResponse(AutoTotalResponse, items_field="routines"):
+    """List response for live routine schedules."""
+
     routines: list[RoutineSchedule] = []
 
 
 class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
+    """List response for live routine assignments."""
+
     assignments: list[RoutineAssignment] = []
 
 
 class CardLog(DefaultsRequired):
+    """User completion log for one dated card occurrence."""
+
     id: str
     date: str
     occurrence_key: str
@@ -110,6 +128,8 @@ class CardLog(DefaultsRequired):
 
 
 class CardOverride(DefaultsRequired):
+    """Dated add/hide/replace override for routine card occurrences."""
+
     id: str
     date: str
     action: CardOverrideAction
@@ -121,6 +141,8 @@ class CardOverride(DefaultsRequired):
 
 
 class TodayCardLogUpdateRequest(StrictDefaultsRequired):
+    """Request body for updating a Today-board card log."""
+
     card_template_id: str
     assignment_id: str | None = None
     status: CardLogStatus = "completed"
@@ -129,6 +151,8 @@ class TodayCardLogUpdateRequest(StrictDefaultsRequired):
 
 
 class TodayStats(DefaultsRequired):
+    """Completion counts for a Today-board response."""
+
     total: int = 0
     completed: int = 0
     partial: int = 0
@@ -137,6 +161,8 @@ class TodayStats(DefaultsRequired):
 
 
 class ScheduleOccurrence(DefaultsRequired):
+    """Resolved scheduled or override-created card occurrence."""
+
     occurrence_key: str
     date: str
     slot: SlotName
@@ -156,41 +182,55 @@ class ScheduleOccurrence(DefaultsRequired):
 
 
 class TodayCard(ScheduleOccurrence):
+    """Resolved Today-board card occurrence with log state attached."""
+
     status: CardLogStatus = "pending"
     actual_json: dict[str, object] = {}
     notes: str | None = None
 
 
 class TodaySlot(DefaultsRequired):
+    """One named Today-board slot containing resolved cards."""
+
     slot: SlotName
     label: str
     cards: list[TodayCard] = []
 
 
 class TodayResponse(DefaultsRequired):
+    """Today-board response for one local date."""
+
     date: str
     stats: TodayStats
     slots: list[TodaySlot] = []
 
 
 class CardLogStatusEntry(DefaultsRequired):
+    """Compact card-log status entry for schedule overlays."""
+
     occurrence_key: str
     status: CardLogStatus
 
 
 class CardLogRangeResponse(DefaultsRequired):
+    """Card-log statuses for a date range."""
+
     start_date: str
     end_date: str
     entries: list[CardLogStatusEntry] = []
 
 
 class ScheduleDay(DefaultsRequired):
+    """Resolved routine occurrences for one calendar day."""
+
     date: str
     weekday: WeekdayName
     occurrences: list[ScheduleOccurrence] = []
 
 
 class ScheduleWindow(DefaultsRequired):
+    """Resolved routine schedule window."""
+
     start_date: str
     end_date: str
     days: list[ScheduleDay] = []

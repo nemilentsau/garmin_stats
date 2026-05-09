@@ -16,6 +16,8 @@ from app.domains.artifacts.dependencies import ArtifactRepository
 
 @dataclass(frozen=True)
 class BundleArtifactRef:
+    """Parsed components of a revisioned bundle artifact id."""
+
     bundle_id: str
     kind: ArtifactBundleItemKind
     target_id: str
@@ -39,6 +41,7 @@ def next_bundle_artifact_revision(
     kind: ArtifactBundleItemKind,
     target_id: str,
 ) -> int:
+    """Return the next revision number for a bundle-owned target artifact."""
     prefix = _bundle_artifact_prefix(bundle_id, kind, target_id)
     return repo.get_max_artifact_revision(kind=kind, id_prefix=prefix) + 1
 
@@ -49,6 +52,7 @@ def bundle_artifact_id(
     target_id: str,
     revision: int,
 ) -> str:
+    """Build the stable id for a revisioned bundle artifact."""
     return f"{_bundle_artifact_prefix(bundle_id, kind, target_id)}{revision}"
 
 

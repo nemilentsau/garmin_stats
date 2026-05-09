@@ -199,6 +199,7 @@ def compute_heart_rate_analysis(
     all_sleep: list[DaySleep],
     metrics: list[DailyMetric],
 ) -> HeartRateAnalysisResponse:
+    """Compute heart-rate analysis read model from raw rows and daily metrics."""
     pattern_windows = compute_windows(
         all_wellness,
         lambda subset: HRPatternWindow(

@@ -583,7 +583,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import Bundle
-         * @description Persist a valid bundle and activate cards before dependent routines.
+         * @description Import and activate a validated artifact bundle.
          */
         post: operations["post_import_bundle_api_assistant_artifact_bundles_import_post"];
         delete?: never;
@@ -665,7 +665,7 @@ export interface paths {
         };
         /**
          * Get Cards
-         * @description Return live card templates created from activated artifacts.
+         * @description Return live card templates, optionally filtered by status.
          */
         get: operations["get_cards_api_cards_get"];
         put?: never;
@@ -1216,7 +1216,10 @@ export interface components {
             /** Exposure Score */
             exposure_score: number | null;
         };
-        /** ArtifactBundleDelta */
+        /**
+         * ArtifactBundleDelta
+         * @description Planned create/update change for one bundle artifact target.
+         */
         ArtifactBundleDelta: {
             /** Artifact Id */
             artifact_id: string;
@@ -1235,7 +1238,10 @@ export interface components {
             /** Summary */
             summary: string;
         };
-        /** ArtifactBundleImportResponse */
+        /**
+         * ArtifactBundleImportResponse
+         * @description Import result for a structured artifact bundle.
+         */
         ArtifactBundleImportResponse: {
             /** Bundle Id */
             bundle_id: string;
@@ -1257,7 +1263,10 @@ export interface components {
              */
             deltas: components["schemas"]["ArtifactBundleDelta"][];
         };
-        /** ArtifactBundleIssue */
+        /**
+         * ArtifactBundleIssue
+         * @description Validation issue found while previewing an artifact bundle.
+         */
         ArtifactBundleIssue: {
             /** Path */
             path: string;
@@ -1269,7 +1278,10 @@ export interface components {
              */
             blocking: boolean;
         };
-        /** ArtifactBundlePreviewResponse */
+        /**
+         * ArtifactBundlePreviewResponse
+         * @description Preview result for a structured artifact bundle.
+         */
         ArtifactBundlePreviewResponse: {
             /** Bundle Id */
             bundle_id: string;
@@ -1291,7 +1303,10 @@ export interface components {
              */
             deltas: components["schemas"]["ArtifactBundleDelta"][];
         };
-        /** ArtifactBundleSpec */
+        /**
+         * ArtifactBundleSpec
+         * @description Structured bundle of card and routine specs to preview or import.
+         */
         ArtifactBundleSpec: {
             /** Id */
             id: string;
@@ -1315,7 +1330,10 @@ export interface components {
              */
             routine_specs: components["schemas"]["RoutineSpec"][];
         };
-        /** AssistantArtifact */
+        /**
+         * AssistantArtifact
+         * @description Persisted assistant-authored artifact with validation state.
+         */
         AssistantArtifact: {
             /** Id */
             id: string;
@@ -1353,7 +1371,10 @@ export interface components {
             /** Updated At */
             updated_at: string | null;
         };
-        /** AssistantArtifactCreateRequest */
+        /**
+         * AssistantArtifactCreateRequest
+         * @description Request body for staging one assistant-authored artifact.
+         */
         AssistantArtifactCreateRequest: {
             /** Id */
             id: string;
@@ -1376,7 +1397,10 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** AssistantArtifactsResponse */
+        /**
+         * AssistantArtifactsResponse
+         * @description List response for staged assistant artifacts.
+         */
         AssistantArtifactsResponse: {
             /**
              * Total
@@ -1498,7 +1522,10 @@ export interface components {
              */
             threads: components["schemas"]["AssistantThread"][];
         };
-        /** BodyBatteryAnalysisResponse */
+        /**
+         * BodyBatteryAnalysisResponse
+         * @description Body Battery chart and distribution analysis response.
+         */
         BodyBatteryAnalysisResponse: {
             /**
              * Trend
@@ -1511,21 +1538,30 @@ export interface components {
              */
             weekly_boxplots: components["schemas"]["WeeklyBodyBatteryBox"][];
         };
-        /** BodyBatteryRawResponse */
+        /**
+         * BodyBatteryRawResponse
+         * @description Raw Body Battery endpoint response.
+         */
         BodyBatteryRawResponse: {
             /** Days */
             days: string[];
             /** Body Battery */
             body_battery: components["schemas"]["BodyBatteryReading"][];
         };
-        /** BodyBatteryReading */
+        /**
+         * BodyBatteryReading
+         * @description Parsed Body Battery sample in local time.
+         */
         BodyBatteryReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
         };
-        /** BodyBatteryTrendPoint */
+        /**
+         * BodyBatteryTrendPoint
+         * @description Daily Body Battery min/max trend point.
+         */
         BodyBatteryTrendPoint: {
             /** Date */
             date: string;
@@ -1536,7 +1572,10 @@ export interface components {
             /** Ma7 Min */
             ma7_min: number | null;
         };
-        /** CardLog */
+        /**
+         * CardLog
+         * @description User completion log for one dated card occurrence.
+         */
         CardLog: {
             /** Id */
             id: string;
@@ -1564,7 +1603,10 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
-        /** CardLogRangeResponse */
+        /**
+         * CardLogRangeResponse
+         * @description Card-log statuses for a date range.
+         */
         CardLogRangeResponse: {
             /** Start Date */
             start_date: string;
@@ -1576,7 +1618,10 @@ export interface components {
              */
             entries: components["schemas"]["CardLogStatusEntry"][];
         };
-        /** CardLogStatusEntry */
+        /**
+         * CardLogStatusEntry
+         * @description Compact card-log status entry for schedule overlays.
+         */
         CardLogStatusEntry: {
             /** Occurrence Key */
             occurrence_key: string;
@@ -1586,7 +1631,10 @@ export interface components {
              */
             status: "pending" | "completed" | "partial" | "skipped";
         };
-        /** CardTemplate */
+        /**
+         * CardTemplate
+         * @description Live reusable routine card template.
+         */
         CardTemplate: {
             /** Id */
             id: string;
@@ -1625,7 +1673,10 @@ export interface components {
             /** Source Artifact Id */
             source_artifact_id: string | null;
         };
-        /** CardTemplateSpec */
+        /**
+         * CardTemplateSpec
+         * @description Assistant-authored card template draft before activation.
+         */
         CardTemplateSpec: {
             /** Id */
             id: string;
@@ -1656,7 +1707,10 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** CardTemplatesResponse */
+        /**
+         * CardTemplatesResponse
+         * @description List response for live routine card templates.
+         */
         CardTemplatesResponse: {
             /**
              * Total
@@ -1669,7 +1723,10 @@ export interface components {
              */
             cards: components["schemas"]["CardTemplate"][];
         };
-        /** CircadianHRPoint */
+        /**
+         * CircadianHRPoint
+         * @description Average heart rate for one hour of day.
+         */
         CircadianHRPoint: {
             /** Hour */
             hour: number;
@@ -1712,7 +1769,10 @@ export interface components {
             /** Treatment Total Days */
             treatment_total_days: number | null;
         };
-        /** CorrelationPoint */
+        /**
+         * CorrelationPoint
+         * @description One point in a dashboard metric correlation scatterplot.
+         */
         CorrelationPoint: {
             /** Date */
             date: string;
@@ -1721,7 +1781,10 @@ export interface components {
             /** Other Value */
             other_value: number;
         };
-        /** DailyAggregatesResponse */
+        /**
+         * DailyAggregatesResponse
+         * @description Daily metric mart plus standard period-window summaries.
+         */
         DailyAggregatesResponse: {
             /** Days */
             days: string[];
@@ -1735,7 +1798,10 @@ export interface components {
                 [key: string]: components["schemas"]["PeriodSummary"];
             };
         };
-        /** DailyAvgHRTrendPoint */
+        /**
+         * DailyAvgHRTrendPoint
+         * @description Daily average heart-rate trend point.
+         */
         DailyAvgHRTrendPoint: {
             /** Date */
             date: string;
@@ -1744,7 +1810,10 @@ export interface components {
             /** Ma7 Bpm */
             ma7_bpm: number | null;
         };
-        /** DailyBodyBatteryStats */
+        /**
+         * DailyBodyBatteryStats
+         * @description Persisted daily Body Battery summary with integer extrema.
+         */
         DailyBodyBatteryStats: {
             /** Avg */
             avg: number | null;
@@ -1848,7 +1917,10 @@ export interface components {
              */
             checkins: components["schemas"]["DailyCheckIn-Output"][];
         };
-        /** DailyHeartRateStats */
+        /**
+         * DailyHeartRateStats
+         * @description Persisted daily heart-rate summary derived from raw readings.
+         */
         DailyHeartRateStats: {
             /** Avg */
             avg: number | null;
@@ -1870,7 +1942,10 @@ export interface components {
              */
             zones: components["schemas"]["HRZoneBucket"][];
         };
-        /** DailyHrvStats */
+        /**
+         * DailyHrvStats
+         * @description Persisted daily HRV summary from Garmin overnight status data.
+         */
         DailyHrvStats: {
             /** Weekly Avg */
             weekly_avg: number | null;
@@ -1879,7 +1954,10 @@ export interface components {
             /** Status */
             status: string | null;
         };
-        /** DailyMetric */
+        /**
+         * DailyMetric
+         * @description Canonical persisted Garmin health row for one local date.
+         */
         DailyMetric: {
             /** Date */
             date: string;
@@ -1894,7 +1972,10 @@ export interface components {
             sleep: components["schemas"]["DailySleepStats"];
             skin_temp: components["schemas"]["DailySkinTempStats"];
         };
-        /** DailyMetricStats */
+        /**
+         * DailyMetricStats
+         * @description Common nullable scalar stats for one daily Garmin metric.
+         */
         DailyMetricStats: {
             /** Avg */
             avg: number | null;
@@ -1909,7 +1990,10 @@ export interface components {
             /** Q3 */
             q3: number | null;
         };
-        /** DailySkinTempStats */
+        /**
+         * DailySkinTempStats
+         * @description Persisted overnight skin-temperature deviation summary.
+         */
         DailySkinTempStats: {
             /** Deviation */
             deviation: number | null;
@@ -1918,7 +2002,10 @@ export interface components {
             /** Nightly Value */
             nightly_value: number | null;
         };
-        /** DailySleepStats */
+        /**
+         * DailySleepStats
+         * @description Persisted daily sleep score summary from Garmin sleep assessment.
+         */
         DailySleepStats: {
             /** Score */
             score: number | null;
@@ -1927,7 +2014,10 @@ export interface components {
             /** Rem Score */
             rem_score: number | null;
         };
-        /** DashboardOverviewResponse */
+        /**
+         * DashboardOverviewResponse
+         * @description Latest dashboard overview response.
+         */
         DashboardOverviewResponse: {
             /** Date */
             date: string;
@@ -1940,7 +2030,10 @@ export interface components {
              */
             correlations: components["schemas"]["MetricCorrelation"][];
         };
-        /** DashboardSparklines */
+        /**
+         * DashboardSparklines
+         * @description All dashboard sparkline series.
+         */
         DashboardSparklines: {
             /**
              * @default {
@@ -2266,7 +2359,10 @@ export interface components {
              */
             experiments: components["schemas"]["ExperimentWithAnalysis"][];
         };
-        /** HRDistributionResponse */
+        /**
+         * HRDistributionResponse
+         * @description Selected-day heart-rate distribution response.
+         */
         HRDistributionResponse: {
             /** Date */
             date: string;
@@ -2281,7 +2377,10 @@ export interface components {
              */
             sample_count: number;
         };
-        /** HRHistogramBin */
+        /**
+         * HRHistogramBin
+         * @description One histogram bin for heart-rate readings.
+         */
         HRHistogramBin: {
             /** Bin Start */
             bin_start: number;
@@ -2301,7 +2400,10 @@ export interface components {
              */
             circadian_profile: components["schemas"]["CircadianHRPoint"][];
         };
-        /** HRZoneBucket */
+        /**
+         * HRZoneBucket
+         * @description Heart-rate zone count and percentage for a day or period.
+         */
         HRZoneBucket: {
             /** Label */
             label: string;
@@ -2314,7 +2416,10 @@ export interface components {
             /** Pct */
             pct: number;
         };
-        /** HRZoneDuration */
+        /**
+         * HRZoneDuration
+         * @description Estimated time spent in one heart-rate zone.
+         */
         HRZoneDuration: {
             /** Label */
             label: string;
@@ -2332,7 +2437,10 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HeartRateAnalysisResponse */
+        /**
+         * HeartRateAnalysisResponse
+         * @description Heart-rate chart and distribution analysis response.
+         */
         HeartRateAnalysisResponse: {
             /**
              * Sleeping Hr Trend
@@ -2362,7 +2470,10 @@ export interface components {
                 [key: string]: components["schemas"]["HRPatternWindow"];
             };
         };
-        /** HeartRateDataQuality */
+        /**
+         * HeartRateDataQuality
+         * @description Coverage summary for selected-day heart-rate readings.
+         */
         HeartRateDataQuality: {
             /**
              * Sample Count
@@ -2376,7 +2487,10 @@ export interface components {
             /** Coverage Hours */
             coverage_hours: number | null;
         };
-        /** HeartRateInsight */
+        /**
+         * HeartRateInsight
+         * @description One selected-day heart-rate insight message.
+         */
         HeartRateInsight: {
             /** Level */
             level: string;
@@ -2385,7 +2499,10 @@ export interface components {
             /** Detail */
             detail: string;
         };
-        /** HeartRateInsightsResponse */
+        /**
+         * HeartRateInsightsResponse
+         * @description Selected-day heart-rate insight response.
+         */
         HeartRateInsightsResponse: {
             /** Date */
             date: string;
@@ -2400,7 +2517,10 @@ export interface components {
              */
             insights: components["schemas"]["HeartRateInsight"][];
         };
-        /** HeartRateRawResponse */
+        /**
+         * HeartRateRawResponse
+         * @description Raw heart-rate endpoint response.
+         */
         HeartRateRawResponse: {
             /** Days */
             days: string[];
@@ -2409,14 +2529,20 @@ export interface components {
             /** Resting Hr */
             resting_hr: components["schemas"]["RestingHRReading"][];
         };
-        /** HeartRateReading */
+        /**
+         * HeartRateReading
+         * @description Parsed heart-rate sample in local time.
+         */
         HeartRateReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
         };
-        /** HeartRateRecovery */
+        /**
+         * HeartRateRecovery
+         * @description Selected-day resting-HR recovery comparison.
+         */
         HeartRateRecovery: {
             /** Baseline Resting 7D */
             baseline_resting_7d: number | null;
@@ -2425,7 +2551,10 @@ export interface components {
             /** Status */
             status: string | null;
         };
-        /** HrvAnalysisResponse */
+        /**
+         * HrvAnalysisResponse
+         * @description HRV chart and pattern analysis response.
+         */
         HrvAnalysisResponse: {
             /**
              * Nightly Trend
@@ -2445,7 +2574,10 @@ export interface components {
                 [key: string]: components["schemas"]["HrvPatternWindow"];
             };
         };
-        /** HrvBaselineBands */
+        /**
+         * HrvBaselineBands
+         * @description Garmin HRV baseline bands extracted from overnight summaries.
+         */
         HrvBaselineBands: {
             /** Baseline Low Upper */
             baseline_low_upper: number | null;
@@ -2456,7 +2588,10 @@ export interface components {
             /** Five Min High */
             five_min_high: number | null;
         };
-        /** HrvDataQuality */
+        /**
+         * HrvDataQuality
+         * @description Coverage summary for selected-day HRV readings.
+         */
         HrvDataQuality: {
             /**
              * Sample Count
@@ -2470,7 +2605,10 @@ export interface components {
             /** Coverage Hours */
             coverage_hours: number | null;
         };
-        /** HrvDayOfWeekBucket */
+        /**
+         * HrvDayOfWeekBucket
+         * @description Average nightly HRV for one weekday.
+         */
         HrvDayOfWeekBucket: {
             /** Day */
             day: string;
@@ -2484,7 +2622,10 @@ export interface components {
              */
             sample_count: number;
         };
-        /** HrvDistribution */
+        /**
+         * HrvDistribution
+         * @description Nightly HRV distribution and selected-day percentile.
+         */
         HrvDistribution: {
             /**
              * Bins
@@ -2501,7 +2642,10 @@ export interface components {
             /** Selected Percentile */
             selected_percentile: number | null;
         };
-        /** HrvDistributionBin */
+        /**
+         * HrvDistributionBin
+         * @description One histogram bin for nightly HRV values.
+         */
         HrvDistributionBin: {
             /** Bin Start */
             bin_start: number;
@@ -2510,7 +2654,10 @@ export interface components {
             /** Count */
             count: number;
         };
-        /** HrvInsight */
+        /**
+         * HrvInsight
+         * @description One selected-day HRV insight message.
+         */
         HrvInsight: {
             /** Level */
             level: string;
@@ -2519,7 +2666,10 @@ export interface components {
             /** Detail */
             detail: string;
         };
-        /** HrvInsightsResponse */
+        /**
+         * HrvInsightsResponse
+         * @description Selected-day HRV insight response.
+         */
         HrvInsightsResponse: {
             /** Date */
             date: string;
@@ -2553,7 +2703,10 @@ export interface components {
              */
             insights: components["schemas"]["HrvInsight"][];
         };
-        /** HrvIntradaySegment */
+        /**
+         * HrvIntradaySegment
+         * @description Aggregated HRV stats for one intraday segment.
+         */
         HrvIntradaySegment: {
             /** Key */
             key: string;
@@ -2584,7 +2737,10 @@ export interface components {
              */
             values: components["schemas"]["HrvValue"][];
         };
-        /** HrvLongBaseline */
+        /**
+         * HrvLongBaseline
+         * @description Longer baseline comparison for recent HRV trend.
+         */
         HrvLongBaseline: {
             /** Baseline 30D */
             baseline_30d: number | null;
@@ -2603,7 +2759,10 @@ export interface components {
              */
             day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
         };
-        /** HrvRecovery */
+        /**
+         * HrvRecovery
+         * @description Selected-day HRV recovery comparison.
+         */
         HrvRecovery: {
             /** Baseline Nightly 7D */
             baseline_nightly_7d: number | null;
@@ -2614,7 +2773,10 @@ export interface components {
             /** Status */
             status: string | null;
         };
-        /** HrvResponse */
+        /**
+         * HrvResponse
+         * @description Raw HRV endpoint response.
+         */
         HrvResponse: {
             /** Days */
             days: string[];
@@ -2623,7 +2785,10 @@ export interface components {
             /** Hrv Summaries */
             hrv_summaries: components["schemas"]["HrvSummary"][];
         };
-        /** HrvStatusBucket */
+        /**
+         * HrvStatusBucket
+         * @description Count and percentage for one HRV status bucket.
+         */
         HrvStatusBucket: {
             /** Label */
             label: string;
@@ -2632,7 +2797,10 @@ export interface components {
             /** Pct */
             pct: number;
         };
-        /** HrvStreak */
+        /**
+         * HrvStreak
+         * @description Current and recent HRV status streak information.
+         */
         HrvStreak: {
             /** Current Status */
             current_status: string | null;
@@ -2647,7 +2815,10 @@ export interface components {
              */
             worst_recent_streak: number;
         };
-        /** HrvSummary */
+        /**
+         * HrvSummary
+         * @description Parsed Garmin overnight HRV summary and baseline status.
+         */
         HrvSummary: {
             /** Date */
             date: string;
@@ -2666,7 +2837,10 @@ export interface components {
             /** Status */
             status: string;
         };
-        /** HrvTrajectory */
+        /**
+         * HrvTrajectory
+         * @description Overnight HRV trajectory across early, middle, and late segments.
+         */
         HrvTrajectory: {
             /** Early Avg */
             early_avg: number | null;
@@ -2677,14 +2851,20 @@ export interface components {
             /** Direction */
             direction: string | null;
         };
-        /** HrvTrendBand */
+        /**
+         * HrvTrendBand
+         * @description Typical nightly HRV band across the analysis window.
+         */
         HrvTrendBand: {
             /** Nightly Typical Low */
             nightly_typical_low: number | null;
             /** Nightly Typical High */
             nightly_typical_high: number | null;
         };
-        /** HrvValue */
+        /**
+         * HrvValue
+         * @description Parsed intraday HRV sample for one local date.
+         */
         HrvValue: {
             /** Date */
             date: string;
@@ -2726,7 +2906,10 @@ export interface components {
             best_lag: number;
             best_result: components["schemas"]["MetricLagResult"];
         };
-        /** MetricCorrelation */
+        /**
+         * MetricCorrelation
+         * @description Correlation series between nightly HRV and another dashboard metric.
+         */
         MetricCorrelation: {
             /** Metric */
             metric: string;
@@ -2790,7 +2973,10 @@ export interface components {
             /** Direction Correct */
             direction_correct: boolean;
         };
-        /** NightlyHrvTrendPoint */
+        /**
+         * NightlyHrvTrendPoint
+         * @description Daily nightly-HRV trend point.
+         */
         NightlyHrvTrendPoint: {
             /** Date */
             date: string;
@@ -2880,7 +3066,10 @@ export interface components {
              */
             min_effect_size: number;
         };
-        /** PeriodBodyBatteryStats */
+        /**
+         * PeriodBodyBatteryStats
+         * @description Body Battery extrema summary recomputed across a period.
+         */
         PeriodBodyBatteryStats: {
             /** Avg Min */
             avg_min: number | null;
@@ -2892,7 +3081,10 @@ export interface components {
              */
             days_tracked: number;
         };
-        /** PeriodHeartRateStats */
+        /**
+         * PeriodHeartRateStats
+         * @description Heart-rate summary recomputed from raw readings across a period.
+         */
         PeriodHeartRateStats: {
             /** Avg */
             avg: number | null;
@@ -2908,7 +3100,10 @@ export interface components {
              */
             zones: components["schemas"]["HRZoneBucket"][];
         };
-        /** PeriodHrvStats */
+        /**
+         * PeriodHrvStats
+         * @description HRV summary recomputed from raw overnight summaries across a period.
+         */
         PeriodHrvStats: {
             /** Avg Nightly */
             avg_nightly: number | null;
@@ -2922,7 +3117,10 @@ export interface components {
              */
             total_days: number;
         };
-        /** PeriodMetricStats */
+        /**
+         * PeriodMetricStats
+         * @description Common scalar metric summary recomputed across a period.
+         */
         PeriodMetricStats: {
             /** Avg */
             avg: number | null;
@@ -2931,7 +3129,10 @@ export interface components {
             /** Typical High */
             typical_high: number | null;
         };
-        /** PeriodSkinTempStats */
+        /**
+         * PeriodSkinTempStats
+         * @description Skin-temperature summary recomputed from overnight rows across a period.
+         */
         PeriodSkinTempStats: {
             /** Avg Deviation */
             avg_deviation: number | null;
@@ -2947,7 +3148,10 @@ export interface components {
              */
             days_tracked: number;
         };
-        /** PeriodSleepStats */
+        /**
+         * PeriodSleepStats
+         * @description Sleep summary recomputed from sleep assessments across a period.
+         */
         PeriodSleepStats: {
             /** Avg Score */
             avg_score: number | null;
@@ -2959,7 +3163,10 @@ export interface components {
              */
             days_tracked: number;
         };
-        /** PeriodSpo2Stats */
+        /**
+         * PeriodSpo2Stats
+         * @description SpO2 summary recomputed from raw pulse-ox readings across a period.
+         */
         PeriodSpo2Stats: {
             /** Avg */
             avg: number | null;
@@ -2976,7 +3183,10 @@ export interface components {
              */
             total_days: number;
         };
-        /** PeriodSummary */
+        /**
+         * PeriodSummary
+         * @description All metric summaries for one standard analytics window.
+         */
         PeriodSummary: {
             heart_rate: components["schemas"]["PeriodHeartRateStats"];
             stress: components["schemas"]["PeriodMetricStats"];
@@ -3057,7 +3267,10 @@ export interface components {
              */
             programs: components["schemas"]["Program"][];
         };
-        /** ReadinessScore */
+        /**
+         * ReadinessScore
+         * @description Composite recovery readiness score and component explanations.
+         */
         ReadinessScore: {
             /** Score */
             score: number | null;
@@ -3078,21 +3291,30 @@ export interface components {
             /** Label */
             label: string | null;
         };
-        /** RespirationRawResponse */
+        /**
+         * RespirationRawResponse
+         * @description Raw respiration endpoint response.
+         */
         RespirationRawResponse: {
             /** Days */
             days: string[];
             /** Respiration */
             respiration: components["schemas"]["RespirationReading"][];
         };
-        /** RespirationReading */
+        /**
+         * RespirationReading
+         * @description Parsed respiration-rate sample in local time.
+         */
         RespirationReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
         };
-        /** RestingHRReading */
+        /**
+         * RestingHRReading
+         * @description Parsed Garmin resting-heart-rate sample.
+         */
         RestingHRReading: {
             /** Timestamp */
             timestamp: string | null;
@@ -3101,7 +3323,10 @@ export interface components {
             /** Current Day Resting Hr */
             current_day_resting_hr: number | null;
         };
-        /** RestingHRTrendPoint */
+        /**
+         * RestingHRTrendPoint
+         * @description Daily resting heart-rate trend point.
+         */
         RestingHRTrendPoint: {
             /** Date */
             date: string;
@@ -3110,7 +3335,10 @@ export interface components {
             /** Ma7 Bpm */
             ma7_bpm: number | null;
         };
-        /** RoutineActivationAssignment */
+        /**
+         * RoutineActivationAssignment
+         * @description Relative-day card assignment accepted by routine activation.
+         */
         RoutineActivationAssignment: {
             /** Id */
             id: string;
@@ -3136,7 +3364,10 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** RoutineAssignment */
+        /**
+         * RoutineAssignment
+         * @description Dated card assignment compiled from an active routine schedule.
+         */
         RoutineAssignment: {
             /** Id */
             id: string;
@@ -3164,7 +3395,10 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** RoutineAssignmentsResponse */
+        /**
+         * RoutineAssignmentsResponse
+         * @description List response for live routine assignments.
+         */
         RoutineAssignmentsResponse: {
             /**
              * Total
@@ -3177,7 +3411,10 @@ export interface components {
              */
             assignments: components["schemas"]["RoutineAssignment"][];
         };
-        /** RoutineSchedule */
+        /**
+         * RoutineSchedule
+         * @description Live routine schedule metadata.
+         */
         RoutineSchedule: {
             /** Id */
             id: string;
@@ -3203,7 +3440,10 @@ export interface components {
             /** Source Artifact Id */
             source_artifact_id: string | null;
         };
-        /** RoutineSchedulesResponse */
+        /**
+         * RoutineSchedulesResponse
+         * @description List response for live routine schedules.
+         */
         RoutineSchedulesResponse: {
             /**
              * Total
@@ -3216,7 +3456,10 @@ export interface components {
              */
             routines: components["schemas"]["RoutineSchedule"][];
         };
-        /** RoutineSpec */
+        /**
+         * RoutineSpec
+         * @description Assistant-authored routine draft before activation.
+         */
         RoutineSpec: {
             /** Id */
             id: string;
@@ -3245,7 +3488,10 @@ export interface components {
              */
             assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
-        /** ScheduleDay */
+        /**
+         * ScheduleDay
+         * @description Resolved routine occurrences for one calendar day.
+         */
         ScheduleDay: {
             /** Date */
             date: string;
@@ -3260,7 +3506,10 @@ export interface components {
              */
             occurrences: components["schemas"]["ScheduleOccurrence"][];
         };
-        /** ScheduleOccurrence */
+        /**
+         * ScheduleOccurrence
+         * @description Resolved scheduled or override-created card occurrence.
+         */
         ScheduleOccurrence: {
             /** Occurrence Key */
             occurrence_key: string;
@@ -3315,7 +3564,10 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ScheduleWindow */
+        /**
+         * ScheduleWindow
+         * @description Resolved routine schedule window.
+         */
         ScheduleWindow: {
             /** Start Date */
             start_date: string;
@@ -3327,7 +3579,10 @@ export interface components {
              */
             days: components["schemas"]["ScheduleDay"][];
         };
-        /** SkinTempOvernight */
+        /**
+         * SkinTempOvernight
+         * @description Parsed overnight skin-temperature summary for one local date.
+         */
         SkinTempOvernight: {
             /** Date */
             date: string;
@@ -3342,14 +3597,20 @@ export interface components {
             /** Average 7 Day Deviation */
             average_7_day_deviation: number | null;
         };
-        /** SkinTempResponse */
+        /**
+         * SkinTempResponse
+         * @description Raw skin-temperature endpoint response.
+         */
         SkinTempResponse: {
             /** Days */
             days: string[];
             /** Skin Temp Overnight */
             skin_temp_overnight: components["schemas"]["SkinTempOvernight"][];
         };
-        /** SleepAnalysisResponse */
+        /**
+         * SleepAnalysisResponse
+         * @description Sleep chart and distribution analysis response.
+         */
         SleepAnalysisResponse: {
             /**
              * Score Trend
@@ -3362,7 +3623,10 @@ export interface components {
              */
             weekly_boxplots: components["schemas"]["WeeklySleepBox"][];
         };
-        /** SleepAssessment */
+        /**
+         * SleepAssessment
+         * @description Parsed Garmin sleep score assessment for one local date.
+         */
         SleepAssessment: {
             /** Date */
             date: string;
@@ -3381,7 +3645,10 @@ export interface components {
             /** Average Stress */
             average_stress: number | null;
         };
-        /** SleepLevel */
+        /**
+         * SleepLevel
+         * @description Parsed sleep-stage interval marker for one local date.
+         */
         SleepLevel: {
             /** Date */
             date: string;
@@ -3390,7 +3657,10 @@ export interface components {
             /** Level */
             level: string;
         };
-        /** SleepResponse */
+        /**
+         * SleepResponse
+         * @description Raw sleep endpoint response.
+         */
         SleepResponse: {
             /** Days */
             days: string[];
@@ -3399,7 +3669,10 @@ export interface components {
             /** Sleep Assessments */
             sleep_assessments: components["schemas"]["SleepAssessment"][];
         };
-        /** SleepTrendPoint */
+        /**
+         * SleepTrendPoint
+         * @description Daily sleep score trend point.
+         */
         SleepTrendPoint: {
             /** Date */
             date: string;
@@ -3412,7 +3685,10 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
-        /** SleepingHRPoint */
+        /**
+         * SleepingHRPoint
+         * @description Daily sleeping heart-rate trend point.
+         */
         SleepingHRPoint: {
             /** Date */
             date: string;
@@ -3426,14 +3702,20 @@ export interface components {
              */
             sample_count: number;
         };
-        /** SpO2RawResponse */
+        /**
+         * SpO2RawResponse
+         * @description Raw SpO2 endpoint response.
+         */
         SpO2RawResponse: {
             /** Days */
             days: string[];
             /** Spo2 */
             spo2: components["schemas"]["SpO2Reading"][];
         };
-        /** SpO2Reading */
+        /**
+         * SpO2Reading
+         * @description Parsed pulse-ox sample with Garmin confidence metadata.
+         */
         SpO2Reading: {
             /** Timestamp */
             timestamp: string | null;
@@ -3444,7 +3726,10 @@ export interface components {
             /** Mode */
             mode: string;
         };
-        /** SparklinePoint */
+        /**
+         * SparklinePoint
+         * @description One dated sparkline point with raw value and moving average.
+         */
         SparklinePoint: {
             /** Date */
             date: string;
@@ -3453,7 +3738,10 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
-        /** SparklineSeries */
+        /**
+         * SparklineSeries
+         * @description Dashboard sparkline points and summary stats for one metric.
+         */
         SparklineSeries: {
             /**
              * Points
@@ -3463,7 +3751,10 @@ export interface components {
             /** @default {} */
             summary: components["schemas"]["SparklineSummary"];
         };
-        /** SparklineSummary */
+        /**
+         * SparklineSummary
+         * @description Summary stats for one dashboard sparkline series.
+         */
         SparklineSummary: {
             /** Avg */
             avg: number | null;
@@ -3472,7 +3763,10 @@ export interface components {
             /** Max */
             max: number | null;
         };
-        /** StressAnalysisResponse */
+        /**
+         * StressAnalysisResponse
+         * @description Stress chart and distribution analysis response.
+         */
         StressAnalysisResponse: {
             /**
              * Avg Trend
@@ -3485,21 +3779,30 @@ export interface components {
              */
             weekly_boxplots: components["schemas"]["WeeklyStressBox"][];
         };
-        /** StressRawResponse */
+        /**
+         * StressRawResponse
+         * @description Raw stress endpoint response.
+         */
         StressRawResponse: {
             /** Days */
             days: string[];
             /** Stress */
             stress: components["schemas"]["StressReading"][];
         };
-        /** StressReading */
+        /**
+         * StressReading
+         * @description Parsed Garmin stress sample in local time.
+         */
         StressReading: {
             /** Timestamp */
             timestamp: string | null;
             /** Value */
             value: number;
         };
-        /** StressTrendPoint */
+        /**
+         * StressTrendPoint
+         * @description Daily stress trend point.
+         */
         StressTrendPoint: {
             /** Date */
             date: string;
@@ -3547,7 +3850,10 @@ export interface components {
              */
             metrics: components["schemas"]["TargetMetricDefinition"][];
         };
-        /** TodayCard */
+        /**
+         * TodayCard
+         * @description Resolved Today-board card occurrence with log state attached.
+         */
         TodayCard: {
             /** Occurrence Key */
             occurrence_key: string;
@@ -3617,7 +3923,10 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
-        /** TodayCardLogUpdateRequest */
+        /**
+         * TodayCardLogUpdateRequest
+         * @description Request body for updating a Today-board card log.
+         */
         TodayCardLogUpdateRequest: {
             /** Card Template Id */
             card_template_id: string;
@@ -3639,7 +3948,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** TodayResponse */
+        /**
+         * TodayResponse
+         * @description Today-board response for one local date.
+         */
         TodayResponse: {
             /** Date */
             date: string;
@@ -3650,7 +3962,10 @@ export interface components {
              */
             slots: components["schemas"]["TodaySlot"][];
         };
-        /** TodaySlot */
+        /**
+         * TodaySlot
+         * @description One named Today-board slot containing resolved cards.
+         */
         TodaySlot: {
             /**
              * Slot
@@ -3665,7 +3980,10 @@ export interface components {
              */
             cards: components["schemas"]["TodayCard"][];
         };
-        /** TodayStats */
+        /**
+         * TodayStats
+         * @description Completion counts for a Today-board response.
+         */
         TodayStats: {
             /**
              * Total
@@ -3693,7 +4011,10 @@ export interface components {
              */
             pending: number;
         };
-        /** TodayVitals */
+        /**
+         * TodayVitals
+         * @description Latest selected-day vitals shown in the recovery dashboard.
+         */
         TodayVitals: {
             /** Resting Hr */
             resting_hr: number | null;
@@ -3843,7 +4164,10 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
-        /** WeeklyBodyBatteryBox */
+        /**
+         * WeeklyBodyBatteryBox
+         * @description Weekly five-number summary for Body Battery minimum.
+         */
         WeeklyBodyBatteryBox: {
             /** Iso Week */
             iso_week: string;
@@ -3863,7 +4187,10 @@ export interface components {
              */
             day_count: number;
         };
-        /** WeeklyHrvBox */
+        /**
+         * WeeklyHrvBox
+         * @description Weekly five-number summary for nightly HRV.
+         */
         WeeklyHrvBox: {
             /** Iso Week */
             iso_week: string;
@@ -3883,7 +4210,10 @@ export interface components {
              */
             day_count: number;
         };
-        /** WeeklyRestingHRBox */
+        /**
+         * WeeklyRestingHRBox
+         * @description Weekly five-number summary for resting heart rate.
+         */
         WeeklyRestingHRBox: {
             /** Iso Week */
             iso_week: string;
@@ -3903,7 +4233,10 @@ export interface components {
              */
             day_count: number;
         };
-        /** WeeklySleepBox */
+        /**
+         * WeeklySleepBox
+         * @description Weekly five-number summary for sleep score.
+         */
         WeeklySleepBox: {
             /** Iso Week */
             iso_week: string;
@@ -3923,7 +4256,10 @@ export interface components {
              */
             day_count: number;
         };
-        /** WeeklyStressBox */
+        /**
+         * WeeklyStressBox
+         * @description Weekly five-number summary for average stress.
+         */
         WeeklyStressBox: {
             /** Iso Week */
             iso_week: string;

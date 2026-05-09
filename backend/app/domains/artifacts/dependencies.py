@@ -12,6 +12,8 @@ from app.domains.artifacts.contracts import AssistantArtifact
 
 
 class ArtifactRepository(Protocol):
+    """Persistence port for staged assistant artifacts and bundle revisions."""
+
     def save_assistant_artifact(self, artifact: AssistantArtifact) -> None: ...
 
     def save_assistant_artifacts_batch(self, artifacts: list[AssistantArtifact]) -> None: ...

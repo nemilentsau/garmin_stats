@@ -1,4 +1,4 @@
-"""Shared helpers for daily scalar metric aggregates."""
+"""Shared helpers for daily scalar metric calculations."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
