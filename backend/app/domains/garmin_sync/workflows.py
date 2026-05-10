@@ -69,6 +69,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deps.extract_archives(deps.data_dir)
         unique_dates = sorted(set(affected_dates))
         ingest_result = deps.ingest.ingest_dates(deps.data_dir, unique_dates)
+        deps.mark_watcher_synced()
     finally:
         deps.resume_watcher()
 

@@ -57,6 +57,7 @@ def _make_deps(
         extract_archives=extract_archives,
         suspend_watcher=lambda: None,
         resume_watcher=lambda: None,
+        mark_watcher_synced=lambda: None,
         clients=_UnusedClientFactory(),
         files=_UnusedFileStore(),
         today=lambda: date(2026, 3, 15),

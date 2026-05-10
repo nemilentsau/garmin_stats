@@ -51,6 +51,9 @@ class DataDirectoryWatcher:
         self._ensure_data_dir(self._data_dir)
         self._last_fingerprint = self._fingerprint(self._data_dir)
 
+    def mark_synced(self) -> None:
+        self.prime()
+
     def suspend(self) -> None:
         self._suspended = True
         log.info("File watcher suspended")

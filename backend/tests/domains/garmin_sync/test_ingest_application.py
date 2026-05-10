@@ -117,6 +117,9 @@ def _deps(
     def resume_watcher() -> None:
         watcher_calls.append("resume")
 
+    def mark_watcher_synced() -> None:
+        watcher_calls.append("synced")
+
     client = FakeGarminClient(
         responses
         or {
@@ -135,6 +138,7 @@ def _deps(
         extract_archives=extract_archives,
         suspend_watcher=suspend_watcher,
         resume_watcher=resume_watcher,
+        mark_watcher_synced=mark_watcher_synced,
         clients=FakeGarminClientFactory(client),
         files=files,
         today=lambda: today,
@@ -178,7 +182,7 @@ def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
     assert client.days == [date(2026, 3, 14)]
     assert archives == [tmp_path]
     assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-14"])]
-    assert watcher == ["suspend", "resume"]
+    assert watcher == ["suspend", "synced", "resume"]
 
 
 def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):
@@ -219,7 +223,7 @@ def test_sync_starts_with_yesterday_when_no_archives_exist(tmp_path: Path):
     assert ingest.calls == [
         ("ingest_dates", tmp_path, ["2026-03-14", "2026-03-15"]),
     ]
-    assert watcher == ["suspend", "resume"]
+    assert watcher == ["suspend", "synced", "resume"]
 
 
 def test_sync_treats_missing_archive_response_as_failed(tmp_path: Path):
@@ -245,6 +249,16 @@ def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):
         sync_garmin(deps)
 
     assert watcher == ["suspend", "resume"]
+
+
+def test_sync_does_not_mark_watcher_synced_when_ingest_fails(tmp_path: Path):
+    deps, ingest, _archives, watcher, _client, _files = _deps(tmp_path)
+    ingest.ingest_dates_error = RuntimeError("Ingest already in progress")
+
+    with pytest.raises(RuntimeError, match="Ingest already in progress"):
+        sync_garmin(deps)
+
+    assert "synced" not in watcher
 
 
 def test_plan_with_no_archives_starts_yesterday_and_marks_no_deletion():

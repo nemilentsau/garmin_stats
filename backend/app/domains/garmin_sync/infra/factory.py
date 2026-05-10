@@ -53,6 +53,7 @@ def build_garmin_sync_infra(
         extract_archives=extract_existing_archives,
         suspend_watcher=watcher.suspend,
         resume_watcher=watcher.resume,
+        mark_watcher_synced=watcher.mark_synced,
         clients=GarminConnectClientFactory(app_config.garmin_token_dir),
         files=FilesystemSyncFileStore(),
         today=date.today,

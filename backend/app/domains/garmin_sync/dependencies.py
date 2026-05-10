@@ -57,6 +57,7 @@ class GarminSyncDependencies:
     extract_archives: ArchiveExtractor
     suspend_watcher: WatcherAction
     resume_watcher: WatcherAction
+    mark_watcher_synced: WatcherAction
     clients: GarminClientFactory
     files: SyncFileStore
     today: TodayProvider
