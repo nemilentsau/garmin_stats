@@ -5,7 +5,7 @@ import warnings
 
 import pytest
 
-from app.domains.experiments.application.analysis_math import (
+from app.domains.experiments.domain.analysis_math import (
     autocorrelation_lag1,
     compute_cohens_d,
     compute_hedges_g,

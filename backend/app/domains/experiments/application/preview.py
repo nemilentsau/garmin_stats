@@ -11,10 +11,10 @@ from app.domains.experiments.contracts import (
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
 )
+from app.domains.experiments.domain.analysis_math import resolve_metric_path
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.routines.dependencies import RoutineRepository
 
-from .analysis_math import resolve_metric_path
 from .ports import ExperimentRepository
 
 

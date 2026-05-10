@@ -28,11 +28,11 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/experiments/application/management.py": {
         "app.domains.routines.dependencies",
     },
-    "backend/app/domains/experiments/application/analysis.py": {
+    "backend/app/domains/experiments/domain/analysis.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
     },
-    "backend/app/domains/experiments/application/analysis_math.py": {
+    "backend/app/domains/experiments/domain/analysis_math.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
     },

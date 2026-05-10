@@ -9,12 +9,12 @@ from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
 )
-
-from .analysis import (
-    compute_experiment_analysis,
+from app.domains.experiments.domain.analysis import (
     current_treatment_window_end,
     expected_experiment_phase,
 )
+
+from .analysis import compute_experiment_analysis
 from .ports import ExperimentRepository
 
 log = logging.getLogger(__name__)

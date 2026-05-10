@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentExposure,
 )
+from app.domains.experiments.domain.exposures import derive_experiment_exposure
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.domains.routines.contracts import CardLog, ScheduleOccurrence
+from app.domains.routines.contracts import ScheduleOccurrence
 from app.domains.routines.dependencies import RoutineRepository
 
 from .analysis_cache import persist_experiment_analysis
 from .ports import ExperimentRepository
 
-_PARTIAL_CARD_WEIGHT = 0.5
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 
 
@@ -52,54 +51,6 @@ def _refresh_persisted_analysis_if_changed(
     persist_experiment_analysis(repo, experiment)
 
 
-def _derive_experiment_exposure(
-    experiment: Experiment,
-    *,
-    date: str,
-    occurrences: list[ScheduleOccurrence],
-    logs_by_occurrence_key: Mapping[str, CardLog],
-) -> ExperimentExposure | None:
-    if not occurrences:
-        return None
-
-    completed = 0
-    partial = 0
-    skipped = 0
-    pending = 0
-    for occurrence in occurrences:
-        log = logs_by_occurrence_key.get(occurrence.occurrence_key)
-        status = log.status if log is not None else "pending"
-        if status == "completed":
-            completed += 1
-        elif status == "partial":
-            partial += 1
-        elif status == "skipped":
-            skipped += 1
-        else:
-            pending += 1
-
-    total = len(occurrences)
-    if pending == total:
-        return None
-
-    exposure_score = round((completed + (_PARTIAL_CARD_WEIGHT * partial)) / total, 3)
-    if completed == total:
-        adherence_state = "full"
-    elif pending == 0 and completed == 0 and partial == 0 and skipped == total:
-        adherence_state = "missed"
-    else:
-        adherence_state = "partial"
-
-    return ExperimentExposure(
-        id=ExperimentExposure.auto_id(experiment.id, date),
-        experiment_id=experiment.id,
-        date=date,
-        exposure_score=exposure_score,
-        adherence_state=adherence_state,
-        linked_routine_entry_ids=[occurrence.occurrence_key for occurrence in occurrences],
-    )
-
-
 def sync_experiment_exposures_for_date(
     date: str,
     *,
@@ -124,6 +75,10 @@ def sync_experiment_exposures_for_date(
     logs_by_occurrence_key = {
         log.occurrence_key: log for log in routine_repo.list_card_logs(date=date)
     }
+    statuses_by_occurrence_key = {
+        occurrence_key: log.status
+        for occurrence_key, log in logs_by_occurrence_key.items()
+    }
     auto_exposures_by_experiment = {
         exposure.experiment_id: exposure
         for exposure in experiment_repo.list_experiment_exposures(date=date)
@@ -143,11 +98,13 @@ def sync_experiment_exposures_for_date(
         relevant_occurrences: list[ScheduleOccurrence] = []
         for routine_id in experiment.linked_routine_ids:
             relevant_occurrences.extend(occurrences_by_routine.get(routine_id, []))
-        new_exposure = _derive_experiment_exposure(
-            experiment,
+        new_exposure = derive_experiment_exposure(
+            experiment_id=experiment.id,
             date=date,
-            occurrences=relevant_occurrences,
-            logs_by_occurrence_key=logs_by_occurrence_key,
+            routine_entry_ids=[
+                occurrence.occurrence_key for occurrence in relevant_occurrences
+            ],
+            statuses_by_routine_entry_id=statuses_by_occurrence_key,
         )
         experiment_repo.replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
         _refresh_persisted_analysis_if_changed(

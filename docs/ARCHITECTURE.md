@@ -161,9 +161,9 @@ Current contents:
   refreshes after exposure changes and on stale date-sensitive reads. `api/`
   owns FastAPI routes, `application/` owns named use cases (`management`,
   `preview`, `exposures`, `exposure_sync`, `analysis_cache`, `analysis`, and
-  `target_metrics`) plus repository ports, and `infra/` owns the SQLite
-  repository adapter. It has no separate `domain/` package until experiment
-  rules need a dedicated pure domain model layer.
+  `target_metrics`) plus repository ports, `domain/` owns pure experiment
+  analysis/statistical rules and exposure scoring, and `infra/` owns the SQLite
+  repository adapter.
 
 - `domains/artifacts/`
   Assistant-authored artifact staging and publishing. This domain owns
@@ -295,7 +295,8 @@ is reserved for shared app primitives rather than important product workflows.
   staging.
 - May import: experiment repository ports, experiment-owned contracts,
   allowlisted routine read/projection contracts needed for exposure derivation,
-  canonical Garmin health contracts, and local analysis math helpers.
+  canonical Garmin health contracts, and experiment-owned domain analysis
+  helpers.
 - Must not import: Garmin sync, Garmin analytics application internals except
   through analytics read adapters, assistant runtime, artifact persistence
   internals, FastAPI from application modules, or SQLite helpers from application

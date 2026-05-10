@@ -385,6 +385,7 @@ class TestExperimentPreviewAndImport:
         import app.domains.experiments.application.analysis as experiment_analysis_mod
         import app.domains.experiments.application.analysis_cache as analysis_cache_mod
         import app.domains.experiments.application.management as management_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
 
         class Apr13(date):
             @classmethod
@@ -421,7 +422,7 @@ class TestExperimentPreviewAndImport:
             )
 
         repo = SqliteExperimentRepository()
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
         db.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
@@ -431,7 +432,7 @@ class TestExperimentPreviewAndImport:
         assert stale.adherence_rate == 1.0
         assert len(stale.adherence_by_day) == 3
 
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
         monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
@@ -454,6 +455,7 @@ class TestExperimentPreviewAndImport:
         """A date-only stale analysis should update the cached analysis date."""
         import app.domains.experiments.application.analysis as experiment_analysis_mod
         import app.domains.experiments.application.analysis_cache as analysis_cache_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
 
         class Apr13(date):
             @classmethod
@@ -480,13 +482,13 @@ class TestExperimentPreviewAndImport:
         db.save_experiment(experiment)
 
         repo = SqliteExperimentRepository()
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
         db.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
 
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
         monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)

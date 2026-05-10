@@ -4,6 +4,7 @@ from tests._architecture import (
     REPO_ROOT,
     assert_api_modules_are_boundary_only,
     assert_application_modules_are_strict,
+    assert_no_text_in_files,
     read_repo_file,
 )
 
@@ -19,7 +20,6 @@ def test_experiments_application_modules_follow_strict_boundary():
     assert_application_modules_are_strict([
         "backend/app/domains/experiments/application/analysis_cache.py",
         "backend/app/domains/experiments/application/analysis.py",
-        "backend/app/domains/experiments/application/analysis_math.py",
         "backend/app/domains/experiments/application/exposures.py",
         "backend/app/domains/experiments/application/exposure_sync.py",
         "backend/app/domains/experiments/application/management.py",
@@ -32,14 +32,39 @@ def test_experiments_application_modules_follow_strict_boundary():
 def test_experiments_application_files_are_named_by_responsibility():
     for path in [
         "backend/app/domains/experiments/application/experiments.py",
+        "backend/app/domains/experiments/application/analysis_math.py",
         "backend/app/domains/experiments/application/stats.py",
     ]:
         assert not (REPO_ROOT / path).exists()
 
-    experiment_domain_sources = list(
-        (REPO_ROOT / "backend/app/domains/experiments/domain").rglob("*.py")
+
+def test_experiment_pure_rules_live_in_domain_layer():
+    domain_root = REPO_ROOT / "backend/app/domains/experiments/domain"
+    expected = {
+        domain_root / "__init__.py",
+        domain_root / "analysis.py",
+        domain_root / "analysis_math.py",
+        domain_root / "exposures.py",
+    }
+    assert expected.issubset(set(domain_root.rglob("*.py")))
+
+
+def test_experiment_domain_modules_do_not_import_application_or_infra():
+    paths = [
+        str(path.relative_to(REPO_ROOT))
+        for path in (REPO_ROOT / "backend/app/domains/experiments/domain").rglob("*.py")
+    ]
+    assert_no_text_in_files(
+        paths,
+        [
+            "app.domains.experiments.application",
+            "app.domains.experiments.infra",
+            "app.bootstrap",
+            "app.infra.database",
+            "fastapi",
+            "build_container",
+        ],
     )
-    assert experiment_domain_sources == []
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():
