@@ -7,11 +7,10 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 
 from app.core.profile.contracts import UserProfile
-from app.domains.assistant.application.types import (
+from app.domains.assistant.contracts import (
     AssistantEvidenceItem,
     AssistantResolvedEntity,
     AssistantRouteDecision,
-    dedupe_strings,
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.experiments.contracts import (
@@ -103,10 +102,10 @@ def retrieve_open_ended_coaching(
     if profile is not None:
         payload["profile"] = _profile_payload(profile)
 
-    gaps = dedupe_strings([*recovery_gaps, *routine_gaps])
+    gaps = _dedupe_strings([*recovery_gaps, *routine_gaps])
     if not payload:
         gaps.append("current_state_missing")
-        return [], dedupe_strings(gaps)
+        return [], _dedupe_strings(gaps)
 
     return [
         AssistantEvidenceItem(
@@ -114,7 +113,7 @@ def retrieve_open_ended_coaching(
             source="read_model.current_state",
             payload_json=payload,
         )
-    ], dedupe_strings(gaps)
+    ], _dedupe_strings(gaps)
 
 
 def _build_experiment_evidence(
@@ -227,7 +226,7 @@ def _build_experiment_scan_context(
             source="read_model.scan_overview",
             payload_json=payload,
         )
-    ], dedupe_strings(gaps)
+    ], _dedupe_strings(gaps)
 
 
 def _is_experiment_scan_request(route: AssistantRouteDecision) -> bool:
@@ -665,3 +664,15 @@ def _load_linked_routines(
         }
     )
     return sorted(linked, key=lambda routine: routine.id), missing
+
+
+def _dedupe_strings(values: Sequence[str]) -> list[str]:
+    """Return strings in first-seen order without duplicates."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered

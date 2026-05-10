@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, cast
@@ -13,17 +14,13 @@ from pydantic import BaseModel
 from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.application.evidence import build_evidence_bundle
 from app.domains.assistant.application.router import route_user_query
-from app.domains.assistant.application.types import (
-    LOWERCASE_TOKEN_PATTERN,
-    MAX_MEMORY_RECORDS,
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
-    AssistantResolvedEntity,
-    AssistantRouteDecision,
-)
-from app.domains.assistant.contracts import (
     AssistantMessage,
     AssistantMessageCreateRequest,
+    AssistantResolvedEntity,
+    AssistantRouteDecision,
     AssistantRun,
 )
 from app.domains.assistant.dependencies import (
@@ -34,6 +31,8 @@ from app.domains.assistant.dependencies import (
 )
 from app.utils.timeutil import now_iso
 
+_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_MAX_MEMORY_RECORDS = 5
 _MAX_ALIAS_PHRASE_TOKENS = 6
 _QUESTION_WORDS = {
     "are",
@@ -218,7 +217,7 @@ def _build_entity_alias_memory_record(
     if not alias_text:
         return None
 
-    alias_tokens = LOWERCASE_TOKEN_PATTERN.findall(alias_text.lower())
+    alias_tokens = _LOWERCASE_TOKEN_PATTERN.findall(alias_text.lower())
     if not (_MIN_ALIAS_TOKENS <= len(alias_tokens) <= _MAX_ALIAS_TOKENS):
         return None
     if any(token in _QUESTION_WORDS for token in alias_tokens):
@@ -226,7 +225,7 @@ def _build_entity_alias_memory_record(
 
     normalized_alias = " ".join(alias_tokens)
     existing_aliases = {
-        " ".join(LOWERCASE_TOKEN_PATTERN.findall(record.alias_text.lower()))
+        " ".join(_LOWERCASE_TOKEN_PATTERN.findall(record.alias_text.lower()))
         for record in memory_records
         if record.kind == "entity_alias"
         and record.entity_id == entity.entity_id
@@ -310,7 +309,7 @@ def _matches_saved_entity_alias(
 
 
 def _alias_tokens(value: str) -> list[str]:
-    return LOWERCASE_TOKEN_PATTERN.findall(value.lower())
+    return _LOWERCASE_TOKEN_PATTERN.findall(value.lower())
 
 
 def _query_contains_alias(*, query_tokens: list[str], alias_tokens: list[str]) -> bool:
@@ -328,7 +327,7 @@ def _resolution_memory_records(
     *,
     query: str,
 ) -> tuple[list[AssistantMemoryRecord], list[AssistantMemoryRecord]]:
-    prompt_memory_records = list(repo.list_memory_records(last_n=MAX_MEMORY_RECORDS))
+    prompt_memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
     alias_candidates = _alias_query_candidates(query)
     alias_memory_records = list(
         repo.list_memory_records(

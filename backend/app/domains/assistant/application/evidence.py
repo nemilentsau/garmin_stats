@@ -12,18 +12,17 @@ from app.domains.assistant.application.retrieval import (
     retrieve_recovery_briefing,
     retrieve_routine_adherence,
 )
-from app.domains.assistant.application.types import (
-    MAX_MEMORY_RECORDS,
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantIntent,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
-    dedupe_strings,
 )
 from app.domains.assistant.dependencies import AssistantRetrievalStore
 
+_MAX_MEMORY_RECORDS = 5
 _MAX_PRIOR_BUNDLES = 3
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"
 _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
@@ -84,7 +83,7 @@ def build_evidence_bundle(
             last_n=_MAX_PRIOR_BUNDLES,
         )
     )
-    items.extend(_build_memory_items(store=store, last_n=MAX_MEMORY_RECORDS))
+    items.extend(_build_memory_items(store=store, last_n=_MAX_MEMORY_RECORDS))
 
     return AssistantEvidenceBundle(
         id=_deterministic_bundle_id(
@@ -97,7 +96,7 @@ def build_evidence_bundle(
         intent=route.intent,
         entities=list(entities),
         items=items,
-        gaps=dedupe_strings(gaps),
+        gaps=_dedupe_strings(gaps),
     )
 
 
@@ -219,3 +218,15 @@ def _deterministic_bundle_id(*, intent: str, thread_id: str, user_message_id: st
     raw = f"{thread_id}\x1f{user_message_id}\x1f{intent}".encode()
     digest = hashlib.sha256(raw).hexdigest()[:20]
     return f"evidence-{digest}"
+
+
+def _dedupe_strings(values: Sequence[str]) -> list[str]:
+    """Return strings in first-seen order without duplicates."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered

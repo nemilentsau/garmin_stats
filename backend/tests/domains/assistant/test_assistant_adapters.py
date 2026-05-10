@@ -2,14 +2,12 @@
 
 import app.domains.assistant.adapters as assistant_db
 import app.infra.database as db
-from app.domains.assistant.application.types import (
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantMemoryRecord,
-    AssistantResolvedEntity,
-)
-from app.domains.assistant.contracts import (
     AssistantMessage,
+    AssistantResolvedEntity,
     AssistantRun,
     AssistantThread,
     ContextSnapshot,

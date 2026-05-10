@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from app.domains.assistant.application.types import (
-    EXPERIMENT_REVIEW_TERMS,
-    LOWERCASE_TOKEN_PATTERN,
+import re
+
+from app.domains.assistant.contracts import (
     AssistantIntent,
     AssistantRouteDecision,
 )
 
-_EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
-    {"experiments", "trials", "studies"}
+_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
+_PLURAL_EXPERIMENT_REVIEW_TERMS = frozenset({"experiments", "trials", "studies"})
+_ALL_EXPERIMENT_REVIEW_TERMS = (
+    _EXPERIMENT_REVIEW_TERMS | _PLURAL_EXPERIMENT_REVIEW_TERMS
 )
 _RECALL_LANGUAGE_PHRASES = (
     "what did we say",
@@ -32,7 +35,7 @@ _INTENT_ORDER: tuple[AssistantIntent, ...] = (
 
 def route_user_query(query: str) -> AssistantRouteDecision:
     text = query.lower()
-    tokens = set(LOWERCASE_TOKEN_PATTERN.findall(text))
+    tokens = set(_LOWERCASE_TOKEN_PATTERN.findall(text))
     scores = {intent: 0.0 for intent in _INTENT_ORDER}
     signals = {intent: [] for intent in _INTENT_ORDER}
 
@@ -40,9 +43,9 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         scores[intent] += weight
         signals[intent].append(signal)
 
-    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS):
+    if tokens.intersection(_ALL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.55, "mentions_experiment")
-    if tokens.intersection({"experiments", "trials", "studies"}):
+    if tokens.intersection(_PLURAL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.10, "plural_experiment_context")
     if any(phrase in text for phrase in ("so far", "look like", "results", "effect")):
         add_signal("experiment_review", 0.25, "review_phrase")
@@ -52,7 +55,7 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         add_signal("experiment_review", 0.10, "how_experiment_question")
     if tokens.intersection({"scan", "scanning"}):
         add_signal("experiment_review", 0.05, "scan_keyword")
-    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
+    if tokens.intersection(_ALL_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
         {"routine", "routines", "tracking"}
     ):
         add_signal("experiment_review", 0.10, "experiment_routine_scan")

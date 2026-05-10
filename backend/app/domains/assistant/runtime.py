@@ -15,7 +15,7 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
+from app.domains.assistant.contracts import AssistantEvidenceBundle, AssistantMemoryRecord
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
 _WORKSPACE_ROOT = _PROJECT_ROOT / "storage" / "assistant" / "workspaces"

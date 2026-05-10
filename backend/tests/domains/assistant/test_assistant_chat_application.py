@@ -6,8 +6,9 @@ from typing import Any, cast
 
 from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.chat import stream_reply
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.assistant.contracts import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
     AssistantMessageCreateRequest,
     AssistantRun,
 )

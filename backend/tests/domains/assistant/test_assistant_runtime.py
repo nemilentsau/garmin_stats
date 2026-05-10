@@ -3,7 +3,7 @@
 import asyncio
 
 import app.domains.assistant.runtime as runtime_mod
-from app.domains.assistant.application.types import (
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
 )

@@ -226,7 +226,7 @@ not proof that the design is sound.
   and runtime interaction.
 - Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
   experiment exposure derivation, or artifact activation.
-- May import: its own contracts/application/types/dependencies, and explicitly
+- May import: its own contracts, application helpers, and dependencies, plus explicitly
   allowlisted read dependencies needed to build evidence context, including
   canonical Garmin health contracts.
 - Must not import: Garmin sync, Garmin analytics application internals, routine

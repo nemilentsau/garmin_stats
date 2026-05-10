@@ -11,8 +11,9 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Any, Protocol
 
 from app.core.profile.contracts import UserProfile
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.assistant.contracts import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
     AssistantMessage,
     AssistantRun,
     AssistantThread,

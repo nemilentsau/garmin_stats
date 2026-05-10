@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 
 from app.domains.assistant.application.threads import create_thread, list_messages, list_threads
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.assistant.contracts import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
     AssistantMessage,
     AssistantMessagesResponse,
     AssistantRun,

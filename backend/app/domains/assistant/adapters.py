@@ -13,8 +13,9 @@ from dataclasses import dataclass
 
 from app.core.profile.contracts import UserProfile
 from app.core.profile.ports import ProfileRepository
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.assistant.contracts import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
     AssistantMessage,
     AssistantRun,
     AssistantThread,

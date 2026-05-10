@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from app.contracts.base import AutoTotalResponse, ConfidenceLevel, DefaultsRequired
+from pydantic import Field
 
+from app.contracts.base import (
+    AutoTotalResponse,
+    ConfidenceLevel,
+    DefaultsRequired,
+    StrictDefaultsRequired,
+)
+
+AssistantIntent = Literal[
+    "experiment_review",
+    "routine_adherence",
+    "recovery_briefing",
+    "open_ended_coaching",
+]
+AssistantResolvedEntityKind = Literal["experiment", "routine", "metric", "memory"]
+AssistantMemoryRecordKind = Literal["entity_alias", "evidence_summary"]
 PlanStatus = Literal["draft", "active", "completed"]
 PlanItemCompletionState = Literal["pending", "in_progress", "completed", "skipped"]
 ThreadStatus = Literal["active", "archived"]
@@ -96,6 +111,58 @@ class EvidenceCard(DefaultsRequired):
     confidence: EvidenceConfidence = "insufficient"
     caveats: list[str] = []
     payload_json: dict[str, object] = {}
+
+
+class AssistantRouteDecision(StrictDefaultsRequired):
+    """Deterministic intent-routing decision for one user message."""
+
+    intent: AssistantIntent
+    confidence: float = Field(ge=0.0, le=1.0)
+    matched_signals: list[str] = Field(default_factory=list)
+
+
+class AssistantResolvedEntity(StrictDefaultsRequired):
+    """Domain entity resolved from a user message for evidence retrieval."""
+
+    kind: AssistantResolvedEntityKind
+    entity_id: str
+    label: str
+    score: float
+
+
+class AssistantEvidenceItem(StrictDefaultsRequired):
+    """One deterministic evidence record supplied to the assistant runtime."""
+
+    kind: str
+    source: str
+    entity_id: str | None = None
+    payload_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class AssistantEvidenceBundle(StrictDefaultsRequired):
+    """Persisted evidence bundle for one user message and retrieval route."""
+
+    id: str
+    thread_id: str
+    user_message_id: str
+    intent: AssistantIntent
+    entities: list[AssistantResolvedEntity] = Field(default_factory=list)
+    items: list[AssistantEvidenceItem] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class AssistantMemoryRecord(StrictDefaultsRequired):
+    """Persisted assistant memory record used for recall and alias resolution."""
+
+    id: str
+    kind: AssistantMemoryRecordKind
+    entity_id: str | None = None
+    alias_text: str | None = None
+    payload_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class AssistantThreadCreateRequest(DefaultsRequired):

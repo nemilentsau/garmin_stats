@@ -6,9 +6,7 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 
-from app.domains.assistant.application.types import (
-    EXPERIMENT_REVIEW_TERMS,
-    LOWERCASE_TOKEN_PATTERN,
+from app.domains.assistant.contracts import (
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
@@ -16,6 +14,8 @@ from app.domains.assistant.application.types import (
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.experiments.contracts import Experiment
 
+_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {
     "a",
@@ -112,7 +112,7 @@ def _experiment_match_score(
     if alias_tokens:
         score = max(score, max(_overlap_score(query_tokens, alias) for alias in alias_tokens))
 
-    if query_tokens.intersection(EXPERIMENT_REVIEW_TERMS):
+    if query_tokens.intersection(_EXPERIMENT_REVIEW_TERMS):
         score += 0.08
 
     return score
@@ -129,7 +129,7 @@ def _query_mentions_experiment_id(query_text: str, experiment_id: str) -> bool:
 
 
 def _normalize_id(value: str) -> str:
-    parts = LOWERCASE_TOKEN_PATTERN.findall(value.lower())
+    parts = _LOWERCASE_TOKEN_PATTERN.findall(value.lower())
     return "-".join(parts)
 
 
@@ -162,6 +162,6 @@ def _bounded_confidence(value: float) -> float:
 def _tokenize(text: str) -> set[str]:
     return {
         token
-        for token in LOWERCASE_TOKEN_PATTERN.findall(text.lower())
+        for token in _LOWERCASE_TOKEN_PATTERN.findall(text.lower())
         if token and token not in _STOP_WORDS
     }
