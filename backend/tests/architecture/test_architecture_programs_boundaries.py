@@ -58,8 +58,10 @@ def test_programs_routes_use_container_repository():
 
 def test_bootstrap_routing_mounts_domain_programs_router_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
+    legacy_api_import = "domains.programs." "api.programs"
+
     assert "domains.programs.routes" in source
-    assert "domains.programs.api.programs" not in source
+    assert legacy_api_import not in source
     assert "from ..routers.programs import router as programs_router" not in source
     assert "include_router(programs_router)" in source
 

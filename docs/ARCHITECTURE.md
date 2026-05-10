@@ -193,11 +193,12 @@ Current contents:
 
 - `domains/programs/`
   Secondary backend domain for program spec import and management. This domain
-  owns `/api/programs`; `api/` owns FastAPI routes, `application/` owns import,
-  activation/retirement, and version use cases plus repository ports, and
-  `infra/` owns the SQLite repository adapter. Program imports currently persist
-  the program spec and version history only; protocol, routine, and experiment
-  activation is intentionally not implemented yet.
+  owns `/api/programs`; `routes.py` owns HTTP routes, `application/` owns import,
+  activation/retirement, and version use cases, `dependencies.py` owns the
+  repository dependency protocol, and `adapters.py` owns SQLite program spec and
+  version-history persistence. Program imports currently persist the program
+  spec and version history only; protocol, routine, and experiment activation is
+  intentionally not implemented yet.
 
 ### Module Ownership Charters
 
