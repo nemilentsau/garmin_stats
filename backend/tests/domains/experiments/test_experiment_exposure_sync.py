@@ -1,14 +1,7 @@
 """Tests for experiment exposure sync derived from routine card logs."""
 
 from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
-from app.domains.experiments.adapters import (
-    SqliteExperimentRepository,
-    load_experiment_analysis,
-    load_experiment_exposures,
-    save_experiment,
-    save_experiment_analysis,
-    save_experiment_exposure,
-)
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
     Experiment,
@@ -94,7 +87,7 @@ def _activate_two_card_routine(routine_id: str) -> None:
 
 
 def _save_linked_experiment(experiment_id: str, routine_id: str) -> None:
-    save_experiment(
+    SqliteExperimentRepository().save_experiment(
         Experiment(
             id=experiment_id,
             name="Meditation -> HRV",
@@ -141,7 +134,7 @@ def test_sync_experiment_exposures_marks_day_full_when_all_linked_cards_complete
 
     _sync_exposures_for_date("2026-03-02")
 
-    exposures = load_experiment_exposures(experiment_id="exp-full")
+    exposures = SqliteExperimentRepository().list_experiment_exposures(experiment_id="exp-full")
     assert len(exposures) == 1
     assert exposures[0].date == "2026-03-02"
     assert exposures[0].adherence_state == "full"
@@ -172,7 +165,7 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
 
     _sync_exposures_for_date("2026-03-02")
 
-    exposures = load_experiment_exposures(experiment_id="exp-partial")
+    exposures = SqliteExperimentRepository().list_experiment_exposures(experiment_id="exp-partial")
     assert len(exposures) == 1
     assert exposures[0].adherence_state == "partial"
     assert exposures[0].exposure_score == 0.5
@@ -181,7 +174,7 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
 def test_sync_experiment_exposures_preserves_manual_same_day_entries():
     _activate_two_card_routine("routine-exposure-manual")
     _save_linked_experiment("exp-manual", "routine-exposure-manual")
-    save_experiment_exposure(
+    SqliteExperimentRepository().save_experiment_exposure(
         ExperimentExposure(
             id="manual:exp-manual:2026-03-02",
             experiment_id="exp-manual",
@@ -209,7 +202,7 @@ def test_sync_experiment_exposures_preserves_manual_same_day_entries():
 
     _sync_exposures_for_date("2026-03-02")
 
-    exposures = load_experiment_exposures(experiment_id="exp-manual")
+    exposures = SqliteExperimentRepository().list_experiment_exposures(experiment_id="exp-manual")
     assert len(exposures) == 1
     assert exposures[0].id == "manual:exp-manual:2026-03-02"
     assert exposures[0].adherence_state == "missed"
@@ -230,10 +223,11 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
             treatment_end_date="2026-03-02",
         ),
     )
-    save_experiment(experiment)
-    save_experiment_analysis(
+    repo = SqliteExperimentRepository()
+    repo.save_experiment(experiment)
+    repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(SqliteExperimentRepository(), experiment),
+        compute_experiment_analysis(repo, experiment),
     )
 
     scheduled_cards = _scheduled_cards_for("2026-03-02")
@@ -251,14 +245,14 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
             )
         )
 
-    before = load_experiment_analysis("exp-analysis-refresh")
+    before = repo.get_experiment_analysis("exp-analysis-refresh")
     assert before is not None
     assert before.adherence_rate == 0.0
     assert before.adherence_by_day[0].state == "unknown"
 
     _sync_exposures_for_date("2026-03-02")
 
-    after = load_experiment_analysis("exp-analysis-refresh")
+    after = repo.get_experiment_analysis("exp-analysis-refresh")
     assert after is not None
     assert after.adherence_rate == 1.0
     assert after.adherence_by_day[0].state == "full"
@@ -278,10 +272,11 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
             treatment_end_date="2026-03-02",
         ),
     )
-    save_experiment(experiment)
-    save_experiment_analysis(
+    repo = SqliteExperimentRepository()
+    repo.save_experiment(experiment)
+    repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(SqliteExperimentRepository(), experiment),
+        compute_experiment_analysis(repo, experiment),
     )
 
     first_card = _scheduled_cards_for("2026-03-02")[0]
@@ -300,11 +295,11 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
 
     _sync_exposures_for_date("2026-03-02")
 
-    exposures = load_experiment_exposures(experiment_id="exp-completed-refresh")
+    exposures = repo.list_experiment_exposures(experiment_id="exp-completed-refresh")
     assert len(exposures) == 1
     assert exposures[0].adherence_state == "partial"
 
-    after = load_experiment_analysis("exp-completed-refresh")
+    after = repo.get_experiment_analysis("exp-completed-refresh")
     assert after is not None
     assert after.adherence_rate == 0.0
     assert after.adherence_by_day[0].state == "partial"
@@ -313,7 +308,8 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
 def test_sync_experiment_exposures_removes_stale_auto_entry_when_schedule_no_longer_matches():
     _activate_two_card_routine("routine-exposure-stale")
     _save_linked_experiment("exp-stale", "routine-exposure-stale")
-    save_experiment_exposure(
+    repo = SqliteExperimentRepository()
+    repo.save_experiment_exposure(
         ExperimentExposure(
             id="exposure:auto:exp-stale:2026-03-02",
             experiment_id="exp-stale",
@@ -330,4 +326,4 @@ def test_sync_experiment_exposures_removes_stale_auto_entry_when_schedule_no_lon
 
     _sync_exposures_for_date("2026-03-02")
 
-    assert load_experiment_exposures(experiment_id="exp-stale") == []
+    assert repo.list_experiment_exposures(experiment_id="exp-stale") == []

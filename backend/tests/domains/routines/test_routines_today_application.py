@@ -2,10 +2,7 @@
 
 import pytest
 
-from app.domains.experiments.adapters import (
-    load_experiment_exposures,
-    save_experiment,
-)
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.contracts import Experiment
 from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.today import (
@@ -150,7 +147,8 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             ),
         ],
     )
-    save_experiment(
+    experiment_repo = SqliteExperimentRepository()
+    experiment_repo.save_experiment(
         Experiment(
             id="exp-today-sync",
             name="Meditation -> HRV",
@@ -176,7 +174,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
         ),
     )
 
-    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    exposures = experiment_repo.list_experiment_exposures(experiment_id="exp-today-sync")
     assert len(exposures) == 1
     assert exposures[0].adherence_state == "partial"
     assert exposures[0].exposure_score == 0.5
@@ -193,7 +191,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
         ),
     )
 
-    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    exposures = experiment_repo.list_experiment_exposures(experiment_id="exp-today-sync")
     assert len(exposures) == 1
     assert exposures[0].adherence_state == "full"
     assert exposures[0].exposure_score == 1.0
@@ -210,7 +208,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
         ),
     )
 
-    exposures = load_experiment_exposures(experiment_id="exp-today-sync")
+    exposures = experiment_repo.list_experiment_exposures(experiment_id="exp-today-sync")
     assert len(exposures) == 1
     assert exposures[0].adherence_state == "partial"
     assert exposures[0].exposure_score == 0.5

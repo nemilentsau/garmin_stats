@@ -1,13 +1,6 @@
 """Tests for experiment SQLite adapters."""
 
-from app.domains.experiments.adapters import (
-    load_experiment_exposures,
-    load_experiment_reports,
-    load_experiments,
-    save_experiment,
-    save_experiment_exposure,
-    save_experiment_report,
-)
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentExposure,
@@ -17,6 +10,7 @@ from app.domains.experiments.contracts import (
 
 
 def test_experiment_family_survives_adapter_round_trip():
+    repo = SqliteExperimentRepository()
     experiment = Experiment(
         id="exp-1",
         name="Evening meditation",
@@ -37,13 +31,13 @@ def test_experiment_family_survives_adapter_round_trip():
         summary="Initial response looks promising.",
     )
 
-    save_experiment(experiment)
-    save_experiment_exposure(exposure)
-    save_experiment_report(report)
+    repo.save_experiment(experiment)
+    repo.save_experiment_exposure(exposure)
+    repo.save_experiment_report(report)
 
-    experiments = load_experiments()
-    exposures = load_experiment_exposures(experiment_id="exp-1")
-    reports = load_experiment_reports(experiment_id="exp-1")
+    experiments = repo.list_experiments()
+    exposures = repo.list_experiment_exposures(experiment_id="exp-1")
+    reports = repo.list_experiment_reports(experiment_id="exp-1")
 
     assert [item.id for item in experiments] == ["exp-1"]
     assert [item.id for item in exposures] == ["exposure-1"]

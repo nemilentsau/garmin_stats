@@ -5,14 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 import app.infra.database as db
-from app.domains.experiments.adapters import (
-    SqliteExperimentRepository,
-    load_experiment,
-    load_experiment_analysis,
-    save_experiment,
-    save_experiment_analysis,
-    save_experiment_exposure,
-)
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
     Experiment,
@@ -309,7 +302,7 @@ class TestExperimentPreviewAndImport:
         assert result.analysis.days_in_baseline > 0
 
         # Verify persisted
-        loaded = load_experiment("import-test")
+        loaded = SqliteExperimentRepository().get_experiment("import-test")
         assert loaded is not None
         assert loaded.status == "active"
 
@@ -335,7 +328,7 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
         )
 
-        loaded = load_experiment_analysis("flat-series")
+        loaded = SqliteExperimentRepository().get_experiment_analysis("flat-series")
 
         assert loaded is not None
         result = loaded.metrics[0].best_result
@@ -416,9 +409,10 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[],
         )
-        save_experiment(experiment)
+        repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
         for day in ("2026-04-11", "2026-04-12", "2026-04-13"):
-            save_experiment_exposure(
+            repo.save_experiment_exposure(
                 ExperimentExposure(
                     id=f"exposure:auto:{experiment.id}:{day}",
                     experiment_id=experiment.id,
@@ -428,13 +422,12 @@ class TestExperimentPreviewAndImport:
                 )
             )
 
-        repo = SqliteExperimentRepository()
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
-        save_experiment_analysis(
+        repo.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
-        stale = load_experiment_analysis(experiment.id)
+        stale = repo.get_experiment_analysis(experiment.id)
         assert stale is not None
         assert stale.adherence_rate == 1.0
         assert len(stale.adherence_by_day) == 3
@@ -450,7 +443,7 @@ class TestExperimentPreviewAndImport:
         assert analysis.adherence_by_day[-1].date == "2026-04-24"
         assert analysis.adherence_by_day[-1].state == "unknown"
 
-        save_experiment_analysis(experiment.id, stale)
+        repo.save_experiment_analysis(experiment.id, stale)
         detail = management_mod.get_experiment_with_analysis(repo, experiment.id)
 
         assert detail.analysis is not None
@@ -485,11 +478,11 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[],
         )
-        save_experiment(experiment)
-
         repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
+
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
-        save_experiment_analysis(
+        repo.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
@@ -505,7 +498,7 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(repo, "save_experiment_analysis", tracking_save)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
-        persisted = load_experiment_analysis(experiment.id)
+        persisted = repo.get_experiment_analysis(experiment.id)
 
         assert analysis is not None
         assert analysis.analysis_date == "2026-04-13"
