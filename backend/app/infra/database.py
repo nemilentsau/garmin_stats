@@ -28,7 +28,6 @@ from ..domains.assistant.contracts import (
     PlanItem,
 )
 from ..utils.timeutil import now_iso
-from . import cache
 from .jsonstore import JsonStore
 from .sqlite import DB_PATH, connect
 
