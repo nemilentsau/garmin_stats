@@ -6,6 +6,7 @@ from app.domains.experiments.contracts import Experiment, ExperimentAnalysis
 from app.domains.experiments.domain.analysis import (
     compute_experiment_analysis as compute_domain_experiment_analysis,
 )
+from app.domains.experiments.domain.analysis import unanalyzable_placeholder
 
 from ..dependencies import ExperimentRepository
 
@@ -15,6 +16,9 @@ def compute_experiment_analysis(
     experiment: Experiment,
 ) -> ExperimentAnalysis:
     """Load analysis inputs and compute the current experiment analysis."""
+    placeholder = unanalyzable_placeholder(experiment)
+    if placeholder is not None:
+        return placeholder
     return compute_domain_experiment_analysis(
         experiment,
         daily_metrics=repo.list_daily_metrics(),

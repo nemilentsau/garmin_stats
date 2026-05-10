@@ -1,7 +1,4 @@
-"""Experiment analysis orchestration.
-
-Loads data windows, calls statistical functions, produces ExperimentAnalysis.
-"""
+"""Experiment analysis: extract windows, call statistical functions, produce ExperimentAnalysis."""
 
 from __future__ import annotations
 
@@ -57,6 +54,48 @@ def current_treatment_window_end(design: ExperimentDesign | None) -> str | None:
     today = date_type.today().isoformat()
     treatment_end = design.treatment_end_date or today
     return min(treatment_end, today)
+
+
+def unanalyzable_placeholder(experiment: Experiment) -> ExperimentAnalysis | None:
+    """Placeholder analysis for experiments without enough design to be analyzed, else None.
+
+    Exposed so callers can short-circuit data loading before invoking the full pipeline.
+    """
+    design = experiment.design
+    today = date_type.today().isoformat()
+    if design is None:
+        return ExperimentAnalysis(
+            experiment_id=experiment.id,
+            analysis_date=today,
+            phase="draft",
+            days_in_baseline=0,
+            days_in_treatment=0,
+            adherence_rate=0.0,
+            adherence_by_day=[],
+            metrics=[],
+            confounders=[],
+            overall_confidence="insufficient",
+            summary=f"Experiment '{experiment.name}' has no design configured.",
+        )
+    if (
+        not design.baseline_start_date
+        or not design.baseline_end_date
+        or not design.treatment_start_date
+    ):
+        return ExperimentAnalysis(
+            experiment_id=experiment.id,
+            analysis_date=today,
+            phase="draft",
+            days_in_baseline=0,
+            days_in_treatment=0,
+            adherence_rate=0.0,
+            adherence_by_day=[],
+            metrics=[],
+            confounders=[],
+            overall_confidence="insufficient",
+            summary=f"Experiment '{experiment.name}' has unresolved design dates.",
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -449,43 +488,12 @@ def compute_experiment_analysis(
     exposures: list[ExperimentExposure],
 ) -> ExperimentAnalysis:
     """Compute full analysis for an experiment."""
+    placeholder = unanalyzable_placeholder(experiment)
+    if placeholder is not None:
+        return placeholder
+
     design = experiment.design
-    if design is None:
-        return ExperimentAnalysis(
-            experiment_id=experiment.id,
-            analysis_date=date_type.today().isoformat(),
-            phase="draft",
-            days_in_baseline=0,
-            days_in_treatment=0,
-            adherence_rate=0.0,
-            adherence_by_day=[],
-            metrics=[],
-            confounders=[],
-            overall_confidence="insufficient",
-            summary=f"Experiment '{experiment.name}' has no design configured.",
-        )
-
-    dates_missing = (
-        not design.baseline_start_date
-        or not design.baseline_end_date
-        or not design.treatment_start_date
-    )
-    if dates_missing:
-        return ExperimentAnalysis(
-            experiment_id=experiment.id,
-            analysis_date=date_type.today().isoformat(),
-            phase="draft",
-            days_in_baseline=0,
-            days_in_treatment=0,
-            adherence_rate=0.0,
-            adherence_by_day=[],
-            metrics=[],
-            confounders=[],
-            overall_confidence="insufficient",
-            summary=f"Experiment '{experiment.name}' has unresolved design dates.",
-        )
-
-    # After the guard above, all date fields are guaranteed non-None.
+    assert design is not None
     assert design.baseline_start_date is not None
     assert design.baseline_end_date is not None
     assert design.treatment_start_date is not None

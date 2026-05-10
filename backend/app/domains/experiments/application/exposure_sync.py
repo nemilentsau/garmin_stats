@@ -72,12 +72,9 @@ def sync_experiment_exposures_for_date(
             continue
         occurrences_by_routine[occurrence.routine_id].append(occurrence)
 
-    logs_by_occurrence_key = {
-        log.occurrence_key: log for log in routine_repo.list_card_logs(date=date)
-    }
     statuses_by_occurrence_key = {
-        occurrence_key: log.status
-        for occurrence_key, log in logs_by_occurrence_key.items()
+        log.occurrence_key: log.status
+        for log in routine_repo.list_card_logs(date=date)
     }
     auto_exposures_by_experiment = {
         exposure.experiment_id: exposure
