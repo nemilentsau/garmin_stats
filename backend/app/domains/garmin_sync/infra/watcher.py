@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterable, Awaitable, Callable, Collection
+from collections.abc import Awaitable, Callable, Collection
 from pathlib import Path
 
 from watchfiles import Change, awatch
@@ -16,7 +16,6 @@ log = logging.getLogger(__name__)
 ArchiveBatchExtractor = Callable[[list[Path]], None]
 Broadcast = Callable[[str, str], Awaitable[None]]
 ChangeBatch = Collection[tuple[Change, str]]
-ChangeStreamFactory = Callable[[Path], AsyncIterable[ChangeBatch]]
 EnsureDataDir = Callable[[Path], None]
 Fingerprint = Callable[[Path], str]
 RefreshAfterIngest = Callable[[], int]
@@ -25,10 +24,6 @@ RefreshAfterIngest = Callable[[], int]
 def _zip_filter(change: Change, path: str) -> bool:
     """Only watch .zip files in the top-level data directory."""
     return path.endswith(".zip")
-
-
-def _watch_zip_changes(data_dir: Path) -> AsyncIterable[ChangeBatch]:
-    return awatch(data_dir, watch_filter=_zip_filter, debounce=3000)
 
 
 class DataDirectoryWatcher:
@@ -43,7 +38,6 @@ class DataDirectoryWatcher:
         extract_archives: ArchiveBatchExtractor,
         ingest: IngestGateway,
         broadcast: Broadcast,
-        change_stream: ChangeStreamFactory = _watch_zip_changes,
     ) -> None:
         self._data_dir = data_dir
         self._ensure_data_dir = ensure_data_dir
@@ -51,7 +45,6 @@ class DataDirectoryWatcher:
         self._extract_archives = extract_archives
         self._ingest = ingest
         self._broadcast = broadcast
-        self._change_stream = change_stream
         self._last_fingerprint: str | None = None
         self._suspended = False
 
@@ -66,7 +59,6 @@ class DataDirectoryWatcher:
         log.info("File watcher suspended")
 
     def resume(self) -> None:
-        """Resume file reactions after suspension."""
         self._suspended = False
         log.info("File watcher resumed")
 
@@ -78,7 +70,7 @@ class DataDirectoryWatcher:
         """Watch for archive changes and process them until cancelled."""
         self.prime()
         log.info("File watcher started on %s", self._data_dir)
-        async for changes in self._change_stream(self._data_dir):
+        async for changes in awatch(self._data_dir, watch_filter=_zip_filter, debounce=3000):
             await self.handle_changes(
                 changes,
                 refresh_after_ingest=refresh_after_ingest,
@@ -90,10 +82,7 @@ class DataDirectoryWatcher:
         *,
         refresh_after_ingest: RefreshAfterIngest | None = None,
     ) -> None:
-        """Process one watchfiles change batch."""
-        if self._last_fingerprint is None:
-            self.prime()
-
+        """Process one watchfiles change batch. Caller must have called prime() or watch()."""
         if self._suspended:
             log.debug("Watcher suspended; skipping %d change(s)", len(changes))
             return

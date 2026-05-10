@@ -4,27 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Protocol
 
+from app.bootstrap.container import AppContainer
 from app.domains.experiments.application.analysis_cache import refresh_active_experiments
-from app.domains.experiments.application.ports import ExperimentRepository
-from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.runtime import run_startup_ingest_if_needed
-from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.infra.events import heartbeat_loop
 
 log = logging.getLogger(__name__)
-
-
-class ProcessRuntimeContainer(Protocol):
-    @property
-    def garmin_sync(self) -> GarminSyncDependencies: ...
-
-    @property
-    def garmin_sync_watcher(self) -> DataDirectoryWatcher: ...
-
-    @property
-    def experiments_repo(self) -> ExperimentRepository: ...
 
 
 def _task_done_callback(task: asyncio.Task[None]) -> None:
@@ -39,7 +25,7 @@ def _task_done_callback(task: asyncio.Task[None]) -> None:
 class ProcessRuntime:
     """Own process startup hooks and long-running background tasks."""
 
-    def __init__(self, container: ProcessRuntimeContainer) -> None:
+    def __init__(self, container: AppContainer) -> None:
         self._container = container
         self._tasks: list[asyncio.Task[None]] = []
 
@@ -61,7 +47,6 @@ class ProcessRuntime:
         self._tasks = [watcher_task, heartbeat_task]
 
     def stop(self) -> None:
-        """Cancel background tasks on application shutdown."""
         for task in self._tasks:
             task.cancel()
 
@@ -69,6 +54,5 @@ class ProcessRuntime:
         return refresh_active_experiments(self._container.experiments_repo)
 
 
-def build_process_runtime(container: ProcessRuntimeContainer) -> ProcessRuntime:
-    """Create the composed process runtime for the app container."""
+def build_process_runtime(container: AppContainer) -> ProcessRuntime:
     return ProcessRuntime(container)

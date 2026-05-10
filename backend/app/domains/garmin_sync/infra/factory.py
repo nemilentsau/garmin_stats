@@ -59,11 +59,3 @@ def build_garmin_sync_infra(
         monotonic=time.monotonic,
     )
     return GarminSyncInfra(dependencies=dependencies, watcher=watcher)
-
-
-def build_garmin_sync_dependencies(
-    config: AppConfig | None = None,
-    data_dir: Path | None = None,
-) -> GarminSyncDependencies:
-    """Wire production implementations for Garmin sync workflows."""
-    return build_garmin_sync_infra(config, data_dir).dependencies
