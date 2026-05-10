@@ -37,6 +37,7 @@ class SqliteExperimentRepository:
         *,
         statuses: tuple[str, ...] | None = None,
     ) -> list[Experiment]:
+        """Load experiment definitions, optionally filtered by lifecycle status."""
         where_sql = ""
         params: tuple[object, ...] = ()
         if statuses is not None:
@@ -46,18 +47,23 @@ class SqliteExperimentRepository:
         return _STORE.load_many("experiments", Experiment, where_sql=where_sql, params=params)
 
     def get_experiment(self, experiment_id: str) -> Experiment | None:
+        """Load one experiment definition by id."""
         return _STORE.load("experiments", Experiment, experiment_id)
 
     def experiment_exists(self, experiment_id: str) -> bool:
+        """Return whether an experiment definition exists without loading it."""
         return _STORE.exists("experiments", experiment_id)
 
     def save_experiment(self, experiment: Experiment) -> None:
+        """Persist one experiment definition."""
         _STORE.save("experiments", experiment.id, experiment.model_dump_json())
 
     def delete_experiment(self, experiment_id: str) -> None:
+        """Delete one experiment definition by id."""
         _STORE.delete("experiments", experiment_id)
 
     def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        """Load all cached analysis snapshots keyed by experiment id."""
         with connect() as con:
             rows = con.execute(
                 "SELECT experiment_id, data FROM experiment_analyses"
@@ -68,6 +74,7 @@ class SqliteExperimentRepository:
         }
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
+        """Load the cached analysis snapshot for one experiment."""
         with connect() as con:
             row = con.execute(
                 "SELECT data FROM experiment_analyses WHERE experiment_id = ?",
@@ -82,6 +89,7 @@ class SqliteExperimentRepository:
         experiment_id: str,
         analysis: ExperimentAnalysis,
     ) -> None:
+        """Upsert the cached analysis snapshot keyed by experiment id."""
         now = now_iso()
         data_json = analysis.model_dump_json()
         with connect() as con, con:
@@ -93,6 +101,7 @@ class SqliteExperimentRepository:
             )
 
     def delete_experiment_analysis(self, experiment_id: str) -> None:
+        """Delete any cached analysis snapshot for an experiment."""
         with connect() as con, con:
             con.execute(
                 "DELETE FROM experiment_analyses WHERE experiment_id = ?",
@@ -105,6 +114,7 @@ class SqliteExperimentRepository:
         experiment_id: str | None = None,
         date: str | None = None,
     ) -> list[ExperimentExposure]:
+        """Load exposure rows filtered by experiment id, date, or both."""
         clauses: list[str] = []
         params: list[object] = []
         if experiment_id is not None:
@@ -122,6 +132,7 @@ class SqliteExperimentRepository:
         )
 
     def save_experiment_exposure(self, exposure: ExperimentExposure) -> None:
+        """Persist one manual or derived experiment-day exposure row."""
         _STORE.save(
             "experiment_exposures",
             exposure.id,
@@ -180,6 +191,7 @@ class SqliteExperimentRepository:
         self,
         experiment_id: str | None = None,
     ) -> list[ExperimentReport]:
+        """Load experiment reports, optionally restricted to one experiment."""
         where_sql = "experiment_id = ?" if experiment_id is not None else ""
         params = (experiment_id,) if experiment_id is not None else ()
         return _STORE.load_many(
@@ -191,6 +203,7 @@ class SqliteExperimentRepository:
         )
 
     def save_experiment_report(self, report: ExperimentReport) -> None:
+        """Persist one generated experiment report."""
         _STORE.save(
             "experiment_reports",
             report.id,
@@ -202,7 +215,9 @@ class SqliteExperimentRepository:
         )
 
     def list_daily_metrics(self) -> list[DailyMetric]:
+        """Return all daily Garmin metrics for analysis windowing."""
         return load_daily_metrics()
 
     def list_daily_checkins(self) -> list[DailyCheckIn]:
+        """Return all daily journal check-ins for confounder evaluation."""
         return load_daily_checkins()
