@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 import app.domains.routines.adapters as routine_db
 import app.infra.database as db
 from app.core.profile.contracts import (
@@ -144,19 +142,6 @@ class TestInit:
 
 
 # ---------------------------------------------------------------------------
-# count_rows
-# ---------------------------------------------------------------------------
-
-class TestCountRows:
-    def test_returns_zero_for_empty_table(self):
-        assert db._count_rows("daily_metrics") == 0
-
-    def test_rejects_invalid_table_name(self):
-        with pytest.raises(ValueError, match="Invalid table name"):
-            db._count_rows("users; DROP TABLE daily_metrics")
-
-
-# ---------------------------------------------------------------------------
 # Store and load round-trips
 # ---------------------------------------------------------------------------
 
@@ -188,19 +173,6 @@ class TestStoreAndLoad:
                 con.commit()
         days = db.load_available_days()
         assert days == ["2026-01-15", "2026-01-16", "2026-01-17"]
-
-    def test_is_db_empty_true_when_no_metrics(self):
-        assert db.is_db_empty() is True
-
-    def test_is_db_empty_false_after_insert(self):
-        metric = _make_daily_metric("2026-01-15")
-        with db._connect() as con:
-            con.execute(
-                "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                ("2026-01-15", metric.model_dump_json(), "now"),
-            )
-            con.commit()
-        assert db.is_db_empty() is False
 
     def test_user_profile_survives_round_trip(self):
         profile = UserProfile(

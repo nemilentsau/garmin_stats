@@ -280,20 +280,6 @@ def _normalize_alias_text(value: str | None) -> str | None:
 _STORE = JsonStore(_VALID_TABLES)
 
 
-def _count_rows(table: str) -> int:
-    """Count rows in a table (validated against whitelist)."""
-    if table not in _VALID_TABLES:
-        raise ValueError(f"Invalid table name: {table}")
-    with _connect() as con:
-        row = con.execute(f"SELECT COUNT(*) AS cnt FROM {table}").fetchone()
-        return row["cnt"]
-
-
-def is_db_empty() -> bool:
-    """Check if the DB has any ingested data."""
-    return _count_rows("daily_metrics") == 0
-
-
 def load_available_days() -> list[str]:
     """Load all dates that have data in the DB (cached until next ingest)."""
     return cache.cached(cache.AVAILABLE_DAYS, _fetch_available_days)

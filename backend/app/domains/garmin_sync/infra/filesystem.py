@@ -203,5 +203,5 @@ class FilesystemSyncFileStore:
         return (data_dir / f"{day.isoformat()}.zip").exists()
 
     def write_zip(self, data_dir: Path, day: date, data: bytes) -> None:
-        data_dir.mkdir(parents=True, exist_ok=True)
+        ensure_data_dir(data_dir)
         (data_dir / f"{day.isoformat()}.zip").write_bytes(data)

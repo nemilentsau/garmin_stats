@@ -6,7 +6,6 @@ import logging
 import sqlite3
 import threading
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 
 from app.domains.garmin_health.contracts import DayData
@@ -16,6 +15,7 @@ from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
 from app.infra import cache
 from app.infra.sqlite import connect
 from app.parser import get_files_by_day, parse_all_days, parse_day
+from app.utils.timeutil import now_iso
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,14 @@ def _get_meta(key: str) -> str | None:
             "SELECT value FROM ingest_meta WHERE key = ?", (key,)
         ).fetchone()
         return row["value"] if row else None
+
+
+def _write_meta(con: sqlite3.Connection, items: dict[str, str]) -> None:
+    """Upsert one or more ingest metadata key/value pairs."""
+    con.executemany(
+        "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
+        items.items(),
+    )
 
 
 def _table_dates(con: sqlite3.Connection, table: str) -> set[str]:
@@ -102,27 +110,19 @@ def ingest_all(data_dir: Path) -> IngestResult:
         t0 = time.monotonic()
         all_days = parse_all_days(data_dir)
 
-        now = datetime.now(UTC).isoformat()
+        now = now_iso()
         with connect() as con, con:
             _delete_stale_day_rows(con, [day.date for day in all_days])
             _upsert_parsed_day_data(con, all_days, now)
-
-            meta_upsert = (
-                "INSERT OR REPLACE INTO ingest_meta"
-                " (key, value) VALUES (?, ?)"
-            )
             duration_ms = int((time.monotonic() - t0) * 1000)
-            meta = {
+            _write_meta(con, {
                 "last_ingest_time": now,
                 "duration_ms": str(duration_ms),
                 "data_fingerprint": compute_data_fingerprint(data_dir),
                 "days_ingested": str(len(all_days)),
-            }
-            for key, value in meta.items():
-                con.execute(meta_upsert, (key, value))
+            })
 
         cache.invalidate()
-        duration_ms = int((time.monotonic() - t0) * 1000)
         log.info("Ingested %d days in %d ms", len(all_days), duration_ms)
         return IngestResult(days_ingested=len(all_days), duration_ms=duration_ms)
     finally:
@@ -148,19 +148,13 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
             if day in date_set
         ]
 
-        now = datetime.now(UTC).isoformat()
+        now = now_iso()
         with connect() as con, con:
             _upsert_parsed_day_data(con, parsed_days, now)
-
-            meta_upsert = (
-                "INSERT OR REPLACE INTO ingest_meta"
-                " (key, value) VALUES (?, ?)"
-            )
-            con.execute(
-                meta_upsert,
-                ("data_fingerprint", compute_data_fingerprint(data_dir)),
-            )
-            con.execute(meta_upsert, ("last_ingest_time", now))
+            _write_meta(con, {
+                "data_fingerprint": compute_data_fingerprint(data_dir),
+                "last_ingest_time": now,
+            })
 
         cache.invalidate()
         duration_ms = int((time.monotonic() - t0) * 1000)
