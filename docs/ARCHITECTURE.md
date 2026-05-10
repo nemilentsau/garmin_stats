@@ -129,7 +129,8 @@ Current contents:
   Assistant chat and retrieval-first evidence context. This slice uses a flat
   small-capability layout: `routes.py` owns `/api/assistant` HTTP and streaming
   endpoints, `application/` owns thread catalog, intent classification, entity
-  resolution, evidence assembly, retrieval, and chat orchestration,
+  resolution, read-model interaction, evidence assembly, retrieval, and chat
+  orchestration, `domain/` owns pure assistant evidence payload policy,
   `dependencies.py` owns conversation/read-model/runtime dependencies,
   `adapters.py` owns assistant SQLite persistence and explicit read-model
   wiring, `runtime.py` owns Claude Code subprocess execution, and `contracts.py`

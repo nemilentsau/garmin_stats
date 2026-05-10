@@ -30,6 +30,27 @@ def test_assistant_application_modules_follow_strict_boundary():
     ])
 
 
+def test_assistant_domain_modules_do_not_import_runtime_or_dependencies():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/assistant/domain/current_state.py",
+            "backend/app/domains/assistant/domain/experiment_evidence.py",
+            "backend/app/domains/assistant/domain/payloads.py",
+        ],
+        [
+            "fastapi",
+            "app.infra",
+            "app.services",
+            "app.routers",
+            "app.domains.assistant.adapters",
+            "app.domains.assistant.application",
+            "app.domains.assistant.dependencies",
+            "app.domains.assistant.runtime",
+            "build_container",
+        ],
+    )
+
+
 def test_assistant_uses_flat_capability_layout():
     for path in [
         "backend/app/domains/assistant/api",
@@ -44,6 +65,9 @@ def test_assistant_uses_flat_capability_layout():
         "backend/app/domains/assistant/routes.py",
         "backend/app/domains/assistant/adapters.py",
         "backend/app/domains/assistant/dependencies.py",
+        "backend/app/domains/assistant/domain/current_state.py",
+        "backend/app/domains/assistant/domain/experiment_evidence.py",
+        "backend/app/domains/assistant/domain/payloads.py",
         "backend/app/domains/assistant/runtime.py",
     ]:
         assert (REPO_ROOT / path).exists()

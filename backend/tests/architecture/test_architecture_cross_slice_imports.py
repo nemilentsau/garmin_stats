@@ -76,8 +76,20 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.experiments.contracts",
     },
     "backend/app/domains/assistant/application/retrieval.py": {
-        "app.core.profile.contracts",
         "app.domains.experiments.contracts",
+        "app.domains.routines.contracts",
+    },
+    "backend/app/domains/assistant/domain/current_state.py": {
+        GARMIN_HEALTH_CONTRACTS,
+        "app.domains.journal.contracts",
+        "app.domains.routines.contracts",
+    },
+    "backend/app/domains/assistant/domain/experiment_evidence.py": {
+        "app.domains.experiments.contracts",
+        "app.domains.routines.contracts",
+    },
+    "backend/app/domains/assistant/domain/payloads.py": {
+        "app.core.profile.contracts",
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
         "app.domains.routines.contracts",

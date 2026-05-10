@@ -2,7 +2,7 @@
 
 from datetime import date
 
-import app.domains.assistant.application.retrieval as retrieval_mod
+import app.domains.assistant.domain.current_state as current_state_mod
 from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.evidence import build_evidence_bundle
 from app.domains.assistant.contracts import (
@@ -1157,7 +1157,7 @@ def test_routine_adherence_caps_future_schedule_window_at_today(monkeypatch) -> 
         def today(cls):
             return cls(2026, 4, 12)
 
-    monkeypatch.setattr(retrieval_mod, "date", _FrozenDate)
+    monkeypatch.setattr(current_state_mod, "date", _FrozenDate)
 
     store = _FakeReadStore.for_weekly_state()
     store._assignments.extend(
