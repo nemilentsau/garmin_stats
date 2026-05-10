@@ -1,4 +1,9 @@
-"""Experiment metric path resolution helpers."""
+"""Experiment metric path resolution helpers.
+
+Experiment specs store dotted paths instead of binding directly to Garmin or
+check-in model fields. These helpers resolve those paths safely and return only
+scalar values that the analysis pipeline can compare.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,7 @@ from app.domains.journal.contracts import DailyCheckIn
 
 
 def resolve_metric_path(metric: DailyMetric, path: str) -> float | None:
-    """Resolve a dotted path like 'hrv.nightly_avg' to a numeric value."""
+    """Resolve a dotted Garmin metric path to a numeric value."""
     current: object = metric
     for part in path.split("."):
         if current is None:
@@ -24,7 +29,7 @@ def resolve_metric_path(metric: DailyMetric, path: str) -> float | None:
 
 
 def resolve_checkin_path(checkin: DailyCheckIn, path: str) -> float | bool | None:
-    """Resolve a checkin field. *path* should NOT include the 'checkin.' prefix."""
+    """Resolve a check-in field path without the ``checkin.`` prefix."""
     val = getattr(checkin, path, None)
     if isinstance(val, bool):
         return val
@@ -38,7 +43,7 @@ def resolve_path(
     checkin: DailyCheckIn | None,
     path: str,
 ) -> float | bool | None:
-    """Dispatch to the right resolver based on path prefix."""
+    """Resolve a metric or check-in path based on its prefix."""
     if path.startswith("checkin."):
         if checkin is None:
             return None

@@ -1,6 +1,8 @@
 """Pure statistical functions for N=1 experiment analysis.
 
-All functions accept plain arrays of floats — no experiment-specific logic.
+All functions accept plain arrays of floats and return primitive values. Domain
+policy such as metric direction, report confidence, and summary wording belongs
+in neighboring experiment modules rather than in these primitives.
 """
 
 from __future__ import annotations
@@ -46,7 +48,7 @@ def interpret_nap(nap: float) -> str:
 
 
 def compute_nap(baseline: list[float], treatment: list[float]) -> tuple[float, str]:
-    """Non-overlap of All Pairs.
+    """Compute Non-overlap of All Pairs for treatment over baseline.
 
     Returns (nap_score, interpretation) where nap_score is in [0, 1].
     0.5 = no effect, 1.0 = complete separation.
@@ -100,7 +102,7 @@ def permutation_test(
     n_perms: int = 10_000,
     seed: int | None = None,
 ) -> float:
-    """Two-sided permutation test. Returns p-value."""
+    """Return a two-sided permutation-test p-value for mean difference."""
     if not baseline or not treatment:
         return 1.0
     pooled = np.array(baseline + treatment)
@@ -115,7 +117,7 @@ def permutation_test(
 
 
 def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
-    """Welch's t-test p-value (two-sided)."""
+    """Return a two-sided Welch t-test p-value."""
     if len(baseline) < 2 or len(treatment) < 2:
         return 1.0
     if _is_constant(baseline) and _is_constant(treatment):
@@ -135,7 +137,7 @@ def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
 
 
 def linear_trend(values: list[float]) -> tuple[float, float]:
-    """OLS slope and p-value on integer index. Returns (slope, p_value)."""
+    """Return OLS slope and p-value over integer sample index."""
     if len(values) < 3:
         return 0.0, 1.0
     if _is_constant(values):

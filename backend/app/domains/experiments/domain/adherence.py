@@ -1,4 +1,9 @@
-"""Experiment adherence summaries derived from exposure rows."""
+"""Experiment adherence summaries derived from exposure rows.
+
+Adherence is calculated at experiment-day grain from exposure records, not from
+individual routine cards. Missing days remain explicit as unknown calendar
+entries so the UI can distinguish no exposure from no scheduled treatment.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ def compute_adherence(
     treatment_start: str,
     treatment_end: str,
 ) -> tuple[float, list[AdherenceDayEntry]]:
-    """Compute adherence rate and per-day calendar from exposures."""
+    """Compute adherence rate and per-day calendar for a treatment window."""
     exposure_map = {exposure.date: exposure for exposure in exposures}
 
     entries: list[AdherenceDayEntry] = []

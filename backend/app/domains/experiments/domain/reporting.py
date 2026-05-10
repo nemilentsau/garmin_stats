@@ -1,4 +1,9 @@
-"""Confidence and summary text policy for experiment reports."""
+"""Confidence and summary text policy for experiment reports.
+
+Reporting policy turns metric effects, adherence, sample size, and confounder
+checks into a confidence label and compact user-facing summary. Statistical
+threshold constants stay close to this policy so report language does not drift.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ def classify_confidence(
     baseline_n: int,
     treatment_n: int,
 ) -> ExperimentReportConfidence:
+    """Classify report confidence from samples, adherence, effects, and confounders."""
     if baseline_n < _MIN_DAYS_INSUFFICIENT or treatment_n < _MIN_DAYS_INSUFFICIENT:
         return "insufficient"
     if adherence_rate < _MIN_ADHERENCE_INSUFFICIENT:
@@ -59,6 +65,7 @@ def generate_summary(
     metrics: list[MetricAnalysis],
     phase: str,
 ) -> str:
+    """Generate a compact summary sentence for the primary outcome metric."""
     if not metrics:
         return f"Experiment '{experiment.name}' has no analysable metrics yet."
 

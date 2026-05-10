@@ -1,4 +1,9 @@
-"""Confounder checks for experiment analysis."""
+"""Confounder checks for experiment analysis.
+
+Confounders compare baseline and treatment windows for watched Garmin metrics
+or subjective check-in fields. Boolean check-in flags are summarized as rates;
+numeric paths are summarized as samples with simple percentage and Welch checks.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +28,7 @@ def _extract_confounder(
     start: str,
     end: str,
 ) -> list[float] | tuple[int, int]:
-    """Extract boolean checkin flags as counts and numeric paths as samples."""
+    """Extract boolean check-in flags as counts and numeric paths as samples."""
     is_checkin_bool = path.startswith("checkin.") and path.split(".")[-1].endswith("_flag")
     days = date_range(start, end)
 
@@ -52,6 +57,7 @@ def check_confounders(
     treatment_start: str,
     treatment_end: str,
 ) -> list[ConfounderCheck]:
+    """Build confounder comparisons for all watched paths."""
     checks: list[ConfounderCheck] = []
     for path in confounder_paths:
         source = "checkin" if path.startswith("checkin.") else "metric"

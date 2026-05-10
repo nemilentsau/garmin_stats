@@ -1,4 +1,9 @@
-"""Outcome metric analysis for N=1 experiments."""
+"""Outcome metric analysis for N=1 experiments.
+
+Outcome analysis extracts baseline and treatment samples for a configured
+metric path, evaluates every expected lag, and selects the lag with the
+strongest directionally correct non-overlap signal.
+"""
 
 from __future__ import annotations
 
@@ -34,7 +39,7 @@ def _extract_metric_values(
     start: str,
     end: str,
 ) -> list[float]:
-    """Extract non-None numeric values for a metric path within a date range."""
+    """Extract non-null numeric values for a metric path within a date range."""
     values: list[float] = []
     for day in date_range(start, end):
         metric = metrics_map.get(day)
@@ -53,7 +58,7 @@ def _analyse_metric_lag(
     treatment_start_effective: str,
     direction: OutcomeMetricDirection,
 ) -> MetricLagResult:
-    """Run full statistical battery for one metric at one lag offset."""
+    """Run the statistical battery for one outcome at one lag offset."""
     baseline_mean = float(np.mean(baseline_vals)) if baseline_vals else 0.0
     baseline_sd = float(np.std(baseline_vals, ddof=1)) if len(baseline_vals) > 1 else 0.0
     treatment_mean = float(np.mean(treatment_vals)) if treatment_vals else 0.0
@@ -111,7 +116,7 @@ def analyse_metric(
     treatment_end: str,
     lag_days_list: list[int],
 ) -> MetricAnalysis:
-    """Compute analysis for one outcome metric across all lag offsets."""
+    """Compute one outcome metric across all configured lag offsets."""
     baseline_vals = _extract_metric_values(
         metrics_map, outcome.path, baseline_start, baseline_end,
     )

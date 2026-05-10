@@ -1,4 +1,9 @@
-"""Experiment analysis use case orchestration."""
+"""Experiment analysis use case orchestration.
+
+This module is the data-loading boundary for analysis computation. It
+short-circuits unanalyzable experiments before loading Garmin metrics,
+check-ins, or exposures, then delegates pure analysis rules to the domain layer.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +22,7 @@ def compute_experiment_analysis(
     repo: ExperimentRepository,
     experiment: Experiment,
 ) -> ExperimentAnalysis:
-    """Load analysis inputs and compute the current experiment analysis."""
+    """Load repository inputs and compute the current experiment analysis."""
     placeholder = unanalyzable_placeholder(experiment)
     if placeholder is not None:
         return placeholder

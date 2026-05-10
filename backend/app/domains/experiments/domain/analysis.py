@@ -1,4 +1,9 @@
-"""Experiment analysis pipeline assembly."""
+"""Experiment analysis pipeline assembly.
+
+The analysis pipeline combines outcome metric effects, confounder checks, and
+adherence into one cached report model. Inputs are already loaded by the
+application layer so this module can stay deterministic and side-effect free.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +26,7 @@ from .reporting import classify_confidence, generate_summary
 
 
 def expected_experiment_phase(experiment: Experiment) -> str:
-    """Phase that ``compute_experiment_analysis`` would assign for the current date."""
+    """Return the lifecycle phase implied by design dates and today's date."""
     design = experiment.design
     if design is None or not design.treatment_start_date:
         return "draft"
@@ -34,7 +39,7 @@ def expected_experiment_phase(experiment: Experiment) -> str:
 
 
 def current_treatment_window_end(design: ExperimentDesign | None) -> str | None:
-    """End of the realised treatment window: the planned end clamped to today."""
+    """Return the realized treatment end date, clamped to today."""
     if design is None or not design.treatment_start_date:
         return None
     today = date_type.today().isoformat()
@@ -86,7 +91,7 @@ def compute_experiment_analysis(
     daily_checkins: list[DailyCheckIn],
     exposures: list[ExperimentExposure],
 ) -> ExperimentAnalysis:
-    """Compute full analysis for an experiment.
+    """Compute outcome, confounder, adherence, confidence, and summary fields.
 
     Callers must check ``unanalyzable_placeholder`` first to short-circuit
     data loading; this function assumes the design is fully populated.

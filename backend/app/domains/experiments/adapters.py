@@ -1,4 +1,10 @@
-"""SQLite repository adapter for experiment use cases."""
+"""SQLite-backed experiment repository adapter.
+
+This module is the persistence boundary for experiment definitions, exposure
+rows, reports, and cached analysis snapshots. Application use cases depend on
+the repository protocol, while these helpers keep the SQLite and JsonStore
+details local to the adapter layer.
+"""
 
 from __future__ import annotations
 
@@ -24,18 +30,22 @@ _STORE = JsonStore({
 
 
 def experiment_exists(experiment_id: str) -> bool:
+    """Return whether an experiment definition exists without loading it."""
     return _STORE.exists("experiments", experiment_id)
 
 
 def load_experiment(experiment_id: str) -> Experiment | None:
+    """Load one experiment definition by id."""
     return _STORE.load("experiments", Experiment, experiment_id)
 
 
 def save_experiment(experiment: Experiment) -> None:
+    """Persist one experiment definition."""
     _STORE.save("experiments", experiment.id, experiment.model_dump_json())
 
 
 def delete_experiment(experiment_id: str) -> None:
+    """Delete one experiment definition by id."""
     _STORE.delete("experiments", experiment_id)
 
 
@@ -43,6 +53,7 @@ def load_experiments(
     *,
     statuses: tuple[str, ...] | None = None,
 ) -> list[Experiment]:
+    """Load experiment definitions, optionally filtered by lifecycle status."""
     where_sql = ""
     params: tuple[object, ...] = ()
     if statuses is not None:
@@ -53,6 +64,7 @@ def load_experiments(
 
 
 def save_experiment_exposure(exposure: ExperimentExposure) -> None:
+    """Persist one manual or derived experiment-day exposure row."""
     _STORE.save(
         "experiment_exposures",
         exposure.id,
@@ -72,7 +84,8 @@ def replace_experiment_exposure_for_date(
     """Replace the derived exposure row for one experiment-day.
 
     Manual same-day exposure rows are preserved and take precedence over any
-    derived exposure the sync service would otherwise write.
+    derived exposure the sync service would otherwise write. The caller must
+    pass either None or the canonical auto-id exposure for the target date.
     """
     auto_id = ExperimentExposure.auto_id(experiment_id, date)
     if exposure is not None and (
@@ -111,6 +124,7 @@ def load_experiment_exposures(
     experiment_id: str | None = None,
     date: str | None = None,
 ) -> list[ExperimentExposure]:
+    """Load exposure rows filtered by experiment id, date, or both."""
     clauses: list[str] = []
     params: list[object] = []
     if experiment_id is not None:
@@ -129,6 +143,7 @@ def load_experiment_exposures(
 
 
 def save_experiment_report(report: ExperimentReport) -> None:
+    """Persist one generated experiment report."""
     _STORE.save(
         "experiment_reports",
         report.id,
@@ -141,6 +156,7 @@ def save_experiment_report(report: ExperimentReport) -> None:
 
 
 def load_experiment_reports(experiment_id: str | None = None) -> list[ExperimentReport]:
+    """Load experiment reports, optionally restricted to one experiment."""
     where_sql = "experiment_id = ?" if experiment_id is not None else ""
     params = (experiment_id,) if experiment_id is not None else ()
     return _STORE.load_many(
@@ -153,7 +169,7 @@ def load_experiment_reports(experiment_id: str | None = None) -> list[Experiment
 
 
 def save_experiment_analysis(experiment_id: str, analysis: ExperimentAnalysis) -> None:
-    """Upsert computed analysis for an experiment keyed by experiment_id."""
+    """Upsert the cached analysis snapshot keyed by experiment id."""
     now = now_iso()
     data_json = analysis.model_dump_json()
     with connect() as con, con:
@@ -166,7 +182,7 @@ def save_experiment_analysis(experiment_id: str, analysis: ExperimentAnalysis) -
 
 
 def delete_experiment_analysis(experiment_id: str) -> None:
-    """Delete any persisted analysis for an experiment."""
+    """Delete any cached analysis snapshot for an experiment."""
     with connect() as con, con:
         con.execute(
             "DELETE FROM experiment_analyses WHERE experiment_id = ?",
@@ -175,7 +191,7 @@ def delete_experiment_analysis(experiment_id: str) -> None:
 
 
 def load_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
-    """Load the latest computed analysis for an experiment."""
+    """Load the cached analysis snapshot for one experiment."""
     with connect() as con:
         row = con.execute(
             "SELECT data FROM experiment_analyses WHERE experiment_id = ?",
@@ -187,7 +203,7 @@ def load_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
 
 
 def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
-    """Load all experiment analyses, keyed by experiment_id."""
+    """Load all cached analysis snapshots keyed by experiment id."""
     with connect() as con:
         rows = con.execute("SELECT experiment_id, data FROM experiment_analyses").fetchall()
     return {
@@ -197,6 +213,8 @@ def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
 
 
 class SqliteExperimentRepository:
+    """Repository adapter used by experiment application use cases."""
+
     def list_experiments(
         self,
         *,

@@ -1,4 +1,9 @@
-"""Pure experiment exposure derivation rules."""
+"""Pure experiment exposure derivation rules.
+
+Exposure derivation reduces all linked routine occurrences for one
+experiment-date into a single experiment-day row. Pending-only days produce no
+derived row, allowing missing exposure to remain distinct from missed exposure.
+"""
 
 from __future__ import annotations
 

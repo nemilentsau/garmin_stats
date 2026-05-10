@@ -1,4 +1,9 @@
-"""Derive experiment-day exposures from routine card logs."""
+"""Experiment exposure sync from routine card logs.
+
+The sync service observes Today-board log changes for one local date, projects
+the routine schedule for that day, derives one exposure row per linked
+experiment, and refreshes cached analysis only when the derived exposure changed.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,8 @@ _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 
 @dataclass(frozen=True)
 class ExperimentExposureSyncService:
+    """Observer adapter notified after Today card logs change."""
+
     experiment_repo: ExperimentRepository
     routine_repo: RoutineRepository
 
@@ -40,6 +47,7 @@ def _refresh_persisted_analysis_if_changed(
     old_exposure: ExperimentExposure | None,
     new_exposure: ExperimentExposure | None,
 ) -> None:
+    """Refresh cached analysis only when exposure presence or adherence changed."""
     changed = (old_exposure is None) != (new_exposure is None)
     if not changed and old_exposure is not None and new_exposure is not None:
         changed = (
@@ -57,7 +65,7 @@ def sync_experiment_exposures_for_date(
     experiment_repo: ExperimentRepository,
     routine_repo: RoutineRepository,
 ) -> None:
-    """Recompute derived experiment exposures for one date from current card logs."""
+    """Recompute derived exposure rows for all linked experiments on one date."""
     window = get_schedule_window(routine_repo, start_date=date, duration_days=1)
     occurrences = window.days[0].occurrences if window.days else []
     routine_ids_on_date = {
