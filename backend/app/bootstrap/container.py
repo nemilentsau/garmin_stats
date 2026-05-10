@@ -16,7 +16,8 @@ from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
-from app.domains.garmin_sync.infra.factory import build_garmin_sync_dependencies
+from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
+from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.infra.sqlite_repository import SqliteJournalRepository
 from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
@@ -36,6 +37,7 @@ class AppContainer:
     experiments_repo: SqliteExperimentRepository
     experiment_exposure_sync: ExperimentExposureSyncService
     garmin_sync: GarminSyncDependencies
+    garmin_sync_watcher: DataDirectoryWatcher
 
 
 @lru_cache(maxsize=1)
@@ -43,6 +45,7 @@ def build_container() -> AppContainer:
     config = get_app_config()
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
+    garmin_sync_infra = build_garmin_sync_infra(config)
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
@@ -55,5 +58,6 @@ def build_container() -> AppContainer:
         routines_repo=routines_repo,
         experiments_repo=experiments_repo,
         experiment_exposure_sync=ExperimentExposureSyncService(experiments_repo, routines_repo),
-        garmin_sync=build_garmin_sync_dependencies(config),
+        garmin_sync=garmin_sync_infra.dependencies,
+        garmin_sync_watcher=garmin_sync_infra.watcher,
     )

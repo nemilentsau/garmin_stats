@@ -1,5 +1,6 @@
 """Architecture guard rails for Garmin sync domain ownership."""
 
+import ast
 from pathlib import Path
 
 from tests._architecture import (
@@ -50,8 +51,35 @@ def test_garmin_sync_owns_filesystem_watcher_and_sqlite_ingest_in_infra_package(
     assert "app.infra.watcher" not in source
     assert "class DatabaseIngestGateway" in ingest_source
     assert "extract_archives=extract_existing_archives" in source
-    assert "suspend_watcher=suspend_watcher" in source
-    assert "resume_watcher=resume_watcher" in source
+    assert "suspend_watcher=watcher.suspend" in source
+    assert "resume_watcher=watcher.resume" in source
+
+
+def test_garmin_sync_runtime_and_watcher_depend_on_injected_ports():
+    runtime_source = read_repo_file("backend/app/domains/garmin_sync/infra/runtime.py")
+    watcher_source = read_repo_file("backend/app/domains/garmin_sync/infra/watcher.py")
+
+    assert "from app.domains.garmin_sync.infra.filesystem" not in runtime_source
+    assert "from app.domains.garmin_sync.infra.sqlite_ingest" not in runtime_source
+    assert "GarminSyncDependencies" in runtime_source
+
+    assert "from app.domains.garmin_sync.infra.sqlite_ingest import ingest_all" not in (
+        watcher_source
+    )
+    assert "class DataDirectoryWatcher" in watcher_source
+    assert "global _last_fingerprint" not in watcher_source
+    assert "global _suspended" not in watcher_source
+
+    tree = ast.parse(watcher_source)
+    module_assigned_names = {
+        target.id
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert "_last_fingerprint" not in module_assigned_names
+    assert "_suspended" not in module_assigned_names
 
 
 def test_global_infra_does_not_own_garmin_watcher_or_source_fingerprint():
@@ -158,6 +186,21 @@ def test_bootstrap_routing_mounts_domain_garmin_sync_router_directly():
     assert "domains.garmin_sync.routes" in source
     assert "from ..routers.ingest import router as ingest_router" not in source
     assert "include_router(ingest_router)" in source
+
+
+def test_lifespan_delegates_process_runtime_wiring():
+    assert (REPO_ROOT / "backend/app/bootstrap/process_runtime.py").exists()
+
+    lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
+    runtime_source = read_repo_file("backend/app/bootstrap/process_runtime.py")
+
+    assert "build_process_runtime" in lifespan_source
+    assert "refresh_active_experiments" not in lifespan_source
+    assert "watch_data_directory" not in lifespan_source
+    assert "run_startup_ingest_if_needed" not in lifespan_source
+
+    assert "refresh_active_experiments" in runtime_source
+    assert "run_startup_ingest_if_needed" in runtime_source
 
 
 def test_garmin_sync_uses_small_capability_layout_with_only_owned_infra_layer():

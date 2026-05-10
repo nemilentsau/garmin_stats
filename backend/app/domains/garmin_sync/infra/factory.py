@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -10,29 +11,59 @@ from app.core.config import AppConfig, get_app_config
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.filesystem import (
     FilesystemSyncFileStore,
+    compute_data_fingerprint,
+    ensure_data_dir,
+    extract_archives,
     extract_existing_archives,
 )
 from app.domains.garmin_sync.infra.garmin_connect import GarminConnectClientFactory
 from app.domains.garmin_sync.infra.sqlite_ingest import DatabaseIngestGateway
-from app.domains.garmin_sync.infra.watcher import resume_watcher, suspend_watcher
+from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
+from app.infra.events import event_bus
+
+
+@dataclass(frozen=True)
+class GarminSyncInfra:
+    """Concrete Garmin sync dependency bundle and matching runtime watcher."""
+
+    dependencies: GarminSyncDependencies
+    watcher: DataDirectoryWatcher
+
+
+def build_garmin_sync_infra(
+    config: AppConfig | None = None,
+    data_dir: Path | None = None,
+) -> GarminSyncInfra:
+    """Wire production workflow dependencies and runtime adapters."""
+
+    app_config = get_app_config() if config is None else config
+    sync_data_dir = app_config.data_dir if data_dir is None else data_dir
+    ingest = DatabaseIngestGateway()
+    watcher = DataDirectoryWatcher(
+        data_dir=sync_data_dir,
+        ensure_data_dir=ensure_data_dir,
+        fingerprint=compute_data_fingerprint,
+        extract_archives=extract_archives,
+        ingest=ingest,
+        broadcast=event_bus.broadcast,
+    )
+    dependencies = GarminSyncDependencies(
+        data_dir=sync_data_dir,
+        ingest=ingest,
+        extract_archives=extract_existing_archives,
+        suspend_watcher=watcher.suspend,
+        resume_watcher=watcher.resume,
+        clients=GarminConnectClientFactory(app_config.garmin_token_dir),
+        files=FilesystemSyncFileStore(),
+        today=date.today,
+        monotonic=time.monotonic,
+    )
+    return GarminSyncInfra(dependencies=dependencies, watcher=watcher)
 
 
 def build_garmin_sync_dependencies(
     config: AppConfig | None = None,
     data_dir: Path | None = None,
 ) -> GarminSyncDependencies:
-    """Wire production implementations for the Garmin sync workflow."""
-
-    app_config = get_app_config() if config is None else config
-    sync_data_dir = app_config.data_dir if data_dir is None else data_dir
-    return GarminSyncDependencies(
-        data_dir=sync_data_dir,
-        ingest=DatabaseIngestGateway(),
-        extract_archives=extract_existing_archives,
-        suspend_watcher=suspend_watcher,
-        resume_watcher=resume_watcher,
-        clients=GarminConnectClientFactory(app_config.garmin_token_dir),
-        files=FilesystemSyncFileStore(),
-        today=date.today,
-        monotonic=time.monotonic,
-    )
+    """Wire production implementations for Garmin sync workflows."""
+    return build_garmin_sync_infra(config, data_dir).dependencies

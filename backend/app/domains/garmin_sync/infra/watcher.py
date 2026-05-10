@@ -1,41 +1,25 @@
-"""Garmin sync data-directory watcher."""
+"""Garmin sync data-directory watcher runtime."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterable, Awaitable, Callable, Collection
 from pathlib import Path
 
 from watchfiles import Change, awatch
 
-from app.domains.garmin_sync.infra.filesystem import (
-    compute_data_fingerprint,
-    ensure_data_dir,
-    extract_archives,
-)
-from app.domains.garmin_sync.infra.sqlite_ingest import ingest_all
-from app.infra.events import event_bus
+from app.domains.garmin_sync.dependencies import IngestGateway
 
 log = logging.getLogger(__name__)
 
-_last_fingerprint: str | None = None
-_suspended = False
+ArchiveBatchExtractor = Callable[[list[Path]], None]
+Broadcast = Callable[[str, str], Awaitable[None]]
+ChangeBatch = Collection[tuple[Change, str]]
+ChangeStreamFactory = Callable[[Path], AsyncIterable[ChangeBatch]]
+EnsureDataDir = Callable[[Path], None]
+Fingerprint = Callable[[Path], str]
 RefreshAfterIngest = Callable[[], int]
-
-
-def suspend_watcher() -> None:
-    """Temporarily suspend the file watcher during bulk sync operations."""
-    global _suspended
-    _suspended = True
-    log.info("File watcher suspended")
-
-
-def resume_watcher() -> None:
-    """Resume the file watcher after suspension."""
-    global _suspended
-    _suspended = False
-    log.info("File watcher resumed")
 
 
 def _zip_filter(change: Change, path: str) -> bool:
@@ -43,40 +27,96 @@ def _zip_filter(change: Change, path: str) -> bool:
     return path.endswith(".zip")
 
 
-async def watch_data_directory(
-    data_dir: Path,
-    *,
-    refresh_after_ingest: RefreshAfterIngest | None = None,
-) -> None:
-    """Watch data_dir for archives, extract them, ingest, and broadcast updates."""
-    global _last_fingerprint
-    ensure_data_dir(data_dir)
-    _last_fingerprint = compute_data_fingerprint(data_dir)
+def _watch_zip_changes(data_dir: Path) -> AsyncIterable[ChangeBatch]:
+    return awatch(data_dir, watch_filter=_zip_filter, debounce=3000)
 
-    log.info("File watcher started on %s", data_dir)
-    async for changes in awatch(data_dir, watch_filter=_zip_filter, debounce=3000):
-        if _suspended:
+
+class DataDirectoryWatcher:
+    """Stateful watcher for one Garmin data directory."""
+
+    def __init__(
+        self,
+        *,
+        data_dir: Path,
+        ensure_data_dir: EnsureDataDir,
+        fingerprint: Fingerprint,
+        extract_archives: ArchiveBatchExtractor,
+        ingest: IngestGateway,
+        broadcast: Broadcast,
+        change_stream: ChangeStreamFactory = _watch_zip_changes,
+    ) -> None:
+        self._data_dir = data_dir
+        self._ensure_data_dir = ensure_data_dir
+        self._fingerprint = fingerprint
+        self._extract_archives = extract_archives
+        self._ingest = ingest
+        self._broadcast = broadcast
+        self._change_stream = change_stream
+        self._last_fingerprint: str | None = None
+        self._suspended = False
+
+    def prime(self) -> None:
+        """Create the data directory and record the current source fingerprint."""
+        self._ensure_data_dir(self._data_dir)
+        self._last_fingerprint = self._fingerprint(self._data_dir)
+
+    def suspend(self) -> None:
+        """Temporarily suspend file reactions during bulk sync operations."""
+        self._suspended = True
+        log.info("File watcher suspended")
+
+    def resume(self) -> None:
+        """Resume file reactions after suspension."""
+        self._suspended = False
+        log.info("File watcher resumed")
+
+    async def watch(
+        self,
+        *,
+        refresh_after_ingest: RefreshAfterIngest | None = None,
+    ) -> None:
+        """Watch for archive changes and process them until cancelled."""
+        self.prime()
+        log.info("File watcher started on %s", self._data_dir)
+        async for changes in self._change_stream(self._data_dir):
+            await self.handle_changes(
+                changes,
+                refresh_after_ingest=refresh_after_ingest,
+            )
+
+    async def handle_changes(
+        self,
+        changes: ChangeBatch,
+        *,
+        refresh_after_ingest: RefreshAfterIngest | None = None,
+    ) -> None:
+        """Process one watchfiles change batch."""
+        if self._last_fingerprint is None:
+            self.prime()
+
+        if self._suspended:
             log.debug("Watcher suspended; skipping %d change(s)", len(changes))
-            continue
+            return
+
         new_zips = [
             Path(path)
             for change, path in changes
             if change in (Change.added, Change.modified) and path.endswith(".zip")
         ]
         if not new_zips:
-            continue
+            return
 
         log.info("Detected %d new/modified .zip archive(s)", len(new_zips))
-        await asyncio.to_thread(extract_archives, new_zips)
+        await asyncio.to_thread(self._extract_archives, new_zips)
 
-        fingerprint = compute_data_fingerprint(data_dir)
-        if fingerprint == _last_fingerprint:
+        fingerprint = self._fingerprint(self._data_dir)
+        if fingerprint == self._last_fingerprint:
             log.debug("Fingerprint unchanged after extraction; skipping ingest")
-            continue
+            return
 
         try:
-            result = await asyncio.to_thread(ingest_all, data_dir)
-            _last_fingerprint = fingerprint
+            result = await asyncio.to_thread(self._ingest.ingest_all, self._data_dir)
+            self._last_fingerprint = fingerprint
             log.info(
                 "Auto-ingest complete: %d days in %d ms",
                 result.days_ingested,
@@ -90,6 +130,6 @@ async def watch_data_directory(
                 except Exception:
                     log.exception("Post-ingest refresh failed")
 
-            await event_bus.broadcast("data_updated", "new_data")
+            await self._broadcast("data_updated", "new_data")
         except RuntimeError:
             log.info("Ingest already in progress; skipping")

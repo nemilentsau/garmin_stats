@@ -2,7 +2,7 @@
 
 This module describes what workflows need from the outside world: ingest,
 archive extraction, watcher control, Garmin downloads, filesystem writes, and clocks.
-API response shapes live in contracts.py; concrete implementations live in adapters.py.
+API response shapes live in contracts.py; concrete implementations live under infra/.
 """
 
 from __future__ import annotations

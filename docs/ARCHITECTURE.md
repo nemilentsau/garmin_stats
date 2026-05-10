@@ -62,7 +62,10 @@ The Garmin health dependency direction is:
   `infra/contracts.py`.
 
 - `backend/app/bootstrap/`
-  App factory, lifespan wiring, router registration, and the current composition root.
+  App factory, router registration, lifespan entrypoint, process-runtime task
+  wiring, and the current composition root. Cross-domain reactions such as
+  "refresh experiment analyses after Garmin ingest" belong here rather than in
+  the Garmin sync or experiment slices.
 
 - `backend/app/core/`
   Shared cross-cutting modules being extracted out of the flat app root.
@@ -139,8 +142,9 @@ Current contents:
   ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
   callables, `infra/sqlite_ingest.py` owns SQLite ingest/status writes,
   `infra/filesystem.py` owns archive extraction and FIT source fingerprinting,
-  `infra/watcher.py` owns the Garmin data-directory watcher and suspend/resume
-  controls, `infra/runtime.py` owns startup archive reconciliation,
+  `infra/watcher.py` owns one stateful Garmin data-directory watcher instance
+  and suspend/resume controls, `infra/runtime.py` owns startup archive
+  reconciliation through injected Garmin sync dependencies,
   `infra/garmin_connect.py` owns Garmin Connect login/download details,
   `infra/factory.py` wires the production dependency bundle, and `contracts.py`
   owns ingest/sync API response models.
