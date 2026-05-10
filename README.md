@@ -78,7 +78,8 @@ models; the boundary rules matter more than the package label:
   preview/import, capability requests, and card-template persistence before
   delegating live routine activation to `domains/routines`.
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
-  derivation, and N=1 analysis through named application use-case modules.
+  derivation, and N=1 analysis with flat routes/adapters/dependencies and pure
+  experiment rules in `domain/`.
 - `domains/programs/` owns placeholder program spec import, lifecycle, and
   version history. Imports store program specs only; protocol, routine, and
   experiment activation is intentionally not implemented yet.

@@ -1,4 +1,9 @@
-"""Experiment design preview and validation use cases."""
+"""Experiment design preview and validation use cases.
+
+Preview resolves optional routine-derived design dates, validates date windows
+and metric paths, and returns issues without persisting the experiment. Import
+uses this same path before saving an active experiment.
+"""
 
 from __future__ import annotations
 
@@ -11,11 +16,11 @@ from app.domains.experiments.contracts import (
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
 )
+from app.domains.experiments.domain.metric_paths import resolve_metric_path
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.routines.dependencies import RoutineRepository
 
-from .analysis_math import resolve_metric_path
-from .ports import ExperimentRepository
+from ..dependencies import ExperimentRepository
 
 
 def _validate_metric_path(
@@ -25,7 +30,7 @@ def _validate_metric_path(
     start_date: str,
     end_date: str,
 ) -> bool:
-    """Check that a metric path resolves inside the configured experiment window."""
+    """Return whether a metric path resolves within the validation window."""
     return any(
         resolve_metric_path(metric, path) is not None
         for metric in metrics
@@ -116,7 +121,7 @@ def preview_experiment(
     *,
     routine_repo: RoutineRepository,
 ) -> ExperimentPreviewResponse:
-    """Validate an experiment spec without persisting."""
+    """Validate an experiment spec and return issues without writing."""
     issues: list[ExperimentPreviewIssue] = []
 
     if not experiment.name or not experiment.name.strip():

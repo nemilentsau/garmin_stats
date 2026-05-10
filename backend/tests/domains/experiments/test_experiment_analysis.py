@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 import app.infra.database as db
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
     Experiment,
@@ -12,7 +13,6 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     OutcomeMetric,
 )
-from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -302,7 +302,7 @@ class TestExperimentPreviewAndImport:
         assert result.analysis.days_in_baseline > 0
 
         # Verify persisted
-        loaded = db.load_experiment("import-test")
+        loaded = SqliteExperimentRepository().get_experiment("import-test")
         assert loaded is not None
         assert loaded.status == "active"
 
@@ -328,7 +328,7 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
         )
 
-        loaded = db.load_experiment_analysis("flat-series")
+        loaded = SqliteExperimentRepository().get_experiment_analysis("flat-series")
 
         assert loaded is not None
         result = loaded.metrics[0].best_result
@@ -385,6 +385,7 @@ class TestExperimentPreviewAndImport:
         import app.domains.experiments.application.analysis as experiment_analysis_mod
         import app.domains.experiments.application.analysis_cache as analysis_cache_mod
         import app.domains.experiments.application.management as management_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
 
         class Apr13(date):
             @classmethod
@@ -408,9 +409,10 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[],
         )
-        db.save_experiment(experiment)
+        repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
         for day in ("2026-04-11", "2026-04-12", "2026-04-13"):
-            db.save_experiment_exposure(
+            repo.save_experiment_exposure(
                 ExperimentExposure(
                     id=f"exposure:auto:{experiment.id}:{day}",
                     experiment_id=experiment.id,
@@ -420,19 +422,17 @@ class TestExperimentPreviewAndImport:
                 )
             )
 
-        repo = SqliteExperimentRepository()
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
-        db.save_experiment_analysis(
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
+        repo.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
-        stale = db.load_experiment_analysis(experiment.id)
+        stale = repo.get_experiment_analysis(experiment.id)
         assert stale is not None
         assert stale.adherence_rate == 1.0
         assert len(stale.adherence_by_day) == 3
 
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
-        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
 
@@ -443,17 +443,18 @@ class TestExperimentPreviewAndImport:
         assert analysis.adherence_by_day[-1].date == "2026-04-24"
         assert analysis.adherence_by_day[-1].state == "unknown"
 
-        db.save_experiment_analysis(experiment.id, stale)
+        repo.save_experiment_analysis(experiment.id, stale)
         detail = management_mod.get_experiment_with_analysis(repo, experiment.id)
 
         assert detail.analysis is not None
         assert detail.analysis.analysis_date == "2026-05-04"
         assert detail.analysis.adherence_rate == 0.214
 
-    def test_get_experiment_analysis_persists_date_only_refresh(self, monkeypatch):
-        """A date-only stale analysis should update the cached analysis date."""
+    def test_get_experiment_analysis_refreshes_date_stale_snapshot_once(self, monkeypatch):
+        """A date-stale active analysis should refresh once, then stay cached."""
         import app.domains.experiments.application.analysis as experiment_analysis_mod
-        import app.domains.experiments.application.analysis_cache as analysis_cache_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
 
         class Apr13(date):
             @classmethod
@@ -477,20 +478,81 @@ class TestExperimentPreviewAndImport:
             ),
             outcome_metrics=[],
         )
-        db.save_experiment(experiment)
-
         repo = SqliteExperimentRepository()
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", Apr13)
-        db.save_experiment_analysis(
+        repo.save_experiment(experiment)
+
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
+        repo.save_experiment_analysis(
             experiment.id,
             experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
         )
 
-        monkeypatch.setattr(experiment_analysis_mod, "date_type", May4)
-        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
+        write_calls: list[str] = []
+        original_save = repo.save_experiment_analysis
+
+        def tracking_save(experiment_id, analysis):
+            write_calls.append(experiment_id)
+            original_save(experiment_id, analysis)
+
+        monkeypatch.setattr(repo, "save_experiment_analysis", tracking_save)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
-        persisted = db.load_experiment_analysis(experiment.id)
+        again = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        persisted = repo.get_experiment_analysis(experiment.id)
+
+        assert analysis is not None
+        assert analysis.analysis_date == "2026-05-04"
+        assert again is not None
+        assert again.analysis_date == "2026-05-04"
+        assert persisted is not None
+        assert persisted.analysis_date == "2026-05-04"
+        assert write_calls == [experiment.id]
+
+    def test_get_experiment_analysis_refreshes_completed_date_stale_snapshot(
+        self,
+        monkeypatch,
+    ):
+        """Completed experiments should still refresh stale cached analyses."""
+        import app.domains.experiments.application.analysis as experiment_analysis_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
+
+        class Apr13(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 4, 13)
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        experiment = Experiment(
+            id="completed-date-stale",
+            name="Completed Date Stale",
+            status="completed",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-12",
+            ),
+            outcome_metrics=[],
+        )
+        repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
+
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
+        repo.save_experiment_analysis(
+            experiment.id,
+            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+        )
+
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
+
+        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        persisted = repo.get_experiment_analysis(experiment.id)
 
         assert analysis is not None
         assert analysis.analysis_date == "2026-05-04"

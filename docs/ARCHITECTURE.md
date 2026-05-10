@@ -163,12 +163,14 @@ Current contents:
   Experiment CRUD, design preview/import, target metric registry, exposure
   derivation, and N=1 analysis. This domain owns `/api/experiments` and
   `/api/target-metrics`. Experiment analysis is a cached read model that
-  refreshes after exposure changes and on stale date-sensitive reads. `api/`
-  owns FastAPI routes, `application/` owns named use cases (`management`,
+  refreshes after exposure changes and on stale date-sensitive reads. It uses a
+  flat route/adapter/dependency layout: `routes.py` owns experiment and target
+  metric HTTP routes, `application/` owns named use cases (`management`,
   `preview`, `exposures`, `exposure_sync`, `analysis_cache`, `analysis`, and
-  `target_metrics`) plus repository ports, and `infra/` owns the SQLite
-  repository adapter. It has no separate `domain/` package until experiment
-  rules need a dedicated pure domain model layer.
+  `target_metrics`), `dependencies.py` owns repository ports, `domain/` owns
+  pure experiment analysis, experiment-local statistical primitives, metric path
+  resolution, and exposure scoring, and `adapters.py` owns the SQLite repository
+  adapter.
 
 - `domains/artifacts/`
   Assistant-authored artifact staging and publishing. This domain owns
@@ -300,9 +302,10 @@ is reserved for shared app primitives rather than important product workflows.
 - Does not own: Today log storage, routine schedule projection internals beyond
   explicit routine dependencies/use cases, Garmin ingest, assistant runtime, or artifact
   staging.
-- May import: experiment repository ports, experiment-owned contracts,
+- May import: experiment repository dependencies, experiment-owned contracts,
   allowlisted routine read/projection contracts needed for exposure derivation,
-  canonical Garmin health contracts, and local analysis math helpers.
+  canonical Garmin health contracts, and experiment-owned domain analysis
+  helpers.
 - Must not import: Garmin sync, Garmin analytics application internals except
   through analytics read adapters, assistant runtime, artifact persistence
   internals, FastAPI from application modules, or SQLite helpers from application

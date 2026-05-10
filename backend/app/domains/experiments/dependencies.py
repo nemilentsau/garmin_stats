@@ -1,4 +1,9 @@
-"""Repository contracts for experiment use cases."""
+"""Ports consumed by experiment application use cases.
+
+Experiment workflows read Garmin metrics, journal check-ins, experiment specs,
+exposures, and cached analyses through this protocol. Concrete SQLite details
+belong in the adapter layer.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,8 @@ from app.domains.journal.contracts import DailyCheckIn
 
 
 class ExperimentRepository(Protocol):
+    """Persistence and read-model port for experiment workflows."""
+
     def list_experiments(
         self,
         *,

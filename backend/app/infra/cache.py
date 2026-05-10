@@ -14,6 +14,7 @@ _store: dict[str, tuple[int, Any]] = {}
 
 # --- Cache keys (single source of truth) ---
 DAILY_METRICS = "daily_metrics"
+DAILY_CHECKINS = "daily_checkins"
 WELLNESS_ALL = "wellness_all"
 SLEEP_ALL = "sleep_all"
 HRV_ALL = "hrv_all"
@@ -53,6 +54,12 @@ def invalidate() -> None:
     with _lock:
         _generation += 1
         _store.clear()
+
+
+def evict(key: str) -> None:
+    """Drop a single cached entry without disturbing other keys."""
+    with _lock:
+        _store.pop(key, None)
 
 
 def cached[T](key: str, fn: Callable[[], T]) -> T:

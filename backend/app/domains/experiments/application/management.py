@@ -1,4 +1,8 @@
-"""Experiment definition management use cases."""
+"""Experiment definition management use cases.
+
+This module owns CRUD-style experiment workflows plus the import path that
+validates a spec, activates it, and creates the initial cached analysis.
+"""
 
 from __future__ import annotations
 
@@ -9,17 +13,17 @@ from app.domains.experiments.contracts import (
 )
 from app.domains.routines.dependencies import RoutineRepository
 
+from ..dependencies import ExperimentRepository
 from .analysis_cache import (
     load_current_analysis,
     persist_experiment_analysis,
     refresh_if_stale,
 )
-from .ports import ExperimentRepository
 from .preview import preview_experiment
 
 
 def list_experiments(repo: ExperimentRepository) -> ExperimentsResponse:
-    """Return all experiments with their latest analysis."""
+    """Return all experiments with refreshed cached analysis where needed."""
     experiments = repo.list_experiments()
     analyses_by_id = repo.list_all_experiment_analyses()
     items = [
@@ -33,7 +37,7 @@ def list_experiments(repo: ExperimentRepository) -> ExperimentsResponse:
 
 
 def get_experiment(repo: ExperimentRepository, experiment_id: str) -> Experiment:
-    """Load a single experiment."""
+    """Load one experiment definition or raise when it is missing."""
     result = repo.get_experiment(experiment_id)
     if result is None:
         raise LookupError(f"Experiment {experiment_id} not found")
@@ -44,14 +48,14 @@ def get_experiment_with_analysis(
     repo: ExperimentRepository,
     experiment_id: str,
 ) -> ExperimentWithAnalysis:
-    """Load experiment plus latest analysis."""
+    """Load one experiment with its current cached analysis snapshot."""
     experiment = get_experiment(repo, experiment_id)
     analysis = load_current_analysis(repo, experiment)
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
 
 
 def create_experiment(repo: ExperimentRepository, experiment: Experiment) -> Experiment:
-    """Create a new experiment without validating or computing analysis."""
+    """Create an experiment definition without validation or analysis."""
     repo.save_experiment(experiment)
     return experiment
 
@@ -78,7 +82,7 @@ def import_experiment(
     *,
     routine_repo: RoutineRepository,
 ) -> ExperimentWithAnalysis:
-    """Validate, persist, and run initial analysis."""
+    """Validate a spec, persist it as active, and create initial analysis."""
     preview = preview_experiment(repo, experiment, routine_repo=routine_repo)
     if not preview.valid:
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")

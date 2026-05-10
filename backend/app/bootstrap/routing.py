@@ -9,8 +9,7 @@ from app.domains.artifacts.routes import (
     cards_router,
 )
 from app.domains.assistant.api.threads import router as assistant_router
-from app.domains.experiments.api.experiments import router as experiments_router
-from app.domains.experiments.api.target_metrics import router as target_metrics_router
+from app.domains.experiments.routes import experiments_router, target_metrics_router
 from app.domains.garmin_analytics.routes import (
     body_battery_router,
     daily_aggregates_router,

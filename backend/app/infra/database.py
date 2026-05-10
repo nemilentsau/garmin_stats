@@ -27,12 +27,6 @@ from ..domains.assistant.contracts import (
     Plan,
     PlanItem,
 )
-from ..domains.experiments.contracts import (
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
-    ExperimentReport,
-)
 from ..domains.journal.contracts import DailyCheckIn, Note
 from ..domains.programs.contracts import Program, ProgramVersion
 from ..utils.timeutil import now_iso
@@ -320,6 +314,7 @@ def save_daily_checkin(checkin: DailyCheckIn) -> None:
         checkin.model_dump_json(),
         extra_columns={"entry_date": checkin.date},
     )
+    cache.evict(cache.DAILY_CHECKINS)
 
 
 def load_daily_checkins(
@@ -327,6 +322,8 @@ def load_daily_checkins(
     *,
     last_n: int | None = None,
 ) -> list[DailyCheckIn]:
+    if date is None and last_n is None:
+        return cache.cached(cache.DAILY_CHECKINS, _fetch_all_daily_checkins)
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _STORE.load_many(
@@ -336,6 +333,14 @@ def load_daily_checkins(
         params=params,
         order_by="entry_date, id",
         last_n=last_n,
+    )
+
+
+def _fetch_all_daily_checkins() -> list[DailyCheckIn]:
+    return _STORE.load_many(
+        "daily_checkins",
+        DailyCheckIn,
+        order_by="entry_date, id",
     )
 
 
@@ -363,179 +368,6 @@ def load_notes(
         order_by="entry_date, created_at, id",
         last_n=last_n,
     )
-
-
-def experiment_exists(experiment_id: str) -> bool:
-    return _STORE.exists("experiments", experiment_id)
-
-
-def load_experiment(experiment_id: str) -> Experiment | None:
-    return _STORE.load("experiments", Experiment, experiment_id)
-
-
-def save_experiment(experiment: Experiment) -> None:
-    _STORE.save("experiments", experiment.id, experiment.model_dump_json())
-
-
-def delete_experiment(experiment_id: str) -> None:
-    _STORE.delete("experiments", experiment_id)
-
-
-def load_experiments(
-    *,
-    statuses: tuple[str, ...] | None = None,
-) -> list[Experiment]:
-    where_sql = ""
-    params: tuple[object, ...] = ()
-    if statuses is not None:
-        placeholders = ", ".join("?" for _ in statuses)
-        where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
-        params = statuses
-    return _STORE.load_many("experiments", Experiment, where_sql=where_sql, params=params)
-
-
-def save_experiment_exposure(exposure: ExperimentExposure) -> None:
-    _STORE.save(
-        "experiment_exposures",
-        exposure.id,
-        exposure.model_dump_json(),
-        extra_columns={
-            "experiment_id": exposure.experiment_id,
-            "entry_date": exposure.date,
-        },
-    )
-
-
-def replace_experiment_exposure_for_date(
-    experiment_id: str,
-    date: str,
-    exposure: ExperimentExposure | None,
-) -> None:
-    """Replace the derived exposure row for one experiment-day.
-
-    Manual same-day exposure rows are preserved and take precedence over any
-    derived exposure the sync service would otherwise write.
-    """
-    auto_id = ExperimentExposure.auto_id(experiment_id, date)
-    if exposure is not None and (
-        exposure.experiment_id != experiment_id
-        or exposure.date != date
-        or exposure.id != auto_id
-    ):
-        raise ValueError("Exposure does not match experiment_id/date replacement target")
-
-    with _connect() as con, con:
-        manual_exists = con.execute(
-            """
-            SELECT 1
-            FROM experiment_exposures
-            WHERE experiment_id = ? AND entry_date = ? AND id != ?
-            LIMIT 1
-            """,
-            (experiment_id, date, auto_id),
-        ).fetchone() is not None
-        con.execute("DELETE FROM experiment_exposures WHERE id = ?", (auto_id,))
-        if exposure is None or manual_exists:
-            return
-        _STORE.save_in_connection(
-            con,
-            "experiment_exposures",
-            exposure.id,
-            exposure.model_dump_json(),
-            extra_columns={
-                "experiment_id": exposure.experiment_id,
-                "entry_date": exposure.date,
-            },
-        )
-
-
-def load_experiment_exposures(
-    experiment_id: str | None = None,
-    date: str | None = None,
-) -> list[ExperimentExposure]:
-    clauses: list[str] = []
-    params: list[object] = []
-    if experiment_id is not None:
-        clauses.append("experiment_id = ?")
-        params.append(experiment_id)
-    if date is not None:
-        clauses.append("entry_date = ?")
-        params.append(date)
-    return _STORE.load_many(
-        "experiment_exposures",
-        ExperimentExposure,
-        where_sql=" AND ".join(clauses),
-        params=tuple(params),
-        order_by="entry_date, created_at, id",
-    )
-
-
-def save_experiment_report(report: ExperimentReport) -> None:
-    _STORE.save(
-        "experiment_reports",
-        report.id,
-        report.model_dump_json(),
-        extra_columns={
-            "experiment_id": report.experiment_id,
-            "report_date": report.report_date,
-        },
-    )
-
-
-def load_experiment_reports(experiment_id: str | None = None) -> list[ExperimentReport]:
-    where_sql = "experiment_id = ?" if experiment_id is not None else ""
-    params = (experiment_id,) if experiment_id is not None else ()
-    return _STORE.load_many(
-        "experiment_reports",
-        ExperimentReport,
-        where_sql=where_sql,
-        params=params,
-        order_by="report_date, created_at, id",
-    )
-
-
-def save_experiment_analysis(experiment_id: str, analysis: ExperimentAnalysis) -> None:
-    """Upsert computed analysis for an experiment (keyed by experiment_id)."""
-    now = now_iso()
-    data_json = analysis.model_dump_json()
-    with _connect() as con, con:
-        con.execute(
-            "INSERT OR REPLACE INTO experiment_analyses "
-            "(experiment_id, data, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?)",
-            (experiment_id, data_json, now, now),
-        )
-
-
-def delete_experiment_analysis(experiment_id: str) -> None:
-    """Delete any persisted analysis for an experiment."""
-    with _connect() as con, con:
-        con.execute(
-            "DELETE FROM experiment_analyses WHERE experiment_id = ?",
-            (experiment_id,),
-        )
-
-
-def load_experiment_analysis(experiment_id: str) -> ExperimentAnalysis | None:
-    """Load the latest computed analysis for an experiment."""
-    with _connect() as con:
-        row = con.execute(
-            "SELECT data FROM experiment_analyses WHERE experiment_id = ?",
-            (experiment_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    return ExperimentAnalysis.model_validate_json(row["data"])
-
-
-def load_all_experiment_analyses() -> dict[str, ExperimentAnalysis]:
-    """Load all experiment analyses, keyed by experiment_id."""
-    with _connect() as con:
-        rows = con.execute("SELECT experiment_id, data FROM experiment_analyses").fetchall()
-    return {
-        row["experiment_id"]: ExperimentAnalysis.model_validate_json(row["data"])
-        for row in rows
-    }
 
 
 def save_plan(plan: Plan) -> None:

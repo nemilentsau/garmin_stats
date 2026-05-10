@@ -797,13 +797,13 @@ export interface paths {
         };
         /**
          * Get Experiments
-         * @description Return all experiments with latest analysis.
+         * @description Return experiments with their current cached analysis snapshots.
          */
         get: operations["get_experiments_api_experiments_get"];
         put?: never;
         /**
          * Post Experiment
-         * @description Create an experiment (simple CRUD, no analysis).
+         * @description Create an experiment definition without preview validation or analysis.
          */
         post: operations["post_experiment_api_experiments_post"];
         delete?: never;
@@ -823,7 +823,7 @@ export interface paths {
         put?: never;
         /**
          * Post Preview
-         * @description Validate an experiment spec without persisting.
+         * @description Validate an experiment spec and resolved dates without writing it.
          */
         post: operations["post_preview_api_experiments_preview_post"];
         delete?: never;
@@ -843,7 +843,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import
-         * @description Validate, persist, and run initial analysis.
+         * @description Validate an experiment spec, persist it, and create initial analysis.
          */
         post: operations["post_import_api_experiments_import_post"];
         delete?: never;
@@ -863,7 +863,7 @@ export interface paths {
         put?: never;
         /**
          * Post Refresh
-         * @description Recompute analyses for all active experiments.
+         * @description Refresh cached analyses for active experiments.
          */
         post: operations["post_refresh_api_experiments_refresh_analyses_post"];
         delete?: never;
@@ -881,12 +881,12 @@ export interface paths {
         };
         /**
          * Get Experiment Detail
-         * @description Return a single experiment with analysis.
+         * @description Return one experiment with its current analysis snapshot.
          */
         get: operations["get_experiment_detail_api_experiments__experiment_id__get"];
         /**
          * Put Experiment
-         * @description Replace an existing experiment.
+         * @description Replace an existing experiment definition and refresh analysis.
          */
         put: operations["put_experiment_api_experiments__experiment_id__put"];
         post?: never;
@@ -905,7 +905,7 @@ export interface paths {
         };
         /**
          * Get Analysis
-         * @description Return the latest computed analysis for an experiment.
+         * @description Return the current cached analysis for one experiment.
          */
         get: operations["get_analysis_api_experiments__experiment_id__analysis_get"];
         put?: never;
@@ -925,13 +925,13 @@ export interface paths {
         };
         /**
          * Get Exposures
-         * @description Return all exposures for an experiment.
+         * @description Return manual and derived exposure rows for one experiment.
          */
         get: operations["get_exposures_api_experiments__experiment_id__exposures_get"];
         put?: never;
         /**
          * Post Exposure
-         * @description Log an exposure entry for an experiment.
+         * @description Persist a manual exposure row and refresh the experiment analysis.
          */
         post: operations["post_exposure_api_experiments__experiment_id__exposures_post"];
         delete?: never;
@@ -949,7 +949,7 @@ export interface paths {
         };
         /**
          * List Target Metrics Route
-         * @description Return the supported target metric registry.
+         * @description Return the supported experiment target metric registry.
          */
         get: operations["list_target_metrics_route_api_target_metrics_get"];
         put?: never;
@@ -1172,7 +1172,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "full" | "partial" | "missed" | "completed" | "unknown";
+            state: "full" | "partial" | "missed" | "unknown";
             /** Exposure Score */
             exposure_score: number | null;
         };
@@ -2224,7 +2224,7 @@ export interface components {
              * @default unknown
              * @enum {string}
              */
-            adherence_state: "full" | "partial" | "missed" | "completed" | "unknown";
+            adherence_state: "full" | "partial" | "missed" | "unknown";
             /**
              * Linked Routine Entry Ids
              * @default []
@@ -2248,7 +2248,7 @@ export interface components {
              * @default unknown
              * @enum {string}
              */
-            adherence_state: "full" | "partial" | "missed" | "completed" | "unknown";
+            adherence_state: "full" | "partial" | "missed" | "unknown";
             /**
              * Linked Routine Entry Ids
              * @default []

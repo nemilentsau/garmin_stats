@@ -236,7 +236,7 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
         "backend/app/domains/assistant/infra/sqlite_repository.py",
     )
     experiment_repo_source = read_repo_file(
-        "backend/app/domains/experiments/infra/sqlite_repository.py",
+        "backend/app/domains/experiments/adapters.py",
     )
 
     assert "domains.garmin_analytics.adapters" not in database_source
