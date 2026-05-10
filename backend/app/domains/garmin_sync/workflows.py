@@ -1,8 +1,9 @@
 """Garmin ingest and download sync workflows.
 
-The sync workflow treats the latest local archive as possibly partial, deletes it,
-downloads that day through today, extracts archives, and ingests only affected days.
-Filesystem, Garmin, clock, and watcher operations are injected through dependencies.
+The manual sync workflow treats the latest local archive as possibly partial,
+deletes it, downloads that day through today, extracts archives, and ingests only
+affected dates. Filesystem, Garmin, clock, ingest, and watcher operations are
+injected so this module stays policy-only.
 """
 
 from __future__ import annotations
@@ -38,7 +39,12 @@ def get_ingest_status(deps: GarminSyncDependencies) -> IngestStatus:
 
 
 def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
-    """Refresh Garmin wellness archives that may have changed and ingest affected dates."""
+    """Refresh mutable Garmin archives and ingest the dates affected by sync.
+
+    File watching is suspended while the workflow mutates the data directory.
+    The watcher fingerprint is marked synced only after incremental ingest
+    succeeds, so failed syncs still leave changed disk state detectable.
+    """
     t0 = deps.monotonic()
     client = deps.clients.create()
 
@@ -69,6 +75,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deps.extract_archives(deps.data_dir)
         unique_dates = sorted(set(affected_dates))
         ingest_result = deps.ingest.ingest_dates(deps.data_dir, unique_dates)
+        deps.mark_watcher_synced()
     finally:
         deps.resume_watcher()
 
@@ -84,6 +91,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
 
 
 def _plan_sync_dates(*, latest: date | None, today: date) -> _SyncDatePlan:
+    """Plan the smallest archive range that can refresh mutable Garmin data."""
     if latest is None:
         start_date = today - timedelta(days=1)
         deleted_latest = None
@@ -111,6 +119,7 @@ def _download_day(
     client: GarminDownloadClient,
     day: date,
 ) -> DownloadOutcome:
+    """Download one archive unless a local zip already satisfies the plan."""
     date_str = day.isoformat()
     if deps.files.zip_exists(deps.data_dir, day):
         log.info("  %s: already exists, skipping", date_str)

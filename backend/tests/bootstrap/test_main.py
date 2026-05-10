@@ -5,9 +5,7 @@ import json
 
 from starlette.types import Message
 
-import app.bootstrap.lifespan as lifespan_mod
 import app.main as main_mod
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 
 app = main_mod.app
 
@@ -74,7 +72,7 @@ async def _response_headers(path: str) -> dict[str, str]:
 
 class TestCacheHeaders:
     def test_api_routes_send_no_store_headers(self):
-        headers = asyncio.run(_response_headers("/api/days"))
+        headers = asyncio.run(_response_headers("/api/dashboard"))
 
         assert headers["cache-control"] == "no-store"
         assert headers["pragma"] == "no-cache"
@@ -90,106 +88,6 @@ class TestCacheHeaders:
 
         assert headers["cache-control"] == "no-cache"
         assert "pragma" not in headers
-
-
-class TestStartupIngest:
-    def test_runs_ingest_after_reconciling_existing_archives(self, monkeypatch):
-        order: list[str] = []
-
-        def fake_extract_existing_archives(_data_dir):
-            order.append("extract")
-            return 3
-
-        def fake_check_ingest_status(_data_dir):
-            assert order == ["extract"]
-            return IngestStatus(
-                needs_ingest=True,
-                last_ingest_time="2026-03-15T00:00:00Z",
-                days_in_db=58,
-                days_on_disk=72,
-            )
-
-        expected = IngestResult(days_ingested=72, duration_ms=321)
-
-        def fake_ingest_all(_data_dir):
-            order.append("ingest")
-            return expected
-
-        monkeypatch.setattr(
-            lifespan_mod,
-            "extract_existing_archives",
-            fake_extract_existing_archives,
-        )
-        monkeypatch.setattr(lifespan_mod, "check_ingest_status", fake_check_ingest_status)
-        monkeypatch.setattr(lifespan_mod, "ingest_all", fake_ingest_all)
-
-        lifespan_mod._run_startup_ingest_if_needed()
-
-        assert order == ["extract", "ingest"]
-
-    def test_skips_ingest_when_disk_state_matches_database(self, monkeypatch):
-        monkeypatch.setattr(lifespan_mod, "extract_existing_archives", lambda _data_dir: 0)
-        monkeypatch.setattr(
-            lifespan_mod,
-            "check_ingest_status",
-            lambda _data_dir: IngestStatus(
-                needs_ingest=False,
-                last_ingest_time="2026-03-15T00:00:00Z",
-                days_in_db=72,
-                days_on_disk=72,
-            ),
-        )
-        monkeypatch.setattr(
-            lifespan_mod,
-            "ingest_all",
-            lambda _data_dir: (_ for _ in ()).throw(AssertionError("ingest_all should not run")),
-        )
-
-        lifespan_mod._run_startup_ingest_if_needed()
-
-    def test_second_startup_run_is_a_no_op_after_initial_ingest(self, monkeypatch):
-        order: list[str] = []
-        statuses = iter(
-            [
-                IngestStatus(
-                    needs_ingest=True,
-                    last_ingest_time="2026-03-15T00:00:00Z",
-                    days_in_db=0,
-                    days_on_disk=72,
-                ),
-                IngestStatus(
-                    needs_ingest=False,
-                    last_ingest_time="2026-03-15T00:05:21Z",
-                    days_in_db=72,
-                    days_on_disk=72,
-                ),
-            ]
-        )
-
-        def fake_extract_existing_archives(_data_dir):
-            order.append("extract")
-            return 0
-
-        def fake_check_ingest_status(_data_dir):
-            order.append("status")
-            return next(statuses)
-
-        def fake_ingest_all(_data_dir):
-            order.append("ingest")
-            return IngestResult(days_ingested=72, duration_ms=321)
-
-        monkeypatch.setattr(
-            lifespan_mod,
-            "extract_existing_archives",
-            fake_extract_existing_archives,
-        )
-        monkeypatch.setattr(lifespan_mod, "check_ingest_status", fake_check_ingest_status)
-        monkeypatch.setattr(lifespan_mod, "ingest_all", fake_ingest_all)
-
-        lifespan_mod._run_startup_ingest_if_needed()
-        lifespan_mod._run_startup_ingest_if_needed()
-
-        assert order == ["extract", "status", "ingest", "extract", "status"]
 
 
 class TestExceptionHandlers:

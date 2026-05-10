@@ -84,46 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/days": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Days
-         * @description List available days of data.
-         */
-        get: operations["list_days_api_days_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/days/{date}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Day
-         * @description Get summary for a specific ingested day.
-         */
-        get: operations["get_day_api_days__date__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/sleep": {
         parameters: {
             query?: never;
@@ -2063,29 +2023,6 @@ export interface components {
              *     }
              */
             stress_avg: components["schemas"]["SparklineSeries"];
-        };
-        /** DaySummaryResponse */
-        DaySummaryResponse: {
-            /** Date */
-            date: string;
-            /** Total Files */
-            total_files: number;
-            /** File Types */
-            file_types: {
-                [key: string]: number;
-            };
-            /** Total Size Kb */
-            total_size_kb: number;
-        };
-        /** DaysResponse */
-        DaysResponse: {
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /** Days */
-            days: string[];
         };
         /** Experiment */
         "Experiment-Input": {
@@ -4364,57 +4301,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardOverviewResponse"];
-                };
-            };
-        };
-    };
-    list_days_api_days_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DaysResponse"];
-                };
-            };
-        };
-    };
-    get_day_api_days__date__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                date: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DaySummaryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

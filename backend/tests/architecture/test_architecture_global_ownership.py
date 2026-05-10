@@ -14,12 +14,12 @@ ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/core/profile/infra/sqlite_repository.py",
     "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/adapters.py",
-    "backend/app/domains/garmin_sync/adapters.py",
     "backend/app/domains/journal/infra/sqlite_repository.py",
     "backend/app/domains/programs/infra/sqlite_repository.py",
 }
 
 ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {
+    "backend/app/domains/garmin_sync/infra/sqlite_ingest.py",
     "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
     "backend/app/domains/garmin_analytics/application/metric_analysis.py",
     "backend/app/domains/garmin_analytics/adapters.py",
@@ -76,3 +76,26 @@ def test_current_docs_do_not_reference_removed_app_stats_module():
             "parser → `stats.py`",
         ],
     )
+
+
+def test_global_infra_does_not_own_route_specific_response_contracts():
+    assert not (REPO_ROOT / "backend/app/infra/contracts.py").exists()
+    assert not (REPO_ROOT / "backend/app/routers/days.py").exists()
+
+
+def test_realtime_transport_lives_in_dedicated_app_capability():
+    assert not list((REPO_ROOT / "backend/app/routers").glob("*.py"))
+    assert not (REPO_ROOT / "backend/app/infra/events.py").exists()
+    assert (REPO_ROOT / "backend/app/realtime/events.py").exists()
+    assert (REPO_ROOT / "backend/app/realtime/routes.py").exists()
+
+    routing_source = (REPO_ROOT / "backend/app/bootstrap/routing.py").read_text(
+        encoding="utf-8"
+    )
+    runtime_source = (REPO_ROOT / "backend/app/bootstrap/process_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    assert "app.realtime.routes" in routing_source
+    assert "app.realtime.events" in runtime_source
+    assert "routers.events" not in routing_source
+    assert "infra.events" not in runtime_source

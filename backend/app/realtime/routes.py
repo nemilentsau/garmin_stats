@@ -1,11 +1,11 @@
-"""SSE events HTTP route."""
+"""Server-sent event routes."""
 
 import asyncio
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-from ..infra.events import event_bus
+from .events import event_bus
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 

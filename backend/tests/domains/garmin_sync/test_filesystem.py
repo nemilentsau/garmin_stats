@@ -1,22 +1,47 @@
-"""Tests for watcher zip extraction safety."""
+"""Tests for Garmin sync filesystem adapter behavior."""
 
+import os
 import zipfile
 
 import pytest
 
-from app.infra.watcher import (
+from app.domains.garmin_sync.infra.filesystem import (
     _ARCHIVE_STAMP_NAME,
-    _ensure_data_dir,
     _safe_extract_all,
+    compute_data_fingerprint,
+    ensure_data_dir,
     extract_existing_archives,
 )
+
+
+class TestFingerprint:
+    def test_detects_file_content_change(self, tmp_path):
+        data_dir = tmp_path / "data"
+        day_dir = data_dir / "2026-01-15"
+        day_dir.mkdir(parents=True)
+        fit_file = day_dir / "001_WELLNESS.fit"
+        fit_file.write_bytes(b"AAAA")
+        fp1 = compute_data_fingerprint(data_dir)
+
+        fit_file.write_bytes(b"BBBB")
+        stat = fit_file.stat()
+        os.utime(fit_file, ns=(stat.st_atime_ns + 1, stat.st_mtime_ns + 1))
+        fp2 = compute_data_fingerprint(data_dir)
+
+        assert fp1 != fp2
+
+    def test_returns_stable_hash_for_nonexistent_dir(self, tmp_path):
+        missing = tmp_path / "does_not_exist"
+        fp = compute_data_fingerprint(missing)
+        assert isinstance(fp, str)
+        assert len(fp) == 64
 
 
 class TestSafeExtract:
     def test_creates_missing_data_directory_before_watching(self, tmp_path):
         data_dir = tmp_path / "missing-data"
 
-        _ensure_data_dir(data_dir)
+        ensure_data_dir(data_dir)
 
         assert data_dir.exists()
         assert data_dir.is_dir()

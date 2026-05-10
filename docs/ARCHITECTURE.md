@@ -46,7 +46,7 @@ There are two major paths:
 
 The Garmin health dependency direction is:
 
-- `parser.py` and `infra/database.py` -> `garmin_health`, `app.utils`
+- `parser.py` and `garmin_sync` ingest adapters -> `garmin_health`, `app.utils`
 - `garmin_analytics` -> `garmin_health`, `app.utils`
 - `experiments` and `assistant` -> `garmin_health` contracts, and analytics
   adapters only when loading analytics read data
@@ -58,11 +58,14 @@ The Garmin health dependency direction is:
 - `backend/app/contracts/base.py`
   Shared Pydantic response-base helpers. User-facing contracts live with their
   owning slices, for example `domains/routines/contracts.py`,
-  `domains/experiments/contracts.py`, `core/profile/contracts.py`, and
-  `infra/contracts.py`.
+  `domains/experiments/contracts.py`, and `core/profile/contracts.py`. Tiny
+  route-only response models may live directly with their route module.
 
 - `backend/app/bootstrap/`
-  App factory, lifespan wiring, router registration, and the current composition root.
+  App factory, router registration, lifespan entrypoint, process-runtime task
+  wiring, and the current composition root. Cross-domain reactions such as
+  "refresh experiment analyses after Garmin ingest" belong here rather than in
+  the Garmin sync or experiment slices.
 
 - `backend/app/core/`
   Shared cross-cutting modules being extracted out of the flat app root.
@@ -109,16 +112,16 @@ Current contents:
 ### Infrastructure
 
 - `backend/app/infra/database.py`
-  SQLite schema, read/write helpers, data-root config, and ingest bookkeeping.
+  SQLite schema, shared read/write helpers, data-root config, and ingest metadata table.
 
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.
 
-- `backend/app/infra/events.py`
-  SSE event bus.
+- `backend/app/realtime/events.py`
+  SSE event bus and heartbeat loop.
 
-- `backend/app/infra/watcher.py`
-  Data-directory watcher and heartbeat loop.
+- `backend/app/realtime/routes.py`
+  Realtime transport endpoint for `/api/events`.
 
 ### Active service areas
 
@@ -136,13 +139,18 @@ Current contents:
 
 - `domains/garmin_sync/`
   Garmin ingest and Garmin Connect download orchestration. This domain owns
-  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
-  small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
+  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a
+  small-capability layout with domain policy at the package root and concrete
+  adapters under `infra/`: `routes.py` owns FastAPI routes, `workflows.py` owns
   ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
-  callables, `adapters.py` wires SQLite ingest helpers, archive extraction,
-  watcher suspend/resume, filesystem archive writes/deletes, system clock, and
-  Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
-  API response models.
+  callables, `infra/sqlite_ingest.py` owns SQLite ingest/status writes,
+  `infra/filesystem.py` owns archive extraction and FIT source fingerprinting,
+  `infra/watcher.py` owns one stateful Garmin data-directory watcher instance
+  and suspend/resume controls, `infra/runtime.py` owns startup archive
+  reconciliation through injected Garmin sync dependencies,
+  `infra/garmin_connect.py` owns Garmin Connect login/download details,
+  `infra/factory.py` wires the production dependency bundle, and `contracts.py`
+  owns ingest/sync API response models.
 
 - `domains/garmin_health/`
   Canonical Garmin health data slice. This domain owns parsed reading containers,
@@ -234,10 +242,12 @@ not proof that the design is sound.
 - Does not own: FIT parsing semantics, analytics calculations, dashboard reads,
   experiment refresh policy, routine scheduling, assistant evidence, or frontend
   presentation.
-- May import: its own workflow ports, private workflow helpers, owned
-  ingest/sync contracts, and infrastructure adapters that wrap database ingest,
-  archive extraction, watcher control, filesystem writes, clock, and Garmin
-  Connect login/download details.
+- May import: its own workflow ports, private workflow/runtime helpers, owned
+  ingest/sync contracts, SQLite connection primitives, cache invalidation,
+  event bus publishing, canonical Garmin health composition, and adapter code
+  under `domains/garmin_sync/infra` for archive extraction, watcher control,
+  filesystem writes, clock, SQLite ingest, and Garmin Connect login/download
+  details.
 - Must not import: routines, experiments, assistant, artifacts, journal,
   programs, Garmin analytics application modules, FastAPI from application
   modules, or SQLite helpers from application modules.
@@ -390,7 +400,6 @@ Experiment adherence is protocol-defined and day-grain.
 
 - `/api/ingest`
 - `/api/dashboard`
-- `/api/days`
 - `/api/sleep`
 - `/api/daily-aggregates`
 - `/api/skin-temp`
@@ -475,7 +484,8 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
 - `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
-- `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
+- The legacy `/api/days` parser-summary route has been removed; route inventory
+  now reflects user-facing analytics and ingest APIs only.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend
