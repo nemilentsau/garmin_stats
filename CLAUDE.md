@@ -34,6 +34,14 @@
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
 - **Where new helpers go**: default to the closest domain. Only promote to `app/utils/` when *all three* rules hold — primitive-only signatures, no domain vocabulary in names, and two-plus consumers already exist. Read `docs/ARCHITECTURE.md` → "Shared Utilities" before adding anything to `app/utils/` or creating a new shared module.
 
+## Code Documentation Style
+- Keep docs current as code moves. When adding or refactoring modules, ports, adapters, or workflow boundaries, update module/class/function docstrings in the same change.
+- Match the style in `backend/app/domains/routines/` and `backend/app/domains/experiments/`: short module docstring with 1-2 concrete paragraphs explaining what the module owns, what it deliberately delegates, and why that boundary exists.
+- Prefer boundary and lifecycle documentation over implementation narration. Good docs explain ownership, injected dependencies, failure/idempotence expectations, and cross-domain callbacks. Avoid comments that restate obvious code.
+- Add protocol/class docstrings when a type represents a port, adapter, observer, repository, workflow dependency bundle, or runtime state owner.
+- Add function/method docstrings for public use cases and any helper with non-obvious policy, side effects, failure behavior, or ordering constraints. Private one-line helpers with self-evident names do not need filler docs.
+- For tests, use a module docstring when the file covers a behavior slice or regression class. Test names should still carry the specific behavior under test.
+
 ## Skills
 
 Five skills support this project. Each owns specific code layers:
