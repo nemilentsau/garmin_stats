@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import app.domains.garmin_sync.runtime as runtime_mod
+import app.domains.garmin_sync.infra.runtime as runtime_mod
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 
 

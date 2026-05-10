@@ -9,12 +9,12 @@ from pathlib import Path
 
 from watchfiles import Change, awatch
 
-from app.domains.garmin_sync.filesystem import (
+from app.domains.garmin_sync.infra.filesystem import (
     compute_data_fingerprint,
     ensure_data_dir,
     extract_archives,
 )
-from app.domains.garmin_sync.sqlite_ingest import ingest_all
+from app.domains.garmin_sync.infra.sqlite_ingest import ingest_all
 from app.infra.events import event_bus
 
 log = logging.getLogger(__name__)

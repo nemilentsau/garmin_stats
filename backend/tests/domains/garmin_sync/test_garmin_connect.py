@@ -1,10 +1,10 @@
-"""Tests for Garmin sync infrastructure adapters."""
+"""Tests for Garmin Connect infrastructure adapters."""
 
 from __future__ import annotations
 
 from datetime import date
 
-from app.domains.garmin_sync.adapters import GarminConnectWellnessClient
+from app.domains.garmin_sync.infra.garmin_connect import GarminConnectWellnessClient
 
 
 class _FakeRawGarminClient:

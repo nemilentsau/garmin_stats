@@ -133,14 +133,16 @@ Current contents:
 
 - `domains/garmin_sync/`
   Garmin ingest and Garmin Connect download orchestration. This domain owns
-  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
-  small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
+  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a
+  small-capability layout with domain policy at the package root and concrete
+  adapters under `infra/`: `routes.py` owns FastAPI routes, `workflows.py` owns
   ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
-  callables, `sqlite_ingest.py` owns SQLite ingest/status writes, `filesystem.py`
-  owns archive extraction and FIT source fingerprinting, `watcher.py` owns the
-  Garmin data-directory watcher and suspend/resume controls, `runtime.py` owns
-  startup archive reconciliation, `adapters.py` wires the production dependency
-  bundle and Garmin Connect client login/download details, and `contracts.py`
+  callables, `infra/sqlite_ingest.py` owns SQLite ingest/status writes,
+  `infra/filesystem.py` owns archive extraction and FIT source fingerprinting,
+  `infra/watcher.py` owns the Garmin data-directory watcher and suspend/resume
+  controls, `infra/runtime.py` owns startup archive reconciliation,
+  `infra/garmin_connect.py` owns Garmin Connect login/download details,
+  `infra/factory.py` wires the production dependency bundle, and `contracts.py`
   owns ingest/sync API response models.
 
 - `domains/garmin_health/`
@@ -234,8 +236,9 @@ not proof that the design is sound.
 - May import: its own workflow ports, private workflow/runtime helpers, owned
   ingest/sync contracts, SQLite connection primitives, cache invalidation,
   event bus publishing, canonical Garmin health composition, and adapter code
-  for archive extraction, watcher control, filesystem writes, clock, and Garmin
-  Connect login/download details.
+  under `domains/garmin_sync/infra` for archive extraction, watcher control,
+  filesystem writes, clock, SQLite ingest, and Garmin Connect login/download
+  details.
 - Must not import: routines, experiments, assistant, artifacts, journal,
   programs, Garmin analytics application modules, FastAPI from application
   modules, or SQLite helpers from application modules.

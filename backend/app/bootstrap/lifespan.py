@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ..domains.experiments.application.analysis_cache import refresh_active_experiments
-from ..domains.garmin_sync.runtime import run_startup_ingest_if_needed
-from ..domains.garmin_sync.watcher import watch_data_directory
+from ..domains.garmin_sync.infra.runtime import run_startup_ingest_if_needed
+from ..domains.garmin_sync.infra.watcher import watch_data_directory
 from ..infra.database import DATA_DIR, init_db
 from ..infra.events import heartbeat_loop
 from .container import build_container

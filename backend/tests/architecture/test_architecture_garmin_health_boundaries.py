@@ -41,7 +41,7 @@ def test_garmin_health_owns_canonical_contracts_and_daily_metric_composer():
 
 
 def test_garmin_sync_ingest_adapter_uses_garmin_health_not_garmin_analytics_behavior():
-    source = read_repo_file("backend/app/domains/garmin_sync/sqlite_ingest.py")
+    source = read_repo_file("backend/app/domains/garmin_sync/infra/sqlite_ingest.py")
 
     assert "domains.garmin_health.domain.daily import" in source
     assert "domains.garmin_analytics.domain" not in source

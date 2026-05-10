@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from app.domains.garmin_sync.filesystem import extract_existing_archives
-from app.domains.garmin_sync.sqlite_ingest import check_ingest_status, ingest_all
+from app.domains.garmin_sync.infra.filesystem import extract_existing_archives
+from app.domains.garmin_sync.infra.sqlite_ingest import check_ingest_status, ingest_all
 
 log = logging.getLogger(__name__)
 

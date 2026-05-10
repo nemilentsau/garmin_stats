@@ -5,7 +5,7 @@ import zipfile
 
 import pytest
 
-from app.domains.garmin_sync.filesystem import (
+from app.domains.garmin_sync.infra.filesystem import (
     _ARCHIVE_STAMP_NAME,
     _safe_extract_all,
     compute_data_fingerprint,

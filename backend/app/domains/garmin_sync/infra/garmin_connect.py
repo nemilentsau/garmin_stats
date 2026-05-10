@@ -1,9 +1,4 @@
-"""Infrastructure adapters for Garmin sync workflows.
-
-Adapters translate workflow ports into SQLite ingest helpers, archive watcher
-functions, the local archive layout, system clocks, and Garmin Connect client calls.
-Garmin protocol constants stay private here because they are adapter details.
-"""
+"""Garmin Connect client adapters for Garmin sync."""
 
 from __future__ import annotations
 
@@ -15,17 +10,7 @@ from typing import Protocol
 
 from garminconnect import Garmin
 
-from app.core.config import AppConfig, get_app_config
-from app.domains.garmin_sync.dependencies import (
-    GarminDownloadClient,
-    GarminSyncDependencies,
-)
-from app.domains.garmin_sync.filesystem import (
-    FilesystemSyncFileStore,
-    extract_existing_archives,
-)
-from app.domains.garmin_sync.sqlite_ingest import DatabaseIngestGateway
-from app.domains.garmin_sync.watcher import resume_watcher, suspend_watcher
+from app.domains.garmin_sync.dependencies import GarminDownloadClient
 
 _WELLNESS_ARCHIVE_PATH_PREFIX = "/download-service/files/wellness"
 _MINIMUM_ARCHIVE_BYTES = 100
@@ -78,24 +63,3 @@ class GarminConnectClientFactory:
         client = Garmin()
         client.login(str(token_path))
         return GarminConnectWellnessClient(client, sleep=time.sleep)
-
-
-def build_garmin_sync_dependencies(
-    config: AppConfig | None = None,
-    data_dir: Path | None = None,
-) -> GarminSyncDependencies:
-    """Wire production implementations for the Garmin sync workflow."""
-
-    app_config = get_app_config() if config is None else config
-    sync_data_dir = app_config.data_dir if data_dir is None else data_dir
-    return GarminSyncDependencies(
-        data_dir=sync_data_dir,
-        ingest=DatabaseIngestGateway(),
-        extract_archives=extract_existing_archives,
-        suspend_watcher=suspend_watcher,
-        resume_watcher=resume_watcher,
-        clients=GarminConnectClientFactory(app_config.garmin_token_dir),
-        files=FilesystemSyncFileStore(),
-        today=date.today,
-        monotonic=time.monotonic,
-    )

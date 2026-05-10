@@ -12,7 +12,7 @@ from pathlib import Path
 from app.domains.garmin_health.contracts import DayData
 from app.domains.garmin_health.domain.daily import compute_daily_metrics
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
-from app.domains.garmin_sync.filesystem import compute_data_fingerprint
+from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
 from app.infra import cache
 from app.infra.sqlite import connect
 from app.parser import get_files_by_day, parse_all_days, parse_day
