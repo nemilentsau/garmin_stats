@@ -62,45 +62,35 @@ def unanalyzable_placeholder(experiment: Experiment) -> ExperimentAnalysis | Non
     Exposed so callers can short-circuit data loading before invoking the full pipeline.
     """
     design = experiment.design
-    today = date_type.today().isoformat()
     if design is None:
-        return ExperimentAnalysis(
-            experiment_id=experiment.id,
-            analysis_date=today,
-            phase="draft",
-            days_in_baseline=0,
-            days_in_treatment=0,
-            adherence_rate=0.0,
-            adherence_by_day=[],
-            metrics=[],
-            confounders=[],
-            overall_confidence="insufficient",
-            summary=f"Experiment '{experiment.name}' has no design configured.",
+        return _draft_placeholder(
+            experiment, f"Experiment '{experiment.name}' has no design configured.",
         )
     if (
         not design.baseline_start_date
         or not design.baseline_end_date
         or not design.treatment_start_date
     ):
-        return ExperimentAnalysis(
-            experiment_id=experiment.id,
-            analysis_date=today,
-            phase="draft",
-            days_in_baseline=0,
-            days_in_treatment=0,
-            adherence_rate=0.0,
-            adherence_by_day=[],
-            metrics=[],
-            confounders=[],
-            overall_confidence="insufficient",
-            summary=f"Experiment '{experiment.name}' has unresolved design dates.",
+        return _draft_placeholder(
+            experiment, f"Experiment '{experiment.name}' has unresolved design dates.",
         )
     return None
 
 
-# ---------------------------------------------------------------------------
-# Window extraction
-# ---------------------------------------------------------------------------
+def _draft_placeholder(experiment: Experiment, summary: str) -> ExperimentAnalysis:
+    return ExperimentAnalysis(
+        experiment_id=experiment.id,
+        analysis_date=date_type.today().isoformat(),
+        phase="draft",
+        days_in_baseline=0,
+        days_in_treatment=0,
+        adherence_rate=0.0,
+        adherence_by_day=[],
+        metrics=[],
+        confounders=[],
+        overall_confidence="insufficient",
+        summary=summary,
+    )
 
 
 def _date_range(start: str, end: str) -> list[str]:
@@ -162,11 +152,6 @@ def _extract_confounder(
     return values
 
 
-# ---------------------------------------------------------------------------
-# Single metric × single lag
-# ---------------------------------------------------------------------------
-
-
 def _analyse_metric_lag(
     baseline_vals: list[float],
     treatment_vals: list[float],
@@ -221,11 +206,6 @@ def _analyse_metric_lag(
     )
 
 
-# ---------------------------------------------------------------------------
-# Full metric analysis (across all lags)
-# ---------------------------------------------------------------------------
-
-
 def _analyse_metric(
     outcome: OutcomeMetric,
     metrics_map: dict[str, DailyMetric],
@@ -276,11 +256,6 @@ def _analyse_metric(
         best_lag=best.lag_days,
         best_result=best,
     )
-
-
-# ---------------------------------------------------------------------------
-# Confounder checks
-# ---------------------------------------------------------------------------
 
 
 def _check_confounders(
@@ -357,13 +332,7 @@ def _check_confounders(
     return checks
 
 
-# ---------------------------------------------------------------------------
-# Adherence
-# ---------------------------------------------------------------------------
-
-
 def _compute_adherence(
-    experiment: Experiment,
     exposures: list[ExperimentExposure],
     treatment_start: str,
     treatment_end: str,
@@ -390,10 +359,6 @@ def _compute_adherence(
     rate = full_count / len(entries) if entries else 0.0
     return round(rate, 3), entries
 
-
-# ---------------------------------------------------------------------------
-# Confidence classification
-# ---------------------------------------------------------------------------
 
 _MIN_DAYS_INSUFFICIENT = 7
 _MIN_ADHERENCE_INSUFFICIENT = 0.50
@@ -440,11 +405,6 @@ def _classify_confidence(
     return "low"
 
 
-# ---------------------------------------------------------------------------
-# Summary generation
-# ---------------------------------------------------------------------------
-
-
 def _generate_summary(
     experiment: Experiment,
     confidence: ExperimentReportConfidence,
@@ -473,11 +433,6 @@ def _generate_summary(
         f"p={r.p_value_permutation}). "
         f"Confidence: {confidence}."
     )
-
-
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
 
 
 def compute_experiment_analysis(
@@ -535,7 +490,7 @@ def compute_experiment_analysis(
 
     # Adherence
     adherence_rate, adherence_by_day = _compute_adherence(
-        experiment, exposures, design.treatment_start_date, treatment_end,
+        exposures, design.treatment_start_date, treatment_end,
     )
 
     # Days counts — reuse from primary metric analysis to avoid redundant extraction
