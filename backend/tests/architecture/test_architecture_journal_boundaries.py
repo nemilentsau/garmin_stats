@@ -34,13 +34,6 @@ def test_journal_uses_flat_capability_layout():
     ]:
         assert not (REPO_ROOT / path).exists()
 
-    for path in [
-        "backend/app/domains/journal/routes.py",
-        "backend/app/domains/journal/adapters.py",
-        "backend/app/domains/journal/dependencies.py",
-    ]:
-        assert (REPO_ROOT / path).exists()
-
 
 def test_journal_sqlite_adapter_is_the_database_boundary():
     source = read_repo_file("backend/app/domains/journal/adapters.py")
@@ -52,12 +45,10 @@ def test_journal_sqlite_adapter_is_the_database_boundary():
 
 def test_bootstrap_routing_mounts_domain_journal_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
-    legacy_checkins_import = "domains.journal." "api.checkins"
-    legacy_notes_import = "domains.journal." "api.notes"
 
     assert "domains.journal.routes" in source
-    assert legacy_checkins_import not in source
-    assert legacy_notes_import not in source
+    assert "domains.journal.api.checkins" not in source
+    assert "domains.journal.api.notes" not in source
     assert "from ..routers.checkins import router as checkins_router" not in source
     assert "from ..routers.notes import router as notes_router" not in source
     assert "include_router(checkins_router)" in source

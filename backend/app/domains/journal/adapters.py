@@ -88,17 +88,13 @@ class SqliteJournalRepository:
     """Repository adapter used by journal application use cases."""
 
     def list_checkins(self, *, date: str | None = None) -> list[DailyCheckIn]:
-        """Load daily check-ins, optionally filtered by date."""
         return load_daily_checkins(date=date)
 
     def save_checkin(self, checkin: DailyCheckIn) -> None:
-        """Persist one daily check-in."""
         save_daily_checkin(checkin)
 
     def list_notes(self, *, date: str | None = None) -> list[Note]:
-        """Load notes, optionally filtered by date."""
         return load_notes(date=date)
 
     def save_note(self, note: Note) -> None:
-        """Persist one note."""
         save_note(note)
