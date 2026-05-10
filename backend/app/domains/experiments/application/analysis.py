@@ -8,12 +8,7 @@ check-ins, or exposures, then delegates pure analysis rules to the domain layer.
 from __future__ import annotations
 
 from app.domains.experiments.contracts import Experiment, ExperimentAnalysis
-from app.domains.experiments.domain.analysis import (
-    compute_experiment_analysis as compute_domain_experiment_analysis,
-)
-from app.domains.experiments.domain.analysis import (
-    unanalyzable_placeholder,
-)
+from app.domains.experiments.domain import analysis as domain_analysis
 
 from ..dependencies import ExperimentRepository
 
@@ -23,10 +18,10 @@ def compute_experiment_analysis(
     experiment: Experiment,
 ) -> ExperimentAnalysis:
     """Load repository inputs and compute the current experiment analysis."""
-    placeholder = unanalyzable_placeholder(experiment)
+    placeholder = domain_analysis.unanalyzable_placeholder(experiment)
     if placeholder is not None:
         return placeholder
-    return compute_domain_experiment_analysis(
+    return domain_analysis.compute_experiment_analysis(
         experiment,
         daily_metrics=repo.list_daily_metrics(),
         daily_checkins=repo.list_daily_checkins(),
