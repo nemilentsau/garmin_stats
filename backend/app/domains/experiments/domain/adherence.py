@@ -33,7 +33,7 @@ def compute_adherence(
                     exposure_score=exposure.exposure_score,
                 )
             )
-            if exposure.adherence_state in ("full", "completed"):
+            if exposure.adherence_state == "full":
                 full_count += 1
         else:
             entries.append(AdherenceDayEntry(date=day, state="unknown"))

@@ -28,7 +28,7 @@ def test_experiment_family_survives_adapter_round_trip():
         experiment_id="exp-1",
         date="2026-01-15",
         exposure_score=1.0,
-        adherence_state="completed",
+        adherence_state="full",
     )
     report = ExperimentReport(
         id="report-1",
