@@ -1,4 +1,8 @@
-"""Repository contracts for program use cases."""
+"""Dependencies consumed by program application use cases.
+
+Program workflows persist imported specs, lifecycle state, and version history
+through this protocol. Concrete SQLite details belong in the adapter layer.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,8 @@ from app.domains.programs.contracts import (
 
 
 class ProgramRepository(Protocol):
+    """Persistence dependency for program import and lifecycle workflows."""
+
     def get_program(self, program_id: str) -> Program | None: ...
 
     def list_programs(self, *, status: ProgramStatus | None = None) -> list[Program]: ...

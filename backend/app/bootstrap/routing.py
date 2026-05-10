@@ -25,7 +25,7 @@ from app.domains.garmin_analytics.routes import (
 from app.domains.garmin_sync.routes import router as ingest_router
 from app.domains.journal.api.checkins import router as checkins_router
 from app.domains.journal.api.notes import router as notes_router
-from app.domains.programs.api.programs import router as programs_router
+from app.domains.programs.routes import router as programs_router
 from app.domains.routines.routes import routines_router, today_router
 from app.realtime.routes import router as events_router
 

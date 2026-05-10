@@ -11,7 +11,7 @@ from app.domains.programs.contracts import (
 )
 from app.utils.timeutil import now_iso
 
-from .ports import ProgramRepository
+from app.domains.programs.dependencies import ProgramRepository
 
 
 def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
