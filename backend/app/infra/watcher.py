@@ -7,11 +7,13 @@ import logging
 import shutil
 import zipfile
 import zlib
+from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from watchfiles import Change, awatch
 
-from .database import compute_data_fingerprint, ingest_all
+from .database import compute_data_fingerprint
 from .events import event_bus
 
 log = logging.getLogger(__name__)
@@ -19,6 +21,14 @@ log = logging.getLogger(__name__)
 _last_fingerprint: str | None = None
 _ARCHIVE_STAMP_NAME = ".archive-source"
 _suspended = False
+
+
+class _IngestResult(Protocol):
+    days_ingested: int
+    duration_ms: int
+
+
+IngestAll = Callable[[Path], _IngestResult]
 
 
 def suspend_watcher() -> None:
@@ -172,7 +182,7 @@ def _safe_extract_all(zf: zipfile.ZipFile, out_dir: Path) -> None:
         zf.extract(member, out_dir)
 
 
-async def watch_data_directory(data_dir: Path) -> None:
+async def watch_data_directory(data_dir: Path, ingest_all: IngestAll) -> None:
     """Watch data_dir for .zip archives, extract them, ingest, and broadcast updates."""
     global _last_fingerprint
     _ensure_data_dir(data_dir)

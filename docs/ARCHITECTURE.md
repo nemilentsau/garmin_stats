@@ -46,7 +46,7 @@ There are two major paths:
 
 The Garmin health dependency direction is:
 
-- `parser.py` and `infra/database.py` -> `garmin_health`, `app.utils`
+- `parser.py` and `garmin_sync` ingest adapters -> `garmin_health`, `app.utils`
 - `garmin_analytics` -> `garmin_health`, `app.utils`
 - `experiments` and `assistant` -> `garmin_health` contracts, and analytics
   adapters only when loading analytics read data
@@ -109,7 +109,7 @@ Current contents:
 ### Infrastructure
 
 - `backend/app/infra/database.py`
-  SQLite schema, read/write helpers, data-root config, and ingest bookkeeping.
+  SQLite schema, shared read/write helpers, data-root config, and ingest metadata table.
 
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.
@@ -139,7 +139,7 @@ Current contents:
   `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
   small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
   ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
-  callables, `adapters.py` wires SQLite ingest helpers, archive extraction,
+  callables, `adapters.py` owns SQLite ingest helpers and wires archive extraction,
   watcher suspend/resume, filesystem archive writes/deletes, system clock, and
   Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
   API response models.

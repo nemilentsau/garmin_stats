@@ -36,6 +36,18 @@ def test_garmin_sync_infra_adapters_are_database_and_watcher_boundary():
     assert "resume_watcher=resume_watcher" in source
 
 
+def test_global_database_does_not_import_garmin_sync_contracts():
+    assert_no_text_in_files(
+        ["backend/app/infra/database.py"],
+        [
+            "app.domains.garmin_sync.contracts",
+            "domains.garmin_sync.contracts",
+            "IngestResult",
+            "IngestStatus",
+        ],
+    )
+
+
 def test_garmin_sync_adapters_do_not_wrap_single_function_dependencies():
     source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
 

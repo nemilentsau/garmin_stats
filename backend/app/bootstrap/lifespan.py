@@ -6,7 +6,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ..infra.database import DATA_DIR, check_ingest_status, ingest_all, init_db
+from ..domains.garmin_sync.adapters import check_ingest_status, ingest_all
+from ..infra.database import DATA_DIR, init_db
 from ..infra.watcher import extract_existing_archives, heartbeat_loop, watch_data_directory
 
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +51,10 @@ async def lifespan(app: FastAPI):
     init_db()
     _run_startup_ingest_if_needed()
 
-    watcher_task = asyncio.create_task(watch_data_directory(DATA_DIR), name="file-watcher")
+    watcher_task = asyncio.create_task(
+        watch_data_directory(DATA_DIR, ingest_all),
+        name="file-watcher",
+    )
     watcher_task.add_done_callback(_task_done_callback)
     heartbeat_task = asyncio.create_task(heartbeat_loop(), name="sse-heartbeat")
     heartbeat_task.add_done_callback(_task_done_callback)
