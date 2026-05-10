@@ -25,15 +25,14 @@ from app.domains.experiments.contracts import (
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 
-from .analysis_math import (
+from .metric_paths import resolve_metric_path, resolve_path
+from .statistics import (
     autocorrelation_lag1,
     compute_hedges_g,
     compute_nap,
     interpret_nap,
     linear_trend,
     permutation_test,
-    resolve_metric_path,
-    resolve_path,
     welch_t_test,
 )
 

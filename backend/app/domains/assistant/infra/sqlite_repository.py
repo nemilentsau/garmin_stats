@@ -14,12 +14,12 @@ from app.domains.assistant.contracts import (
 from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
-from app.domains.experiments.application.ports import ExperimentRepository
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
 )
+from app.domains.experiments.dependencies import ExperimentRepository
 from app.domains.garmin_analytics.adapters import load_daily_metrics
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import (

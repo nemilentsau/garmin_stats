@@ -1,20 +1,22 @@
-"""Unit tests for experiment analysis math helpers."""
+"""Unit tests for experiment-domain path and statistical helpers."""
 
 
 import warnings
 
 import pytest
 
-from app.domains.experiments.domain.analysis_math import (
+from app.domains.experiments.domain.metric_paths import (
+    resolve_checkin_path,
+    resolve_metric_path,
+    resolve_path,
+)
+from app.domains.experiments.domain.statistics import (
     autocorrelation_lag1,
     compute_cohens_d,
     compute_hedges_g,
     compute_nap,
     linear_trend,
     permutation_test,
-    resolve_checkin_path,
-    resolve_metric_path,
-    resolve_path,
     welch_t_test,
 )
 from app.domains.garmin_health.contracts import (

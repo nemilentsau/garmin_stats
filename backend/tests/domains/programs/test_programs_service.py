@@ -1,8 +1,8 @@
 """Tests for program import service behavior."""
 
 
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.management import list_experiments
-from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.domains.programs.application.programs import (
     get_program,
     get_program_versions,

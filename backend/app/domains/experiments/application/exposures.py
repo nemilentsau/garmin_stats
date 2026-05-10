@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from app.domains.experiments.contracts import ExperimentExposure
 
+from ..dependencies import ExperimentRepository
 from .analysis_cache import persist_experiment_analysis
-from .ports import ExperimentRepository
 
 
 def list_experiment_exposures(

@@ -14,8 +14,8 @@ from app.domains.routines.application.schedule_window import get_schedule_window
 from app.domains.routines.contracts import ScheduleOccurrence
 from app.domains.routines.dependencies import RoutineRepository
 
+from ..dependencies import ExperimentRepository
 from .analysis_cache import persist_experiment_analysis
-from .ports import ExperimentRepository
 
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
 

@@ -11,8 +11,7 @@ from tests._architecture import (
 
 def test_experiments_api_modules_do_not_import_flat_database_or_services():
     assert_api_modules_are_boundary_only([
-        "backend/app/domains/experiments/api/experiments.py",
-        "backend/app/domains/experiments/api/target_metrics.py",
+        "backend/app/domains/experiments/routes.py",
     ])
 
 
@@ -23,7 +22,6 @@ def test_experiments_application_modules_follow_strict_boundary():
         "backend/app/domains/experiments/application/exposures.py",
         "backend/app/domains/experiments/application/exposure_sync.py",
         "backend/app/domains/experiments/application/management.py",
-        "backend/app/domains/experiments/application/ports.py",
         "backend/app/domains/experiments/application/preview.py",
         "backend/app/domains/experiments/application/target_metrics.py",
     ])
@@ -33,9 +31,23 @@ def test_experiments_application_files_are_named_by_responsibility():
     for path in [
         "backend/app/domains/experiments/application/experiments.py",
         "backend/app/domains/experiments/application/analysis_math.py",
+        "backend/app/domains/experiments/application/ports.py",
         "backend/app/domains/experiments/application/stats.py",
+        "backend/app/domains/experiments/domain/analysis_math.py",
+        "backend/app/domains/experiments/api/__init__.py",
+        "backend/app/domains/experiments/api/experiments.py",
+        "backend/app/domains/experiments/api/target_metrics.py",
+        "backend/app/domains/experiments/infra/__init__.py",
+        "backend/app/domains/experiments/infra/sqlite_repository.py",
     ]:
         assert not (REPO_ROOT / path).exists()
+
+    for path in [
+        "backend/app/domains/experiments/routes.py",
+        "backend/app/domains/experiments/adapters.py",
+        "backend/app/domains/experiments/dependencies.py",
+    ]:
+        assert (REPO_ROOT / path).exists()
 
 
 def test_experiment_pure_rules_live_in_domain_layer():
@@ -43,8 +55,9 @@ def test_experiment_pure_rules_live_in_domain_layer():
     expected = {
         domain_root / "__init__.py",
         domain_root / "analysis.py",
-        domain_root / "analysis_math.py",
         domain_root / "exposures.py",
+        domain_root / "metric_paths.py",
+        domain_root / "statistics.py",
     }
     assert expected.issubset(set(domain_root.rglob("*.py")))
 
@@ -69,8 +82,9 @@ def test_experiment_domain_modules_do_not_import_application_or_infra():
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
-    assert "domains.experiments.api.experiments" in source
-    assert "domains.experiments.api.target_metrics" in source
+    assert "domains.experiments.routes" in source
+    assert "domains.experiments.api.experiments" not in source
+    assert "domains.experiments.api.target_metrics" not in source
     assert "from ..routers.experiments import router as experiments_router" not in source
     assert "from ..routers.target_metrics import router as target_metrics_router" not in source
     assert "include_router(experiments_router)" in source

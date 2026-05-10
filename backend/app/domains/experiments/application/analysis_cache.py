@@ -14,8 +14,8 @@ from app.domains.experiments.domain.analysis import (
     expected_experiment_phase,
 )
 
+from ..dependencies import ExperimentRepository
 from .analysis import compute_experiment_analysis
-from .ports import ExperimentRepository
 
 log = logging.getLogger(__name__)
 

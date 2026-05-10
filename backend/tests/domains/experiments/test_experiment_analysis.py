@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 import app.infra.database as db
+from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
     Experiment,
@@ -12,7 +13,6 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     OutcomeMetric,
 )
-from app.domains.experiments.infra.sqlite_repository import SqliteExperimentRepository
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,

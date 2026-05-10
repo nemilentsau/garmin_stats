@@ -7,7 +7,7 @@ from app.domains.experiments.domain.analysis import (
     compute_experiment_analysis as compute_domain_experiment_analysis,
 )
 
-from .ports import ExperimentRepository
+from ..dependencies import ExperimentRepository
 
 
 def compute_experiment_analysis(

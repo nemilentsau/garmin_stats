@@ -9,12 +9,12 @@ from app.domains.experiments.contracts import (
 )
 from app.domains.routines.dependencies import RoutineRepository
 
+from ..dependencies import ExperimentRepository
 from .analysis_cache import (
     load_current_analysis,
     persist_experiment_analysis,
     refresh_if_stale,
 )
-from .ports import ExperimentRepository
 from .preview import preview_experiment
 
 
