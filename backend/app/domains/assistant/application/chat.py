@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.application.evidence import build_evidence_bundle
-from app.domains.assistant.application.router import route_user_query
+from app.domains.assistant.application.intent_routing import route_user_query
 from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,

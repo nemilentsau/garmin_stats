@@ -1,4 +1,10 @@
-"""Deterministic intent router for retrieval-first assistant queries."""
+"""Classify assistant messages before retrieval.
+
+This module owns deterministic intent classification for one user message. It
+returns an ``AssistantRouteDecision`` with confidence and matched signals, then
+leaves entity resolution, evidence retrieval, and runtime execution to the
+neighboring application modules.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +40,8 @@ _INTENT_ORDER: tuple[AssistantIntent, ...] = (
 
 
 def route_user_query(query: str) -> AssistantRouteDecision:
+    """Return the retrieval intent and signals inferred from a user query."""
+
     text = query.lower()
     tokens = set(_LOWERCASE_TOKEN_PATTERN.findall(text))
     scores = {intent: 0.0 for intent in _INTENT_ORDER}

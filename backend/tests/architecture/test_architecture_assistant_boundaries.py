@@ -25,7 +25,7 @@ def test_assistant_application_modules_follow_strict_boundary():
         "backend/app/domains/assistant/application/entity_resolution.py",
         "backend/app/domains/assistant/application/evidence.py",
         "backend/app/domains/assistant/application/retrieval.py",
-        "backend/app/domains/assistant/application/router.py",
+        "backend/app/domains/assistant/application/intent_routing.py",
         "backend/app/domains/assistant/application/threads.py",
     ])
 
@@ -35,6 +35,7 @@ def test_assistant_uses_flat_capability_layout():
         "backend/app/domains/assistant/api",
         "backend/app/domains/assistant/infra",
         "backend/app/domains/assistant/application/ports.py",
+        "backend/app/domains/assistant/application/router.py",
         "backend/app/domains/assistant/application/types.py",
     ]:
         assert not (REPO_ROOT / path).exists()
@@ -113,7 +114,7 @@ def test_assistant_application_does_not_import_storage_adapters_or_runtime():
             "backend/app/domains/assistant/application/entity_resolution.py",
             "backend/app/domains/assistant/application/evidence.py",
             "backend/app/domains/assistant/application/retrieval.py",
-            "backend/app/domains/assistant/application/router.py",
+            "backend/app/domains/assistant/application/intent_routing.py",
             "backend/app/domains/assistant/application/threads.py",
         ],
         [
@@ -128,6 +129,7 @@ def test_migrated_assistant_router_and_adapter_shims_are_removed():
         "backend/app/domains/assistant/api",
         "backend/app/domains/assistant/infra",
         "backend/app/domains/assistant/application/ports.py",
+        "backend/app/domains/assistant/application/router.py",
         "backend/app/domains/assistant/application/types.py",
         "backend/app/routers/assistant.py",
     ]:
@@ -140,6 +142,7 @@ def test_backend_code_does_not_import_migrated_assistant_paths():
             "app.domains.assistant.api",
             "app.domains.assistant.infra",
             "app.domains.assistant.application.ports",
+            "app.domains.assistant.application.router",
             "app.domains.assistant.application.types",
             "app.routers.assistant",
         ],

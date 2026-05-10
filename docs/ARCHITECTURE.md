@@ -128,7 +128,7 @@ Current contents:
 - `domains/assistant/`
   Assistant chat and retrieval-first evidence context. This slice uses a flat
   small-capability layout: `routes.py` owns `/api/assistant` HTTP and streaming
-  endpoints, `application/` owns thread catalog, query routing, entity
+  endpoints, `application/` owns thread catalog, intent classification, entity
   resolution, evidence assembly, retrieval, and chat orchestration,
   `dependencies.py` owns conversation/read-model/runtime dependencies,
   `adapters.py` owns assistant SQLite persistence and explicit read-model
