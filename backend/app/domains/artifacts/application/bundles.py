@@ -8,8 +8,9 @@ without directly compiling them.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 from pydantic import ValidationError
 
@@ -39,6 +40,14 @@ class _PreparedBundleArtifact:
 
     delta: ArtifactBundleDelta
     payload_json: dict[str, object]
+
+
+class _BundleItem(Protocol):
+    """Minimal shape of a bundle item used by the planning loop."""
+
+    id: str
+
+    def model_dump(self) -> dict[str, object]: ...
 
 
 _RESERVED_PLACEHOLDER_BUNDLE_IDS = frozenset({"proper-routine-bundle"})
@@ -350,6 +359,52 @@ def _record_prepared_artifact(
     prepared.append(_PreparedBundleArtifact(delta=delta, payload_json=payload))
 
 
+def _plan_bundle_items[ItemT: _BundleItem](
+    items: Sequence[ItemT],
+    *,
+    kind: ArtifactBundleItemKind,
+    path_root: str,
+    artifact_repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
+    bundle_id: str,
+    existing_draft_ids: set[str],
+    issues: list[ArtifactBundleIssue],
+    prepared: list[_PreparedBundleArtifact],
+    ids_seen: set[str],
+    validate_payload: Callable[[dict[str, object]], list[str]],
+    extra_item_checks: Callable[[ItemT, str], None] | None = None,
+) -> None:
+    """Validate and stage one kind of bundle item using the shared scaffold."""
+    for index, item in enumerate(items):
+        path_prefix = f"{path_root}.{index}"
+        if _record_duplicate_id_issue(
+            ids_seen=ids_seen,
+            kind=kind,
+            item_id=item.id,
+            path_prefix=path_prefix,
+            issues=issues,
+        ):
+            continue
+
+        payload = item.model_dump()
+        _record_payload_issues(
+            validate_payload(payload), path_prefix=path_prefix, issues=issues,
+        )
+        if extra_item_checks is not None:
+            extra_item_checks(item, path_prefix)
+
+        _record_prepared_artifact(
+            artifact_repo=artifact_repo,
+            routines_repo=routines_repo,
+            bundle_id=bundle_id,
+            kind=kind,
+            target_id=item.id,
+            payload=payload,
+            existing_draft_ids=existing_draft_ids,
+            prepared=prepared,
+        )
+
+
 def _build_bundle_plan(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
@@ -369,8 +424,6 @@ def _build_bundle_plan(
 
     issues.extend(_validate_placeholder_bundle_content(bundle))
 
-    card_ids_seen: set[str] = set()
-    routine_ids_seen: set[str] = set()
     assignment_ids_seen: set[str] = set()
     existing_assignment_routine_ids = _existing_assignment_routine_ids(
         artifact_repo,
@@ -382,52 +435,7 @@ def _build_bundle_plan(
         {"card_template", "routine_spec"},
     )
 
-    for index, card in enumerate(bundle.card_templates):
-        path_prefix = f"card_templates.{index}"
-        if _record_duplicate_id_issue(
-            ids_seen=card_ids_seen,
-            kind="card_template",
-            item_id=card.id,
-            path_prefix=path_prefix,
-            issues=issues,
-        ):
-            continue
-
-        payload = card.model_dump()
-        card_errors, _requested_renderer = validate_card_template_payload(payload)
-        _record_payload_issues(card_errors, path_prefix=path_prefix, issues=issues)
-
-        _record_prepared_artifact(
-            artifact_repo=artifact_repo,
-            routines_repo=routines_repo,
-            bundle_id=bundle.id,
-            kind="card_template",
-            target_id=card.id,
-            payload=payload,
-            existing_draft_ids=existing_draft_ids,
-            prepared=prepared,
-        )
-
-    for index, routine in enumerate(bundle.routine_specs):
-        path_prefix = f"routine_specs.{index}"
-        if _record_duplicate_id_issue(
-            ids_seen=routine_ids_seen,
-            kind="routine_spec",
-            item_id=routine.id,
-            path_prefix=path_prefix,
-            issues=issues,
-        ):
-            continue
-
-        payload = routine.model_dump()
-        routine_errors = validate_routine_spec_payload(
-            artifact_repo,
-            routines_repo,
-            payload,
-            additional_card_ids=bundled_card_ids,
-        )
-        _record_payload_issues(routine_errors, path_prefix=path_prefix, issues=issues)
-
+    def check_routine_assignments(routine: RoutineSpec, path_prefix: str) -> None:
         for assignment_index, assignment in enumerate(routine.assignments):
             assignment_path = f"{path_prefix}.assignments.{assignment_index}.id"
             if assignment.id in assignment_ids_seen:
@@ -454,16 +462,39 @@ def _build_bundle_plan(
                     )
                 )
 
-        _record_prepared_artifact(
-            artifact_repo=artifact_repo,
-            routines_repo=routines_repo,
-            bundle_id=bundle.id,
-            kind="routine_spec",
-            target_id=routine.id,
-            payload=payload,
-            existing_draft_ids=existing_draft_ids,
-            prepared=prepared,
-        )
+    _plan_bundle_items(
+        bundle.card_templates,
+        kind="card_template",
+        path_root="card_templates",
+        artifact_repo=artifact_repo,
+        routines_repo=routines_repo,
+        bundle_id=bundle.id,
+        existing_draft_ids=existing_draft_ids,
+        issues=issues,
+        prepared=prepared,
+        ids_seen=set(),
+        validate_payload=lambda payload: validate_card_template_payload(payload)[0],
+    )
+
+    _plan_bundle_items(
+        bundle.routine_specs,
+        kind="routine_spec",
+        path_root="routine_specs",
+        artifact_repo=artifact_repo,
+        routines_repo=routines_repo,
+        bundle_id=bundle.id,
+        existing_draft_ids=existing_draft_ids,
+        issues=issues,
+        prepared=prepared,
+        ids_seen=set(),
+        validate_payload=lambda payload: validate_routine_spec_payload(
+            artifact_repo,
+            routines_repo,
+            payload,
+            additional_card_ids=bundled_card_ids,
+        ),
+        extra_item_checks=check_routine_assignments,
+    )
 
     return issues, prepared
 

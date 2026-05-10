@@ -67,6 +67,28 @@ def _bundle_card_artifact_for_routine_artifact(
     return dependency
 
 
+def _resolve_card_template_dependency(
+    artifact_repo: ArtifactRepository,
+    routines_repo: RoutineRepository,
+    dependency: AssistantArtifact,
+    live_card: CardTemplate | None,
+    *,
+    card_id: str,
+) -> None:
+    """Activate or compile ``dependency`` so ``card_id`` is ready for use."""
+    if dependency.status == "validated":
+        activate_assistant_artifact(artifact_repo, routines_repo, dependency.id)
+        return
+    if dependency.status == "activated":
+        already_compiled = (
+            live_card is not None and live_card.source_artifact_id == dependency.id
+        )
+        if not already_compiled:
+            _compile_card_template_artifact(routines_repo, dependency)
+        return
+    raise ValueError(f"Card template {card_id} is not ready for activation")
+
+
 def _activate_card_template_dependency(
     artifact_repo: ArtifactRepository,
     routines_repo: RoutineRepository,
@@ -78,28 +100,12 @@ def _activate_card_template_dependency(
     bundle_dependency = _bundle_card_artifact_for_routine_artifact(
         artifact_repo, source_artifact, card_id
     )
+    dependency = bundle_dependency or card_spec_artifact_by_card_id(artifact_repo, card_id)
 
-    if bundle_dependency is not None:
-        if bundle_dependency.status == "validated":
-            activate_assistant_artifact(artifact_repo, routines_repo, bundle_dependency.id)
-            return
-        if bundle_dependency.status == "activated":
-            already_compiled = (
-                live_card is not None
-                and live_card.source_artifact_id == bundle_dependency.id
-            )
-            if not already_compiled:
-                _compile_card_template_artifact(routines_repo, bundle_dependency)
-            return
-        raise ValueError(f"Card template {card_id} is not ready for activation")
-
-    dependency = card_spec_artifact_by_card_id(artifact_repo, card_id)
     if dependency is not None:
-        if dependency.status == "validated":
-            activate_assistant_artifact(artifact_repo, routines_repo, dependency.id)
-            return
-        if live_card is None or live_card.source_artifact_id != dependency.id:
-            _compile_card_template_artifact(routines_repo, dependency)
+        _resolve_card_template_dependency(
+            artifact_repo, routines_repo, dependency, live_card, card_id=card_id,
+        )
         return
 
     if live_card is None:

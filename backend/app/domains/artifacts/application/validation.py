@@ -7,7 +7,7 @@ reference known live or staged card templates.
 
 from __future__ import annotations
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.domains.artifacts.contracts import (
     AssistantArtifact,
@@ -27,7 +27,6 @@ PAYLOAD_MODELS = {
     "exercise_block": ExerciseBlockPayloadSpec,
 }
 
-
 def format_validation_errors(exc: ValidationError) -> list[str]:
     """Flatten Pydantic errors into artifact validation messages."""
     errors: list[str] = []
@@ -36,6 +35,17 @@ def format_validation_errors(exc: ValidationError) -> list[str]:
         msg = err["msg"]
         errors.append(f"{loc}: {msg}" if loc else msg)
     return errors
+
+
+def _try_validate[ModelT: BaseModel](
+    model_cls: type[ModelT],
+    payload: object,
+) -> tuple[ModelT | None, list[str]]:
+    """Validate ``payload`` against ``model_cls`` and flatten any errors."""
+    try:
+        return model_cls.model_validate(payload), []
+    except ValidationError as exc:
+        return None, format_validation_errors(exc)
 
 
 def card_spec_artifact_by_card_id(
@@ -59,18 +69,12 @@ def validate_card_template_payload(
     if requested_renderer not in PAYLOAD_MODELS:
         return [f"renderer: Unsupported renderer family '{requested_renderer}'"], requested_renderer
 
-    try:
-        spec = CardTemplateSpec.model_validate(payload_json)
-    except ValidationError as exc:
-        return format_validation_errors(exc), requested_renderer
+    spec, errors = _try_validate(CardTemplateSpec, payload_json)
+    if spec is None:
+        return errors, requested_renderer
 
-    payload_model = PAYLOAD_MODELS[spec.renderer]
-    try:
-        payload_model.model_validate(spec.payload)
-    except ValidationError as exc:
-        return format_validation_errors(exc), requested_renderer
-
-    return [], requested_renderer
+    _, payload_errors = _try_validate(PAYLOAD_MODELS[spec.renderer], spec.payload)
+    return payload_errors, requested_renderer
 
 
 def validate_routine_spec_payload(
@@ -81,12 +85,10 @@ def validate_routine_spec_payload(
     additional_card_ids: set[str] | None = None,
 ) -> list[str]:
     """Validate a routine spec against live and staged card templates."""
-    try:
-        spec = RoutineSpec.model_validate(payload_json)
-    except ValidationError as exc:
-        return format_validation_errors(exc)
+    spec, errors = _try_validate(RoutineSpec, payload_json)
+    if spec is None:
+        return errors
 
-    errors: list[str] = []
     additional_card_ids = additional_card_ids or set()
     for assignment in spec.assignments:
         if assignment.day < 1:
@@ -106,8 +108,5 @@ def validate_routine_spec_payload(
 
 def validate_capability_request_payload(payload_json: dict[str, object]) -> list[str]:
     """Validate a capability-request artifact payload."""
-    try:
-        CapabilityRequestSpec.model_validate(payload_json)
-    except ValidationError as exc:
-        return format_validation_errors(exc)
-    return []
+    _, errors = _try_validate(CapabilityRequestSpec, payload_json)
+    return errors
