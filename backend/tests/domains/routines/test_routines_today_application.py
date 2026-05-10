@@ -2,6 +2,10 @@
 
 import pytest
 
+from app.domains.experiments.adapters import (
+    load_experiment_exposures,
+    save_experiment,
+)
 from app.domains.experiments.contracts import Experiment
 from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.today import (
@@ -15,7 +19,6 @@ from app.domains.routines.contracts import (
     CardLog,
     TodayCardLogUpdateRequest,
 )
-from app.infra.database import load_experiment_exposures, save_experiment
 from tests._routines_helpers import (
     activate_routine_card,
     activate_routine_spec,

@@ -26,11 +26,6 @@ from app.domains.assistant.contracts import (
     Plan,
     PlanItem,
 )
-from app.domains.experiments.contracts import (
-    Experiment,
-    ExperimentExposure,
-    OutcomeMetric,
-)
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -480,30 +475,6 @@ class TestStoreAndLoad:
         assert checkins[0].energy == 4
         assert len(notes) == 1
         assert notes[0].title == "Dinner"
-
-    def test_experiment_family_survives_round_trip(self):
-        experiment = Experiment(
-            id="exp-1",
-            name="Evening meditation",
-            linked_routine_ids=["routine-1"],
-            outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
-        )
-        exposure = ExperimentExposure(
-            id="exposure-1",
-            experiment_id="exp-1",
-            date="2026-01-15",
-            exposure_score=1.0,
-            adherence_state="completed",
-        )
-
-        db.save_experiment(experiment)
-        db.save_experiment_exposure(exposure)
-
-        experiments = db.load_experiments()
-        exposures = db.load_experiment_exposures(experiment_id="exp-1")
-
-        assert [item.id for item in experiments] == ["exp-1"]
-        assert [item.id for item in exposures] == ["exposure-1"]
 
     def test_plan_survives_round_trip_with_items(self):
         plan = Plan(
