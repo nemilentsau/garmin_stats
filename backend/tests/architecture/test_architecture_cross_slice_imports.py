@@ -32,9 +32,16 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
     },
+    "backend/app/domains/experiments/domain/confounders.py": {
+        GARMIN_HEALTH_CONTRACTS,
+        "app.domains.journal.contracts",
+    },
     "backend/app/domains/experiments/domain/metric_paths.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
+    },
+    "backend/app/domains/experiments/domain/outcomes.py": {
+        GARMIN_HEALTH_CONTRACTS,
     },
     "backend/app/domains/experiments/dependencies.py": {
         GARMIN_HEALTH_CONTRACTS,

@@ -54,12 +54,34 @@ def test_experiment_pure_rules_live_in_domain_layer():
     domain_root = REPO_ROOT / "backend/app/domains/experiments/domain"
     expected = {
         domain_root / "__init__.py",
+        domain_root / "adherence.py",
         domain_root / "analysis.py",
+        domain_root / "confounders.py",
         domain_root / "exposures.py",
         domain_root / "metric_paths.py",
+        domain_root / "outcomes.py",
+        domain_root / "reporting.py",
         domain_root / "statistics.py",
+        domain_root / "windows.py",
     }
     assert expected.issubset(set(domain_root.rglob("*.py")))
+
+
+def test_experiment_analysis_module_stays_as_pipeline_assembler():
+    source = read_repo_file("backend/app/domains/experiments/domain/analysis.py")
+    assert "import numpy" not in source
+
+    extracted_concerns = [
+        "def _extract_metric_values(",
+        "def _analyse_metric_lag(",
+        "def _analyse_metric(",
+        "def _extract_confounder(",
+        "def _check_confounders(",
+        "def _compute_adherence(",
+        "def _classify_confidence(",
+        "def _generate_summary(",
+    ]
+    assert [name for name in extracted_concerns if name in source] == []
 
 
 def test_experiment_domain_modules_do_not_import_application_or_infra():
