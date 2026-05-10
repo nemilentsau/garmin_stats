@@ -1,4 +1,10 @@
-"""Program spec import and management use cases."""
+"""Program spec import and lifecycle use cases.
+
+Programs currently persist imported specs, active/retired status, and prior
+version snapshots only. This application layer deliberately does not activate
+protocols, routines, experiments, or artifact records; those future workflows
+will enter through explicit dependencies instead of hidden side effects.
+"""
 
 from __future__ import annotations
 
@@ -65,11 +71,13 @@ def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
 def list_programs(
     repo: ProgramRepository, status: ProgramStatus | None = None
 ) -> ProgramsResponse:
+    """List imported programs, optionally filtered by lifecycle status."""
     programs = repo.list_programs(status=status)
     return ProgramsResponse(programs=programs)
 
 
 def get_program(repo: ProgramRepository, program_id: str) -> Program:
+    """Return one imported program or raise when it does not exist."""
     result = repo.get_program(program_id)
     if result is None:
         raise LookupError(f"Program {program_id} not found")
@@ -77,6 +85,7 @@ def get_program(repo: ProgramRepository, program_id: str) -> Program:
 
 
 def retire_program(repo: ProgramRepository, program_id: str) -> Program:
+    """Mark one imported program retired without deleting version history."""
     program = get_program(repo, program_id)
     program.status = "retired"
     program.retired_at = now_iso()
@@ -85,6 +94,7 @@ def retire_program(repo: ProgramRepository, program_id: str) -> Program:
 
 
 def activate_program(repo: ProgramRepository, program_id: str) -> Program:
+    """Reactivate one imported program while preserving its import history."""
     program = get_program(repo, program_id)
     program.status = "active"
     program.retired_at = None
@@ -96,6 +106,7 @@ def get_program_versions(
     repo: ProgramRepository,
     program_id: str,
 ) -> ProgramVersionsResponse:
+    """Return prior versions for an existing imported program."""
     get_program(repo, program_id)
     versions = repo.list_program_versions(program_id)
     return ProgramVersionsResponse(versions=versions)

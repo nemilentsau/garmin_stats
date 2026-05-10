@@ -20,12 +20,19 @@ _STORE = JsonStore({"programs"})
 
 
 class SqliteProgramRepository:
-    """Repository adapter used by program application use cases."""
+    """Repository adapter used by program application use cases.
+
+    The adapter owns the current program record and version-history writes. It
+    leaves schema initialization to shared SQLite bootstrap and keeps program
+    import transactions local to this domain boundary.
+    """
 
     def get_program(self, program_id: str) -> Program | None:
+        """Load one imported program by id."""
         return _STORE.load("programs", Program, program_id)
 
     def list_programs(self, *, status: ProgramStatus | None = None) -> list[Program]:
+        """Load imported programs, optionally filtered by lifecycle status."""
         where_sql = ""
         params: tuple[object, ...] = ()
         if status is not None:
@@ -39,9 +46,11 @@ class SqliteProgramRepository:
         )
 
     def save_program(self, program: Program) -> None:
+        """Persist the current record for one imported program."""
         _STORE.save("programs", program.id, program.model_dump_json())
 
     def list_program_versions(self, program_id: str) -> list[ProgramVersion]:
+        """Load prior versions for one program ordered by version number."""
         with connect() as con:
             rows = con.execute(
                 "SELECT data, created_at, updated_at FROM program_versions "
