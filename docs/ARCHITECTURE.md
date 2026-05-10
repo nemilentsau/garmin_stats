@@ -117,8 +117,11 @@ Current contents:
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.
 
-- `backend/app/infra/events.py`
+- `backend/app/realtime/events.py`
   SSE event bus and heartbeat loop.
+
+- `backend/app/realtime/routes.py`
+  Realtime transport endpoint for `/api/events`.
 
 ### Active service areas
 

@@ -1,6 +1,4 @@
-"""
-SSE event bus — pub/sub for pushing real-time updates to connected frontends.
-"""
+"""Realtime event bus for pushing server-sent events to connected frontends."""
 
 import asyncio
 import logging

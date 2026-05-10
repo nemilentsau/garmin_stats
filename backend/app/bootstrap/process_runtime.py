@@ -8,7 +8,7 @@ import logging
 from app.bootstrap.container import AppContainer
 from app.domains.experiments.application.analysis_cache import refresh_active_experiments
 from app.domains.garmin_sync.infra.runtime import run_startup_ingest_if_needed
-from app.infra.events import heartbeat_loop
+from app.realtime.events import heartbeat_loop
 
 log = logging.getLogger(__name__)
 

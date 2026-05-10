@@ -19,7 +19,7 @@ from app.domains.garmin_sync.infra.filesystem import (
 from app.domains.garmin_sync.infra.garmin_connect import GarminConnectClientFactory
 from app.domains.garmin_sync.infra.sqlite_ingest import DatabaseIngestGateway
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
-from app.infra.events import event_bus
+from app.realtime.events import event_bus
 
 
 @dataclass(frozen=True)
