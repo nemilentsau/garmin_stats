@@ -45,7 +45,7 @@ uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-ty
 
 ## Data Source
 
-FIT files from a Garmin watch, organized on disk as `data/YYYY-MM-DD/*.fit`. Files are named `{garmin_timestamp}_{TYPE}.fit`.
+Garmin daily archives live at `data/garmin_health_stats/YYYY-MM-DD.zip`. The ingest pipeline extracts them to `data/garmin_health_stats/YYYY-MM-DD/*.fit`; parser code reads the extracted day folders. FIT files are named `{garmin_timestamp}_{TYPE}.fit`.
 
 ## FIT File Types
 
@@ -100,19 +100,21 @@ Each schema file documents:
 
 All parsers follow this pattern:
 ```python
-def parse_X_data(data_dir: Path, date: str | None = None) -> dict:
+def parse_X(data_dir: Path, date: str | None = None) -> list[DayX]:
     files_by_day = get_files_by_day(data_dir)
-    # Filter to requested date if provided
-    # Iterate files, decode with decode_fit_file()
+    # Select requested date if provided
+    # Decode every file for the day/type
     # Extract fields per schema, apply filters
-    # Return { days: [...], metric_name: [...] }
+    # Return Garmin health contract rows
 ```
+
+`parse_day()` composes `DayData` and applies the per-day UTC offset through `_shift_timestamps()`. New timestamp fields must be added there before they are considered display-safe.
 
 ## When Adding New Metrics
 
 1. Check `references/` schemas first — the field may already be documented (possibly with `"extracted": false`)
 2. If the field isn't there, run the discover script: `uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE> --message <MSG>`
 3. Add the discovered fields to the appropriate reference JSON
-4. Write the parser code using the documented field names and filter rules
+4. Write the parser code using the documented field names and filter rules, returning models from `app.domains.garmin_health.contracts`
 5. Run the verify script to confirm the schema matches: `uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py`
 6. If adding a new endpoint, regenerate TypeScript types: `bash scripts/generate-api-types.sh`

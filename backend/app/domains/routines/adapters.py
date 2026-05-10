@@ -29,14 +29,17 @@ _STORE = JsonStore({
 
 
 def save_card_template(card: CardTemplate) -> None:
+    """Persist one live card template."""
     _STORE.save("card_templates", card.id, card.model_dump_json())
 
 
 def load_card_template(card_id: str) -> CardTemplate | None:
+    """Load one live card template by id."""
     return _STORE.load("card_templates", CardTemplate, card_id)
 
 
 def load_card_templates(status: str | None = None) -> list[CardTemplate]:
+    """Load live card templates, optionally filtered by status."""
     where_sql = ""
     params: tuple[object, ...] = ()
     if status is not None:
@@ -51,14 +54,17 @@ def load_card_templates(status: str | None = None) -> list[CardTemplate]:
 
 
 def save_routine_schedule(routine: RoutineSchedule) -> None:
+    """Persist one live routine schedule."""
     _STORE.save("routine_schedules", routine.id, routine.model_dump_json())
 
 
 def load_routine_schedule(routine_id: str) -> RoutineSchedule | None:
+    """Load one live routine schedule by id."""
     return _STORE.load("routine_schedules", RoutineSchedule, routine_id)
 
 
 def load_routine_schedules(status: str | None = None) -> list[RoutineSchedule]:
+    """Load live routine schedules, optionally filtered by status."""
     where_sql = ""
     params: tuple[object, ...] = ()
     if status is not None:
@@ -132,6 +138,7 @@ def save_routine_schedule_with_assignments(
     routine: RoutineSchedule,
     assignments: list[RoutineAssignment],
 ) -> None:
+    """Atomically persist a routine schedule and replace its assignments."""
     with connect() as con:
         con.execute("BEGIN IMMEDIATE")
         try:
@@ -153,6 +160,7 @@ def replace_routine_assignments(
     routine_id: str,
     assignments: list[RoutineAssignment],
 ) -> None:
+    """Atomically replace all assignments for one routine schedule."""
     with connect() as con:
         con.execute("BEGIN IMMEDIATE")
         try:
@@ -165,6 +173,7 @@ def replace_routine_assignments(
 
 
 def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssignment]:
+    """Load dated routine assignments, optionally for one routine."""
     where_sql = "routine_id = ?" if routine_id is not None else ""
     params = (routine_id,) if routine_id is not None else ()
     return _STORE.load_many(
@@ -177,6 +186,7 @@ def load_routine_assignments(routine_id: str | None = None) -> list[RoutineAssig
 
 
 def save_card_log(log: CardLog) -> None:
+    """Persist one card completion log."""
     _STORE.save(
         "card_logs",
         log.id,
@@ -191,6 +201,7 @@ def save_card_log(log: CardLog) -> None:
 
 
 def load_card_logs(date: str | None = None) -> list[CardLog]:
+    """Load card logs, optionally restricted to one date."""
     where_sql = "log_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _STORE.load_many(
@@ -214,6 +225,7 @@ def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
 
 
 def save_card_override(override: CardOverride) -> None:
+    """Persist one dated card override."""
     _STORE.save(
         "card_overrides",
         override.id,
@@ -227,6 +239,7 @@ def save_card_override(override: CardOverride) -> None:
 
 
 def load_card_overrides(date: str | None = None) -> list[CardOverride]:
+    """Load card overrides, optionally restricted to one date."""
     where_sql = "override_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _STORE.load_many(

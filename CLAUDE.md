@@ -32,6 +32,7 @@
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
+- **Where new helpers go**: default to the closest domain. Only promote to `app/utils/` when *all three* rules hold — primitive-only signatures, no domain vocabulary in names, and two-plus consumers already exist. Read `docs/ARCHITECTURE.md` → "Shared Utilities" before adding anything to `app/utils/` or creating a new shared module.
 
 ## Skills
 
@@ -45,8 +46,8 @@ Five skills support this project. Each owns specific code layers:
 - Discover new fields: `cd backend && uv run python ../.claude/skills/garmin-data/scripts/discover_fields.py --file-type <TYPE>`
 
 ### `data-analysis` — aggregation + presentation layers
-**Owns:** `stats.py`, aggregate stat fields in `models.py`, frontend chart configs, stat cards
-**Trigger:** touching `stats.py`, adding/changing aggregate model fields, building or modifying charts
+**Owns:** Garmin daily/period metric calculators, aggregate response fields, frontend chart configs, stat cards
+**Trigger:** touching `domains/garmin_health/domain/daily_metrics/`, `domains/garmin_analytics/domain/aggregates/`, analytics contracts, or building/modifying charts
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - Pipeline traces go to `.claude/chart-inspections/<metric>-<context>/`. Never overwrite previous trace directories.
 
@@ -60,9 +61,8 @@ Five skills support this project. Each owns specific code layers:
 **Owns:** Frontend UX aesthetics, visual styling, project-specific dashboard rules
 **Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
-- Skill docs: `.claude/skills/ux-design/SKILL.md` — contains aesthetic guidance AND project-specific dashboard rules (must-haves, don'ts, font pairings)
-- Additional design context in memory `dashboard-ux.md`
-- Always validate with `svelte-check` after creating design pages
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces
+- Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools
 
 ### `testing` — test discipline
 **Owns:** test files in `backend/tests/`, test patterns and conventions

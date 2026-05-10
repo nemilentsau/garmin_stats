@@ -1,10 +1,12 @@
-"""Body battery raw-period aggregate calculations."""
+"""Body Battery period summary calculations from raw readings."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodBodyBatteryStats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodBodyBatteryStats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_body_battery(days: list[DayData]) -> PeriodBodyBatteryStats:
+    """Compute period Body Battery extrema from raw daily readings."""
     mins: list[float] = []
     maxes: list[float] = []
     for day in days:

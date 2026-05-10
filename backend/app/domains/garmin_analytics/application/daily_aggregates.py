@@ -1,28 +1,31 @@
-"""Daily aggregate read use cases for Garmin analytics.
+"""Daily metric read use cases for Garmin analytics.
 
-This module returns the persisted daily aggregate mart and computes standard
+This module returns the persisted daily metric mart and computes standard
 period windows from raw day tables. Period summaries are recomputed from raw
-readings so they do not become averages of daily aggregates.
+readings so they do not become averages of daily metric rows.
 """
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
     DailyAggregatesResponse,
+    PeriodSummary,
+)
+from app.domains.garmin_analytics.domain.aggregates.period import compute_period_summary
+from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
+from app.domains.garmin_health.contracts import (
     DayData,
     DayHrv,
     DaySkinTemp,
     DaySleep,
     DayWellness,
-    PeriodSummary,
 )
-from app.domains.garmin_analytics.domain.aggregates.period import compute_period_summary
-from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.infra import cache
 
 
 def get_daily_aggregates(
     repo: BiometricReadRepository,
 ) -> DailyAggregatesResponse:
+    """Return persisted daily metrics plus standard period summaries."""
     metrics = repo.load_daily_metrics()
     return DailyAggregatesResponse(
         days=[metric.date for metric in metrics],
@@ -34,7 +37,7 @@ def get_daily_aggregates(
 def load_windowed_period_summary(
     repo: BiometricReadRepository,
 ) -> dict[str, PeriodSummary]:
-    """Compute standard period summaries for the daily aggregate response."""
+    """Compute standard period summaries for the daily metric response."""
     return cache.cached(
         cache.WINDOWED_PERIOD,
         lambda: compute_windows(_reconstruct_day_data(repo), compute_period_summary),

@@ -36,7 +36,3 @@ themselves.
      analysis context.
    - Success signal: assistant depends on a read-model/evidence port instead of
      importing experiment analysis internals.
-
-Follow-up implementation plan:
-- `docs/superpowers/plans/2026-05-06-domain-ownership-drain-roadmap.md`
-  defines the original dependency order for shared-bucket ownership drain.

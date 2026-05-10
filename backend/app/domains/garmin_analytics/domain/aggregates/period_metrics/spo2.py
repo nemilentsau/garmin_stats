@@ -1,10 +1,12 @@
-"""SpO2 raw-period aggregate calculations."""
+"""SpO2 period summary calculations from raw readings."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSpo2Stats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodSpo2Stats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_spo2(days: list[DayData]) -> PeriodSpo2Stats:
+    """Compute period SpO2 stats from raw pulse-ox readings."""
     values = [r.value for day in days for r in day.wellness.spo2]
     day_mins: list[int] = []
     for day in days:

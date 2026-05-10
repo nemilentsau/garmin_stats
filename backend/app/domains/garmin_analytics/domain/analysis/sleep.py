@@ -1,21 +1,22 @@
 """Sleep analysis calculations for Garmin analytics."""
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
     SleepAnalysisResponse,
     SleepTrendPoint,
     WeeklySleepBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
 )
+from app.domains.garmin_health.contracts import DailyMetric
+from app.utils.numeric import optional_float
 
 
 def compute_sleep_trend(
     metrics: list[DailyMetric],
 ) -> list[SleepTrendPoint]:
+    """Build daily sleep score trend points with 7-day smoothing."""
     score_values = [optional_float(m.sleep.score) for m in metrics]
     ma7_values = trailing_ma7(score_values)
 
@@ -34,6 +35,7 @@ def compute_sleep_trend(
 def compute_weekly_sleep_boxplots(
     metrics: list[DailyMetric],
 ) -> list[WeeklySleepBox]:
+    """Build weekly five-number summaries of daily sleep score."""
     summaries = weekly_five_number_summaries(
         metrics,
         lambda m: optional_float(m.sleep.score),
@@ -53,6 +55,7 @@ def compute_weekly_sleep_boxplots(
 
 
 def compute_sleep_analysis(metrics: list[DailyMetric]) -> SleepAnalysisResponse:
+    """Compute sleep analysis read model from daily metrics."""
     return SleepAnalysisResponse(
         score_trend=compute_sleep_trend(metrics),
         weekly_boxplots=compute_weekly_sleep_boxplots(metrics),

@@ -33,8 +33,8 @@ from datetime import datetime
 
 from app.infra.database import DATA_DIR
 from app.parser import parse_all_days
-from app.domains.garmin_analytics.domain.aggregates.daily import (
-    compute_daily_aggregates,
+from app.domains.garmin_health.domain.daily import (
+    compute_daily_metrics,
 )
 
 
@@ -66,8 +66,11 @@ def resolve_data_dir(data_dir: Path) -> Path:
 
 def load_aggregates(data_dir: Path) -> dict:
     days = parse_all_days(data_dir)
-    response = compute_daily_aggregates(days)
-    return response.model_dump()
+    metrics = compute_daily_metrics(days)
+    return {
+        "days": [metric.date for metric in metrics],
+        "daily": [metric.model_dump() for metric in metrics],
+    }
 
 
 def parse_dates(date_strings: list[str]) -> list[datetime]:

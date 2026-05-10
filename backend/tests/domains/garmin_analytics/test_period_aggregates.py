@@ -1,6 +1,16 @@
 """Tests for Garmin analytics period aggregate helper policies."""
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_analytics.domain.aggregates.period import (
+    compute_period_body_battery,
+    compute_period_heart_rate,
+    compute_period_hrv,
+    compute_period_respiration,
+    compute_period_skin_temp,
+    compute_period_sleep,
+    compute_period_spo2,
+    compute_period_stress,
+)
+from app.domains.garmin_health.contracts import (
     BodyBatteryReading,
     DayData,
     DayHrv,
@@ -15,16 +25,6 @@ from app.domains.garmin_analytics.contracts import (
     SleepAssessment,
     SpO2Reading,
     StressReading,
-)
-from app.domains.garmin_analytics.domain.aggregates.period import (
-    compute_period_body_battery,
-    compute_period_heart_rate,
-    compute_period_hrv,
-    compute_period_respiration,
-    compute_period_skin_temp,
-    compute_period_sleep,
-    compute_period_spo2,
-    compute_period_stress,
 )
 
 

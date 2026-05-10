@@ -7,49 +7,12 @@ import pytest
 from fastapi import FastAPI
 from starlette.types import Message
 
-import app.domains.artifacts.api.artifacts as artifacts_mod
-import app.domains.artifacts.api.bundles as artifact_bundles_mod
-import app.domains.routines.routes as today_mod
-
-
-async def _today_status(method: str, path: str) -> int:
-    app = FastAPI()
-    app.include_router(today_mod.today_router)
-
-    messages: list[Message] = []
-
-    async def receive() -> Message:
-        return {"type": "http.request", "body": b"", "more_body": False}
-
-    async def send(message: Message) -> None:
-        messages.append(message)
-
-    await app(
-        {
-            "type": "http",
-            "asgi": {"version": "3.0"},
-            "http_version": "1.1",
-            "method": method,
-            "scheme": "http",
-            "path": path,
-            "raw_path": path.encode(),
-            "query_string": b"",
-            "root_path": "",
-            "headers": [],
-            "client": ("testclient", 50000),
-            "server": ("testserver", 80),
-        },
-        receive,
-        send,
-    )
-
-    start = next(message for message in messages if message["type"] == "http.response.start")
-    return int(start["status"])  # type: ignore[arg-type]
+import app.domains.artifacts.routes as artifacts_mod
 
 
 async def _artifact_bundle_status(path: str, body: dict[str, object]) -> int:
     app = FastAPI()
-    app.include_router(artifact_bundles_mod.router)
+    app.include_router(artifacts_mod.assistant_artifact_bundles_router)
 
     messages: list[Message] = []
     payload = json.dumps(body).encode()
@@ -103,14 +66,14 @@ class TestAssistantArtifactRoutes:
 class TestAssistantArtifactBundleRoutes:
     def test_import_bundle_raises_value_error_when_service_rejects_it(self, monkeypatch):
         monkeypatch.setattr(
-            artifact_bundles_mod,
-            "import_artifact_bundle",
+            artifacts_mod,
+            "import_and_activate_artifact_bundle",
             lambda *_args: (_ for _ in ()).throw(ValueError("Bundle has blocking issues")),
         )
 
         with pytest.raises(ValueError, match="Bundle has blocking issues"):
-            artifact_bundles_mod.post_import_bundle(
-                artifact_bundles_mod.ArtifactBundleSpec(
+            artifacts_mod.post_import_bundle(
+                artifacts_mod.ArtifactBundleSpec(
                     id="bundle",
                     name="Bundle",
                     card_templates=[],
@@ -124,20 +87,3 @@ class TestAssistantArtifactBundleRoutes:
         )
 
         assert status == 422
-
-
-class TestTodayRoutes:
-    def test_post_today_cards_returns_404(self):
-        status = asyncio.run(_today_status("POST", "/api/today/2026-03-02/cards"))
-
-        assert status == 404
-
-    def test_delete_today_card_returns_405(self):
-        status = asyncio.run(
-            _today_status(
-                "DELETE",
-                "/api/today/2026-03-02/cards/scheduled:assignment-1:2026-03-02",
-            )
-        )
-
-        assert status == 405

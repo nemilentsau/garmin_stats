@@ -1,13 +1,15 @@
-"""HRV raw-period aggregate calculations."""
+"""HRV period summary calculations from raw overnight summaries."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodHrvStats
-from app.domains.garmin_analytics.domain.aggregates.daily_metrics.hrv import (
+from app.domains.garmin_analytics.contracts import PeriodHrvStats
+from app.domains.garmin_health.contracts import DayData
+from app.domains.garmin_health.domain.daily_metrics.hrv import (
     is_balanced_hrv_status,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.utils.numeric import safe_avg
 
 
 def compute_period_hrv(days: list[DayData]) -> PeriodHrvStats:
+    """Compute period HRV stats from raw overnight summaries."""
     nightly_values: list[float] = []
     weekly_values: list[float] = []
     statuses: list[str] = []

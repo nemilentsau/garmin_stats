@@ -4,7 +4,7 @@ This module is only the window-level composer. Metric-specific raw-reading
 policy lives in `period_metrics/`.
 """
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSummary
+from app.domains.garmin_analytics.contracts import PeriodSummary
 from app.domains.garmin_analytics.domain.aggregates.period_metrics import (
     compute_period_body_battery,
     compute_period_heart_rate,
@@ -15,6 +15,7 @@ from app.domains.garmin_analytics.domain.aggregates.period_metrics import (
     compute_period_spo2,
     compute_period_stress,
 )
+from app.domains.garmin_health.contracts import DayData
 
 
 def compute_period_summary(days: list[DayData]) -> PeriodSummary:

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from datetime import date as date_type
 from typing import Protocol
 
-from app.domains.garmin_analytics.contracts import DailyMetric
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.domains.garmin_health.contracts import DailyMetric
+from app.utils.numeric import (
     safe_avg,
     safe_percentile,
 )
@@ -14,6 +14,8 @@ from app.domains.garmin_analytics.domain.primitives.numeric import (
 
 @dataclass(frozen=True, slots=True)
 class WeeklyFiveNumberSummary:
+    """Five-number summary for values grouped by ISO week."""
+
     iso_week: str
     min: float
     q1: float | None

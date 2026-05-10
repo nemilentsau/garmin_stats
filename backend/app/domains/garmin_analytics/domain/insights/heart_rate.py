@@ -4,29 +4,32 @@ from datetime import datetime
 from statistics import median
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
-    DayWellness,
     HeartRateDataQuality,
     HeartRateInsight,
     HeartRateInsightsResponse,
-    HeartRateReading,
     HeartRateRecovery,
     HRZoneDuration,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import (
-    HR_ZONE_THRESHOLDS,
-    is_balanced_hrv_status,
-    is_unfavorable_hrv_status,
-)
-from app.domains.garmin_analytics.domain.primitives.numeric import optional_float
 from app.domains.garmin_analytics.domain.primitives.timestamps import (
     summarize_timestamp_coverage,
 )
 from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
+from app.domains.garmin_health.contracts import (
+    DailyMetric,
+    DayWellness,
+    HeartRateReading,
+)
+from app.domains.garmin_health.domain.daily_metrics import (
+    HR_ZONE_THRESHOLDS,
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+)
+from app.utils.numeric import optional_float
 from app.utils.timeutil import parse_iso as _parse_iso
 
 
 def zone_for_value(value: int) -> tuple[str, int, int | None] | None:
+    """Return the configured heart-rate zone for one bpm value."""
     for label, lower, upper in HR_ZONE_THRESHOLDS:
         if value >= lower and (upper is None or value < upper):
             return (label, lower, upper)
@@ -34,6 +37,7 @@ def zone_for_value(value: int) -> tuple[str, int, int | None] | None:
 
 
 def estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> float:
+    """Estimate the sampling interval used for zone-duration calculations."""
     if len(readings) < 2:
         return 1.0
     deltas = []
@@ -47,6 +51,7 @@ def estimate_default_interval_minutes(readings: list[tuple[datetime, int]]) -> f
 
 
 def compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDuration]:
+    """Estimate minutes spent in each heart-rate zone for one day."""
     resolved: list[tuple[datetime, int]] = []
     for reading in hr_readings:
         if reading.value == 0:
@@ -99,6 +104,7 @@ def compute_zone_minutes(hr_readings: list[HeartRateReading]) -> list[HRZoneDura
 
 
 def compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HeartRateRecovery:
+    """Compare selected resting HR against its prior 7-day baseline."""
     selected_resting = metrics[selected_index].heart_rate.resting
     baseline = prior_7d_avg(
         metrics,
@@ -133,6 +139,7 @@ def build_insights(
     recovery: HeartRateRecovery,
     quality: HeartRateDataQuality,
 ) -> list[HeartRateInsight]:
+    """Build user-facing heart-rate insight messages from selected-day context."""
     insights: list[HeartRateInsight] = []
 
     delta = recovery.delta_from_baseline
@@ -200,6 +207,7 @@ def compute_heart_rate_insights(
     selected_date: str,
     wellness_days: list[DayWellness],
 ) -> HeartRateInsightsResponse:
+    """Compute selected-day heart-rate insights from daily metrics and raw rows."""
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,

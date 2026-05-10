@@ -16,7 +16,7 @@ from app.domains.experiments.contracts import (
     ExperimentAnalysis,
     ExperimentExposure,
 )
-from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import (
     DailyCheckIn,
     Note,

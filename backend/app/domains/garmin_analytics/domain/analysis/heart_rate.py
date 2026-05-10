@@ -7,9 +7,6 @@ from datetime import datetime
 from app.domains.garmin_analytics.contracts import (
     CircadianHRPoint,
     DailyAvgHRTrendPoint,
-    DailyMetric,
-    DaySleep,
-    DayWellness,
     HeartRateAnalysisResponse,
     HRHistogramBin,
     HRPatternWindow,
@@ -17,16 +14,21 @@ from app.domains.garmin_analytics.contracts import (
     SleepingHRPoint,
     WeeklyRestingHRBox,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import (
-    histogram_bins,
-    optional_float,
-    safe_avg,
-)
 from app.domains.garmin_analytics.domain.primitives.trends import (
     trailing_ma7,
     weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
+from app.domains.garmin_health.contracts import (
+    DailyMetric,
+    DaySleep,
+    DayWellness,
+)
+from app.utils.numeric import (
+    histogram_bins,
+    optional_float,
+    safe_avg,
+)
 from app.utils.timeutil import parse_iso as _parse_iso
 
 
@@ -197,6 +199,7 @@ def compute_heart_rate_analysis(
     all_sleep: list[DaySleep],
     metrics: list[DailyMetric],
 ) -> HeartRateAnalysisResponse:
+    """Compute heart-rate analysis read model from raw rows and daily metrics."""
     pattern_windows = compute_windows(
         all_wellness,
         lambda subset: HRPatternWindow(

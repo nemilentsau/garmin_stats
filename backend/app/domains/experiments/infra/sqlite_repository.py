@@ -8,7 +8,7 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
 )
 from app.domains.garmin_analytics.adapters import load_daily_metrics
-from app.domains.garmin_analytics.contracts import DailyMetric
+from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 from app.infra.database import (
     delete_experiment_analysis,

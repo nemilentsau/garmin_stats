@@ -4,7 +4,6 @@ import numpy as np
 
 from app.domains.garmin_analytics.contracts import (
     CorrelationPoint,
-    DailyMetric,
     DashboardOverviewResponse,
     DashboardSparklines,
     MetricCorrelation,
@@ -14,20 +13,21 @@ from app.domains.garmin_analytics.contracts import (
     SparklineSummary,
     TodayVitals,
 )
-from app.domains.garmin_analytics.domain.aggregates.daily import (
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    prior_7d_avg,
+    trailing_ma7,
+)
+from app.domains.garmin_health.contracts import DailyMetric
+from app.domains.garmin_health.domain.daily_metrics import (
     classify_hrv_recovery,
     is_unfavorable_hrv_status,
     normalize_hrv_status,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.utils.numeric import (
     optional_float,
     safe_avg,
     safe_max,
     safe_min,
-)
-from app.domains.garmin_analytics.domain.primitives.trends import (
-    prior_7d_avg,
-    trailing_ma7,
 )
 
 
@@ -283,6 +283,7 @@ def _compute_correlations(metrics: list[DailyMetric]) -> list[MetricCorrelation]
 
 
 def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewResponse:
+    """Compute the latest dashboard overview from ordered daily metrics."""
     selected_index = len(metrics) - 1
     selected = metrics[selected_index]
 

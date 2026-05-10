@@ -17,7 +17,7 @@ from app.domains.experiments.application.analysis_math import (
     resolve_path,
     welch_t_test,
 )
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,

@@ -1,7 +1,7 @@
 """
 SQLite persistence layer for Garmin Stats.
 
-Write path (ingest):  FIT files → parser → Garmin analytics aggregates → SQLite
+Write path (ingest):  FIT files → parser → Garmin health daily metrics → SQLite
 Read path (API):      SQLite → reconstruct Pydantic models → API response
 """
 
@@ -20,7 +20,6 @@ from ..core.profile.contracts import (
     Goal,
     UserProfile,
 )
-from ..domains.artifacts.contracts import AssistantArtifact
 from ..domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
@@ -40,8 +39,9 @@ from ..domains.experiments.contracts import (
     ExperimentExposure,
     ExperimentReport,
 )
-from ..domains.garmin_analytics.domain.aggregates.daily import (
-    compute_daily_aggregates,
+from ..domains.garmin_health.contracts import DayData
+from ..domains.garmin_health.domain.daily import (
+    compute_daily_metrics,
 )
 from ..domains.garmin_sync.contracts import IngestResult, IngestStatus
 from ..domains.journal.contracts import DailyCheckIn, Note
@@ -408,38 +408,11 @@ def ingest_all(data_dir: Path) -> IngestResult:
 
         # Parse everything
         all_days = parse_all_days(data_dir)
-        agg = compute_daily_aggregates(all_days)
 
         now = datetime.now(UTC).isoformat()
-        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
         with _connect() as con, con:
             _delete_stale_day_rows(con, [d.date for d in all_days])
-
-            # Per-day data
-            for day in all_days:
-                con.execute(
-                    upsert.format("wellness_data"),
-                    (day.date, day.wellness.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("sleep_data"),
-                    (day.date, day.sleep.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("hrv_data"),
-                    (day.date, day.hrv.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("skin_temp_data"),
-                    (day.date, day.skin_temp.model_dump_json(), now),
-                )
-
-            # Daily aggregates
-            for metric in agg.daily:
-                con.execute(
-                    upsert.format("daily_metrics"),
-                    (metric.date, metric.model_dump_json(), now),
-                )
+            _upsert_parsed_day_data(con, all_days, now)
 
             # Metadata
             meta_upsert = (
@@ -489,32 +462,8 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
         ]
 
         now = datetime.now(UTC).isoformat()
-        upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
         with _connect() as con, con:
-            for day in parsed_days:
-                con.execute(
-                    upsert.format("wellness_data"),
-                    (day.date, day.wellness.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("sleep_data"),
-                    (day.date, day.sleep.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("hrv_data"),
-                    (day.date, day.hrv.model_dump_json(), now),
-                )
-                con.execute(
-                    upsert.format("skin_temp_data"),
-                    (day.date, day.skin_temp.model_dump_json(), now),
-                )
-
-            for day in parsed_days:
-                metric = compute_daily_aggregates([day]).daily[0]
-                con.execute(
-                    upsert.format("daily_metrics"),
-                    (metric.date, metric.model_dump_json(), now),
-                )
+            _upsert_parsed_day_data(con, parsed_days, now)
 
             # Update fingerprint so startup check stays in sync
             meta_upsert = (
@@ -531,6 +480,39 @@ def ingest_dates(data_dir: Path, dates: list[str]) -> IngestResult:
         return IngestResult(days_ingested=len(parsed_days), duration_ms=duration_ms)
     finally:
         _ingest_lock.release()
+
+
+def _upsert_parsed_day_data(
+    con: sqlite3.Connection,
+    days: list[DayData],
+    updated_at: str,
+) -> None:
+    """Persist parsed raw day slices and their derived canonical daily metrics."""
+    upsert = "INSERT OR REPLACE INTO {} (date, data, updated_at) VALUES (?, ?, ?)"
+
+    for day in days:
+        con.execute(
+            upsert.format("wellness_data"),
+            (day.date, day.wellness.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("sleep_data"),
+            (day.date, day.sleep.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("hrv_data"),
+            (day.date, day.hrv.model_dump_json(), updated_at),
+        )
+        con.execute(
+            upsert.format("skin_temp_data"),
+            (day.date, day.skin_temp.model_dump_json(), updated_at),
+        )
+
+    for metric in compute_daily_metrics(days):
+        con.execute(
+            upsert.format("daily_metrics"),
+            (metric.date, metric.model_dump_json(), updated_at),
+        )
 
 
 def _delete_stale_day_rows(con: sqlite3.Connection, parsed_dates: list[str]) -> None:
@@ -1070,103 +1052,6 @@ def save_evidence_card(card: EvidenceCard) -> None:
 
 def load_evidence_cards() -> list[EvidenceCard]:
     return _STORE.load_many("evidence_cards", EvidenceCard)
-
-
-# ---------------------------------------------------------------------------
-# Training spec platform storage
-# ---------------------------------------------------------------------------
-
-
-def save_assistant_artifact(artifact: AssistantArtifact) -> None:
-    _STORE.save(
-        "assistant_artifacts",
-        artifact.id,
-        artifact.model_dump_json(),
-        created_at=artifact.created_at,
-        updated_at=artifact.updated_at,
-    )
-
-
-def save_assistant_artifacts_batch(artifacts: list[AssistantArtifact]) -> None:
-    """Persist a batch of assistant artifacts atomically."""
-    with _connect() as con, con:
-        for artifact in artifacts:
-            con.execute(
-                (
-                    "INSERT OR REPLACE INTO assistant_artifacts "
-                    "(id, data, created_at, updated_at) VALUES (?, ?, ?, ?)"
-                ),
-                (
-                    artifact.id,
-                    artifact.model_dump_json(),
-                    artifact.created_at or now_iso(),
-                    artifact.updated_at or now_iso(),
-                ),
-            )
-
-
-def load_assistant_artifact(artifact_id: str) -> AssistantArtifact | None:
-    return _STORE.load("assistant_artifacts", AssistantArtifact, artifact_id)
-
-
-def load_assistant_artifacts(
-    *,
-    kind: str | None = None,
-    status: str | None = None,
-) -> list[AssistantArtifact]:
-    clauses: list[str] = []
-    params: list[object] = []
-    if kind is not None:
-        clauses.append("json_extract(data, '$.kind') = ?")
-        params.append(kind)
-    if status is not None:
-        clauses.append("json_extract(data, '$.status') = ?")
-        params.append(status)
-    return _STORE.load_many(
-        "assistant_artifacts",
-        AssistantArtifact,
-        where_sql=" AND ".join(clauses),
-        params=tuple(params),
-        order_by="created_at DESC, id",
-    )
-
-
-def load_assistant_artifact_by_payload_id(
-    kind: str,
-    payload_id: str,
-    statuses: tuple[str, ...],
-) -> AssistantArtifact | None:
-    """Find an artifact whose payload_json.id matches, filtered by kind+statuses."""
-    if not statuses:
-        return None
-    placeholders = ", ".join("?" for _ in statuses)
-    rows_query = (
-        "SELECT data, created_at, updated_at FROM assistant_artifacts "
-        f"WHERE json_extract(data, '$.kind') = ? "
-        f"AND json_extract(data, '$.payload_json.id') = ? "
-        f"AND json_extract(data, '$.status') IN ({placeholders}) "
-        "ORDER BY created_at DESC LIMIT 1"
-    )
-    with _connect() as con:
-        row = con.execute(rows_query, (kind, payload_id, *statuses)).fetchone()
-    if row is None:
-        return None
-    return _model_from_row(AssistantArtifact, row)
-
-
-def load_max_artifact_revision(kind: str, id_prefix: str) -> int:
-    """Return the highest revision number for artifacts matching a bundle id prefix."""
-    query = (
-        "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) AS max_rev "
-        "FROM assistant_artifacts "
-        "WHERE json_extract(data, '$.kind') = ? AND id LIKE ? || '%'"
-    )
-    prefix_len = len(id_prefix) + 1  # +1 for 1-based SUBSTR
-    with _connect() as con:
-        row = con.execute(query, (prefix_len, kind, id_prefix)).fetchone()
-    if row is None or row["max_rev"] is None:
-        return 0
-    return int(row["max_rev"])
 
 
 # ---------------------------------------------------------------------------

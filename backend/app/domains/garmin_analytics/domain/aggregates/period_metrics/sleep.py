@@ -1,10 +1,12 @@
-"""Sleep raw-period aggregate calculations."""
+"""Sleep period summary calculations from raw assessments."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSleepStats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodSleepStats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_sleep(days: list[DayData]) -> PeriodSleepStats:
+    """Compute period sleep stats from raw sleep assessments."""
     scores: list[float] = []
     deep_scores: list[float] = []
     for day in days:

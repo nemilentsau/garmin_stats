@@ -81,8 +81,11 @@ cd backend && uv run pytest tests/ -v
 
 ## Reference
 
-- `backend/tests/domains/garmin_analytics/test_stats.py` — aggregation tests (branches: safe helpers empty/nonempty, daily aggregation with/without data, period summary from raw readings, HR zone boundaries, flatten)
-- `backend/tests/infra/test_parser.py` — extractor edge cases (branches: zero-value handling for wellness and HRV)
-- `backend/tests/bootstrap/test_main.py` — API handler tests (branches: 404 not found, filesystem-missing fallback, happy path)
-- `backend/tests/infra/test_database.py` — DB round-trips and schema (branches: init, count rows valid/invalid, fingerprint, store/load, stale deletion)
-- `backend/tests/infra/test_watcher.py` — archive reconciliation and extraction safety (branches: missing output, already-synced no-op, stale output refresh, path traversal rejection)
+- `backend/tests/domains/garmin_health/test_daily_metrics.py` — daily metric calculators, HR zones, HRV status normalization, empty/nonempty daily readings.
+- `backend/tests/domains/garmin_analytics/test_period_aggregates.py` — period summaries recomputed from raw readings, not averaged daily aggregates.
+- `backend/tests/domains/garmin_analytics/test_stats.py` — remaining raw biometric response and flattening behavior.
+- `backend/tests/utils/test_numeric.py` — shared nullable numeric helpers.
+- `backend/tests/infra/test_parser.py` — extractor edge cases, timestamp shifting, and zero/invalid reading filters.
+- `backend/tests/bootstrap/test_main.py` — app bootstrap/API handler behavior.
+- `backend/tests/infra/test_database.py` — DB round-trips, schema, fingerprint, stale deletion, ingest status, and incremental ingest behavior.
+- `backend/tests/infra/test_watcher.py` — archive reconciliation and extraction safety: missing output, already-synced no-op, stale refresh, and path traversal rejection.

@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DayData,
     DayHrv,
     DaySkinTemp,

@@ -8,6 +8,8 @@ from app.utils.timeutil import parse_iso as _parse_iso
 
 @dataclass(frozen=True, slots=True)
 class TimestampCoverageSummary:
+    """Count and time span covered by a set of optional timestamps."""
+
     sample_count: int = 0
     coverage_start: str | None = None
     coverage_end: str | None = None

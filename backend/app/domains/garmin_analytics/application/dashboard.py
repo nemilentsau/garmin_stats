@@ -8,6 +8,7 @@ from app.domains.garmin_analytics.domain.dashboard import compute_dashboard_over
 def get_dashboard_overview(
     repo: BiometricReadRepository,
 ) -> DashboardOverviewResponse:
+    """Return the latest dashboard overview, or raise when no metrics exist."""
     metrics = repo.load_daily_metrics()
     if not metrics:
         raise LookupError("No data available")

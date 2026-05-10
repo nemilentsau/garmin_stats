@@ -66,7 +66,7 @@ Do not start with full generic sports science ontology work.
 
 The current ingest path is:
 
-`FIT files -> parser.py -> Garmin analytics aggregate calculators -> daily tables + daily_metrics`
+`FIT files -> parser.py -> garmin_health daily metric composition -> daily tables + daily_metrics`
 
 That works for:
 
@@ -394,22 +394,24 @@ Important note:
 
 Recommended new backend modules:
 
-- `backend/app/services/activity_sessions.py`
-  Read/query session mart.
-- `backend/app/services/activity_features.py`
+- `backend/app/domains/garmin_health/contracts/`
+  Add canonical activity/session contracts only if they are shared below analytics.
+- `backend/app/domains/garmin_analytics/domain/activity_sessions.py`
+  Shape session-level read models and summaries.
+- `backend/app/domains/garmin_analytics/domain/activity_features.py`
   Build day-level activity features from sessions.
-- `backend/app/services/experiment_features.py`
+- `backend/app/domains/experiments/application/`
   Build experiment-day rows from recovery day + activity features + checkins.
 
 Recommended current-module changes:
 
 - `parser.py`
   Add activity file parsing.
-- `models.py`
+- `domains/garmin_health/contracts/`
   Add `ActivitySession`, `ActivityDailyFeatures`, and new sleep timing fields.
 - `infra/database.py`
   Add tables, loaders, savers, and ingest wiring.
-- `domains/garmin_analytics/domain/aggregates/`
+- `domains/garmin_health/domain/daily_metrics/`
   Extend daily recovery features only for sleep timing, not activities.
 
 ## Query Boundaries

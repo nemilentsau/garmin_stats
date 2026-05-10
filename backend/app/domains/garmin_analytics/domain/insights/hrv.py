@@ -6,8 +6,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from app.domains.garmin_analytics.contracts import (
-    DailyMetric,
-    DayHrv,
     HrvDataQuality,
     HrvInsight,
     HrvInsightsResponse,
@@ -18,12 +16,6 @@ from app.domains.garmin_analytics.contracts import (
     HrvStreak,
     HrvTrajectory,
     HrvTrendBand,
-    HrvValue,
-)
-from app.domains.garmin_analytics.domain.aggregates.daily import (
-    classify_hrv_recovery,
-    is_balanced_hrv_status,
-    normalize_hrv_status,
 )
 from app.domains.garmin_analytics.domain.analysis.hrv import (
     compute_day_of_week,
@@ -31,16 +23,26 @@ from app.domains.garmin_analytics.domain.analysis.hrv import (
     compute_trajectory,
     extract_baseline_bands,
 )
-from app.domains.garmin_analytics.domain.primitives.numeric import (
+from app.domains.garmin_analytics.domain.primitives.timestamps import (
+    summarize_timestamp_coverage,
+)
+from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
+from app.domains.garmin_health.contracts import (
+    DailyMetric,
+    DayHrv,
+    HrvValue,
+)
+from app.domains.garmin_health.domain.daily_metrics import (
+    classify_hrv_recovery,
+    is_balanced_hrv_status,
+    normalize_hrv_status,
+)
+from app.utils.numeric import (
     optional_float,
     safe_avg,
     safe_max,
     safe_min,
 )
-from app.domains.garmin_analytics.domain.primitives.timestamps import (
-    summarize_timestamp_coverage,
-)
-from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
@@ -194,6 +196,8 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
 
 @dataclass(frozen=True, slots=True)
 class InsightContext:
+    """Selected-day context used while composing HRV insight messages."""
+
     selected: DailyMetric
     recovery: HrvRecovery
     quality: HrvDataQuality
@@ -359,6 +363,7 @@ def compute_hrv_insights(
     selected_date: str,
     day_rows: list[DayHrv],
 ) -> HrvInsightsResponse:
+    """Compute selected-day HRV insights from daily metrics and raw rows."""
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,

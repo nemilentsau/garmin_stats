@@ -3,9 +3,11 @@
 from fastapi import FastAPI
 
 from app.core.profile.api import router as profile_router
-from app.domains.artifacts.api.artifacts import router as assistant_artifacts_router
-from app.domains.artifacts.api.bundles import router as assistant_artifact_bundles_router
-from app.domains.artifacts.api.cards import router as cards_router
+from app.domains.artifacts.routes import (
+    assistant_artifact_bundles_router,
+    assistant_artifacts_router,
+    cards_router,
+)
 from app.domains.assistant.api.threads import router as assistant_router
 from app.domains.experiments.api.experiments import router as experiments_router
 from app.domains.experiments.api.target_metrics import router as target_metrics_router

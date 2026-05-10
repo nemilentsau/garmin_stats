@@ -1,10 +1,12 @@
-"""Skin-temperature raw-period aggregate calculations."""
+"""Skin-temperature period summary calculations from raw readings."""
 
-from app.domains.garmin_analytics.contracts import DayData, PeriodSkinTempStats
-from app.domains.garmin_analytics.domain.primitives.numeric import safe_avg
+from app.domains.garmin_analytics.contracts import PeriodSkinTempStats
+from app.domains.garmin_health.contracts import DayData
+from app.utils.numeric import safe_avg
 
 
 def compute_period_skin_temp(days: list[DayData]) -> PeriodSkinTempStats:
+    """Compute period skin-temperature stats from raw overnight rows."""
     deviations: list[float] = []
     nightly_values: list[float] = []
     for day in days:

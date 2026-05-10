@@ -16,7 +16,7 @@ assistant + routines.
 
 - Imports daily Garmin health archives from `data/garmin_health_stats/`.
 - Parses FIT files into local-time records and stores derived data in SQLite.
-- Computes all statistics in the backend, including daily aggregates, period
+- Computes all statistics in the backend, including daily metrics, period
   summaries, moving averages, readiness signals, and metric insights.
 - Renders a frontend recovery dashboard with metric drill-downs for HRV, sleep,
   heart rate, stress, body battery, respiration, skin temperature, and pulse ox.
@@ -65,8 +65,11 @@ models; the boundary rules matter more than the package label:
 - `domains/garmin_sync/` is a Garmin data acquisition capability. It owns
   `/api/ingest`, Garmin Connect wellness archive download orchestration, archive
   extraction, ingest status, and affected-date ingest decisions.
+- `domains/garmin_health/` owns canonical Garmin health contracts and daily
+  metric composition used by parser, ingest persistence, analytics,
+  experiments, and assistant.
 - `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
-  biometric reads, and recovery insights.
+  biometric reads, recovery insights, analyses, and period summaries.
 - `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,
   and runtime integration.
 - `domains/routines/` owns routine catalog, schedule projection, Today execution,

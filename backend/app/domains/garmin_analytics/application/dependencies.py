@@ -6,7 +6,7 @@ plain in-memory repositories and the domain layer stays persistence-free.
 
 from typing import Protocol
 
-from app.domains.garmin_analytics.contracts import (
+from app.domains.garmin_health.contracts import (
     DailyMetric,
     DayHrv,
     DaySkinTemp,

@@ -7,7 +7,7 @@ from functools import lru_cache
 
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
-from app.domains.artifacts.infra.sqlite_repository import SqliteArtifactRepository
+from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
 from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
