@@ -1,8 +1,8 @@
-"""Workflow ports for Garmin sync.
+"""Ports consumed by Garmin sync workflows.
 
-This module describes what workflows need from the outside world: ingest,
-archive extraction, watcher control, Garmin downloads, filesystem writes, and clocks.
-API response shapes live in contracts.py; concrete implementations live under infra/.
+Sync workflows download wellness archives, mutate the local data tree, and kick
+off ingest through these protocols. Concrete Garmin Connect, filesystem,
+watcher, clock, and SQLite details belong in the infra package.
 """
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ MonotonicClock = Callable[[], float]
 
 
 class IngestGateway(Protocol):
+    """Persistence write/read port for Garmin source ingestion."""
+
     def check_status(self, data_dir: Path) -> IngestStatus: ...
 
     def ingest_all(self, data_dir: Path) -> IngestResult: ...
@@ -31,14 +33,20 @@ class IngestGateway(Protocol):
 
 
 class GarminDownloadClient(Protocol):
+    """Logged-in Garmin client capable of downloading one wellness archive."""
+
     def download_wellness_archive(self, day: date) -> bytes | None: ...
 
 
 class GarminClientFactory(Protocol):
+    """Factory for creating Garmin download clients from runtime credentials."""
+
     def create(self) -> GarminDownloadClient: ...
 
 
 class SyncFileStore(Protocol):
+    """Filesystem port for the local YYYY-MM-DD.zip / YYYY-MM-DD layout."""
+
     def latest_zip_date(self, data_dir: Path) -> date | None: ...
 
     def remove_day(self, data_dir: Path, day: date) -> None: ...
@@ -50,7 +58,12 @@ class SyncFileStore(Protocol):
 
 @dataclass(frozen=True)
 class GarminSyncDependencies:
-    """Concrete dependency bundle passed from the container into workflow functions."""
+    """Dependency bundle passed from bootstrap into sync workflow functions.
+
+    Watcher callbacks are explicit because bulk sync has two distinct states:
+    suspension gates file events, while mark_watcher_synced records that a
+    successful ingest already covered the current disk fingerprint.
+    """
 
     data_dir: Path
     ingest: IngestGateway

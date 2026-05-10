@@ -1,4 +1,9 @@
-"""Tests for Garmin sync ingest workflows."""
+"""Tests for Garmin sync ingest workflows.
+
+These cases cover the workflow policy around archive reconciliation, mutable
+Garmin download ranges, incremental ingest, and watcher state transitions during
+bulk sync.
+"""
 
 from __future__ import annotations
 

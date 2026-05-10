@@ -1,4 +1,8 @@
-"""Tests for Garmin sync runtime startup reconciliation."""
+"""Tests for Garmin sync runtime startup reconciliation.
+
+Startup owns archive reconciliation and full ingest decisions, but it should not
+touch Garmin download clients, file-store mutation, or watcher state callbacks.
+"""
 
 from datetime import date
 from pathlib import Path

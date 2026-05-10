@@ -1,4 +1,10 @@
-"""Garmin sync data-directory watcher runtime."""
+"""Garmin sync data-directory watcher runtime.
+
+The watcher owns process-local state for one data directory: whether file events
+are suspended and which FIT-file fingerprint has already been ingested. Workflow
+code controls it through explicit callbacks so resume and successful ingest stay
+separate states.
+"""
 
 from __future__ import annotations
 
@@ -26,7 +32,7 @@ def _zip_filter(change: Change, path: str) -> bool:
 
 
 class DataDirectoryWatcher:
-    """Stateful watcher for one Garmin data directory."""
+    """Extract changed archives, ingest fresh FIT data, and broadcast updates."""
 
     def __init__(
         self,
@@ -52,6 +58,7 @@ class DataDirectoryWatcher:
         self._last_fingerprint = self._fingerprint(self._data_dir)
 
     def mark_synced(self) -> None:
+        """Record the current disk fingerprint after an external successful ingest."""
         self.prime()
 
     def suspend(self) -> None:
@@ -81,7 +88,7 @@ class DataDirectoryWatcher:
         *,
         refresh_after_ingest: RefreshAfterIngest | None = None,
     ) -> None:
-        # Caller must have called prime() or watch() first to seed _last_fingerprint.
+        # prime() seeds the fingerprint before watch-loop events are processed.
         if self._suspended:
             log.debug("Watcher suspended; skipping %d change(s)", len(changes))
             return
