@@ -3,13 +3,13 @@
 
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.management import list_experiments
+from app.domains.programs.adapters import SqliteProgramRepository
 from app.domains.programs.application.programs import (
     get_program,
     get_program_versions,
     import_program,
     list_programs,
 )
-from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
 
 
 def _program_spec(

@@ -15,7 +15,6 @@ ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/adapters.py",
     "backend/app/domains/journal/infra/sqlite_repository.py",
-    "backend/app/domains/programs/infra/sqlite_repository.py",
 }
 
 ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {

@@ -19,7 +19,7 @@ from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.infra.sqlite_repository import SqliteJournalRepository
-from app.domains.programs.infra.sqlite_repository import SqliteProgramRepository
+from app.domains.programs.adapters import SqliteProgramRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
 
 

@@ -28,11 +28,9 @@ from ..domains.assistant.contracts import (
     PlanItem,
 )
 from ..domains.journal.contracts import DailyCheckIn, Note
-from ..domains.programs.contracts import Program, ProgramVersion
 from ..utils.timeutil import now_iso
 from . import cache
 from .jsonstore import JsonStore
-from .jsonstore import model_from_row as _model_from_row
 from .sqlite import DB_PATH, connect
 
 _APP_CONFIG = get_app_config()
@@ -49,8 +47,7 @@ _VALID_TABLES = frozenset({
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
     "assistant_evidence_bundles", "assistant_memory_records",
-    "evidence_cards", "programs", "program_versions",
-    "assistant_artifacts",
+    "evidence_cards", "assistant_artifacts",
 })
 
 
@@ -617,90 +614,3 @@ def save_evidence_card(card: EvidenceCard) -> None:
 def load_evidence_cards() -> list[EvidenceCard]:
     return _STORE.load_many("evidence_cards", EvidenceCard)
 
-
-# ---------------------------------------------------------------------------
-# Program storage
-# ---------------------------------------------------------------------------
-
-
-def save_program(program: Program) -> None:
-    _STORE.save("programs", program.id, program.model_dump_json())
-
-
-def load_program(program_id: str) -> Program | None:
-    return _STORE.load("programs", Program, program_id)
-
-
-def load_programs(status: str | None = None) -> list[Program]:
-    where_sql = ""
-    params: tuple[object, ...] = ()
-    if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
-    return _STORE.load_many(
-        "programs",
-        Program,
-        where_sql=where_sql,
-        params=params,
-    )
-
-
-def save_program_version(version: ProgramVersion) -> None:
-    now = now_iso()
-    data_json = version.model_dump_json()
-    with _connect() as con, con:
-        con.execute(
-            "INSERT OR REPLACE INTO program_versions "
-            "(program_id, version, data, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (version.program_id, version.version, data_json, now, now),
-        )
-
-
-def load_program_versions(program_id: str) -> list[ProgramVersion]:
-    with _connect() as con:
-        rows = con.execute(
-            "SELECT data, created_at, updated_at FROM program_versions "
-            "WHERE program_id = ? ORDER BY version",
-            (program_id,),
-        ).fetchall()
-    return [_model_from_row(ProgramVersion, row) for row in rows]
-
-
-def delete_program(program_id: str) -> None:
-    with _connect() as con, con:
-        con.execute("DELETE FROM programs WHERE id = ?", (program_id,))
-        con.execute(
-            "DELETE FROM program_versions WHERE program_id = ?",
-            (program_id,),
-        )
-
-
-def save_program_import(
-    *,
-    program: Program,
-    previous_version: ProgramVersion | None,
-) -> None:
-    """Persist a placeholder program import and optional previous version atomically."""
-    timestamp = now_iso()
-    with _connect() as con, con:
-        if previous_version is not None:
-            con.execute(
-                "INSERT OR REPLACE INTO program_versions "
-                "(program_id, version, data, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (
-                    previous_version.program_id,
-                    previous_version.version,
-                    previous_version.model_dump_json(),
-                    timestamp,
-                    timestamp,
-                ),
-            )
-
-        _STORE.save_in_connection(
-            con,
-            "programs",
-            program.id,
-            program.model_dump_json(),
-        )
