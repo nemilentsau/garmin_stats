@@ -16,7 +16,6 @@ from app.core.config import AppConfig, get_app_config
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.filesystem import (
     FilesystemSyncFileStore,
-    compute_data_fingerprint,
     ensure_data_dir,
     extract_archives,
     extract_existing_archives,
@@ -47,7 +46,6 @@ def build_garmin_sync_infra(
     watcher = DataDirectoryWatcher(
         data_dir=sync_data_dir,
         ensure_data_dir=ensure_data_dir,
-        fingerprint=compute_data_fingerprint,
         extract_archives=extract_archives,
         ingest=ingest,
         broadcast=event_bus.broadcast,

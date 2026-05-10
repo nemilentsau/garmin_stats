@@ -26,13 +26,18 @@ class _FakeIngest:
 
 def test_changed_archive_extracts_ingests_refreshes_and_broadcasts(tmp_path):
     data_dir = tmp_path / "data"
+    data_dir.mkdir()
     zip_path = data_dir / "2026-03-14.zip"
     extract_calls: list[list[Path]] = []
     ensured: list[Path] = []
     broadcasts: list[tuple[str, str]] = []
     refresh_calls: list[str] = []
-    fingerprints = iter(["before", "after"])
     ingest = _FakeIngest()
+
+    def fake_extract(zips: list[Path]) -> None:
+        extract_calls.append(zips)
+        # Simulate the FIT files appearing on disk so the fingerprint changes.
+        (data_dir / "2026-03-14.fit").write_bytes(b"fitdata")
 
     async def broadcast(event: str, data: str) -> None:
         broadcasts.append((event, data))
@@ -40,8 +45,7 @@ def test_changed_archive_extracts_ingests_refreshes_and_broadcasts(tmp_path):
     watcher = watcher_mod.DataDirectoryWatcher(
         data_dir=data_dir,
         ensure_data_dir=ensured.append,
-        fingerprint=lambda _data_dir: next(fingerprints),
-        extract_archives=extract_calls.append,
+        extract_archives=fake_extract,
         ingest=ingest,
         broadcast=broadcast,
     )
@@ -63,6 +67,7 @@ def test_changed_archive_extracts_ingests_refreshes_and_broadcasts(tmp_path):
 
 def test_suspended_watcher_skips_archive_work(tmp_path):
     data_dir = tmp_path / "data"
+    data_dir.mkdir()
     zip_path = data_dir / "2026-03-14.zip"
     extract_calls: list[list[Path]] = []
     ingest = _FakeIngest()
@@ -73,7 +78,6 @@ def test_suspended_watcher_skips_archive_work(tmp_path):
     watcher = watcher_mod.DataDirectoryWatcher(
         data_dir=data_dir,
         ensure_data_dir=lambda _data_dir: None,
-        fingerprint=lambda _data_dir: "before",
         extract_archives=extract_calls.append,
         ingest=ingest,
         broadcast=broadcast,
@@ -89,10 +93,10 @@ def test_suspended_watcher_skips_archive_work(tmp_path):
 
 def test_unchanged_fingerprint_skips_ingest_after_extraction(tmp_path):
     data_dir = tmp_path / "data"
+    data_dir.mkdir()
     zip_path = data_dir / "2026-03-14.zip"
     extract_calls: list[list[Path]] = []
     ingest = _FakeIngest()
-    fingerprints = iter(["same", "same"])
 
     async def broadcast(_event: str, _data: str) -> None:
         raise AssertionError("broadcast should not run when ingest is skipped")
@@ -100,7 +104,7 @@ def test_unchanged_fingerprint_skips_ingest_after_extraction(tmp_path):
     watcher = watcher_mod.DataDirectoryWatcher(
         data_dir=data_dir,
         ensure_data_dir=lambda _data_dir: None,
-        fingerprint=lambda _data_dir: next(fingerprints),
+        # Extraction touches no FIT files, so fingerprint stays unchanged.
         extract_archives=extract_calls.append,
         ingest=ingest,
         broadcast=broadcast,

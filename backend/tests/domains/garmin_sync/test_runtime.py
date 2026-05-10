@@ -10,6 +10,7 @@ from pathlib import Path
 import app.domains.garmin_sync.infra.runtime as runtime_mod
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.infra.filesystem import extract_existing_archives
 
 
 class _FakeIngest:
@@ -116,6 +117,29 @@ class TestStartupIngest:
 
         runtime_mod.run_startup_ingest_if_needed(deps)
 
+        assert ingest.calls == [("status", data_dir)]
+
+    def test_creates_missing_data_dir_and_skips_ingest_when_empty(self, tmp_path):
+        data_dir = tmp_path / "fresh-data"
+        assert not data_dir.exists()
+
+        ingest = _FakeIngest([
+            IngestStatus(
+                needs_ingest=False,
+                last_ingest_time=None,
+                days_in_db=0,
+                days_on_disk=0,
+            )
+        ])
+        deps = _make_deps(
+            data_dir=data_dir,
+            ingest=ingest,
+            extract_archives=extract_existing_archives,
+        )
+
+        runtime_mod.run_startup_ingest_if_needed(deps)
+
+        assert data_dir.is_dir()
         assert ingest.calls == [("status", data_dir)]
 
     def test_second_startup_run_is_a_no_op_after_initial_ingest(self):

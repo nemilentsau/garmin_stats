@@ -274,19 +274,6 @@ def _normalize_alias_text(value: str | None) -> str | None:
 _STORE = JsonStore(_VALID_TABLES)
 
 
-def load_available_days() -> list[str]:
-    """Load all dates that have data in the DB (cached until next ingest)."""
-    return cache.cached(cache.AVAILABLE_DAYS, _fetch_available_days)
-
-
-def _fetch_available_days() -> list[str]:
-    with _connect() as con:
-        rows = con.execute(
-            "SELECT date FROM daily_metrics ORDER BY date"
-        ).fetchall()
-    return [r["date"] for r in rows]
-
-
 # ---------------------------------------------------------------------------
 # Health assistant foundation storage
 # ---------------------------------------------------------------------------

@@ -157,18 +157,6 @@ def _make_daily_metric(date: str, utc_offset_hours: float | None = None) -> Dail
 
 
 class TestStoreAndLoad:
-    def test_available_days_returned_sorted(self):
-        for date in ["2026-01-15", "2026-01-16", "2026-01-17"]:
-            metric = _make_daily_metric(date)
-            with db._connect() as con:
-                con.execute(
-                    "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-                    (date, metric.model_dump_json(), "now"),
-                )
-                con.commit()
-        days = db.load_available_days()
-        assert days == ["2026-01-15", "2026-01-16", "2026-01-17"]
-
     def test_user_profile_survives_round_trip(self):
         profile = UserProfile(
             name="Andrei",

@@ -16,6 +16,7 @@ from pathlib import Path
 from watchfiles import Change, awatch
 
 from app.domains.garmin_sync.dependencies import IngestGateway
+from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,6 @@ ArchiveBatchExtractor = Callable[[list[Path]], None]
 Broadcast = Callable[[str, str], Awaitable[None]]
 ChangeBatch = Collection[tuple[Change, str]]
 EnsureDataDir = Callable[[Path], None]
-Fingerprint = Callable[[Path], str]
 RefreshAfterIngest = Callable[[], int]
 
 
@@ -39,14 +39,12 @@ class DataDirectoryWatcher:
         *,
         data_dir: Path,
         ensure_data_dir: EnsureDataDir,
-        fingerprint: Fingerprint,
         extract_archives: ArchiveBatchExtractor,
         ingest: IngestGateway,
         broadcast: Broadcast,
     ) -> None:
         self._data_dir = data_dir
         self._ensure_data_dir = ensure_data_dir
-        self._fingerprint = fingerprint
         self._extract_archives = extract_archives
         self._ingest = ingest
         self._broadcast = broadcast
@@ -55,7 +53,7 @@ class DataDirectoryWatcher:
 
     def prime(self) -> None:
         self._ensure_data_dir(self._data_dir)
-        self._last_fingerprint = self._fingerprint(self._data_dir)
+        self._last_fingerprint = compute_data_fingerprint(self._data_dir)
 
     def mark_synced(self) -> None:
         """Record the current disk fingerprint after an external successful ingest."""
@@ -104,7 +102,7 @@ class DataDirectoryWatcher:
         log.info("Detected %d new/modified .zip archive(s)", len(new_zips))
         await asyncio.to_thread(self._extract_archives, new_zips)
 
-        fingerprint = self._fingerprint(self._data_dir)
+        fingerprint = compute_data_fingerprint(self._data_dir)
         if fingerprint == self._last_fingerprint:
             log.debug("Fingerprint unchanged after extraction; skipping ingest")
             return
