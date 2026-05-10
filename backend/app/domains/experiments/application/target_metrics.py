@@ -1,4 +1,9 @@
-"""Experiment target metric registry."""
+"""Experiment target metric registry.
+
+The registry exposes stable keys for metrics that users can select in
+experiment specs while keeping the underlying dotted Garmin metric paths
+centralized in one place.
+"""
 
 from __future__ import annotations
 
@@ -72,10 +77,10 @@ _TARGET_METRICS = {
 
 
 def list_target_metrics() -> list[TargetMetricDefinition]:
-    """Return the supported target metrics in stable key order."""
+    """Return target metric definitions in stable key order."""
     return [_TARGET_METRICS[key] for key in sorted(_TARGET_METRICS)]
 
 
 def get_target_metrics() -> TargetMetricsResponse:
-    """Return the supported target metrics API response."""
+    """Return the target metric registry response model."""
     return TargetMetricsResponse(metrics=list_target_metrics())

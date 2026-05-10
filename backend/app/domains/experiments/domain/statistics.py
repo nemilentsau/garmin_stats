@@ -1,6 +1,8 @@
 """Pure statistical functions for N=1 experiment analysis.
 
-All functions accept plain arrays of floats — no experiment-specific logic.
+All functions accept plain arrays of floats and return primitive values. Domain
+policy such as metric direction, report confidence, and summary wording belongs
+in neighboring experiment modules rather than in these primitives.
 """
 
 from __future__ import annotations
@@ -9,65 +11,26 @@ import math
 import warnings
 
 import numpy as np
-from pydantic import BaseModel
 from scipy import stats as sp_stats
 
-from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.journal.contracts import DailyCheckIn
-
 # ---------------------------------------------------------------------------
-# Metric path resolution
+# Shared thresholds — exported so downstream policy modules don't drift.
 # ---------------------------------------------------------------------------
 
-
-def resolve_metric_path(metric: DailyMetric, path: str) -> float | None:
-    """Resolve a dotted path like 'hrv.nightly_avg' to a numeric value."""
-    current: object = metric
-    for part in path.split("."):
-        if current is None:
-            return None
-        if isinstance(current, BaseModel):
-            current = getattr(current, part, None)
-        else:
-            return None
-    if isinstance(current, (int, float)) and not isinstance(current, bool):
-        return float(current)
-    return None
-
-
-def resolve_checkin_path(checkin: DailyCheckIn, path: str) -> float | bool | None:
-    """Resolve a checkin field. *path* should NOT include the 'checkin.' prefix."""
-    val = getattr(checkin, path, None)
-    if isinstance(val, bool):
-        return val
-    if isinstance(val, (int, float)):
-        return float(val)
-    return None
-
-
-def resolve_path(
-    metric: DailyMetric | None,
-    checkin: DailyCheckIn | None,
-    path: str,
-) -> float | bool | None:
-    """Dispatch to the right resolver based on path prefix."""
-    if path.startswith("checkin."):
-        if checkin is None:
-            return None
-        return resolve_checkin_path(checkin, path.removeprefix("checkin."))
-    if metric is None:
-        return None
-    return resolve_metric_path(metric, path)
-
+NAP_LARGE = 0.93
+NAP_MEDIUM = 0.66
+NAP_WEAK = 0.51
+P_HIGH = 0.05
+P_MODERATE = 0.10
 
 # ---------------------------------------------------------------------------
 # NAP — Non-overlap of All Pairs
 # ---------------------------------------------------------------------------
 
 _NAP_THRESHOLDS = [
-    (0.93, "large"),
-    (0.66, "medium"),
-    (0.51, "weak"),
+    (NAP_LARGE, "large"),
+    (NAP_MEDIUM, "medium"),
+    (NAP_WEAK, "weak"),
 ]
 
 
@@ -85,7 +48,7 @@ def interpret_nap(nap: float) -> str:
 
 
 def compute_nap(baseline: list[float], treatment: list[float]) -> tuple[float, str]:
-    """Non-overlap of All Pairs.
+    """Compute Non-overlap of All Pairs for treatment over baseline.
 
     Returns (nap_score, interpretation) where nap_score is in [0, 1].
     0.5 = no effect, 1.0 = complete separation.
@@ -139,25 +102,22 @@ def permutation_test(
     n_perms: int = 10_000,
     seed: int | None = None,
 ) -> float:
-    """Two-sided permutation test. Returns p-value."""
+    """Return a two-sided permutation-test p-value for mean difference."""
     if not baseline or not treatment:
         return 1.0
-    observed = abs(np.mean(treatment) - np.mean(baseline))
     pooled = np.array(baseline + treatment)
     n_b = len(baseline)
+    observed = abs(pooled[n_b:].mean() - pooled[:n_b].mean())
     rng = np.random.default_rng(seed)
 
-    count = 0
-    for _ in range(n_perms):
-        rng.shuffle(pooled)
-        perm_diff = abs(np.mean(pooled[n_b:]) - np.mean(pooled[:n_b]))
-        if perm_diff >= observed:
-            count += 1
+    perms = rng.permuted(np.broadcast_to(pooled, (n_perms, pooled.size)), axis=1)
+    perm_diffs = np.abs(perms[:, n_b:].mean(axis=1) - perms[:, :n_b].mean(axis=1))
+    count = int(np.count_nonzero(perm_diffs >= observed))
     return round(count / n_perms, 4)
 
 
 def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
-    """Welch's t-test p-value (two-sided)."""
+    """Return a two-sided Welch t-test p-value."""
     if len(baseline) < 2 or len(treatment) < 2:
         return 1.0
     if _is_constant(baseline) and _is_constant(treatment):
@@ -177,7 +137,7 @@ def welch_t_test(baseline: list[float], treatment: list[float]) -> float:
 
 
 def linear_trend(values: list[float]) -> tuple[float, float]:
-    """OLS slope and p-value on integer index. Returns (slope, p_value)."""
+    """Return OLS slope and p-value over integer sample index."""
     if len(values) < 3:
         return 0.0, 1.0
     if _is_constant(values):

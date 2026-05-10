@@ -1,4 +1,10 @@
-"""Cached experiment analysis read-model use cases."""
+"""Cached experiment analysis read-model use cases.
+
+Experiment analysis is stored as a read model so list/detail endpoints can stay
+cheap. These helpers decide when cached snapshots are stale, recompute them
+through the analysis use case, and avoid redundant writes when content has not
+changed.
+"""
 
 from __future__ import annotations
 
@@ -9,18 +15,19 @@ from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
 )
-
-from .analysis import (
-    compute_experiment_analysis,
+from app.domains.experiments.domain.analysis import (
     current_treatment_window_end,
     expected_experiment_phase,
 )
-from .ports import ExperimentRepository
+
+from ..dependencies import ExperimentRepository
+from .analysis import compute_experiment_analysis
 
 log = logging.getLogger(__name__)
 
 
 def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -> bool:
+    """Return whether the cached analysis already matches the fresh snapshot."""
     return cached == fresh
 
 
@@ -30,7 +37,7 @@ def persist_experiment_analysis(
     *,
     cached: ExperimentAnalysis | None = None,
 ) -> ExperimentAnalysis | None:
-    """Refresh the saved analysis so reads stay aligned with the experiment spec."""
+    """Compute and save the analysis snapshot unless cached content matches."""
     if experiment.design is None:
         repo.delete_experiment_analysis(experiment.id)
         return None
@@ -47,14 +54,18 @@ def analysis_needs_refresh(
     experiment: Experiment,
     analysis: ExperimentAnalysis | None,
 ) -> bool:
+    """Return whether a cached analysis should be recomputed on read."""
     if experiment.design is None:
         return analysis is not None
     if analysis is None:
         return False
 
-    if analysis.analysis_date != date_type.today().isoformat():
-        return True
     if analysis.phase != expected_experiment_phase(experiment):
+        return True
+
+    # Daily safety net: catches data drift (e.g. late checkin save, manual
+    # re-ingest) that no other refresh path notices.
+    if analysis.analysis_date != date_type.today().isoformat():
         return True
 
     treatment_start = experiment.design.treatment_start_date
@@ -72,6 +83,7 @@ def refresh_if_stale(
     experiment: Experiment,
     analysis: ExperimentAnalysis | None,
 ) -> ExperimentAnalysis | None:
+    """Return a fresh analysis when the cached snapshot is stale."""
     if analysis_needs_refresh(experiment, analysis):
         return persist_experiment_analysis(repo, experiment, cached=analysis)
     return analysis
@@ -81,6 +93,7 @@ def load_current_analysis(
     repo: ExperimentRepository,
     experiment: Experiment,
 ) -> ExperimentAnalysis | None:
+    """Load one cached analysis and refresh it when read-time policy requires."""
     return refresh_if_stale(repo, experiment, repo.get_experiment_analysis(experiment.id))
 
 
@@ -88,7 +101,7 @@ def get_experiment_analysis(
     repo: ExperimentRepository,
     experiment_id: str,
 ) -> ExperimentAnalysis | None:
-    """Return current analysis for an experiment, refreshing stale cached rows."""
+    """Return current analysis for an experiment id."""
     experiment = repo.get_experiment(experiment_id)
     if experiment is None:
         raise LookupError(f"Experiment {experiment_id} not found")
@@ -96,7 +109,7 @@ def get_experiment_analysis(
 
 
 def refresh_active_experiments(repo: ExperimentRepository) -> int:
-    """Recompute analysis for all active experiments. Returns count refreshed."""
+    """Recompute analyses for active experiments and return attempted count."""
     experiments = repo.list_experiments(statuses=("active",))
     cached_analyses = repo.list_all_experiment_analyses()
     count = 0

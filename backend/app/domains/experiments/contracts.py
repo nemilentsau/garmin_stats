@@ -7,7 +7,7 @@ from typing import Literal
 from app.contracts.base import AutoTotalResponse, ConfidenceLevel, DefaultsRequired
 
 ExperimentStatus = Literal["draft", "active", "completed"]
-ExperimentAdherenceState = Literal["full", "partial", "missed", "completed", "unknown"]
+ExperimentAdherenceState = Literal["full", "partial", "missed", "unknown"]
 ExperimentReportConfidence = ConfidenceLevel
 OutcomeMetricDirection = Literal["higher_is_better", "lower_is_better"]
 ExperimentDesignType = Literal["ab_intervention"]

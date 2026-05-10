@@ -3,7 +3,7 @@
 import pytest
 from fastapi import HTTPException
 
-import app.domains.experiments.api.experiments as experiments_mod
+import app.domains.experiments.routes as experiments_mod
 from app.domains.experiments.contracts import (
     Experiment,
     OutcomeMetric,
