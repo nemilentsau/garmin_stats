@@ -9,9 +9,8 @@ from app.domains.programs.contracts import (
     ProgramVersion,
     ProgramVersionsResponse,
 )
-from app.utils.timeutil import now_iso
-
 from app.domains.programs.dependencies import ProgramRepository
+from app.utils.timeutil import now_iso
 
 
 def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
