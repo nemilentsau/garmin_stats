@@ -569,7 +569,7 @@ def save_daily_checkin(checkin: DailyCheckIn) -> None:
         checkin.model_dump_json(),
         extra_columns={"entry_date": checkin.date},
     )
-    cache.invalidate()
+    cache.evict(cache.DAILY_CHECKINS)
 
 
 def load_daily_checkins(

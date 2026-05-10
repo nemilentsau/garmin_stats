@@ -872,8 +872,10 @@ class TestLastNQuery:
 
 
 class TestDailyCheckinCache:
-    def test_full_load_is_cached_until_save_invalidates(self):
+    def test_full_load_is_cached_until_save_evicts_only_checkins_key(self):
         from app.infra import cache
+
+        cache.put(cache.DAILY_METRICS, ["sentinel"], cache.generation())
 
         db.save_daily_checkin(DailyCheckIn(id="c-1", date="2026-03-01", energy=3))
 
@@ -883,6 +885,7 @@ class TestDailyCheckinCache:
         db.save_daily_checkin(DailyCheckIn(id="c-2", date="2026-03-02", energy=4))
 
         assert cache.get(cache.DAILY_CHECKINS) is None
+        assert cache.get(cache.DAILY_METRICS) == ["sentinel"]
         second = db.load_daily_checkins()
         assert {c.id for c in second} == {"c-1", "c-2"}
 

@@ -56,6 +56,12 @@ def invalidate() -> None:
         _store.clear()
 
 
+def evict(key: str) -> None:
+    """Drop a single cached entry without disturbing other keys."""
+    with _lock:
+        _store.pop(key, None)
+
+
 def cached[T](key: str, fn: Callable[[], T]) -> T:
     """Return cached value for *key*, or call *fn*, store, and return."""
     hit = get(key)
