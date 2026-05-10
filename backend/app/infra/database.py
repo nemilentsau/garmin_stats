@@ -5,10 +5,8 @@ Ingest adapters write Garmin health records into SQLite.
 Read path helpers reconstruct persisted Pydantic models for API/domain adapters.
 """
 
-import hashlib
 import re
 import sqlite3
-from pathlib import Path
 
 from ..core.config import get_app_config
 from ..core.profile.contracts import (
@@ -280,23 +278,6 @@ def _normalize_alias_text(value: str | None) -> str | None:
 
 
 _STORE = JsonStore(_VALID_TABLES)
-
-
-# ---------------------------------------------------------------------------
-# Fingerprinting
-# ---------------------------------------------------------------------------
-
-def compute_data_fingerprint(data_dir: Path) -> str:
-    """SHA-256 of FIT file paths + size + modified time."""
-    if not data_dir.exists():
-        return hashlib.sha256(b"").hexdigest()
-
-    parts: list[str] = []
-    for fit_file in sorted(data_dir.rglob("*.fit")):
-        stat = fit_file.stat()
-        rel = fit_file.relative_to(data_dir)
-        parts.append(f"{rel}:{stat.st_size}:{stat.st_mtime_ns}")
-    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
 def _count_rows(table: str) -> int:

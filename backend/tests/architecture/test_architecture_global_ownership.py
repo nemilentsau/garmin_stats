@@ -14,13 +14,12 @@ ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/core/profile/infra/sqlite_repository.py",
     "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/infra/sqlite_repository.py",
-    "backend/app/domains/garmin_sync/adapters.py",
     "backend/app/domains/journal/infra/sqlite_repository.py",
     "backend/app/domains/programs/infra/sqlite_repository.py",
 }
 
 ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {
-    "backend/app/domains/garmin_sync/adapters.py",
+    "backend/app/domains/garmin_sync/sqlite_ingest.py",
     "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
     "backend/app/domains/garmin_analytics/application/metric_analysis.py",
     "backend/app/domains/garmin_analytics/adapters.py",

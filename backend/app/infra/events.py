@@ -38,3 +38,10 @@ class EventBus:
 
 # Module-level singleton
 event_bus = EventBus()
+
+
+async def heartbeat_loop() -> None:
+    """Send periodic heartbeat events to keep SSE connections alive."""
+    while True:
+        await asyncio.sleep(30)
+        await event_bus.broadcast("heartbeat", "")

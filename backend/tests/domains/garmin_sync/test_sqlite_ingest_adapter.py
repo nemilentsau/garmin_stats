@@ -1,6 +1,6 @@
 """Tests for Garmin sync SQLite ingest adapter behavior."""
 
-import app.domains.garmin_sync.adapters as ingest_db
+import app.domains.garmin_sync.sqlite_ingest as ingest_db
 import app.infra.database as db
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
@@ -15,6 +15,7 @@ from app.domains.garmin_health.contracts import (
     DaySleep,
     DayWellness,
 )
+from app.domains.garmin_sync.filesystem import compute_data_fingerprint
 
 
 def _make_daily_metric(date: str, utc_offset_hours: float | None = None) -> DailyMetric:
@@ -42,7 +43,7 @@ def _store_current_fingerprint(data_dir):
     with db._connect() as con:
         con.execute(
             "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
-            ("data_fingerprint", db.compute_data_fingerprint(data_dir)),
+            ("data_fingerprint", compute_data_fingerprint(data_dir)),
         )
         con.commit()
 

@@ -115,10 +115,7 @@ Current contents:
   In-memory cache with generation-based invalidation.
 
 - `backend/app/infra/events.py`
-  SSE event bus.
-
-- `backend/app/infra/watcher.py`
-  Data-directory watcher and heartbeat loop.
+  SSE event bus and heartbeat loop.
 
 ### Active service areas
 
@@ -139,10 +136,12 @@ Current contents:
   `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a flat
   small-capability layout: `routes.py` owns FastAPI routes, `workflows.py` owns
   ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
-  callables, `adapters.py` owns SQLite ingest helpers and wires archive extraction,
-  watcher suspend/resume, filesystem archive writes/deletes, system clock, and
-  Garmin Connect client login/download details, and `contracts.py` owns ingest/sync
-  API response models.
+  callables, `sqlite_ingest.py` owns SQLite ingest/status writes, `filesystem.py`
+  owns archive extraction and FIT source fingerprinting, `watcher.py` owns the
+  Garmin data-directory watcher and suspend/resume controls, `runtime.py` owns
+  startup archive reconciliation, `adapters.py` wires the production dependency
+  bundle and Garmin Connect client login/download details, and `contracts.py`
+  owns ingest/sync API response models.
 
 - `domains/garmin_health/`
   Canonical Garmin health data slice. This domain owns parsed reading containers,
@@ -232,9 +231,10 @@ not proof that the design is sound.
 - Does not own: FIT parsing semantics, analytics calculations, dashboard reads,
   experiment refresh policy, routine scheduling, assistant evidence, or frontend
   presentation.
-- May import: its own workflow ports, private workflow helpers, owned
-  ingest/sync contracts, and infrastructure adapters that wrap database ingest,
-  archive extraction, watcher control, filesystem writes, clock, and Garmin
+- May import: its own workflow ports, private workflow/runtime helpers, owned
+  ingest/sync contracts, SQLite connection primitives, cache invalidation,
+  event bus publishing, canonical Garmin health composition, and adapter code
+  for archive extraction, watcher control, filesystem writes, clock, and Garmin
   Connect login/download details.
 - Must not import: routines, experiments, assistant, artifacts, journal,
   programs, Garmin analytics application modules, FastAPI from application

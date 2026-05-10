@@ -6,9 +6,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from ..domains.garmin_sync.adapters import check_ingest_status, ingest_all
+from ..domains.experiments.application.analysis_cache import refresh_active_experiments
+from ..domains.garmin_sync.runtime import run_startup_ingest_if_needed
+from ..domains.garmin_sync.watcher import watch_data_directory
 from ..infra.database import DATA_DIR, init_db
-from ..infra.watcher import extract_existing_archives, heartbeat_loop, watch_data_directory
+from ..infra.events import heartbeat_loop
+from .container import build_container
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -23,36 +26,22 @@ def _task_done_callback(task: asyncio.Task) -> None:
         log.error("Background task %s failed: %s", task.get_name(), exc, exc_info=exc)
 
 
-def _run_startup_ingest_if_needed() -> None:
-    """Reconcile existing day archives and ingest when disk state changed."""
-    extract_existing_archives(DATA_DIR)
-    status = check_ingest_status(DATA_DIR)
-    if not status.needs_ingest:
-        log.info(
-            "Startup data already in sync: %d days in DB, %d days on disk",
-            status.days_in_db,
-            status.days_on_disk,
-        )
-        return
-
-    reason = "DB empty" if status.days_in_db == 0 else "Data directory changed"
-    log.info("%s — running startup ingest", reason)
-    result = ingest_all(DATA_DIR)
-    log.info(
-        "Startup ingest complete: %d days in %d ms",
-        result.days_ingested,
-        result.duration_ms,
-    )
+def _refresh_active_experiment_analyses() -> int:
+    """Refresh experiment analyses after successful Garmin ingest."""
+    return refresh_active_experiments(build_container().experiments_repo)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: init DB, auto-ingest if empty, start file watcher."""
     init_db()
-    _run_startup_ingest_if_needed()
+    run_startup_ingest_if_needed(DATA_DIR)
 
     watcher_task = asyncio.create_task(
-        watch_data_directory(DATA_DIR, ingest_all),
+        watch_data_directory(
+            DATA_DIR,
+            refresh_after_ingest=_refresh_active_experiment_analyses,
+        ),
         name="file-watcher",
     )
     watcher_task.add_done_callback(_task_done_callback)

@@ -1,7 +1,6 @@
 """Tests for database.py — connection, storage, read-back."""
 
 import json
-import os
 
 import pytest
 
@@ -155,33 +154,6 @@ class TestCountRows:
     def test_rejects_invalid_table_name(self):
         with pytest.raises(ValueError, match="Invalid table name"):
             db._count_rows("users; DROP TABLE daily_metrics")
-
-
-# ---------------------------------------------------------------------------
-# Fingerprinting
-# ---------------------------------------------------------------------------
-
-class TestFingerprint:
-    def test_detects_file_content_change(self, tmp_path):
-        data_dir = tmp_path / "data"
-        day_dir = data_dir / "2026-01-15"
-        day_dir.mkdir(parents=True)
-        fit_file = day_dir / "001_WELLNESS.fit"
-        fit_file.write_bytes(b"AAAA")
-        fp1 = db.compute_data_fingerprint(data_dir)
-
-        fit_file.write_bytes(b"BBBB")
-        stat = fit_file.stat()
-        os.utime(fit_file, ns=(stat.st_atime_ns + 1, stat.st_mtime_ns + 1))
-        fp2 = db.compute_data_fingerprint(data_dir)
-
-        assert fp1 != fp2
-
-    def test_returns_stable_hash_for_nonexistent_dir(self, tmp_path):
-        missing = tmp_path / "does_not_exist"
-        fp = db.compute_data_fingerprint(missing)
-        assert isinstance(fp, str)
-        assert len(fp) == 64  # SHA-256 hex digest
 
 
 # ---------------------------------------------------------------------------

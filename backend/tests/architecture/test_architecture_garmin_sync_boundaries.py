@@ -25,15 +25,32 @@ def test_garmin_sync_workflow_modules_follow_strict_boundary():
     ])
 
 
-def test_garmin_sync_infra_adapters_are_database_and_watcher_boundary():
-    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+def test_garmin_sync_owns_filesystem_watcher_and_sqlite_ingest_adapters():
+    base = REPO_ROOT / "backend/app/domains/garmin_sync"
 
-    assert "app.infra.database" in source
-    assert "app.infra.watcher" in source
-    assert "class DatabaseIngestGateway" in source
+    assert (base / "filesystem.py").exists()
+    assert (base / "sqlite_ingest.py").exists()
+    assert (base / "watcher.py").exists()
+    assert (base / "runtime.py").exists()
+
+    source = read_repo_file("backend/app/domains/garmin_sync/adapters.py")
+    ingest_source = read_repo_file("backend/app/domains/garmin_sync/sqlite_ingest.py")
+
+    assert "app.infra.database" not in source
+    assert "app.infra.watcher" not in source
+    assert "class DatabaseIngestGateway" in ingest_source
     assert "extract_archives=extract_existing_archives" in source
     assert "suspend_watcher=suspend_watcher" in source
     assert "resume_watcher=resume_watcher" in source
+
+
+def test_global_infra_does_not_own_garmin_watcher_or_source_fingerprint():
+    assert not (REPO_ROOT / "backend/app/infra/watcher.py").exists()
+
+    source = read_repo_file("backend/app/infra/database.py")
+
+    assert "def compute_data_fingerprint" not in source
+    assert "fit_file" not in source
 
 
 def test_global_database_does_not_import_garmin_sync_contracts():
@@ -64,6 +81,10 @@ def test_garmin_sync_imports_owned_contracts_directly():
             "backend/app/domains/garmin_sync/workflows.py",
             "backend/app/domains/garmin_sync/dependencies.py",
             "backend/app/domains/garmin_sync/adapters.py",
+            "backend/app/domains/garmin_sync/filesystem.py",
+            "backend/app/domains/garmin_sync/runtime.py",
+            "backend/app/domains/garmin_sync/sqlite_ingest.py",
+            "backend/app/domains/garmin_sync/watcher.py",
         ],
         ["from app.models import", "import app.models"],
     )
@@ -85,6 +106,10 @@ def test_runtime_path_config_lives_in_shared_app_config_not_garmin_sync():
         "backend/app/domains/garmin_sync/workflows.py",
         "backend/app/domains/garmin_sync/dependencies.py",
         "backend/app/domains/garmin_sync/adapters.py",
+        "backend/app/domains/garmin_sync/filesystem.py",
+        "backend/app/domains/garmin_sync/runtime.py",
+        "backend/app/domains/garmin_sync/sqlite_ingest.py",
+        "backend/app/domains/garmin_sync/watcher.py",
     ]
     assert_no_text_in_files(garmin_sync_files, ["GARMIN_SYNC_"])
 

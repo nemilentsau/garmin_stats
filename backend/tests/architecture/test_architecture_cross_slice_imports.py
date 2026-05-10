@@ -84,6 +84,8 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     },
     "backend/app/domains/garmin_sync/adapters.py": {
         "app.core.config",
+    },
+    "backend/app/domains/garmin_sync/sqlite_ingest.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.garmin_health.domain.daily",
     },
