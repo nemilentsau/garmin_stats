@@ -58,8 +58,8 @@ The Garmin health dependency direction is:
 - `backend/app/contracts/base.py`
   Shared Pydantic response-base helpers. User-facing contracts live with their
   owning slices, for example `domains/routines/contracts.py`,
-  `domains/experiments/contracts.py`, `core/profile/contracts.py`, and
-  `infra/contracts.py`.
+  `domains/experiments/contracts.py`, and `core/profile/contracts.py`. Tiny
+  route-only response models may live directly with their route module.
 
 - `backend/app/bootstrap/`
   App factory, router registration, lifespan entrypoint, process-runtime task
@@ -394,7 +394,6 @@ Experiment adherence is protocol-defined and day-grain.
 
 - `/api/ingest`
 - `/api/dashboard`
-- `/api/days`
 - `/api/sleep`
 - `/api/daily-aggregates`
 - `/api/skin-temp`
@@ -479,7 +478,8 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
 - `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
-- `/api/days` stays outside this domain because it describes ingested file availability and parser summaries.
+- The legacy `/api/days` parser-summary route has been removed; route inventory
+  now reflects user-facing analytics and ingest APIs only.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend

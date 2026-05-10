@@ -29,7 +29,6 @@ from app.domains.journal.api.notes import router as notes_router
 from app.domains.programs.api.programs import router as programs_router
 from app.domains.routines.routes import routines_router, today_router
 
-from ..routers.days import router as days_router
 from ..routers.events import router as events_router
 
 
@@ -37,7 +36,6 @@ def register_routers(app: FastAPI) -> None:
     """Register all API routers."""
     app.include_router(ingest_router)
     app.include_router(dashboard_router)
-    app.include_router(days_router)
     app.include_router(sleep_router)
     app.include_router(daily_aggregates_router)
     app.include_router(skin_temp_router)

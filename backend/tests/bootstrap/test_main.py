@@ -72,7 +72,7 @@ async def _response_headers(path: str) -> dict[str, str]:
 
 class TestCacheHeaders:
     def test_api_routes_send_no_store_headers(self):
-        headers = asyncio.run(_response_headers("/api/days"))
+        headers = asyncio.run(_response_headers("/api/dashboard"))
 
         assert headers["cache-control"] == "no-store"
         assert headers["pragma"] == "no-cache"

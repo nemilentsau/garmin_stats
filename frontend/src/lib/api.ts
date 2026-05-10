@@ -131,7 +131,6 @@ export const api = {
 	getHeartRateAnalysis: () => fetchJson<HRAnalysis>('/api/heart-rate/analysis'),
 	getHRDistribution: (date: string) =>
 		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
-	getDays: () => fetchJson<Schemas['DaysResponse']>('/api/days'),
 	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
 	triggerSync: () => sendJson<SyncResult>('/api/ingest/sync', 'POST', {}),
 	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status'),

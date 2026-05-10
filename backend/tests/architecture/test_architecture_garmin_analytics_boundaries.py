@@ -363,7 +363,8 @@ def test_migrated_garmin_analytics_router_shims_are_removed():
         assert not (REPO_ROOT / path).exists()
 
 
-def test_days_route_remains_outside_garmin_analytics_slice():
+def test_legacy_days_route_has_been_removed():
     source = read_repo_file("backend/app/bootstrap/routing.py")
-    assert "from ..routers.days import router as days_router" in source
+    assert "days_router" not in source
+    assert not (REPO_ROOT / "backend/app/routers/days.py").exists()
     assert "domains.garmin_analytics.api.days" not in source

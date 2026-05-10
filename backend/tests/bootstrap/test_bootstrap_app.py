@@ -17,7 +17,8 @@ def test_create_app_returns_configured_fastapi_instance():
 
     paths = {route.path for route in app.routes if isinstance(route, APIRoute)}
     assert "/" in paths
-    assert "/api/days" in paths
+    assert "/api/days" not in paths
+    assert "/api/days/{date}" not in paths
 
     assert any(middleware.cls is CORSMiddleware for middleware in app.user_middleware)
 

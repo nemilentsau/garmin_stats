@@ -76,3 +76,8 @@ def test_current_docs_do_not_reference_removed_app_stats_module():
             "parser → `stats.py`",
         ],
     )
+
+
+def test_global_infra_does_not_own_route_specific_response_contracts():
+    assert not (REPO_ROOT / "backend/app/infra/contracts.py").exists()
+    assert not (REPO_ROOT / "backend/app/routers/days.py").exists()
