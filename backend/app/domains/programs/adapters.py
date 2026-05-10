@@ -23,8 +23,8 @@ class SqliteProgramRepository:
     """Repository adapter used by program application use cases.
 
     The adapter owns the current program record and version-history writes. It
-    leaves schema initialization to shared SQLite bootstrap and keeps program
-    import transactions local to this domain boundary.
+    leaves schema initialization to shared SQLite bootstrap and keeps import
+    transactions local to this domain boundary.
     """
 
     def get_program(self, program_id: str) -> Program | None:
@@ -65,7 +65,7 @@ class SqliteProgramRepository:
         program: Program,
         previous_version: ProgramVersion | None,
     ) -> None:
-        """Persist a program import and optional previous version atomically."""
+        """Persist an import and optional archived version atomically."""
         timestamp = now_iso()
         with connect() as con, con:
             if previous_version is not None:

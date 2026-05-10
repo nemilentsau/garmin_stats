@@ -85,7 +85,11 @@ def load_notes(
 
 
 class SqliteJournalRepository:
-    """Repository adapter used by journal application use cases."""
+    """Repository adapter wired by bootstrap for journal use cases.
+
+    The adapter exposes the application dependency while keeping table names,
+    cache invalidation, and JSON-store query details local to this module.
+    """
 
     def list_checkins(self, *, date: str | None = None) -> list[DailyCheckIn]:
         return load_daily_checkins(date=date)

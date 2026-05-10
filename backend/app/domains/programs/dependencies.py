@@ -1,7 +1,8 @@
 """Dependencies consumed by program application use cases.
 
 Program workflows persist imported specs, lifecycle state, and version history
-through this protocol. Concrete SQLite details belong in the adapter layer.
+through this protocol. Concrete SQLite details, transaction boundaries, and
+version-row ordering belong in the adapter layer.
 """
 
 from __future__ import annotations

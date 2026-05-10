@@ -20,7 +20,7 @@ from app.utils.timeutil import now_iso
 
 
 def import_program(repo: ProgramRepository, spec: dict[str, object]) -> Program:
-    """Import a placeholder program spec without activating child records."""
+    """Import a program spec snapshot without activating child records."""
     if "program" not in spec:
         raise ValueError("Missing 'program' key in spec")
     program_info = spec["program"]
@@ -106,7 +106,7 @@ def get_program_versions(
     repo: ProgramRepository,
     program_id: str,
 ) -> ProgramVersionsResponse:
-    """Return prior versions for an existing imported program."""
+    """Return prior imported versions for an existing program."""
     get_program(repo, program_id)
     versions = repo.list_program_versions(program_id)
     return ProgramVersionsResponse(versions=versions)
