@@ -22,6 +22,10 @@ from app.domains.experiments.contracts import (
 from app.domains.experiments.dependencies import ExperimentRepository
 from app.domains.garmin_analytics.adapters import load_daily_metrics
 from app.domains.garmin_health.contracts import DailyMetric
+from app.domains.journal.adapters import (
+    load_daily_checkins,
+    load_notes,
+)
 from app.domains.journal.contracts import (
     DailyCheckIn,
     Note,
@@ -40,8 +44,6 @@ from app.infra.database import (
     load_assistant_messages,
     load_assistant_thread,
     load_assistant_threads,
-    load_daily_checkins,
-    load_notes,
     load_user_profile,
     save_assistant_evidence_bundle,
     save_assistant_memory_record,

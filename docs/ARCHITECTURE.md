@@ -186,7 +186,13 @@ Current contents:
   live routine activation writes to `domains/routines`.
 
 - `domains/journal/`
-  Subjective/user-authored context. This domain owns `/api/checkins` and `/api/notes`, including daily check-ins, freeform notes, and future journal-style context that can ground assistant coaching and experiment interpretation. `api/` owns FastAPI routes, `application/` owns use cases and repository ports, and `infra/` owns the SQLite repository adapter.
+  Subjective/user-authored context. This domain owns `/api/checkins` and
+  `/api/notes`, including daily check-ins, freeform notes, and future
+  journal-style context that can ground assistant coaching and experiment
+  interpretation. `routes.py` owns HTTP routes, `application/` owns check-in
+  and note use cases, `dependencies.py` owns the journal repository dependency
+  protocol, and `adapters.py` owns SQLite journal persistence and recent
+  check-in caching.
 
 - `core/profile/`
   App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. The route uses the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `infra/` owns the SQLite adapter.
@@ -340,7 +346,7 @@ is reserved for shared app primitives rather than important product workflows.
   can later be read by assistant or experiment interpretation.
 - Does not own: Garmin metrics, routine execution, experiment definitions,
   assistant runtime, or analytics computations.
-- May import: journal repository ports and journal-owned contracts.
+- May import: journal repository dependencies and journal-owned contracts.
 - Must not import: Garmin sync, Garmin analytics, routines, experiments,
   assistant, artifacts, programs, FastAPI from application modules, or SQLite
   helpers from application modules.

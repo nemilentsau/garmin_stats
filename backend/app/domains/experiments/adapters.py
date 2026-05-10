@@ -16,8 +16,8 @@ from app.domains.experiments.contracts import (
 )
 from app.domains.garmin_analytics.adapters import load_daily_metrics
 from app.domains.garmin_health.contracts import DailyMetric
+from app.domains.journal.adapters import load_daily_checkins
 from app.domains.journal.contracts import DailyCheckIn
-from app.infra.database import load_daily_checkins
 from app.infra.jsonstore import JsonStore
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso

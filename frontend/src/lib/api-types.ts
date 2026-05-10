@@ -749,13 +749,13 @@ export interface paths {
         };
         /**
          * Get Checkins
-         * @description Return daily check-ins.
+         * @description Return daily check-ins, optionally restricted to one local date.
          */
         get: operations["get_checkins_api_checkins_get"];
         put?: never;
         /**
          * Post Checkin
-         * @description Create or replace a daily check-in.
+         * @description Create or replace the check-in for its local date.
          */
         post: operations["post_checkin_api_checkins_post"];
         delete?: never;
@@ -773,13 +773,13 @@ export interface paths {
         };
         /**
          * Get Notes
-         * @description Return notes.
+         * @description Return journal notes, optionally restricted to one local date.
          */
         get: operations["get_notes_api_notes_get"];
         put?: never;
         /**
          * Post Note
-         * @description Create a note.
+         * @description Persist one user-authored journal note.
          */
         post: operations["post_note_api_notes_post"];
         delete?: never;
@@ -969,7 +969,7 @@ export interface paths {
         };
         /**
          * Get Programs
-         * @description Return all programs, optionally filtered by status.
+         * @description Return imported programs, optionally filtered by lifecycle status.
          */
         get: operations["get_programs_api_programs_get"];
         put?: never;
@@ -989,7 +989,7 @@ export interface paths {
         };
         /**
          * Get Program Detail
-         * @description Return a single program with its full spec.
+         * @description Return one imported program with its full spec snapshot.
          */
         get: operations["get_program_detail_api_programs__program_id__get"];
         put?: never;
@@ -1011,7 +1011,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import Program
-         * @description Import a placeholder program spec JSON without activating child records.
+         * @description Import a program spec snapshot without activating child records.
          */
         post: operations["post_import_program_api_programs_import_post"];
         delete?: never;
@@ -1030,7 +1030,7 @@ export interface paths {
         get?: never;
         /**
          * Put Retire Program
-         * @description Set a program's status to retired, preserving all data.
+         * @description Mark a program retired while preserving its spec and history.
          */
         put: operations["put_retire_program_api_programs__program_id__retire_put"];
         post?: never;
@@ -1050,7 +1050,7 @@ export interface paths {
         get?: never;
         /**
          * Put Activate Program
-         * @description Reactivate a retired program.
+         * @description Reactivate a retired program without changing version history.
          */
         put: operations["put_activate_program_api_programs__program_id__activate_put"];
         post?: never;
@@ -1069,7 +1069,7 @@ export interface paths {
         };
         /**
          * Get Versions
-         * @description Return version history for a program.
+         * @description Return prior imported versions for one program.
          */
         get: operations["get_versions_api_programs__program_id__versions_get"];
         put?: never;
@@ -1788,7 +1788,10 @@ export interface components {
             /** Q3 */
             q3: number | null;
         };
-        /** DailyCheckIn */
+        /**
+         * DailyCheckIn
+         * @description Subjective daily state captured once per local date.
+         */
         "DailyCheckIn-Input": {
             /** Id */
             id: string;
@@ -1826,7 +1829,10 @@ export interface components {
             /** Notes */
             notes?: string | null;
         };
-        /** DailyCheckIn */
+        /**
+         * DailyCheckIn
+         * @description Subjective daily state captured once per local date.
+         */
         "DailyCheckIn-Output": {
             /** Id */
             id: string;
@@ -1864,7 +1870,10 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
-        /** DailyCheckInsResponse */
+        /**
+         * DailyCheckInsResponse
+         * @description List response for dated daily check-ins.
+         */
         DailyCheckInsResponse: {
             /**
              * Total
@@ -2922,7 +2931,10 @@ export interface components {
             /** Ma7 */
             ma7: number | null;
         };
-        /** Note */
+        /**
+         * Note
+         * @description Freeform user note attached to a local date.
+         */
         "Note-Input": {
             /** Id */
             id: string;
@@ -2940,7 +2952,10 @@ export interface components {
              */
             tags: string[];
         };
-        /** Note */
+        /**
+         * Note
+         * @description Freeform user note attached to a local date.
+         */
         "Note-Output": {
             /** Id */
             id: string;
@@ -2958,7 +2973,10 @@ export interface components {
              */
             tags: string[];
         };
-        /** NotesResponse */
+        /**
+         * NotesResponse
+         * @description List response for dated journal notes.
+         */
         NotesResponse: {
             /**
              * Total
@@ -3134,7 +3152,10 @@ export interface components {
             sleep: components["schemas"]["PeriodSleepStats"];
             body_battery: components["schemas"]["PeriodBodyBatteryStats"];
         };
-        /** Program */
+        /**
+         * Program
+         * @description Current imported program spec and lifecycle state.
+         */
         Program: {
             /** Id */
             id: string;
@@ -3162,7 +3183,10 @@ export interface components {
             /** Retired At */
             retired_at: string | null;
         };
-        /** ProgramVersion */
+        /**
+         * ProgramVersion
+         * @description Archived spec snapshot superseded by a later import.
+         */
         ProgramVersion: {
             /** Program Id */
             program_id: string;
@@ -3178,7 +3202,10 @@ export interface components {
             /** Imported At */
             imported_at: string | null;
         };
-        /** ProgramVersionsResponse */
+        /**
+         * ProgramVersionsResponse
+         * @description List response for prior imported program versions.
+         */
         ProgramVersionsResponse: {
             /**
              * Total
@@ -3191,7 +3218,10 @@ export interface components {
              */
             versions: components["schemas"]["ProgramVersion"][];
         };
-        /** ProgramsResponse */
+        /**
+         * ProgramsResponse
+         * @description List response for imported programs.
+         */
         ProgramsResponse: {
             /**
              * Total
