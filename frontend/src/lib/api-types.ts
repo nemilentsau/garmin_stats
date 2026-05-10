@@ -453,13 +453,13 @@ export interface paths {
         };
         /**
          * Get Threads
-         * @description Return all assistant threads.
+         * @description Return all assistant threads ordered by recent activity.
          */
         get: operations["get_threads_api_assistant_threads_get"];
         put?: never;
         /**
          * Post Thread
-         * @description Create a new assistant thread.
+         * @description Create one assistant thread.
          */
         post: operations["post_thread_api_assistant_threads_post"];
         delete?: never;
@@ -477,7 +477,7 @@ export interface paths {
         };
         /**
          * Get Thread Detail
-         * @description Return a single assistant thread.
+         * @description Return one assistant thread or raise when it is missing.
          */
         get: operations["get_thread_detail_api_assistant_threads__thread_id__get"];
         put?: never;
@@ -497,13 +497,13 @@ export interface paths {
         };
         /**
          * Get Thread Messages
-         * @description Return messages for a thread.
+         * @description Return messages for one existing assistant thread.
          */
         get: operations["get_thread_messages_api_assistant_threads__thread_id__messages_get"];
         put?: never;
         /**
          * Post Thread Message
-         * @description Stream an assistant reply as NDJSON.
+         * @description Persist a user message and stream the assistant reply as NDJSON.
          */
         post: operations["post_thread_message_api_assistant_threads__thread_id__messages_post"];
         delete?: never;

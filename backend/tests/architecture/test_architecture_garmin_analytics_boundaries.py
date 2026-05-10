@@ -232,9 +232,7 @@ def test_garmin_analytics_imports_owned_contracts_directly():
 def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
     database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/garmin_analytics/adapters.py")
-    assistant_repo_source = read_repo_file(
-        "backend/app/domains/assistant/infra/sqlite_repository.py",
-    )
+    assistant_repo_source = read_repo_file("backend/app/domains/assistant/adapters.py")
     experiment_repo_source = read_repo_file(
         "backend/app/domains/experiments/adapters.py",
     )

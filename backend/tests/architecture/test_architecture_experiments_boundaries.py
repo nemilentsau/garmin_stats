@@ -156,6 +156,6 @@ def test_migrated_experiment_router_shims_are_removed():
 
 
 def test_assistant_reads_experiment_analysis_through_domain_service():
-    source = read_repo_file("backend/app/domains/assistant/infra/sqlite_repository.py")
+    source = read_repo_file("backend/app/domains/assistant/adapters.py")
     assert "domains.experiments.application.analysis_cache" in source
     assert "load_experiment_analysis" not in source

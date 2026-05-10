@@ -65,7 +65,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.journal.adapters",
         "app.domains.journal.contracts",
     },
-    "backend/app/domains/assistant/application/ports.py": {
+    "backend/app/domains/assistant/dependencies.py": {
         "app.core.profile.contracts",
         "app.domains.experiments.contracts",
         GARMIN_HEALTH_CONTRACTS,
@@ -82,8 +82,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.journal.contracts",
         "app.domains.routines.contracts",
     },
-    "backend/app/domains/assistant/infra/sqlite_repository.py": {
+    "backend/app/domains/assistant/adapters.py": {
         "app.core.profile.contracts",
+        "app.core.profile.ports",
         "app.domains.experiments.application.analysis_cache",
         "app.domains.experiments.contracts",
         "app.domains.experiments.dependencies",

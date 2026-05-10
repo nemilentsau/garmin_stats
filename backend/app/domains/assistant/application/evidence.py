@@ -6,7 +6,6 @@ import hashlib
 from collections.abc import Sequence
 from typing import NamedTuple
 
-from app.domains.assistant.application.ports import AssistantRetrievalStore
 from app.domains.assistant.application.retrieval import (
     retrieve_experiment_review,
     retrieve_open_ended_coaching,
@@ -23,6 +22,7 @@ from app.domains.assistant.application.types import (
     AssistantRouteDecision,
     dedupe_strings,
 )
+from app.domains.assistant.dependencies import AssistantRetrievalStore
 
 _MAX_PRIOR_BUNDLES = 3
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"

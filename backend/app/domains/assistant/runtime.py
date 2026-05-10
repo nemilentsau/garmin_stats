@@ -1,4 +1,9 @@
-"""Stateless Claude runtime adapter for retrieval-first assistant chat."""
+"""Claude Code runtime adapter for retrieval-first assistant chat.
+
+The runtime owns subprocess execution and temporary workspace seeding for
+deterministic evidence bundles. It deliberately receives all context from the
+application layer instead of reading domain stores directly.
+"""
 
 from __future__ import annotations
 

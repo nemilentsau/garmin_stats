@@ -6,7 +6,6 @@ import re
 from collections import defaultdict
 from collections.abc import Sequence
 
-from app.domains.assistant.application.ports import AssistantReadModelStore
 from app.domains.assistant.application.types import (
     EXPERIMENT_REVIEW_TERMS,
     LOWERCASE_TOKEN_PATTERN,
@@ -14,6 +13,7 @@ from app.domains.assistant.application.types import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
+from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.experiments.contracts import Experiment
 
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")

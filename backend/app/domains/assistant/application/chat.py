@@ -12,12 +12,6 @@ from pydantic import BaseModel
 
 from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.application.evidence import build_evidence_bundle
-from app.domains.assistant.application.ports import (
-    AssistantConversationStore,
-    AssistantReadModelStore,
-    AssistantRetrievalStore,
-    AssistantRuntime,
-)
 from app.domains.assistant.application.router import route_user_query
 from app.domains.assistant.application.types import (
     LOWERCASE_TOKEN_PATTERN,
@@ -31,6 +25,12 @@ from app.domains.assistant.contracts import (
     AssistantMessage,
     AssistantMessageCreateRequest,
     AssistantRun,
+)
+from app.domains.assistant.dependencies import (
+    AssistantConversationStore,
+    AssistantReadModelStore,
+    AssistantRetrievalStore,
+    AssistantRuntime,
 )
 from app.utils.timeutil import now_iso
 

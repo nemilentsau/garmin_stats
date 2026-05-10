@@ -1,2 +1,1 @@
-"""Assistant domain package."""
-
+"""Assistant chat, retrieval, memory, and runtime boundary."""

@@ -1,4 +1,9 @@
-"""Repository contracts for assistant conversation and read-model access."""
+"""Dependencies consumed by assistant application use cases.
+
+Assistant workflows split durable conversation writes from cross-domain
+read-model access and the external chat runtime. Concrete SQLite reads, cache
+behavior, and subprocess execution belong in assistant adapters/runtime.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +31,8 @@ from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSc
 
 
 class AssistantConversationStore(Protocol):
+    """Write-side dependency for assistant threads, messages, runs, and memory."""
+
     def list_threads(self) -> list[AssistantThread]: ...
     def get_thread(self, thread_id: str) -> AssistantThread | None: ...
     def create_thread(self, thread: AssistantThread) -> None: ...
@@ -59,6 +66,8 @@ class AssistantConversationStore(Protocol):
 
 
 class AssistantReadModelStore(Protocol):
+    """Read dependency for evidence context assembled from owned domains."""
+
     def list_experiments(
         self,
         *,
@@ -81,6 +90,8 @@ class AssistantReadModelStore(Protocol):
 
 
 class AssistantRecallStore(Protocol):
+    """Read dependency for prior assistant evidence and memory records."""
+
     def list_evidence_bundles(
         self,
         thread_id: str | None = None,
@@ -101,6 +112,8 @@ class AssistantRetrievalStore(AssistantReadModelStore, AssistantRecallStore, Pro
 
 
 class AssistantRuntime(Protocol):
+    """Streaming chat runtime dependency used after deterministic retrieval."""
+
     def stream_chat(
         self,
         *,

@@ -2,12 +2,12 @@
 
 import asyncio
 
-import app.domains.assistant.infra.runtime as runtime_mod
+import app.domains.assistant.runtime as runtime_mod
 from app.domains.assistant.application.types import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
 )
-from app.domains.assistant.infra.runtime import (
+from app.domains.assistant.runtime import (
     _extract_delta,
     _extract_session_id,
     _write_workspace_files,

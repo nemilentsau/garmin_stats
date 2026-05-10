@@ -7,13 +7,13 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 
 from app.core.profile.contracts import UserProfile
-from app.domains.assistant.application.ports import AssistantReadModelStore
 from app.domains.assistant.application.types import (
     AssistantEvidenceItem,
     AssistantResolvedEntity,
     AssistantRouteDecision,
     dedupe_strings,
 )
+from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
