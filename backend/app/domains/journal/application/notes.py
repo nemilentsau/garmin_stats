@@ -4,8 +4,7 @@ from app.domains.journal.contracts import (
     Note,
     NotesResponse,
 )
-
-from .ports import JournalRepository
+from app.domains.journal.dependencies import JournalRepository
 
 
 def list_notes(

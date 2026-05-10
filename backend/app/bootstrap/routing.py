@@ -23,8 +23,7 @@ from app.domains.garmin_analytics.routes import (
     stress_router,
 )
 from app.domains.garmin_sync.routes import router as ingest_router
-from app.domains.journal.api.checkins import router as checkins_router
-from app.domains.journal.api.notes import router as notes_router
+from app.domains.journal.routes import checkins_router, notes_router
 from app.domains.programs.routes import router as programs_router
 from app.domains.routines.routes import routines_router, today_router
 from app.realtime.routes import router as events_router

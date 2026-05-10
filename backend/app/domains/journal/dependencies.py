@@ -1,4 +1,8 @@
-"""Repository contracts for journal use cases."""
+"""Dependencies consumed by journal application use cases.
+
+Journal workflows persist user-authored check-ins and freeform notes through
+this protocol. Concrete SQLite details belong in the adapter layer.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,8 @@ from app.domains.journal.contracts import (
 
 
 class JournalRepository(Protocol):
+    """Persistence dependency for user-authored journal context."""
+
     def list_checkins(self, *, date: str | None = None) -> list[DailyCheckIn]: ...
 
     def save_checkin(self, checkin: DailyCheckIn) -> None: ...

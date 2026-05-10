@@ -27,7 +27,6 @@ from ..domains.assistant.contracts import (
     Plan,
     PlanItem,
 )
-from ..domains.journal.contracts import DailyCheckIn, Note
 from ..utils.timeutil import now_iso
 from . import cache
 from .jsonstore import JsonStore
@@ -42,8 +41,7 @@ _ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
     "skin_temp_data", "daily_metrics", "ingest_meta",
-    "user_profile", "goals",
-    "daily_checkins", "notes", "experiments", "experiment_exposures",
+    "user_profile", "goals", "experiments", "experiment_exposures",
     "experiment_reports", "plans", "plan_items", "assistant_threads",
     "assistant_messages", "assistant_runs", "context_snapshots",
     "assistant_evidence_bundles", "assistant_memory_records",
@@ -289,69 +287,6 @@ def save_goal(goal: Goal) -> None:
 
 def load_goals() -> list[Goal]:
     return _STORE.load_many("goals", Goal)
-
-
-def save_daily_checkin(checkin: DailyCheckIn) -> None:
-    _STORE.save(
-        "daily_checkins",
-        checkin.id,
-        checkin.model_dump_json(),
-        extra_columns={"entry_date": checkin.date},
-    )
-    cache.evict(cache.DAILY_CHECKINS)
-
-
-def load_daily_checkins(
-    date: str | None = None,
-    *,
-    last_n: int | None = None,
-) -> list[DailyCheckIn]:
-    if date is None and last_n is None:
-        return cache.cached(cache.DAILY_CHECKINS, _fetch_all_daily_checkins)
-    where_sql = "entry_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _STORE.load_many(
-        "daily_checkins",
-        DailyCheckIn,
-        where_sql=where_sql,
-        params=params,
-        order_by="entry_date, id",
-        last_n=last_n,
-    )
-
-
-def _fetch_all_daily_checkins() -> list[DailyCheckIn]:
-    return _STORE.load_many(
-        "daily_checkins",
-        DailyCheckIn,
-        order_by="entry_date, id",
-    )
-
-
-def save_note(note: Note) -> None:
-    _STORE.save(
-        "notes",
-        note.id,
-        note.model_dump_json(),
-        extra_columns={"entry_date": note.date},
-    )
-
-
-def load_notes(
-    date: str | None = None,
-    *,
-    last_n: int | None = None,
-) -> list[Note]:
-    where_sql = "entry_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _STORE.load_many(
-        "notes",
-        Note,
-        where_sql=where_sql,
-        params=params,
-        order_by="entry_date, created_at, id",
-        last_n=last_n,
-    )
 
 
 def save_plan(plan: Plan) -> None:
@@ -613,4 +548,3 @@ def save_evidence_card(card: EvidenceCard) -> None:
 
 def load_evidence_cards() -> list[EvidenceCard]:
     return _STORE.load_many("evidence_cards", EvidenceCard)
-
