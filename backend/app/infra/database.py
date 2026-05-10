@@ -569,6 +569,7 @@ def save_daily_checkin(checkin: DailyCheckIn) -> None:
         checkin.model_dump_json(),
         extra_columns={"entry_date": checkin.date},
     )
+    cache.invalidate()
 
 
 def load_daily_checkins(
@@ -576,6 +577,8 @@ def load_daily_checkins(
     *,
     last_n: int | None = None,
 ) -> list[DailyCheckIn]:
+    if date is None and last_n is None:
+        return cache.cached(cache.DAILY_CHECKINS, _fetch_all_daily_checkins)
     where_sql = "entry_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _STORE.load_many(
@@ -585,6 +588,14 @@ def load_daily_checkins(
         params=params,
         order_by="entry_date, id",
         last_n=last_n,
+    )
+
+
+def _fetch_all_daily_checkins() -> list[DailyCheckIn]:
+    return _STORE.load_many(
+        "daily_checkins",
+        DailyCheckIn,
+        order_by="entry_date, id",
     )
 
 

@@ -14,6 +14,7 @@ _store: dict[str, tuple[int, Any]] = {}
 
 # --- Cache keys (single source of truth) ---
 DAILY_METRICS = "daily_metrics"
+DAILY_CHECKINS = "daily_checkins"
 WELLNESS_ALL = "wellness_all"
 SLEEP_ALL = "sleep_all"
 HRV_ALL = "hrv_all"

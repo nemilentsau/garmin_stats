@@ -871,6 +871,32 @@ class TestLastNQuery:
         assert result[2].date == "2026-03-10"
 
 
+class TestDailyCheckinCache:
+    def test_full_load_is_cached_until_save_invalidates(self):
+        from app.infra import cache
+
+        db.save_daily_checkin(DailyCheckIn(id="c-1", date="2026-03-01", energy=3))
+
+        first = db.load_daily_checkins()
+        assert cache.get(cache.DAILY_CHECKINS) is first
+
+        db.save_daily_checkin(DailyCheckIn(id="c-2", date="2026-03-02", energy=4))
+
+        assert cache.get(cache.DAILY_CHECKINS) is None
+        second = db.load_daily_checkins()
+        assert {c.id for c in second} == {"c-1", "c-2"}
+
+    def test_filtered_loads_bypass_cache(self):
+        from app.infra import cache
+
+        db.save_daily_checkin(DailyCheckIn(id="c-1", date="2026-03-01"))
+
+        db.load_daily_checkins(date="2026-03-01")
+        db.load_daily_checkins(last_n=1)
+
+        assert cache.get(cache.DAILY_CHECKINS) is None
+
+
 # ---------------------------------------------------------------------------
 # Auto-total response model (Task 2)
 # ---------------------------------------------------------------------------

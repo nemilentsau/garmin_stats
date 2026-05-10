@@ -440,7 +440,6 @@ class TestExperimentPreviewAndImport:
         assert len(stale.adherence_by_day) == 3
 
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
-        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
 
@@ -458,11 +457,11 @@ class TestExperimentPreviewAndImport:
         assert detail.analysis.analysis_date == "2026-05-04"
         assert detail.analysis.adherence_rate == 0.214
 
-    def test_get_experiment_analysis_persists_date_only_refresh(self, monkeypatch):
-        """A date-only stale analysis should update the cached analysis date."""
+    def test_get_experiment_analysis_skips_date_only_refresh(self, monkeypatch):
+        """A completed experiment with no content drift must not write on read."""
         import app.domains.experiments.application.analysis as experiment_analysis_mod
-        import app.domains.experiments.application.analysis_cache as analysis_cache_mod
         import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
 
         class Apr13(date):
             @classmethod
@@ -496,15 +495,23 @@ class TestExperimentPreviewAndImport:
         )
 
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
-        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+        write_calls: list[str] = []
+        original_save = repo.save_experiment_analysis
+
+        def tracking_save(experiment_id, analysis):
+            write_calls.append(experiment_id)
+            original_save(experiment_id, analysis)
+
+        monkeypatch.setattr(repo, "save_experiment_analysis", tracking_save)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
         persisted = load_experiment_analysis(experiment.id)
 
         assert analysis is not None
-        assert analysis.analysis_date == "2026-05-04"
+        assert analysis.analysis_date == "2026-04-13"
         assert persisted is not None
-        assert persisted.analysis_date == "2026-05-04"
+        assert persisted.analysis_date == "2026-04-13"
+        assert write_calls == []
 
     def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
         """Simple CRUD experiments should remain readable without cached analysis."""

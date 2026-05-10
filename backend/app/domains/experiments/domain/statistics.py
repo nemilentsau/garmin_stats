@@ -103,17 +103,14 @@ def permutation_test(
     """Two-sided permutation test. Returns p-value."""
     if not baseline or not treatment:
         return 1.0
-    observed = abs(np.mean(treatment) - np.mean(baseline))
     pooled = np.array(baseline + treatment)
     n_b = len(baseline)
+    observed = abs(pooled[n_b:].mean() - pooled[:n_b].mean())
     rng = np.random.default_rng(seed)
 
-    count = 0
-    for _ in range(n_perms):
-        rng.shuffle(pooled)
-        perm_diff = abs(np.mean(pooled[n_b:]) - np.mean(pooled[:n_b]))
-        if perm_diff >= observed:
-            count += 1
+    perms = rng.permuted(np.broadcast_to(pooled, (n_perms, pooled.size)), axis=1)
+    perm_diffs = np.abs(perms[:, n_b:].mean(axis=1) - perms[:, :n_b].mean(axis=1))
+    count = int(np.count_nonzero(perm_diffs >= observed))
     return round(count / n_perms, 4)
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import date as date_type
 
 from app.domains.experiments.contracts import (
     Experiment,
@@ -20,8 +19,18 @@ from .analysis import compute_experiment_analysis
 log = logging.getLogger(__name__)
 
 
+_VOLATILE_ANALYSIS_FIELDS = {"analysis_date"}
+
+
 def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -> bool:
-    return cached == fresh
+    """True when nothing meaningful changed.
+
+    ``analysis_date`` is excluded so a daily recompute that produces identical
+    content does not trigger a write.
+    """
+    return cached.model_dump(exclude=_VOLATILE_ANALYSIS_FIELDS) == fresh.model_dump(
+        exclude=_VOLATILE_ANALYSIS_FIELDS,
+    )
 
 
 def persist_experiment_analysis(
@@ -52,8 +61,6 @@ def analysis_needs_refresh(
     if analysis is None:
         return False
 
-    if analysis.analysis_date != date_type.today().isoformat():
-        return True
     if analysis.phase != expected_experiment_phase(experiment):
         return True
 
