@@ -27,13 +27,8 @@ log = logging.getLogger(__name__)
 
 
 def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -> bool:
-    """True when nothing meaningful changed.
-
-    ``analysis_date`` is excluded so a daily recompute that produces identical
-    content does not trigger a write.
-    """
-    exclude = {"analysis_date"}
-    return cached.model_dump(exclude=exclude) == fresh.model_dump(exclude=exclude)
+    """Return whether the cached analysis already matches the fresh snapshot."""
+    return cached == fresh
 
 
 def persist_experiment_analysis(
@@ -68,14 +63,9 @@ def analysis_needs_refresh(
     if analysis.phase != expected_experiment_phase(experiment):
         return True
 
-    # Daily safety net for active experiments: catches data drift (e.g. late
-    # checkin save, manual re-ingest) that no other refresh path notices.
-    # _analysis_unchanged then short-circuits the write when content matches,
-    # so the cost is one cheap recompute per active experiment per day.
-    if (
-        experiment.status == "active"
-        and analysis.analysis_date != date_type.today().isoformat()
-    ):
+    # Daily safety net: catches data drift (e.g. late checkin save, manual
+    # re-ingest) that no other refresh path notices.
+    if analysis.analysis_date != date_type.today().isoformat():
         return True
 
     treatment_start = experiment.design.treatment_start_date

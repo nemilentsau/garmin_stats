@@ -450,8 +450,8 @@ class TestExperimentPreviewAndImport:
         assert detail.analysis.analysis_date == "2026-05-04"
         assert detail.analysis.adherence_rate == 0.214
 
-    def test_get_experiment_analysis_skips_date_only_refresh(self, monkeypatch):
-        """A completed experiment with no content drift must not write on read."""
+    def test_get_experiment_analysis_refreshes_date_stale_snapshot_once(self, monkeypatch):
+        """A date-stale active analysis should refresh once, then stay cached."""
         import app.domains.experiments.application.analysis as experiment_analysis_mod
         import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
         from app.domains.experiments.application import analysis_cache as analysis_cache_mod
@@ -498,13 +498,66 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(repo, "save_experiment_analysis", tracking_save)
 
         analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        again = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
         persisted = repo.get_experiment_analysis(experiment.id)
 
         assert analysis is not None
-        assert analysis.analysis_date == "2026-04-13"
+        assert analysis.analysis_date == "2026-05-04"
+        assert again is not None
+        assert again.analysis_date == "2026-05-04"
         assert persisted is not None
-        assert persisted.analysis_date == "2026-04-13"
-        assert write_calls == []
+        assert persisted.analysis_date == "2026-05-04"
+        assert write_calls == [experiment.id]
+
+    def test_get_experiment_analysis_refreshes_completed_date_stale_snapshot(
+        self,
+        monkeypatch,
+    ):
+        """Completed experiments should still refresh stale cached analyses."""
+        import app.domains.experiments.application.analysis as experiment_analysis_mod
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
+
+        class Apr13(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 4, 13)
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        experiment = Experiment(
+            id="completed-date-stale",
+            name="Completed Date Stale",
+            status="completed",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-12",
+            ),
+            outcome_metrics=[],
+        )
+        repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
+
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
+        repo.save_experiment_analysis(
+            experiment.id,
+            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+        )
+
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
+
+        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        persisted = repo.get_experiment_analysis(experiment.id)
+
+        assert analysis is not None
+        assert analysis.analysis_date == "2026-05-04"
+        assert persisted is not None
+        assert persisted.analysis_date == "2026-05-04"
 
     def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
         """Simple CRUD experiments should remain readable without cached analysis."""
