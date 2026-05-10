@@ -9,10 +9,9 @@ from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 
 from .metric_paths import resolve_path
-from .statistics import welch_t_test
+from .statistics import P_MODERATE, welch_t_test
 from .windows import date_range
 
-_P_MODERATE = 0.10
 _CONFOUNDER_FLAG_THRESHOLD = 0.15
 _CONFOUNDER_NUMERIC_THRESHOLD = 10
 
@@ -104,7 +103,7 @@ def check_confounders(
                 if len(baseline_data) >= 2 and len(treatment_data) >= 2:
                     is_significant = (
                         is_significant
-                        or welch_t_test(baseline_data, treatment_data) < _P_MODERATE
+                        or welch_t_test(baseline_data, treatment_data) < P_MODERATE
                     )
 
             note = f"{path}: " + (

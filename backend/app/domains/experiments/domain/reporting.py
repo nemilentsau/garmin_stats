@@ -9,12 +9,10 @@ from app.domains.experiments.contracts import (
     MetricAnalysis,
 )
 
+from .statistics import NAP_LARGE, NAP_MEDIUM, P_HIGH, P_MODERATE
+
 _MIN_DAYS_INSUFFICIENT = 7
 _MIN_ADHERENCE_INSUFFICIENT = 0.50
-_NAP_HIGH = 0.93
-_NAP_MODERATE = 0.66
-_P_HIGH = 0.05
-_P_MODERATE = 0.10
 _ADHERENCE_HIGH = 0.85
 _ADHERENCE_MODERATE = 0.70
 _BASELINE_HIGH = 21
@@ -38,16 +36,16 @@ def classify_confidence(
     best_p = min((result.p_value_permutation for result in best_results), default=1.0)
 
     if (
-        best_nap >= _NAP_HIGH
-        and best_p < _P_HIGH
+        best_nap >= NAP_LARGE
+        and best_p < P_HIGH
         and adherence_rate >= _ADHERENCE_HIGH
         and not has_major_confounder
         and baseline_n >= _BASELINE_HIGH
     ):
         return "high"
     if (
-        best_nap >= _NAP_MODERATE
-        and best_p < _P_MODERATE
+        best_nap >= NAP_MEDIUM
+        and best_p < P_MODERATE
         and adherence_rate >= _ADHERENCE_MODERATE
         and not has_major_confounder
     ):

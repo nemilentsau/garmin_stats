@@ -11,7 +11,7 @@ from app.domains.experiments.contracts import (
 )
 from app.domains.experiments.domain.exposures import derive_experiment_exposure
 from app.domains.routines.application.schedule_window import get_schedule_window
-from app.domains.routines.contracts import ScheduleOccurrence
+from app.domains.routines.contracts import CardLogStatus, ScheduleOccurrence
 from app.domains.routines.dependencies import RoutineRepository
 
 from ..dependencies import ExperimentRepository
@@ -72,7 +72,7 @@ def sync_experiment_exposures_for_date(
             continue
         occurrences_by_routine[occurrence.routine_id].append(occurrence)
 
-    statuses_by_occurrence_key = {
+    statuses_by_occurrence_key: dict[str, CardLogStatus] = {
         log.occurrence_key: log.status
         for log in routine_repo.list_card_logs(date=date)
     }

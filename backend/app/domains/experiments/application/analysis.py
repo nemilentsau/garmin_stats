@@ -6,7 +6,9 @@ from app.domains.experiments.contracts import Experiment, ExperimentAnalysis
 from app.domains.experiments.domain.analysis import (
     compute_experiment_analysis as compute_domain_experiment_analysis,
 )
-from app.domains.experiments.domain.analysis import unanalyzable_placeholder
+from app.domains.experiments.domain.analysis import (
+    unanalyzable_placeholder,
+)
 
 from ..dependencies import ExperimentRepository
 

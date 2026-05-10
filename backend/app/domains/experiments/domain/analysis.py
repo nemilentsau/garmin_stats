@@ -86,11 +86,11 @@ def compute_experiment_analysis(
     daily_checkins: list[DailyCheckIn],
     exposures: list[ExperimentExposure],
 ) -> ExperimentAnalysis:
-    """Compute full analysis for an experiment."""
-    placeholder = unanalyzable_placeholder(experiment)
-    if placeholder is not None:
-        return placeholder
+    """Compute full analysis for an experiment.
 
+    Callers must check ``unanalyzable_placeholder`` first to short-circuit
+    data loading; this function assumes the design is fully populated.
+    """
     design = experiment.design
     assert design is not None
     assert design.baseline_start_date is not None

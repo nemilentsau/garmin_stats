@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from app.domains.experiments.contracts import ExperimentExposure
+from app.domains.routines.contracts import CardLogStatus
 
 _PARTIAL_ENTRY_WEIGHT = 0.5
 
@@ -14,7 +15,7 @@ def derive_experiment_exposure(
     experiment_id: str,
     date: str,
     routine_entry_ids: Sequence[str],
-    statuses_by_routine_entry_id: Mapping[str, str],
+    statuses_by_routine_entry_id: Mapping[str, CardLogStatus],
 ) -> ExperimentExposure | None:
     """Derive one experiment-day exposure from linked routine entry statuses."""
     if not routine_entry_ids:

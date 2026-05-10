@@ -12,13 +12,23 @@ import numpy as np
 from scipy import stats as sp_stats
 
 # ---------------------------------------------------------------------------
+# Shared thresholds — exported so downstream policy modules don't drift.
+# ---------------------------------------------------------------------------
+
+NAP_LARGE = 0.93
+NAP_MEDIUM = 0.66
+NAP_WEAK = 0.51
+P_HIGH = 0.05
+P_MODERATE = 0.10
+
+# ---------------------------------------------------------------------------
 # NAP — Non-overlap of All Pairs
 # ---------------------------------------------------------------------------
 
 _NAP_THRESHOLDS = [
-    (0.93, "large"),
-    (0.66, "medium"),
-    (0.51, "weak"),
+    (NAP_LARGE, "large"),
+    (NAP_MEDIUM, "medium"),
+    (NAP_WEAK, "weak"),
 ]
 
 
