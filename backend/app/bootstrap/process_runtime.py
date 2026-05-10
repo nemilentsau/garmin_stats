@@ -30,7 +30,6 @@ class ProcessRuntime:
         self._tasks: list[asyncio.Task[None]] = []
 
     def start(self) -> None:
-        """Run startup reconciliation and start background tasks."""
         run_startup_ingest_if_needed(self._container.garmin_sync)
 
         watcher_task = asyncio.create_task(
@@ -52,7 +51,3 @@ class ProcessRuntime:
 
     def _refresh_active_experiment_analyses(self) -> int:
         return refresh_active_experiments(self._container.experiments_repo)
-
-
-def build_process_runtime(container: AppContainer) -> ProcessRuntime:
-    return ProcessRuntime(container)

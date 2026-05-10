@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from ..infra.database import init_db
 from .container import build_container
-from .process_runtime import build_process_runtime
+from .process_runtime import ProcessRuntime
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     """Startup: init DB, auto-ingest if empty, start file watcher."""
     init_db()
-    runtime = build_process_runtime(build_container())
+    runtime = ProcessRuntime(build_container())
     runtime.start()
     yield
     runtime.stop()

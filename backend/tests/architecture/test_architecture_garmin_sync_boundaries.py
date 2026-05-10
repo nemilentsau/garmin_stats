@@ -194,7 +194,7 @@ def test_lifespan_delegates_process_runtime_wiring():
     lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
     runtime_source = read_repo_file("backend/app/bootstrap/process_runtime.py")
 
-    assert "build_process_runtime" in lifespan_source
+    assert "ProcessRuntime" in lifespan_source
     assert "refresh_active_experiments" not in lifespan_source
     assert "watch_data_directory" not in lifespan_source
     assert "run_startup_ingest_if_needed" not in lifespan_source

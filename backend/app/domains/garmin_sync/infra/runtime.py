@@ -10,7 +10,6 @@ log = logging.getLogger(__name__)
 
 
 def run_startup_ingest_if_needed(deps: GarminSyncDependencies) -> None:
-    """Reconcile existing day archives and ingest when disk state changed."""
     data_dir = deps.data_dir
     deps.extract_archives(data_dir)
     status = deps.ingest.check_status(data_dir)

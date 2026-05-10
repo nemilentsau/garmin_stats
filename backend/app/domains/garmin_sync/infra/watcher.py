@@ -22,7 +22,6 @@ RefreshAfterIngest = Callable[[], int]
 
 
 def _zip_filter(change: Change, path: str) -> bool:
-    """Only watch .zip files in the top-level data directory."""
     return path.endswith(".zip")
 
 
@@ -49,12 +48,10 @@ class DataDirectoryWatcher:
         self._suspended = False
 
     def prime(self) -> None:
-        """Create the data directory and record the current source fingerprint."""
         self._ensure_data_dir(self._data_dir)
         self._last_fingerprint = self._fingerprint(self._data_dir)
 
     def suspend(self) -> None:
-        """Temporarily suspend file reactions during bulk sync operations."""
         self._suspended = True
         log.info("File watcher suspended")
 
@@ -67,7 +64,6 @@ class DataDirectoryWatcher:
         *,
         refresh_after_ingest: RefreshAfterIngest | None = None,
     ) -> None:
-        """Watch for archive changes and process them until cancelled."""
         self.prime()
         log.info("File watcher started on %s", self._data_dir)
         async for changes in awatch(self._data_dir, watch_filter=_zip_filter, debounce=3000):
@@ -82,7 +78,7 @@ class DataDirectoryWatcher:
         *,
         refresh_after_ingest: RefreshAfterIngest | None = None,
     ) -> None:
-        """Process one watchfiles change batch. Caller must have called prime() or watch()."""
+        # Caller must have called prime() or watch() first to seed _last_fingerprint.
         if self._suspended:
             log.debug("Watcher suspended; skipping %d change(s)", len(changes))
             return
