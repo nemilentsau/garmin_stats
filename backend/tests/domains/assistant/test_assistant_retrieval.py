@@ -69,6 +69,11 @@ class _FakeReadStore:
         self._profile = profile
         self._evidence_bundles = list(evidence_bundles or [])
         self._memory_records = list(memory_records or [])
+        self.get_experiment_calls: list[str] = []
+        self.list_all_experiment_analyses_calls = 0
+        self.list_experiment_exposures_calls: list[tuple[str | None, str | None]] = []
+        self.get_routine_calls: list[str] = []
+        self.list_assignments_calls: list[str | None] = []
 
     @classmethod
     def for_experiment_review(cls, *, experiment_id: str, routine_id: str) -> _FakeReadStore:
@@ -461,6 +466,17 @@ class _FakeReadStore:
             return [experiment for experiment in experiments if experiment.status == status]
         return experiments
 
+    def get_experiment(self, experiment_id: str) -> Experiment | None:
+        self.get_experiment_calls.append(experiment_id)
+        for experiment in self._experiments:
+            if experiment.id == experiment_id:
+                return experiment
+        return None
+
+    def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        self.list_all_experiment_analyses_calls += 1
+        return dict(self._analysis_by_experiment_id)
+
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         return self._analysis_by_experiment_id.get(experiment_id)
 
@@ -470,9 +486,15 @@ class _FakeReadStore:
         experiment_id: str | None = None,
         date: str | None = None,
     ) -> list[ExperimentExposure]:
+        self.list_experiment_exposures_calls.append((experiment_id, date))
         if experiment_id is None:
-            return []
-        exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
+            exposures = [
+                exposure
+                for experiment_exposures in self._exposures_by_experiment_id.values()
+                for exposure in experiment_exposures
+            ]
+        else:
+            exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
         if date is None:
             return exposures
         return [exposure for exposure in exposures if exposure.date == date]
@@ -483,7 +505,15 @@ class _FakeReadStore:
             return routines
         return [routine for routine in routines if routine.status == status]
 
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
+        self.get_routine_calls.append(routine_id)
+        for routine in self._routines:
+            if routine.id == routine_id:
+                return routine
+        return None
+
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
+        self.list_assignments_calls.append(routine_id)
         assignments = list(self._assignments)
         if routine_id is not None:
             assignments = [
@@ -992,6 +1022,9 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     assert scan_item.payload_json["tracking_quality"]["checkin_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["card_log_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["routine_coverage_dates"] == 7
+    assert store.list_all_experiment_analyses_calls == 1
+    assert store.list_experiment_exposures_calls == [(None, None)]
+    assert store.list_assignments_calls == [None]
 
 
 def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -> None:
@@ -1050,6 +1083,9 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     assert len(scan_item.payload_json["active_experiments"]) == 4
     assert scan_item.payload_json["active_routine_count"] == 4
     assert len(scan_item.payload_json["active_routines"]) == 4
+    assert store.list_all_experiment_analyses_calls == 1
+    assert store.list_experiment_exposures_calls == [(None, None)]
+    assert store.list_assignments_calls == [None]
 
 
 def test_experiment_review_without_scan_signal_keeps_missing_entity_gap() -> None:

@@ -46,6 +46,7 @@ from app.domains.journal.contracts import (
 from app.domains.routines.adapters import (
     load_card_logs_range,
     load_routine_assignments,
+    load_routine_schedule,
     load_routine_schedules,
 )
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
@@ -406,6 +407,12 @@ class SqliteAssistantRepository:
     ) -> list[Experiment]:
         return self.experiment_repo.list_experiments(statuses=statuses)
 
+    def get_experiment(self, experiment_id: str) -> Experiment | None:
+        return self.experiment_repo.get_experiment(experiment_id)
+
+    def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        return self.experiment_repo.list_all_experiment_analyses()
+
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
             return get_current_experiment_analysis(self.experiment_repo, experiment_id)
@@ -424,6 +431,9 @@ class SqliteAssistantRepository:
 
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
         return load_routine_schedules(status=status)
+
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
+        return load_routine_schedule(routine_id)
 
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
         return load_routine_assignments(routine_id=routine_id)

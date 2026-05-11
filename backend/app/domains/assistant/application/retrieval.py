@@ -16,8 +16,8 @@ from app.domains.assistant.contracts import (
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.assistant.domain import current_state, experiment_evidence, payloads
-from app.domains.experiments.contracts import Experiment
-from app.domains.routines.contracts import RoutineSchedule
+from app.domains.experiments.contracts import Experiment, ExperimentExposure
+from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
 
 
 def retrieve_experiment_review(
@@ -181,13 +181,17 @@ def _build_experiment_scan_context(
         store=store,
         active_routines=active_routines,
     )
+    analyses_by_experiment_id = store.list_all_experiment_analyses()
+    exposures_by_experiment_id = _group_exposures_by_experiment_id(
+        store.list_experiment_exposures()
+    )
 
     payload = experiment_evidence.experiment_scan_payload(
         active_experiment_payloads=[
             experiment_evidence.active_experiment_payload(
                 experiment=experiment,
-                analysis=store.get_experiment_analysis(experiment.id),
-                exposures=store.list_experiment_exposures(experiment_id=experiment.id),
+                analysis=analyses_by_experiment_id.get(experiment.id),
+                exposures=exposures_by_experiment_id.get(experiment.id, []),
             )
             for experiment in active_experiments
         ],
@@ -237,10 +241,7 @@ def _select_experiment_entity(
 
 
 def _load_experiment(*, store: AssistantReadModelStore, experiment_id: str) -> Experiment | None:
-    for experiment in store.list_experiments():
-        if experiment.id == experiment_id:
-            return experiment
-    return None
+    return store.get_experiment(experiment_id)
 
 
 def _load_active_experiments(*, store: AssistantReadModelStore) -> list[Experiment]:
@@ -274,12 +275,10 @@ def _build_routine_context(
 
     assignment_summaries, relevant_assignment_ids = current_state.routine_assignment_summaries(
         active_routines=active_routines,
-        assignments_by_routine_id={
-            routine.id: payloads.ordered_assignments(
-                store.list_assignments(routine_id=routine.id)
-            )
-            for routine in active_routines
-        },
+        assignments_by_routine_id=_group_assignments_by_routine_id(
+            store=store,
+            active_routines=active_routines,
+        ),
     )
 
     window = current_state.assignment_window(assignment_summaries)
@@ -309,7 +308,11 @@ def _load_linked_routines(
     if not experiment.linked_routine_ids:
         return [], []
 
-    routines_by_id = {routine.id: routine for routine in store.list_routines()}
+    routines_by_id = {
+        routine_id: routine
+        for routine_id in experiment.linked_routine_ids
+        if (routine := store.get_routine(routine_id)) is not None
+    }
     linked = [
         routines_by_id[routine_id]
         for routine_id in experiment.linked_routine_ids
@@ -324,4 +327,24 @@ def _load_linked_routines(
     )
     return sorted(linked, key=lambda routine: routine.id), missing
 
+
+def _group_exposures_by_experiment_id(
+    exposures: Sequence[ExperimentExposure],
+) -> dict[str, list[ExperimentExposure]]:
+    grouped: dict[str, list[ExperimentExposure]] = {}
+    for exposure in exposures:
+        grouped.setdefault(exposure.experiment_id, []).append(exposure)
+    return grouped
+
+
+def _group_assignments_by_routine_id(
+    *,
+    store: AssistantReadModelStore,
+    active_routines: Sequence[RoutineSchedule],
+) -> dict[str, list[RoutineAssignment]]:
+    grouped = {routine.id: [] for routine in active_routines}
+    for assignment in payloads.ordered_assignments(store.list_assignments()):
+        if assignment.routine_id in grouped:
+            grouped[assignment.routine_id].append(assignment)
+    return grouped
 

@@ -277,6 +277,15 @@ class _FakeReadStore:
             return [experiment for experiment in experiments if experiment.status == status]
         return experiments
 
+    def get_experiment(self, experiment_id: str) -> Experiment | None:
+        for experiment in self._experiments:
+            if experiment.id == experiment_id:
+                return experiment
+        return None
+
+    def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        return dict(self._analysis_by_experiment_id)
+
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         return self._analysis_by_experiment_id.get(experiment_id)
 
@@ -287,8 +296,13 @@ class _FakeReadStore:
         date: str | None = None,
     ) -> list[ExperimentExposure]:
         if experiment_id is None:
-            return []
-        exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
+            exposures = [
+                exposure
+                for experiment_exposures in self._exposures_by_experiment_id.values()
+                for exposure in experiment_exposures
+            ]
+        else:
+            exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
         if date is None:
             return exposures
         return [exposure for exposure in exposures if exposure.date == date]
@@ -298,6 +312,12 @@ class _FakeReadStore:
         if status is None:
             return routines
         return [routine for routine in routines if routine.status == status]
+
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
+        for routine in self._routines:
+            if routine.id == routine_id:
+                return routine
+        return None
 
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
         _ = routine_id
