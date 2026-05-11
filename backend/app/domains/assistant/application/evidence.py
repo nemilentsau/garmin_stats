@@ -20,7 +20,7 @@ from app.domains.assistant.contracts import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
-from app.domains.assistant.dependencies import AssistantRetrievalStore
+from app.domains.assistant.dependencies import AssistantReadModelStore, AssistantRecallStore
 
 _MAX_MEMORY_RECORDS = 5
 _MAX_PRIOR_BUNDLES = 3
@@ -45,7 +45,8 @@ class _PriorBundleCandidate(NamedTuple):
 
 def build_evidence_bundle(
     *,
-    store: AssistantRetrievalStore,
+    read_store: AssistantReadModelStore,
+    recall_store: AssistantRecallStore,
     route: AssistantRouteDecision,
     entities: Sequence[AssistantResolvedEntity],
     thread_id: str,
@@ -58,16 +59,16 @@ def build_evidence_bundle(
 
     if route.intent == "experiment_review":
         route_items, route_gaps = retrieve_experiment_review(
-            store=store,
+            store=read_store,
             route=route,
             entities=entities,
         )
     elif route.intent == "recovery_briefing":
-        route_items, route_gaps = retrieve_recovery_briefing(store=store)
+        route_items, route_gaps = retrieve_recovery_briefing(store=read_store)
     elif route.intent == "routine_adherence":
-        route_items, route_gaps = retrieve_routine_adherence(store=store)
+        route_items, route_gaps = retrieve_routine_adherence(store=read_store)
     elif route.intent == "open_ended_coaching":
-        route_items, route_gaps = retrieve_open_ended_coaching(store=store)
+        route_items, route_gaps = retrieve_open_ended_coaching(store=read_store)
     else:
         route_items, route_gaps = [], [f"unsupported_intent:{route.intent}"]
 
@@ -76,14 +77,14 @@ def build_evidence_bundle(
 
     items.extend(
         _build_prior_evidence_items(
-            store=store,
+            store=recall_store,
             route=route,
             current_entities=entities,
             current_thread_id=thread_id,
             last_n=_MAX_PRIOR_BUNDLES,
         )
     )
-    items.extend(_build_memory_items(store=store, last_n=_MAX_MEMORY_RECORDS))
+    items.extend(_build_memory_items(store=recall_store, last_n=_MAX_MEMORY_RECORDS))
 
     return AssistantEvidenceBundle(
         id=_deterministic_bundle_id(
@@ -102,7 +103,7 @@ def build_evidence_bundle(
 
 def _build_prior_evidence_items(
     *,
-    store: AssistantRetrievalStore,
+    store: AssistantRecallStore,
     route: AssistantRouteDecision,
     current_entities: Sequence[AssistantResolvedEntity],
     current_thread_id: str,
@@ -182,7 +183,7 @@ def _build_prior_evidence_items(
 
 def _build_memory_items(
     *,
-    store: AssistantRetrievalStore,
+    store: AssistantRecallStore,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
     records = sorted(
@@ -218,5 +219,4 @@ def _deterministic_bundle_id(*, intent: str, thread_id: str, user_message_id: st
     raw = f"{thread_id}\x1f{user_message_id}\x1f{intent}".encode()
     digest = hashlib.sha256(raw).hexdigest()[:20]
     return f"evidence-{digest}"
-
 

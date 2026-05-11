@@ -9,8 +9,10 @@ from app.domains.assistant.application.chat import stream_reply
 from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
+    AssistantMessage,
     AssistantMessageCreateRequest,
     AssistantRun,
+    AssistantThread,
 )
 from app.domains.experiments.contracts import (
     Experiment,
@@ -56,7 +58,7 @@ class _FakeConversationStore:
         thread_id: str,
         claude_session_id: str | None,
         model: str = "sonnet",
-        prior_messages: list[dict[str, Any]] | None = None,
+        prior_messages: list[AssistantMessage] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
         prior_evidence_bundles: list[AssistantEvidenceBundle] | None = None,
         fail_on_save_evidence_bundle: bool = False,
@@ -69,18 +71,19 @@ class _FakeConversationStore:
         self.fail_on_save_evidence_bundle = fail_on_save_evidence_bundle
         self.fail_on_list_memory_records = fail_on_list_memory_records
         self.fail_on_finalize_reply = fail_on_finalize_reply
-        self.thread_state: dict[str, Any] = {
-            "id": thread_id,
-            "model": model,
-            "claude_session_id": claude_session_id,
-        }
-        self.messages: list[object] = list(prior_messages or [])
+        self.thread_state = AssistantThread(
+            id=thread_id,
+            title="Test thread",
+            model=model,
+            claude_session_id=claude_session_id,
+        )
+        self.messages: list[AssistantMessage] = list(prior_messages or [])
         self.memory_records: list[AssistantMemoryRecord] = list(memory_records or [])
         self.saved_memory_records: list[AssistantMemoryRecord] = []
         self.prior_evidence_bundles: list[AssistantEvidenceBundle] = list(
             prior_evidence_bundles or []
         )
-        self.saved_threads: list[dict[str, Any]] = []
+        self.saved_threads: list[AssistantThread] = []
         self.saved_evidence_bundles: list[AssistantEvidenceBundle] = []
         self.saved_runs: list[AssistantRun] = []
         self.list_memory_calls: list[dict[str, object]] = []
@@ -92,7 +95,7 @@ class _FakeConversationStore:
         thread_id: str,
         claude_session_id: str | None = None,
         model: str = "sonnet",
-        prior_messages: list[dict[str, Any]] | None = None,
+        prior_messages: list[AssistantMessage] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
         fail_on_save_evidence_bundle: bool = False,
         fail_on_list_memory_records: bool = False,
@@ -112,7 +115,7 @@ class _FakeConversationStore:
     def get_thread(self, thread_id: str):
         if thread_id != self.thread_id:
             return None
-        return dict(self.thread_state)
+        return self.thread_state
 
     def list_messages(self, thread_id: str):
         if thread_id != self.thread_id:
@@ -123,10 +126,10 @@ class _FakeConversationStore:
         self.messages.append(message)
 
     def save_thread(self, thread):
-        if not isinstance(thread, dict):
-            raise TypeError("expected dict-backed thread in test fake")
-        self.thread_state = dict(thread)
-        self.saved_threads.append(dict(thread))
+        if not isinstance(thread, AssistantThread):
+            raise TypeError("expected AssistantThread in test fake")
+        self.thread_state = thread
+        self.saved_threads.append(thread)
 
     def save_run(self, run):
         self.saved_runs.append(run)
@@ -375,10 +378,10 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert repo.saved_memory_records == []
     user_message = cast(Any, repo.messages[0])
     assistant_message = cast(Any, repo.messages[-1])
-    assert repo.saved_threads[0]["last_message_at"] == user_message.created_at
-    assert repo.saved_threads[-1]["last_message_at"] == assistant_message.created_at
-    assert repo.saved_threads[-1]["last_context_snapshot_id"] == repo.saved_evidence_bundles[0].id
-    assert repo.saved_threads[-1]["claude_session_id"] == "session-1"
+    assert repo.saved_threads[0].last_message_at == user_message.created_at
+    assert repo.saved_threads[-1].last_message_at == assistant_message.created_at
+    assert repo.saved_threads[-1].last_context_snapshot_id == repo.saved_evidence_bundles[0].id
+    assert repo.saved_threads[-1].claude_session_id == "session-1"
 
 
 def test_stream_reply_persists_confident_entity_alias_memory_for_short_experiment_alias():
@@ -576,18 +579,20 @@ def test_stream_reply_alias_reroute_handles_natural_language_follow_up():
 
 def test_follow_up_works_without_claude_resume():
     seeded_prior_messages = (
-        {
-            "id": "message-1",
-            "role": "user",
-            "content_markdown": "Let's keep me moving this week.",
-            "created_at": "2026-04-10T09:00:00Z",
-        },
-        {
-            "id": "assistant-1",
-            "role": "assistant",
-            "content_markdown": "Try 20-minute walks.",
-            "created_at": "2026-04-10T09:05:00Z",
-        },
+        AssistantMessage(
+            id="message-1",
+            thread_id="thread-1",
+            role="user",
+            content_markdown="Let's keep me moving this week.",
+            created_at="2026-04-10T09:00:00Z",
+        ),
+        AssistantMessage(
+            id="assistant-1",
+            thread_id="thread-1",
+            role="assistant",
+            content_markdown="Try 20-minute walks.",
+            created_at="2026-04-10T09:05:00Z",
+        ),
     )
     repo = _FakeConversationStore.with_thread(
         thread_id="thread-1",
@@ -615,9 +620,7 @@ def test_follow_up_works_without_claude_resume():
     assert payloads[-1]["type"] == "done"
     assert "keep going" in payloads[-1]["message"]["content_markdown"].lower()
     assert len(runtime.stream_chat_kwargs) == 1
-    assert runtime.stream_chat_kwargs[0]["prior_messages"] == [
-        dict(message) for message in seeded_prior_messages
-    ]
+    assert runtime.stream_chat_kwargs[0]["prior_messages"] == list(seeded_prior_messages)
     assert "claude_session_id" not in runtime.stream_chat_kwargs[0]
     assert "session_id" not in runtime.stream_chat_kwargs[0]
     assert not any("resume" in str(key).lower() for key in runtime.stream_chat_kwargs[0])

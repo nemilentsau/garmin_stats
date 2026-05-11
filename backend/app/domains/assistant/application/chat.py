@@ -5,10 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import suppress
-from typing import Any, cast
 from uuid import uuid4
-
-from pydantic import BaseModel
 
 from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.application.evidence import build_evidence_bundle
@@ -21,11 +18,11 @@ from app.domains.assistant.contracts import (
     AssistantResolvedEntity,
     AssistantRouteDecision,
     AssistantRun,
+    AssistantThread,
 )
 from app.domains.assistant.dependencies import (
     AssistantConversationStore,
     AssistantReadModelStore,
-    AssistantRetrievalStore,
     AssistantRuntime,
 )
 from app.domains.assistant.domain.text import normalize_alias, tokenize
@@ -64,110 +61,32 @@ _MAX_ALIAS_TOKENS = 6
 _MIN_ALIAS_SCORE = 0.9
 
 
-class _RetrievalStoreAdapter:
-    """Bridge read-model data with backend-owned recall records."""
-
-    def __init__(
-        self,
-        *,
-        read_store: AssistantReadModelStore,
-        conversation_store: AssistantConversationStore,
-    ) -> None:
-        self._read_store = read_store
-        self._conversation_store = conversation_store
-
-    def list_evidence_bundles(
-        self,
-        thread_id: str | None = None,
-        *,
-        last_n: int | None = None,
-    ):
-        return self._conversation_store.list_evidence_bundles(thread_id=thread_id, last_n=last_n)
-
-    def list_memory_records(
-        self,
-        kind: str | None = None,
-        *,
-        last_n: int | None = None,
-        alias_candidates: tuple[str, ...] | None = None,
-    ):
-        return self._conversation_store.list_memory_records(
-            kind=kind,
-            last_n=last_n,
-            alias_candidates=alias_candidates,
-        )
-
-    def __getattr__(self, item: str) -> object:
-        return getattr(self._read_store, item)
-
-
 def _json_line(payload: dict[str, object]) -> str:
     return json.dumps(payload) + "\n"
 
 
-def _model_for_thread(thread: object) -> str:
-    if isinstance(thread, dict):
-        model = thread.get("model")
-        return model if isinstance(model, str) and model else "sonnet"
-    model = getattr(thread, "model", "sonnet")
-    if isinstance(model, str) and model:
-        return model
-    return "sonnet"
-
-
-def _message_to_dict(message: object) -> dict[str, object]:
-    if isinstance(message, dict):
-        return dict(message)
-    if isinstance(message, BaseModel):
-        dumped = message.model_dump(mode="json")
-        if isinstance(dumped, dict):
-            return dumped
-    return {}
-
-
-def _thread_id(thread: object) -> str:
-    if isinstance(thread, dict):
-        value = thread.get("id")
-        if isinstance(value, str):
-            return value
-    value = getattr(thread, "id", None)
-    if isinstance(value, str):
-        return value
-    raise ValueError("thread id is missing")
+def _model_for_thread(thread: AssistantThread) -> str:
+    return thread.model or "sonnet"
 
 
 def _save_thread_state(
     *,
     repo: AssistantConversationStore,
-    thread: object,
+    thread: AssistantThread,
     last_message_at: str,
     snapshot_id: str | None = None,
     session_id: str | None = None,
     persist: bool = True,
-) -> object:
-    if isinstance(thread, dict):
-        updated = dict(thread)
-        updated["last_message_at"] = last_message_at
-        if snapshot_id is not None:
-            updated["last_context_snapshot_id"] = snapshot_id
-        if session_id is not None:
-            updated["claude_session_id"] = session_id
-        if persist:
-            cast(Any, repo).save_thread(updated)
-        return updated
-
-    if isinstance(thread, BaseModel):
-        updates: dict[str, object] = {"last_message_at": last_message_at}
-        if snapshot_id is not None:
-            updates["last_context_snapshot_id"] = snapshot_id
-        if session_id is not None:
-            updates["claude_session_id"] = session_id
-        updated_model = thread.model_copy(update=updates)
-        if persist:
-            cast(Any, repo).save_thread(updated_model)
-        return updated_model
-
-    raise TypeError("unsupported thread type for state persistence")
+) -> AssistantThread:
+    updates: dict[str, object] = {"last_message_at": last_message_at}
+    if snapshot_id is not None:
+        updates["last_context_snapshot_id"] = snapshot_id
+    if session_id is not None:
+        updates["claude_session_id"] = session_id
+    updated_thread = thread.model_copy(update=updates)
+    if persist:
+        repo.save_thread(updated_thread)
+    return updated_thread
 
 
 def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
@@ -363,7 +282,7 @@ async def stream_reply(
     request: AssistantMessageCreateRequest,
 ) -> AsyncIterator[str]:
     run: AssistantRun | None = None
-    thread: object | None = None
+    thread: AssistantThread | None = None
     evidence_bundle: AssistantEvidenceBundle | None = None
     assistant_chunks: list[str] = []
     session_id: str | None = None
@@ -374,7 +293,7 @@ async def stream_reply(
         if thread is None:
             raise LookupError(f"Assistant thread '{thread_id}' not found")
 
-        prior_messages = [_message_to_dict(message) for message in repo.list_messages(thread_id)]
+        prior_messages = repo.list_messages(thread_id)
         user_message = AssistantMessage(
             id=request.id,
             thread_id=thread_id,
@@ -416,13 +335,11 @@ async def stream_reply(
             query=request.content,
         )
         evidence_bundle = build_evidence_bundle(
-            store=cast(
-                AssistantRetrievalStore,
-                _RetrievalStoreAdapter(read_store=read_store, conversation_store=repo),
-            ),
+            read_store=read_store,
+            recall_store=repo,
             route=route,
             entities=entities,
-            thread_id=_thread_id(thread),
+            thread_id=thread.id,
             user_message_id=request.id,
         )
 
@@ -430,7 +347,7 @@ async def stream_reply(
             id=f"run-{uuid4().hex}",
             task_type="chat",
             status="running",
-            thread_id=_thread_id(thread),
+            thread_id=thread.id,
             context_snapshot_id=evidence_bundle.id,
             command_json={
                 "model": _model_for_thread(thread),
@@ -490,7 +407,7 @@ async def stream_reply(
                 "finished_at": now_iso(),
             }
         )
-        cast(Any, repo).finalize_reply(
+        repo.finalize_reply(
             assistant_message=assistant_message,
             updated_thread=thread,
             completed_run=completed_run,

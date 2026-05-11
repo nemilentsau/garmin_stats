@@ -573,7 +573,8 @@ def test_experiment_review_retriever_returns_analysis_adherence_and_linked_routi
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -611,7 +612,8 @@ def test_experiment_review_retriever_includes_cross_thread_recall_hooks() -> Non
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -642,7 +644,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
     ]
 
     dot_thread_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -653,7 +656,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
         user_message_id="MSG",
     )
     dash_thread_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -664,7 +668,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
         user_message_id="MSG",
     )
     lowercase_message_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -722,7 +727,8 @@ def test_prior_evidence_recall_selects_other_threads_before_truncation() -> None
     store._evidence_bundles = older_cross_thread + busy_current_thread
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -773,7 +779,8 @@ def test_prior_evidence_excludes_unrelated_threads_without_overlap_or_recall() -
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -819,7 +826,8 @@ def test_prior_evidence_includes_same_entity_across_threads() -> None:
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -859,7 +867,8 @@ def test_prior_evidence_includes_adjacent_family_for_recovery_briefing() -> None
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="recovery_briefing", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -889,7 +898,8 @@ def test_prior_evidence_explicit_recall_override_includes_otherwise_excluded_bun
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -938,7 +948,8 @@ def test_linked_routine_includes_non_active_status_when_routine_exists() -> None
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -959,7 +970,8 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1021,7 +1033,8 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     )
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1043,7 +1056,8 @@ def test_experiment_review_without_scan_signal_keeps_missing_entity_gap() -> Non
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1064,7 +1078,8 @@ def test_experiment_scan_preserves_partial_context_gaps() -> None:
     store._card_logs = []
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1084,7 +1099,8 @@ def test_recovery_briefing_returns_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="recovery_briefing", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1105,7 +1121,8 @@ def test_routine_adherence_returns_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1129,7 +1146,8 @@ def test_routine_adherence_compacts_assignment_history_to_recent_window() -> Non
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1180,7 +1198,8 @@ def test_routine_adherence_caps_future_schedule_window_at_today(monkeypatch) -> 
     )
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1199,7 +1218,8 @@ def test_open_ended_coaching_returns_combined_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="open_ended_coaching", confidence=0.95),
         entities=[],
         thread_id="thread-1",

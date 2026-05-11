@@ -44,7 +44,7 @@ class AssistantConversationStore(Protocol):
         self,
         *,
         assistant_message: AssistantMessage,
-        updated_thread: AssistantThread | dict[str, Any],
+        updated_thread: AssistantThread,
         completed_run: AssistantRun,
         memory_record: AssistantMemoryRecord | None = None,
     ) -> None: ...
@@ -108,10 +108,6 @@ class AssistantRecallStore(Protocol):
     ) -> list[AssistantMemoryRecord]: ...
 
 
-class AssistantRetrievalStore(AssistantReadModelStore, AssistantRecallStore, Protocol):
-    """Combined read-model + recall protocol for deterministic evidence retrieval."""
-
-
 class AssistantRuntime(Protocol):
     """Streaming chat runtime dependency used after deterministic retrieval."""
 
@@ -119,7 +115,7 @@ class AssistantRuntime(Protocol):
         self,
         *,
         evidence_bundle: AssistantEvidenceBundle,
-        prior_messages: Sequence[AssistantMessage | dict[str, Any]],
+        prior_messages: Sequence[AssistantMessage],
         memory_records: Sequence[AssistantMemoryRecord],
         user_message: str,
         model: str,

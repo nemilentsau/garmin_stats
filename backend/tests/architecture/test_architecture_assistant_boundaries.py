@@ -148,6 +148,24 @@ def test_assistant_application_does_not_import_storage_adapters_or_runtime():
     )
 
 
+def test_assistant_chat_uses_contract_models_for_thread_state():
+    assert_no_text_in_files(
+        [
+            "backend/app/domains/assistant/application/chat.py",
+            "backend/app/domains/assistant/dependencies.py",
+            "backend/app/domains/assistant/adapters.py",
+        ],
+        [
+            "_RetrievalStoreAdapter",
+            "_message_to_dict",
+            "AssistantRetrievalStore",
+            "AssistantThread | dict",
+            "isinstance(thread, dict)",
+            "isinstance(updated_thread, dict)",
+        ],
+    )
+
+
 def test_migrated_assistant_router_and_adapter_shims_are_removed():
     for path in [
         "backend/app/domains/assistant/api",

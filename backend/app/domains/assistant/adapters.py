@@ -358,18 +358,13 @@ class SqliteAssistantRepository:
         self,
         *,
         assistant_message: AssistantMessage,
-        updated_thread: AssistantThread | dict[str, object],
+        updated_thread: AssistantThread,
         completed_run: AssistantRun,
         memory_record: AssistantMemoryRecord | None = None,
     ) -> None:
-        thread = (
-            AssistantThread.model_validate(updated_thread)
-            if isinstance(updated_thread, dict)
-            else updated_thread
-        )
         finalize_assistant_reply(
             assistant_message=assistant_message,
-            updated_thread=thread,
+            updated_thread=updated_thread,
             completed_run=completed_run,
             memory_record=memory_record,
         )
