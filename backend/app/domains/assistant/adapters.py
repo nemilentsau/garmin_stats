@@ -1,8 +1,9 @@
 """SQLite-backed assistant repository and read-model adapter.
 
-This module owns assistant conversation persistence and the adapter boundary for
-evidence reads from explicitly allowed domain read models. It keeps SQLite table
-helpers and cross-domain read wiring out of the application layer.
+This module owns assistant conversation persistence, assistant-specific SQLite
+migrations, and the adapter boundary for evidence reads from explicitly allowed
+domain read models. Shared SQLite connection/bootstrap primitives stay in
+``app.infra``; lookup policy derived from assistant domain text rules stays here.
 """
 
 from __future__ import annotations
@@ -65,6 +66,41 @@ _STORE = JsonStore({
     "assistant_memory_records",
     "evidence_cards",
 })
+
+
+def migrate_assistant_storage() -> None:
+    """Apply idempotent assistant SQLite migrations after shared schema bootstrap.
+
+    The alias lookup column is derived from assistant text normalization policy,
+    so the backfill lives with the assistant adapter instead of global database
+    initialization.
+    """
+    with connect() as con, con:
+        _ensure_memory_alias_lookup_columns(con)
+
+
+def _ensure_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
+    columns = {
+        row["name"]
+        for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+    }
+    if "alias_normalized" not in columns:
+        con.execute("ALTER TABLE assistant_memory_records ADD COLUMN alias_normalized TEXT")
+
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_alias_normalized_created "
+        "ON assistant_memory_records (kind, alias_normalized, created_at)"
+    )
+
+    rows = con.execute(
+        "SELECT id, alias_text FROM assistant_memory_records "
+        "WHERE alias_text IS NOT NULL AND (alias_normalized IS NULL OR alias_normalized = '')"
+    ).fetchall()
+    for row in rows:
+        con.execute(
+            "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
+            (normalize_alias(row["alias_text"]), row["id"]),
+        )
 
 
 def save_plan(plan: Plan) -> None:

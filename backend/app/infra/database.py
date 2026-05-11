@@ -5,9 +5,6 @@ Ingest adapters write Garmin health records into SQLite.
 Read path helpers reconstruct persisted Pydantic models for API/domain adapters.
 """
 
-import re
-import sqlite3
-
 from ..core.config import get_app_config
 from ..core.profile.contracts import (
     DEFAULT_PROFILE_ID,
@@ -20,8 +17,6 @@ from .sqlite import DB_PATH, connect
 _APP_CONFIG = get_app_config()
 
 DATA_DIR = _APP_CONFIG.data_dir
-
-_ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 _VALID_TABLES = frozenset({
     "wellness_data", "sleep_data", "hrv_data",
@@ -210,42 +205,8 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _connect() as con:
         con.executescript(_SCHEMA)
-        _ensure_assistant_memory_alias_lookup_columns(con)
         con.execute("PRAGMA journal_mode=WAL")
         con.commit()
-
-
-def _ensure_assistant_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
-    columns = {
-        row["name"]
-        for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
-    }
-    if "alias_normalized" not in columns:
-        con.execute("ALTER TABLE assistant_memory_records ADD COLUMN alias_normalized TEXT")
-
-    con.execute(
-        "CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_alias_normalized_created "
-        "ON assistant_memory_records (kind, alias_normalized, created_at)"
-    )
-
-    rows = con.execute(
-        "SELECT id, alias_text FROM assistant_memory_records "
-        "WHERE alias_text IS NOT NULL AND (alias_normalized IS NULL OR alias_normalized = '')"
-    ).fetchall()
-    for row in rows:
-        con.execute(
-            "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
-            (_normalize_alias_text(row["alias_text"]), row["id"]),
-        )
-
-
-def _normalize_alias_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    tokens = _ALIAS_TOKEN_PATTERN.findall(value.lower())
-    if not tokens:
-        return None
-    return " ".join(tokens)
 
 
 _STORE = JsonStore(_VALID_TABLES)

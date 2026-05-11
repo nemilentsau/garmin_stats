@@ -1,5 +1,7 @@
 """Assistant adapter tests for SQLite persistence and recall lookup."""
 
+import json
+
 import app.domains.assistant.adapters as assistant_db
 import app.infra.database as db
 from app.domains.assistant.contracts import (
@@ -18,6 +20,69 @@ from app.domains.assistant.contracts import (
 
 
 class TestAssistantAdapter:
+    def test_migrate_assistant_storage_backfills_legacy_memory_alias_lookup(self):
+        with db._connect() as con, con:
+            con.execute("DROP TABLE assistant_memory_records")
+            con.execute(
+                """
+                CREATE TABLE assistant_memory_records (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    entity_id TEXT,
+                    alias_text TEXT,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            con.execute(
+                """
+                INSERT INTO assistant_memory_records (
+                    id, kind, entity_id, alias_text, data, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "memory-1",
+                    "entity_alias",
+                    "exp-1",
+                    "Sleep Stack!",
+                    json.dumps(
+                        {
+                            "id": "memory-1",
+                            "kind": "entity_alias",
+                            "entity_id": "exp-1",
+                            "alias_text": "Sleep Stack!",
+                            "payload_json": {},
+                        }
+                    ),
+                    "2026-04-11T10:00:00Z",
+                    "2026-04-11T10:00:00Z",
+                ),
+            )
+
+        assistant_db.migrate_assistant_storage()
+        assistant_db.migrate_assistant_storage()
+
+        with db._connect() as con:
+            columns = {
+                row["name"]
+                for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
+            }
+            indexes = {
+                row["name"]
+                for row in con.execute("PRAGMA index_list(assistant_memory_records)").fetchall()
+            }
+            row = con.execute(
+                "SELECT alias_normalized FROM assistant_memory_records WHERE id = ?",
+                ("memory-1",),
+            ).fetchone()
+
+        assert "alias_normalized" in columns
+        assert "idx_assistant_memory_records_kind_alias_normalized_created" in indexes
+        assert row is not None
+        assert row["alias_normalized"] == "sleep stack"
+
     def test_loader_hydrates_generated_timestamps_from_columns(self):
         assistant_db.save_assistant_thread(AssistantThread(id="thread-1", title="Recovery coach"))
         assistant_db.save_assistant_message(

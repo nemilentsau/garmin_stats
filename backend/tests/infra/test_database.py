@@ -1,7 +1,5 @@
 """Tests for database.py — connection, storage, read-back."""
 
-import json
-
 import app.domains.routines.adapters as routine_db
 import app.infra.database as db
 from app.core.profile.contracts import (
@@ -53,68 +51,6 @@ class TestInit:
         with db._connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
-
-    def test_init_db_migrates_legacy_assistant_memory_table_before_alias_index(self, tmp_db):
-        with db._connect() as con, con:
-            con.execute("DROP TABLE assistant_memory_records")
-            con.execute(
-                """
-                CREATE TABLE assistant_memory_records (
-                    id TEXT PRIMARY KEY,
-                    kind TEXT NOT NULL,
-                    entity_id TEXT,
-                    alias_text TEXT,
-                    data TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-                """
-            )
-            con.execute(
-                """
-                INSERT INTO assistant_memory_records (
-                    id, kind, entity_id, alias_text, data, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    "memory-1",
-                    "entity_alias",
-                    "exp-1",
-                    "sleep stack",
-                    json.dumps(
-                        {
-                            "id": "memory-1",
-                            "kind": "entity_alias",
-                            "entity_id": "exp-1",
-                            "alias_text": "sleep stack",
-                            "payload_json": {},
-                        }
-                    ),
-                    "2026-04-11T10:00:00Z",
-                    "2026-04-11T10:00:00Z",
-                ),
-            )
-
-        db.init_db()
-
-        with db._connect() as con:
-            columns = {
-                row["name"]
-                for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
-            }
-            indexes = {
-                row["name"]
-                for row in con.execute("PRAGMA index_list(assistant_memory_records)").fetchall()
-            }
-            row = con.execute(
-                "SELECT alias_normalized FROM assistant_memory_records WHERE id = ?",
-                ("memory-1",),
-            ).fetchone()
-
-        assert "alias_normalized" in columns
-        assert "idx_assistant_memory_records_kind_alias_normalized_created" in indexes
-        assert row is not None
-        assert row["alias_normalized"] == "sleep stack"
 
 
 # ---------------------------------------------------------------------------

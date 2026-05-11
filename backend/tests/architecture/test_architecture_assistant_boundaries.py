@@ -130,6 +130,19 @@ def test_shared_database_does_not_own_assistant_contracts_or_crud():
     assert [name for name in assistant_persistence_functions if name in source] == []
 
 
+def test_assistant_alias_migration_lives_with_sqlite_adapter():
+    database_source = read_repo_file("backend/app/infra/database.py")
+    adapter_source = read_repo_file("backend/app/domains/assistant/adapters.py")
+    lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
+
+    assert "_ensure_assistant_memory_alias_lookup_columns" not in database_source
+    assert "_normalize_alias_text" not in database_source
+    assert "idx_assistant_memory_records_kind_alias_normalized_created" not in database_source
+    assert "def migrate_assistant_storage(" in adapter_source
+    assert "normalize_alias(row" in adapter_source
+    assert "migrate_assistant_storage()" in lifespan_source
+
+
 def test_assistant_application_does_not_import_storage_adapters_or_runtime():
     assert_no_text_in_files(
         [

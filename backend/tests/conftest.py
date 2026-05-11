@@ -2,6 +2,7 @@
 
 import pytest
 
+import app.domains.assistant.adapters as assistant_db
 import app.infra.database as db
 import app.infra.sqlite as sqlite
 from app.infra import cache
@@ -15,4 +16,5 @@ def tmp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
     db.init_db()
+    assistant_db.migrate_assistant_storage()
     yield test_db
