@@ -8,6 +8,7 @@ use the same normalization or saved aliases become unreachable.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 _LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
@@ -25,3 +26,8 @@ def normalize_alias(value: str | None) -> str | None:
     if not tokens:
         return None
     return " ".join(tokens)
+
+
+def dedupe_strings(values: Iterable[str]) -> list[str]:
+    """Return ``values`` with duplicates removed, preserving first-seen order."""
+    return list(dict.fromkeys(values))

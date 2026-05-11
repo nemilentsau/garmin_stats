@@ -13,7 +13,8 @@ import os
 from collections.abc import AsyncIterator, Sequence
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
+
+from pydantic import BaseModel
 
 from app.domains.assistant.contracts import AssistantEvidenceBundle, AssistantMemoryRecord
 
@@ -22,14 +23,11 @@ _WORKSPACE_ROOT = _PROJECT_ROOT / "storage" / "assistant" / "workspaces"
 _CLAUDE_CMD = os.environ.get("CLAUDE_CODE_CMD", "claude")
 
 
-def _jsonable(value: Any) -> Any:
-    if hasattr(value, "model_dump") and callable(value.model_dump):
-        return value.model_dump(mode="json")
-    if isinstance(value, dict):
-        return {str(key): _jsonable(nested) for key, nested in value.items()}
-    if isinstance(value, list | tuple):
-        return [_jsonable(item) for item in value]
-    return value
+def _dump_sequence(items: Sequence[object]) -> str:
+    return json.dumps(
+        [item.model_dump(mode="json") if isinstance(item, BaseModel) else item for item in items],
+        indent=2,
+    )
 
 
 def _write_workspace_files(
@@ -42,15 +40,15 @@ def _write_workspace_files(
     workspace = _WORKSPACE_ROOT / evidence_bundle.id
     workspace.mkdir(parents=True, exist_ok=True)
     (workspace / "evidence.json").write_text(
-        json.dumps(_jsonable(evidence_bundle), indent=2),
+        evidence_bundle.model_dump_json(indent=2),
         encoding="utf-8",
     )
     (workspace / "thread_messages.json").write_text(
-        json.dumps([_jsonable(message) for message in prior_messages], indent=2),
+        _dump_sequence(prior_messages),
         encoding="utf-8",
     )
     (workspace / "memory.json").write_text(
-        json.dumps([_jsonable(record) for record in memory_records], indent=2),
+        _dump_sequence(memory_records),
         encoding="utf-8",
     )
     (workspace / "task.md").write_text(prompt, encoding="utf-8")

@@ -16,7 +16,8 @@ from app.domains.assistant.contracts import (
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.assistant.domain import current_state, experiment_evidence, payloads
-from app.domains.experiments.contracts import Experiment, ExperimentExposure
+from app.domains.assistant.domain.text import dedupe_strings
+from app.domains.experiments.contracts import Experiment
 from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
 
 
@@ -34,7 +35,7 @@ def retrieve_experiment_review(
             return _build_experiment_scan_context(store=store)
         return [], ["experiment_entity_missing"]
 
-    experiment = _load_experiment(store=store, experiment_id=experiment_entity.entity_id)
+    experiment = store.get_experiment(experiment_entity.entity_id)
     if experiment is None:
         return [], [f"experiment_not_found:{experiment_entity.entity_id}"]
 
@@ -98,10 +99,10 @@ def retrieve_open_ended_coaching(
     if profile is not None:
         payload["profile"] = payloads.profile_payload(profile)
 
-    gaps = list(dict.fromkeys([*recovery_gaps, *routine_gaps]))
+    gaps = dedupe_strings([*recovery_gaps, *routine_gaps])
     if not payload:
         gaps.append("current_state_missing")
-        return [], list(dict.fromkeys(gaps))
+        return [], dedupe_strings(gaps)
 
     return [
         AssistantEvidenceItem(
@@ -109,7 +110,7 @@ def retrieve_open_ended_coaching(
             source="read_model.current_state",
             payload_json=payload,
         )
-    ], list(dict.fromkeys(gaps))
+    ], dedupe_strings(gaps)
 
 
 def _build_experiment_evidence(
@@ -174,7 +175,11 @@ def _build_experiment_scan_context(
     *,
     store: AssistantReadModelStore,
 ) -> tuple[list[AssistantEvidenceItem], list[str]]:
-    active_experiments = _load_active_experiments(store=store)
+    active_experiments = sorted(
+        store.list_experiments(statuses=("active",)),
+        key=lambda experiment: (experiment.priority, experiment.id),
+        reverse=True,
+    )
     active_routines = payloads.ordered_routines(store.list_routines(status="active"))
     recovery_payload, recovery_gaps = _build_recovery_context(store=store)
     routine_payload, routine_gaps = _build_routine_context(
@@ -182,9 +187,10 @@ def _build_experiment_scan_context(
         active_routines=active_routines,
     )
     analyses_by_experiment_id = store.list_all_experiment_analyses()
-    exposures_by_experiment_id = _group_exposures_by_experiment_id(
-        store.list_experiment_exposures()
-    )
+    exposures_by_experiment_id = {
+        experiment.id: store.list_experiment_exposures(experiment_id=experiment.id)
+        for experiment in active_experiments
+    }
 
     payload = experiment_evidence.experiment_scan_payload(
         active_experiment_payloads=[
@@ -214,7 +220,7 @@ def _build_experiment_scan_context(
             source="read_model.scan_overview",
             payload_json=payload,
         )
-    ], list(dict.fromkeys(gaps))
+    ], dedupe_strings(gaps)
 
 
 def _is_experiment_scan_request(route: AssistantRouteDecision) -> bool:
@@ -238,19 +244,6 @@ def _select_experiment_entity(
         return None
     experiment_entities.sort(key=lambda entity: (-entity.score, entity.entity_id))
     return experiment_entities[0]
-
-
-def _load_experiment(*, store: AssistantReadModelStore, experiment_id: str) -> Experiment | None:
-    return store.get_experiment(experiment_id)
-
-
-def _load_active_experiments(*, store: AssistantReadModelStore) -> list[Experiment]:
-    active_experiments = store.list_experiments(statuses=("active",))
-    return sorted(
-        active_experiments,
-        key=lambda experiment: (experiment.priority, experiment.id),
-        reverse=True,
-    )
 
 
 def _build_recovery_context(
@@ -328,23 +321,15 @@ def _load_linked_routines(
     return sorted(linked, key=lambda routine: routine.id), missing
 
 
-def _group_exposures_by_experiment_id(
-    exposures: Sequence[ExperimentExposure],
-) -> dict[str, list[ExperimentExposure]]:
-    grouped: dict[str, list[ExperimentExposure]] = {}
-    for exposure in exposures:
-        grouped.setdefault(exposure.experiment_id, []).append(exposure)
-    return grouped
-
-
 def _group_assignments_by_routine_id(
     *,
     store: AssistantReadModelStore,
     active_routines: Sequence[RoutineSchedule],
 ) -> dict[str, list[RoutineAssignment]]:
-    grouped = {routine.id: [] for routine in active_routines}
-    for assignment in payloads.ordered_assignments(store.list_assignments()):
-        if assignment.routine_id in grouped:
-            grouped[assignment.routine_id].append(assignment)
-    return grouped
+    return {
+        routine.id: payloads.ordered_assignments(
+            store.list_assignments(routine_id=routine.id)
+        )
+        for routine in active_routines
+    }
 

@@ -1023,8 +1023,8 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     assert scan_item.payload_json["tracking_quality"]["card_log_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["routine_coverage_dates"] == 7
     assert store.list_all_experiment_analyses_calls == 1
-    assert store.list_experiment_exposures_calls == [(None, None)]
-    assert store.list_assignments_calls == [None]
+    assert store.list_experiment_exposures_calls == [("meditation-hrv-2026-03", None)]
+    assert set(store.list_assignments_calls) == {"meditation-routine", "mobility-routine"}
 
 
 def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -> None:
@@ -1084,8 +1084,18 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     assert scan_item.payload_json["active_routine_count"] == 4
     assert len(scan_item.payload_json["active_routines"]) == 4
     assert store.list_all_experiment_analyses_calls == 1
-    assert store.list_experiment_exposures_calls == [(None, None)]
-    assert store.list_assignments_calls == [None]
+    assert set(store.list_experiment_exposures_calls) == {
+        ("caffeine-curfew-2026-04", None),
+        ("meditation-hrv-2026-03", None),
+        ("mobility-dose-2026-04", None),
+        ("sleep-stack-2026-04", None),
+    }
+    assert set(store.list_assignments_calls) == {
+        "caffeine-curfew-routine",
+        "meditation-routine",
+        "mobility-routine",
+        "sleep-stack-routine",
+    }
 
 
 def test_experiment_review_without_scan_signal_keeps_missing_entity_gap() -> None:

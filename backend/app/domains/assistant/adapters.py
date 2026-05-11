@@ -69,12 +69,8 @@ _STORE = JsonStore({
 
 
 def migrate_assistant_storage() -> None:
-    """Apply idempotent assistant SQLite migrations after shared schema bootstrap.
-
-    The alias lookup column is derived from assistant text normalization policy,
-    so the backfill lives with the assistant adapter instead of global database
-    initialization.
-    """
+    # Alias lookup is derived from assistant text-normalization policy, so the
+    # backfill lives here rather than in the global schema bootstrap.
     with connect() as con, con:
         _ensure_memory_alias_lookup_columns(con)
 
@@ -96,11 +92,10 @@ def _ensure_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
         "SELECT id, alias_text FROM assistant_memory_records "
         "WHERE alias_text IS NOT NULL AND (alias_normalized IS NULL OR alias_normalized = '')"
     ).fetchall()
-    for row in rows:
-        con.execute(
-            "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
-            (normalize_alias(row["alias_text"]), row["id"]),
-        )
+    con.executemany(
+        "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
+        [(normalize_alias(row["alias_text"]), row["id"]) for row in rows],
+    )
 
 
 def save_plan(plan: Plan) -> None:

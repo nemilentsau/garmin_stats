@@ -56,7 +56,7 @@ class _FakeConversationStore:
         self,
         *,
         thread_id: str,
-        claude_session_id: str | None,
+        claude_session_id: str | None = None,
         model: str = "sonnet",
         prior_messages: list[AssistantMessage] | None = None,
         memory_records: list[AssistantMemoryRecord] | None = None,
@@ -87,30 +87,6 @@ class _FakeConversationStore:
         self.saved_evidence_bundles: list[AssistantEvidenceBundle] = []
         self.saved_runs: list[AssistantRun] = []
         self.list_memory_calls: list[dict[str, object]] = []
-
-    @classmethod
-    def with_thread(
-        cls,
-        *,
-        thread_id: str,
-        claude_session_id: str | None = None,
-        model: str = "sonnet",
-        prior_messages: list[AssistantMessage] | None = None,
-        memory_records: list[AssistantMemoryRecord] | None = None,
-        fail_on_save_evidence_bundle: bool = False,
-        fail_on_list_memory_records: bool = False,
-        fail_on_finalize_reply: bool = False,
-    ):
-        return cls(
-            thread_id=thread_id,
-            claude_session_id=claude_session_id,
-            model=model,
-            prior_messages=prior_messages,
-            memory_records=memory_records,
-            fail_on_save_evidence_bundle=fail_on_save_evidence_bundle,
-            fail_on_list_memory_records=fail_on_list_memory_records,
-            fail_on_finalize_reply=fail_on_finalize_reply,
-        )
 
     def get_thread(self, thread_id: str):
         if thread_id != self.thread_id:
@@ -345,7 +321,7 @@ class _FakeReadStore:
 
 
 def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         memory_records=[
             AssistantMemoryRecord(
@@ -405,7 +381,7 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
 
 
 def test_stream_reply_persists_confident_entity_alias_memory_for_short_experiment_alias():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
     )
     runtime = _FakeRuntime(deltas=["I see a stable pattern."])
@@ -443,7 +419,7 @@ def test_stream_reply_persists_confident_entity_alias_memory_for_short_experimen
 
 
 def test_stream_reply_reroutes_to_experiment_review_from_saved_alias_memory():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         memory_records=[
             AssistantMemoryRecord(
@@ -480,7 +456,7 @@ def test_stream_reply_reroutes_to_experiment_review_from_saved_alias_memory():
 
 
 def test_stream_reply_alias_reroute_uses_saved_alias_outside_prompt_memory_window():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         memory_records=[
             AssistantMemoryRecord(
@@ -561,7 +537,7 @@ def test_stream_reply_alias_reroute_uses_saved_alias_outside_prompt_memory_windo
 
 
 def test_stream_reply_alias_reroute_handles_natural_language_follow_up():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         memory_records=[
             AssistantMemoryRecord(
@@ -614,7 +590,7 @@ def test_follow_up_works_without_claude_resume():
             created_at="2026-04-10T09:05:00Z",
         ),
     )
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         claude_session_id="stale-session-id",
         prior_messages=list(seeded_prior_messages),
@@ -647,7 +623,7 @@ def test_follow_up_works_without_claude_resume():
 
 
 def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_failed():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         fail_on_save_evidence_bundle=True,
     )
@@ -677,7 +653,7 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
 
 def test_stream_reply_memory_setup_failure_emits_error_without_run():
     """Memory loading fails before the run is created — error emitted, no run persisted."""
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         fail_on_list_memory_records=True,
     )
@@ -706,7 +682,7 @@ def test_stream_reply_memory_setup_failure_emits_error_without_run():
 
 
 def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed():
-    repo = _FakeConversationStore.with_thread(
+    repo = _FakeConversationStore(
         thread_id="thread-1",
         fail_on_finalize_reply=True,
     )

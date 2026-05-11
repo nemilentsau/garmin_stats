@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
-from typing import NamedTuple
 
 from app.domains.assistant.application.retrieval import (
     retrieve_experiment_review,
@@ -21,9 +20,11 @@ from app.domains.assistant.contracts import (
     AssistantRouteDecision,
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore, AssistantRecallStore
+from app.domains.assistant.domain.text import dedupe_strings
 
 _MAX_MEMORY_RECORDS = 5
 _MAX_PRIOR_BUNDLES = 3
+_PRIOR_BUNDLE_SCAN_DEPTH = _MAX_PRIOR_BUNDLES * 5
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"
 _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
     "experiment_review": frozenset({"experiment_review"}),
@@ -33,14 +34,6 @@ _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
         {"open_ended_coaching", "recovery_briefing", "routine_adherence"}
     ),
 }
-class _PriorBundleCandidate(NamedTuple):
-    priority: int
-    created_at: str
-    updated_at: str
-    bundle_id: str
-    bundle: AssistantEvidenceBundle
-    match_type: str
-    matched_entity_ids: list[str]
 
 
 def build_evidence_bundle(
@@ -97,7 +90,7 @@ def build_evidence_bundle(
         intent=route.intent,
         entities=list(entities),
         items=items,
-        gaps=list(dict.fromkeys(gaps)),
+        gaps=dedupe_strings(gaps),
     )
 
 
@@ -109,7 +102,7 @@ def _build_prior_evidence_items(
     current_thread_id: str,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
-    all_bundles = store.list_evidence_bundles(last_n=50)
+    all_bundles = store.list_evidence_bundles(last_n=_PRIOR_BUNDLE_SCAN_DEPTH)
     other_thread_bundles = [
         bundle for bundle in all_bundles if bundle.thread_id != current_thread_id
     ]
@@ -118,49 +111,28 @@ def _build_prior_evidence_items(
 
     explicit_recall = _EXPLICIT_RECALL_SIGNAL in route.matched_signals
     current_entity_ids = {entity.entity_id for entity in current_entities}
-    prior_bundle_candidates: list[_PriorBundleCandidate] = []
+    candidates: list[tuple[int, AssistantEvidenceBundle, str, list[str]]] = []
     for bundle in other_thread_bundles:
         bundle_entity_ids = _bundle_entity_ids(bundle)
         matched_entity_ids = sorted(current_entity_ids.intersection(bundle_entity_ids))
-        match_type: str | None = None
-        priority = 0
         if matched_entity_ids:
-            match_type = "entity_overlap"
-            priority = 3
+            match_type, priority = "entity_overlap", 3
         elif bundle.intent in _ALLOWED_PRIOR_INTENTS[route.intent]:
-            match_type = "intent_family"
-            priority = 2
+            match_type, priority = "intent_family", 2
         elif explicit_recall:
-            match_type = "explicit_recall"
-            priority = 1
-
-        if match_type is None:
+            match_type, priority = "explicit_recall", 1
+        else:
             continue
-        prior_bundle_candidates.append(
-            _PriorBundleCandidate(
-                priority=priority,
-                created_at=bundle.created_at or "",
-                updated_at=bundle.updated_at or "",
-                bundle_id=bundle.id,
-                bundle=bundle,
-                match_type=match_type,
-                matched_entity_ids=matched_entity_ids,
-            )
-        )
+        candidates.append((priority, bundle, match_type, matched_entity_ids))
 
-    ordered_bundles = sorted(
-        prior_bundle_candidates,
-        key=lambda c: (c.priority, c.created_at, c.updated_at, c.bundle_id),
+    ordered_candidates = sorted(
+        candidates,
+        key=lambda c: (c[0], c[1].created_at or "", c[1].updated_at or "", c[1].id),
         reverse=True,
     )[:last_n]
 
     items: list[AssistantEvidenceItem] = []
-    for candidate in ordered_bundles:
-        bundle, match_type, matched_entity_ids = (
-            candidate.bundle,
-            candidate.match_type,
-            candidate.matched_entity_ids,
-        )
+    for _, bundle, match_type, matched_entity_ids in ordered_candidates:
         items.append(
             AssistantEvidenceItem(
                 kind="prior_evidence",

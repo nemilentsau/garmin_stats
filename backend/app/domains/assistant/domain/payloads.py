@@ -16,8 +16,6 @@ from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSc
 
 
 def metric_payload(metric: DailyMetric) -> dict[str, object]:
-    """Return the compact metric fields useful for assistant grounding."""
-
     return {
         "date": metric.date,
         "utc_offset_hours": metric.utc_offset_hours,
@@ -33,8 +31,6 @@ def metric_payload(metric: DailyMetric) -> dict[str, object]:
 
 
 def checkin_payload(checkin: DailyCheckIn) -> dict[str, object]:
-    """Return subjective check-in fields used by recovery and coaching context."""
-
     return {
         "date": checkin.date,
         "energy": checkin.energy,
@@ -50,8 +46,6 @@ def checkin_payload(checkin: DailyCheckIn) -> dict[str, object]:
 
 
 def note_payload(note: Note) -> dict[str, object]:
-    """Return note fields that are safe to include in assistant context."""
-
     return {
         "date": note.date,
         "category": note.category,
@@ -61,8 +55,6 @@ def note_payload(note: Note) -> dict[str, object]:
 
 
 def profile_payload(profile: UserProfile) -> dict[str, object]:
-    """Return profile preferences used for coaching context."""
-
     return {
         "id": profile.id,
         "name": profile.name,
@@ -74,8 +66,6 @@ def profile_payload(profile: UserProfile) -> dict[str, object]:
 
 
 def routine_payload(routine: RoutineSchedule) -> dict[str, object]:
-    """Return the schedule-level routine fields used in evidence payloads."""
-
     return {
         "id": routine.id,
         "name": routine.name,
@@ -88,8 +78,6 @@ def routine_payload(routine: RoutineSchedule) -> dict[str, object]:
 
 
 def card_log_payload(card_log: CardLog) -> dict[str, object]:
-    """Return compact card-log fields for recent adherence evidence."""
-
     return {
         "id": card_log.id,
         "date": card_log.date,
