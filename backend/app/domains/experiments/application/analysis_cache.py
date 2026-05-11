@@ -108,19 +108,33 @@ def get_experiment_analysis(
     return load_current_analysis(repo, experiment)
 
 
-def refresh_active_experiments(repo: ExperimentRepository) -> int:
-    """Recompute analyses for active experiments and return attempted count."""
+def refresh_active_experiment_analyses(
+    repo: ExperimentRepository,
+) -> dict[str, ExperimentAnalysis]:
+    """Recompute and persist analyses for active experiments, returned by id.
+
+    Bulk callers (scan/list views) use this to avoid an N+1 of read-time
+    refreshes plus per-experiment cache lookups. Experiments without a design
+    are skipped; per-experiment failures are logged and excluded.
+    """
     experiments = repo.list_experiments(statuses=("active",))
     cached_analyses = repo.list_all_experiment_analyses()
-    count = 0
+    refreshed: dict[str, ExperimentAnalysis] = {}
     for experiment in experiments:
         if experiment.design is None:
             continue
         try:
-            persist_experiment_analysis(
+            analysis = persist_experiment_analysis(
                 repo, experiment, cached=cached_analyses.get(experiment.id),
             )
-            count += 1
         except Exception:
             log.exception("Failed to refresh experiment %s", experiment.id)
-    return count
+            continue
+        if analysis is not None:
+            refreshed[experiment.id] = analysis
+    return refreshed
+
+
+def refresh_active_experiments(repo: ExperimentRepository) -> int:
+    """Recompute analyses for active experiments and return attempted count."""
+    return len(refresh_active_experiment_analyses(repo))

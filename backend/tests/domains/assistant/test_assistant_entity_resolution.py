@@ -43,7 +43,7 @@ class _FakeReadStore:
                 return experiment
         return None
 
-    def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+    def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
         return {}
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:

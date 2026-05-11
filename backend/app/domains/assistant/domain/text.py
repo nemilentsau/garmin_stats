@@ -12,6 +12,9 @@ from collections.abc import Iterable
 
 _LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
+EXPERIMENT_REVIEW_TERMS: frozenset[str] = frozenset({"experiment", "trial", "study"})
+"""Singular lexical terms that signal an experiment-review intent or context."""
+
 
 def tokenize(text: str) -> list[str]:
     """Return lowercase alphanumeric tokens from ``text`` in order."""

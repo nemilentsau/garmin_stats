@@ -12,13 +12,10 @@ from app.domains.assistant.contracts import (
     AssistantIntent,
     AssistantRouteDecision,
 )
-from app.domains.assistant.domain.text import tokenize
+from app.domains.assistant.domain.text import EXPERIMENT_REVIEW_TERMS, tokenize
 
-_EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 _PLURAL_EXPERIMENT_REVIEW_TERMS = frozenset({"experiments", "trials", "studies"})
-_ALL_EXPERIMENT_REVIEW_TERMS = (
-    _EXPERIMENT_REVIEW_TERMS | _PLURAL_EXPERIMENT_REVIEW_TERMS
-)
+_ALL_EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | _PLURAL_EXPERIMENT_REVIEW_TERMS
 _RECALL_LANGUAGE_PHRASES = (
     "what did we say",
     "what did we discuss",

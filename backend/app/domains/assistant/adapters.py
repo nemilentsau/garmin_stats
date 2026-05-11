@@ -28,6 +28,9 @@ from app.domains.assistant.domain.text import normalize_alias
 from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
+from app.domains.experiments.application.analysis_cache import (
+    refresh_active_experiment_analyses,
+)
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
@@ -446,6 +449,9 @@ class SqliteAssistantRepository:
             return get_current_experiment_analysis(self.experiment_repo, experiment_id)
         except LookupError:
             return None
+
+    def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        return refresh_active_experiment_analyses(self.experiment_repo)
 
     def list_experiment_exposures(
         self,

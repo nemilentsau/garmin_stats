@@ -17,7 +17,7 @@ from app.domains.assistant.contracts import (
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.assistant.domain import current_state, experiment_evidence, payloads
 from app.domains.assistant.domain.text import dedupe_strings
-from app.domains.experiments.contracts import Experiment
+from app.domains.experiments.contracts import Experiment, ExperimentExposure
 from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
 
 
@@ -99,7 +99,7 @@ def retrieve_open_ended_coaching(
     if profile is not None:
         payload["profile"] = payloads.profile_payload(profile)
 
-    gaps = dedupe_strings([*recovery_gaps, *routine_gaps])
+    gaps = [*recovery_gaps, *routine_gaps]
     if not payload:
         gaps.append("current_state_missing")
         return [], dedupe_strings(gaps)
@@ -186,16 +186,16 @@ def _build_experiment_scan_context(
         store=store,
         active_routines=active_routines,
     )
-    exposures_by_experiment_id = {
-        experiment.id: store.list_experiment_exposures(experiment_id=experiment.id)
-        for experiment in active_experiments
-    }
+    analyses_by_experiment_id = store.list_active_experiment_analyses()
+    exposures_by_experiment_id = _group_exposures_by_experiment_id(
+        store.list_experiment_exposures()
+    )
 
     payload = experiment_evidence.experiment_scan_payload(
         active_experiment_payloads=[
             experiment_evidence.active_experiment_payload(
                 experiment=experiment,
-                analysis=store.get_experiment_analysis(experiment.id),
+                analysis=analyses_by_experiment_id.get(experiment.id),
                 exposures=exposures_by_experiment_id.get(experiment.id, []),
             )
             for experiment in active_experiments
@@ -331,3 +331,12 @@ def _group_assignments_by_routine_id(
         )
         for routine in active_routines
     }
+
+
+def _group_exposures_by_experiment_id(
+    exposures: Sequence[ExperimentExposure],
+) -> dict[str, list[ExperimentExposure]]:
+    grouped: dict[str, list[ExperimentExposure]] = {}
+    for exposure in exposures:
+        grouped.setdefault(exposure.experiment_id, []).append(exposure)
+    return grouped

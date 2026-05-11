@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 
+from app.domains.assistant.application.memory_aliases import MAX_MEMORY_RECORDS
 from app.domains.assistant.application.retrieval import (
     retrieve_experiment_review,
     retrieve_open_ended_coaching,
@@ -22,7 +23,6 @@ from app.domains.assistant.contracts import (
 from app.domains.assistant.dependencies import AssistantReadModelStore, AssistantRecallStore
 from app.domains.assistant.domain.text import dedupe_strings
 
-_MAX_MEMORY_RECORDS = 5
 _MAX_PRIOR_BUNDLES = 3
 _PRIOR_BUNDLE_SCAN_DEPTH = _MAX_PRIOR_BUNDLES * 5
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"
@@ -77,7 +77,7 @@ def build_evidence_bundle(
             last_n=_MAX_PRIOR_BUNDLES,
         )
     )
-    items.extend(_build_memory_items(store=recall_store, last_n=_MAX_MEMORY_RECORDS))
+    items.extend(_build_memory_items(store=recall_store, last_n=MAX_MEMORY_RECORDS))
 
     return AssistantEvidenceBundle(
         id=_deterministic_bundle_id(

@@ -24,7 +24,9 @@ from app.domains.assistant.dependencies import (
 from app.domains.assistant.domain.text import normalize_alias, tokenize
 from app.utils.timeutil import now_iso
 
-_MAX_MEMORY_RECORDS = 5
+MAX_MEMORY_RECORDS = 5
+"""Prompt-recall and evidence-bundle cap on assistant memory records per turn."""
+
 _MAX_ALIAS_PHRASE_TOKENS = 6
 _QUESTION_WORDS = {
     "are",
@@ -68,7 +70,7 @@ def load_resolution_memory_records(
     set using query token windows so saved aliases outside the prompt window can
     still resolve a user follow-up.
     """
-    prompt_memory_records = list(repo.list_memory_records(last_n=_MAX_MEMORY_RECORDS))
+    prompt_memory_records = list(repo.list_memory_records(last_n=MAX_MEMORY_RECORDS))
     alias_candidates = _alias_query_candidates(query)
     alias_memory_records = list(
         repo.list_memory_records(

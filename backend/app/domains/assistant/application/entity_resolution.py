@@ -12,10 +12,10 @@ from app.domains.assistant.contracts import (
     AssistantRouteDecision,
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
+from app.domains.assistant.domain.text import EXPERIMENT_REVIEW_TERMS
 from app.domains.assistant.domain.text import tokenize as _lowercase_tokens
 from app.domains.experiments.contracts import Experiment
 
-_EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {
     "a",
@@ -112,7 +112,7 @@ def _experiment_match_score(
     if alias_tokens:
         score = max(score, max(_overlap_score(query_tokens, alias) for alias in alias_tokens))
 
-    if query_tokens.intersection(_EXPERIMENT_REVIEW_TERMS):
+    if query_tokens.intersection(EXPERIMENT_REVIEW_TERMS):
         score += 0.08
 
     return score
