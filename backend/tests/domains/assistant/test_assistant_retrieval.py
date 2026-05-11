@@ -43,6 +43,7 @@ class _FakeReadStore:
         *,
         experiments: list[Experiment] | None = None,
         analysis_by_experiment_id: dict[str, ExperimentAnalysis] | None = None,
+        current_analysis_by_experiment_id: dict[str, ExperimentAnalysis] | None = None,
         exposures_by_experiment_id: dict[str, list[ExperimentExposure]] | None = None,
         routines: list[RoutineSchedule] | None = None,
         assignments: list[RoutineAssignment] | None = None,
@@ -56,6 +57,9 @@ class _FakeReadStore:
     ) -> None:
         self._experiments = list(experiments or [])
         self._analysis_by_experiment_id = dict(analysis_by_experiment_id or {})
+        self._current_analysis_by_experiment_id = dict(
+            current_analysis_by_experiment_id or self._analysis_by_experiment_id
+        )
         self._exposures_by_experiment_id = {
             experiment_id: list(exposures)
             for experiment_id, exposures in (exposures_by_experiment_id or {}).items()
@@ -71,6 +75,7 @@ class _FakeReadStore:
         self._memory_records = list(memory_records or [])
         self.get_experiment_calls: list[str] = []
         self.list_all_experiment_analyses_calls = 0
+        self.get_experiment_analysis_calls: list[str] = []
         self.list_experiment_exposures_calls: list[tuple[str | None, str | None]] = []
         self.get_routine_calls: list[str] = []
         self.list_assignments_calls: list[str | None] = []
@@ -478,7 +483,8 @@ class _FakeReadStore:
         return dict(self._analysis_by_experiment_id)
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
-        return self._analysis_by_experiment_id.get(experiment_id)
+        self.get_experiment_analysis_calls.append(experiment_id)
+        return self._current_analysis_by_experiment_id.get(experiment_id)
 
     def list_experiment_exposures(
         self,
@@ -1022,9 +1028,44 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     assert scan_item.payload_json["tracking_quality"]["checkin_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["card_log_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["routine_coverage_dates"] == 7
-    assert store.list_all_experiment_analyses_calls == 1
+    assert store.list_all_experiment_analyses_calls == 0
+    assert store.get_experiment_analysis_calls == ["meditation-hrv-2026-03"]
     assert store.list_experiment_exposures_calls == [("meditation-hrv-2026-03", None)]
     assert set(store.list_assignments_calls) == {"meditation-routine", "mobility-routine"}
+
+
+def test_experiment_scan_uses_refresh_aware_analysis_for_active_experiments() -> None:
+    stale_store = _FakeReadStore.for_weekly_state()
+    experiment = stale_store._experiments[0]
+    stale_analysis = stale_store._analysis_by_experiment_id[experiment.id].model_copy(
+        update={"summary": "Stale cached analysis."}
+    )
+    refreshed_analysis = stale_analysis.model_copy(
+        update={"summary": "Fresh refreshed analysis."}
+    )
+    store = _FakeReadStore(
+        experiments=[experiment],
+        analysis_by_experiment_id={experiment.id: stale_analysis},
+        current_analysis_by_experiment_id={experiment.id: refreshed_analysis},
+    )
+
+    bundle = build_evidence_bundle(
+        read_store=store,
+        recall_store=store,
+        route=AssistantRouteDecision(
+            intent="experiment_review",
+            confidence=0.95,
+            matched_signals=["experiment_routine_scan"],
+        ),
+        entities=[],
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    scan_item = next(item for item in bundle.items if item.kind == "scan_overview")
+    active_experiment = scan_item.payload_json["active_experiments"][0]
+
+    assert active_experiment["analysis"]["summary"] == "Fresh refreshed analysis."
 
 
 def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -> None:
@@ -1083,7 +1124,13 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     assert len(scan_item.payload_json["active_experiments"]) == 4
     assert scan_item.payload_json["active_routine_count"] == 4
     assert len(scan_item.payload_json["active_routines"]) == 4
-    assert store.list_all_experiment_analyses_calls == 1
+    assert store.list_all_experiment_analyses_calls == 0
+    assert set(store.get_experiment_analysis_calls) == {
+        "caffeine-curfew-2026-04",
+        "meditation-hrv-2026-03",
+        "mobility-dose-2026-04",
+        "sleep-stack-2026-04",
+    }
     assert set(store.list_experiment_exposures_calls) == {
         ("caffeine-curfew-2026-04", None),
         ("meditation-hrv-2026-03", None),

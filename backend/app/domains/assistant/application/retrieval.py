@@ -186,7 +186,6 @@ def _build_experiment_scan_context(
         store=store,
         active_routines=active_routines,
     )
-    analyses_by_experiment_id = store.list_all_experiment_analyses()
     exposures_by_experiment_id = {
         experiment.id: store.list_experiment_exposures(experiment_id=experiment.id)
         for experiment in active_experiments
@@ -196,7 +195,7 @@ def _build_experiment_scan_context(
         active_experiment_payloads=[
             experiment_evidence.active_experiment_payload(
                 experiment=experiment,
-                analysis=analyses_by_experiment_id.get(experiment.id),
+                analysis=store.get_experiment_analysis(experiment.id),
                 exposures=exposures_by_experiment_id.get(experiment.id, []),
             )
             for experiment in active_experiments
@@ -332,4 +331,3 @@ def _group_assignments_by_routine_id(
         )
         for routine in active_routines
     }
-

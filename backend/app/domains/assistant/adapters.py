@@ -441,9 +441,6 @@ class SqliteAssistantRepository:
     def get_experiment(self, experiment_id: str) -> Experiment | None:
         return self.experiment_repo.get_experiment(experiment_id)
 
-    def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
-        return self.experiment_repo.list_all_experiment_analyses()
-
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
             return get_current_experiment_analysis(self.experiment_repo, experiment_id)
