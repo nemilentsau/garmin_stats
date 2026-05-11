@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, cast
@@ -29,9 +28,9 @@ from app.domains.assistant.dependencies import (
     AssistantRetrievalStore,
     AssistantRuntime,
 )
+from app.domains.assistant.domain.text import normalize_alias, tokenize
 from app.utils.timeutil import now_iso
 
-_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _MAX_MEMORY_RECORDS = 5
 _MAX_ALIAS_PHRASE_TOKENS = 6
 _QUESTION_WORDS = {
@@ -217,7 +216,7 @@ def _build_entity_alias_memory_record(
     if not alias_text:
         return None
 
-    alias_tokens = _LOWERCASE_TOKEN_PATTERN.findall(alias_text.lower())
+    alias_tokens = tokenize(alias_text)
     if not (_MIN_ALIAS_TOKENS <= len(alias_tokens) <= _MAX_ALIAS_TOKENS):
         return None
     if any(token in _QUESTION_WORDS for token in alias_tokens):
@@ -225,7 +224,7 @@ def _build_entity_alias_memory_record(
 
     normalized_alias = " ".join(alias_tokens)
     existing_aliases = {
-        " ".join(_LOWERCASE_TOKEN_PATTERN.findall(record.alias_text.lower()))
+        normalize_alias(record.alias_text)
         for record in memory_records
         if record.kind == "entity_alias"
         and record.entity_id == entity.entity_id
@@ -291,7 +290,7 @@ def _matches_saved_entity_alias(
     query: str,
     entity_ids: set[str] | None = None,
 ) -> bool:
-    query_tokens = _alias_tokens(query)
+    query_tokens = tokenize(query)
     if not query_tokens:
         return False
 
@@ -302,14 +301,10 @@ def _matches_saved_entity_alias(
             continue
         if _query_contains_alias(
             query_tokens=query_tokens,
-            alias_tokens=_alias_tokens(record.alias_text),
+            alias_tokens=tokenize(record.alias_text),
         ):
             return True
     return False
-
-
-def _alias_tokens(value: str) -> list[str]:
-    return _LOWERCASE_TOKEN_PATTERN.findall(value.lower())
 
 
 def _query_contains_alias(*, query_tokens: list[str], alias_tokens: list[str]) -> bool:
@@ -346,7 +341,7 @@ def _resolution_memory_records(
 
 
 def _alias_query_candidates(query: str) -> tuple[str, ...]:
-    query_tokens = _alias_tokens(query)
+    query_tokens = tokenize(query)
     if not query_tokens:
         return ()
 

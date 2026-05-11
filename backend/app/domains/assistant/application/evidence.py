@@ -96,7 +96,7 @@ def build_evidence_bundle(
         intent=route.intent,
         entities=list(entities),
         items=items,
-        gaps=_dedupe_strings(gaps),
+        gaps=list(dict.fromkeys(gaps)),
     )
 
 
@@ -220,13 +220,3 @@ def _deterministic_bundle_id(*, intent: str, thread_id: str, user_message_id: st
     return f"evidence-{digest}"
 
 
-def _dedupe_strings(values: Sequence[str]) -> list[str]:
-    """Return strings in first-seen order without duplicates."""
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered

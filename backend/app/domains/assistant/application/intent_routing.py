@@ -8,14 +8,12 @@ neighboring application modules.
 
 from __future__ import annotations
 
-import re
-
 from app.domains.assistant.contracts import (
     AssistantIntent,
     AssistantRouteDecision,
 )
+from app.domains.assistant.domain.text import tokenize
 
-_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 _PLURAL_EXPERIMENT_REVIEW_TERMS = frozenset({"experiments", "trials", "studies"})
 _ALL_EXPERIMENT_REVIEW_TERMS = (
@@ -43,7 +41,7 @@ def route_user_query(query: str) -> AssistantRouteDecision:
     """Return the retrieval intent and signals inferred from a user query."""
 
     text = query.lower()
-    tokens = set(_LOWERCASE_TOKEN_PATTERN.findall(text))
+    tokens = set(tokenize(text))
     scores = {intent: 0.0 for intent in _INTENT_ORDER}
     signals = {intent: [] for intent in _INTENT_ORDER}
 

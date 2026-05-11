@@ -7,7 +7,6 @@ helpers and cross-domain read wiring out of the application layer.
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -24,6 +23,7 @@ from app.domains.assistant.contracts import (
     Plan,
     PlanItem,
 )
+from app.domains.assistant.domain.text import normalize_alias
 from app.domains.experiments.application.analysis_cache import (
     get_experiment_analysis as get_current_experiment_analysis,
 )
@@ -64,30 +64,17 @@ _STORE = JsonStore({
     "assistant_memory_records",
     "evidence_cards",
 })
-_ALIAS_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-
-
-def _normalize_alias_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    tokens = _ALIAS_TOKEN_PATTERN.findall(value.lower())
-    if not tokens:
-        return None
-    return " ".join(tokens)
 
 
 def save_plan(plan: Plan) -> None:
-    """Persist one assistant plan snapshot."""
     _STORE.save("plans", plan.id, plan.model_dump_json())
 
 
 def load_plans() -> list[Plan]:
-    """Load assistant plan snapshots."""
     return _STORE.load_many("plans", Plan)
 
 
 def save_plan_item(item: PlanItem) -> None:
-    """Persist one dated assistant plan item."""
     _STORE.save(
         "plan_items",
         item.id,
@@ -100,7 +87,6 @@ def save_plan_item(item: PlanItem) -> None:
 
 
 def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
-    """Load assistant plan items, optionally for one plan."""
     where_sql = "plan_id = ?" if plan_id is not None else ""
     params = (plan_id,) if plan_id is not None else ()
     return _STORE.load_many(
@@ -130,22 +116,18 @@ def create_assistant_thread(thread: AssistantThread) -> None:
 
 
 def save_assistant_thread(thread: AssistantThread) -> None:
-    """Persist the current metadata for one assistant thread."""
     _STORE.save("assistant_threads", thread.id, thread.model_dump_json())
 
 
 def load_assistant_thread(thread_id: str) -> AssistantThread | None:
-    """Load one assistant thread by id."""
     return _STORE.load("assistant_threads", AssistantThread, thread_id)
 
 
 def load_assistant_threads() -> list[AssistantThread]:
-    """Load assistant threads."""
     return _STORE.load_many("assistant_threads", AssistantThread)
 
 
 def save_assistant_message(message: AssistantMessage) -> None:
-    """Persist one assistant conversation message."""
     _STORE.save(
         "assistant_messages",
         message.id,
@@ -156,7 +138,6 @@ def save_assistant_message(message: AssistantMessage) -> None:
 
 
 def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
-    """Load messages for one assistant thread in chronological order."""
     return _STORE.load_many(
         "assistant_messages",
         AssistantMessage,
@@ -167,7 +148,6 @@ def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
 
 
 def save_assistant_run(run: AssistantRun) -> None:
-    """Persist one assistant runtime run."""
     _STORE.save(
         "assistant_runs",
         run.id,
@@ -185,7 +165,7 @@ def finalize_assistant_reply(
     completed_run: AssistantRun,
     memory_record: AssistantMemoryRecord | None = None,
 ) -> None:
-    """Persist reply message, thread metadata, run state, and optional memory atomically."""
+    """Persist reply message, thread metadata, run state, and optional memory in one transaction."""
     with connect() as con, con:
         _STORE.save_in_connection(
             con,
@@ -220,7 +200,7 @@ def finalize_assistant_reply(
                     "kind": memory_record.kind,
                     "entity_id": memory_record.entity_id,
                     "alias_text": memory_record.alias_text,
-                    "alias_normalized": _normalize_alias_text(memory_record.alias_text),
+                    "alias_normalized": normalize_alias(memory_record.alias_text),
                 },
                 created_at=memory_record.created_at,
                 updated_at=memory_record.updated_at or memory_record.created_at,
@@ -228,7 +208,6 @@ def finalize_assistant_reply(
 
 
 def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
-    """Load assistant runtime runs, optionally for one thread."""
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
     return _STORE.load_many(
@@ -241,7 +220,6 @@ def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
 
 
 def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
-    """Persist one deterministic evidence bundle for later recall."""
     _STORE.save(
         "assistant_evidence_bundles",
         bundle.id,
@@ -261,7 +239,6 @@ def load_assistant_evidence_bundles(
     *,
     last_n: int | None = None,
 ) -> list[AssistantEvidenceBundle]:
-    """Load assistant evidence bundles, optionally by thread or recent count."""
     where_sql = "thread_id = ?" if thread_id is not None else ""
     params = (thread_id,) if thread_id is not None else ()
     return _STORE.load_many(
@@ -275,7 +252,7 @@ def load_assistant_evidence_bundles(
 
 
 def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
-    """Persist one assistant memory record and its normalized alias lookup."""
+    """Persist one memory record alongside its alias_normalized lookup column."""
     _STORE.save(
         "assistant_memory_records",
         record.id,
@@ -284,7 +261,7 @@ def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
             "kind": record.kind,
             "entity_id": record.entity_id,
             "alias_text": record.alias_text,
-            "alias_normalized": _normalize_alias_text(record.alias_text),
+            "alias_normalized": normalize_alias(record.alias_text),
         },
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -297,7 +274,6 @@ def load_assistant_memory_records(
     last_n: int | None = None,
     alias_candidates: tuple[str, ...] | None = None,
 ) -> list[AssistantMemoryRecord]:
-    """Load memory records with optional kind and normalized-alias filters."""
     clauses: list[str] = []
     params: list[object] = []
     if kind is not None:
@@ -307,7 +283,7 @@ def load_assistant_memory_records(
     normalized_candidates = tuple(
         normalized
         for normalized in (
-            _normalize_alias_text(candidate) for candidate in (alias_candidates or ())
+            normalize_alias(candidate) for candidate in (alias_candidates or ())
         )
         if normalized is not None
     )
@@ -329,7 +305,6 @@ def load_assistant_memory_records(
 
 
 def save_context_snapshot(snapshot: ContextSnapshot) -> None:
-    """Persist one legacy assistant context snapshot."""
     _STORE.save(
         "context_snapshots",
         snapshot.id,
@@ -339,22 +314,18 @@ def save_context_snapshot(snapshot: ContextSnapshot) -> None:
 
 
 def load_context_snapshot(snapshot_id: str) -> ContextSnapshot | None:
-    """Load one legacy assistant context snapshot by id."""
     return _STORE.load("context_snapshots", ContextSnapshot, snapshot_id)
 
 
 def load_context_snapshots() -> list[ContextSnapshot]:
-    """Load legacy assistant context snapshots."""
     return _STORE.load_many("context_snapshots", ContextSnapshot)
 
 
 def save_evidence_card(card: EvidenceCard) -> None:
-    """Persist one legacy assistant evidence card."""
     _STORE.save("evidence_cards", card.id, card.model_dump_json())
 
 
 def load_evidence_cards() -> list[EvidenceCard]:
-    """Load legacy assistant evidence cards."""
     return _STORE.load_many("evidence_cards", EvidenceCard)
 
 

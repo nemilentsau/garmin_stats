@@ -12,9 +12,9 @@ from app.domains.assistant.contracts import (
     AssistantRouteDecision,
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
+from app.domains.assistant.domain.text import tokenize as _lowercase_tokens
 from app.domains.experiments.contracts import Experiment
 
-_LOWERCASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 _EXPERIMENT_REVIEW_TERMS = frozenset({"experiment", "trial", "study"})
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
 _STOP_WORDS = {
@@ -129,8 +129,7 @@ def _query_mentions_experiment_id(query_text: str, experiment_id: str) -> bool:
 
 
 def _normalize_id(value: str) -> str:
-    parts = _LOWERCASE_TOKEN_PATTERN.findall(value.lower())
-    return "-".join(parts)
+    return "-".join(_lowercase_tokens(value))
 
 
 def _alias_tokens_by_entity(memory: Sequence[AssistantMemoryRecord]) -> dict[str, list[set[str]]]:
@@ -160,8 +159,4 @@ def _bounded_confidence(value: float) -> float:
 
 
 def _tokenize(text: str) -> set[str]:
-    return {
-        token
-        for token in _LOWERCASE_TOKEN_PATTERN.findall(text.lower())
-        if token and token not in _STOP_WORDS
-    }
+    return {token for token in _lowercase_tokens(text) if token not in _STOP_WORDS}

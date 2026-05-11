@@ -98,10 +98,10 @@ def retrieve_open_ended_coaching(
     if profile is not None:
         payload["profile"] = payloads.profile_payload(profile)
 
-    gaps = _dedupe_strings([*recovery_gaps, *routine_gaps])
+    gaps = list(dict.fromkeys([*recovery_gaps, *routine_gaps]))
     if not payload:
         gaps.append("current_state_missing")
-        return [], _dedupe_strings(gaps)
+        return [], list(dict.fromkeys(gaps))
 
     return [
         AssistantEvidenceItem(
@@ -109,7 +109,7 @@ def retrieve_open_ended_coaching(
             source="read_model.current_state",
             payload_json=payload,
         )
-    ], _dedupe_strings(gaps)
+    ], list(dict.fromkeys(gaps))
 
 
 def _build_experiment_evidence(
@@ -210,7 +210,7 @@ def _build_experiment_scan_context(
             source="read_model.scan_overview",
             payload_json=payload,
         )
-    ], _dedupe_strings(gaps)
+    ], list(dict.fromkeys(gaps))
 
 
 def _is_experiment_scan_request(route: AssistantRouteDecision) -> bool:
@@ -325,14 +325,3 @@ def _load_linked_routines(
     return sorted(linked, key=lambda routine: routine.id), missing
 
 
-def _dedupe_strings(values: Sequence[str]) -> list[str]:
-    """Return strings in first-seen order without duplicates."""
-
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered
