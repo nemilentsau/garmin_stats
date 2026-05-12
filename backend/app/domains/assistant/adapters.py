@@ -42,7 +42,7 @@ from app.domains.journal.contracts import (
 from app.domains.journal.dependencies import JournalRepository
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
 from app.domains.routines.dependencies import RoutineRepository
-from app.infra.jsonstore import JsonStore
+from app.infra.jsonstore import JsonStore, model_from_row
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
 
@@ -102,10 +102,6 @@ def create_assistant_thread(thread: AssistantThread) -> None:
             raise ValueError(f"Assistant thread {thread.id} already exists") from exc
 
 
-def save_assistant_thread(thread: AssistantThread) -> None:
-    _STORE.save("assistant_threads", thread.id, thread.model_dump_json())
-
-
 def load_assistant_thread(thread_id: str) -> AssistantThread | None:
     return _STORE.load("assistant_threads", AssistantThread, thread_id)
 
@@ -122,6 +118,53 @@ def save_assistant_message(message: AssistantMessage) -> None:
         extra_columns={"thread_id": message.thread_id},
         created_at=message.created_at,
     )
+
+
+def _save_assistant_message_in_connection(
+    con: sqlite3.Connection,
+    message: AssistantMessage,
+) -> None:
+    _STORE.save_in_connection(
+        con,
+        "assistant_messages",
+        message.id,
+        message.model_dump_json(),
+        extra_columns={"thread_id": message.thread_id},
+        created_at=message.created_at,
+    )
+
+
+def _touch_thread_activity_in_connection(
+    con: sqlite3.Connection,
+    *,
+    thread_id: str,
+    last_message_at: str,
+) -> None:
+    row = con.execute(
+        "SELECT data, created_at, updated_at FROM assistant_threads WHERE id = ?",
+        (thread_id,),
+    ).fetchone()
+    if row is None:
+        return
+    thread = model_from_row(AssistantThread, row)
+    updated_thread = thread.model_copy(update={"last_message_at": last_message_at})
+    _STORE.save_in_connection(
+        con,
+        "assistant_threads",
+        updated_thread.id,
+        updated_thread.model_dump_json(),
+    )
+
+
+def _save_assistant_message_and_touch_thread(message: AssistantMessage) -> None:
+    """Persist a message and advance the owning thread's activity timestamp."""
+    with connect() as con, con:
+        _save_assistant_message_in_connection(con, message)
+        _touch_thread_activity_in_connection(
+            con,
+            thread_id=message.thread_id,
+            last_message_at=message.created_at or now_iso(),
+        )
 
 
 def load_assistant_messages(thread_id: str) -> list[AssistantMessage]:
@@ -163,14 +206,7 @@ def finalize_assistant_reply(
 ) -> None:
     """Persist reply message, thread metadata, run state, and optional memory in one transaction."""
     with connect() as con, con:
-        _STORE.save_in_connection(
-            con,
-            "assistant_messages",
-            assistant_message.id,
-            assistant_message.model_dump_json(),
-            extra_columns={"thread_id": assistant_message.thread_id},
-            created_at=assistant_message.created_at,
-        )
+        _save_assistant_message_in_connection(con, assistant_message)
         _STORE.save_in_connection(
             con,
             "assistant_threads",
@@ -301,7 +337,7 @@ class SqliteAssistantRepository:
         return load_assistant_messages(thread_id)
 
     def save_message(self, message: AssistantMessage) -> None:
-        save_assistant_message(message)
+        _save_assistant_message_and_touch_thread(message)
 
     def finalize_reply(
         self,

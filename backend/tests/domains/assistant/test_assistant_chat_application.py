@@ -100,6 +100,11 @@ class _FakeConversationStore:
 
     def save_message(self, message):
         self.messages.append(message)
+        self.save_thread(
+            self.thread_state.model_copy(
+                update={"last_message_at": message.created_at}
+            )
+        )
 
     def save_thread(self, thread):
         if not isinstance(thread, AssistantThread):
@@ -320,6 +325,20 @@ class _FakeReadStore:
         return None
 
 
+def _assert_user_activity_touch(
+    repo: _FakeConversationStore,
+    *,
+    message_index: int = -1,
+    saved_thread_index: int = 0,
+) -> None:
+    user_message = cast(Any, repo.messages[message_index])
+    assert user_message.role == "user"
+    touched_thread = repo.saved_threads[saved_thread_index]
+    assert touched_thread.last_message_at == user_message.created_at
+    assert touched_thread.last_context_snapshot_id is None
+    assert touched_thread.claude_session_id is None
+
+
 def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     repo = _FakeConversationStore(
         thread_id="thread-1",
@@ -373,10 +392,11 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert repo.saved_runs[-1].status == "completed"
     assert repo.saved_memory_records == []
     assistant_message = cast(Any, repo.messages[-1])
-    assert len(repo.saved_threads) == 1
-    assert repo.saved_threads[0].last_message_at == assistant_message.created_at
-    assert repo.saved_threads[0].last_context_snapshot_id == repo.saved_evidence_bundles[0].id
-    assert repo.saved_threads[0].claude_session_id == "session-1"
+    assert len(repo.saved_threads) == 2
+    _assert_user_activity_touch(repo, message_index=0)
+    assert repo.saved_threads[-1].last_message_at == assistant_message.created_at
+    assert repo.saved_threads[-1].last_context_snapshot_id == repo.saved_evidence_bundles[0].id
+    assert repo.saved_threads[-1].claude_session_id == "session-1"
 
 
 def test_stream_reply_persists_confident_entity_alias_memory_for_short_experiment_alias():
@@ -657,7 +677,8 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
     assert repo.saved_runs[-1].status == "failed"
     assert repo.saved_runs[-1].stderr_path is None
     assert repo.saved_runs[-1].usage_json["last_error"] == "evidence save failed"
-    assert repo.saved_threads == []
+    assert len(repo.saved_threads) == 1
+    _assert_user_activity_touch(repo)
     assert runtime.stream_chat_kwargs == []
 
 
@@ -691,6 +712,32 @@ def test_stream_reply_memory_setup_failure_emits_error_without_run():
     assert runtime.stream_chat_kwargs == []
 
 
+def test_stream_reply_memory_setup_failure_still_updates_thread_activity():
+    repo = _FakeConversationStore(
+        thread_id="thread-1",
+        fail_on_list_memory_records=True,
+    )
+    runtime = _FakeRuntime(deltas=["should not stream"])
+
+    asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-10",
+                    content="How does our meditation experiment look like so far?",
+                ),
+            )
+        )
+    )
+
+    assert len(repo.saved_threads) == 1
+    _assert_user_activity_touch(repo)
+
+
 def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed():
     repo = _FakeConversationStore(
         thread_id="thread-1",
@@ -722,4 +769,5 @@ def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed
     assert repo.saved_memory_records == []
     assert not any(getattr(message, "role", "") == "assistant" for message in repo.messages)
     assert not any(run.status == "completed" for run in repo.saved_runs)
-    assert repo.saved_threads == []
+    assert len(repo.saved_threads) == 1
+    _assert_user_activity_touch(repo)

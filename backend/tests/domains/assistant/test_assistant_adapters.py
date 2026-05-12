@@ -107,7 +107,7 @@ class TestAssistantAdapter:
         )
 
     def test_loader_hydrates_generated_timestamps_from_columns(self):
-        assistant_db.save_assistant_thread(AssistantThread(id="thread-1", title="Recovery coach"))
+        assistant_db.create_assistant_thread(AssistantThread(id="thread-1", title="Recovery coach"))
         assistant_db.save_assistant_message(
             AssistantMessage(
                 id="message-1",
@@ -120,6 +120,36 @@ class TestAssistantAdapter:
         messages = assistant_db.load_assistant_messages("thread-1")
 
         assert messages[0].created_at is not None
+
+    def test_repository_save_message_updates_thread_activity(self):
+        class _UnusedRepo:
+            pass
+
+        repo = assistant_db.SqliteAssistantRepository(
+            experiment_repo=cast(Any, _UnusedRepo()),
+            profile_repo=cast(Any, _UnusedRepo()),
+            routine_repo=cast(Any, _UnusedRepo()),
+            journal_repo=cast(Any, _UnusedRepo()),
+            biometric_repo=cast(Any, _UnusedRepo()),
+        )
+        assistant_db.create_assistant_thread(
+            AssistantThread(id="thread-1", title="Recovery coach")
+        )
+        message = AssistantMessage(
+            id="message-1",
+            thread_id="thread-1",
+            role="user",
+            content_markdown="How am I doing?",
+            created_at="2026-01-15T08:00:00+00:00",
+        )
+
+        repo.save_message(message)
+
+        loaded_thread = assistant_db.load_assistant_thread("thread-1")
+        assert loaded_thread is not None
+        assert loaded_thread.last_message_at == message.created_at
+        assert loaded_thread.last_context_snapshot_id is None
+        assert loaded_thread.claude_session_id is None
 
     def test_assistant_foundation_records_survive_round_trip(self):
         thread = AssistantThread(
@@ -136,7 +166,7 @@ class TestAssistantAdapter:
             created_at="2026-01-15T08:00:00+00:00",
         )
 
-        assistant_db.save_assistant_thread(thread)
+        assistant_db.create_assistant_thread(thread)
         assistant_db.save_assistant_message(message)
 
         threads = assistant_db.load_assistant_threads()

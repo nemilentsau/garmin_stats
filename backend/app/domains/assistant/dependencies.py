@@ -65,7 +65,9 @@ class AssistantConversationStore(
 ):
     """Write-side dependency for one assistant chat turn."""
 
-    def save_message(self, message: AssistantMessage) -> None: ...
+    def save_message(self, message: AssistantMessage) -> None:
+        """Persist a message and advance the owning thread's activity."""
+        ...
     def finalize_reply(
         self,
         *,
