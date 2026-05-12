@@ -8,12 +8,12 @@ from app.domains.assistant.contracts import (
     AssistantThreadCreateRequest,
     AssistantThreadsResponse,
 )
+from app.domains.assistant.dependencies import AssistantThreadCatalogStore
 from app.utils.timeutil import now_iso
 
-from .ports import AssistantConversationStore
 
-
-def list_threads(repo: AssistantConversationStore) -> AssistantThreadsResponse:
+def list_threads(repo: AssistantThreadCatalogStore) -> AssistantThreadsResponse:
+    """List assistant threads with the most recently active thread first."""
     threads = sorted(
         repo.list_threads(),
         key=lambda thread: thread.last_message_at or thread.created_at or "",
@@ -23,9 +23,10 @@ def list_threads(repo: AssistantConversationStore) -> AssistantThreadsResponse:
 
 
 def create_thread(
-    repo: AssistantConversationStore,
+    repo: AssistantThreadCatalogStore,
     request: AssistantThreadCreateRequest,
 ) -> AssistantThread:
+    """Create a thread with the caller-selected mode/model and current timestamp."""
     thread = AssistantThread(
         id=request.id,
         title=request.title,
@@ -37,7 +38,8 @@ def create_thread(
     return thread
 
 
-def get_thread(repo: AssistantConversationStore, thread_id: str) -> AssistantThread:
+def get_thread(repo: AssistantThreadCatalogStore, thread_id: str) -> AssistantThread:
+    """Load one assistant thread or raise when it is missing."""
     thread = repo.get_thread(thread_id)
     if thread is None:
         raise LookupError(f"Assistant thread {thread_id} not found")
@@ -45,8 +47,9 @@ def get_thread(repo: AssistantConversationStore, thread_id: str) -> AssistantThr
 
 
 def list_messages(
-    repo: AssistantConversationStore,
+    repo: AssistantThreadCatalogStore,
     thread_id: str,
 ) -> AssistantMessagesResponse:
+    """List messages for an existing assistant thread."""
     get_thread(repo, thread_id)
     return AssistantMessagesResponse(messages=repo.list_messages(thread_id))

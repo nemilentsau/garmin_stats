@@ -1,12 +1,11 @@
 """Tests for assistant thread and message catalog use cases."""
 
-from typing import Any
-
 import pytest
 
 from app.domains.assistant.application.threads import create_thread, list_messages, list_threads
-from app.domains.assistant.application.types import AssistantEvidenceBundle, AssistantMemoryRecord
 from app.domains.assistant.contracts import (
+    AssistantEvidenceBundle,
+    AssistantMemoryRecord,
     AssistantMessage,
     AssistantMessagesResponse,
     AssistantRun,
@@ -40,9 +39,6 @@ class _FakeConversationStore:
             raise ValueError(f"Assistant thread {thread.id} already exists")
         self._threads[thread.id] = thread
 
-    def save_thread(self, thread: AssistantThread) -> None:
-        self._threads[thread.id] = thread
-
     def save_message(self, message: AssistantMessage) -> None:
         self._messages.append(message)
 
@@ -53,16 +49,12 @@ class _FakeConversationStore:
         self,
         *,
         assistant_message: AssistantMessage,
-        updated_thread: AssistantThread | dict[str, Any],
+        updated_thread: AssistantThread,
         completed_run: AssistantRun,
         memory_record: AssistantMemoryRecord | None = None,
     ) -> None:
         self._messages.append(assistant_message)
-        if isinstance(updated_thread, dict):
-            thread = AssistantThread.model_validate(updated_thread)
-        else:
-            thread = updated_thread
-        self._threads[thread.id] = thread
+        self._threads[updated_thread.id] = updated_thread
         _ = completed_run
         _ = memory_record
 
@@ -78,8 +70,14 @@ class _FakeConversationStore:
         _ = (thread_id, last_n)
         return []
 
-    def save_memory_record(self, record: AssistantMemoryRecord) -> None:
-        _ = record
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]:
+        _ = (thread_id, last_n)
+        return []
 
     def list_memory_records(
         self,

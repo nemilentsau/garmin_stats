@@ -2,10 +2,10 @@
 
 from datetime import date
 
-import app.domains.assistant.application.retrieval as retrieval_mod
+import app.domains.assistant.domain.current_state as current_state_mod
 from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.evidence import build_evidence_bundle
-from app.domains.assistant.application.types import (
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantMemoryRecord,
@@ -43,6 +43,7 @@ class _FakeReadStore:
         *,
         experiments: list[Experiment] | None = None,
         analysis_by_experiment_id: dict[str, ExperimentAnalysis] | None = None,
+        current_analysis_by_experiment_id: dict[str, ExperimentAnalysis] | None = None,
         exposures_by_experiment_id: dict[str, list[ExperimentExposure]] | None = None,
         routines: list[RoutineSchedule] | None = None,
         assignments: list[RoutineAssignment] | None = None,
@@ -56,6 +57,9 @@ class _FakeReadStore:
     ) -> None:
         self._experiments = list(experiments or [])
         self._analysis_by_experiment_id = dict(analysis_by_experiment_id or {})
+        self._current_analysis_by_experiment_id = dict(
+            current_analysis_by_experiment_id or self._analysis_by_experiment_id
+        )
         self._exposures_by_experiment_id = {
             experiment_id: list(exposures)
             for experiment_id, exposures in (exposures_by_experiment_id or {}).items()
@@ -69,6 +73,12 @@ class _FakeReadStore:
         self._profile = profile
         self._evidence_bundles = list(evidence_bundles or [])
         self._memory_records = list(memory_records or [])
+        self.get_experiment_calls: list[str] = []
+        self.list_active_experiment_analyses_calls = 0
+        self.get_experiment_analysis_calls: list[str] = []
+        self.list_experiment_exposures_calls: list[tuple[str | None, str | None]] = []
+        self.get_routine_calls: list[str] = []
+        self.list_assignments_calls: list[str | None] = []
 
     @classmethod
     def for_experiment_review(cls, *, experiment_id: str, routine_id: str) -> _FakeReadStore:
@@ -461,8 +471,20 @@ class _FakeReadStore:
             return [experiment for experiment in experiments if experiment.status == status]
         return experiments
 
+    def get_experiment(self, experiment_id: str) -> Experiment | None:
+        self.get_experiment_calls.append(experiment_id)
+        for experiment in self._experiments:
+            if experiment.id == experiment_id:
+                return experiment
+        return None
+
+    def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        self.list_active_experiment_analyses_calls += 1
+        return dict(self._current_analysis_by_experiment_id)
+
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
-        return self._analysis_by_experiment_id.get(experiment_id)
+        self.get_experiment_analysis_calls.append(experiment_id)
+        return self._current_analysis_by_experiment_id.get(experiment_id)
 
     def list_experiment_exposures(
         self,
@@ -470,9 +492,15 @@ class _FakeReadStore:
         experiment_id: str | None = None,
         date: str | None = None,
     ) -> list[ExperimentExposure]:
+        self.list_experiment_exposures_calls.append((experiment_id, date))
         if experiment_id is None:
-            return []
-        exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
+            exposures = [
+                exposure
+                for experiment_exposures in self._exposures_by_experiment_id.values()
+                for exposure in experiment_exposures
+            ]
+        else:
+            exposures = list(self._exposures_by_experiment_id.get(experiment_id, []))
         if date is None:
             return exposures
         return [exposure for exposure in exposures if exposure.date == date]
@@ -483,7 +511,15 @@ class _FakeReadStore:
             return routines
         return [routine for routine in routines if routine.status == status]
 
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
+        self.get_routine_calls.append(routine_id)
+        for routine in self._routines:
+            if routine.id == routine_id:
+                return routine
+        return None
+
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
+        self.list_assignments_calls.append(routine_id)
         assignments = list(self._assignments)
         if routine_id is not None:
             assignments = [
@@ -535,6 +571,19 @@ class _FakeReadStore:
             return bundles
         return bundles[-last_n:]
 
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]:
+        bundles = [
+            bundle for bundle in self._evidence_bundles if bundle.thread_id != thread_id
+        ]
+        if last_n is None:
+            return bundles
+        return bundles[-last_n:]
+
     def list_memory_records(
         self,
         kind: str | None = None,
@@ -573,7 +622,8 @@ def test_experiment_review_retriever_returns_analysis_adherence_and_linked_routi
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -611,7 +661,8 @@ def test_experiment_review_retriever_includes_cross_thread_recall_hooks() -> Non
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -642,7 +693,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
     ]
 
     dot_thread_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -653,7 +705,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
         user_message_id="MSG",
     )
     dash_thread_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -664,7 +717,8 @@ def test_deterministic_bundle_id_uses_raw_inputs_without_lossy_collisions() -> N
         user_message_id="MSG",
     )
     lowercase_message_bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -717,12 +771,13 @@ def test_prior_evidence_recall_selects_other_threads_before_truncation() -> None
             intent="experiment_review",
             created_at=f"2026-03-{3 + index:02d}T00:00:00Z",
         )
-        for index in range(1, 11)
+        for index in range(1, 17)
     ]
     store._evidence_bundles = older_cross_thread + busy_current_thread
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -773,7 +828,8 @@ def test_prior_evidence_excludes_unrelated_threads_without_overlap_or_recall() -
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -819,7 +875,8 @@ def test_prior_evidence_includes_same_entity_across_threads() -> None:
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -859,7 +916,8 @@ def test_prior_evidence_includes_adjacent_family_for_recovery_briefing() -> None
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="recovery_briefing", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -889,7 +947,8 @@ def test_prior_evidence_explicit_recall_override_includes_otherwise_excluded_bun
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -938,7 +997,8 @@ def test_linked_routine_includes_non_active_status_when_routine_exists() -> None
     ]
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -959,7 +1019,8 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -980,6 +1041,44 @@ def test_experiment_review_scans_active_experiments_when_no_entity_is_resolved()
     assert scan_item.payload_json["tracking_quality"]["checkin_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["card_log_days"] == 7
     assert scan_item.payload_json["tracking_quality"]["routine_coverage_dates"] == 7
+    assert store.list_active_experiment_analyses_calls == 1
+    assert store.get_experiment_analysis_calls == []
+    assert store.list_experiment_exposures_calls == [(None, None)]
+    assert set(store.list_assignments_calls) == {"meditation-routine", "mobility-routine"}
+
+
+def test_experiment_scan_uses_refresh_aware_analysis_for_active_experiments() -> None:
+    stale_store = _FakeReadStore.for_weekly_state()
+    experiment = stale_store._experiments[0]
+    stale_analysis = stale_store._analysis_by_experiment_id[experiment.id].model_copy(
+        update={"summary": "Stale cached analysis."}
+    )
+    refreshed_analysis = stale_analysis.model_copy(
+        update={"summary": "Fresh refreshed analysis."}
+    )
+    store = _FakeReadStore(
+        experiments=[experiment],
+        analysis_by_experiment_id={experiment.id: stale_analysis},
+        current_analysis_by_experiment_id={experiment.id: refreshed_analysis},
+    )
+
+    bundle = build_evidence_bundle(
+        read_store=store,
+        recall_store=store,
+        route=AssistantRouteDecision(
+            intent="experiment_review",
+            confidence=0.95,
+            matched_signals=["experiment_routine_scan"],
+        ),
+        entities=[],
+        thread_id="thread-1",
+        user_message_id="message-1",
+    )
+
+    scan_item = next(item for item in bundle.items if item.kind == "scan_overview")
+    active_experiment = scan_item.payload_json["active_experiments"][0]
+
+    assert active_experiment["analysis"]["summary"] == "Fresh refreshed analysis."
 
 
 def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -> None:
@@ -1021,7 +1120,8 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     )
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1037,13 +1137,23 @@ def test_experiment_scan_includes_all_active_items_without_hidden_truncation() -
     assert len(scan_item.payload_json["active_experiments"]) == 4
     assert scan_item.payload_json["active_routine_count"] == 4
     assert len(scan_item.payload_json["active_routines"]) == 4
+    assert store.list_active_experiment_analyses_calls == 1
+    assert store.get_experiment_analysis_calls == []
+    assert store.list_experiment_exposures_calls == [(None, None)]
+    assert set(store.list_assignments_calls) == {
+        "caffeine-curfew-routine",
+        "meditation-routine",
+        "mobility-routine",
+        "sleep-stack-routine",
+    }
 
 
 def test_experiment_review_without_scan_signal_keeps_missing_entity_gap() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1064,7 +1174,8 @@ def test_experiment_scan_preserves_partial_context_gaps() -> None:
     store._card_logs = []
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(
             intent="experiment_review",
             confidence=0.95,
@@ -1084,7 +1195,8 @@ def test_recovery_briefing_returns_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="recovery_briefing", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1105,7 +1217,8 @@ def test_routine_adherence_returns_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1129,7 +1242,8 @@ def test_routine_adherence_compacts_assignment_history_to_recent_window() -> Non
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1157,7 +1271,7 @@ def test_routine_adherence_caps_future_schedule_window_at_today(monkeypatch) -> 
         def today(cls):
             return cls(2026, 4, 12)
 
-    monkeypatch.setattr(retrieval_mod, "date", _FrozenDate)
+    monkeypatch.setattr(current_state_mod, "date", _FrozenDate)
 
     store = _FakeReadStore.for_weekly_state()
     store._assignments.extend(
@@ -1180,7 +1294,8 @@ def test_routine_adherence_caps_future_schedule_window_at_today(monkeypatch) -> 
     )
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="routine_adherence", confidence=0.95),
         entities=[],
         thread_id="thread-1",
@@ -1199,7 +1314,8 @@ def test_open_ended_coaching_returns_combined_current_state_context() -> None:
     store = _FakeReadStore.for_weekly_state()
 
     bundle = build_evidence_bundle(
-        store=store,
+        read_store=store,
+        recall_store=store,
         route=AssistantRouteDecision(intent="open_ended_coaching", confidence=0.95),
         entities=[],
         thread_id="thread-1",

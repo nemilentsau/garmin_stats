@@ -126,7 +126,15 @@ Current contents:
 ### Active service areas
 
 - `domains/assistant/`
-  Assistant domain slice. `api/threads.py` owns `/api/assistant` endpoints, `application/` owns retrieval-first chat and thread use-cases, and `infra/` owns SQLite repository + Claude runtime adapters.
+  Assistant chat and retrieval-first evidence context. This slice uses a flat
+  small-capability layout: `routes.py` owns `/api/assistant` HTTP and streaming
+  endpoints, `application/` owns thread catalog, intent classification, entity
+  resolution, read-model interaction, evidence assembly, retrieval, and chat
+  orchestration, `domain/` owns pure assistant evidence payload policy,
+  `dependencies.py` owns conversation/read-model/runtime dependencies,
+  `adapters.py` owns assistant SQLite persistence and explicit read-model
+  wiring, `runtime.py` owns Claude Code subprocess execution, and `contracts.py`
+  owns assistant API and persistence shapes.
 
 - `domains/routines/`
   Routine catalog, schedule projection, activation, and Today execution. This
@@ -214,11 +222,11 @@ not proof that the design is sound.
 
 #### `assistant`
 
-- Owns: assistant threads, messages, evidence bundle assembly, retrieval routing,
-  assistant memory records, and runtime interaction.
+- Owns: assistant threads, messages, evidence bundle assembly and persistence,
+  retrieval routing, assistant memory records, and runtime interaction.
 - Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
   experiment exposure derivation, or artifact activation.
-- May import: its own contracts/application/types/ports, and explicitly
+- May import: its own contracts, application helpers, and dependencies, plus explicitly
   allowlisted read dependencies needed to build evidence context, including
   canonical Garmin health contracts.
 - Must not import: Garmin sync, Garmin analytics application internals, routine
@@ -380,9 +388,9 @@ is reserved for shared app primitives rather than important product workflows.
 The project now uses "migrated" to mean both route/file-layout migration and
 strict boundary migration.
 
-- `api/` modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
+- Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
 - `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import `app.infra.database`, `app.services.*`, or `app.routers.*`.
-- `infra/` modules are the SQLite boundary for migrated slices and may wrap `app.infra.database`.
+- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping `app.infra.database`.
 - Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 

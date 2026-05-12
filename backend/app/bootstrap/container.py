@@ -8,8 +8,8 @@ from functools import lru_cache
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
-from app.domains.assistant.infra.runtime import ClaudeCodeRuntime
-from app.domains.assistant.infra.sqlite_repository import SqliteAssistantRepository
+from app.domains.assistant.adapters import SqliteAssistantRepository
+from app.domains.assistant.runtime import ClaudeCodeRuntime
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.garmin_analytics.adapters import (
@@ -45,15 +45,24 @@ def build_container() -> AppContainer:
     config = get_app_config()
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
+    profile_repo = SqliteProfileRepository()
+    garmin_biometrics_repo = SqliteBiometricRepository()
+    journal_repo = SqliteJournalRepository()
     garmin_sync_infra = build_garmin_sync_infra(config)
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
-        assistant_repo=SqliteAssistantRepository(experiment_repo=experiments_repo),
+        assistant_repo=SqliteAssistantRepository(
+            experiment_repo=experiments_repo,
+            profile_repo=profile_repo,
+            routine_repo=routines_repo,
+            journal_repo=journal_repo,
+            biometric_repo=garmin_biometrics_repo,
+        ),
         assistant_runtime=ClaudeCodeRuntime(),
-        garmin_biometrics_repo=SqliteBiometricRepository(),
-        journal_repo=SqliteJournalRepository(),
-        profile_repo=SqliteProfileRepository(),
+        garmin_biometrics_repo=garmin_biometrics_repo,
+        journal_repo=journal_repo,
+        profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
         experiments_repo=experiments_repo,

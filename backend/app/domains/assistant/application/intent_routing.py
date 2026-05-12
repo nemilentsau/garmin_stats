@@ -1,17 +1,23 @@
-"""Deterministic intent router for retrieval-first assistant queries."""
+"""Classify assistant messages before retrieval.
+
+This module owns deterministic intent classification for one user message. It
+returns an ``AssistantRouteDecision`` with confidence and matched signals, then
+leaves entity resolution, evidence retrieval, and runtime execution to the
+neighboring application modules.
+"""
 
 from __future__ import annotations
 
-from app.domains.assistant.application.types import (
-    EXPERIMENT_REVIEW_TERMS,
-    LOWERCASE_TOKEN_PATTERN,
+from app.domains.assistant.contracts import (
     AssistantIntent,
     AssistantRouteDecision,
 )
-
-_EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | frozenset(
-    {"experiments", "trials", "studies"}
+from app.domains.assistant.domain.text import (
+    ALL_EXPERIMENT_REVIEW_TERMS,
+    PLURAL_EXPERIMENT_REVIEW_TERMS,
+    tokenize,
 )
+
 _RECALL_LANGUAGE_PHRASES = (
     "what did we say",
     "what did we discuss",
@@ -31,8 +37,10 @@ _INTENT_ORDER: tuple[AssistantIntent, ...] = (
 
 
 def route_user_query(query: str) -> AssistantRouteDecision:
+    """Return the retrieval intent and signals inferred from a user query."""
+
     text = query.lower()
-    tokens = set(LOWERCASE_TOKEN_PATTERN.findall(text))
+    tokens = set(tokenize(text))
     scores = {intent: 0.0 for intent in _INTENT_ORDER}
     signals = {intent: [] for intent in _INTENT_ORDER}
 
@@ -40,9 +48,9 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         scores[intent] += weight
         signals[intent].append(signal)
 
-    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS):
+    if tokens.intersection(ALL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.55, "mentions_experiment")
-    if tokens.intersection({"experiments", "trials", "studies"}):
+    if tokens.intersection(PLURAL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.10, "plural_experiment_context")
     if any(phrase in text for phrase in ("so far", "look like", "results", "effect")):
         add_signal("experiment_review", 0.25, "review_phrase")
@@ -52,7 +60,7 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         add_signal("experiment_review", 0.10, "how_experiment_question")
     if tokens.intersection({"scan", "scanning"}):
         add_signal("experiment_review", 0.05, "scan_keyword")
-    if tokens.intersection(_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
+    if tokens.intersection(ALL_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
         {"routine", "routines", "tracking"}
     ):
         add_signal("experiment_review", 0.10, "experiment_routine_scan")

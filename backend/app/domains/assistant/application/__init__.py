@@ -1,2 +1,1 @@
-"""Assistant application-layer types and services."""
-
+"""Assistant application use cases and deterministic retrieval helpers."""

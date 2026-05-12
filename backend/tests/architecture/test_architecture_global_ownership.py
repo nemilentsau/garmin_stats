@@ -12,7 +12,6 @@ ALLOWLISTED_APP_STATS_IMPORTERS = set()
 
 ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = {
     "backend/app/core/profile/infra/sqlite_repository.py",
-    "backend/app/domains/assistant/infra/sqlite_repository.py",
     "backend/app/domains/experiments/adapters.py",
 }
 

@@ -4,27 +4,26 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
-from typing import NamedTuple
 
-from app.domains.assistant.application.ports import AssistantRetrievalStore
 from app.domains.assistant.application.retrieval import (
     retrieve_experiment_review,
     retrieve_open_ended_coaching,
     retrieve_recovery_briefing,
     retrieve_routine_adherence,
 )
-from app.domains.assistant.application.types import (
-    MAX_MEMORY_RECORDS,
+from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
     AssistantIntent,
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
-    dedupe_strings,
 )
+from app.domains.assistant.dependencies import AssistantReadModelStore, AssistantRecallStore
+from app.domains.assistant.domain.text import MEMORY_RECALL_LIMIT, dedupe_strings
 
 _MAX_PRIOR_BUNDLES = 3
+_PRIOR_BUNDLE_SCAN_DEPTH = _MAX_PRIOR_BUNDLES * 5
 _EXPLICIT_RECALL_SIGNAL = "explicit_recall_language"
 _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
     "experiment_review": frozenset({"experiment_review"}),
@@ -34,19 +33,12 @@ _ALLOWED_PRIOR_INTENTS: dict[AssistantIntent, frozenset[AssistantIntent]] = {
         {"open_ended_coaching", "recovery_briefing", "routine_adherence"}
     ),
 }
-class _PriorBundleCandidate(NamedTuple):
-    priority: int
-    created_at: str
-    updated_at: str
-    bundle_id: str
-    bundle: AssistantEvidenceBundle
-    match_type: str
-    matched_entity_ids: list[str]
 
 
 def build_evidence_bundle(
     *,
-    store: AssistantRetrievalStore,
+    read_store: AssistantReadModelStore,
+    recall_store: AssistantRecallStore,
     route: AssistantRouteDecision,
     entities: Sequence[AssistantResolvedEntity],
     thread_id: str,
@@ -59,16 +51,16 @@ def build_evidence_bundle(
 
     if route.intent == "experiment_review":
         route_items, route_gaps = retrieve_experiment_review(
-            store=store,
+            store=read_store,
             route=route,
             entities=entities,
         )
     elif route.intent == "recovery_briefing":
-        route_items, route_gaps = retrieve_recovery_briefing(store=store)
+        route_items, route_gaps = retrieve_recovery_briefing(store=read_store)
     elif route.intent == "routine_adherence":
-        route_items, route_gaps = retrieve_routine_adherence(store=store)
+        route_items, route_gaps = retrieve_routine_adherence(store=read_store)
     elif route.intent == "open_ended_coaching":
-        route_items, route_gaps = retrieve_open_ended_coaching(store=store)
+        route_items, route_gaps = retrieve_open_ended_coaching(store=read_store)
     else:
         route_items, route_gaps = [], [f"unsupported_intent:{route.intent}"]
 
@@ -77,14 +69,14 @@ def build_evidence_bundle(
 
     items.extend(
         _build_prior_evidence_items(
-            store=store,
+            store=recall_store,
             route=route,
             current_entities=entities,
             current_thread_id=thread_id,
             last_n=_MAX_PRIOR_BUNDLES,
         )
     )
-    items.extend(_build_memory_items(store=store, last_n=MAX_MEMORY_RECORDS))
+    items.extend(_build_memory_items(store=recall_store, last_n=MEMORY_RECALL_LIMIT))
 
     return AssistantEvidenceBundle(
         id=_deterministic_bundle_id(
@@ -103,64 +95,43 @@ def build_evidence_bundle(
 
 def _build_prior_evidence_items(
     *,
-    store: AssistantRetrievalStore,
+    store: AssistantRecallStore,
     route: AssistantRouteDecision,
     current_entities: Sequence[AssistantResolvedEntity],
     current_thread_id: str,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
-    all_bundles = store.list_evidence_bundles(last_n=50)
-    other_thread_bundles = [
-        bundle for bundle in all_bundles if bundle.thread_id != current_thread_id
-    ]
+    other_thread_bundles = store.list_evidence_bundles_excluding_thread(
+        current_thread_id,
+        last_n=_PRIOR_BUNDLE_SCAN_DEPTH,
+    )
     if not other_thread_bundles:
         return []
 
     explicit_recall = _EXPLICIT_RECALL_SIGNAL in route.matched_signals
     current_entity_ids = {entity.entity_id for entity in current_entities}
-    prior_bundle_candidates: list[_PriorBundleCandidate] = []
+    candidates: list[tuple[int, AssistantEvidenceBundle, str, list[str]]] = []
     for bundle in other_thread_bundles:
         bundle_entity_ids = _bundle_entity_ids(bundle)
         matched_entity_ids = sorted(current_entity_ids.intersection(bundle_entity_ids))
-        match_type: str | None = None
-        priority = 0
         if matched_entity_ids:
-            match_type = "entity_overlap"
-            priority = 3
+            match_type, priority = "entity_overlap", 3
         elif bundle.intent in _ALLOWED_PRIOR_INTENTS[route.intent]:
-            match_type = "intent_family"
-            priority = 2
+            match_type, priority = "intent_family", 2
         elif explicit_recall:
-            match_type = "explicit_recall"
-            priority = 1
-
-        if match_type is None:
+            match_type, priority = "explicit_recall", 1
+        else:
             continue
-        prior_bundle_candidates.append(
-            _PriorBundleCandidate(
-                priority=priority,
-                created_at=bundle.created_at or "",
-                updated_at=bundle.updated_at or "",
-                bundle_id=bundle.id,
-                bundle=bundle,
-                match_type=match_type,
-                matched_entity_ids=matched_entity_ids,
-            )
-        )
+        candidates.append((priority, bundle, match_type, matched_entity_ids))
 
-    ordered_bundles = sorted(
-        prior_bundle_candidates,
-        key=lambda c: (c.priority, c.created_at, c.updated_at, c.bundle_id),
+    ordered_candidates = sorted(
+        candidates,
+        key=lambda c: (c[0], c[1].created_at or "", c[1].updated_at or "", c[1].id),
         reverse=True,
     )[:last_n]
 
     items: list[AssistantEvidenceItem] = []
-    for candidate in ordered_bundles:
-        bundle, match_type, matched_entity_ids = (
-            candidate.bundle,
-            candidate.match_type,
-            candidate.matched_entity_ids,
-        )
+    for _, bundle, match_type, matched_entity_ids in ordered_candidates:
         items.append(
             AssistantEvidenceItem(
                 kind="prior_evidence",
@@ -183,7 +154,7 @@ def _build_prior_evidence_items(
 
 def _build_memory_items(
     *,
-    store: AssistantRetrievalStore,
+    store: AssistantRecallStore,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
     records = sorted(

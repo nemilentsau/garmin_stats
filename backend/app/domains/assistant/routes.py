@@ -1,4 +1,9 @@
-"""Domain-local assistant thread routes."""
+"""HTTP routes for assistant threads and streaming replies.
+
+Routes keep FastAPI and NDJSON streaming details at the assistant boundary,
+resolve the app container, and delegate thread lifecycle and chat orchestration
+to application use cases.
+"""
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -24,31 +29,31 @@ router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 @router.get("/threads", response_model=AssistantThreadsResponse)
 def get_threads():
-    """Return all assistant threads."""
+    """Return all assistant threads ordered by recent activity."""
     return list_threads(build_container().assistant_repo)
 
 
 @router.post("/threads", response_model=AssistantThread)
 def post_thread(request: AssistantThreadCreateRequest):
-    """Create a new assistant thread."""
+    """Create one assistant thread."""
     return create_thread(build_container().assistant_repo, request)
 
 
 @router.get("/threads/{thread_id}", response_model=AssistantThread)
 def get_thread_detail(thread_id: str):
-    """Return a single assistant thread."""
+    """Return one assistant thread or raise when it is missing."""
     return get_thread(build_container().assistant_repo, thread_id)
 
 
 @router.get("/threads/{thread_id}/messages", response_model=AssistantMessagesResponse)
 def get_thread_messages(thread_id: str):
-    """Return messages for a thread."""
+    """Return messages for one existing assistant thread."""
     return list_messages(build_container().assistant_repo, thread_id)
 
 
 @router.post("/threads/{thread_id}/messages")
 async def post_thread_message(thread_id: str, request: AssistantMessageCreateRequest):
-    """Stream an assistant reply as NDJSON."""
+    """Persist a user message and stream the assistant reply as NDJSON."""
     container = build_container()
     repository = container.assistant_repo
     get_thread(repository, thread_id)

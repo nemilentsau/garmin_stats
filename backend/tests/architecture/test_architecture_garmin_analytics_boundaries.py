@@ -232,9 +232,7 @@ def test_garmin_analytics_imports_owned_contracts_directly():
 def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
     database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/garmin_analytics/adapters.py")
-    assistant_repo_source = read_repo_file(
-        "backend/app/domains/assistant/infra/sqlite_repository.py",
-    )
+    assistant_repo_source = read_repo_file("backend/app/domains/assistant/adapters.py")
     experiment_repo_source = read_repo_file(
         "backend/app/domains/experiments/adapters.py",
     )
@@ -253,9 +251,13 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
 
     assert "def load_daily_metrics" in adapter_source
     assert "class SqliteBiometricRepository" in adapter_source
-    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" not in (
         assistant_repo_source
     )
+    assert "from app.domains.garmin_analytics.application.dependencies import" in (
+        assistant_repo_source
+    )
+    assert "self.biometric_repo.load_daily_metrics(last_n=last_n)" in assistant_repo_source
     assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
         experiment_repo_source
     )

@@ -11,7 +11,13 @@ class _FakeJournalRepository:
     def __init__(self):
         self.checkins: dict[str, DailyCheckIn] = {}
 
-    def list_checkins(self, *, date: str | None = None) -> list[DailyCheckIn]:
+    def list_checkins(
+        self,
+        *,
+        date: str | None = None,
+        last_n: int | None = None,
+    ) -> list[DailyCheckIn]:
+        _ = last_n
         checkins = list(self.checkins.values())
         if date is not None:
             return [checkin for checkin in checkins if checkin.date == date]
@@ -20,7 +26,13 @@ class _FakeJournalRepository:
     def save_checkin(self, checkin: DailyCheckIn) -> None:
         self.checkins[checkin.date] = checkin
 
-    def list_notes(self, *, date: str | None = None) -> list[Note]:
+    def list_notes(
+        self,
+        *,
+        date: str | None = None,
+        last_n: int | None = None,
+    ) -> list[Note]:
+        _ = (date, last_n)
         return []
 
     def save_note(self, note: Note) -> None:

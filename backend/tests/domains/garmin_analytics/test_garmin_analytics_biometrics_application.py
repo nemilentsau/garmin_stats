@@ -5,6 +5,7 @@ import pytest
 from app.domains.garmin_analytics.contracts import DailyAggregatesResponse
 from app.domains.garmin_health.contracts import (
     BodyBatteryReading,
+    DailyMetric,
     DayHrv,
     DaySkinTemp,
     DaySleep,
@@ -23,10 +24,14 @@ class _FakeBiometricRepository:
         self.sleep: list[DaySleep] = []
         self.hrv: list[DayHrv] = []
         self.skin_temp: list[DaySkinTemp] = []
-        self.daily = []
+        self.daily: list[DailyMetric] = []
         self.day_table_loads = 0
 
-    def load_daily_metrics(self):
+    def load_daily_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]:
+        if last_n is not None:
+            if last_n <= 0:
+                return []
+            return self.daily[-last_n:]
         return self.daily
 
     def load_wellness(self, date: str | None = None):

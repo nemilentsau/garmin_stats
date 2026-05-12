@@ -17,10 +17,10 @@ from app.domains.assistant.contracts import (
 
 
 def _load_assistant_router():
-    if "app.domains.assistant.api.threads" in sys.modules:
-        del sys.modules["app.domains.assistant.api.threads"]
+    if "app.domains.assistant.routes" in sys.modules:
+        del sys.modules["app.domains.assistant.routes"]
     importlib.invalidate_caches()
-    return importlib.import_module("app.domains.assistant.api.threads")
+    return importlib.import_module("app.domains.assistant.routes")
 
 
 def _patch_container(monkeypatch, assistant_router_mod):

@@ -19,6 +19,7 @@ def test_artifacts_application_modules_follow_strict_boundary():
         "backend/app/domains/artifacts/application/activation.py",
         "backend/app/domains/artifacts/application/bundle_ids.py",
         "backend/app/domains/artifacts/application/bundles.py",
+        "backend/app/domains/artifacts/application/placeholder_validation.py",
         "backend/app/domains/artifacts/application/staging.py",
         "backend/app/domains/artifacts/application/validation.py",
     ])
@@ -32,6 +33,28 @@ def test_artifact_persistence_lives_in_artifact_adapter_not_global_database():
     assert "assistant_artifacts" in adapter_source
     assert "domains.artifacts.contracts" not in database_source
     assert "AssistantArtifact" not in database_source
+
+
+def test_artifact_bundle_placeholder_validation_is_separate_policy():
+    bundles_source = read_repo_file("backend/app/domains/artifacts/application/bundles.py")
+    placeholder_path = (
+        REPO_ROOT / "backend/app/domains/artifacts/application/placeholder_validation.py"
+    )
+
+    assert placeholder_path.exists()
+    placeholder_source = placeholder_path.read_text(encoding="utf-8")
+    assert "placeholder_validation import validate_placeholder_bundle_content" in bundles_source
+
+    delegated_policy = [
+        "_RESERVED_PLACEHOLDER_BUNDLE_IDS",
+        "_RESERVED_PLACEHOLDER_BUNDLE_NAMES",
+        "_RESERVED_PLACEHOLDER_ID_PREFIXES",
+        "_RESERVED_PLACEHOLDER_TAGS",
+        "_RESERVED_PLACEHOLDER_PHRASES",
+        "_placeholder_item_issues",
+    ]
+    assert [policy for policy in delegated_policy if policy in bundles_source] == []
+    assert [policy for policy in delegated_policy if policy not in placeholder_source] == []
 
 
 def test_bootstrap_routing_mounts_domain_artifact_routers_directly():

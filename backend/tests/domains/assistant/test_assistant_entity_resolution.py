@@ -2,8 +2,8 @@
 
 from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.entity_resolution import resolve_entities
-from app.domains.assistant.application.router import route_user_query
-from app.domains.assistant.application.types import AssistantMemoryRecord, AssistantRouteDecision
+from app.domains.assistant.application.intent_routing import route_user_query
+from app.domains.assistant.contracts import AssistantMemoryRecord, AssistantRouteDecision
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
@@ -37,6 +37,15 @@ class _FakeReadStore:
             return list(self._experiments)
         return [experiment for experiment in self._experiments if experiment.status == status]
 
+    def get_experiment(self, experiment_id: str) -> Experiment | None:
+        for experiment in self._experiments:
+            if experiment.id == experiment_id:
+                return experiment
+        return None
+
+    def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        return {}
+
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         _ = experiment_id
         return None
@@ -53,6 +62,10 @@ class _FakeReadStore:
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
         _ = status
         return []
+
+    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
+        _ = routine_id
+        return None
 
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
         _ = routine_id

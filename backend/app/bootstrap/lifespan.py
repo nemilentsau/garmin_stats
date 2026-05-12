@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.domains.assistant.adapters import migrate_assistant_storage
+
 from ..infra.database import init_db
 from .container import build_container
 from .process_runtime import ProcessRuntime
@@ -14,8 +16,9 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: init DB, auto-ingest if empty, start file watcher."""
+    """Startup: init shared DB, run domain storage migrations, then start runtime."""
     init_db()
+    migrate_assistant_storage()
     runtime = ProcessRuntime(build_container())
     runtime.start()
     yield
