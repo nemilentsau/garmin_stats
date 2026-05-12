@@ -58,11 +58,13 @@ class AssistantRecallStore(Protocol):
     ) -> list[AssistantMemoryRecord]: ...
 
 
-class AssistantConversationStore(AssistantRecallStore, Protocol):
+class AssistantConversationStore(
+    AssistantThreadCatalogStore,
+    AssistantRecallStore,
+    Protocol,
+):
     """Write-side dependency for one assistant chat turn."""
 
-    def get_thread(self, thread_id: str) -> AssistantThread | None: ...
-    def list_messages(self, thread_id: str) -> list[AssistantMessage]: ...
     def save_message(self, message: AssistantMessage) -> None: ...
     def finalize_reply(
         self,

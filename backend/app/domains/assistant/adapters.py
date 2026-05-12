@@ -297,9 +297,6 @@ class SqliteAssistantRepository:
     def create_thread(self, thread: AssistantThread) -> None:
         create_assistant_thread(thread)
 
-    def save_thread(self, thread: AssistantThread) -> None:
-        save_assistant_thread(thread)
-
     def list_messages(self, thread_id: str) -> list[AssistantMessage]:
         return load_assistant_messages(thread_id)
 
@@ -334,9 +331,6 @@ class SqliteAssistantRepository:
         last_n: int | None = None,
     ) -> list[AssistantEvidenceBundle]:
         return load_assistant_evidence_bundles(thread_id=thread_id, last_n=last_n)
-
-    def save_memory_record(self, record: AssistantMemoryRecord) -> None:
-        save_assistant_memory_record(record)
 
     def list_memory_records(
         self,
