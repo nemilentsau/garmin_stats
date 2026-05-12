@@ -602,6 +602,116 @@ class TestExperimentPreviewAndImport:
         assert analyses == {experiment.id: cached}
         assert repo.save_calls == []
 
+    def test_manual_active_refresh_recomputes_fresh_cached_snapshots(
+        self,
+        monkeypatch,
+    ):
+        """Explicit refresh callers should recompute even when a cache looks fresh."""
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
+
+        experiment = Experiment(
+            id="forced-refresh",
+            name="Forced Refresh",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-12",
+            ),
+            outcome_metrics=[],
+        )
+        cached = ExperimentAnalysis(
+            experiment_id=experiment.id,
+            analysis_date="2026-05-04",
+            phase="completed",
+            days_in_baseline=28,
+            days_in_treatment=2,
+            adherence_rate=0.0,
+            adherence_by_day=[
+                AdherenceDayEntry(date="2026-04-12", state="unknown"),
+            ],
+            metrics=[],
+            confounders=[],
+            overall_confidence="insufficient",
+            summary="Cached analysis is current.",
+        )
+
+        class _RefreshRepo:
+            def __init__(self):
+                self.input_loads: list[str] = []
+                self.saved: list[ExperimentAnalysis] = []
+
+            def list_experiments(
+                self,
+                *,
+                statuses: tuple[str, ...] | None = None,
+            ) -> list[Experiment]:
+                assert statuses == ("active",)
+                return [experiment]
+
+            def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+                return {experiment.id: cached}
+
+            def list_daily_metrics(self) -> list[DailyMetric]:
+                self.input_loads.append("metrics")
+                return []
+
+            def list_daily_checkins(self) -> list[DailyCheckIn]:
+                self.input_loads.append("checkins")
+                return []
+
+            def list_experiment_exposures(
+                self,
+                *,
+                experiment_id: str | None = None,
+                date: str | None = None,
+            ) -> list[ExperimentExposure]:
+                self.input_loads.append("exposures")
+                assert experiment_id == experiment.id
+                assert date is None
+                return [
+                    ExperimentExposure(
+                        id="exposure-1",
+                        experiment_id=experiment.id,
+                        date="2026-04-11",
+                        adherence_state="full",
+                    ),
+                    ExperimentExposure(
+                        id="exposure-2",
+                        experiment_id=experiment.id,
+                        date="2026-04-12",
+                        adherence_state="full",
+                    ),
+                ]
+
+            def save_experiment_analysis(
+                self,
+                experiment_id: str,
+                analysis: ExperimentAnalysis,
+            ) -> None:
+                assert experiment_id == experiment.id
+                self.saved.append(analysis)
+
+        repo = _RefreshRepo()
+
+        refreshed = analysis_cache_mod.refresh_active_experiments(cast(Any, repo))
+
+        assert refreshed == 1
+        assert repo.input_loads == ["metrics", "checkins", "exposures"]
+        assert len(repo.saved) == 1
+        assert repo.saved[0].adherence_rate == 1.0
+        assert repo.saved[0].summary != cached.summary
+
     def test_get_experiment_analysis_refreshes_completed_date_stale_snapshot(
         self,
         monkeypatch,

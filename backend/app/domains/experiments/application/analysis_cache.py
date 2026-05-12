@@ -142,4 +142,17 @@ def refresh_active_experiment_analyses(
 
 def refresh_active_experiments(repo: ExperimentRepository) -> int:
     """Recompute analyses for active experiments and return attempted count."""
-    return len(refresh_active_experiment_analyses(repo))
+    experiments = repo.list_experiments(statuses=("active",))
+    cached_analyses = repo.list_all_experiment_analyses()
+    count = 0
+    for experiment in experiments:
+        if experiment.design is None:
+            continue
+        try:
+            persist_experiment_analysis(
+                repo, experiment, cached=cached_analyses.get(experiment.id),
+            )
+            count += 1
+        except Exception:
+            log.exception("Failed to refresh experiment %s", experiment.id)
+    return count
