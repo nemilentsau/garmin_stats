@@ -126,6 +126,7 @@ async def stream_reply(
             query=request.content,
         )
         if alias_entity_ids:
+            # A memory-alias reroute only stands when resolution lands on that alias's entity.
             resolved_experiment_ids = {
                 entity.entity_id for entity in entities if entity.kind == "experiment"
             }

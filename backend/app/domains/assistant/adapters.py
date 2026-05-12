@@ -368,6 +368,7 @@ class SqliteAssistantRepository:
             return None
 
     def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+        """Return active experiment analyses via stale-gated bulk refresh."""
         return refresh_active_experiment_analyses(self.experiment_repo)
 
     def list_experiment_exposures(
@@ -396,12 +397,7 @@ class SqliteAssistantRepository:
         )
 
     def list_recent_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]:
-        metrics = self.biometric_repo.load_daily_metrics()
-        if last_n is None:
-            return metrics
-        if last_n <= 0:
-            return []
-        return metrics[-last_n:]
+        return self.biometric_repo.load_daily_metrics(last_n=last_n)
 
     def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]:
         return self.journal_repo.list_checkins(last_n=last_n)

@@ -58,3 +58,19 @@ def test_adapter_loads_daily_metrics_ordered_by_date():
     assert [metric.date for metric in loaded] == ["2026-01-15", "2026-01-16"]
     assert loaded[0].heart_rate.avg == 70.0
     assert loaded[0].heart_rate.resting == 48
+
+
+def test_adapter_loads_recent_daily_metrics_without_full_table_request():
+    for date in ["2026-01-15", "2026-01-17", "2026-01-16"]:
+        metric = _make_daily_metric(date)
+        with connect() as con:
+            con.execute(
+                "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
+                (date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
+            )
+            con.commit()
+
+    loaded = adapters.load_daily_metrics(last_n=2)
+
+    assert [metric.date for metric in loaded] == ["2026-01-16", "2026-01-17"]
+    assert adapters.load_daily_metrics(last_n=0) == []

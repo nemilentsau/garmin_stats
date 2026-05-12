@@ -7,7 +7,7 @@ boundary rather than the home for assistant evidence policy.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from app.domains.assistant.contracts import (
     AssistantEvidenceItem,
@@ -325,18 +325,30 @@ def _group_assignments_by_routine_id(
     store: AssistantReadModelStore,
     active_routines: Sequence[RoutineSchedule],
 ) -> dict[str, list[RoutineAssignment]]:
-    return {
-        routine.id: payloads.ordered_assignments(
-            store.list_assignments(routine_id=routine.id)
-        )
-        for routine in active_routines
-    }
+    grouped = _group_records_by_key(
+        [
+            assignment
+            for routine in active_routines
+            for assignment in payloads.ordered_assignments(
+                store.list_assignments(routine_id=routine.id)
+            )
+        ],
+        lambda assignment: assignment.routine_id,
+    )
+    return {routine.id: grouped.get(routine.id, []) for routine in active_routines}
 
 
 def _group_exposures_by_experiment_id(
     exposures: Sequence[ExperimentExposure],
 ) -> dict[str, list[ExperimentExposure]]:
-    grouped: dict[str, list[ExperimentExposure]] = {}
-    for exposure in exposures:
-        grouped.setdefault(exposure.experiment_id, []).append(exposure)
+    return _group_records_by_key(exposures, lambda exposure: exposure.experiment_id)
+
+
+def _group_records_by_key[GroupRecordT](
+    records: Sequence[GroupRecordT],
+    key: Callable[[GroupRecordT], str],
+) -> dict[str, list[GroupRecordT]]:
+    grouped: dict[str, list[GroupRecordT]] = {}
+    for record in records:
+        grouped.setdefault(key(record), []).append(record)
     return grouped

@@ -8,11 +8,17 @@ responsible for loading records and deciding which records belong in a bundle.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Protocol
 
 from app.core.profile.contracts import UserProfile
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn, Note
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
+
+
+class _DateIdRecord(Protocol):
+    date: str
+    id: str
 
 
 def metric_payload(metric: DailyMetric) -> dict[str, object]:
@@ -100,7 +106,7 @@ def ordered_metrics(metrics: Sequence[DailyMetric]) -> list[DailyMetric]:
 
 
 def ordered_checkins(checkins: Sequence[DailyCheckIn]) -> list[DailyCheckIn]:
-    return sorted(checkins, key=lambda checkin: (checkin.date, checkin.id), reverse=True)
+    return ordered_by_date(checkins)
 
 
 def ordered_routines(routines: Sequence[RoutineSchedule]) -> list[RoutineSchedule]:
@@ -108,16 +114,18 @@ def ordered_routines(routines: Sequence[RoutineSchedule]) -> list[RoutineSchedul
 
 
 def ordered_assignments(assignments: Sequence[RoutineAssignment]) -> list[RoutineAssignment]:
-    return sorted(
-        assignments,
-        key=lambda assignment: (assignment.date, assignment.id),
-        reverse=True,
-    )
+    return ordered_by_date(assignments)
 
 
 def ordered_card_logs(card_logs: Sequence[CardLog]) -> list[CardLog]:
-    return sorted(card_logs, key=lambda card_log: (card_log.date, card_log.id), reverse=True)
+    return ordered_by_date(card_logs)
 
 
 def ordered_notes(notes: Sequence[Note]) -> list[Note]:
-    return sorted(notes, key=lambda note: (note.date, note.id), reverse=True)
+    return ordered_by_date(notes)
+
+
+def ordered_by_date[DateIdT: _DateIdRecord](
+    records: Sequence[DateIdT],
+) -> list[DateIdT]:
+    return sorted(records, key=lambda record: (record.date, record.id), reverse=True)

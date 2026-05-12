@@ -44,7 +44,6 @@ ENTITY_RESOLUTION_STOP_WORDS: frozenset[str] = frozenset(
 
 ALIAS_MIN_TOKENS = 2
 ALIAS_MAX_TOKENS = 6
-ALIAS_MAX_PHRASE_TOKENS = 6
 """Alias phrase token limits used by both alias writers and lookup callers."""
 
 MEMORY_RECALL_LIMIT = 5

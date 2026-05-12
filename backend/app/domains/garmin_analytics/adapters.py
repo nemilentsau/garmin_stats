@@ -19,15 +19,32 @@ from app.infra import cache
 from app.infra.sqlite import connect
 
 
-def load_daily_metrics() -> list[DailyMetric]:
-    """Load persisted daily metrics ordered by date."""
-    return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
+def load_daily_metrics(*, last_n: int | None = None) -> list[DailyMetric]:
+    """Load persisted daily metrics ordered by date, optionally limited to the tail."""
+    if last_n is None:
+        return cache.cached(cache.DAILY_METRICS, _fetch_daily_metrics)
+    if last_n <= 0:
+        return []
+
+    cached_metrics = cache.get(cache.DAILY_METRICS)
+    if cached_metrics is not None:
+        return cached_metrics[-last_n:]
+    return _fetch_recent_daily_metrics(last_n)
 
 
 def _fetch_daily_metrics() -> list[DailyMetric]:
     with connect() as con:
         rows = con.execute("SELECT data FROM daily_metrics ORDER BY date").fetchall()
     return [DailyMetric.model_validate_json(row["data"]) for row in rows]
+
+
+def _fetch_recent_daily_metrics(last_n: int) -> list[DailyMetric]:
+    with connect() as con:
+        rows = con.execute(
+            "SELECT data FROM daily_metrics ORDER BY date DESC LIMIT ?",
+            (last_n,),
+        ).fetchall()
+    return [DailyMetric.model_validate_json(row["data"]) for row in reversed(rows)]
 
 
 def _load_day_table[M: BaseModel](
@@ -64,8 +81,8 @@ def _load_day_table[M: BaseModel](
 class SqliteBiometricRepository:
     """Repository adapter used by Garmin analytics application use cases."""
 
-    def load_daily_metrics(self) -> list[DailyMetric]:
-        return load_daily_metrics()
+    def load_daily_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]:
+        return load_daily_metrics(last_n=last_n)
 
     def load_wellness(self, date: str | None = None) -> list[DayWellness]:
         return load_wellness(date)

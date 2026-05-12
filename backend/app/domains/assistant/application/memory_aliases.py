@@ -18,7 +18,6 @@ from app.domains.assistant.contracts import (
 )
 from app.domains.assistant.dependencies import AssistantRecallStore
 from app.domains.assistant.domain.text import (
-    ALIAS_MAX_PHRASE_TOKENS,
     ALIAS_MAX_TOKENS,
     ALIAS_MIN_TOKENS,
     MEMORY_RECALL_LIMIT,
@@ -69,12 +68,14 @@ def load_resolution_memory_records(
     """
     prompt_memory_records = list(repo.list_memory_records(last_n=MEMORY_RECALL_LIMIT))
     alias_candidates = _alias_query_candidates(query)
-    alias_memory_records = list(
-        repo.list_memory_records(
-            kind="entity_alias",
-            alias_candidates=alias_candidates or None,
+    alias_memory_records: list[AssistantMemoryRecord] = []
+    if alias_candidates:
+        alias_memory_records = list(
+            repo.list_memory_records(
+                kind="entity_alias",
+                alias_candidates=alias_candidates,
+            )
         )
-    )
 
     merged_by_id: dict[str, AssistantMemoryRecord] = {
         record.id: record for record in prompt_memory_records
@@ -165,21 +166,6 @@ def build_entity_alias_memory_record(
     )
 
 
-def _matches_saved_entity_alias(
-    *,
-    memory_records: list[AssistantMemoryRecord],
-    query: str,
-    entity_ids: set[str] | None = None,
-) -> bool:
-    return bool(
-        _matching_saved_entity_alias_ids(
-            memory_records=memory_records,
-            query=query,
-            entity_ids=entity_ids,
-        )
-    )
-
-
 def _matching_saved_entity_alias_ids(
     *,
     memory_records: list[AssistantMemoryRecord],
@@ -219,9 +205,9 @@ def _alias_query_candidates(query: str) -> tuple[str, ...]:
     if not query_tokens:
         return ()
 
-    max_window = min(len(query_tokens), ALIAS_MAX_PHRASE_TOKENS)
+    max_window = min(len(query_tokens), ALIAS_MAX_TOKENS)
     candidates: dict[str, None] = {}
-    for window_size in range(1, max_window + 1):
+    for window_size in range(ALIAS_MIN_TOKENS, max_window + 1):
         for index in range(len(query_tokens) - window_size + 1):
             candidate = " ".join(query_tokens[index : index + window_size])
             candidates.setdefault(candidate, None)

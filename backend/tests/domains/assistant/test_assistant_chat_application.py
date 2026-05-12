@@ -533,6 +533,14 @@ def test_stream_reply_alias_reroute_uses_saved_alias_outside_prompt_memory_windo
         and "sleep stack" in call["alias_candidates"]
         for call in repo.list_memory_calls
     )
+    assert all(
+        not (
+            call["kind"] == "entity_alias"
+            and isinstance(call["alias_candidates"], tuple)
+            and "sleep" in call["alias_candidates"]
+        )
+        for call in repo.list_memory_calls
+    )
 
 
 def test_stream_reply_alias_reroute_handles_natural_language_follow_up():

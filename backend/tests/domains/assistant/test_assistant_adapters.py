@@ -1,6 +1,8 @@
 """Assistant adapter tests for SQLite persistence and recall lookup."""
 
 import json
+from contextlib import contextmanager
+from typing import Any, cast
 
 import app.domains.assistant.adapters as assistant_db
 import app.infra.database as db
@@ -27,7 +29,7 @@ def _load_run(run_id: str) -> AssistantRun | None:
 
 
 class TestAssistantAdapter:
-    def test_migrate_assistant_storage_backfills_legacy_memory_alias_lookup(self):
+    def test_migrate_assistant_storage_backfills_legacy_memory_alias_lookup(self, monkeypatch):
         with db._connect() as con, con:
             con.execute("DROP TABLE assistant_memory_records")
             con.execute(
@@ -69,6 +71,16 @@ class TestAssistantAdapter:
             )
 
         assistant_db.migrate_assistant_storage()
+        traced_sql: list[str] = []
+        original_connect = assistant_db.connect
+
+        @contextmanager
+        def traced_connect():
+            with original_connect() as con:
+                con.set_trace_callback(traced_sql.append)
+                yield con
+
+        monkeypatch.setattr(assistant_db, "connect", traced_connect)
         assistant_db.migrate_assistant_storage()
 
         with db._connect() as con:
@@ -89,6 +101,10 @@ class TestAssistantAdapter:
         assert "idx_assistant_memory_records_kind_alias_normalized_created" in indexes
         assert row is not None
         assert row["alias_normalized"] == "sleep stack"
+        assert not any(
+            statement.lstrip().upper().startswith("UPDATE ASSISTANT_MEMORY_RECORDS")
+            for statement in traced_sql
+        )
 
     def test_loader_hydrates_generated_timestamps_from_columns(self):
         assistant_db.save_assistant_thread(AssistantThread(id="thread-1", title="Recovery coach"))
@@ -278,3 +294,24 @@ class TestAssistantAdapter:
         )
 
         assert [record.id for record in loaded] == ["memory-1"]
+
+    def test_list_recent_metrics_pushes_limit_to_biometric_repository(self):
+        class _TrackingBiometricRepo:
+            def __init__(self):
+                self.last_n_calls: list[int | None] = []
+
+            def load_daily_metrics(self, *, last_n: int | None = None) -> list[object]:
+                self.last_n_calls.append(last_n)
+                return []
+
+        biometric_repo = _TrackingBiometricRepo()
+        repo = assistant_db.SqliteAssistantRepository(
+            experiment_repo=cast(Any, object()),
+            profile_repo=cast(Any, object()),
+            routine_repo=cast(Any, object()),
+            journal_repo=cast(Any, object()),
+            biometric_repo=cast(Any, biometric_repo),
+        )
+
+        assert repo.list_recent_metrics(last_n=7) == []
+        assert biometric_repo.last_n_calls == [7]

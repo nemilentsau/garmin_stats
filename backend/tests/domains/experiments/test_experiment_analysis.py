@@ -1,6 +1,7 @@
 """Integration tests for experiment analysis service."""
 
 from datetime import date, timedelta
+from typing import Any, cast
 
 import pytest
 
@@ -8,7 +9,9 @@ import app.infra.database as db
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
+    AdherenceDayEntry,
     Experiment,
+    ExperimentAnalysis,
     ExperimentDesign,
     ExperimentExposure,
     OutcomeMetric,
@@ -22,6 +25,7 @@ from app.domains.garmin_health.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
+from app.domains.journal.contracts import DailyCheckIn
 from app.domains.routines.adapters import SqliteRoutineRepository
 
 
@@ -508,6 +512,95 @@ class TestExperimentPreviewAndImport:
         assert persisted is not None
         assert persisted.analysis_date == "2026-05-04"
         assert write_calls == [experiment.id]
+
+    def test_refresh_active_experiment_analyses_skips_fresh_cached_snapshots(
+        self,
+        monkeypatch,
+    ):
+        """Scan refresh should not recompute active analyses that are already fresh."""
+        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
+        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
+
+        class May4(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 4)
+
+        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
+        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
+
+        experiment = Experiment(
+            id="fresh-scan-cache",
+            name="Fresh Scan Cache",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-03-14",
+                baseline_end_date="2026-04-10",
+                treatment_start_date="2026-04-11",
+                treatment_end_date="2026-04-12",
+            ),
+            outcome_metrics=[],
+        )
+        cached = ExperimentAnalysis(
+            experiment_id=experiment.id,
+            analysis_date="2026-05-04",
+            phase="completed",
+            days_in_baseline=28,
+            days_in_treatment=2,
+            adherence_rate=0.0,
+            adherence_by_day=[
+                AdherenceDayEntry(date="2026-04-12", state="unknown"),
+            ],
+            metrics=[],
+            confounders=[],
+            overall_confidence="insufficient",
+            summary="Cached analysis is current.",
+        )
+
+        class _FreshAnalysisRepo:
+            def __init__(self):
+                self.save_calls: list[str] = []
+
+            def list_experiments(
+                self,
+                *,
+                statuses: tuple[str, ...] | None = None,
+            ) -> list[Experiment]:
+                assert statuses == ("active",)
+                return [experiment]
+
+            def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
+                return {experiment.id: cached}
+
+            def list_daily_metrics(self) -> list[DailyMetric]:
+                raise AssertionError("fresh active scan should not load metrics")
+
+            def list_daily_checkins(self) -> list[DailyCheckIn]:
+                raise AssertionError("fresh active scan should not load check-ins")
+
+            def list_experiment_exposures(
+                self,
+                *,
+                experiment_id: str | None = None,
+                date: str | None = None,
+            ) -> list[ExperimentExposure]:
+                _ = (experiment_id, date)
+                raise AssertionError("fresh active scan should not load exposures")
+
+            def save_experiment_analysis(
+                self,
+                experiment_id: str,
+                analysis: ExperimentAnalysis,
+            ) -> None:
+                _ = analysis
+                self.save_calls.append(experiment_id)
+
+        repo = _FreshAnalysisRepo()
+
+        analyses = analysis_cache_mod.refresh_active_experiment_analyses(cast(Any, repo))
+
+        assert analyses == {experiment.id: cached}
+        assert repo.save_calls == []
 
     def test_get_experiment_analysis_refreshes_completed_date_stale_snapshot(
         self,

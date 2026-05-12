@@ -40,7 +40,25 @@ class AssistantThreadCatalogStore(Protocol):
     def list_messages(self, thread_id: str) -> list[AssistantMessage]: ...
 
 
-class AssistantConversationStore(Protocol):
+class AssistantRecallStore(Protocol):
+    """Read dependency for prior assistant evidence and memory records."""
+
+    def list_evidence_bundles(
+        self,
+        thread_id: str | None = None,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]: ...
+    def list_memory_records(
+        self,
+        kind: str | None = None,
+        *,
+        last_n: int | None = None,
+        alias_candidates: tuple[str, ...] | None = None,
+    ) -> list[AssistantMemoryRecord]: ...
+
+
+class AssistantConversationStore(AssistantRecallStore, Protocol):
     """Write-side dependency for one assistant chat turn."""
 
     def get_thread(self, thread_id: str) -> AssistantThread | None: ...
@@ -56,19 +74,6 @@ class AssistantConversationStore(Protocol):
     ) -> None: ...
     def save_run(self, run: AssistantRun) -> None: ...
     def save_evidence_bundle(self, bundle: AssistantEvidenceBundle) -> None: ...
-    def list_evidence_bundles(
-        self,
-        thread_id: str | None = None,
-        *,
-        last_n: int | None = None,
-    ) -> list[AssistantEvidenceBundle]: ...
-    def list_memory_records(
-        self,
-        kind: str | None = None,
-        *,
-        last_n: int | None = None,
-        alias_candidates: tuple[str, ...] | None = None,
-    ) -> list[AssistantMemoryRecord]: ...
 
 
 class AssistantReadModelStore(Protocol):
@@ -96,24 +101,6 @@ class AssistantReadModelStore(Protocol):
     def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]: ...
     def list_recent_notes(self, *, last_n: int | None = None) -> list[Note]: ...
     def get_profile(self, profile_id: str = "default") -> UserProfile | None: ...
-
-
-class AssistantRecallStore(Protocol):
-    """Read dependency for prior assistant evidence and memory records."""
-
-    def list_evidence_bundles(
-        self,
-        thread_id: str | None = None,
-        *,
-        last_n: int | None = None,
-    ) -> list[AssistantEvidenceBundle]: ...
-    def list_memory_records(
-        self,
-        kind: str | None = None,
-        *,
-        last_n: int | None = None,
-        alias_candidates: tuple[str, ...] | None = None,
-    ) -> list[AssistantMemoryRecord]: ...
 
 
 class AssistantRuntime(Protocol):

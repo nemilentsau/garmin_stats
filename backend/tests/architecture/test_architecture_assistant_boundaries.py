@@ -37,6 +37,7 @@ def test_assistant_domain_modules_do_not_import_runtime_or_dependencies():
             "backend/app/domains/assistant/domain/current_state.py",
             "backend/app/domains/assistant/domain/experiment_evidence.py",
             "backend/app/domains/assistant/domain/payloads.py",
+            "backend/app/domains/assistant/domain/text.py",
         ],
         [
             "fastapi",
@@ -201,7 +202,6 @@ def test_assistant_chat_delegates_memory_alias_policy():
     delegated_policy = [
         "_QUESTION_WORDS",
         "_alias_query_candidates",
-        "_matches_saved_entity_alias",
         "_query_contains_alias",
     ]
     assert [policy for policy in delegated_policy if policy in chat_source] == []

@@ -8,7 +8,7 @@ are reported. It accepts records that the application layer already loaded.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, timedelta
 
 from app.domains.assistant.domain.payloads import (
@@ -118,7 +118,7 @@ def routine_assignment_summaries(
 def assignment_window(summaries: Sequence[dict[str, object]]) -> tuple[str, str] | None:
     """Return the seven-day card-log window implied by assignment summaries."""
 
-    dates: list[date] = []
+    date_values: list[str] = []
     for summary in summaries:
         date_range = summary.get("date_range")
         if not isinstance(date_range, dict):
@@ -126,23 +126,23 @@ def assignment_window(summaries: Sequence[dict[str, object]]) -> tuple[str, str]
         start_date = date_range.get("start_date")
         end_date = date_range.get("end_date")
         if isinstance(start_date, str):
-            dates.append(date.fromisoformat(start_date))
+            date_values.append(start_date)
         if isinstance(end_date, str):
-            dates.append(date.fromisoformat(end_date))
-    if not dates:
+            date_values.append(end_date)
+
+    window = latest_window(date_values)
+    if window is None:
         return None
-    latest = min(max(dates), date.today())
-    return (latest - timedelta(days=6)).isoformat(), latest.isoformat()
+    return window[0].isoformat(), window[1].isoformat()
 
 
 def recent_scheduled_dates(scheduled_dates: Sequence[str]) -> list[str]:
     """Return scheduled dates from the most recent seven-day window."""
 
-    parsed_dates = [date.fromisoformat(value) for value in scheduled_dates]
-    if not parsed_dates:
+    window = latest_window(scheduled_dates)
+    if window is None:
         return []
-    latest = min(max(parsed_dates), date.today())
-    earliest = latest - timedelta(days=6)
+    earliest, latest = window
     return [
         value
         for value in scheduled_dates
@@ -150,21 +150,28 @@ def recent_scheduled_dates(scheduled_dates: Sequence[str]) -> list[str]:
     ]
 
 
+def latest_window(date_values: Sequence[str]) -> tuple[date, date] | None:
+    """Return the most recent seven-day window clamped to today."""
+    parsed_dates = [date.fromisoformat(value) for value in date_values]
+    if not parsed_dates:
+        return None
+    latest = min(max(parsed_dates), date.today())
+    return latest - timedelta(days=6), latest
+
+
 def slot_counts(assignments: Sequence[RoutineAssignment]) -> dict[str, int]:
-    return {
-        slot: count
-        for slot, count in sorted(
-            Counter(assignment.slot for assignment in assignments).items(),
-            key=lambda item: item[0],
-        )
-    }
+    return _ordered_counts(assignment.slot for assignment in assignments)
 
 
 def status_counts(card_logs: Sequence[CardLog]) -> dict[str, int]:
+    return _ordered_counts(card_log.status for card_log in card_logs)
+
+
+def _ordered_counts(values: Iterable[str]) -> dict[str, int]:
     return {
-        status: count
-        for status, count in sorted(
-            Counter(card_log.status for card_log in card_logs).items(),
+        value: count
+        for value, count in sorted(
+            Counter(values).items(),
             key=lambda item: item[0],
         )
     }
