@@ -100,17 +100,11 @@ class _FakeConversationStore:
 
     def save_message(self, message):
         self.messages.append(message)
-        self.save_thread(
+        self._record_thread_update(
             self.thread_state.model_copy(
                 update={"last_message_at": message.created_at}
             )
         )
-
-    def save_thread(self, thread):
-        if not isinstance(thread, AssistantThread):
-            raise TypeError("expected AssistantThread in test fake")
-        self.thread_state = thread
-        self.saved_threads.append(thread)
 
     def save_run(self, run):
         self.saved_runs.append(run)
@@ -126,19 +120,20 @@ class _FakeConversationStore:
         if self.fail_on_finalize_reply:
             raise RuntimeError("finalize reply failed")
         self.messages.append(assistant_message)
-        self.save_thread(updated_thread)
+        self._record_thread_update(updated_thread)
         self.saved_runs.append(completed_run)
         if memory_record is not None:
-            self.save_memory_record(memory_record)
+            self.memory_records.append(memory_record)
+            self.saved_memory_records.append(memory_record)
 
     def save_evidence_bundle(self, bundle):
         if self.fail_on_save_evidence_bundle:
             raise RuntimeError("evidence save failed")
         self.saved_evidence_bundles.append(bundle)
 
-    def save_memory_record(self, record: AssistantMemoryRecord) -> None:
-        self.memory_records.append(record)
-        self.saved_memory_records.append(record)
+    def _record_thread_update(self, thread: AssistantThread) -> None:
+        self.thread_state = thread
+        self.saved_threads.append(thread)
 
     def list_evidence_bundles(
         self,
@@ -598,6 +593,102 @@ def test_stream_reply_alias_reroute_handles_natural_language_follow_up():
     assert isinstance(evidence_bundle, AssistantEvidenceBundle)
     assert evidence_bundle.intent == "experiment_review"
     assert any(entity.entity_id == "meditation-hrv-2026-03" for entity in evidence_bundle.entities)
+
+
+def test_stream_reply_single_token_alias_outside_prompt_window_does_not_reroute():
+    target_alias = AssistantMemoryRecord(
+        id="memory-target",
+        kind="entity_alias",
+        entity_id="meditation-hrv-2026-03",
+        alias_text="sleepstack",
+    )
+    filler_aliases = [
+        AssistantMemoryRecord(
+            id=f"memory-filler-{index}",
+            kind="entity_alias",
+            entity_id=f"other-{index}",
+            alias_text=f"alias filler {index}",
+        )
+        for index in range(1, 6)
+    ]
+    repo = _FakeConversationStore(
+        thread_id="thread-1",
+        memory_records=[target_alias, *filler_aliases],
+    )
+    runtime = _FakeRuntime(deltas=["No experiment context."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-single-token",
+                    content="sleepstack",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
+    assert isinstance(evidence_bundle, AssistantEvidenceBundle)
+    assert evidence_bundle.intent != "experiment_review"
+    assert all(
+        entity.entity_id != "meditation-hrv-2026-03"
+        for entity in evidence_bundle.entities
+    )
+    assert all(
+        call["alias_candidates"] is None
+        for call in repo.list_memory_calls
+    ), "single-token queries must not trigger an entity_alias candidate lookup"
+
+
+def test_stream_reply_reverts_reroute_when_alias_entity_not_in_resolved_set():
+    repo = _FakeConversationStore(
+        thread_id="thread-1",
+        memory_records=[
+            AssistantMemoryRecord(
+                id="memory-stale",
+                kind="entity_alias",
+                entity_id="stale-experiment-x",
+                alias_text="legacy alpha",
+            )
+        ],
+    )
+    runtime = _FakeRuntime(deltas=["Falling back to general coaching."])
+
+    lines = asyncio.run(
+        _collect(
+            stream_reply(
+                repo=cast(Any, repo),
+                read_store=_FakeReadStore.for_experiment_review(),
+                runtime=cast(Any, runtime),
+                thread_id="thread-1",
+                request=AssistantMessageCreateRequest(
+                    id="message-revert",
+                    content="legacy alpha",
+                ),
+            )
+        )
+    )
+
+    payloads = [json.loads(line) for line in lines]
+    assert payloads[-1]["type"] == "done"
+    evidence_bundle = runtime.stream_chat_kwargs[0]["evidence_bundle"]
+    assert isinstance(evidence_bundle, AssistantEvidenceBundle)
+    assert evidence_bundle.intent != "experiment_review"
+    assert all(
+        entity.entity_id != "stale-experiment-x"
+        for entity in evidence_bundle.entities
+    )
+    assert all(
+        record.entity_id != "stale-experiment-x"
+        for record in repo.saved_memory_records
+    ), "alias-only reroute that gets reverted must not persist a new alias"
 
 
 def test_follow_up_works_without_claude_resume():

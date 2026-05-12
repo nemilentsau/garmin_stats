@@ -39,9 +39,6 @@ class _FakeConversationStore:
             raise ValueError(f"Assistant thread {thread.id} already exists")
         self._threads[thread.id] = thread
 
-    def save_thread(self, thread: AssistantThread) -> None:
-        self._threads[thread.id] = thread
-
     def save_message(self, message: AssistantMessage) -> None:
         self._messages.append(message)
 
@@ -72,9 +69,6 @@ class _FakeConversationStore:
     ) -> list[AssistantEvidenceBundle]:
         _ = (thread_id, last_n)
         return []
-
-    def save_memory_record(self, record: AssistantMemoryRecord) -> None:
-        _ = record
 
     def list_memory_records(
         self,

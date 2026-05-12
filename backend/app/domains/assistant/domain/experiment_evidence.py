@@ -30,12 +30,6 @@ def experiment_payload(experiment: Experiment) -> dict[str, object]:
     }
 
 
-def analysis_payload(analysis: ExperimentAnalysis) -> dict[str, object]:
-    """Return the JSON representation of an experiment analysis contract."""
-
-    return analysis.model_dump(mode="json")
-
-
 def active_experiment_payload(
     *,
     experiment: Experiment,
@@ -46,7 +40,7 @@ def active_experiment_payload(
 
     payload = experiment_payload(experiment)
     if analysis is not None:
-        payload["analysis"] = analysis_payload(analysis)
+        payload["analysis"] = analysis.model_dump(mode="json")
     if exposures:
         payload["exposures"] = summarize_exposures(exposures)
     return payload

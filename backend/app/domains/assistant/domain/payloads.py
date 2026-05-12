@@ -13,7 +13,7 @@ from typing import Protocol
 from app.core.profile.contracts import UserProfile
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn, Note
-from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
+from app.domains.routines.contracts import CardLog, RoutineSchedule
 
 
 class _DateIdRecord(Protocol):
@@ -105,24 +105,8 @@ def ordered_metrics(metrics: Sequence[DailyMetric]) -> list[DailyMetric]:
     )
 
 
-def ordered_checkins(checkins: Sequence[DailyCheckIn]) -> list[DailyCheckIn]:
-    return ordered_by_date(checkins)
-
-
 def ordered_routines(routines: Sequence[RoutineSchedule]) -> list[RoutineSchedule]:
     return sorted(routines, key=lambda routine: (routine.start_date, routine.id), reverse=True)
-
-
-def ordered_assignments(assignments: Sequence[RoutineAssignment]) -> list[RoutineAssignment]:
-    return ordered_by_date(assignments)
-
-
-def ordered_card_logs(card_logs: Sequence[CardLog]) -> list[CardLog]:
-    return ordered_by_date(card_logs)
-
-
-def ordered_notes(notes: Sequence[Note]) -> list[Note]:
-    return ordered_by_date(notes)
 
 
 def ordered_by_date[DateIdT: _DateIdRecord](

@@ -170,7 +170,6 @@ def _matching_saved_entity_alias_ids(
     *,
     memory_records: list[AssistantMemoryRecord],
     query: str,
-    entity_ids: set[str] | None = None,
 ) -> set[str]:
     query_tokens = tokenize(query)
     if not query_tokens:
@@ -179,8 +178,6 @@ def _matching_saved_entity_alias_ids(
     matched_ids: set[str] = set()
     for record in memory_records:
         if record.kind != "entity_alias" or not record.alias_text or not record.entity_id:
-            continue
-        if entity_ids is not None and record.entity_id not in entity_ids:
             continue
         if _query_contains_alias(
             query_tokens=query_tokens,

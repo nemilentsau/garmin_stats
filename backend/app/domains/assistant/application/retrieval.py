@@ -17,7 +17,7 @@ from app.domains.assistant.contracts import (
 from app.domains.assistant.dependencies import AssistantReadModelStore
 from app.domains.assistant.domain import current_state, experiment_evidence, payloads
 from app.domains.assistant.domain.text import dedupe_strings
-from app.domains.experiments.contracts import Experiment, ExperimentExposure
+from app.domains.experiments.contracts import Experiment
 from app.domains.routines.contracts import RoutineAssignment, RoutineSchedule
 
 
@@ -86,7 +86,7 @@ def retrieve_open_ended_coaching(
 
     recovery_payload, recovery_gaps = _build_recovery_context(store=store)
     routine_payload, routine_gaps = _build_routine_context(store=store)
-    notes = payloads.ordered_notes(store.list_recent_notes(last_n=3))
+    notes = payloads.ordered_by_date(store.list_recent_notes(last_n=3))
     profile = store.get_profile()
 
     payload: dict[str, object] = {}
@@ -137,7 +137,7 @@ def _build_experiment_evidence(
                 kind="analysis",
                 source="read_model.experiment_analysis",
                 entity_id=experiment.id,
-                payload_json=experiment_evidence.analysis_payload(analysis),
+                payload_json=analysis.model_dump(mode="json"),
             )
         )
 
@@ -187,8 +187,9 @@ def _build_experiment_scan_context(
         active_routines=active_routines,
     )
     analyses_by_experiment_id = store.list_active_experiment_analyses()
-    exposures_by_experiment_id = _group_exposures_by_experiment_id(
-        store.list_experiment_exposures()
+    exposures_by_experiment_id = _group_records_by_key(
+        store.list_experiment_exposures(),
+        lambda exposure: exposure.experiment_id,
     )
 
     payload = experiment_evidence.experiment_scan_payload(
@@ -251,7 +252,7 @@ def _build_recovery_context(
 ) -> tuple[dict[str, object], list[str]]:
     return current_state.build_recovery_context(
         metrics=payloads.ordered_metrics(store.list_recent_metrics(last_n=7)),
-        checkins=payloads.ordered_checkins(store.list_recent_checkins(last_n=7)),
+        checkins=payloads.ordered_by_date(store.list_recent_checkins(last_n=7)),
     )
 
 
@@ -278,7 +279,7 @@ def _build_routine_context(
     if window is not None:
         card_logs = [
             card_log
-            for card_log in payloads.ordered_card_logs(
+            for card_log in payloads.ordered_by_date(
                 store.list_card_logs_range(start_date=window[0], end_date=window[1])
             )
             if card_log.assignment_id in relevant_assignment_ids
@@ -329,19 +330,13 @@ def _group_assignments_by_routine_id(
         [
             assignment
             for routine in active_routines
-            for assignment in payloads.ordered_assignments(
+            for assignment in payloads.ordered_by_date(
                 store.list_assignments(routine_id=routine.id)
             )
         ],
         lambda assignment: assignment.routine_id,
     )
     return {routine.id: grouped.get(routine.id, []) for routine in active_routines}
-
-
-def _group_exposures_by_experiment_id(
-    exposures: Sequence[ExperimentExposure],
-) -> dict[str, list[ExperimentExposure]]:
-    return _group_records_by_key(exposures, lambda exposure: exposure.experiment_id)
 
 
 def _group_records_by_key[GroupRecordT](
