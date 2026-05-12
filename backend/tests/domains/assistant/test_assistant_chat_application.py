@@ -148,6 +148,21 @@ class _FakeConversationStore:
             bundles = bundles[-last_n:]
         return bundles
 
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ):
+        bundles = [
+            bundle
+            for bundle in list(self.prior_evidence_bundles) + list(self.saved_evidence_bundles)
+            if bundle.thread_id != thread_id
+        ]
+        if last_n is not None:
+            bundles = bundles[-last_n:]
+        return bundles
+
     def list_memory_records(
         self,
         kind: str | None = None,

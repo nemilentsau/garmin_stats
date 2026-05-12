@@ -222,9 +222,8 @@ not proof that the design is sound.
 
 #### `assistant`
 
-- Owns: assistant threads, messages, evidence bundle assembly, retrieval routing,
-  assistant memory records, assistant plan/context/evidence-card persistence,
-  and runtime interaction.
+- Owns: assistant threads, messages, evidence bundle assembly and persistence,
+  retrieval routing, assistant memory records, and runtime interaction.
 - Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
   experiment exposure derivation, or artifact activation.
 - May import: its own contracts, application helpers, and dependencies, plus explicitly

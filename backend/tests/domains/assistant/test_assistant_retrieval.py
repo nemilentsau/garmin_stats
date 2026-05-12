@@ -571,6 +571,19 @@ class _FakeReadStore:
             return bundles
         return bundles[-last_n:]
 
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]:
+        bundles = [
+            bundle for bundle in self._evidence_bundles if bundle.thread_id != thread_id
+        ]
+        if last_n is None:
+            return bundles
+        return bundles[-last_n:]
+
     def list_memory_records(
         self,
         kind: str | None = None,
@@ -758,7 +771,7 @@ def test_prior_evidence_recall_selects_other_threads_before_truncation() -> None
             intent="experiment_review",
             created_at=f"2026-03-{3 + index:02d}T00:00:00Z",
         )
-        for index in range(1, 11)
+        for index in range(1, 17)
     ]
     store._evidence_bundles = older_cross_thread + busy_current_thread
 

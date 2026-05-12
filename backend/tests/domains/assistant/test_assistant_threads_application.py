@@ -70,6 +70,15 @@ class _FakeConversationStore:
         _ = (thread_id, last_n)
         return []
 
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]:
+        _ = (thread_id, last_n)
+        return []
+
     def list_memory_records(
         self,
         kind: str | None = None,

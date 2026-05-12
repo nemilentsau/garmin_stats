@@ -101,10 +101,10 @@ def _build_prior_evidence_items(
     current_thread_id: str,
     last_n: int,
 ) -> list[AssistantEvidenceItem]:
-    all_bundles = store.list_evidence_bundles(last_n=_PRIOR_BUNDLE_SCAN_DEPTH)
-    other_thread_bundles = [
-        bundle for bundle in all_bundles if bundle.thread_id != current_thread_id
-    ]
+    other_thread_bundles = store.list_evidence_bundles_excluding_thread(
+        current_thread_id,
+        last_n=_PRIOR_BUNDLE_SCAN_DEPTH,
+    )
     if not other_thread_bundles:
         return []
 

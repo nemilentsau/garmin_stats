@@ -49,6 +49,12 @@ class AssistantRecallStore(Protocol):
         *,
         last_n: int | None = None,
     ) -> list[AssistantEvidenceBundle]: ...
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]: ...
     def list_memory_records(
         self,
         kind: str | None = None,

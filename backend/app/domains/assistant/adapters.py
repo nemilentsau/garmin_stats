@@ -266,6 +266,21 @@ def load_assistant_evidence_bundles(
     )
 
 
+def load_assistant_evidence_bundles_excluding_thread(
+    thread_id: str,
+    *,
+    last_n: int | None = None,
+) -> list[AssistantEvidenceBundle]:
+    return _STORE.load_many(
+        "assistant_evidence_bundles",
+        AssistantEvidenceBundle,
+        where_sql="thread_id != ?",
+        params=(thread_id,),
+        order_by="created_at, id",
+        last_n=last_n,
+    )
+
+
 def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
     """Persist one memory record alongside its alias_normalized lookup column."""
     _STORE.save(
@@ -367,6 +382,17 @@ class SqliteAssistantRepository:
         last_n: int | None = None,
     ) -> list[AssistantEvidenceBundle]:
         return load_assistant_evidence_bundles(thread_id=thread_id, last_n=last_n)
+
+    def list_evidence_bundles_excluding_thread(
+        self,
+        thread_id: str,
+        *,
+        last_n: int | None = None,
+    ) -> list[AssistantEvidenceBundle]:
+        return load_assistant_evidence_bundles_excluding_thread(
+            thread_id=thread_id,
+            last_n=last_n,
+        )
 
     def list_memory_records(
         self,

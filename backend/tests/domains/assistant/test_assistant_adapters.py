@@ -286,6 +286,34 @@ class TestAssistantAdapter:
         assert loaded[0].intent == "experiment_review"
         assert loaded[0].entities[0].entity_id == "exp-1"
 
+    def test_recent_evidence_exclusion_filters_current_thread_before_limit(self):
+        assistant_db.save_assistant_evidence_bundle(
+            AssistantEvidenceBundle(
+                id="other-1",
+                thread_id="thread-other",
+                user_message_id="message-other",
+                intent="experiment_review",
+                created_at="2026-03-01T00:00:00Z",
+            )
+        )
+        for index in range(1, 4):
+            assistant_db.save_assistant_evidence_bundle(
+                AssistantEvidenceBundle(
+                    id=f"current-{index}",
+                    thread_id="thread-current",
+                    user_message_id=f"message-current-{index}",
+                    intent="experiment_review",
+                    created_at=f"2026-03-0{index + 1}T00:00:00Z",
+                )
+            )
+
+        loaded = assistant_db.load_assistant_evidence_bundles_excluding_thread(
+            "thread-current",
+            last_n=1,
+        )
+
+        assert [bundle.id for bundle in loaded] == ["other-1"]
+
     def test_assistant_memory_record_round_trips(self):
         record = AssistantMemoryRecord(
             id="memory-1",
