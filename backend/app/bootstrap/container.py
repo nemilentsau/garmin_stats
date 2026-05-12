@@ -46,6 +46,8 @@ def build_container() -> AppContainer:
     experiments_repo = SqliteExperimentRepository()
     routines_repo = SqliteRoutineRepository()
     profile_repo = SqliteProfileRepository()
+    garmin_biometrics_repo = SqliteBiometricRepository()
+    journal_repo = SqliteJournalRepository()
     garmin_sync_infra = build_garmin_sync_infra(config)
     return AppContainer(
         config=config,
@@ -53,10 +55,13 @@ def build_container() -> AppContainer:
         assistant_repo=SqliteAssistantRepository(
             experiment_repo=experiments_repo,
             profile_repo=profile_repo,
+            routine_repo=routines_repo,
+            journal_repo=journal_repo,
+            biometric_repo=garmin_biometrics_repo,
         ),
         assistant_runtime=ClaudeCodeRuntime(),
-        garmin_biometrics_repo=SqliteBiometricRepository(),
-        journal_repo=SqliteJournalRepository(),
+        garmin_biometrics_repo=garmin_biometrics_repo,
+        journal_repo=journal_repo,
         profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,

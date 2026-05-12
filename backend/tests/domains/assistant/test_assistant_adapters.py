@@ -12,11 +12,18 @@ from app.domains.assistant.contracts import (
     AssistantResolvedEntity,
     AssistantRun,
     AssistantThread,
-    ContextSnapshot,
-    EvidenceCard,
-    Plan,
-    PlanItem,
 )
+
+
+def _load_run(run_id: str) -> AssistantRun | None:
+    with db._connect() as con:
+        row = con.execute(
+            "SELECT data FROM assistant_runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return AssistantRun.model_validate_json(row["data"])
 
 
 class TestAssistantAdapter:
@@ -93,37 +100,10 @@ class TestAssistantAdapter:
                 content_markdown="Sleep dipped last night.",
             )
         )
-        assistant_db.save_context_snapshot(ContextSnapshot(id="snapshot-1"))
 
         messages = assistant_db.load_assistant_messages("thread-1")
-        loaded_snapshot = assistant_db.load_context_snapshot("snapshot-1")
 
         assert messages[0].created_at is not None
-        assert loaded_snapshot is not None
-        assert loaded_snapshot.created_at is not None
-
-    def test_plan_survives_round_trip_with_items(self):
-        plan = Plan(
-            id="plan-1",
-            title="Recovery Week",
-            scope="weekly",
-            linked_experiment_ids=["exp-1"],
-        )
-        item = PlanItem(
-            id="item-1",
-            plan_id="plan-1",
-            title="Meditate before bed",
-            date="2026-01-15",
-        )
-
-        assistant_db.save_plan(plan)
-        assistant_db.save_plan_item(item)
-
-        plans = assistant_db.load_plans()
-        items = assistant_db.load_plan_items("plan-1")
-
-        assert [entry.id for entry in plans] == ["plan-1"]
-        assert [entry.id for entry in items] == ["item-1"]
 
     def test_assistant_foundation_records_survive_round_trip(self):
         thread = AssistantThread(
@@ -139,35 +119,15 @@ class TestAssistantAdapter:
             content_markdown="Sleep dipped last night.",
             created_at="2026-01-15T08:00:00+00:00",
         )
-        snapshot = ContextSnapshot(
-            id="snapshot-1",
-            date_window_start="2026-01-01",
-            date_window_end="2026-01-15",
-            summary_markdown="Last 14 days summary",
-        )
-        card = EvidenceCard(
-            id="card-1",
-            kind="trend",
-            title="HRV below baseline",
-            summary="Nightly HRV is down over the last 3 days.",
-            confidence="moderate",
-        )
 
         assistant_db.save_assistant_thread(thread)
         assistant_db.save_assistant_message(message)
-        assistant_db.save_context_snapshot(snapshot)
-        assistant_db.save_evidence_card(card)
 
         threads = assistant_db.load_assistant_threads()
         messages = assistant_db.load_assistant_messages("thread-1")
-        loaded_snapshot = assistant_db.load_context_snapshot("snapshot-1")
-        cards = assistant_db.load_evidence_cards()
 
         assert [entry.id for entry in threads] == ["thread-1"]
         assert [entry.id for entry in messages] == ["message-1"]
-        assert loaded_snapshot is not None
-        assert loaded_snapshot.id == "snapshot-1"
-        assert [entry.id for entry in cards] == ["card-1"]
 
     def test_finalize_assistant_reply_persists_message_thread_and_run_state_together(self):
         thread = AssistantThread(
@@ -215,7 +175,9 @@ class TestAssistantAdapter:
         assistant_db.create_assistant_thread(thread)
         assistant_db.save_assistant_run(running_run)
         assert assistant_db.load_assistant_messages("thread-1") == []
-        assert assistant_db.load_assistant_runs("thread-1")[0].status == "running"
+        loaded_running_run = _load_run("run-1")
+        assert loaded_running_run is not None
+        assert loaded_running_run.status == "running"
 
         assistant_db.finalize_assistant_reply(
             assistant_message=assistant_message,
@@ -227,7 +189,7 @@ class TestAssistantAdapter:
         loaded_thread = assistant_db.load_assistant_thread("thread-1")
         loaded_messages = assistant_db.load_assistant_messages("thread-1")
         loaded_memory = assistant_db.load_assistant_memory_records(kind="entity_alias")
-        loaded_runs = assistant_db.load_assistant_runs("thread-1")
+        loaded_run = _load_run("run-1")
         with db._connect() as con:
             row = con.execute(
                 "SELECT alias_text FROM assistant_memory_records WHERE id = ?",
@@ -242,13 +204,11 @@ class TestAssistantAdapter:
         assert [record.id for record in loaded_memory] == ["memory-1"]
         assert row is not None
         assert row["alias_text"] == "sleep stack"
-        assert loaded_runs[0].id == "run-1"
-        assert loaded_runs[0].status == "completed"
-        assert loaded_runs[0].finished_at == "2026-01-15T09:02:01+00:00"
-        assert loaded_runs[0].context_snapshot_id == "bundle-1"
-
-    def test_missing_context_snapshot_returns_none(self):
-        assert assistant_db.load_context_snapshot("missing") is None
+        assert loaded_run is not None
+        assert loaded_run.id == "run-1"
+        assert loaded_run.status == "completed"
+        assert loaded_run.finished_at == "2026-01-15T09:02:01+00:00"
+        assert loaded_run.context_snapshot_id == "bundle-1"
 
     def test_assistant_evidence_bundle_round_trips(self):
         bundle = AssistantEvidenceBundle(

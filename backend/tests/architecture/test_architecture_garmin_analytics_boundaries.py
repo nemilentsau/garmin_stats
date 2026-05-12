@@ -251,9 +251,13 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
 
     assert "def load_daily_metrics" in adapter_source
     assert "class SqliteBiometricRepository" in adapter_source
-    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" not in (
         assistant_repo_source
     )
+    assert "from app.domains.garmin_analytics.application.dependencies import" in (
+        assistant_repo_source
+    )
+    assert "self.biometric_repo.load_daily_metrics()" in assistant_repo_source
     assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
         experiment_repo_source
     )

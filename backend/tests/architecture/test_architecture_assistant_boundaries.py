@@ -81,6 +81,12 @@ def test_assistant_sqlite_adapter_is_the_database_boundary():
     assert "app.infra.jsonstore" in source
     assert "class SqliteAssistantRepository" in source
     assert "def finalize_assistant_reply(" in source
+    assert "app.domains.routines.adapters" not in source
+    assert "app.domains.garmin_analytics.adapters" not in source
+    assert "app.domains.journal.adapters" not in source
+    assert "app.domains.routines.dependencies" in source
+    assert "app.domains.garmin_analytics.application.dependencies" in source
+    assert "app.domains.journal.dependencies" in source
 
 
 def test_bootstrap_routing_mounts_domain_assistant_router_directly():
@@ -190,6 +196,7 @@ def test_assistant_chat_delegates_memory_alias_policy():
     assert memory_alias_path.exists()
     memory_alias_source = memory_alias_path.read_text(encoding="utf-8")
     assert "application.memory_aliases import" in chat_source
+    assert "resolve_entities(" not in memory_alias_source
 
     delegated_policy = [
         "_QUESTION_WORDS",

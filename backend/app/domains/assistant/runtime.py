@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from app.domains.assistant.contracts import AssistantEvidenceBundle, AssistantMemoryRecord
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[5]
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
 _WORKSPACE_ROOT = _PROJECT_ROOT / "storage" / "assistant" / "workspaces"
 _CLAUDE_CMD = os.environ.get("CLAUDE_CODE_CMD", "claude")
 

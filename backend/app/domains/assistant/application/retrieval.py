@@ -263,7 +263,7 @@ def _build_routine_context(
     if active_routines is None:
         active_routines = payloads.ordered_routines(store.list_routines(status="active"))
     else:
-        active_routines = payloads.ordered_routines(active_routines)
+        active_routines = list(active_routines)
 
     assignment_summaries, relevant_assignment_ids = current_state.routine_assignment_summaries(
         active_routines=active_routines,

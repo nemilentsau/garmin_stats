@@ -12,10 +12,12 @@ from app.domains.assistant.contracts import (
     AssistantIntent,
     AssistantRouteDecision,
 )
-from app.domains.assistant.domain.text import EXPERIMENT_REVIEW_TERMS, tokenize
+from app.domains.assistant.domain.text import (
+    ALL_EXPERIMENT_REVIEW_TERMS,
+    PLURAL_EXPERIMENT_REVIEW_TERMS,
+    tokenize,
+)
 
-_PLURAL_EXPERIMENT_REVIEW_TERMS = frozenset({"experiments", "trials", "studies"})
-_ALL_EXPERIMENT_REVIEW_TERMS = EXPERIMENT_REVIEW_TERMS | _PLURAL_EXPERIMENT_REVIEW_TERMS
 _RECALL_LANGUAGE_PHRASES = (
     "what did we say",
     "what did we discuss",
@@ -46,9 +48,9 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         scores[intent] += weight
         signals[intent].append(signal)
 
-    if tokens.intersection(_ALL_EXPERIMENT_REVIEW_TERMS):
+    if tokens.intersection(ALL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.55, "mentions_experiment")
-    if tokens.intersection(_PLURAL_EXPERIMENT_REVIEW_TERMS):
+    if tokens.intersection(PLURAL_EXPERIMENT_REVIEW_TERMS):
         add_signal("experiment_review", 0.10, "plural_experiment_context")
     if any(phrase in text for phrase in ("so far", "look like", "results", "effect")):
         add_signal("experiment_review", 0.25, "review_phrase")
@@ -58,7 +60,7 @@ def route_user_query(query: str) -> AssistantRouteDecision:
         add_signal("experiment_review", 0.10, "how_experiment_question")
     if tokens.intersection({"scan", "scanning"}):
         add_signal("experiment_review", 0.05, "scan_keyword")
-    if tokens.intersection(_ALL_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
+    if tokens.intersection(ALL_EXPERIMENT_REVIEW_TERMS) and tokens.intersection(
         {"routine", "routines", "tracking"}
     ):
         add_signal("experiment_review", 0.10, "experiment_routine_scan")

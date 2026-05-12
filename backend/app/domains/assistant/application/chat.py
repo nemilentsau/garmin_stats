@@ -39,24 +39,19 @@ def _model_for_thread(thread: AssistantThread) -> str:
     return thread.model or "sonnet"
 
 
-def _save_thread_state(
+def _thread_with_state(
     *,
-    repo: AssistantConversationStore,
     thread: AssistantThread,
     last_message_at: str,
     snapshot_id: str | None = None,
     session_id: str | None = None,
-    persist: bool = True,
 ) -> AssistantThread:
     updates: dict[str, object] = {"last_message_at": last_message_at}
     if snapshot_id is not None:
         updates["last_context_snapshot_id"] = snapshot_id
     if session_id is not None:
         updates["claude_session_id"] = session_id
-    updated_thread = thread.model_copy(update=updates)
-    if persist:
-        repo.save_thread(updated_thread)
-    return updated_thread
+    return thread.model_copy(update=updates)
 
 
 def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
@@ -112,32 +107,31 @@ async def stream_reply(
             created_at=now_iso(),
         )
         repo.save_message(user_message)
-        thread = _save_thread_state(
-            repo=repo,
-            thread=thread,
-            last_message_at=user_message.created_at or now_iso(),
-        )
 
         prompt_memory_records, entity_memory_records = load_resolution_memory_records(
             repo,
             query=request.content,
         )
         route = route_user_query(request.content)
+        original_route = route
+        route, alias_entity_ids = maybe_reroute_from_memory_alias(
+            memory_records=entity_memory_records,
+            route=route,
+            query=request.content,
+        )
         entities = resolve_entities(
             store=read_store,
             memory=entity_memory_records,
             route=route,
             query=request.content,
         )
-        if not entities:
-            route, rerouted_entities = maybe_reroute_from_memory_alias(
-                memory_records=entity_memory_records,
-                route=route,
-                read_store=read_store,
-                query=request.content,
-            )
-            if rerouted_entities:
-                entities = rerouted_entities
+        if alias_entity_ids:
+            resolved_experiment_ids = {
+                entity.entity_id for entity in entities if entity.kind == "experiment"
+            }
+            if not resolved_experiment_ids.intersection(alias_entity_ids):
+                route = original_route
+                entities = []
         pending_memory_record = build_entity_alias_memory_record(
             route=route,
             entities=entities,
@@ -202,13 +196,11 @@ async def stream_reply(
             evidence_refs_json=[evidence_bundle.id],
             created_at=now_iso(),
         )
-        thread = _save_thread_state(
-            repo=repo,
+        thread = _thread_with_state(
             thread=thread,
             last_message_at=assistant_message.created_at or now_iso(),
             snapshot_id=evidence_bundle.id,
             session_id=session_id,
-            persist=False,
         )
         completed_run = run.model_copy(
             update={
@@ -235,11 +227,14 @@ async def stream_reply(
     except Exception as exc:
         if run is not None:
             with suppress(Exception):
+                usage_json = dict(run.usage_json)
+                usage_json["last_error"] = str(exc)
                 repo.save_run(
                     run.model_copy(
                         update={
                             "status": "failed",
-                            "stderr_path": str(exc),
+                            "stderr_path": None,
+                            "usage_json": usage_json,
                             "finished_at": now_iso(),
                         }
                     )

@@ -8,7 +8,6 @@ from pydantic import Field
 
 from app.contracts.base import (
     AutoTotalResponse,
-    ConfidenceLevel,
     DefaultsRequired,
     StrictDefaultsRequired,
 )
@@ -21,37 +20,10 @@ AssistantIntent = Literal[
 ]
 AssistantResolvedEntityKind = Literal["experiment", "routine", "metric", "memory"]
 AssistantMemoryRecordKind = Literal["entity_alias", "evidence_summary"]
-PlanStatus = Literal["draft", "active", "completed"]
-PlanItemCompletionState = Literal["pending", "in_progress", "completed", "skipped"]
 ThreadStatus = Literal["active", "archived"]
-EvidenceConfidence = ConfidenceLevel
 AssistantMessageRole = Literal["user", "assistant", "system"]
 AssistantRunStatus = Literal["running", "completed", "failed"]
 AssistantRunTaskType = Literal["chat", "analysis", "planning"]
-
-
-class Plan(DefaultsRequired):
-    id: str
-    title: str
-    scope: str
-    status: PlanStatus = "draft"
-    source: str = "manual"
-    goal: str | None = None
-    markdown_body: str | None = None
-    structured_outline_json: dict[str, object] = {}
-    linked_experiment_ids: list[str] = []
-
-
-class PlanItem(DefaultsRequired):
-    id: str
-    plan_id: str
-    title: str
-    date: str | None = None
-    time_block: str | None = None
-    instructions: str | None = None
-    linked_routine_id: str | None = None
-    completion_state: PlanItemCompletionState = "pending"
-    completion_notes: str | None = None
 
 
 class AssistantThread(DefaultsRequired):
@@ -89,28 +61,6 @@ class AssistantRun(DefaultsRequired):
     usage_json: dict[str, object] = {}
     started_at: str | None = None
     finished_at: str | None = None
-
-
-class ContextSnapshot(DefaultsRequired):
-    id: str
-    date_window_start: str | None = None
-    date_window_end: str | None = None
-    snapshot_json: dict[str, object] = {}
-    summary_markdown: str | None = None
-    created_at: str | None = None
-
-
-class EvidenceCard(DefaultsRequired):
-    id: str
-    kind: str
-    title: str
-    summary: str
-    metric: str | None = None
-    window: str | None = None
-    sample_count: int = 0
-    confidence: EvidenceConfidence = "insufficient"
-    caveats: list[str] = []
-    payload_json: dict[str, object] = {}
 
 
 class AssistantRouteDecision(StrictDefaultsRequired):

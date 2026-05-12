@@ -12,24 +12,15 @@ from app.domains.assistant.contracts import (
     AssistantRouteDecision,
 )
 from app.domains.assistant.dependencies import AssistantReadModelStore
-from app.domains.assistant.domain.text import EXPERIMENT_REVIEW_TERMS
-from app.domains.assistant.domain.text import tokenize as _lowercase_tokens
+from app.domains.assistant.domain.text import (
+    ALL_EXPERIMENT_REVIEW_TERMS,
+    ENTITY_RESOLUTION_STOP_WORDS,
+    token_set,
+    tokenize,
+)
 from app.domains.experiments.contracts import Experiment
 
 _ID_SEGMENT_PATTERN = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)*")
-_STOP_WORDS = {
-    "a",
-    "an",
-    "and",
-    "does",
-    "far",
-    "how",
-    "like",
-    "look",
-    "our",
-    "so",
-    "the",
-}
 _MIN_EXPERIMENT_MATCH_SCORE = 0.35
 _AMBIGUITY_MARGIN = 0.12
 
@@ -56,7 +47,7 @@ def _resolve_experiment_entities(
     if not candidate_experiments:
         return []
 
-    query_tokens = _tokenize(query)
+    query_tokens = token_set(query, stop_words=ENTITY_RESOLUTION_STOP_WORDS)
     if not query_tokens:
         return []
 
@@ -101,7 +92,7 @@ def _experiment_match_score(
     experiment: Experiment,
     alias_tokens: Sequence[set[str]],
 ) -> float:
-    name_tokens = _tokenize(experiment.name)
+    name_tokens = token_set(experiment.name, stop_words=ENTITY_RESOLUTION_STOP_WORDS)
     if not name_tokens:
         return 0.0
 
@@ -112,7 +103,7 @@ def _experiment_match_score(
     if alias_tokens:
         score = max(score, max(_overlap_score(query_tokens, alias) for alias in alias_tokens))
 
-    if query_tokens.intersection(EXPERIMENT_REVIEW_TERMS):
+    if query_tokens.intersection(ALL_EXPERIMENT_REVIEW_TERMS):
         score += 0.08
 
     return score
@@ -129,7 +120,7 @@ def _query_mentions_experiment_id(query_text: str, experiment_id: str) -> bool:
 
 
 def _normalize_id(value: str) -> str:
-    return "-".join(_lowercase_tokens(value))
+    return "-".join(tokenize(value))
 
 
 def _alias_tokens_by_entity(memory: Sequence[AssistantMemoryRecord]) -> dict[str, list[set[str]]]:
@@ -139,7 +130,7 @@ def _alias_tokens_by_entity(memory: Sequence[AssistantMemoryRecord]) -> dict[str
             continue
         if not record.entity_id or not record.alias_text:
             continue
-        tokens = _tokenize(record.alias_text)
+        tokens = token_set(record.alias_text, stop_words=ENTITY_RESOLUTION_STOP_WORDS)
         if tokens:
             entity_alias_tokens[record.entity_id].append(tokens)
     return entity_alias_tokens
@@ -156,7 +147,3 @@ def _overlap_score(query_tokens: set[str], candidate_tokens: set[str]) -> float:
 
 def _bounded_confidence(value: float) -> float:
     return max(0.0, min(1.0, value))
-
-
-def _tokenize(text: str) -> set[str]:
-    return {token for token in _lowercase_tokens(text) if token not in _STOP_WORDS}

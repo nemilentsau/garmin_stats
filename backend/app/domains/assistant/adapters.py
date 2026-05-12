@@ -19,10 +19,6 @@ from app.domains.assistant.contracts import (
     AssistantMessage,
     AssistantRun,
     AssistantThread,
-    ContextSnapshot,
-    EvidenceCard,
-    Plan,
-    PlanItem,
 )
 from app.domains.assistant.domain.text import normalize_alias
 from app.domains.experiments.application.analysis_cache import (
@@ -37,37 +33,25 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
 )
 from app.domains.experiments.dependencies import ExperimentRepository
-from app.domains.garmin_analytics.adapters import load_daily_metrics
+from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.journal.adapters import (
-    load_daily_checkins,
-    load_notes,
-)
 from app.domains.journal.contracts import (
     DailyCheckIn,
     Note,
 )
-from app.domains.routines.adapters import (
-    load_card_logs_range,
-    load_routine_assignments,
-    load_routine_schedule,
-    load_routine_schedules,
-)
+from app.domains.journal.dependencies import JournalRepository
 from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
+from app.domains.routines.dependencies import RoutineRepository
 from app.infra.jsonstore import JsonStore
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
 
 _STORE = JsonStore({
-    "plans",
-    "plan_items",
     "assistant_threads",
     "assistant_messages",
     "assistant_runs",
-    "context_snapshots",
     "assistant_evidence_bundles",
     "assistant_memory_records",
-    "evidence_cards",
 })
 
 
@@ -98,38 +82,6 @@ def _ensure_memory_alias_lookup_columns(con: sqlite3.Connection) -> None:
     con.executemany(
         "UPDATE assistant_memory_records SET alias_normalized = ? WHERE id = ?",
         [(normalize_alias(row["alias_text"]), row["id"]) for row in rows],
-    )
-
-
-def save_plan(plan: Plan) -> None:
-    _STORE.save("plans", plan.id, plan.model_dump_json())
-
-
-def load_plans() -> list[Plan]:
-    return _STORE.load_many("plans", Plan)
-
-
-def save_plan_item(item: PlanItem) -> None:
-    _STORE.save(
-        "plan_items",
-        item.id,
-        item.model_dump_json(),
-        extra_columns={
-            "plan_id": item.plan_id,
-            "item_date": item.date,
-        },
-    )
-
-
-def load_plan_items(plan_id: str | None = None) -> list[PlanItem]:
-    where_sql = "plan_id = ?" if plan_id is not None else ""
-    params = (plan_id,) if plan_id is not None else ()
-    return _STORE.load_many(
-        "plan_items",
-        PlanItem,
-        where_sql=where_sql,
-        params=params,
-        order_by="item_date, created_at, id",
     )
 
 
@@ -193,6 +145,15 @@ def save_assistant_run(run: AssistantRun) -> None:
     )
 
 
+def _memory_record_columns(record: AssistantMemoryRecord) -> dict[str, object | None]:
+    return {
+        "kind": record.kind,
+        "entity_id": record.entity_id,
+        "alias_text": record.alias_text,
+        "alias_normalized": normalize_alias(record.alias_text),
+    }
+
+
 def finalize_assistant_reply(
     *,
     assistant_message: AssistantMessage,
@@ -231,27 +192,10 @@ def finalize_assistant_reply(
                 "assistant_memory_records",
                 memory_record.id,
                 memory_record.model_dump_json(),
-                extra_columns={
-                    "kind": memory_record.kind,
-                    "entity_id": memory_record.entity_id,
-                    "alias_text": memory_record.alias_text,
-                    "alias_normalized": normalize_alias(memory_record.alias_text),
-                },
+                extra_columns=_memory_record_columns(memory_record),
                 created_at=memory_record.created_at,
                 updated_at=memory_record.updated_at or memory_record.created_at,
             )
-
-
-def load_assistant_runs(thread_id: str | None = None) -> list[AssistantRun]:
-    where_sql = "thread_id = ?" if thread_id is not None else ""
-    params = (thread_id,) if thread_id is not None else ()
-    return _STORE.load_many(
-        "assistant_runs",
-        AssistantRun,
-        where_sql=where_sql,
-        params=params,
-        order_by="created_at, id",
-    )
 
 
 def save_assistant_evidence_bundle(bundle: AssistantEvidenceBundle) -> None:
@@ -292,12 +236,7 @@ def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
         "assistant_memory_records",
         record.id,
         record.model_dump_json(),
-        extra_columns={
-            "kind": record.kind,
-            "entity_id": record.entity_id,
-            "alias_text": record.alias_text,
-            "alias_normalized": normalize_alias(record.alias_text),
-        },
+        extra_columns=_memory_record_columns(record),
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -339,37 +278,15 @@ def load_assistant_memory_records(
     )
 
 
-def save_context_snapshot(snapshot: ContextSnapshot) -> None:
-    _STORE.save(
-        "context_snapshots",
-        snapshot.id,
-        snapshot.model_dump_json(),
-        created_at=snapshot.created_at,
-    )
-
-
-def load_context_snapshot(snapshot_id: str) -> ContextSnapshot | None:
-    return _STORE.load("context_snapshots", ContextSnapshot, snapshot_id)
-
-
-def load_context_snapshots() -> list[ContextSnapshot]:
-    return _STORE.load_many("context_snapshots", ContextSnapshot)
-
-
-def save_evidence_card(card: EvidenceCard) -> None:
-    _STORE.save("evidence_cards", card.id, card.model_dump_json())
-
-
-def load_evidence_cards() -> list[EvidenceCard]:
-    return _STORE.load_many("evidence_cards", EvidenceCard)
-
-
 @dataclass(frozen=True)
 class SqliteAssistantRepository:
     """Repository adapter wired by bootstrap for assistant workflows."""
 
     experiment_repo: ExperimentRepository
     profile_repo: ProfileRepository
+    routine_repo: RoutineRepository
+    journal_repo: JournalRepository
+    biometric_repo: BiometricReadRepository
 
     def list_threads(self) -> list[AssistantThread]:
         return load_assistant_threads()
@@ -464,19 +381,22 @@ class SqliteAssistantRepository:
         )
 
     def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
-        return load_routine_schedules(status=status)
+        return self.routine_repo.list_routines(status=status)
 
     def get_routine(self, routine_id: str) -> RoutineSchedule | None:
-        return load_routine_schedule(routine_id)
+        return self.routine_repo.get_routine(routine_id)
 
     def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
-        return load_routine_assignments(routine_id=routine_id)
+        return self.routine_repo.list_assignments(routine_id=routine_id)
 
     def list_card_logs_range(self, *, start_date: str, end_date: str) -> list[CardLog]:
-        return load_card_logs_range(start_date, end_date)
+        return self.routine_repo.list_card_logs_range(
+            start_date=start_date,
+            end_date=end_date,
+        )
 
     def list_recent_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]:
-        metrics = load_daily_metrics()
+        metrics = self.biometric_repo.load_daily_metrics()
         if last_n is None:
             return metrics
         if last_n <= 0:
@@ -484,10 +404,10 @@ class SqliteAssistantRepository:
         return metrics[-last_n:]
 
     def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]:
-        return load_daily_checkins(last_n=last_n)
+        return self.journal_repo.list_checkins(last_n=last_n)
 
     def list_recent_notes(self, *, last_n: int | None = None) -> list[Note]:
-        return load_notes(last_n=last_n)
+        return self.journal_repo.list_notes(last_n=last_n)
 
     def get_profile(self, profile_id: str = "default") -> UserProfile | None:
         return self.profile_repo.get_profile(profile_id=profile_id)

@@ -372,12 +372,11 @@ def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():
     assert memory_records[0].kind == "entity_alias"
     assert repo.saved_runs[-1].status == "completed"
     assert repo.saved_memory_records == []
-    user_message = cast(Any, repo.messages[0])
     assistant_message = cast(Any, repo.messages[-1])
-    assert repo.saved_threads[0].last_message_at == user_message.created_at
-    assert repo.saved_threads[-1].last_message_at == assistant_message.created_at
-    assert repo.saved_threads[-1].last_context_snapshot_id == repo.saved_evidence_bundles[0].id
-    assert repo.saved_threads[-1].claude_session_id == "session-1"
+    assert len(repo.saved_threads) == 1
+    assert repo.saved_threads[0].last_message_at == assistant_message.created_at
+    assert repo.saved_threads[0].last_context_snapshot_id == repo.saved_evidence_bundles[0].id
+    assert repo.saved_threads[0].claude_session_id == "session-1"
 
 
 def test_stream_reply_persists_confident_entity_alias_memory_for_short_experiment_alias():
@@ -648,6 +647,9 @@ def test_stream_reply_setup_failure_before_runtime_emits_error_and_marks_run_fai
     assert payloads[-1]["type"] == "error"
     assert payloads[-1]["run_id"].startswith("run-")
     assert repo.saved_runs[-1].status == "failed"
+    assert repo.saved_runs[-1].stderr_path is None
+    assert repo.saved_runs[-1].usage_json["last_error"] == "evidence save failed"
+    assert repo.saved_threads == []
     assert runtime.stream_chat_kwargs == []
 
 
@@ -707,6 +709,9 @@ def test_stream_reply_final_persistence_failure_emits_error_and_marks_run_failed
     assert payloads[-1]["type"] == "error"
     assert payloads[-1]["run_id"].startswith("run-")
     assert repo.saved_runs[-1].status == "failed"
+    assert repo.saved_runs[-1].stderr_path is None
+    assert repo.saved_runs[-1].usage_json["last_error"] == "finalize reply failed"
     assert repo.saved_memory_records == []
     assert not any(getattr(message, "role", "") == "assistant" for message in repo.messages)
     assert not any(run.status == "completed" for run in repo.saved_runs)
+    assert repo.saved_threads == []

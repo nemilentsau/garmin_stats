@@ -3,31 +3,30 @@
 This module owns short alias recall for experiment review conversations: it
 loads prompt and lookup memory, reroutes saved aliases into experiment review
 when appropriate, and decides when a new alias memory should be persisted. Chat
-orchestration supplies stores and route decisions, while this module owns the
-alias matching thresholds and token-window policy.
+orchestration supplies stores and route decisions, while shared text policy
+defines the alias token limits used by readers and writers.
 """
 
 from __future__ import annotations
 
 from uuid import uuid4
 
-from app.domains.assistant.application.entity_resolution import resolve_entities
 from app.domains.assistant.contracts import (
     AssistantMemoryRecord,
     AssistantResolvedEntity,
     AssistantRouteDecision,
 )
-from app.domains.assistant.dependencies import (
-    AssistantConversationStore,
-    AssistantReadModelStore,
+from app.domains.assistant.dependencies import AssistantRecallStore
+from app.domains.assistant.domain.text import (
+    ALIAS_MAX_PHRASE_TOKENS,
+    ALIAS_MAX_TOKENS,
+    ALIAS_MIN_TOKENS,
+    MEMORY_RECALL_LIMIT,
+    normalize_alias,
+    tokenize,
 )
-from app.domains.assistant.domain.text import normalize_alias, tokenize
 from app.utils.timeutil import now_iso
 
-MAX_MEMORY_RECORDS = 5
-"""Prompt-recall and evidence-bundle cap on assistant memory records per turn."""
-
-_MAX_ALIAS_PHRASE_TOKENS = 6
 _QUESTION_WORDS = {
     "are",
     "can",
@@ -54,13 +53,11 @@ _QUESTION_WORDS = {
     "will",
     "would",
 }
-_MIN_ALIAS_TOKENS = 2
-_MAX_ALIAS_TOKENS = 6
 _MIN_ALIAS_SCORE = 0.9
 
 
 def load_resolution_memory_records(
-    repo: AssistantConversationStore,
+    repo: AssistantRecallStore,
     *,
     query: str,
 ) -> tuple[list[AssistantMemoryRecord], list[AssistantMemoryRecord]]:
@@ -70,7 +67,7 @@ def load_resolution_memory_records(
     set using query token windows so saved aliases outside the prompt window can
     still resolve a user follow-up.
     """
-    prompt_memory_records = list(repo.list_memory_records(last_n=MAX_MEMORY_RECORDS))
+    prompt_memory_records = list(repo.list_memory_records(last_n=MEMORY_RECALL_LIMIT))
     alias_candidates = _alias_query_candidates(query)
     alias_memory_records = list(
         repo.list_memory_records(
@@ -92,37 +89,25 @@ def maybe_reroute_from_memory_alias(
     *,
     memory_records: list[AssistantMemoryRecord],
     route: AssistantRouteDecision,
-    read_store: AssistantReadModelStore,
     query: str,
-) -> tuple[AssistantRouteDecision, list[AssistantResolvedEntity]]:
+) -> tuple[AssistantRouteDecision, set[str]]:
     """Promote a non-experiment route when the query matches a saved alias."""
     if route.intent == "experiment_review":
-        return route, []
-    if not _matches_saved_entity_alias(memory_records=memory_records, query=query):
-        return route, []
+        return route, set()
+
+    matched_entity_ids = _matching_saved_entity_alias_ids(
+        memory_records=memory_records,
+        query=query,
+    )
+    if not matched_entity_ids:
+        return route, set()
 
     experiment_route = AssistantRouteDecision(
         intent="experiment_review",
         confidence=route.confidence,
         matched_signals=[*route.matched_signals, "memory_alias_reroute"],
     )
-    entities = resolve_entities(
-        store=read_store,
-        memory=memory_records,
-        route=experiment_route,
-        query=query,
-    )
-    if not entities:
-        return route, []
-
-    matched_entity_ids = {entity.entity_id for entity in entities if entity.kind == "experiment"}
-    if not _matches_saved_entity_alias(
-        memory_records=memory_records,
-        query=query,
-        entity_ids=matched_entity_ids,
-    ):
-        return route, []
-    return experiment_route, entities
+    return experiment_route, matched_entity_ids
 
 
 def build_entity_alias_memory_record(
@@ -149,7 +134,7 @@ def build_entity_alias_memory_record(
         return None
 
     alias_tokens = tokenize(alias_text)
-    if not (_MIN_ALIAS_TOKENS <= len(alias_tokens) <= _MAX_ALIAS_TOKENS):
+    if not (ALIAS_MIN_TOKENS <= len(alias_tokens) <= ALIAS_MAX_TOKENS):
         return None
     if any(token in _QUESTION_WORDS for token in alias_tokens):
         return None
@@ -186,10 +171,26 @@ def _matches_saved_entity_alias(
     query: str,
     entity_ids: set[str] | None = None,
 ) -> bool:
+    return bool(
+        _matching_saved_entity_alias_ids(
+            memory_records=memory_records,
+            query=query,
+            entity_ids=entity_ids,
+        )
+    )
+
+
+def _matching_saved_entity_alias_ids(
+    *,
+    memory_records: list[AssistantMemoryRecord],
+    query: str,
+    entity_ids: set[str] | None = None,
+) -> set[str]:
     query_tokens = tokenize(query)
     if not query_tokens:
-        return False
+        return set()
 
+    matched_ids: set[str] = set()
     for record in memory_records:
         if record.kind != "entity_alias" or not record.alias_text or not record.entity_id:
             continue
@@ -199,8 +200,8 @@ def _matches_saved_entity_alias(
             query_tokens=query_tokens,
             alias_tokens=tokenize(record.alias_text),
         ):
-            return True
-    return False
+            matched_ids.add(record.entity_id)
+    return matched_ids
 
 
 def _query_contains_alias(*, query_tokens: list[str], alias_tokens: list[str]) -> bool:
@@ -218,7 +219,7 @@ def _alias_query_candidates(query: str) -> tuple[str, ...]:
     if not query_tokens:
         return ()
 
-    max_window = min(len(query_tokens), _MAX_ALIAS_PHRASE_TOKENS)
+    max_window = min(len(query_tokens), ALIAS_MAX_PHRASE_TOKENS)
     candidates: dict[str, None] = {}
     for window_size in range(1, max_window + 1):
         for index in range(len(query_tokens) - window_size + 1):
