@@ -1,28 +1,32 @@
 # Routine Artifact Bundle Spec
 
-This is the only supported high-level routine import contract.
+This is the current high-level import contract for assistant-authored routine
+content.
 
-The app does not ingest arbitrary markdown. It accepts one deterministic JSON bundle, previews it without writes, then imports and auto-activates it into the live runtime.
+The app does not ingest arbitrary markdown. It accepts deterministic JSON,
+previews it without writes, imports validated artifacts, and auto-activates
+them into the live routine runtime.
 
 ## Canonical Flow
 
-`source document -> bundle JSON -> preview -> import -> auto-activate -> schedule/today`
+```text
+source material -> bundle JSON -> preview -> import -> auto-activate -> schedule/today
+```
 
 Important implications:
 
 - markdown-to-bundle conversion happens outside the runtime
 - preview performs no writes
-- bundle import persists artifacts and auto-activates them in dependency order
-- Schedule and Today only read live compiled runtime records
+- import persists validated artifacts before activation
+- card templates activate before routines because routines reference cards
+- Schedule and Today only read live compiled routine records
 
-## Accepted Shape
-
-The app accepts one top-level object:
+## Top-Level Shape
 
 ```json
 {
-  "id": "bundle-id",
-  "name": "Bundle Name",
+  "id": "two-week-meditation-foundation",
+  "name": "Two-Week Meditation Foundation",
   "schema_version": 1,
   "description": "Optional summary",
   "card_templates": [],
@@ -32,48 +36,16 @@ The app accepts one top-level object:
 
 Rules:
 
-- `id` must be stable
-- `name` must be human-readable
-- `schema_version` is currently `1`
-- at least one of `card_templates` or `routine_specs` must be present
-
-## Determinism Rule
-
-The bundle must already be deterministic before preview.
-
-Allowed:
-
-- explicit cadence
-- explicit start date and optional end date
-- explicit weekday, slot, and position
-- explicit card references
-- assignment-level prescription overrides
-
-Not allowed:
-
-- runtime branching such as "do A or B depending on how you feel"
-- vague recurrence such as "every few days"
-- experiments or analysis instructions mixed into schedule specs
-- payload hacks for unsupported renderer families
-
-If the source material is ambiguous, normalize it before producing the bundle.
-
-## IDs
-
-Use stable lowercase kebab-case ids.
-
-Recommended pattern:
-
-- bundle: `two-week-meditation-foundation`
-- card: `meditation-focused-attention`
-- routine: `two-week-meditation-foundation-routine`
-- assignment: `two-week-meditation:week2-thu-midday-focused-attention`
-
-Stable ids matter because preview/import distinguishes create vs update behavior by identity.
+- `id` is stable lowercase kebab-case.
+- `name` is human-readable.
+- `schema_version` is currently `1`.
+- At least one of `card_templates` or `routine_specs` must be present.
+- The bundle is deterministic before preview. Vague recurrence such as "every
+  few days" must already be normalized to concrete assignment days.
 
 ## Card Templates
 
-Each `card_templates[]` entry must match the runtime `CardTemplateSpec`.
+Each `card_templates[]` item must match `CardTemplateSpec`.
 
 Required fields:
 
@@ -88,23 +60,24 @@ Optional fields:
 - `summary`
 - `tags`
 
-Supported renderer families in v1:
+Supported renderer families:
 
 - `timer_session`
 - `checklist_block`
 - `exercise_block`
 
-If the source needs another interaction model, return a capability request instead of forcing it into the bundle.
+If the source material needs another interaction model, stage a
+`capability_request` artifact instead of forcing unsupported behavior into a
+card payload.
 
 ## Routine Specs
 
-Each `routine_specs[]` entry must match the runtime `RoutineSpec`.
+Each `routine_specs[]` item must match `RoutineSpec`.
 
 Required fields:
 
 - `id`
 - `name`
-- `cadence`
 - `start_date`
 - `assignments`
 
@@ -115,51 +88,70 @@ Optional fields:
 - `tags`
 - `notes`
 
-Supported cadence values:
-
-- `weekly`
-- `biweekly`
+Routines do not carry cadence fields. The artifact layer accepts explicit
+day-relative assignments and activation compiles them into dated
+`RoutineAssignment` rows.
 
 ## Assignments
 
-Each assignment places one reusable card into one recurring slot.
+Each `assignments[]` item must match `RoutineActivationAssignment`.
 
 Required fields:
 
 - `id`
 - `card_template_id`
-- `weekday`
+- `day`
 - `slot`
 
 Optional fields:
 
-- `cycle_week`
 - `position`
 - `prescription_override_json`
 
 Rules:
 
-- weekly routines use `cycle_week = 1`
-- biweekly routines use `cycle_week = 1` or `2`
-- every `card_template_id` must resolve either to a bundled card template or an already-existing live card template
+- `day` is 1-based relative to the routine `start_date`.
+- Every `card_template_id` must resolve to either a bundled card template, an
+  already validated/activated card artifact, or an existing live card template.
+- Assignment ids must be unique within the bundle and must not collide with an
+  assignment already owned by another routine.
+- Multiple assignments on the same date are valid and expected when a protocol
+  requires multiple sessions.
 
-## Card Reuse vs New Cards
+Example assignment:
+
+```json
+{
+  "id": "two-week-meditation:day8-midday-box",
+  "card_template_id": "meditation-box-breathing",
+  "day": 8,
+  "slot": "midday",
+  "position": 10,
+  "prescription_override_json": {
+    "duration_minutes": 6,
+    "instructions": "Keep the rhythm easy; stop if breathing feels forced."
+  }
+}
+```
+
+## Card Reuse
 
 Reuse a card template when the interaction model is the same.
 
-Use assignment overrides when the difference is only:
+Use assignment-level `prescription_override_json` when the difference is only:
 
 - duration
 - instructions
 - prompts
 - pattern
-- dose
+- dose or progression
 
-Create a new card template only when the interaction model itself changes.
+Create a new card template only when the user-facing interaction type materially
+changes.
 
 ## Preview Expectations
 
-Preview should reject:
+Preview rejects:
 
 - malformed bundle shape
 - placeholder or demo content
@@ -167,28 +159,26 @@ Preview should reject:
 - duplicate routine ids
 - duplicate assignment ids
 - unknown card references
-- invalid cadence/week combinations
 - unsupported renderer families
+- assignment ids already owned by another live or staged routine
 
-Preview is the validation boundary. It must not write live runtime data.
+Preview is the validation boundary. It must not write artifacts, cards,
+routines, assignments, or logs.
 
 ## Import Expectations
 
 If preview is clean, import should:
 
-1. persist the validated artifacts
-2. auto-activate card templates first
-3. auto-activate routines after their card dependencies exist
-4. leave the live result visible in `/routines/schedule` and `/today`
+1. Persist the validated artifacts.
+2. Activate card templates first.
+3. Activate routines after card dependencies exist.
+4. Leave the live result visible in `/routines/schedule` and `/today`.
 
 The normal bundle flow does not require a separate manual activation step.
+Low-level assistant-artifact APIs may still expose manual activation for
+debugging or one-off flows, but that is not the canonical path.
 
-Low-level assistant-artifact APIs may still expose manual activation for debugging or one-off flows, but that is not the canonical path.
+## Checked-In Examples
 
-## Example Bundles
-
-Checked-in examples:
-
-- [docs/morning_stretching_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/morning_stretching_bundle.json)
 - [docs/two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
 - [docs/two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)

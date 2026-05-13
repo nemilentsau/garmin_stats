@@ -552,14 +552,14 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
   Product overview, routes, setup, API map.
 
-- [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
-  Routine runtime design rules.
-
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
   Planned analytical foundation for activity sessions, derived daily training features, and experiment-day joins.
 
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
   Bundle import contract.
+
+- [docs/REFACTOR_PLAN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/REFACTOR_PLAN.md)
+  Active backend architecture cleanup plan.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
   Current dataset observations.
