@@ -1,51 +1,46 @@
 <script lang="ts">
 	import type { AdherenceDayEntry } from '$lib/api';
+	import { addDays, calendarDayDiff, parseIsoDate } from '$lib/date';
+
+	type AdherenceState = AdherenceDayEntry['state'];
 
 	let {
 		entries,
-		rate,
 		treatmentStart,
 		treatmentEnd,
 		currentDate
 	}: {
 		entries: AdherenceDayEntry[];
-		rate: number;
 		treatmentStart: string;
 		treatmentEnd: string | null;
 		currentDate: string;
 	} = $props();
 
-	function daysBetween(a: string, b: string): number {
-		return Math.round(
-			(new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)
-		);
-	}
-
+	const monthDayFormat = new Intl.DateTimeFormat(undefined, {
+		month: 'short',
+		day: 'numeric'
+	});
 	function fmtMonthDay(dateStr: string): string {
-		const d = new Date(dateStr + 'T12:00:00');
-		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		return monthDayFormat.format(parseIsoDate(dateStr));
 	}
 
-	function stateColor(state: string, isFuture: boolean): string {
-		if (isFuture) return 'rgba(255,255,255,0.04)';
-		if (state === 'full') return '#4CAF82';
-		if (state === 'partial') return '#D4944C';
-		if (state === 'missed') return '#E85D4A';
-		return 'rgba(255,255,255,0.08)';
-	}
+	const STATE_VISUAL: Record<AdherenceState, { color: string; label: string }> = {
+		full: { color: '#4CAF82', label: 'Done' },
+		partial: { color: '#D4944C', label: 'Partial' },
+		missed: { color: '#E85D4A', label: 'Missed' },
+		unknown: { color: 'rgba(255,255,255,0.08)', label: 'No data' }
+	};
 
-	function stateLabel(state: string, isFuture: boolean, isToday: boolean): string {
-		if (isFuture) return 'Upcoming';
-		if (state === 'full') return 'Done';
-		if (state === 'partial') return 'Partial';
-		if (state === 'missed') return 'Missed';
-		return isToday ? 'Not logged yet' : 'No data';
-	}
-
-	function addDays(start: string, n: number): string {
-		const d = new Date(start + 'T12:00:00');
-		d.setDate(d.getDate() + n);
-		return d.toISOString().slice(0, 10);
+	function cellVisual(
+		state: AdherenceState,
+		isFuture: boolean,
+		isToday: boolean
+	): { color: string; label: string } {
+		if (isFuture) return { color: 'rgba(255,255,255,0.04)', label: 'Upcoming' };
+		if (state === 'unknown' && isToday) {
+			return { color: STATE_VISUAL.unknown.color, label: 'Not logged yet' };
+		}
+		return STATE_VISUAL[state];
 	}
 
 	const entriesByDate = $derived(
@@ -54,15 +49,13 @@
 
 	const plannedDays = $derived(
 		treatmentEnd
-			? Math.max(daysBetween(treatmentStart, treatmentEnd) + 1, 1)
+			? Math.max(calendarDayDiff(treatmentStart, treatmentEnd) + 1, 1)
 			: Math.max(entries.length, 1)
 	);
 
 	const elapsedDays = $derived(
-		Math.max(0, Math.min(daysBetween(treatmentStart, currentDate) + 1, plannedDays))
+		Math.max(0, Math.min(calendarDayDiff(treatmentStart, currentDate) + 1, plannedDays))
 	);
-
-	const currentDayNumber = $derived(Math.max(elapsedDays, 1));
 
 	const cells = $derived(
 		Array.from({ length: plannedDays }, (_, i) => {
@@ -70,40 +63,38 @@
 			const entry = entriesByDate.get(date);
 			const isFuture = date > currentDate;
 			const isToday = date === currentDate;
-			const state = entry?.state ?? 'unknown';
+			const state: AdherenceState = entry?.state ?? 'unknown';
+			const visual = cellVisual(state, isFuture, isToday);
 			return {
 				date,
+				dateLabel: fmtMonthDay(date),
 				dayIndex: i + 1,
 				state,
 				exposureScore: entry?.exposure_score ?? null,
 				isFuture,
 				isToday,
-				color: stateColor(state, isFuture),
-				label: stateLabel(state, isFuture, isToday)
+				color: visual.color,
+				label: visual.label
 			};
 		})
 	);
 
-	const fullCount = $derived(
-		cells.filter((c) => !c.isFuture && c.state === 'full').length
-	);
-
-	const partialCount = $derived(
-		cells.filter((c) => !c.isFuture && c.state === 'partial').length
-	);
-
-	const missedCount = $derived(
-		cells.filter((c) => !c.isFuture && c.state === 'missed').length
+	const counts = $derived(
+		cells.reduce(
+			(acc, c) => {
+				if (!c.isFuture) acc[c.state] += 1;
+				return acc;
+			},
+			{ full: 0, partial: 0, missed: 0, unknown: 0 } as Record<AdherenceState, number>
+		)
 	);
 
 	const elapsedHeadlinePct = $derived(
-		elapsedDays > 0 ? Math.round((fullCount / elapsedDays) * 100) : 0
+		elapsedDays > 0 ? Math.round((counts.full / elapsedDays) * 100) : 0
 	);
 
 	const startLabel = $derived(fmtMonthDay(treatmentStart));
-	const endLabel = $derived(
-		cells.length > 0 ? fmtMonthDay(cells[cells.length - 1].date) : ''
-	);
+	const endLabel = $derived(cells.length > 0 ? cells[cells.length - 1].dateLabel : '');
 
 	const adherenceTone = $derived(
 		elapsedDays === 0
@@ -121,12 +112,12 @@
 		<div class="flex items-baseline gap-3">
 			<h3 class="font-['DM_Mono',monospace] text-sm text-[#8a9baa]">Adherence</h3>
 			<span class="font-['DM_Mono',monospace] text-[11px] text-[#5e7282]">
-				Day {currentDayNumber} of {plannedDays}
+				Day {elapsedDays} of {plannedDays}
 			</span>
 		</div>
 		<div class="flex items-baseline gap-2">
 			<span class="font-['DM_Mono',monospace] text-[11px] text-[#5e7282]">
-				{fullCount}/{elapsedDays} fully adhered
+				{counts.full}/{elapsedDays} fully adhered
 			</span>
 			<span class="text-base font-bold tabular-nums {adherenceTone}">
 				{elapsedHeadlinePct}%
@@ -134,7 +125,10 @@
 		</div>
 	</div>
 
-	<div class="grid w-full gap-[3px]" style="grid-template-columns: repeat({cells.length}, minmax(0, 1fr));">
+	<div
+		class="grid w-full gap-[3px]"
+		style="grid-template-columns: repeat({cells.length}, minmax(0, 1fr));"
+	>
 		{#each cells as cell}
 			<div
 				class="relative h-6 rounded-sm transition-opacity"
@@ -142,7 +136,7 @@
 				class:ring-inset={cell.isToday}
 				class:ring-white={cell.isToday}
 				style="background: {cell.color};"
-				title="Day {cell.dayIndex} · {fmtMonthDay(cell.date)} · {cell.label}{cell.exposureScore !== null && !cell.isFuture ? ` (${Math.round(cell.exposureScore * 100)}%)` : ''}"
+				title="Day {cell.dayIndex} · {cell.dateLabel} · {cell.label}{cell.exposureScore !== null && !cell.isFuture ? ` (${Math.round(cell.exposureScore * 100)}%)` : ''}"
 			></div>
 		{/each}
 	</div>
@@ -154,19 +148,19 @@
 
 	<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#5e7282]">
 		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:#4CAF82"></span>
-			Done {fullCount > 0 ? `(${fullCount})` : ''}
+			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.full.color}"></span>
+			Done {counts.full > 0 ? `(${counts.full})` : ''}
 		</span>
 		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:#D4944C"></span>
-			Partial {partialCount > 0 ? `(${partialCount})` : ''}
+			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.partial.color}"></span>
+			Partial {counts.partial > 0 ? `(${counts.partial})` : ''}
 		</span>
 		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:#E85D4A"></span>
-			Missed {missedCount > 0 ? `(${missedCount})` : ''}
+			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.missed.color}"></span>
+			Missed {counts.missed > 0 ? `(${counts.missed})` : ''}
 		</span>
 		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm ring-1 ring-inset ring-white" style="background:rgba(255,255,255,0.08)"></span>
+			<span class="inline-block h-2 w-2 rounded-sm ring-1 ring-inset ring-white" style="background:{STATE_VISUAL.unknown.color}"></span>
 			Today
 		</span>
 		<span class="inline-flex items-center gap-1.5">

@@ -18,3 +18,9 @@ export function calendarDayDiff(startIsoDate: string, endIsoDate: string): numbe
 	const msPerDay = 24 * 60 * 60 * 1000;
 	return Math.round((parseIsoDate(endIsoDate).getTime() - parseIsoDate(startIsoDate).getTime()) / msPerDay);
 }
+
+export function addDays(isoDate: string, delta: number): string {
+	const next = parseIsoDate(isoDate);
+	next.setDate(next.getDate() + delta);
+	return localDateIso(next);
+}

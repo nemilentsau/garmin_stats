@@ -1,9 +1,9 @@
-"""Shared SQLite setup and remaining global profile helpers.
+"""Shared SQLite settings and remaining global profile helpers.
 
 Domain-owned tables are initialized from ``app.bootstrap.schema`` so the
 infrastructure layer does not need to know product table names. This module
-keeps the database path setup, WAL configuration, and legacy profile JSON
-helpers used by the profile adapter.
+keeps the database path constant, the legacy connection helper used by tests,
+and the profile JSON store consumed by the profile adapter.
 """
 
 from ..core.config import get_app_config
@@ -22,21 +22,9 @@ DATA_DIR = _APP_CONFIG.data_dir
 _VALID_TABLES = frozenset({"user_profile", "goals"})
 
 
-# ---------------------------------------------------------------------------
-# Schema & connection
-# ---------------------------------------------------------------------------
-
 def _connect():
     """Yield a sqlite3 connection with Row factory; close on exit."""
     return connect(str(DB_PATH))
-
-
-def init_db() -> None:
-    """Ensure the SQLite file exists and WAL mode is enabled."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with _connect() as con:
-        con.execute("PRAGMA journal_mode=WAL")
-        con.commit()
 
 
 _STORE = JsonStore(_VALID_TABLES)

@@ -201,23 +201,14 @@
 					treatmentEnd={exp.design.treatment_end_date}
 					currentDate={today}
 				/>
-
-				<AdherenceCalendar
-					entries={analysis.adherence_by_day}
-					rate={analysis.adherence_rate}
-					treatmentStart={exp.design.treatment_start_date}
-					treatmentEnd={exp.design.treatment_end_date}
-					currentDate={today}
-				/>
-			{:else}
-				<AdherenceCalendar
-					entries={analysis.adherence_by_day}
-					rate={analysis.adherence_rate}
-					treatmentStart={analysis.adherence_by_day[0]?.date ?? today}
-					treatmentEnd={null}
-					currentDate={today}
-				/>
 			{/if}
+
+			<AdherenceCalendar
+				entries={analysis.adherence_by_day}
+				treatmentStart={exp.design?.treatment_start_date ?? analysis.adherence_by_day[0]?.date ?? today}
+				treatmentEnd={exp.design?.treatment_end_date ?? null}
+				currentDate={today}
+			/>
 
 			<div class="space-y-4">
 				{#each analysis.metrics as metric}

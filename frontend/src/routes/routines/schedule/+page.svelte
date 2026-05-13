@@ -11,7 +11,7 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { isIsoDateString, localDateIso } from '$lib/date';
+	import { addDays, isIsoDateString, localDateIso } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 
 	type SlotName = ScheduleOccurrence['slot'];
@@ -153,12 +153,6 @@
 
 	function toDate(date: string): Date {
 		return new Date(`${date}T12:00:00`);
-	}
-
-	function addDays(date: string, delta: number): string {
-		const next = toDate(date);
-		next.setDate(next.getDate() + delta);
-		return localDateIso(next);
 	}
 
 	const shortDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });

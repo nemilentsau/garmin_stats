@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { calendarDayDiff } from '$lib/date';
+
 	let {
 		baselineStart,
 		baselineEnd,
@@ -13,21 +15,15 @@
 		currentDate: string;
 	} = $props();
 
-	function daysBetween(a: string, b: string): number {
-		return Math.round(
-			(new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)
-		);
-	}
-
-	const baselineDays = $derived(daysBetween(baselineStart, baselineEnd) + 1);
+	const baselineDays = $derived(calendarDayDiff(baselineStart, baselineEnd) + 1);
 	const isOngoing = $derived(!treatmentEnd || treatmentEnd > currentDate);
 	const plannedTreatmentDays = $derived(
 		treatmentEnd
-			? daysBetween(treatmentStart, treatmentEnd) + 1
-			: Math.max(daysBetween(treatmentStart, currentDate) + 1, 1)
+			? calendarDayDiff(treatmentStart, treatmentEnd) + 1
+			: Math.max(calendarDayDiff(treatmentStart, currentDate) + 1, 1)
 	);
 	const elapsedTreatmentDays = $derived(
-		Math.max(0, Math.min(daysBetween(treatmentStart, currentDate) + 1, plannedTreatmentDays))
+		Math.max(0, Math.min(calendarDayDiff(treatmentStart, currentDate) + 1, plannedTreatmentDays))
 	);
 	const totalDays = $derived(baselineDays + plannedTreatmentDays);
 	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));

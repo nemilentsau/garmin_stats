@@ -1,9 +1,10 @@
 """Storage schema composition for the application process.
 
-SQLite setup lives in ``app.infra.database``; table ownership lives beside the
-storage adapters that read and write those tables. This module is the bootstrap
-composition point that creates the complete schema without making infra depend
-on product domains.
+SQLite primitives live in ``app.infra.sqlite``; per-table ownership lives beside
+the storage adapters that read and write those tables. This module is the
+bootstrap composition point that ensures the database file exists, configures
+WAL, and creates every owned schema in a single connection so infra never has
+to know product table names.
 """
 
 from app.core.profile.schema import init_profile_schema
@@ -14,13 +15,14 @@ from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
 from app.domains.programs.schema import init_program_schema
 from app.domains.routines.schema import init_routine_schema
-from app.infra import database
+from app.infra.sqlite import DB_PATH, connect
 
 
 def init_storage() -> None:
-    """Initialize shared SQLite settings and every owned storage schema."""
-    database.init_db()
-    with database._connect() as con, con:
+    """Ensure the SQLite file exists, enable WAL, and create every owned schema."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with connect() as con:
+        con.execute("PRAGMA journal_mode=WAL")
         init_garmin_sync_schema(con)
         init_profile_schema(con)
         init_assistant_schema(con)
@@ -29,3 +31,4 @@ def init_storage() -> None:
         init_journal_schema(con)
         init_experiment_schema(con)
         init_program_schema(con)
+        con.commit()
