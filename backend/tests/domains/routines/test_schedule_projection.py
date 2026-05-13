@@ -2,7 +2,6 @@
 
 import pytest
 
-from app.domains.routines.adapters import save_card_override
 from app.domains.routines.contracts import CardOverride
 from tests._routines_helpers import (
     activate_routine_card as _activate_card,
@@ -12,6 +11,7 @@ from tests._routines_helpers import (
 )
 from tests._routines_helpers import (
     get_schedule_window,
+    persist_card_override,
 )
 from tests._routines_helpers import (
     routine_assignment_spec as _assignment,
@@ -281,7 +281,7 @@ class TestScheduleProjection:
         window_before = get_schedule_window("2026-03-02")
         scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-extra",
                 date="2026-03-02",
@@ -291,7 +291,7 @@ class TestScheduleProjection:
                 position=5,
             )
         )
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-hide-main",
                 date="2026-03-02",
@@ -328,7 +328,7 @@ class TestScheduleProjection:
         window_before = get_schedule_window("2026-03-02")
         scheduled_occurrence = _days_by_date(window_before)["2026-03-02"].occurrences[0]
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-replace-main",
                 date="2026-03-02",
@@ -354,7 +354,7 @@ class TestScheduleProjection:
     def test_replace_override_without_target_occurrence_is_ignored(self):
         _activate_card("card-extra", name="Extra Card", slot_default="morning")
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-replace-missing",
                 date="2026-03-02",

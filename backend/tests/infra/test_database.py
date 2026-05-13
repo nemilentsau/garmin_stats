@@ -23,6 +23,7 @@ from app.domains.routines.contracts import (
     RoutineAssignment,
     RoutineSchedule,
 )
+from tests._routines_helpers import persist_card_override
 
 # ---------------------------------------------------------------------------
 # init & schema
@@ -176,7 +177,7 @@ class TestStoreAndLoad:
         routine_db.save_card_template(card)
         routine_db.save_routine_schedule_with_assignments(routine, [assignment])
         routine_db.save_card_log(log)
-        routine_db.save_card_override(override)
+        persist_card_override(override)
 
         assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
         assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
@@ -184,7 +185,10 @@ class TestStoreAndLoad:
             "assignment-1"
         ]
         assert [entry.id for entry in routine_db.load_card_logs("2026-03-02")] == ["log-1"]
-        assert [entry.id for entry in routine_db.load_card_overrides("2026-03-02")] == [
+        assert [
+            entry.id
+            for entry in routine_db.load_card_overrides_range("2026-03-02", "2026-03-02")
+        ] == [
             "override-1"
         ]
 
@@ -200,7 +204,7 @@ class TestCardOverridesRange:
     def test_range_query_matches_individual_date_queries(self):
         dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
         for i, date in enumerate(dates):
-            routine_db.save_card_override(CardOverride(
+            persist_card_override(CardOverride(
                 id=f"override-{i}",
                 date=date,
                 action="hide",
@@ -210,7 +214,7 @@ class TestCardOverridesRange:
         range_result = routine_db.load_card_overrides_range("2026-03-02", "2026-03-04")
         individual_results = []
         for date in dates:
-            individual_results.extend(routine_db.load_card_overrides(date=date))
+            individual_results.extend(routine_db.load_card_overrides_range(date, date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
 

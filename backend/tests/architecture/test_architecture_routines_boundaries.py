@@ -71,6 +71,14 @@ def test_routines_application_does_not_import_artifacts():
     assert_no_text_in_files(paths, ["app.domains.artifacts"])
 
 
+def test_routine_adapter_does_not_expose_test_only_override_helpers():
+    source = read_repo_file("backend/app/domains/routines/adapters.py")
+
+    assert "def save_card_override(" not in source
+    assert "def load_card_overrides(" not in source
+    assert "def load_card_overrides_range(" in source
+
+
 def test_migrated_routine_service_shims_are_removed():
     for path in [
         "backend/app/services/routines.py",

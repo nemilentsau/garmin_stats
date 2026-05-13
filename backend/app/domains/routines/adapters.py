@@ -223,33 +223,6 @@ def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
     )
 
 
-def save_card_override(override: CardOverride) -> None:
-    """Persist one dated card override."""
-    _STORE.save(
-        "card_overrides",
-        override.id,
-        override.model_dump_json(),
-        extra_columns={
-            "override_date": override.date,
-            "action": override.action,
-            "target_occurrence_key": override.target_occurrence_key,
-        },
-    )
-
-
-def load_card_overrides(date: str | None = None) -> list[CardOverride]:
-    """Load card overrides, optionally restricted to one date."""
-    where_sql = "override_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _STORE.load_many(
-        "card_overrides",
-        CardOverride,
-        where_sql=where_sql,
-        params=params,
-        order_by="override_date, created_at, id",
-    )
-
-
 def load_card_overrides_range(
     start_date: str,
     end_date: str,

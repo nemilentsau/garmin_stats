@@ -12,10 +12,13 @@ from app.domains.routines.application.today import (
     upsert_today_card_log as _upsert_today_card_log,
 )
 from app.domains.routines.contracts import (
+    CardOverride,
     RoutineAssignment,
     RoutineSchedule,
     TodayCardLogUpdateRequest,
 )
+from app.infra.sqlite import connect
+from app.utils.timeutil import now_iso
 from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
@@ -179,3 +182,30 @@ def upsert_today_card_log(
         request=request,
         observer=container.experiment_exposure_sync,
     )
+
+
+def persist_card_override(override: CardOverride) -> None:
+    """Seed a persisted card override without exposing a production write API."""
+    now = now_iso()
+    with connect() as con, con:
+        row = con.execute(
+            "SELECT created_at FROM card_overrides WHERE id = ?",
+            (override.id,),
+        ).fetchone()
+        created_at = row["created_at"] if row is not None else now
+        con.execute(
+            (
+                "INSERT OR REPLACE INTO card_overrides "
+                "(id, override_date, action, target_occurrence_key, data, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)"
+            ),
+            (
+                override.id,
+                override.date,
+                override.action,
+                override.target_occurrence_key,
+                override.model_dump_json(),
+                created_at,
+                now,
+            ),
+        )
