@@ -201,18 +201,28 @@
 					treatmentEnd={exp.design.treatment_end_date}
 					currentDate={today}
 				/>
-			{/if}
 
-			<div class="grid gap-6 lg:grid-cols-[300px_1fr]">
 				<AdherenceCalendar
 					entries={analysis.adherence_by_day}
 					rate={analysis.adherence_rate}
+					treatmentStart={exp.design.treatment_start_date}
+					treatmentEnd={exp.design.treatment_end_date}
+					currentDate={today}
 				/>
-				<div class="space-y-4">
-					{#each analysis.metrics as metric}
-						<MetricComparison {metric} />
-					{/each}
-				</div>
+			{:else}
+				<AdherenceCalendar
+					entries={analysis.adherence_by_day}
+					rate={analysis.adherence_rate}
+					treatmentStart={analysis.adherence_by_day[0]?.date ?? today}
+					treatmentEnd={null}
+					currentDate={today}
+				/>
+			{/if}
+
+			<div class="space-y-4">
+				{#each analysis.metrics as metric}
+					<MetricComparison {metric} />
+				{/each}
 			</div>
 
 			<ConfounderPanel confounders={analysis.confounders} />

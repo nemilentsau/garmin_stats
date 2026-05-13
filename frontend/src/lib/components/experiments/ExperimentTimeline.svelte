@@ -20,18 +20,20 @@
 	}
 
 	const baselineDays = $derived(daysBetween(baselineStart, baselineEnd) + 1);
-	const effectiveEnd = $derived(treatmentEnd ?? currentDate);
-	const treatmentDays = $derived(daysBetween(treatmentStart, effectiveEnd) + 1);
-	const totalDays = $derived(baselineDays + treatmentDays);
-	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));
-	const treatmentPct = $derived(100 - baselinePct);
-
 	const isOngoing = $derived(!treatmentEnd || treatmentEnd > currentDate);
 	const plannedTreatmentDays = $derived(
-		treatmentEnd ? daysBetween(treatmentStart, treatmentEnd) + 1 : treatmentDays
+		treatmentEnd
+			? daysBetween(treatmentStart, treatmentEnd) + 1
+			: Math.max(daysBetween(treatmentStart, currentDate) + 1, 1)
 	);
+	const elapsedTreatmentDays = $derived(
+		Math.max(0, Math.min(daysBetween(treatmentStart, currentDate) + 1, plannedTreatmentDays))
+	);
+	const totalDays = $derived(baselineDays + plannedTreatmentDays);
+	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));
+	const treatmentPct = $derived(100 - baselinePct);
 	const treatmentProgress = $derived(
-		isOngoing ? Math.round((treatmentDays / plannedTreatmentDays) * 100) : 100
+		isOngoing ? Math.round((elapsedTreatmentDays / plannedTreatmentDays) * 100) : 100
 	);
 </script>
 
@@ -49,7 +51,7 @@
 	<div class="flex justify-between text-[11px] font-['DM_Mono',monospace] text-[#5e7282]">
 		<span>Baseline {baselineDays}d</span>
 		<span>
-			Treatment {treatmentDays}{#if isOngoing}/{plannedTreatmentDays}{/if}d
+			Treatment {elapsedTreatmentDays}{#if isOngoing}/{plannedTreatmentDays}{/if}d
 		</span>
 	</div>
 </div>
