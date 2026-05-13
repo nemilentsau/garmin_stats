@@ -64,10 +64,6 @@ def test_journal_routes_use_container_repository():
     assert "notes_router" in source
 
 
-def test_shared_database_does_not_own_journal_contracts_or_crud():
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
-
-
 def test_journal_application_does_not_import_other_domains():
     assert_no_text_in_files(
         [

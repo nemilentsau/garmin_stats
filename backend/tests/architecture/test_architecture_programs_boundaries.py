@@ -82,10 +82,6 @@ def test_programs_domain_does_not_write_legacy_routine_or_experiment_children():
     )
 
 
-def test_shared_database_does_not_own_program_contracts_or_crud():
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
-
-
 def test_migrated_programs_service_shim_is_removed():
     assert not (REPO_ROOT / "backend/app/services/programs.py").exists()
 

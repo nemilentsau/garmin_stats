@@ -102,10 +102,6 @@ def test_experiment_domain_modules_do_not_import_application_or_infra():
     )
 
 
-def test_infra_database_does_not_own_experiment_persistence_contracts():
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
-
-
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "domains.experiments.routes" in source

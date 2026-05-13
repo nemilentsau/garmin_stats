@@ -10,16 +10,13 @@ from __future__ import annotations
 
 import sqlite3
 
-_JSON_COLS = (
-    "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
-    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
-)
+from app.infra.jsonstore import JSON_RECORD_COLUMNS_SQL
 
 _SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS assistant_threads ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS context_snapshots ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS evidence_cards ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS plans ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS assistant_threads ({JSON_RECORD_COLUMNS_SQL});
+CREATE TABLE IF NOT EXISTS context_snapshots ({JSON_RECORD_COLUMNS_SQL});
+CREATE TABLE IF NOT EXISTS evidence_cards ({JSON_RECORD_COLUMNS_SQL});
+CREATE TABLE IF NOT EXISTS plans ({JSON_RECORD_COLUMNS_SQL});
 CREATE TABLE IF NOT EXISTS assistant_messages (
     id TEXT PRIMARY KEY,
     thread_id TEXT NOT NULL,

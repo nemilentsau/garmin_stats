@@ -2,8 +2,7 @@
 
 Profile is core app configuration rather than a product domain, but it still
 owns its persistence boundary. This adapter stores JSON-backed profile records
-through the shared SQLite connection primitives without routing through a
-global database module.
+through the shared SQLite connection primitives.
 """
 
 from app.core.profile.contracts import (

@@ -9,13 +9,10 @@ from __future__ import annotations
 
 import sqlite3
 
-_JSON_COLS = (
-    "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
-    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
-)
+from app.infra.jsonstore import JSON_RECORD_COLUMNS_SQL
 
 _SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS experiments ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS experiments ({JSON_RECORD_COLUMNS_SQL});
 CREATE TABLE IF NOT EXISTS experiment_exposures (
     id TEXT PRIMARY KEY,
     experiment_id TEXT NOT NULL,

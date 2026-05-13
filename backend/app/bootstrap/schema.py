@@ -1,10 +1,9 @@
 """Storage schema composition for the application process.
 
 SQLite primitives live in ``app.infra.sqlite``; per-table ownership lives beside
-the storage adapters that read and write those tables. This module is the
-bootstrap composition point that ensures the database file exists, configures
-WAL, and creates every owned schema in a single connection so infra never has
-to know product table names.
+the storage adapters that read and write those tables. This module ensures the
+database file exists, enables WAL, and invokes each slice-owned schema
+initializer under one connection.
 """
 
 from app.core.profile.schema import init_profile_schema

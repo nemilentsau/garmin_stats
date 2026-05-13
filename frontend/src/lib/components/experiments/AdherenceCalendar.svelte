@@ -96,15 +96,13 @@
 	const startLabel = $derived(fmtMonthDay(treatmentStart));
 	const endLabel = $derived(cells.length > 0 ? cells[cells.length - 1].dateLabel : '');
 
-	const adherenceTone = $derived(
-		elapsedDays === 0
-			? 'text-[#5e7282]'
-			: elapsedHeadlinePct >= 70
-				? 'text-[#4CAF82]'
-				: elapsedHeadlinePct >= 50
-					? 'text-[#D4944C]'
-					: 'text-[#E85D4A]'
-	);
+	function pctTone(pct: number, elapsed: number): string {
+		if (elapsed === 0) return 'text-[#5e7282]';
+		if (pct >= 70) return 'text-[#4CAF82]';
+		if (pct >= 50) return 'text-[#D4944C]';
+		return 'text-[#E85D4A]';
+	}
+	const adherenceTone = $derived(pctTone(elapsedHeadlinePct, elapsedDays));
 </script>
 
 <div class="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-5 py-4">

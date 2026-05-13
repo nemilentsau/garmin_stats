@@ -1,22 +1,18 @@
 """SQLite schema owned by the app profile slice.
 
 Profile is core app configuration rather than a product domain, so its table
-definitions live beside the profile adapter. Global infrastructure stays
-limited to SQLite connection primitives and schema composition.
+definitions live beside the profile adapter.
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-_JSON_COLS = (
-    "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
-    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
-)
+from app.infra.jsonstore import JSON_RECORD_COLUMNS_SQL
 
 _SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS user_profile ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS goals ({_JSON_COLS});
+CREATE TABLE IF NOT EXISTS user_profile ({JSON_RECORD_COLUMNS_SQL});
+CREATE TABLE IF NOT EXISTS goals ({JSON_RECORD_COLUMNS_SQL});
 """
 
 

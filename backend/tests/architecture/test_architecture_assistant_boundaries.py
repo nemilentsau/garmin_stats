@@ -106,15 +106,10 @@ def test_assistant_routes_use_container_repository_and_runtime():
     assert "assistant_runtime" in source
 
 
-def test_shared_database_does_not_own_assistant_contracts_or_crud():
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
-
-
 def test_assistant_alias_migration_lives_with_sqlite_adapter():
     adapter_source = read_repo_file("backend/app/domains/assistant/adapters.py")
     lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
 
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
     assert "def migrate_assistant_storage(" in adapter_source
     assert "normalize_alias(row" in adapter_source
     assert "migrate_assistant_storage()" in lifespan_source

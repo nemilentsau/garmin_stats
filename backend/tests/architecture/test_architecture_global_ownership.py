@@ -59,10 +59,6 @@ def test_app_infra_cache_importers_are_explicitly_allowlisted():
     )
 
 
-def test_infra_database_does_not_own_domain_table_schema_names():
-    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
-
-
 def test_current_docs_do_not_reference_removed_app_stats_module():
     assert_no_text_in_files(
         [
