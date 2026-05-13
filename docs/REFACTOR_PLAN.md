@@ -14,19 +14,23 @@
 
 **Files:**
 
-- Modify: `backend/app/infra/database.py`
+- Delete: `backend/app/infra/database.py`
 - Create: `backend/app/bootstrap/schema.py`
+- Create: `backend/app/core/profile/adapters.py`
 - Modify: `backend/app/bootstrap/lifespan.py`
+- Modify: `backend/app/bootstrap/app.py`
+- Modify: `backend/app/bootstrap/container.py`
 - Modify: `backend/tests/conftest.py`
 - Create: `backend/app/domains/*/schema.py` for storage-owning domains, including single-table domains when the table is domain-specific
 - Create: `backend/app/core/profile/schema.py`
+- Delete: `backend/app/core/profile/infra/sqlite_repository.py`
 - Test: `backend/tests/infra/test_database.py`
 - Test: `backend/tests/architecture/test_architecture_global_ownership.py`
 
-- [x] Add a failing architecture test that prevents `backend/app/infra/database.py` from containing domain table names such as `assistant_messages`, `routine_assignments`, `experiment_exposures`, `program_versions`, `assistant_artifacts`, `daily_checkins`, and `card_logs`.
+- [x] Add a failing architecture test that prevents a global database module from owning domain table names such as `assistant_messages`, `routine_assignments`, `experiment_exposures`, `program_versions`, `assistant_artifacts`, `daily_checkins`, and `card_logs`.
 - [x] Add small schema initializer functions beside the owning adapters, for example `init_assistant_schema(con)`, `init_routine_schema(con)`, `init_experiment_schema(con)`, `init_artifact_schema(con)`, `init_journal_schema(con)`, `init_program_schema(con)`, and `init_profile_schema(con)`.
-- [x] Keep `app.infra.database.init_db()` limited to shared SQLite setup/core tables that still live in infra; do not let `database.py` import from `app.domains.*`.
-- [x] Add `app.bootstrap.schema.init_storage()` as the composition entrypoint that opens one connection, calls `database.init_db()` or its core-schema helper, then calls each domain/core schema initializer with that connection.
+- [x] Move the remaining profile JSON helpers into `core/profile/adapters.py` and delete the obsolete global database module.
+- [x] Add `app.bootstrap.schema.init_storage()` as the composition entrypoint that opens one shared SQLite connection, enables WAL, then calls each domain/core schema initializer with that connection.
 - [x] Update `lifespan.py`, `tests/conftest.py`, and any local test fixtures that initialize temporary databases to call the bootstrap schema entrypoint instead of the infra-only initializer.
 - [x] Run `cd backend && uv run pytest tests/infra/test_database.py tests/architecture/test_architecture_global_ownership.py -v`.
 - [x] Run `cd backend && uv run ruff check && uv run pyright app/ tests/`.

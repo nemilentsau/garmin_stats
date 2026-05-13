@@ -103,26 +103,7 @@ def test_experiment_domain_modules_do_not_import_application_or_infra():
 
 
 def test_infra_database_does_not_own_experiment_persistence_contracts():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.experiments.contracts" not in source
-
-    experiment_persistence_functions = [
-        "def experiment_exists(",
-        "def load_experiment(",
-        "def save_experiment(",
-        "def delete_experiment(",
-        "def load_experiments(",
-        "def save_experiment_exposure(",
-        "def replace_experiment_exposure_for_date(",
-        "def load_experiment_exposures(",
-        "def save_experiment_report(",
-        "def load_experiment_reports(",
-        "def save_experiment_analysis(",
-        "def delete_experiment_analysis(",
-        "def load_experiment_analysis(",
-        "def load_all_experiment_analyses(",
-    ]
-    assert [name for name in experiment_persistence_functions if name in source] == []
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():

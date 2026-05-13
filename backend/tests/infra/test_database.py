@@ -1,7 +1,8 @@
-"""Tests for database.py — connection, storage, read-back."""
+"""Tests for SQLite storage initialization and shared JSON persistence behavior."""
 
 import app.domains.routines.adapters as routine_db
-import app.infra.database as db
+import app.infra.sqlite as sqlite
+from app.core.profile import adapters as profile_db
 from app.core.profile.contracts import (
     Goal,
     UserProfile,
@@ -29,7 +30,7 @@ from app.domains.routines.contracts import (
 
 class TestInit:
     def test_creates_all_required_tables(self, tmp_db):
-        with db._connect() as con:
+        with sqlite.connect() as con:
             tables = {r["name"] for r in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()}
@@ -48,7 +49,7 @@ class TestInit:
         assert "card_overrides" in tables
 
     def test_enables_wal_journal_mode(self, tmp_db):
-        with db._connect() as con:
+        with sqlite.connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
 
@@ -57,17 +58,15 @@ class TestInit:
         tmp_path,
         monkeypatch,
     ):
-        import app.infra.sqlite as sqlite
         from app.bootstrap import schema as storage_schema
 
         test_db = tmp_path / "bootstrap-storage.db"
-        monkeypatch.setattr(db, "DB_PATH", test_db)
         monkeypatch.setattr(sqlite, "DB_PATH", test_db)
 
         storage_schema.init_storage()
         storage_schema.init_storage()
 
-        with db._connect() as con:
+        with sqlite.connect() as con:
             tables = {r["name"] for r in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()}
@@ -112,23 +111,23 @@ class TestStoreAndLoad:
             nutrition_preferences=["high protein"],
         )
 
-        db.save_user_profile(profile)
-        loaded = db.load_user_profile()
+        profile_db.save_user_profile(profile)
+        loaded = profile_db.load_user_profile()
 
         assert loaded is not None
         assert loaded.name == "Andrei"
         assert loaded.primary_goals == ["better recovery"]
 
     def test_json_record_update_preserves_created_at(self):
-        db.save_goal(Goal(id="goal-1", title="Recover better"))
-        with db._connect() as con:
+        profile_db.save_goal(Goal(id="goal-1", title="Recover better"))
+        with sqlite.connect() as con:
             first = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",
                 ("goal-1",),
             ).fetchone()
 
-        db.save_goal(Goal(id="goal-1", title="Recover much better"))
-        with db._connect() as con:
+        profile_db.save_goal(Goal(id="goal-1", title="Recover much better"))
+        with sqlite.connect() as con:
             second = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",
                 ("goal-1",),

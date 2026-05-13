@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from app.core.config import AppConfig, get_app_config
-from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
+from app.core.profile.adapters import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.assistant.adapters import SqliteAssistantRepository
 from app.domains.assistant.runtime import ClaudeCodeRuntime

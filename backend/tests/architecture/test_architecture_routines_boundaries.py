@@ -72,19 +72,7 @@ def test_routines_application_does_not_import_artifacts():
 
 
 def test_shared_database_does_not_own_routine_contracts_or_crud():
-    assert_no_text_in_files(
-        ["backend/app/infra/database.py"],
-        [
-            "domains.routines.contracts",
-            "Routine",
-            "RoutineSchedule",
-            "RoutineAssignment",
-            "RoutineEntry",
-            "CardTemplate",
-            "CardLog",
-            "CardOverride",
-        ],
-    )
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_migrated_routine_service_shims_are_removed():

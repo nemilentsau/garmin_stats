@@ -84,23 +84,11 @@ def test_garmin_sync_runtime_and_watcher_depend_on_injected_ports():
 
 def test_global_infra_does_not_own_garmin_watcher_or_source_fingerprint():
     assert not (REPO_ROOT / "backend/app/infra/watcher.py").exists()
-
-    source = read_repo_file("backend/app/infra/database.py")
-
-    assert "def compute_data_fingerprint" not in source
-    assert "fit_file" not in source
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_global_database_does_not_import_garmin_sync_contracts():
-    assert_no_text_in_files(
-        ["backend/app/infra/database.py"],
-        [
-            "app.domains.garmin_sync.contracts",
-            "domains.garmin_sync.contracts",
-            "IngestResult",
-            "IngestStatus",
-        ],
-    )
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_garmin_sync_infra_factory_does_not_wrap_single_function_dependencies():

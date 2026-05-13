@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 
-import app.infra.database as db
+import app.infra.sqlite as sqlite
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
@@ -56,7 +56,7 @@ def _store_metrics(metrics: list[DailyMetric]) -> None:
     now_str = "2026-03-01T00:00:00+00:00"
     from app.infra import cache
 
-    with db._connect() as con:
+    with sqlite.connect() as con:
         for metric in metrics:
             con.execute(
                 "INSERT OR REPLACE INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",

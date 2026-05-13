@@ -4,8 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ..core.config import get_cors_origins
-from ..infra.database import DATA_DIR
+from ..core.config import get_app_config, get_cors_origins
 from .lifespan import lifespan
 from .routing import register_routers
 
@@ -28,6 +27,7 @@ async def disable_api_response_caching(request: Request, call_next):
 
 
 def create_app() -> FastAPI:
+    config = get_app_config()
     app = FastAPI(
         title="Garmin Stats API",
         description="API for analyzing Garmin Epix Gen 2 health data",
@@ -56,8 +56,8 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "message": "Garmin Stats API",
-            "data_dir": str(DATA_DIR),
-            "data_exists": DATA_DIR.exists(),
+            "data_dir": str(config.data_dir),
+            "data_exists": config.data_dir.exists(),
         }
 
     return app

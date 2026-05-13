@@ -1,8 +1,7 @@
 """SQLite-backed routine repository adapter.
 
 This module is the database boundary for the live routine runtime. It owns
-routine/card CRUD and depends only on shared SQLite connection primitives, not
-the broad `app.infra.database` persistence bucket.
+routine/card CRUD and depends only on shared SQLite connection primitives.
 """
 
 from __future__ import annotations

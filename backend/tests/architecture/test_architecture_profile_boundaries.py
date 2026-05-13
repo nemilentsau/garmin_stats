@@ -27,9 +27,10 @@ def test_profile_application_modules_follow_strict_boundary():
 
 
 def test_profile_sqlite_adapter_is_the_database_boundary():
-    source = read_repo_file("backend/app/core/profile/infra/sqlite_repository.py")
+    source = read_repo_file("backend/app/core/profile/adapters.py")
 
-    assert "app.infra.database" in source
+    assert "app.infra.database" not in source
+    assert "app.infra.jsonstore" in source
     assert "class SqliteProfileRepository" in source
 
 
@@ -50,6 +51,8 @@ def test_profile_routes_use_container_repository():
 
 def test_migrated_profile_flat_files_are_removed():
     for path in [
+        "backend/app/core/profile/infra/__init__.py",
+        "backend/app/core/profile/infra/sqlite_repository.py",
         "backend/app/routers/profile.py",
         "backend/app/services/profile.py",
     ]:

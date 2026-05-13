@@ -83,19 +83,7 @@ def test_programs_domain_does_not_write_legacy_routine_or_experiment_children():
 
 
 def test_shared_database_does_not_own_program_contracts_or_crud():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.programs.contracts" not in source
-
-    program_persistence_functions = [
-        "def save_program(",
-        "def load_program(",
-        "def load_programs(",
-        "def save_program_version(",
-        "def load_program_versions(",
-        "def delete_program(",
-        "def save_program_import(",
-    ]
-    assert [name for name in program_persistence_functions if name in source] == []
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_migrated_programs_service_shim_is_removed():

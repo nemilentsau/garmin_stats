@@ -1,8 +1,8 @@
 """SQLite schema owned by the app profile slice.
 
-Profile persistence still uses legacy helpers in ``app.infra.database``, but
-the table definitions live with the core profile owner so global infrastructure
-does not accumulate product schema details.
+Profile is core app configuration rather than a product domain, so its table
+definitions live beside the profile adapter. Global infrastructure stays
+limited to SQLite connection primitives and schema composition.
 """
 
 from __future__ import annotations

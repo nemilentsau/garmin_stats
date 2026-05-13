@@ -111,10 +111,17 @@ Current contents:
 
 ### Infrastructure
 
-- `backend/app/infra/database.py`
-  SQLite file setup, WAL configuration, data-root config, and remaining legacy
-  profile JSON helpers. Domain table DDL lives in each storage-owning slice's
-  `schema.py` and is composed by `bootstrap/schema.py`.
+- `backend/app/infra/sqlite.py`
+  Shared SQLite database path and connection primitive. It does not own table
+  definitions or domain persistence policy.
+
+- `backend/app/infra/jsonstore.py`
+  Generic JSON-record persistence helper used by storage adapters that own
+  their tables and contracts.
+
+- `backend/app/bootstrap/schema.py`
+  Storage composition entrypoint. It creates the SQLite file, enables WAL, and
+  calls each storage-owning slice's `schema.py` initializer with one connection.
 
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.
@@ -391,8 +398,8 @@ The project now uses "migrated" to mean both route/file-layout migration and
 strict boundary migration.
 
 - Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
-- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import `app.infra.database`, `app.services.*`, or `app.routers.*`.
-- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping `app.infra.database`.
+- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import global storage modules, `app.services.*`, or `app.routers.*`.
+- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
 - Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 

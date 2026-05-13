@@ -107,45 +107,14 @@ def test_assistant_routes_use_container_repository_and_runtime():
 
 
 def test_shared_database_does_not_own_assistant_contracts_or_crud():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.assistant.contracts" not in source
-    assert "domains.assistant.application.types" not in source
-
-    assistant_persistence_functions = [
-        "def create_assistant_thread(",
-        "def save_assistant_thread(",
-        "def load_assistant_thread(",
-        "def load_assistant_threads(",
-        "def save_assistant_message(",
-        "def load_assistant_messages(",
-        "def save_assistant_run(",
-        "def finalize_assistant_reply(",
-        "def load_assistant_runs(",
-        "def save_assistant_evidence_bundle(",
-        "def load_assistant_evidence_bundles(",
-        "def save_assistant_memory_record(",
-        "def load_assistant_memory_records(",
-        "def save_context_snapshot(",
-        "def load_context_snapshot(",
-        "def load_context_snapshots(",
-        "def save_evidence_card(",
-        "def load_evidence_cards(",
-        "def save_plan(",
-        "def load_plans(",
-        "def save_plan_item(",
-        "def load_plan_items(",
-    ]
-    assert [name for name in assistant_persistence_functions if name in source] == []
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_assistant_alias_migration_lives_with_sqlite_adapter():
-    database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/assistant/adapters.py")
     lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
 
-    assert "_ensure_assistant_memory_alias_lookup_columns" not in database_source
-    assert "_normalize_alias_text" not in database_source
-    assert "idx_assistant_memory_records_kind_alias_normalized_created" not in database_source
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
     assert "def migrate_assistant_storage(" in adapter_source
     assert "normalize_alias(row" in adapter_source
     assert "migrate_assistant_storage()" in lifespan_source
