@@ -4,6 +4,7 @@ from tests._architecture import (
     REPO_ROOT,
     assert_imports_from_module_match_allowlist,
     assert_no_text_in_files,
+    read_repo_file,
 )
 
 ALLOWLISTED_APP_MODELS_IMPORTERS = set()
@@ -56,6 +57,20 @@ def test_app_infra_cache_importers_are_explicitly_allowlisted():
         equivalent_imports={"app.infra"},
         required_import_name="cache",
     )
+
+
+def test_infra_database_does_not_own_domain_table_schema_names():
+    source = read_repo_file("backend/app/infra/database.py")
+    domain_table_names = [
+        "assistant_messages",
+        "routine_assignments",
+        "experiment_exposures",
+        "program_versions",
+        "assistant_artifacts",
+        "daily_checkins",
+        "card_logs",
+    ]
+    assert [name for name in domain_table_names if name in source] == []
 
 
 def test_current_docs_do_not_reference_removed_app_stats_module():

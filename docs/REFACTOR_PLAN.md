@@ -23,13 +23,13 @@
 - Test: `backend/tests/infra/test_database.py`
 - Test: `backend/tests/architecture/test_architecture_global_ownership.py`
 
-- [ ] Add a failing architecture test that prevents `backend/app/infra/database.py` from containing domain table names such as `assistant_messages`, `routine_assignments`, `experiment_exposures`, `program_versions`, `assistant_artifacts`, `daily_checkins`, and `card_logs`.
-- [ ] Add small schema initializer functions beside the owning adapters, for example `init_assistant_schema(con)`, `init_routine_schema(con)`, `init_experiment_schema(con)`, `init_artifact_schema(con)`, `init_journal_schema(con)`, `init_program_schema(con)`, and `init_profile_schema(con)`.
-- [ ] Keep `app.infra.database.init_db()` limited to shared SQLite setup/core tables that still live in infra; do not let `database.py` import from `app.domains.*`.
-- [ ] Add `app.bootstrap.schema.init_storage()` as the composition entrypoint that opens one connection, calls `database.init_db()` or its core-schema helper, then calls each domain/core schema initializer with that connection.
-- [ ] Update `lifespan.py`, `tests/conftest.py`, and any local test fixtures that initialize temporary databases to call the bootstrap schema entrypoint instead of the infra-only initializer.
-- [ ] Run `cd backend && uv run pytest tests/infra/test_database.py tests/architecture/test_architecture_global_ownership.py -v`.
-- [ ] Run `cd backend && uv run ruff check && uv run pyright app/ tests/`.
+- [x] Add a failing architecture test that prevents `backend/app/infra/database.py` from containing domain table names such as `assistant_messages`, `routine_assignments`, `experiment_exposures`, `program_versions`, `assistant_artifacts`, `daily_checkins`, and `card_logs`.
+- [x] Add small schema initializer functions beside the owning adapters, for example `init_assistant_schema(con)`, `init_routine_schema(con)`, `init_experiment_schema(con)`, `init_artifact_schema(con)`, `init_journal_schema(con)`, `init_program_schema(con)`, and `init_profile_schema(con)`.
+- [x] Keep `app.infra.database.init_db()` limited to shared SQLite setup/core tables that still live in infra; do not let `database.py` import from `app.domains.*`.
+- [x] Add `app.bootstrap.schema.init_storage()` as the composition entrypoint that opens one connection, calls `database.init_db()` or its core-schema helper, then calls each domain/core schema initializer with that connection.
+- [x] Update `lifespan.py`, `tests/conftest.py`, and any local test fixtures that initialize temporary databases to call the bootstrap schema entrypoint instead of the infra-only initializer.
+- [x] Run `cd backend && uv run pytest tests/infra/test_database.py tests/architecture/test_architecture_global_ownership.py -v`.
+- [x] Run `cd backend && uv run ruff check && uv run pyright app/ tests/`.
 
 ## Task 2: Split Assistant Persistence From Read-Model Gateway
 

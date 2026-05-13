@@ -4,6 +4,7 @@ import warnings
 
 import pytest
 
+import app.bootstrap.schema as storage_schema
 import app.infra.database as db
 import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
@@ -34,7 +35,7 @@ def tmp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", test_db)
     monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
-    db.init_db()
+    storage_schema.init_storage()
     yield
 
 

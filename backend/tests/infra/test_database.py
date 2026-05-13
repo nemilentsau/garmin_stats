@@ -52,6 +52,37 @@ class TestInit:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
 
+    def test_bootstrap_storage_is_idempotent_and_creates_domain_tables(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        import app.infra.sqlite as sqlite
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "bootstrap-storage.db"
+        monkeypatch.setattr(db, "DB_PATH", test_db)
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+
+        storage_schema.init_storage()
+        storage_schema.init_storage()
+
+        with db._connect() as con:
+            tables = {r["name"] for r in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()}
+        assert {
+            "wellness_data",
+            "ingest_meta",
+            "user_profile",
+            "assistant_messages",
+            "routine_assignments",
+            "experiment_exposures",
+            "assistant_artifacts",
+            "daily_checkins",
+            "program_versions",
+        }.issubset(tables)
+
 
 # ---------------------------------------------------------------------------
 # Store and load round-trips

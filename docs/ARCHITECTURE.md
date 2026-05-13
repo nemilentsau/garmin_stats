@@ -63,9 +63,9 @@ The Garmin health dependency direction is:
 
 - `backend/app/bootstrap/`
   App factory, router registration, lifespan entrypoint, process-runtime task
-  wiring, and the current composition root. Cross-domain reactions such as
-  "refresh experiment analyses after Garmin ingest" belong here rather than in
-  the Garmin sync or experiment slices.
+  wiring, storage schema composition, and the current composition root.
+  Cross-domain reactions such as "refresh experiment analyses after Garmin
+  ingest" belong here rather than in the Garmin sync or experiment slices.
 
 - `backend/app/core/`
   Shared cross-cutting modules being extracted out of the flat app root.
@@ -112,7 +112,9 @@ Current contents:
 ### Infrastructure
 
 - `backend/app/infra/database.py`
-  SQLite schema, shared read/write helpers, data-root config, and ingest metadata table.
+  SQLite file setup, WAL configuration, data-root config, and remaining legacy
+  profile JSON helpers. Domain table DDL lives in each storage-owning slice's
+  `schema.py` and is composed by `bootstrap/schema.py`.
 
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.

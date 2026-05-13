@@ -1,8 +1,9 @@
-"""
-SQLite persistence layer for Garmin Stats.
+"""Shared SQLite setup and remaining global profile helpers.
 
-Ingest adapters write Garmin health records into SQLite.
-Read path helpers reconstruct persisted Pydantic models for API/domain adapters.
+Domain-owned tables are initialized from ``app.bootstrap.schema`` so the
+infrastructure layer does not need to know product table names. This module
+keeps the database path setup, WAL configuration, and legacy profile JSON
+helpers used by the profile adapter.
 """
 
 from ..core.config import get_app_config
@@ -18,182 +19,12 @@ _APP_CONFIG = get_app_config()
 
 DATA_DIR = _APP_CONFIG.data_dir
 
-_VALID_TABLES = frozenset({
-    "wellness_data", "sleep_data", "hrv_data",
-    "skin_temp_data", "daily_metrics", "ingest_meta",
-    "user_profile", "goals", "experiments", "experiment_exposures",
-    "experiment_reports",
-})
+_VALID_TABLES = frozenset({"user_profile", "goals"})
 
 
 # ---------------------------------------------------------------------------
 # Schema & connection
 # ---------------------------------------------------------------------------
-
-_COLS_3 = "date TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL"
-_JSON_COLS = (
-    "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
-    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
-)
-_SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS wellness_data  ({_COLS_3});
-CREATE TABLE IF NOT EXISTS sleep_data     ({_COLS_3});
-CREATE TABLE IF NOT EXISTS hrv_data       ({_COLS_3});
-CREATE TABLE IF NOT EXISTS skin_temp_data ({_COLS_3});
-CREATE TABLE IF NOT EXISTS daily_metrics  ({_COLS_3});
-CREATE TABLE IF NOT EXISTS ingest_meta    (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS user_profile   ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS goals          ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS experiments    ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS plans          ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS assistant_threads ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS context_snapshots ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS evidence_cards ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS assistant_artifacts ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS card_templates ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS routine_schedules ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS daily_checkins (
-    id TEXT PRIMARY KEY,
-    entry_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS notes (
-    id TEXT PRIMARY KEY,
-    entry_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS experiment_exposures (
-    id TEXT PRIMARY KEY,
-    experiment_id TEXT NOT NULL,
-    entry_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS experiment_reports (
-    id TEXT PRIMARY KEY,
-    experiment_id TEXT NOT NULL,
-    report_date TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS plan_items (
-    id TEXT PRIMARY KEY,
-    plan_id TEXT NOT NULL,
-    item_date TEXT,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS assistant_messages (
-    id TEXT PRIMARY KEY,
-    thread_id TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS assistant_runs (
-    id TEXT PRIMARY KEY,
-    thread_id TEXT,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS assistant_evidence_bundles (
-    id TEXT PRIMARY KEY,
-    thread_id TEXT NOT NULL,
-    user_message_id TEXT NOT NULL,
-    intent TEXT NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS assistant_memory_records (
-    id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    entity_id TEXT,
-    alias_text TEXT,
-    alias_normalized TEXT,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS routine_assignments (
-    id TEXT PRIMARY KEY,
-    routine_id TEXT NOT NULL,
-    card_template_id TEXT NOT NULL,
-    assignment_date TEXT NOT NULL,
-    slot TEXT NOT NULL,
-    position INTEGER NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS card_logs (
-    id TEXT PRIMARY KEY,
-    occurrence_key TEXT NOT NULL,
-    log_date TEXT NOT NULL,
-    card_template_id TEXT NOT NULL,
-    assignment_id TEXT,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS card_overrides (
-    id TEXT PRIMARY KEY,
-    override_date TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target_occurrence_key TEXT,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_routine_assignments_routine_date
-    ON routine_assignments (routine_id, assignment_date, slot, position);
-CREATE INDEX IF NOT EXISTS idx_card_logs_date_occurrence
-    ON card_logs (log_date, occurrence_key);
-CREATE INDEX IF NOT EXISTS idx_card_overrides_date_action
-    ON card_overrides (override_date, action);
-CREATE INDEX IF NOT EXISTS idx_daily_checkins_entry_date
-    ON daily_checkins (entry_date);
-CREATE INDEX IF NOT EXISTS idx_notes_entry_date
-    ON notes (entry_date);
-CREATE INDEX IF NOT EXISTS idx_experiment_exposures_experiment_date
-    ON experiment_exposures (experiment_id, entry_date);
-CREATE INDEX IF NOT EXISTS idx_experiment_reports_experiment_date
-    ON experiment_reports (experiment_id, report_date);
-CREATE INDEX IF NOT EXISTS idx_plan_items_plan_date
-    ON plan_items (plan_id, item_date);
-CREATE INDEX IF NOT EXISTS idx_assistant_messages_thread_created
-    ON assistant_messages (thread_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_assistant_runs_thread_created
-    ON assistant_runs (thread_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_assistant_evidence_bundles_thread_created
-    ON assistant_evidence_bundles (thread_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_assistant_memory_records_kind_created
-    ON assistant_memory_records (kind, created_at);
-CREATE TABLE IF NOT EXISTS experiment_analyses (
-    experiment_id TEXT PRIMARY KEY,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS programs ({_JSON_COLS});
-CREATE TABLE IF NOT EXISTS program_versions (
-    program_id TEXT NOT NULL,
-    version INTEGER NOT NULL,
-    data TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (program_id, version)
-);
-"""
-
 
 def _connect():
     """Yield a sqlite3 connection with Row factory; close on exit."""
@@ -201,10 +32,9 @@ def _connect():
 
 
 def init_db() -> None:
-    """Create tables if they don't exist. Enable WAL mode."""
+    """Ensure the SQLite file exists and WAL mode is enabled."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _connect() as con:
-        con.executescript(_SCHEMA)
         con.execute("PRAGMA journal_mode=WAL")
         con.commit()
 
