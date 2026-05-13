@@ -6,9 +6,7 @@ from contextlib import contextmanager
 
 from app.core.config import get_app_config
 
-_APP_CONFIG = get_app_config()
-
-DB_PATH = _APP_CONFIG.database_path
+DB_PATH = get_app_config().database_path
 
 
 @contextmanager
