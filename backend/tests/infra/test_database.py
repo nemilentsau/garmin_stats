@@ -2,7 +2,7 @@
 
 import app.domains.routines.adapters as routine_db
 import app.infra.sqlite as sqlite
-from app.core.profile import adapters as profile_db
+from app.core.profile.adapters import SqliteProfileRepository
 from app.core.profile.contracts import (
     Goal,
     UserProfile,
@@ -112,22 +112,24 @@ class TestStoreAndLoad:
             nutrition_preferences=["high protein"],
         )
 
-        profile_db.save_user_profile(profile)
-        loaded = profile_db.load_user_profile()
+        repo = SqliteProfileRepository()
+        repo.save_profile(profile)
+        loaded = repo.get_profile()
 
         assert loaded is not None
         assert loaded.name == "Andrei"
         assert loaded.primary_goals == ["better recovery"]
 
     def test_json_record_update_preserves_created_at(self):
-        profile_db.save_goal(Goal(id="goal-1", title="Recover better"))
+        repo = SqliteProfileRepository()
+        repo.save_goal(Goal(id="goal-1", title="Recover better"))
         with sqlite.connect() as con:
             first = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",
                 ("goal-1",),
             ).fetchone()
 
-        profile_db.save_goal(Goal(id="goal-1", title="Recover much better"))
+        repo.save_goal(Goal(id="goal-1", title="Recover much better"))
         with sqlite.connect() as con:
             second = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",

@@ -30,13 +30,14 @@
 		missed: { color: '#E85D4A', label: 'Missed' },
 		unknown: { color: 'rgba(255,255,255,0.08)', label: 'No data' }
 	};
+	const UPCOMING_COLOR = 'rgba(255,255,255,0.04)';
 
 	function cellVisual(
 		state: AdherenceState,
 		isFuture: boolean,
 		isToday: boolean
 	): { color: string; label: string } {
-		if (isFuture) return { color: 'rgba(255,255,255,0.04)', label: 'Upcoming' };
+		if (isFuture) return { color: UPCOMING_COLOR, label: 'Upcoming' };
 		if (state === 'unknown' && isToday) {
 			return { color: STATE_VISUAL.unknown.color, label: 'Not logged yet' };
 		}
@@ -65,16 +66,21 @@
 			const isToday = date === currentDate;
 			const state: AdherenceState = entry?.state ?? 'unknown';
 			const visual = cellVisual(state, isFuture, isToday);
+			const exposureScore = entry?.exposure_score ?? null;
+			const dateLabel = fmtMonthDay(date);
+			const pctSuffix =
+				exposureScore !== null && !isFuture ? ` (${Math.round(exposureScore * 100)}%)` : '';
 			return {
 				date,
-				dateLabel: fmtMonthDay(date),
+				dateLabel,
 				dayIndex: i + 1,
 				state,
-				exposureScore: entry?.exposure_score ?? null,
+				exposureScore,
 				isFuture,
 				isToday,
 				color: visual.color,
-				label: visual.label
+				label: visual.label,
+				title: `Day ${i + 1} · ${dateLabel} · ${visual.label}${pctSuffix}`
 			};
 		})
 	);
@@ -96,13 +102,22 @@
 	const startLabel = $derived(fmtMonthDay(treatmentStart));
 	const endLabel = $derived(cells.length > 0 ? cells[cells.length - 1].dateLabel : '');
 
-	function pctTone(pct: number, elapsed: number): string {
-		if (elapsed === 0) return 'text-[#5e7282]';
+	function pctTone(pct: number): string {
 		if (pct >= 70) return 'text-[#4CAF82]';
 		if (pct >= 50) return 'text-[#D4944C]';
 		return 'text-[#E85D4A]';
 	}
-	const adherenceTone = $derived(pctTone(elapsedHeadlinePct, elapsedDays));
+	const adherenceTone = $derived(
+		elapsedDays === 0 ? 'text-[#5e7282]' : pctTone(elapsedHeadlinePct)
+	);
+
+	const legendItems = $derived([
+		{ color: STATE_VISUAL.full.color, label: 'Done', count: counts.full },
+		{ color: STATE_VISUAL.partial.color, label: 'Partial', count: counts.partial },
+		{ color: STATE_VISUAL.missed.color, label: 'Missed', count: counts.missed },
+		{ color: STATE_VISUAL.unknown.color, label: 'Today', count: 0, ring: true },
+		{ color: UPCOMING_COLOR, label: 'Upcoming', count: 0 }
+	]);
 </script>
 
 <div class="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-5 py-4">
@@ -129,12 +144,12 @@
 	>
 		{#each cells as cell}
 			<div
-				class="relative h-6 rounded-sm transition-opacity"
+				class="h-6 rounded-sm transition-opacity"
 				class:ring-1={cell.isToday}
 				class:ring-inset={cell.isToday}
 				class:ring-white={cell.isToday}
 				style="background: {cell.color};"
-				title="Day {cell.dayIndex} · {cell.dateLabel} · {cell.label}{cell.exposureScore !== null && !cell.isFuture ? ` (${Math.round(cell.exposureScore * 100)}%)` : ''}"
+				title={cell.title}
 			></div>
 		{/each}
 	</div>
@@ -145,25 +160,17 @@
 	</div>
 
 	<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#5e7282]">
-		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.full.color}"></span>
-			Done {counts.full > 0 ? `(${counts.full})` : ''}
-		</span>
-		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.partial.color}"></span>
-			Partial {counts.partial > 0 ? `(${counts.partial})` : ''}
-		</span>
-		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:{STATE_VISUAL.missed.color}"></span>
-			Missed {counts.missed > 0 ? `(${counts.missed})` : ''}
-		</span>
-		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm ring-1 ring-inset ring-white" style="background:{STATE_VISUAL.unknown.color}"></span>
-			Today
-		</span>
-		<span class="inline-flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 rounded-sm" style="background:rgba(255,255,255,0.04)"></span>
-			Upcoming
-		</span>
+		{#each legendItems as item}
+			<span class="inline-flex items-center gap-1.5">
+				<span
+					class="inline-block h-2 w-2 rounded-sm"
+					class:ring-1={item.ring}
+					class:ring-inset={item.ring}
+					class:ring-white={item.ring}
+					style="background:{item.color}"
+				></span>
+				{item.label}{item.count > 0 ? ` (${item.count})` : ''}
+			</span>
+		{/each}
 	</div>
 </div>

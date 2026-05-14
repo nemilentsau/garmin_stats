@@ -11,7 +11,7 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { addDays, isIsoDateString, localDateIso } from '$lib/date';
+	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 
 	type SlotName = ScheduleOccurrence['slot'];
@@ -151,22 +151,18 @@
 		);
 	}
 
-	function toDate(date: string): Date {
-		return new Date(`${date}T12:00:00`);
-	}
-
 	const shortDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 	const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 	const weekdayLongFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
 
 	function formatShortDate(date: string): string {
-		return shortDateFormat.format(toDate(date));
+		return shortDateFormat.format(parseIsoDate(date));
 	}
 	function formatWeekday(date: string): string {
-		return weekdayFormat.format(toDate(date));
+		return weekdayFormat.format(parseIsoDate(date));
 	}
 	function formatWeekdayLong(date: string): string {
-		return weekdayLongFormat.format(toDate(date));
+		return weekdayLongFormat.format(parseIsoDate(date));
 	}
 	function formatWindowRange(start: string, end: string): string {
 		return `${formatShortDate(start)} \u2013 ${formatShortDate(end)}`;
@@ -299,14 +295,14 @@
 
 	function shiftBundleDates(bundle: ArtifactBundleSpec): ArtifactBundleSpec {
 		const shifted = $state.snapshot(bundle) as ArtifactBundleSpec;
-		const newStart = toDate(importStartDate);
+		const newStart = parseIsoDate(importStartDate);
 		for (const routine of shifted.routine_specs ?? []) {
 			if (!routine.start_date) continue;
-			const origStart = toDate(routine.start_date);
+			const origStart = parseIsoDate(routine.start_date);
 			const deltaMs = newStart.getTime() - origStart.getTime();
 			routine.start_date = importStartDate;
 			if (routine.end_date) {
-				const origEnd = toDate(routine.end_date);
+				const origEnd = parseIsoDate(routine.end_date);
 				const newEnd = new Date(origEnd.getTime() + deltaMs);
 				routine.end_date = localDateIso(newEnd);
 			}
