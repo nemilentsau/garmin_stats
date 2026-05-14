@@ -1,18 +1,15 @@
-"""SQLite-backed assistant repository and read-model adapter.
+"""SQLite-backed assistant conversation repository.
 
 This module owns assistant conversation persistence, assistant-specific SQLite
-migrations, and the adapter boundary for evidence reads from explicitly allowed
-domain read models. Shared SQLite connection/bootstrap primitives stay in
-``app.infra``; lookup policy derived from assistant domain text rules stays here.
+migrations, and recall lookup storage. Shared SQLite connection/bootstrap
+primitives stay in ``app.infra``; lookup policy derived from assistant domain
+text rules stays here.
 """
 
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
 
-from app.core.profile.contracts import UserProfile
-from app.core.profile.ports import ProfileRepository
 from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantMemoryRecord,
@@ -21,27 +18,6 @@ from app.domains.assistant.contracts import (
     AssistantThread,
 )
 from app.domains.assistant.domain.text import normalize_alias
-from app.domains.experiments.application.analysis_cache import (
-    get_experiment_analysis as get_current_experiment_analysis,
-)
-from app.domains.experiments.application.analysis_cache import (
-    refresh_active_experiment_analyses,
-)
-from app.domains.experiments.contracts import (
-    Experiment,
-    ExperimentAnalysis,
-    ExperimentExposure,
-)
-from app.domains.experiments.dependencies import ExperimentRepository
-from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
-from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.journal.contracts import (
-    DailyCheckIn,
-    Note,
-)
-from app.domains.journal.dependencies import JournalRepository
-from app.domains.routines.contracts import CardLog, RoutineAssignment, RoutineSchedule
-from app.domains.routines.dependencies import RoutineRepository
 from app.infra.jsonstore import JsonStore, model_from_row
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
@@ -329,15 +305,8 @@ def load_assistant_memory_records(
     )
 
 
-@dataclass(frozen=True)
 class SqliteAssistantRepository:
-    """Repository adapter wired by bootstrap for assistant workflows."""
-
-    experiment_repo: ExperimentRepository
-    profile_repo: ProfileRepository
-    routine_repo: RoutineRepository
-    journal_repo: JournalRepository
-    biometric_repo: BiometricReadRepository
+    """Conversation and recall storage adapter wired by bootstrap."""
 
     def list_threads(self) -> list[AssistantThread]:
         return load_assistant_threads()
@@ -406,60 +375,3 @@ class SqliteAssistantRepository:
             last_n=last_n,
             alias_candidates=alias_candidates,
         )
-
-    def list_experiments(
-        self,
-        *,
-        statuses: tuple[str, ...] | None = None,
-    ) -> list[Experiment]:
-        return self.experiment_repo.list_experiments(statuses=statuses)
-
-    def get_experiment(self, experiment_id: str) -> Experiment | None:
-        return self.experiment_repo.get_experiment(experiment_id)
-
-    def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
-        try:
-            return get_current_experiment_analysis(self.experiment_repo, experiment_id)
-        except LookupError:
-            return None
-
-    def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
-        """Return active experiment analyses via stale-gated bulk refresh."""
-        return refresh_active_experiment_analyses(self.experiment_repo)
-
-    def list_experiment_exposures(
-        self,
-        *,
-        experiment_id: str | None = None,
-        date: str | None = None,
-    ) -> list[ExperimentExposure]:
-        return self.experiment_repo.list_experiment_exposures(
-            experiment_id=experiment_id, date=date,
-        )
-
-    def list_routines(self, *, status: str | None = None) -> list[RoutineSchedule]:
-        return self.routine_repo.list_routines(status=status)
-
-    def get_routine(self, routine_id: str) -> RoutineSchedule | None:
-        return self.routine_repo.get_routine(routine_id)
-
-    def list_assignments(self, *, routine_id: str | None = None) -> list[RoutineAssignment]:
-        return self.routine_repo.list_assignments(routine_id=routine_id)
-
-    def list_card_logs_range(self, *, start_date: str, end_date: str) -> list[CardLog]:
-        return self.routine_repo.list_card_logs_range(
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-    def list_recent_metrics(self, *, last_n: int | None = None) -> list[DailyMetric]:
-        return self.biometric_repo.load_daily_metrics(last_n=last_n)
-
-    def list_recent_checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]:
-        return self.journal_repo.list_checkins(last_n=last_n)
-
-    def list_recent_notes(self, *, last_n: int | None = None) -> list[Note]:
-        return self.journal_repo.list_notes(last_n=last_n)
-
-    def get_profile(self, profile_id: str = "default") -> UserProfile | None:
-        return self.profile_repo.get_profile(profile_id=profile_id)

@@ -47,12 +47,12 @@
 - Test: `backend/tests/architecture/test_architecture_assistant_boundaries.py`
 - Test: `backend/tests/domains/assistant/`
 
-- [ ] Move thread/message/run/evidence/memory SQLite functions into an assistant conversation repository adapter.
-- [ ] Move cross-domain read methods from `SqliteAssistantRepository` into `AssistantReadModelGateway`.
-- [ ] Wire both objects in `build_container()` while preserving the `AssistantConversationStore`, `AssistantRecallStore`, and `AssistantReadModelStore` protocols. Keep `assistant_repo` as the conversation store for existing thread routes and add a distinct container field such as `assistant_read_store`.
-- [ ] Update `assistant/routes.py` so `post_thread_message()` passes `repo=container.assistant_repo` and `read_store=container.assistant_read_store`; thread catalog routes should continue using the conversation repository.
-- [ ] Add an architecture guard that `assistant/adapters.py` imports only assistant contracts/domain helpers plus SQLite/JsonStore/time utilities. Cross-domain contracts, repositories, and experiment-analysis application use cases should move to `assistant/read_gateway.py`.
-- [ ] Run `cd backend && uv run pytest tests/domains/assistant tests/architecture/test_architecture_assistant_boundaries.py -v`.
+- [x] Move thread/message/run/evidence/memory SQLite functions into an assistant conversation repository adapter.
+- [x] Move cross-domain read methods from `SqliteAssistantRepository` into `AssistantReadModelGateway`.
+- [x] Wire both objects in `build_container()` while preserving the `AssistantConversationStore`, `AssistantRecallStore`, and `AssistantReadModelStore` protocols. Keep `assistant_repo` as the conversation store for existing thread routes and add a distinct container field such as `assistant_read_store`.
+- [x] Update `assistant/routes.py` so `post_thread_message()` passes `repo=container.assistant_repo` and `read_store=container.assistant_read_store`; thread catalog routes should continue using the conversation repository.
+- [x] Add an architecture guard that `assistant/adapters.py` imports only assistant contracts/domain helpers plus SQLite/JsonStore/time utilities. Cross-domain contracts, repositories, and experiment-analysis application use cases should move to `assistant/read_gateway.py`.
+- [x] Run `cd backend && uv run pytest tests/domains/assistant tests/architecture/test_architecture_assistant_boundaries.py -v`.
 
 ## Task 3: Inject Experiment Read Dependencies
 

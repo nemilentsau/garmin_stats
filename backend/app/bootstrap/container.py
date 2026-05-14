@@ -9,6 +9,7 @@ from app.core.config import AppConfig, get_app_config
 from app.core.profile.adapters import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.assistant.adapters import SqliteAssistantRepository
+from app.domains.assistant.read_gateway import AssistantReadModelGateway
 from app.domains.assistant.runtime import ClaudeCodeRuntime
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
@@ -28,6 +29,7 @@ class AppContainer:
     config: AppConfig
     artifacts_repo: SqliteArtifactRepository
     assistant_repo: SqliteAssistantRepository
+    assistant_read_store: AssistantReadModelGateway
     assistant_runtime: ClaudeCodeRuntime
     garmin_biometrics_repo: SqliteBiometricRepository
     journal_repo: SqliteJournalRepository
@@ -52,7 +54,8 @@ def build_container() -> AppContainer:
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
-        assistant_repo=SqliteAssistantRepository(
+        assistant_repo=SqliteAssistantRepository(),
+        assistant_read_store=AssistantReadModelGateway(
             experiment_repo=experiments_repo,
             profile_repo=profile_repo,
             routine_repo=routines_repo,

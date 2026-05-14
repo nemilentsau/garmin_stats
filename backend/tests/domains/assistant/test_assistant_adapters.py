@@ -2,7 +2,6 @@
 
 import json
 from contextlib import contextmanager
-from typing import Any, cast
 
 import app.domains.assistant.adapters as assistant_db
 import app.infra.sqlite as sqlite
@@ -122,16 +121,7 @@ class TestAssistantAdapter:
         assert messages[0].created_at is not None
 
     def test_repository_save_message_updates_thread_activity(self):
-        class _UnusedRepo:
-            pass
-
-        repo = assistant_db.SqliteAssistantRepository(
-            experiment_repo=cast(Any, _UnusedRepo()),
-            profile_repo=cast(Any, _UnusedRepo()),
-            routine_repo=cast(Any, _UnusedRepo()),
-            journal_repo=cast(Any, _UnusedRepo()),
-            biometric_repo=cast(Any, _UnusedRepo()),
-        )
+        repo = assistant_db.SqliteAssistantRepository()
         assistant_db.create_assistant_thread(
             AssistantThread(id="thread-1", title="Recovery coach")
         )
@@ -352,24 +342,3 @@ class TestAssistantAdapter:
         )
 
         assert [record.id for record in loaded] == ["memory-1"]
-
-    def test_list_recent_metrics_pushes_limit_to_biometric_repository(self):
-        class _TrackingBiometricRepo:
-            def __init__(self):
-                self.last_n_calls: list[int | None] = []
-
-            def load_daily_metrics(self, *, last_n: int | None = None) -> list[object]:
-                self.last_n_calls.append(last_n)
-                return []
-
-        biometric_repo = _TrackingBiometricRepo()
-        repo = assistant_db.SqliteAssistantRepository(
-            experiment_repo=cast(Any, object()),
-            profile_repo=cast(Any, object()),
-            routine_repo=cast(Any, object()),
-            journal_repo=cast(Any, object()),
-            biometric_repo=cast(Any, biometric_repo),
-        )
-
-        assert repo.list_recent_metrics(last_n=7) == []
-        assert biometric_repo.last_n_calls == [7]

@@ -85,9 +85,25 @@ def test_assistant_sqlite_adapter_is_the_database_boundary():
     assert "app.domains.routines.adapters" not in source
     assert "app.domains.garmin_analytics.adapters" not in source
     assert "app.domains.journal.adapters" not in source
+    assert "app.core.profile" not in source
+    assert "app.domains.experiments" not in source
+    assert "app.domains.garmin_analytics" not in source
+    assert "app.domains.garmin_health" not in source
+    assert "app.domains.journal" not in source
+    assert "app.domains.routines" not in source
+
+
+def test_assistant_read_gateway_owns_cross_domain_read_access():
+    source = read_repo_file("backend/app/domains/assistant/read_gateway.py")
+
+    assert "class AssistantReadModelGateway" in source
+    assert "get_current_experiment_analysis" in source
+    assert "refresh_active_experiment_analyses" in source
+    assert "app.domains.experiments.dependencies" in source
     assert "app.domains.routines.dependencies" in source
     assert "app.domains.garmin_analytics.application.dependencies" in source
     assert "app.domains.journal.dependencies" in source
+    assert "app.core.profile.ports" in source
 
 
 def test_bootstrap_routing_mounts_domain_assistant_router_directly():
@@ -103,7 +119,9 @@ def test_assistant_routes_use_container_repository_and_runtime():
 
     assert "build_container" in source
     assert "assistant_repo" in source
+    assert "assistant_read_store" in source
     assert "assistant_runtime" in source
+    assert "read_store=container.assistant_read_store" in source
 
 
 def test_assistant_alias_migration_lives_with_sqlite_adapter():

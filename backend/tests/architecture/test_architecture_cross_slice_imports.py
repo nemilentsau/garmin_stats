@@ -94,7 +94,7 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.journal.contracts",
         "app.domains.routines.contracts",
     },
-    "backend/app/domains/assistant/adapters.py": {
+    "backend/app/domains/assistant/read_gateway.py": {
         "app.core.profile.contracts",
         "app.core.profile.ports",
         "app.domains.experiments.application.analysis_cache",
