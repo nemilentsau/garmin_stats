@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { calendarDayDiff } from '$lib/date';
+	import { calendarDayDiff, elapsedDaysInWindow } from '$lib/date';
 
 	let {
 		baselineStart,
@@ -23,7 +23,7 @@
 			: Math.max(calendarDayDiff(treatmentStart, currentDate) + 1, 1)
 	);
 	const elapsedTreatmentDays = $derived(
-		Math.max(0, Math.min(calendarDayDiff(treatmentStart, currentDate) + 1, plannedTreatmentDays))
+		elapsedDaysInWindow(treatmentStart, currentDate, plannedTreatmentDays)
 	);
 	const totalDays = $derived(baselineDays + plannedTreatmentDays);
 	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));

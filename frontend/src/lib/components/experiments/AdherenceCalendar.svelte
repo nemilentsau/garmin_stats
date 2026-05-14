@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AdherenceDayEntry } from '$lib/api';
-	import { addDays, calendarDayDiff, parseIsoDate } from '$lib/date';
+	import { addDays, calendarDayDiff, elapsedDaysInWindow, parseIsoDate } from '$lib/date';
 
 	type AdherenceState = AdherenceDayEntry['state'];
 
@@ -54,9 +54,7 @@
 			: Math.max(entries.length, 1)
 	);
 
-	const elapsedDays = $derived(
-		Math.max(0, Math.min(calendarDayDiff(treatmentStart, currentDate) + 1, plannedDays))
-	);
+	const elapsedDays = $derived(elapsedDaysInWindow(treatmentStart, currentDate, plannedDays));
 
 	const cells = $derived(
 		Array.from({ length: plannedDays }, (_, i) => {
@@ -67,20 +65,14 @@
 			const state: AdherenceState = entry?.state ?? 'unknown';
 			const visual = cellVisual(state, isFuture, isToday);
 			const exposureScore = entry?.exposure_score ?? null;
-			const dateLabel = fmtMonthDay(date);
 			const pctSuffix =
 				exposureScore !== null && !isFuture ? ` (${Math.round(exposureScore * 100)}%)` : '';
 			return {
-				date,
-				dateLabel,
-				dayIndex: i + 1,
 				state,
-				exposureScore,
 				isFuture,
 				isToday,
 				color: visual.color,
-				label: visual.label,
-				title: `Day ${i + 1} · ${dateLabel} · ${visual.label}${pctSuffix}`
+				title: `Day ${i + 1} · ${fmtMonthDay(date)} · ${visual.label}${pctSuffix}`
 			};
 		})
 	);
@@ -100,7 +92,9 @@
 	);
 
 	const startLabel = $derived(fmtMonthDay(treatmentStart));
-	const endLabel = $derived(cells.length > 0 ? cells[cells.length - 1].dateLabel : '');
+	const endLabel = $derived(
+		fmtMonthDay(treatmentEnd ?? addDays(treatmentStart, plannedDays - 1))
+	);
 
 	function pctTone(pct: number): string {
 		if (pct >= 70) return 'text-[#4CAF82]';
