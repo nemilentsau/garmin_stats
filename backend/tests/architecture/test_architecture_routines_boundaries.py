@@ -71,20 +71,12 @@ def test_routines_application_does_not_import_artifacts():
     assert_no_text_in_files(paths, ["app.domains.artifacts"])
 
 
-def test_shared_database_does_not_own_routine_contracts_or_crud():
-    assert_no_text_in_files(
-        ["backend/app/infra/database.py"],
-        [
-            "domains.routines.contracts",
-            "Routine",
-            "RoutineSchedule",
-            "RoutineAssignment",
-            "RoutineEntry",
-            "CardTemplate",
-            "CardLog",
-            "CardOverride",
-        ],
-    )
+def test_routine_adapter_does_not_expose_test_only_override_helpers():
+    source = read_repo_file("backend/app/domains/routines/adapters.py")
+
+    assert "def save_card_override(" not in source
+    assert "def load_card_overrides(" not in source
+    assert "def load_card_overrides_range(" in source
 
 
 def test_migrated_routine_service_shims_are_removed():

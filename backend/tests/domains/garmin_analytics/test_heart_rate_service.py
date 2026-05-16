@@ -2,7 +2,7 @@
 
 import pytest
 
-import app.infra.database as db
+import app.bootstrap.schema as storage_schema
 import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
@@ -31,10 +31,9 @@ def load_heart_rate_insights(date: str | None = None):
 @pytest.fixture(autouse=True)
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
-    monkeypatch.setattr(db, "DB_PATH", test_db)
     monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
-    db.init_db()
+    storage_schema.init_storage()
     yield
 
 
@@ -64,7 +63,7 @@ def _insert_metric(
     hrv_status: str | None = "balanced",
 ) -> None:
     metric = _make_daily_metric(date, resting, sleep_score=sleep_score, hrv_status=hrv_status)
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
             (date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
@@ -74,7 +73,7 @@ def _insert_metric(
 
 def _insert_wellness(date: str, readings: list[HeartRateReading]) -> None:
     payload = DayWellness(date=date, heart_rate=readings)
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO wellness_data (date, data, updated_at) VALUES (?, ?, ?)",
             (date, payload.model_dump_json(), "2026-01-15T00:00:00Z"),

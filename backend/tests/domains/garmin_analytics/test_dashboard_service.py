@@ -4,7 +4,7 @@ import warnings
 
 import pytest
 
-import app.infra.database as db
+import app.bootstrap.schema as storage_schema
 import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
@@ -31,10 +31,9 @@ def load_dashboard_overview():
 @pytest.fixture(autouse=True)
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
-    monkeypatch.setattr(db, "DB_PATH", test_db)
     monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
-    db.init_db()
+    storage_schema.init_storage()
     yield
 
 
@@ -65,7 +64,7 @@ def _make_metric(
 
 
 def _insert(metric: DailyMetric) -> None:
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO daily_metrics (date, data, updated_at) "
             "VALUES (?, ?, ?)",

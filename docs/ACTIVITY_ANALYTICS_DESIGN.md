@@ -409,8 +409,8 @@ Recommended current-module changes:
   Add activity file parsing.
 - `domains/garmin_health/contracts/`
   Add `ActivitySession`, `ActivityDailyFeatures`, and new sleep timing fields.
-- `infra/database.py`
-  Add tables, loaders, savers, and ingest wiring.
+- `domains/garmin_sync/infra/sqlite_ingest.py` and owning `schema.py` modules
+  Add activity tables, loaders, savers, and ingest wiring.
 - `domains/garmin_health/domain/daily_metrics/`
   Extend daily recovery features only for sleep timing, not activities.
 

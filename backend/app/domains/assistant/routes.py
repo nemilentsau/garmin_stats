@@ -60,7 +60,7 @@ async def post_thread_message(thread_id: str, request: AssistantMessageCreateReq
     return StreamingResponse(
         stream_reply(
             repo=repository,
-            read_store=repository,
+            read_store=container.assistant_read_store,
             runtime=container.assistant_runtime,
             thread_id=thread_id,
             request=request,

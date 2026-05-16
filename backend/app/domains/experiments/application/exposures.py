@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.domains.experiments.contracts import ExperimentExposure
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import persist_experiment_analysis
 
 
@@ -23,6 +23,7 @@ def list_experiment_exposures(
 
 def create_experiment_exposure(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment_id: str,
     exposure: ExperimentExposure,
 ) -> ExperimentExposure:
@@ -35,5 +36,5 @@ def create_experiment_exposure(
         raise LookupError(f"Experiment {experiment_id} not found")
 
     repo.save_experiment_exposure(exposure)
-    persist_experiment_analysis(repo, experiment)
+    persist_experiment_analysis(repo, read_source, experiment)
     return exposure

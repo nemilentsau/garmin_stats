@@ -7,6 +7,7 @@ traces.db
 # Claude Code artifacts
 .claude/chart-inspections/
 .worktrees/
+.playwright-mcp/
 
 # Frontend
 frontend/node_modules/

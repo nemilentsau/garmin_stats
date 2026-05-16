@@ -10,6 +10,7 @@ from app.domains.programs.application.programs import (
     import_program,
     list_programs,
 )
+from tests._experiments_helpers import make_experiment_read_source
 
 
 def _program_spec(
@@ -49,7 +50,10 @@ class TestImportProgram:
 
         assert imported.id == "program-1"
         assert list_programs(repo).programs == [imported]
-        assert list_experiments(SqliteExperimentRepository()).experiments == []
+        assert list_experiments(
+            SqliteExperimentRepository(),
+            make_experiment_read_source(),
+        ).experiments == []
 
     def test_reimport_versions_program_without_touching_legacy_children(self):
         repo = SqliteProgramRepository()
@@ -87,4 +91,7 @@ class TestImportProgram:
 
         assert program.version == 2
         assert versions[0].version == 1
-        assert list_experiments(SqliteExperimentRepository()).experiments == []
+        assert list_experiments(
+            SqliteExperimentRepository(),
+            make_experiment_read_source(),
+        ).experiments == []

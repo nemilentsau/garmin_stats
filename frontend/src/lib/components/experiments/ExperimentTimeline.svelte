@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { calendarDayDiff, elapsedDaysInWindow } from '$lib/date';
+
 	let {
 		baselineStart,
 		baselineEnd,
@@ -13,25 +15,21 @@
 		currentDate: string;
 	} = $props();
 
-	function daysBetween(a: string, b: string): number {
-		return Math.round(
-			(new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)
-		);
-	}
-
-	const baselineDays = $derived(daysBetween(baselineStart, baselineEnd) + 1);
-	const effectiveEnd = $derived(treatmentEnd ?? currentDate);
-	const treatmentDays = $derived(daysBetween(treatmentStart, effectiveEnd) + 1);
-	const totalDays = $derived(baselineDays + treatmentDays);
-	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));
-	const treatmentPct = $derived(100 - baselinePct);
-
+	const baselineDays = $derived(calendarDayDiff(baselineStart, baselineEnd) + 1);
 	const isOngoing = $derived(!treatmentEnd || treatmentEnd > currentDate);
 	const plannedTreatmentDays = $derived(
-		treatmentEnd ? daysBetween(treatmentStart, treatmentEnd) + 1 : treatmentDays
+		treatmentEnd
+			? calendarDayDiff(treatmentStart, treatmentEnd) + 1
+			: Math.max(calendarDayDiff(treatmentStart, currentDate) + 1, 1)
 	);
+	const elapsedTreatmentDays = $derived(
+		elapsedDaysInWindow(treatmentStart, currentDate, plannedTreatmentDays)
+	);
+	const totalDays = $derived(baselineDays + plannedTreatmentDays);
+	const baselinePct = $derived(Math.round((baselineDays / totalDays) * 100));
+	const treatmentPct = $derived(100 - baselinePct);
 	const treatmentProgress = $derived(
-		isOngoing ? Math.round((treatmentDays / plannedTreatmentDays) * 100) : 100
+		isOngoing ? Math.round((elapsedTreatmentDays / plannedTreatmentDays) * 100) : 100
 	);
 </script>
 
@@ -49,7 +47,7 @@
 	<div class="flex justify-between text-[11px] font-['DM_Mono',monospace] text-[#5e7282]">
 		<span>Baseline {baselineDays}d</span>
 		<span>
-			Treatment {treatmentDays}{#if isOngoing}/{plannedTreatmentDays}{/if}d
+			Treatment {elapsedTreatmentDays}{#if isOngoing}/{plannedTreatmentDays}{/if}d
 		</span>
 	</div>
 </div>

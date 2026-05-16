@@ -1,8 +1,7 @@
 """SQLite-backed routine repository adapter.
 
 This module is the database boundary for the live routine runtime. It owns
-routine/card CRUD and depends only on shared SQLite connection primitives, not
-the broad `app.infra.database` persistence bucket.
+routine/card CRUD and depends only on shared SQLite connection primitives.
 """
 
 from __future__ import annotations
@@ -221,33 +220,6 @@ def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
         where_sql="log_date >= ? AND log_date <= ?",
         params=(start_date, end_date),
         order_by="log_date, created_at, id",
-    )
-
-
-def save_card_override(override: CardOverride) -> None:
-    """Persist one dated card override."""
-    _STORE.save(
-        "card_overrides",
-        override.id,
-        override.model_dump_json(),
-        extra_columns={
-            "override_date": override.date,
-            "action": override.action,
-            "target_occurrence_key": override.target_occurrence_key,
-        },
-    )
-
-
-def load_card_overrides(date: str | None = None) -> list[CardOverride]:
-    """Load card overrides, optionally restricted to one date."""
-    where_sql = "override_date = ?" if date is not None else ""
-    params = (date,) if date is not None else ()
-    return _STORE.load_many(
-        "card_overrides",
-        CardOverride,
-        where_sql=where_sql,
-        params=params,
-        order_by="override_date, created_at, id",
     )
 
 

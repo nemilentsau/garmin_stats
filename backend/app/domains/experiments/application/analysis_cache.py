@@ -20,7 +20,7 @@ from app.domains.experiments.domain.analysis import (
     expected_experiment_phase,
 )
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis import compute_experiment_analysis
 
 log = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ def _analysis_unchanged(cached: ExperimentAnalysis, fresh: ExperimentAnalysis) -
 
 def persist_experiment_analysis(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
     *,
     cached: ExperimentAnalysis | None = None,
@@ -42,7 +43,7 @@ def persist_experiment_analysis(
         repo.delete_experiment_analysis(experiment.id)
         return None
 
-    fresh = compute_experiment_analysis(repo, experiment)
+    fresh = compute_experiment_analysis(repo, read_source, experiment)
     existing = cached if cached is not None else repo.get_experiment_analysis(experiment.id)
     if existing is not None and _analysis_unchanged(existing, fresh):
         return existing
@@ -80,36 +81,45 @@ def analysis_needs_refresh(
 
 def refresh_if_stale(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
     analysis: ExperimentAnalysis | None,
 ) -> ExperimentAnalysis | None:
     """Return a fresh analysis when the cached snapshot is stale."""
     if analysis_needs_refresh(experiment, analysis):
-        return persist_experiment_analysis(repo, experiment, cached=analysis)
+        return persist_experiment_analysis(repo, read_source, experiment, cached=analysis)
     return analysis
 
 
 def load_current_analysis(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
 ) -> ExperimentAnalysis | None:
     """Load one cached analysis and refresh it when read-time policy requires."""
-    return refresh_if_stale(repo, experiment, repo.get_experiment_analysis(experiment.id))
+    return refresh_if_stale(
+        repo,
+        read_source,
+        experiment,
+        repo.get_experiment_analysis(experiment.id),
+    )
 
 
 def get_experiment_analysis(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment_id: str,
 ) -> ExperimentAnalysis | None:
     """Return current analysis for an experiment id."""
     experiment = repo.get_experiment(experiment_id)
     if experiment is None:
         raise LookupError(f"Experiment {experiment_id} not found")
-    return load_current_analysis(repo, experiment)
+    return load_current_analysis(repo, read_source, experiment)
 
 
 def refresh_active_experiment_analyses(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
 ) -> dict[str, ExperimentAnalysis]:
     """Return current active analyses, refreshing only missing or stale snapshots.
 
@@ -130,7 +140,7 @@ def refresh_active_experiment_analyses(
             continue
         try:
             analysis = persist_experiment_analysis(
-                repo, experiment, cached=cached,
+                repo, read_source, experiment, cached=cached,
             )
         except Exception:
             log.exception("Failed to refresh experiment %s", experiment.id)
@@ -140,7 +150,10 @@ def refresh_active_experiment_analyses(
     return refreshed
 
 
-def refresh_active_experiments(repo: ExperimentRepository) -> int:
+def refresh_active_experiments(
+    repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
+) -> int:
     """Recompute analyses for active experiments and return attempted count."""
     experiments = repo.list_experiments(statuses=("active",))
     cached_analyses = repo.list_all_experiment_analyses()
@@ -150,7 +163,10 @@ def refresh_active_experiments(repo: ExperimentRepository) -> int:
             continue
         try:
             persist_experiment_analysis(
-                repo, experiment, cached=cached_analyses.get(experiment.id),
+                repo,
+                read_source,
+                experiment,
+                cached=cached_analyses.get(experiment.id),
             )
             count += 1
         except Exception:

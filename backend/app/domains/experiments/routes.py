@@ -43,7 +43,11 @@ target_metrics_router = APIRouter(prefix="/api/target-metrics", tags=["target-me
 @experiments_router.get("", response_model=ExperimentsResponse)
 def get_experiments():
     """Return experiments with their current cached analysis snapshots."""
-    return list_experiments(build_container().experiments_repo)
+    container = build_container()
+    return list_experiments(
+        container.experiments_repo,
+        container.experiments_read_source,
+    )
 
 
 # Static paths MUST come before /{experiment_id} to avoid route shadowing.
@@ -54,6 +58,7 @@ def post_preview(experiment: Experiment):
     container = build_container()
     return preview_experiment(
         container.experiments_repo,
+        container.experiments_read_source,
         experiment,
         routine_repo=container.routines_repo,
     )
@@ -66,6 +71,7 @@ def post_import(experiment: Experiment):
     try:
         return import_experiment(
             container.experiments_repo,
+            container.experiments_read_source,
             experiment,
             routine_repo=container.routines_repo,
         )
@@ -79,7 +85,11 @@ def post_import(experiment: Experiment):
 )
 def post_refresh():
     """Refresh cached analyses for active experiments."""
-    count = refresh_active_experiments(build_container().experiments_repo)
+    container = build_container()
+    count = refresh_active_experiments(
+        container.experiments_repo,
+        container.experiments_read_source,
+    )
     return ExperimentAnalysisRefreshResponse(refreshed=count)
 
 
@@ -94,8 +104,13 @@ def post_experiment(experiment: Experiment):
 @experiments_router.get("/{experiment_id}", response_model=ExperimentWithAnalysis)
 def get_experiment_detail(experiment_id: str):
     """Return one experiment with its current analysis snapshot."""
+    container = build_container()
     try:
-        return get_experiment_with_analysis(build_container().experiments_repo, experiment_id)
+        return get_experiment_with_analysis(
+            container.experiments_repo,
+            container.experiments_read_source,
+            experiment_id,
+        )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
@@ -103,8 +118,14 @@ def get_experiment_detail(experiment_id: str):
 @experiments_router.put("/{experiment_id}", response_model=Experiment)
 def put_experiment(experiment_id: str, experiment: Experiment):
     """Replace an existing experiment definition and refresh analysis."""
+    container = build_container()
     try:
-        return update_experiment(build_container().experiments_repo, experiment_id, experiment)
+        return update_experiment(
+            container.experiments_repo,
+            container.experiments_read_source,
+            experiment_id,
+            experiment,
+        )
     except (LookupError, ValueError) as e:
         status = 404 if isinstance(e, LookupError) else 400
         raise HTTPException(status_code=status, detail=str(e)) from e
@@ -113,8 +134,13 @@ def put_experiment(experiment_id: str, experiment: Experiment):
 @experiments_router.get("/{experiment_id}/analysis", response_model=ExperimentAnalysis | None)
 def get_analysis(experiment_id: str):
     """Return the current cached analysis for one experiment."""
+    container = build_container()
     try:
-        return get_experiment_analysis(build_container().experiments_repo, experiment_id)
+        return get_experiment_analysis(
+            container.experiments_repo,
+            container.experiments_read_source,
+            experiment_id,
+        )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
@@ -128,9 +154,11 @@ def get_exposures(experiment_id: str):
 @experiments_router.post("/{experiment_id}/exposures", response_model=ExperimentExposure)
 def post_exposure(experiment_id: str, exposure: ExperimentExposure):
     """Persist a manual exposure row and refresh the experiment analysis."""
+    container = build_container()
     try:
         return create_experiment_exposure(
-            build_container().experiments_repo,
+            container.experiments_repo,
+            container.experiments_read_source,
             experiment_id,
             exposure,
         )

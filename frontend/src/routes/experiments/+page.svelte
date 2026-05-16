@@ -203,16 +203,18 @@
 				/>
 			{/if}
 
-			<div class="grid gap-6 lg:grid-cols-[300px_1fr]">
-				<AdherenceCalendar
-					entries={analysis.adherence_by_day}
-					rate={analysis.adherence_rate}
-				/>
-				<div class="space-y-4">
-					{#each analysis.metrics as metric}
-						<MetricComparison {metric} />
-					{/each}
-				</div>
+			<AdherenceCalendar
+				entries={analysis.adherence_by_day}
+				rate={analysis.adherence_rate}
+				treatmentStart={exp.design?.treatment_start_date ?? analysis.adherence_by_day[0]?.date ?? today}
+				treatmentEnd={exp.design?.treatment_end_date ?? null}
+				currentDate={today}
+			/>
+
+			<div class="space-y-4">
+				{#each analysis.metrics as metric}
+					<MetricComparison {metric} />
+				{/each}
 			</div>
 
 			<ConfounderPanel confounders={analysis.confounders} />

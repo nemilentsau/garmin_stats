@@ -64,20 +64,6 @@ def test_journal_routes_use_container_repository():
     assert "notes_router" in source
 
 
-def test_shared_database_does_not_own_journal_contracts_or_crud():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.journal.contracts" not in source
-
-    journal_persistence_functions = [
-        "def save_daily_checkin(",
-        "def load_daily_checkins(",
-        "def _fetch_all_daily_checkins(",
-        "def save_note(",
-        "def load_notes(",
-    ]
-    assert [name for name in journal_persistence_functions if name in source] == []
-
-
 def test_journal_application_does_not_import_other_domains():
     assert_no_text_in_files(
         [

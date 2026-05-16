@@ -36,7 +36,7 @@ The `data/` and `storage/` directories are gitignored.
 Garmin day zip
   -> extracted FIT files
   -> backend/app/parser.py
-  -> Garmin analytics aggregate calculators
+  -> Garmin health daily metric composer
   -> SQLite storage
   -> backend domain/application services
   -> FastAPI JSON endpoints
@@ -60,8 +60,9 @@ models; the boundary rules matter more than the package label:
 
 - `bootstrap/` assembles the FastAPI app, registers routers, owns lifespan wiring,
   and provides the dependency container.
-- `infra/` contains shared infrastructure: SQLite persistence, ingest bookkeeping,
-  cache invalidation, server-sent events, and file watching.
+- `infra/` contains shared infrastructure primitives: SQLite connection/schema
+  bootstrap, JSON-row helpers, and cache invalidation. Realtime transport and
+  Garmin file watching live in dedicated app/domain capabilities.
 - `domains/garmin_sync/` is a Garmin data acquisition capability. It owns
   `/api/ingest`, Garmin Connect wellness archive download orchestration, archive
   extraction, ingest status, and affected-date ingest decisions.
@@ -117,6 +118,10 @@ Preview validates without writing. Import persists validated artifacts and
 activates cards before routines, because routines depend on card templates. Today
 logs execution for a date; it does not author schedule structure.
 
+Routine bundle assignments are explicit and day-relative. Activation compiles
+them into dated `RoutineAssignment` rows; the frontend does not compute schedule
+math.
+
 The bundle format is documented in
 [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
 Example bundles live in `docs/*_bundle.json`.
@@ -130,7 +135,7 @@ backend/
 frontend/
   src/          SvelteKit routes, components, API client, chart helpers
 scripts/        Local utility scripts for Garmin download, ingest, FIT inspection
-docs/           Architecture notes, data model notes, bundle specs, examples
+docs/           Architecture notes, active refactor plan, bundle specs, examples
 data/           Local Garmin exports, ignored by git
 storage/        Local SQLite database, ignored by git
 ```
@@ -226,10 +231,10 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
   ownership boundaries, and route inventory.
-- [docs/DATA_SCHEMA_DESIGN.md](docs/DATA_SCHEMA_DESIGN.md) - routine, card,
-  schedule, Today, and live runtime storage semantics.
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
   canonical routine bundle JSON contract.
+- [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) - active backend architecture
+  cleanup plan.
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned
   activity/session analytics and experiment-day joins.
 - [FINDINGS.md](FINDINGS.md) - current observations and data quality notes from

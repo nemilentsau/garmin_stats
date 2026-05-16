@@ -94,7 +94,6 @@ def test_garmin_analytics_metric_insights_do_not_proxy_metric_analysis():
 def test_garmin_analytics_does_not_own_canonical_daily_metric_composer():
     base = REPO_ROOT / "backend/app/domains/garmin_analytics/domain/aggregates"
     analytics_root = REPO_ROOT / "backend/app/domains/garmin_analytics"
-    database_source = read_repo_file("backend/app/infra/database.py")
 
     assert not (analytics_root / "utils.py").exists()
     assert not (analytics_root / "contracts/daily.py").exists()
@@ -105,8 +104,7 @@ def test_garmin_analytics_does_not_own_canonical_daily_metric_composer():
         REPO_ROOT
         / "backend/app/domains/garmin_analytics/domain/primitives/numeric.py"
     ).exists()
-    assert "domains.garmin_analytics.utils" not in database_source
-    assert "domains.garmin_analytics.domain.aggregates.daily" not in database_source
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
 
 
 def test_heart_rate_resting_policy_has_single_metric_helper():
@@ -230,36 +228,44 @@ def test_garmin_analytics_imports_owned_contracts_directly():
 
 
 def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
-    database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/garmin_analytics/adapters.py")
     assistant_repo_source = read_repo_file("backend/app/domains/assistant/adapters.py")
+    assistant_read_gateway_source = read_repo_file(
+        "backend/app/domains/assistant/read_gateway.py"
+    )
     experiment_repo_source = read_repo_file(
         "backend/app/domains/experiments/adapters.py",
     )
+    experiment_read_source = read_repo_file(
+        "backend/app/domains/experiments/read_sources.py",
+    )
 
-    assert "domains.garmin_analytics.adapters" not in database_source
-    assert "def _load_day_table" not in database_source
-    assert "def _fetch_daily_metrics" not in database_source
-    for wrapper_name in [
-        "load_daily_metrics",
-        "load_wellness",
-        "load_sleep",
-        "load_hrv",
-        "load_skin_temp",
-    ]:
-        assert f"def {wrapper_name}" not in database_source
-
+    assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
     assert "def load_daily_metrics" in adapter_source
     assert "class SqliteBiometricRepository" in adapter_source
     assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" not in (
         assistant_repo_source
     )
     assert "from app.domains.garmin_analytics.application.dependencies import" in (
-        assistant_repo_source
+        assistant_read_gateway_source
     )
-    assert "self.biometric_repo.load_daily_metrics(last_n=last_n)" in assistant_repo_source
-    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+    assert (
+        "from app.domains.garmin_analytics.adapters import load_daily_metrics"
+        not in assistant_read_gateway_source
+    )
+    assert (
+        "self.biometric_repo.load_daily_metrics(last_n=last_n)"
+        in assistant_read_gateway_source
+    )
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" not in (
         experiment_repo_source
+    )
+    assert "from app.domains.garmin_analytics.application.dependencies import" in (
+        experiment_read_source
+    )
+    assert (
+        "self.biometric_repo.load_daily_metrics()"
+        in experiment_read_source
     )
 
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domains.routines.adapters import SqliteRoutineRepository, save_card_override
+from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.routines.application.schedule_window import get_schedule_window
 from app.domains.routines.contracts import CardOverride
 from tests._routines_helpers import (
@@ -10,6 +10,7 @@ from tests._routines_helpers import (
 )
 from tests._routines_helpers import (
     activate_routine_spec,
+    persist_card_override,
     routine_assignment_spec,
 )
 
@@ -50,7 +51,7 @@ def test_schedule_window_applies_persisted_overrides():
     repo = SqliteRoutineRepository()
     baseline = get_schedule_window(repo, start_date="2026-03-02", duration_days=1)
     scheduled_occurrence = baseline.days[0].occurrences[0]
-    save_card_override(
+    persist_card_override(
         CardOverride(
             id="override-extra",
             date="2026-03-02",

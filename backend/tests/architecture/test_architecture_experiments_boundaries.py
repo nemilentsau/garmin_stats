@@ -46,6 +46,7 @@ def test_experiments_application_files_are_named_by_responsibility():
         "backend/app/domains/experiments/routes.py",
         "backend/app/domains/experiments/adapters.py",
         "backend/app/domains/experiments/dependencies.py",
+        "backend/app/domains/experiments/read_sources.py",
     ]:
         assert (REPO_ROOT / path).exists()
 
@@ -102,29 +103,6 @@ def test_experiment_domain_modules_do_not_import_application_or_infra():
     )
 
 
-def test_infra_database_does_not_own_experiment_persistence_contracts():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.experiments.contracts" not in source
-
-    experiment_persistence_functions = [
-        "def experiment_exists(",
-        "def load_experiment(",
-        "def save_experiment(",
-        "def delete_experiment(",
-        "def load_experiments(",
-        "def save_experiment_exposure(",
-        "def replace_experiment_exposure_for_date(",
-        "def load_experiment_exposures(",
-        "def save_experiment_report(",
-        "def load_experiment_reports(",
-        "def save_experiment_analysis(",
-        "def delete_experiment_analysis(",
-        "def load_experiment_analysis(",
-        "def load_all_experiment_analyses(",
-    ]
-    assert [name for name in experiment_persistence_functions if name in source] == []
-
-
 def test_bootstrap_routing_mounts_domain_experiment_routers_directly():
     source = read_repo_file("backend/app/bootstrap/routing.py")
     assert "domains.experiments.routes" in source
@@ -156,6 +134,39 @@ def test_migrated_experiment_router_shims_are_removed():
 
 
 def test_assistant_reads_experiment_analysis_through_domain_service():
-    source = read_repo_file("backend/app/domains/assistant/adapters.py")
+    source = read_repo_file("backend/app/domains/assistant/read_gateway.py")
     assert "domains.experiments.application.analysis_cache" in source
     assert "load_experiment_analysis" not in source
+
+
+def test_experiment_persistence_adapter_does_not_import_read_model_adapters():
+    source = read_repo_file("backend/app/domains/experiments/adapters.py")
+
+    assert "app.domains.garmin_analytics.adapters" not in source
+    assert "app.domains.journal.adapters" not in source
+    assert "def list_daily_metrics(" not in source
+    assert "def list_daily_checkins(" not in source
+
+
+def test_experiment_read_source_owns_garmin_and_journal_reads():
+    source = read_repo_file("backend/app/domains/experiments/read_sources.py")
+
+    assert "class ExperimentReadSource" in source
+    assert "app.domains.garmin_analytics.application.dependencies" in source
+    assert "app.domains.journal.dependencies" in source
+    assert "self.biometric_repo.load_daily_metrics" in source
+    assert "self.journal_repo.list_checkins" in source
+
+
+def test_frontend_adherence_calendar_displays_backend_rate():
+    calendar_source = read_repo_file(
+        "frontend/src/lib/components/experiments/AdherenceCalendar.svelte"
+    )
+    route_source = read_repo_file("frontend/src/routes/experiments/+page.svelte")
+
+    assert "rate: number" in calendar_source
+    assert "const elapsedHeadlinePct = $derived(Math.round(rate * 100));" in (
+        calendar_source
+    )
+    assert "(counts.full / elapsedDays)" not in calendar_source
+    assert "rate={analysis.adherence_rate}" in route_source

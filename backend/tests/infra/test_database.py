@@ -1,7 +1,8 @@
-"""Tests for database.py — connection, storage, read-back."""
+"""Tests for SQLite storage initialization and shared JSON persistence behavior."""
 
 import app.domains.routines.adapters as routine_db
-import app.infra.database as db
+import app.infra.sqlite as sqlite
+from app.core.profile.adapters import SqliteProfileRepository
 from app.core.profile.contracts import (
     Goal,
     UserProfile,
@@ -22,6 +23,7 @@ from app.domains.routines.contracts import (
     RoutineAssignment,
     RoutineSchedule,
 )
+from tests._routines_helpers import persist_card_override
 
 # ---------------------------------------------------------------------------
 # init & schema
@@ -29,7 +31,7 @@ from app.domains.routines.contracts import (
 
 class TestInit:
     def test_creates_all_required_tables(self, tmp_db):
-        with db._connect() as con:
+        with sqlite.connect() as con:
             tables = {r["name"] for r in con.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()}
@@ -48,9 +50,38 @@ class TestInit:
         assert "card_overrides" in tables
 
     def test_enables_wal_journal_mode(self, tmp_db):
-        with db._connect() as con:
+        with sqlite.connect() as con:
             mode = con.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
+
+    def test_bootstrap_storage_is_idempotent_and_creates_domain_tables(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "bootstrap-storage.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+
+        storage_schema.init_storage()
+        storage_schema.init_storage()
+
+        with sqlite.connect() as con:
+            tables = {r["name"] for r in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()}
+        assert {
+            "wellness_data",
+            "ingest_meta",
+            "user_profile",
+            "assistant_messages",
+            "routine_assignments",
+            "experiment_exposures",
+            "assistant_artifacts",
+            "daily_checkins",
+            "program_versions",
+        }.issubset(tables)
 
 
 # ---------------------------------------------------------------------------
@@ -81,23 +112,25 @@ class TestStoreAndLoad:
             nutrition_preferences=["high protein"],
         )
 
-        db.save_user_profile(profile)
-        loaded = db.load_user_profile()
+        repo = SqliteProfileRepository()
+        repo.save_profile(profile)
+        loaded = repo.get_profile()
 
         assert loaded is not None
         assert loaded.name == "Andrei"
         assert loaded.primary_goals == ["better recovery"]
 
     def test_json_record_update_preserves_created_at(self):
-        db.save_goal(Goal(id="goal-1", title="Recover better"))
-        with db._connect() as con:
+        repo = SqliteProfileRepository()
+        repo.save_goal(Goal(id="goal-1", title="Recover better"))
+        with sqlite.connect() as con:
             first = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",
                 ("goal-1",),
             ).fetchone()
 
-        db.save_goal(Goal(id="goal-1", title="Recover much better"))
-        with db._connect() as con:
+        repo.save_goal(Goal(id="goal-1", title="Recover much better"))
+        with sqlite.connect() as con:
             second = con.execute(
                 "SELECT created_at, updated_at FROM goals WHERE id = ?",
                 ("goal-1",),
@@ -146,7 +179,7 @@ class TestStoreAndLoad:
         routine_db.save_card_template(card)
         routine_db.save_routine_schedule_with_assignments(routine, [assignment])
         routine_db.save_card_log(log)
-        routine_db.save_card_override(override)
+        persist_card_override(override)
 
         assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
         assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
@@ -154,7 +187,10 @@ class TestStoreAndLoad:
             "assignment-1"
         ]
         assert [entry.id for entry in routine_db.load_card_logs("2026-03-02")] == ["log-1"]
-        assert [entry.id for entry in routine_db.load_card_overrides("2026-03-02")] == [
+        assert [
+            entry.id
+            for entry in routine_db.load_card_overrides_range("2026-03-02", "2026-03-02")
+        ] == [
             "override-1"
         ]
 
@@ -170,7 +206,7 @@ class TestCardOverridesRange:
     def test_range_query_matches_individual_date_queries(self):
         dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
         for i, date in enumerate(dates):
-            routine_db.save_card_override(CardOverride(
+            persist_card_override(CardOverride(
                 id=f"override-{i}",
                 date=date,
                 action="hide",
@@ -180,7 +216,7 @@ class TestCardOverridesRange:
         range_result = routine_db.load_card_overrides_range("2026-03-02", "2026-03-04")
         individual_results = []
         for date in dates:
-            individual_results.extend(routine_db.load_card_overrides(date=date))
+            individual_results.extend(routine_db.load_card_overrides_range(date, date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
 

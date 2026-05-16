@@ -2,6 +2,7 @@
 
 from app.bootstrap.container import build_container
 from app.domains.artifacts.contracts import AssistantArtifactCreateRequest
+from app.domains.routines.adapters import _STORE as _ROUTINES_STORE
 from app.domains.routines.application.schedule_window import (
     get_schedule_window as _get_schedule_window,
 )
@@ -12,6 +13,7 @@ from app.domains.routines.application.today import (
     upsert_today_card_log as _upsert_today_card_log,
 )
 from app.domains.routines.contracts import (
+    CardOverride,
     RoutineAssignment,
     RoutineSchedule,
     TodayCardLogUpdateRequest,
@@ -178,4 +180,18 @@ def upsert_today_card_log(
         occurrence_key=occurrence_key,
         request=request,
         observer=container.experiment_exposure_sync,
+    )
+
+
+def persist_card_override(override: CardOverride) -> None:
+    """Seed a persisted card override without exposing a production write API."""
+    _ROUTINES_STORE.save(
+        "card_overrides",
+        override.id,
+        override.model_dump_json(),
+        extra_columns={
+            "override_date": override.date,
+            "action": override.action,
+            "target_occurrence_key": override.target_occurrence_key,
+        },
     )

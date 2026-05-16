@@ -15,7 +15,6 @@ from app.domains.routines.adapters import (
     load_card_templates,
     load_routine_assignments,
     load_routine_schedules,
-    save_card_override,
 )
 from app.domains.routines.contracts import (
     CardOverride,
@@ -29,7 +28,12 @@ from tests._artifacts_helpers import (
     import_artifact_bundle,
     preview_artifact_bundle,
 )
-from tests._routines_helpers import get_schedule_window, get_today, upsert_today_card_log
+from tests._routines_helpers import (
+    get_schedule_window,
+    get_today,
+    persist_card_override,
+    upsert_today_card_log,
+)
 
 _CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_core_bundle.json"
 _ARTIFACT_REPO = SqliteArtifactRepository()
@@ -802,7 +806,7 @@ class TestTodayProjection:
         today_before = get_today("2026-03-02")
         scheduled_card = today_before.slots[2].cards[0]
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-extra",
                 date="2026-03-02",
@@ -812,7 +816,7 @@ class TestTodayProjection:
                 position=5,
             )
         )
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-hide-main",
                 date="2026-03-02",
@@ -842,7 +846,7 @@ class TestTodayProjection:
         today_before = get_today("2026-03-02")
         scheduled_card = today_before.slots[2].cards[0]
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-replace-main",
                 date="2026-03-02",
@@ -874,7 +878,7 @@ class TestTodayProjection:
         today_before = get_today("2026-03-02")
         scheduled_card = today_before.slots[2].cards[0]
 
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-extra",
                 date="2026-03-02",
@@ -884,7 +888,7 @@ class TestTodayProjection:
                 position=5,
             )
         )
-        save_card_override(
+        persist_card_override(
             CardOverride(
                 id="override-hide-main",
                 date="2026-03-02",

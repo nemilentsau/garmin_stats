@@ -19,7 +19,7 @@ from app.domains.routines.application.schedule_window import get_schedule_window
 from app.domains.routines.contracts import CardLogStatus, ScheduleOccurrence
 from app.domains.routines.dependencies import RoutineRepository
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import persist_experiment_analysis
 
 _SYNCABLE_EXPERIMENT_STATUSES = ("active", "draft", "completed")
@@ -30,18 +30,21 @@ class ExperimentExposureSyncService:
     """Observer adapter notified after Today card logs change."""
 
     experiment_repo: ExperimentRepository
+    experiment_read_source: ExperimentAnalysisReadSource
     routine_repo: RoutineRepository
 
     def sync_for_date(self, *, date: str) -> None:
         sync_experiment_exposures_for_date(
             date,
             experiment_repo=self.experiment_repo,
+            experiment_read_source=self.experiment_read_source,
             routine_repo=self.routine_repo,
         )
 
 
 def _refresh_persisted_analysis_if_changed(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
     *,
     old_exposure: ExperimentExposure | None,
@@ -56,13 +59,14 @@ def _refresh_persisted_analysis_if_changed(
         )
     if not changed:
         return
-    persist_experiment_analysis(repo, experiment)
+    persist_experiment_analysis(repo, read_source, experiment)
 
 
 def sync_experiment_exposures_for_date(
     date: str,
     *,
     experiment_repo: ExperimentRepository,
+    experiment_read_source: ExperimentAnalysisReadSource,
     routine_repo: RoutineRepository,
 ) -> None:
     """Recompute derived exposure rows for all linked experiments on one date."""
@@ -114,6 +118,7 @@ def sync_experiment_exposures_for_date(
         experiment_repo.replace_experiment_exposure_for_date(experiment.id, date, new_exposure)
         _refresh_persisted_analysis_if_changed(
             experiment_repo,
+            experiment_read_source,
             experiment,
             old_exposure=old_auto_exposure,
             new_exposure=new_exposure,

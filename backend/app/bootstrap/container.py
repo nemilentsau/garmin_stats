@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from app.core.config import AppConfig, get_app_config
-from app.core.profile.infra.sqlite_repository import SqliteProfileRepository
+from app.core.profile.adapters import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.assistant.adapters import SqliteAssistantRepository
+from app.domains.assistant.read_gateway import AssistantReadModelGateway
 from app.domains.assistant.runtime import ClaudeCodeRuntime
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
+from app.domains.experiments.read_sources import ExperimentReadSource
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
 )
@@ -28,6 +30,7 @@ class AppContainer:
     config: AppConfig
     artifacts_repo: SqliteArtifactRepository
     assistant_repo: SqliteAssistantRepository
+    assistant_read_store: AssistantReadModelGateway
     assistant_runtime: ClaudeCodeRuntime
     garmin_biometrics_repo: SqliteBiometricRepository
     journal_repo: SqliteJournalRepository
@@ -35,6 +38,7 @@ class AppContainer:
     programs_repo: SqliteProgramRepository
     routines_repo: SqliteRoutineRepository
     experiments_repo: SqliteExperimentRepository
+    experiments_read_source: ExperimentReadSource
     experiment_exposure_sync: ExperimentExposureSyncService
     garmin_sync: GarminSyncDependencies
     garmin_sync_watcher: DataDirectoryWatcher
@@ -48,12 +52,18 @@ def build_container() -> AppContainer:
     profile_repo = SqliteProfileRepository()
     garmin_biometrics_repo = SqliteBiometricRepository()
     journal_repo = SqliteJournalRepository()
+    experiments_read_source = ExperimentReadSource(
+        biometric_repo=garmin_biometrics_repo,
+        journal_repo=journal_repo,
+    )
     garmin_sync_infra = build_garmin_sync_infra(config)
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
-        assistant_repo=SqliteAssistantRepository(
+        assistant_repo=SqliteAssistantRepository(),
+        assistant_read_store=AssistantReadModelGateway(
             experiment_repo=experiments_repo,
+            experiment_read_source=experiments_read_source,
             profile_repo=profile_repo,
             routine_repo=routines_repo,
             journal_repo=journal_repo,
@@ -66,7 +76,12 @@ def build_container() -> AppContainer:
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
         experiments_repo=experiments_repo,
-        experiment_exposure_sync=ExperimentExposureSyncService(experiments_repo, routines_repo),
+        experiments_read_source=experiments_read_source,
+        experiment_exposure_sync=ExperimentExposureSyncService(
+            experiments_repo,
+            experiments_read_source,
+            routines_repo,
+        ),
         garmin_sync=garmin_sync_infra.dependencies,
         garmin_sync_watcher=garmin_sync_infra.watcher,
     )

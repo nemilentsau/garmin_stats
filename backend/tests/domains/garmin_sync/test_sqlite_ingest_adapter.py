@@ -1,7 +1,7 @@
 """Tests for Garmin sync SQLite ingest adapter behavior."""
 
 import app.domains.garmin_sync.infra.sqlite_ingest as ingest_db
-import app.infra.database as db
+import app.infra.sqlite as sqlite
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -40,7 +40,7 @@ def _write_fit_day(data_dir, date: str, filename: str = "001_WELLNESS.fit"):
 
 
 def _store_current_fingerprint(data_dir):
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
             ("data_fingerprint", compute_data_fingerprint(data_dir)),
@@ -55,7 +55,7 @@ def _insert_raw_day(date: str, updated_at: str):
         ("hrv_data", DayHrv(date=date).model_dump_json()),
         ("skin_temp_data", DaySkinTemp(date=date).model_dump_json()),
     )
-    with db._connect() as con:
+    with sqlite.connect() as con:
         for table, payload in rows:
             con.execute(
                 f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
@@ -65,7 +65,7 @@ def _insert_raw_day(date: str, updated_at: str):
 
 
 def _insert_daily_metric(date: str, updated_at: str):
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
             (date, _make_daily_metric(date).model_dump_json(), updated_at),
@@ -121,7 +121,7 @@ class TestIngestStatus:
         _write_fit_day(data_dir, date)
         _insert_raw_day(date, updated_at)
         _insert_daily_metric(date, updated_at)
-        with db._connect() as con:
+        with sqlite.connect() as con:
             con.execute(
                 "INSERT INTO ingest_meta (key, value) VALUES (?, ?)",
                 ("data_fingerprint", "old-fingerprint"),
@@ -171,7 +171,7 @@ class TestIngestStatus:
         updated_at = "2026-01-15T00:00:00+00:00"
         _write_fit_day(data_dir, date)
         _insert_daily_metric(date, updated_at)
-        with db._connect() as con:
+        with sqlite.connect() as con:
             con.execute(
                 "INSERT INTO wellness_data (date, data, updated_at) VALUES (?, ?, ?)",
                 (date, DayWellness(date=date).model_dump_json(), updated_at),
@@ -234,7 +234,7 @@ class TestDeleteStaleRows:
             ),
         ]
 
-        with db._connect() as con:
+        with sqlite.connect() as con:
             for table, keep_payload, drop_payload in tables:
                 con.execute(
                     f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",
@@ -262,7 +262,7 @@ class TestDeleteStaleRows:
             "skin_temp_data",
             "daily_metrics",
         )
-        with db._connect() as con:
+        with sqlite.connect() as con:
             for table in tables:
                 con.execute(
                     f"INSERT INTO {table} (date, data, updated_at) VALUES (?, ?, ?)",

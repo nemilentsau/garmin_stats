@@ -25,19 +25,24 @@ def _load_assistant_router():
 
 def _patch_container(monkeypatch, assistant_router_mod):
     repo = object()
+    read_store = object()
     runtime = object()
     monkeypatch.setattr(
         assistant_router_mod,
         "build_container",
-        lambda: SimpleNamespace(assistant_repo=repo, assistant_runtime=runtime),
+        lambda: SimpleNamespace(
+            assistant_repo=repo,
+            assistant_read_store=read_store,
+            assistant_runtime=runtime,
+        ),
     )
-    return repo, runtime
+    return repo, read_store, runtime
 
 
 class TestAssistantRoutes:
     def test_get_threads_returns_service_response(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _read_store, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -58,7 +63,7 @@ class TestAssistantRoutes:
 
     def test_get_thread_detail_raises_lookup_error_when_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _read_store, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -75,7 +80,7 @@ class TestAssistantRoutes:
 
     def test_post_thread_creates_thread(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _read_store, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -95,9 +100,11 @@ class TestAssistantRoutes:
 
     def test_post_thread_message_returns_ndjson_stream(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        _repo, runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, read_store, runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         async def fake_stream_reply(*_args, **_kwargs):
+            assert _kwargs["repo"] is repo
+            assert _kwargs["read_store"] is read_store
             assert _kwargs["runtime"] is runtime
             yield '{"type":"done"}\n'
 
@@ -130,9 +137,11 @@ class TestAssistantRoutes:
 
     def test_post_thread_message_keeps_ndjson_contract(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        _repo, runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, read_store, runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         async def fake_stream_reply(*_args, **_kwargs):
+            assert _kwargs["repo"] is repo
+            assert _kwargs["read_store"] is read_store
             assert _kwargs["runtime"] is runtime
             yield '{"type": "delta", "text": "hello"}\n'
             yield (
@@ -181,7 +190,7 @@ class TestAssistantRoutes:
 
     def test_post_thread_message_raises_lookup_error_when_thread_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _read_store, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,
@@ -203,7 +212,7 @@ class TestAssistantRoutes:
 
     def test_get_thread_messages_raises_lookup_error_when_missing(self, monkeypatch):
         assistant_router_mod = _load_assistant_router()
-        repo, _runtime = _patch_container(monkeypatch, assistant_router_mod)
+        repo, _read_store, _runtime = _patch_container(monkeypatch, assistant_router_mod)
 
         monkeypatch.setattr(
             assistant_router_mod,

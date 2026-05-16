@@ -16,6 +16,12 @@ from collections.abc import Iterable
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
 
+JSON_RECORD_COLUMNS_SQL = (
+    "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
+    "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
+)
+"""SQL column fragment for tables consumed by ``JsonStore`` defaults."""
+
 
 def model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
     """Parse a JSON ``data`` column into a Pydantic model with row timestamps."""

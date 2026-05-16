@@ -2,7 +2,7 @@
 
 import pytest
 
-import app.infra.database as db
+import app.bootstrap.schema as storage_schema
 import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
@@ -32,10 +32,9 @@ def load_hrv_insights(date: str | None = None):
 @pytest.fixture(autouse=True)
 def tmp_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test.db"
-    monkeypatch.setattr(db, "DB_PATH", test_db)
     monkeypatch.setattr(sqlite, "DB_PATH", test_db)
     cache.invalidate()
-    db.init_db()
+    storage_schema.init_storage()
     yield
 
 
@@ -61,7 +60,7 @@ def _make_daily_metric(
 
 
 def _insert_metric(metric: DailyMetric) -> None:
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
             (metric.date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
@@ -75,7 +74,7 @@ def _insert_hrv_day(
     summaries: list[HrvSummary] | None = None,
 ) -> None:
     payload = DayHrv(date=date, hrv_values=values, hrv_summaries=summaries or [])
-    with db._connect() as con:
+    with sqlite.connect() as con:
         con.execute(
             "INSERT INTO hrv_data (date, data, updated_at) VALUES (?, ?, ?)",
             (date, payload.model_dump_json(), "2026-01-15T00:00:00Z"),

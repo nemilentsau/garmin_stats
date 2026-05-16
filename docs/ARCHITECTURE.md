@@ -63,9 +63,9 @@ The Garmin health dependency direction is:
 
 - `backend/app/bootstrap/`
   App factory, router registration, lifespan entrypoint, process-runtime task
-  wiring, and the current composition root. Cross-domain reactions such as
-  "refresh experiment analyses after Garmin ingest" belong here rather than in
-  the Garmin sync or experiment slices.
+  wiring, storage schema composition, and the current composition root.
+  Cross-domain reactions such as "refresh experiment analyses after Garmin
+  ingest" belong here rather than in the Garmin sync or experiment slices.
 
 - `backend/app/core/`
   Shared cross-cutting modules being extracted out of the flat app root.
@@ -111,8 +111,17 @@ Current contents:
 
 ### Infrastructure
 
-- `backend/app/infra/database.py`
-  SQLite schema, shared read/write helpers, data-root config, and ingest metadata table.
+- `backend/app/infra/sqlite.py`
+  Shared SQLite database path and connection primitive. It does not own table
+  definitions or domain persistence policy.
+
+- `backend/app/infra/jsonstore.py`
+  Generic JSON-record persistence helper used by storage adapters that own
+  their tables and contracts.
+
+- `backend/app/bootstrap/schema.py`
+  Storage composition entrypoint. It creates the SQLite file, enables WAL, and
+  calls each storage-owning slice's `schema.py` initializer with one connection.
 
 - `backend/app/infra/cache.py`
   In-memory cache with generation-based invalidation.
@@ -389,8 +398,8 @@ The project now uses "migrated" to mean both route/file-layout migration and
 strict boundary migration.
 
 - Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
-- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import `app.infra.database`, `app.services.*`, or `app.routers.*`.
-- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping `app.infra.database`.
+- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import global storage modules, `app.services.*`, or `app.routers.*`.
+- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
 - Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
 - Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
@@ -552,14 +561,14 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
   Product overview, routes, setup, API map.
 
-- [docs/DATA_SCHEMA_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/DATA_SCHEMA_DESIGN.md)
-  Routine runtime design rules.
-
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
   Planned analytical foundation for activity sessions, derived daily training features, and experiment-day joins.
 
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
   Bundle import contract.
+
+- [docs/REFACTOR_PLAN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/REFACTOR_PLAN.md)
+  Active backend architecture cleanup plan.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
   Current dataset observations.

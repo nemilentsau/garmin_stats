@@ -2,10 +2,9 @@
 
 import json
 from contextlib import contextmanager
-from typing import Any, cast
 
 import app.domains.assistant.adapters as assistant_db
-import app.infra.database as db
+import app.infra.sqlite as sqlite
 from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
     AssistantEvidenceItem,
@@ -18,7 +17,7 @@ from app.domains.assistant.contracts import (
 
 
 def _load_run(run_id: str) -> AssistantRun | None:
-    with db._connect() as con:
+    with sqlite.connect() as con:
         row = con.execute(
             "SELECT data FROM assistant_runs WHERE id = ?",
             (run_id,),
@@ -30,7 +29,7 @@ def _load_run(run_id: str) -> AssistantRun | None:
 
 class TestAssistantAdapter:
     def test_migrate_assistant_storage_backfills_legacy_memory_alias_lookup(self, monkeypatch):
-        with db._connect() as con, con:
+        with sqlite.connect() as con, con:
             con.execute("DROP TABLE assistant_memory_records")
             con.execute(
                 """
@@ -83,7 +82,7 @@ class TestAssistantAdapter:
         monkeypatch.setattr(assistant_db, "connect", traced_connect)
         assistant_db.migrate_assistant_storage()
 
-        with db._connect() as con:
+        with sqlite.connect() as con:
             columns = {
                 row["name"]
                 for row in con.execute("PRAGMA table_info(assistant_memory_records)").fetchall()
@@ -122,16 +121,7 @@ class TestAssistantAdapter:
         assert messages[0].created_at is not None
 
     def test_repository_save_message_updates_thread_activity(self):
-        class _UnusedRepo:
-            pass
-
-        repo = assistant_db.SqliteAssistantRepository(
-            experiment_repo=cast(Any, _UnusedRepo()),
-            profile_repo=cast(Any, _UnusedRepo()),
-            routine_repo=cast(Any, _UnusedRepo()),
-            journal_repo=cast(Any, _UnusedRepo()),
-            biometric_repo=cast(Any, _UnusedRepo()),
-        )
+        repo = assistant_db.SqliteAssistantRepository()
         assistant_db.create_assistant_thread(
             AssistantThread(id="thread-1", title="Recovery coach")
         )
@@ -236,7 +226,7 @@ class TestAssistantAdapter:
         loaded_messages = assistant_db.load_assistant_messages("thread-1")
         loaded_memory = assistant_db.load_assistant_memory_records(kind="entity_alias")
         loaded_run = _load_run("run-1")
-        with db._connect() as con:
+        with sqlite.connect() as con:
             row = con.execute(
                 "SELECT alias_text FROM assistant_memory_records WHERE id = ?",
                 ("memory-1",),
@@ -352,24 +342,3 @@ class TestAssistantAdapter:
         )
 
         assert [record.id for record in loaded] == ["memory-1"]
-
-    def test_list_recent_metrics_pushes_limit_to_biometric_repository(self):
-        class _TrackingBiometricRepo:
-            def __init__(self):
-                self.last_n_calls: list[int | None] = []
-
-            def load_daily_metrics(self, *, last_n: int | None = None) -> list[object]:
-                self.last_n_calls.append(last_n)
-                return []
-
-        biometric_repo = _TrackingBiometricRepo()
-        repo = assistant_db.SqliteAssistantRepository(
-            experiment_repo=cast(Any, object()),
-            profile_repo=cast(Any, object()),
-            routine_repo=cast(Any, object()),
-            journal_repo=cast(Any, object()),
-            biometric_repo=cast(Any, biometric_repo),
-        )
-
-        assert repo.list_recent_metrics(last_n=7) == []
-        assert biometric_repo.last_n_calls == [7]

@@ -20,6 +20,7 @@ from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
+from tests._experiments_helpers import make_experiment_read_source as _read_source
 
 
 def _card_request(card_id: str, *, slot_default: str) -> AssistantArtifactCreateRequest:
@@ -109,6 +110,7 @@ def _sync_exposures_for_date(date: str) -> None:
     sync_experiment_exposures_for_date(
         date,
         experiment_repo=SqliteExperimentRepository(),
+        experiment_read_source=_read_source(),
         routine_repo=SqliteRoutineRepository(),
     )
 
@@ -227,7 +229,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     repo.save_experiment(experiment)
     repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(repo, experiment),
+        compute_experiment_analysis(repo, _read_source(), experiment),
     )
 
     scheduled_cards = _scheduled_cards_for("2026-03-02")
@@ -276,7 +278,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
     repo.save_experiment(experiment)
     repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(repo, experiment),
+        compute_experiment_analysis(repo, _read_source(), experiment),
     )
 
     first_card = _scheduled_cards_for("2026-03-02")[0]

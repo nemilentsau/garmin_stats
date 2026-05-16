@@ -85,9 +85,25 @@ def test_assistant_sqlite_adapter_is_the_database_boundary():
     assert "app.domains.routines.adapters" not in source
     assert "app.domains.garmin_analytics.adapters" not in source
     assert "app.domains.journal.adapters" not in source
+    assert "app.core.profile" not in source
+    assert "app.domains.experiments" not in source
+    assert "app.domains.garmin_analytics" not in source
+    assert "app.domains.garmin_health" not in source
+    assert "app.domains.journal" not in source
+    assert "app.domains.routines" not in source
+
+
+def test_assistant_read_gateway_owns_cross_domain_read_access():
+    source = read_repo_file("backend/app/domains/assistant/read_gateway.py")
+
+    assert "class AssistantReadModelGateway" in source
+    assert "get_current_experiment_analysis" in source
+    assert "refresh_active_experiment_analyses" in source
+    assert "app.domains.experiments.dependencies" in source
     assert "app.domains.routines.dependencies" in source
     assert "app.domains.garmin_analytics.application.dependencies" in source
     assert "app.domains.journal.dependencies" in source
+    assert "app.core.profile.ports" in source
 
 
 def test_bootstrap_routing_mounts_domain_assistant_router_directly():
@@ -103,49 +119,15 @@ def test_assistant_routes_use_container_repository_and_runtime():
 
     assert "build_container" in source
     assert "assistant_repo" in source
+    assert "assistant_read_store" in source
     assert "assistant_runtime" in source
-
-
-def test_shared_database_does_not_own_assistant_contracts_or_crud():
-    source = read_repo_file("backend/app/infra/database.py")
-    assert "domains.assistant.contracts" not in source
-    assert "domains.assistant.application.types" not in source
-
-    assistant_persistence_functions = [
-        "def create_assistant_thread(",
-        "def save_assistant_thread(",
-        "def load_assistant_thread(",
-        "def load_assistant_threads(",
-        "def save_assistant_message(",
-        "def load_assistant_messages(",
-        "def save_assistant_run(",
-        "def finalize_assistant_reply(",
-        "def load_assistant_runs(",
-        "def save_assistant_evidence_bundle(",
-        "def load_assistant_evidence_bundles(",
-        "def save_assistant_memory_record(",
-        "def load_assistant_memory_records(",
-        "def save_context_snapshot(",
-        "def load_context_snapshot(",
-        "def load_context_snapshots(",
-        "def save_evidence_card(",
-        "def load_evidence_cards(",
-        "def save_plan(",
-        "def load_plans(",
-        "def save_plan_item(",
-        "def load_plan_items(",
-    ]
-    assert [name for name in assistant_persistence_functions if name in source] == []
+    assert "read_store=container.assistant_read_store" in source
 
 
 def test_assistant_alias_migration_lives_with_sqlite_adapter():
-    database_source = read_repo_file("backend/app/infra/database.py")
     adapter_source = read_repo_file("backend/app/domains/assistant/adapters.py")
     lifespan_source = read_repo_file("backend/app/bootstrap/lifespan.py")
 
-    assert "_ensure_assistant_memory_alias_lookup_columns" not in database_source
-    assert "_normalize_alias_text" not in database_source
-    assert "idx_assistant_memory_records_kind_alias_normalized_created" not in database_source
     assert "def migrate_assistant_storage(" in adapter_source
     assert "normalize_alias(row" in adapter_source
     assert "migrate_assistant_storage()" in lifespan_source

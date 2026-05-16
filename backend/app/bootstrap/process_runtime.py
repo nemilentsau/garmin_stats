@@ -50,4 +50,7 @@ class ProcessRuntime:
             task.cancel()
 
     def _refresh_active_experiment_analyses(self) -> int:
-        return refresh_active_experiments(self._container.experiments_repo)
+        return refresh_active_experiments(
+            self._container.experiments_repo,
+            self._container.experiments_read_source,
+        )
