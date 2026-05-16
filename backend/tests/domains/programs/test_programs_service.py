@@ -3,6 +3,9 @@
 
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.management import list_experiments
+from app.domains.experiments.read_sources import ExperimentReadSource
+from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
+from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.programs.adapters import SqliteProgramRepository
 from app.domains.programs.application.programs import (
     get_program,
@@ -29,6 +32,13 @@ def _program_spec(
     }
 
 
+def _experiment_read_source() -> ExperimentReadSource:
+    return ExperimentReadSource(
+        biometric_repo=SqliteBiometricRepository(),
+        journal_repo=SqliteJournalRepository(),
+    )
+
+
 class TestImportProgram:
     def test_import_stores_program_spec_without_creating_legacy_children(self):
         repo = SqliteProgramRepository()
@@ -49,7 +59,10 @@ class TestImportProgram:
 
         assert imported.id == "program-1"
         assert list_programs(repo).programs == [imported]
-        assert list_experiments(SqliteExperimentRepository()).experiments == []
+        assert list_experiments(
+            SqliteExperimentRepository(),
+            _experiment_read_source(),
+        ).experiments == []
 
     def test_reimport_versions_program_without_touching_legacy_children(self):
         repo = SqliteProgramRepository()
@@ -87,4 +100,7 @@ class TestImportProgram:
 
         assert program.version == 2
         assert versions[0].version == 1
-        assert list_experiments(SqliteExperimentRepository()).experiments == []
+        assert list_experiments(
+            SqliteExperimentRepository(),
+            _experiment_read_source(),
+        ).experiments == []

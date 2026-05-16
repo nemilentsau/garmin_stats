@@ -18,6 +18,7 @@ class TestAssistantReadModelGateway:
         biometric_repo = _TrackingBiometricRepo()
         gateway = AssistantReadModelGateway(
             experiment_repo=cast(Any, object()),
+            experiment_read_source=cast(Any, object()),
             profile_repo=cast(Any, object()),
             routine_repo=cast(Any, object()),
             journal_repo=cast(Any, object()),
@@ -32,16 +33,23 @@ class TestAssistantReadModelGateway:
             pass
 
         experiment_repo = _ExperimentRepo()
+        experiment_read_source = object()
         gateway = AssistantReadModelGateway(
             experiment_repo=cast(Any, experiment_repo),
+            experiment_read_source=cast(Any, experiment_read_source),
             profile_repo=cast(Any, object()),
             routine_repo=cast(Any, object()),
             journal_repo=cast(Any, object()),
             biometric_repo=cast(Any, object()),
         )
 
-        def raise_missing(candidate_repo: Any, experiment_id: str):
+        def raise_missing(
+            candidate_repo: Any,
+            candidate_read_source: Any,
+            experiment_id: str,
+        ):
             assert candidate_repo is experiment_repo
+            assert candidate_read_source is experiment_read_source
             assert experiment_id == "experiment-1"
             raise LookupError("missing analysis")
 

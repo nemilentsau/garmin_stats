@@ -16,6 +16,8 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     OutcomeMetric,
 )
+from app.domains.experiments.read_sources import ExperimentReadSource
+from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -25,6 +27,7 @@ from app.domains.garmin_health.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
+from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.journal.contracts import DailyCheckIn
 from app.domains.routines.adapters import SqliteRoutineRepository
 
@@ -64,6 +67,13 @@ def _store_metrics(metrics: list[DailyMetric]) -> None:
             )
         con.commit()
     cache.invalidate()
+
+
+def _read_source() -> ExperimentReadSource:
+    return ExperimentReadSource(
+        biometric_repo=SqliteBiometricRepository(),
+        journal_repo=SqliteJournalRepository(),
+    )
 
 
 def _seed_metrics(baseline_vals: list[float], treatment_vals: list[float]):
@@ -113,6 +123,46 @@ def _make_experiment(
 
 
 class TestComputeExperimentAnalysis:
+    def test_analysis_loads_metrics_and_checkins_from_read_source(self):
+        """Analysis reads Garmin and journal inputs outside experiment persistence."""
+        exp = _make_experiment(3, 3)
+
+        class _ExposureRepo:
+            def __init__(self):
+                self.exposure_calls: list[str] = []
+
+            def list_experiment_exposures(
+                self,
+                *,
+                experiment_id: str | None = None,
+                date: str | None = None,
+            ) -> list[ExperimentExposure]:
+                assert date is None
+                assert experiment_id is not None
+                self.exposure_calls.append(experiment_id)
+                return []
+
+        class _ReadSource:
+            def __init__(self):
+                self.calls: list[str] = []
+
+            def list_daily_metrics(self) -> list[DailyMetric]:
+                self.calls.append("metrics")
+                return []
+
+            def list_daily_checkins(self) -> list[DailyCheckIn]:
+                self.calls.append("checkins")
+                return []
+
+        repo = _ExposureRepo()
+        read_source = _ReadSource()
+
+        result = compute_experiment_analysis(cast(Any, repo), read_source, exp)
+
+        assert result.experiment_id == exp.id
+        assert repo.exposure_calls == [exp.id]
+        assert read_source.calls == ["metrics", "checkins"]
+
     def test_clear_improvement(self):
         """Treatment HRV clearly higher than baseline → large effect."""
         baseline = [40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0,
@@ -122,7 +172,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(len(baseline), len(treatment))
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
 
         assert result.experiment_id == "test-experiment"
         assert result.phase == "completed"
@@ -143,7 +193,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(values, values)
 
         exp = _make_experiment(len(values), len(values))
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
 
         metric = result.metrics[0]
         assert abs(metric.best_result.delta_abs) < 1.0
@@ -160,7 +210,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(14, 14, lag_days=[0, 5])
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
 
         metric = result.metrics[0]
         # The lag=5 result should be better than lag=0
@@ -172,7 +222,7 @@ class TestComputeExperimentAnalysis:
     def test_no_design_returns_draft(self):
         """Experiment without design gets a draft analysis."""
         exp = Experiment(id="no-design", name="No Design", status="draft")
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
         assert result.phase == "draft"
         assert result.overall_confidence == "insufficient"
 
@@ -183,7 +233,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(14, 14)
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
 
         # We watch sleep.score and stress.avg — both should have checks
         assert len(result.confounders) == 2
@@ -198,7 +248,7 @@ class TestComputeExperimentAnalysis:
         _seed_metrics(baseline, treatment)
 
         exp = _make_experiment(3, 3)
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
         assert result.overall_confidence == "insufficient"
 
     def test_lower_is_better_uses_direction_correct_nap(self):
@@ -225,7 +275,7 @@ class TestComputeExperimentAnalysis:
         ]
         exp.confounder_watch = []
 
-        result = compute_experiment_analysis(SqliteExperimentRepository(), exp)
+        result = compute_experiment_analysis(SqliteExperimentRepository(), _read_source(), exp)
 
         metric = result.metrics[0]
         assert metric.best_result.direction_correct is True
@@ -254,7 +304,10 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="nonexistent.metric")],
         )
         result = preview_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
         assert not result.valid
         error_msgs = [i.message for i in result.issues if i.level == "error"]
@@ -276,7 +329,10 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
         result = preview_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
         assert not result.valid
 
@@ -299,7 +355,10 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
         result = import_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
         assert result.experiment.status == "active"
         assert result.analysis is not None
@@ -329,7 +388,10 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
         import_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
 
         loaded = SqliteExperimentRepository().get_experiment_analysis("flat-series")
@@ -366,7 +428,10 @@ class TestExperimentPreviewAndImport:
             outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
         )
         import_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
 
         updated = Experiment(
@@ -376,9 +441,18 @@ class TestExperimentPreviewAndImport:
             design=exp.design,
             outcome_metrics=[OutcomeMetric(path="sleep.score")],
         )
-        update_experiment(SqliteExperimentRepository(), "refresh-test", updated)
+        update_experiment(
+            SqliteExperimentRepository(),
+            _read_source(),
+            "refresh-test",
+            updated,
+        )
 
-        detail = get_experiment_with_analysis(SqliteExperimentRepository(), "refresh-test")
+        detail = get_experiment_with_analysis(
+            SqliteExperimentRepository(),
+            _read_source(),
+            "refresh-test",
+        )
 
         assert detail.analysis is not None
         assert detail.experiment.outcome_metrics[0].path == "sleep.score"
@@ -429,7 +503,11 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
         repo.save_experiment_analysis(
             experiment.id,
-            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+            experiment_analysis_mod.compute_experiment_analysis(
+                repo,
+                _read_source(),
+                experiment,
+            ),
         )
         stale = repo.get_experiment_analysis(experiment.id)
         assert stale is not None
@@ -438,7 +516,11 @@ class TestExperimentPreviewAndImport:
 
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
 
-        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        analysis = analysis_cache_mod.get_experiment_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
 
         assert analysis is not None
         assert analysis.analysis_date == "2026-05-04"
@@ -448,7 +530,11 @@ class TestExperimentPreviewAndImport:
         assert analysis.adherence_by_day[-1].state == "unknown"
 
         repo.save_experiment_analysis(experiment.id, stale)
-        detail = management_mod.get_experiment_with_analysis(repo, experiment.id)
+        detail = management_mod.get_experiment_with_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
 
         assert detail.analysis is not None
         assert detail.analysis.analysis_date == "2026-05-04"
@@ -488,7 +574,11 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
         repo.save_experiment_analysis(
             experiment.id,
-            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+            experiment_analysis_mod.compute_experiment_analysis(
+                repo,
+                _read_source(),
+                experiment,
+            ),
         )
 
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
@@ -501,8 +591,16 @@ class TestExperimentPreviewAndImport:
 
         monkeypatch.setattr(repo, "save_experiment_analysis", tracking_save)
 
-        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
-        again = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        analysis = analysis_cache_mod.get_experiment_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
+        again = analysis_cache_mod.get_experiment_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
         persisted = repo.get_experiment_analysis(experiment.id)
 
         assert analysis is not None
@@ -572,12 +670,6 @@ class TestExperimentPreviewAndImport:
             def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
                 return {experiment.id: cached}
 
-            def list_daily_metrics(self) -> list[DailyMetric]:
-                raise AssertionError("fresh active scan should not load metrics")
-
-            def list_daily_checkins(self) -> list[DailyCheckIn]:
-                raise AssertionError("fresh active scan should not load check-ins")
-
             def list_experiment_exposures(
                 self,
                 *,
@@ -595,9 +687,20 @@ class TestExperimentPreviewAndImport:
                 _ = analysis
                 self.save_calls.append(experiment_id)
 
-        repo = _FreshAnalysisRepo()
+        class _ReadSource:
+            def list_daily_metrics(self) -> list[DailyMetric]:
+                raise AssertionError("fresh active scan should not load metrics")
 
-        analyses = analysis_cache_mod.refresh_active_experiment_analyses(cast(Any, repo))
+            def list_daily_checkins(self) -> list[DailyCheckIn]:
+                raise AssertionError("fresh active scan should not load check-ins")
+
+        repo = _FreshAnalysisRepo()
+        read_source = _ReadSource()
+
+        analyses = analysis_cache_mod.refresh_active_experiment_analyses(
+            cast(Any, repo),
+            read_source,
+        )
 
         assert analyses == {experiment.id: cached}
         assert repo.save_calls == []
@@ -662,14 +765,6 @@ class TestExperimentPreviewAndImport:
             def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
                 return {experiment.id: cached}
 
-            def list_daily_metrics(self) -> list[DailyMetric]:
-                self.input_loads.append("metrics")
-                return []
-
-            def list_daily_checkins(self) -> list[DailyCheckIn]:
-                self.input_loads.append("checkins")
-                return []
-
             def list_experiment_exposures(
                 self,
                 *,
@@ -702,12 +797,29 @@ class TestExperimentPreviewAndImport:
                 assert experiment_id == experiment.id
                 self.saved.append(analysis)
 
-        repo = _RefreshRepo()
+        class _ReadSource:
+            def __init__(self):
+                self.input_loads: list[str] = []
 
-        refreshed = analysis_cache_mod.refresh_active_experiments(cast(Any, repo))
+            def list_daily_metrics(self) -> list[DailyMetric]:
+                self.input_loads.append("metrics")
+                return []
+
+            def list_daily_checkins(self) -> list[DailyCheckIn]:
+                self.input_loads.append("checkins")
+                return []
+
+        repo = _RefreshRepo()
+        read_source = _ReadSource()
+
+        refreshed = analysis_cache_mod.refresh_active_experiments(
+            cast(Any, repo),
+            read_source,
+        )
 
         assert refreshed == 1
-        assert repo.input_loads == ["metrics", "checkins", "exposures"]
+        assert read_source.input_loads == ["metrics", "checkins"]
+        assert repo.input_loads == ["exposures"]
         assert len(repo.saved) == 1
         assert repo.saved[0].adherence_rate == 1.0
         assert repo.saved[0].summary != cached.summary
@@ -749,12 +861,20 @@ class TestExperimentPreviewAndImport:
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", Apr13)
         repo.save_experiment_analysis(
             experiment.id,
-            experiment_analysis_mod.compute_experiment_analysis(repo, experiment),
+            experiment_analysis_mod.compute_experiment_analysis(
+                repo,
+                _read_source(),
+                experiment,
+            ),
         )
 
         monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
 
-        analysis = analysis_cache_mod.get_experiment_analysis(repo, experiment.id)
+        analysis = analysis_cache_mod.get_experiment_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
         persisted = repo.get_experiment_analysis(experiment.id)
 
         assert analysis is not None
@@ -782,8 +902,12 @@ class TestExperimentPreviewAndImport:
         )
         create_experiment(SqliteExperimentRepository(), experiment)
 
-        detail = get_experiment_with_analysis(SqliteExperimentRepository(), experiment.id)
-        response = list_experiments(SqliteExperimentRepository())
+        detail = get_experiment_with_analysis(
+            SqliteExperimentRepository(),
+            _read_source(),
+            experiment.id,
+        )
+        response = list_experiments(SqliteExperimentRepository(), _read_source())
 
         assert detail.experiment.id == experiment.id
         assert detail.analysis is None
@@ -818,7 +942,10 @@ class TestExperimentPreviewAndImport:
         )
 
         result = preview_experiment(
-            SqliteExperimentRepository(), exp, routine_repo=SqliteRoutineRepository(),
+            SqliteExperimentRepository(),
+            _read_source(),
+            exp,
+            routine_repo=SqliteRoutineRepository(),
         )
 
         assert result.valid is True

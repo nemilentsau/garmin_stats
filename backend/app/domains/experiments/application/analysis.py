@@ -10,11 +10,12 @@ from __future__ import annotations
 from app.domains.experiments.contracts import Experiment, ExperimentAnalysis
 from app.domains.experiments.domain import analysis as domain_analysis
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 
 
 def compute_experiment_analysis(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
 ) -> ExperimentAnalysis:
     """Load repository inputs and compute the current experiment analysis."""
@@ -23,7 +24,7 @@ def compute_experiment_analysis(
         return placeholder
     return domain_analysis.compute_experiment_analysis(
         experiment,
-        daily_metrics=repo.list_daily_metrics(),
-        daily_checkins=repo.list_daily_checkins(),
+        daily_metrics=read_source.list_daily_metrics(),
+        daily_checkins=read_source.list_daily_checkins(),
         exposures=repo.list_experiment_exposures(experiment_id=experiment.id),
     )

@@ -46,6 +46,7 @@ def test_experiments_application_files_are_named_by_responsibility():
         "backend/app/domains/experiments/routes.py",
         "backend/app/domains/experiments/adapters.py",
         "backend/app/domains/experiments/dependencies.py",
+        "backend/app/domains/experiments/read_sources.py",
     ]:
         assert (REPO_ROOT / path).exists()
 
@@ -136,3 +137,22 @@ def test_assistant_reads_experiment_analysis_through_domain_service():
     source = read_repo_file("backend/app/domains/assistant/read_gateway.py")
     assert "domains.experiments.application.analysis_cache" in source
     assert "load_experiment_analysis" not in source
+
+
+def test_experiment_persistence_adapter_does_not_import_read_model_adapters():
+    source = read_repo_file("backend/app/domains/experiments/adapters.py")
+
+    assert "app.domains.garmin_analytics.adapters" not in source
+    assert "app.domains.journal.adapters" not in source
+    assert "def list_daily_metrics(" not in source
+    assert "def list_daily_checkins(" not in source
+
+
+def test_experiment_read_source_owns_garmin_and_journal_reads():
+    source = read_repo_file("backend/app/domains/experiments/read_sources.py")
+
+    assert "class ExperimentReadSource" in source
+    assert "app.domains.garmin_analytics.application.dependencies" in source
+    assert "app.domains.journal.dependencies" in source
+    assert "self.biometric_repo.load_daily_metrics" in source
+    assert "self.journal_repo.list_checkins" in source

@@ -23,7 +23,10 @@ from app.domains.experiments.contracts import (
     ExperimentAnalysis,
     ExperimentExposure,
 )
-from app.domains.experiments.dependencies import ExperimentRepository
+from app.domains.experiments.dependencies import (
+    ExperimentAnalysisReadSource,
+    ExperimentRepository,
+)
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import (
@@ -40,6 +43,7 @@ class AssistantReadModelGateway:
     """Assistant read dependency backed by already-composed domain repositories."""
 
     experiment_repo: ExperimentRepository
+    experiment_read_source: ExperimentAnalysisReadSource
     profile_repo: ProfileRepository
     routine_repo: RoutineRepository
     journal_repo: JournalRepository
@@ -57,13 +61,20 @@ class AssistantReadModelGateway:
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None:
         try:
-            return get_current_experiment_analysis(self.experiment_repo, experiment_id)
+            return get_current_experiment_analysis(
+                self.experiment_repo,
+                self.experiment_read_source,
+                experiment_id,
+            )
         except LookupError:
             return None
 
     def list_active_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
         """Return active experiment analyses via stale-gated bulk refresh."""
-        return refresh_active_experiment_analyses(self.experiment_repo)
+        return refresh_active_experiment_analyses(
+            self.experiment_repo,
+            self.experiment_read_source,
+        )
 
     def list_experiment_exposures(
         self,

@@ -1,8 +1,8 @@
 """Ports consumed by experiment application use cases.
 
-Experiment workflows read Garmin metrics, journal check-ins, experiment specs,
-exposures, and cached analyses through this protocol. Concrete SQLite details
-belong in the adapter layer.
+Experiment workflows split durable experiment persistence from read-model inputs
+owned by other domains. SQLite details belong in adapter modules; application
+use cases receive explicit ports for the data each workflow needs.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from app.domains.journal.contracts import DailyCheckIn
 
 
 class ExperimentRepository(Protocol):
-    """Persistence and read-model port for experiment workflows."""
+    """Persistence port for experiment definitions, exposures, and analyses."""
 
     def list_experiments(
         self,
@@ -61,6 +61,13 @@ class ExperimentRepository(Protocol):
         exposure: ExperimentExposure | None,
     ) -> None: ...
 
+class ExperimentPreviewReadSource(Protocol):
+    """Read source for validating experiment metric paths and baseline coverage."""
+
     def list_daily_metrics(self) -> list[DailyMetric]: ...
+
+
+class ExperimentAnalysisReadSource(ExperimentPreviewReadSource, Protocol):
+    """Read source for recomputing experiment analysis inputs."""
 
     def list_daily_checkins(self) -> list[DailyCheckIn]: ...

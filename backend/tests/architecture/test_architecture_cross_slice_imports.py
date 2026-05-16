@@ -60,10 +60,12 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.routines.application.schedule_window",
     },
     "backend/app/domains/experiments/adapters.py": {
-        "app.domains.garmin_analytics.adapters",
+    },
+    "backend/app/domains/experiments/read_sources.py": {
+        "app.domains.garmin_analytics.application.dependencies",
         GARMIN_HEALTH_CONTRACTS,
-        "app.domains.journal.adapters",
         "app.domains.journal.contracts",
+        "app.domains.journal.dependencies",
     },
     "backend/app/domains/assistant/dependencies.py": {
         "app.core.profile.contracts",

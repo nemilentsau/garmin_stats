@@ -13,7 +13,7 @@ from app.domains.experiments.contracts import (
 )
 from app.domains.routines.dependencies import RoutineRepository
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import (
     load_current_analysis,
     persist_experiment_analysis,
@@ -22,14 +22,22 @@ from .analysis_cache import (
 from .preview import preview_experiment
 
 
-def list_experiments(repo: ExperimentRepository) -> ExperimentsResponse:
+def list_experiments(
+    repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
+) -> ExperimentsResponse:
     """Return all experiments with refreshed cached analysis where needed."""
     experiments = repo.list_experiments()
     analyses_by_id = repo.list_all_experiment_analyses()
     items = [
         ExperimentWithAnalysis(
             experiment=experiment,
-            analysis=refresh_if_stale(repo, experiment, analyses_by_id.get(experiment.id)),
+            analysis=refresh_if_stale(
+                repo,
+                read_source,
+                experiment,
+                analyses_by_id.get(experiment.id),
+            ),
         )
         for experiment in experiments
     ]
@@ -46,11 +54,12 @@ def get_experiment(repo: ExperimentRepository, experiment_id: str) -> Experiment
 
 def get_experiment_with_analysis(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment_id: str,
 ) -> ExperimentWithAnalysis:
     """Load one experiment with its current cached analysis snapshot."""
     experiment = get_experiment(repo, experiment_id)
-    analysis = load_current_analysis(repo, experiment)
+    analysis = load_current_analysis(repo, read_source, experiment)
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
 
 
@@ -62,6 +71,7 @@ def create_experiment(repo: ExperimentRepository, experiment: Experiment) -> Exp
 
 def update_experiment(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment_id: str,
     experiment: Experiment,
 ) -> Experiment:
@@ -72,24 +82,30 @@ def update_experiment(
         raise LookupError(f"Experiment {experiment_id} not found")
 
     repo.save_experiment(experiment)
-    persist_experiment_analysis(repo, experiment)
+    persist_experiment_analysis(repo, read_source, experiment)
     return experiment
 
 
 def import_experiment(
     repo: ExperimentRepository,
+    read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
     *,
     routine_repo: RoutineRepository,
 ) -> ExperimentWithAnalysis:
     """Validate a spec, persist it as active, and create initial analysis."""
-    preview = preview_experiment(repo, experiment, routine_repo=routine_repo)
+    preview = preview_experiment(
+        repo,
+        read_source,
+        experiment,
+        routine_repo=routine_repo,
+    )
     if not preview.valid:
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")
         raise ValueError(f"Experiment has validation errors: {msg}")
 
     experiment.status = "active"
     repo.save_experiment(experiment)
-    analysis = persist_experiment_analysis(repo, experiment)
+    analysis = persist_experiment_analysis(repo, read_source, experiment)
 
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)

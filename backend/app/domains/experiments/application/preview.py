@@ -20,7 +20,7 @@ from app.domains.experiments.domain.metric_paths import resolve_metric_path
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.routines.dependencies import RoutineRepository
 
-from ..dependencies import ExperimentRepository
+from ..dependencies import ExperimentPreviewReadSource, ExperimentRepository
 
 
 def _validate_metric_path(
@@ -117,6 +117,7 @@ def _resolve_design_dates(
 
 def preview_experiment(
     repo: ExperimentRepository,
+    read_source: ExperimentPreviewReadSource,
     experiment: Experiment,
     *,
     routine_repo: RoutineRepository,
@@ -173,7 +174,7 @@ def preview_experiment(
     b_start_str = b_start.isoformat()
     b_end_str = b_end.isoformat()
 
-    all_metrics = repo.list_daily_metrics()
+    all_metrics = read_source.list_daily_metrics()
     metrics_in_baseline = [
         m for m in all_metrics
         if b_start_str <= m.date <= b_end_str

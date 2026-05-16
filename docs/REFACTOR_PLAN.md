@@ -71,12 +71,12 @@
 - Test: `backend/tests/architecture/test_architecture_experiments_boundaries.py`
 - Test: `backend/tests/domains/experiments/`
 
-- [ ] Add explicit experiment analysis/preview read protocols for daily Garmin metrics and journal check-ins, separate from `ExperimentRepository` persistence.
-- [ ] Remove direct imports of `app.domains.garmin_analytics.adapters` and `app.domains.journal.adapters` from `experiments/adapters.py`.
-- [ ] Pass the already-built Garmin biometric repository and journal repository through the container into the experiment read source.
-- [ ] Update analysis, analysis-cache, management, preview, routes, and process-runtime call sites to pass both the experiment persistence repository and the read source. Cached analysis refreshes should continue to load/save snapshots through `ExperimentRepository`, while Garmin metrics and check-ins come from the read source.
-- [ ] Add an architecture guard that experiment persistence does not import other domains' concrete adapters.
-- [ ] Run `cd backend && uv run pytest tests/domains/experiments tests/architecture/test_architecture_experiments_boundaries.py -v`.
+- [x] Add explicit experiment analysis/preview read protocols for daily Garmin metrics and journal check-ins, separate from `ExperimentRepository` persistence.
+- [x] Remove direct imports of `app.domains.garmin_analytics.adapters` and `app.domains.journal.adapters` from `experiments/adapters.py`.
+- [x] Pass the already-built Garmin biometric repository and journal repository through the container into the experiment read source.
+- [x] Update analysis, analysis-cache, management, preview, routes, and process-runtime call sites to pass both the experiment persistence repository and the read source. Cached analysis refreshes should continue to load/save snapshots through `ExperimentRepository`, while Garmin metrics and check-ins come from the read source.
+- [x] Add an architecture guard that experiment persistence does not import other domains' concrete adapters.
+- [x] Run `cd backend && uv run pytest tests/domains/experiments tests/architecture/test_architecture_experiments_boundaries.py -v`.
 
 ## Task 4: Extract HRV Insight Rules and Dedupe Pattern Helpers
 

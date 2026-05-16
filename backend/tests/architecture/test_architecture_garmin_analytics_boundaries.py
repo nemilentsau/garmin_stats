@@ -236,6 +236,9 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
     experiment_repo_source = read_repo_file(
         "backend/app/domains/experiments/adapters.py",
     )
+    experiment_read_source = read_repo_file(
+        "backend/app/domains/experiments/read_sources.py",
+    )
 
     assert not (REPO_ROOT / "backend/app/infra/database.py").exists()
     assert "def load_daily_metrics" in adapter_source
@@ -254,8 +257,15 @@ def test_garmin_biometric_sqlite_reads_have_single_adapter_implementation():
         "self.biometric_repo.load_daily_metrics(last_n=last_n)"
         in assistant_read_gateway_source
     )
-    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" in (
+    assert "from app.domains.garmin_analytics.adapters import load_daily_metrics" not in (
         experiment_repo_source
+    )
+    assert "from app.domains.garmin_analytics.application.dependencies import" in (
+        experiment_read_source
+    )
+    assert (
+        "self.biometric_repo.load_daily_metrics()"
+        in experiment_read_source
     )
 
 

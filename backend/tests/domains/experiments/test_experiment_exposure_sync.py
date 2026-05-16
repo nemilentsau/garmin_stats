@@ -8,6 +8,9 @@ from app.domains.experiments.contracts import (
     ExperimentDesign,
     ExperimentExposure,
 )
+from app.domains.experiments.read_sources import ExperimentReadSource
+from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
+from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.routines.adapters import (
     SqliteRoutineRepository,
     load_routine_schedule,
@@ -97,6 +100,13 @@ def _save_linked_experiment(experiment_id: str, routine_id: str) -> None:
     )
 
 
+def _read_source() -> ExperimentReadSource:
+    return ExperimentReadSource(
+        biometric_repo=SqliteBiometricRepository(),
+        journal_repo=SqliteJournalRepository(),
+    )
+
+
 def _scheduled_cards_for(date: str):
     repo = SqliteRoutineRepository()
     today = get_today(repo, date=date)
@@ -109,6 +119,7 @@ def _sync_exposures_for_date(date: str) -> None:
     sync_experiment_exposures_for_date(
         date,
         experiment_repo=SqliteExperimentRepository(),
+        experiment_read_source=_read_source(),
         routine_repo=SqliteRoutineRepository(),
     )
 
@@ -227,7 +238,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
     repo.save_experiment(experiment)
     repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(repo, experiment),
+        compute_experiment_analysis(repo, _read_source(), experiment),
     )
 
     scheduled_cards = _scheduled_cards_for("2026-03-02")
@@ -276,7 +287,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
     repo.save_experiment(experiment)
     repo.save_experiment_analysis(
         experiment.id,
-        compute_experiment_analysis(repo, experiment),
+        compute_experiment_analysis(repo, _read_source(), experiment),
     )
 
     first_card = _scheduled_cards_for("2026-03-02")[0]

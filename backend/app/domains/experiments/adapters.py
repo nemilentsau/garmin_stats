@@ -14,10 +14,6 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     ExperimentReport,
 )
-from app.domains.garmin_analytics.adapters import load_daily_metrics
-from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.journal.adapters import load_daily_checkins
-from app.domains.journal.contracts import DailyCheckIn
 from app.infra.jsonstore import JsonStore
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
@@ -213,11 +209,3 @@ class SqliteExperimentRepository:
                 "report_date": report.report_date,
             },
         )
-
-    def list_daily_metrics(self) -> list[DailyMetric]:
-        """Return all daily Garmin metrics for analysis windowing."""
-        return load_daily_metrics()
-
-    def list_daily_checkins(self) -> list[DailyCheckIn]:
-        """Return all daily journal check-ins for confounder evaluation."""
-        return load_daily_checkins()
