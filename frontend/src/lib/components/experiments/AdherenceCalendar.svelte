@@ -6,11 +6,13 @@
 
 	let {
 		entries,
+		rate,
 		treatmentStart,
 		treatmentEnd,
 		currentDate
 	}: {
 		entries: AdherenceDayEntry[];
+		rate: number;
 		treatmentStart: string;
 		treatmentEnd: string | null;
 		currentDate: string;
@@ -87,9 +89,7 @@
 		)
 	);
 
-	const elapsedHeadlinePct = $derived(
-		elapsedDays > 0 ? Math.round((counts.full / elapsedDays) * 100) : 0
-	);
+	const elapsedHeadlinePct = $derived(Math.round(rate * 100));
 
 	const startLabel = $derived(fmtMonthDay(treatmentStart));
 	const endLabel = $derived(

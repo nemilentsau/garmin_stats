@@ -205,6 +205,7 @@
 
 			<AdherenceCalendar
 				entries={analysis.adherence_by_day}
+				rate={analysis.adherence_rate}
 				treatmentStart={exp.design?.treatment_start_date ?? analysis.adherence_by_day[0]?.date ?? today}
 				treatmentEnd={exp.design?.treatment_end_date ?? null}
 				currentDate={today}

@@ -156,3 +156,17 @@ def test_experiment_read_source_owns_garmin_and_journal_reads():
     assert "app.domains.journal.dependencies" in source
     assert "self.biometric_repo.load_daily_metrics" in source
     assert "self.journal_repo.list_checkins" in source
+
+
+def test_frontend_adherence_calendar_displays_backend_rate():
+    calendar_source = read_repo_file(
+        "frontend/src/lib/components/experiments/AdherenceCalendar.svelte"
+    )
+    route_source = read_repo_file("frontend/src/routes/experiments/+page.svelte")
+
+    assert "rate: number" in calendar_source
+    assert "const elapsedHeadlinePct = $derived(Math.round(rate * 100));" in (
+        calendar_source
+    )
+    assert "(counts.full / elapsedDays)" not in calendar_source
+    assert "rate={analysis.adherence_rate}" in route_source
