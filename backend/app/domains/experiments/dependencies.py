@@ -61,6 +61,7 @@ class ExperimentRepository(Protocol):
         exposure: ExperimentExposure | None,
     ) -> None: ...
 
+
 class ExperimentPreviewReadSource(Protocol):
     """Read source for validating experiment metric paths and baseline coverage."""
 

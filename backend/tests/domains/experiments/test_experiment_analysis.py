@@ -16,8 +16,6 @@ from app.domains.experiments.contracts import (
     ExperimentExposure,
     OutcomeMetric,
 )
-from app.domains.experiments.read_sources import ExperimentReadSource
-from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -27,9 +25,9 @@ from app.domains.garmin_health.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.journal.contracts import DailyCheckIn
 from app.domains.routines.adapters import SqliteRoutineRepository
+from tests._experiments_helpers import make_experiment_read_source as _read_source
 
 
 def _make_metric(
@@ -67,13 +65,6 @@ def _store_metrics(metrics: list[DailyMetric]) -> None:
             )
         con.commit()
     cache.invalidate()
-
-
-def _read_source() -> ExperimentReadSource:
-    return ExperimentReadSource(
-        biometric_repo=SqliteBiometricRepository(),
-        journal_repo=SqliteJournalRepository(),
-    )
 
 
 def _seed_metrics(baseline_vals: list[float], treatment_vals: list[float]):

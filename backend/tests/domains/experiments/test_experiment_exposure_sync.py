@@ -8,9 +8,6 @@ from app.domains.experiments.contracts import (
     ExperimentDesign,
     ExperimentExposure,
 )
-from app.domains.experiments.read_sources import ExperimentReadSource
-from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
-from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.routines.adapters import (
     SqliteRoutineRepository,
     load_routine_schedule,
@@ -23,6 +20,7 @@ from tests._artifacts_helpers import (
     activate_assistant_artifact,
     create_assistant_artifact,
 )
+from tests._experiments_helpers import make_experiment_read_source as _read_source
 
 
 def _card_request(card_id: str, *, slot_default: str) -> AssistantArtifactCreateRequest:
@@ -97,13 +95,6 @@ def _save_linked_experiment(experiment_id: str, routine_id: str) -> None:
             status="draft",
             linked_routine_ids=[routine_id],
         )
-    )
-
-
-def _read_source() -> ExperimentReadSource:
-    return ExperimentReadSource(
-        biometric_repo=SqliteBiometricRepository(),
-        journal_repo=SqliteJournalRepository(),
     )
 
 
