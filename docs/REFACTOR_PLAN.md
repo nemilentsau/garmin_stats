@@ -90,13 +90,13 @@
 
 **DRY target:** `insights/hrv.py` currently imports `compute_trajectory`, `compute_hrv_distribution`, `compute_day_of_week`, and `extract_baseline_bands` back from `analysis/hrv.py`. Both layers reach for the same primitives. Promote these primitives to a single owner (`hrv_patterns.py`) and make both analysis and insights consume them.
 
-- [ ] Create `analysis/hrv_patterns.py` and move `compute_trajectory`, `compute_hrv_distribution`, `compute_day_of_week`, and `extract_baseline_bands` (plus any other primitive currently shared) into it as the single source of truth.
-- [ ] Rewrite `analysis/hrv.py` to import these helpers from `hrv_patterns.py` (no local copies, no re-exports except for `classify_hrv_recovery`, which is still a compatibility export used outside HRV analysis).
-- [ ] Rewrite `insights/hrv.py` to import the same helpers from `hrv_patterns.py` directly — never via `analysis/hrv.py`.
-- [ ] Move the long `_build_insights` rule chain into small named rule functions in `insights/hrv_rules.py` that each return `HrvInsight | None`.
-- [ ] Keep `compute_hrv_insights()` as the public selected-day composer.
-- [ ] Add or preserve focused tests for suppressed HRV, acute weekly gap, long low-status streak, falling overnight trajectory, long-baseline deterioration, low sample coverage, and stable recovery.
-- [ ] Run `cd backend && uv run pytest tests/domains/garmin_analytics/test_hrv_service.py -v`.
+- [x] Create `analysis/hrv_patterns.py` and move `compute_trajectory`, `compute_hrv_distribution`, `compute_day_of_week`, and `extract_baseline_bands` (plus any other primitive currently shared) into it as the single source of truth.
+- [x] Rewrite `analysis/hrv.py` to import these helpers from `hrv_patterns.py` (no local copies, no re-exports except for `classify_hrv_recovery`, which is still a compatibility export used outside HRV analysis).
+- [x] Rewrite `insights/hrv.py` to import the same helpers from `hrv_patterns.py` directly — never via `analysis/hrv.py`.
+- [x] Move the long `_build_insights` rule chain into small named rule functions in `insights/hrv_rules.py` that each return `HrvInsight | None`.
+- [x] Keep `compute_hrv_insights()` as the public selected-day composer.
+- [x] Add or preserve focused tests for suppressed HRV, acute weekly gap, long low-status streak, falling overnight trajectory, long-baseline deterioration, low sample coverage, and stable recovery.
+- [x] Run `cd backend && uv run pytest tests/domains/garmin_analytics/test_hrv_service.py -v`.
 
 ## Task 5: Decompose Experiment Preview
 

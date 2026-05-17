@@ -1,27 +1,23 @@
 """HRV insight calculations for Garmin analytics."""
 
 from collections import Counter
-from dataclasses import dataclass
 
 import numpy as np
 
+import app.domains.garmin_analytics.domain.analysis.hrv_patterns as hrv_patterns
 from app.domains.garmin_analytics.contracts import (
     HrvDataQuality,
-    HrvInsight,
     HrvInsightsResponse,
     HrvIntradaySegment,
     HrvLongBaseline,
     HrvRecovery,
     HrvStatusBucket,
     HrvStreak,
-    HrvTrajectory,
     HrvTrendBand,
 )
-from app.domains.garmin_analytics.domain.analysis.hrv import (
-    compute_day_of_week,
-    compute_hrv_distribution,
-    compute_trajectory,
-    extract_baseline_bands,
+from app.domains.garmin_analytics.domain.insights.hrv_rules import (
+    InsightContext,
+    build_hrv_insights,
 )
 from app.domains.garmin_analytics.domain.primitives.timestamps import (
     summarize_timestamp_coverage,
@@ -34,7 +30,6 @@ from app.domains.garmin_health.contracts import (
 )
 from app.domains.garmin_health.domain.daily_metrics import (
     classify_hrv_recovery,
-    is_balanced_hrv_status,
     normalize_hrv_status,
 )
 from app.utils.numeric import (
@@ -194,170 +189,6 @@ def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) ->
     return round(selected_resting - baseline, 1)
 
 
-@dataclass(frozen=True, slots=True)
-class InsightContext:
-    """Selected-day context used while composing HRV insight messages."""
-
-    selected: DailyMetric
-    recovery: HrvRecovery
-    quality: HrvDataQuality
-    resting_delta: float | None
-    overnight_stdev: float | None = None
-    streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
-    trajectory: HrvTrajectory | None = None
-
-
-def _build_insights(ctx: InsightContext) -> list[HrvInsight]:
-    insights: list[HrvInsight] = []
-    status = ctx.recovery.status
-
-    if status == "suppressed":
-        insights.append(HrvInsight(
-            level="warning",
-            title="HRV appears suppressed",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is below expected levels.",
-        ))
-    elif status == "below_baseline":
-        insights.append(HrvInsight(
-            level="caution",
-            title="HRV is below baseline",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is mildly below baseline.",
-        ))
-    elif status == "elevated":
-        insights.append(HrvInsight(
-            level="good",
-            title="HRV is above baseline",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is above baseline.",
-        ))
-
-    if ctx.recovery.acute_gap_vs_weekly is not None and ctx.recovery.acute_gap_vs_weekly <= -8:
-        insights.append(HrvInsight(
-            level="caution",
-            title="Acute recovery is below weekly trend",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.acute_gap_vs_weekly:+.1f} ms versus weekly average, "
-                "which can indicate short-term strain."
-            ),
-        ))
-
-    if (
-        ctx.overnight_stdev is not None
-        and ctx.overnight_stdev > 25
-        and status in {"suppressed", "below_baseline"}
-    ):
-        insights.append(HrvInsight(
-            level="caution",
-            title="High overnight HRV volatility",
-            detail=(
-                f"Overnight HRV stdev is {ctx.overnight_stdev:.1f} ms, suggesting irregular "
-                "autonomic activity alongside suppressed recovery."
-            ),
-        ))
-
-    if (
-        ctx.streak is not None
-        and ctx.streak.current_status in _BAD_HRV_STATUSES
-        and ctx.streak.streak_days >= 3
-    ):
-        insights.append(HrvInsight(
-            level="warning",
-            title="Extended low HRV streak",
-            detail=(
-                f"{ctx.streak.streak_days} consecutive days of "
-                f"{ctx.streak.current_status} HRV status. "
-                "Consider reviewing recent stressors, sleep, or training load."
-            ),
-        ))
-
-    if (
-        ctx.trajectory is not None
-        and ctx.trajectory.direction == "falling"
-        and status in {"suppressed", "below_baseline"}
-    ):
-        insights.append(HrvInsight(
-            level="warning",
-            title="HRV declined through the night",
-            detail="HRV declined through the night, suggesting disrupted recovery.",
-        ))
-
-    if (
-        ctx.long_baseline is not None
-        and ctx.long_baseline.delta_7d_vs_30d is not None
-        and ctx.long_baseline.delta_7d_vs_30d < -5
-    ):
-        insights.append(HrvInsight(
-            level="caution",
-            title="7-day baseline is trending below 30-day average",
-            detail=(
-                f"Recent 7-day baseline is {ctx.long_baseline.delta_7d_vs_30d:+.1f} ms versus "
-                f"30-day average of {ctx.long_baseline.baseline_30d:.1f} ms."
-            ),
-        ))
-
-    sleep_score = ctx.selected.sleep.score
-    if sleep_score is not None and sleep_score < 70 and status in {"suppressed", "below_baseline"}:
-        insights.append(HrvInsight(
-            level="warning",
-            title="Sleep and HRV both indicate reduced recovery",
-            detail=f"Sleep score is {sleep_score}, aligning with lower-than-baseline HRV.",
-        ))
-
-    if (
-        ctx.resting_delta is not None
-        and ctx.resting_delta >= 4
-        and status in {"suppressed", "below_baseline"}
-    ):
-        insights.append(HrvInsight(
-            level="warning",
-            title="Resting HR and HRV are diverging unfavorably",
-            detail=(
-                f"Resting HR is +{ctx.resting_delta:.1f} bpm versus recent baseline "
-                "while HRV is below baseline."
-            ),
-        ))
-
-    if (
-        not insights
-        and sleep_score is not None
-        and sleep_score >= 80
-        and ctx.selected.hrv.status
-        and is_balanced_hrv_status(ctx.selected.hrv.status)
-    ):
-        insights.append(HrvInsight(
-            level="good",
-            title="HRV recovery signals look stable",
-            detail="Balanced HRV status and strong sleep score suggest good recovery.",
-        ))
-
-    if ctx.quality.sample_count < 20:
-        insights.append(HrvInsight(
-            level="info",
-            title="Low HRV sample coverage",
-            detail=(
-                f"Only {ctx.quality.sample_count} intraday HRV values "
-                "were available for this day."
-            ),
-        ))
-
-    return insights
-
-
 def compute_hrv_insights(
     metrics: list[DailyMetric],
     selected_date: str,
@@ -387,15 +218,15 @@ def compute_hrv_insights(
     long_baseline = _compute_long_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d,
     )
-    baseline_bands = extract_baseline_bands(day_rows)
-    distribution = compute_hrv_distribution(
+    baseline_bands = hrv_patterns.extract_baseline_bands(day_rows)
+    distribution = hrv_patterns.compute_hrv_distribution(
         nightly_vals, selected_metric.hrv.nightly_avg,
     )
-    trajectory = compute_trajectory(day_values)
+    trajectory = hrv_patterns.compute_trajectory(day_values)
     status_mix = _compute_status_mix(metrics, selected_index)
-    day_of_week = compute_day_of_week(metrics)
+    day_of_week = hrv_patterns.compute_day_of_week(metrics)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
-    insights = _build_insights(InsightContext(
+    insights = build_hrv_insights(InsightContext(
         selected=selected_metric,
         recovery=recovery,
         quality=quality,
