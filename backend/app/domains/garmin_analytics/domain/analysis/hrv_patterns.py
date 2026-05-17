@@ -6,7 +6,7 @@ insights composer. It deliberately stays below either caller, so analysis and
 insight modules can share the same policy without importing each other.
 """
 
-from datetime import datetime
+from datetime import date as date_type
 
 from app.domains.garmin_analytics.contracts import (
     HrvBaselineBands,
@@ -143,7 +143,7 @@ def compute_day_of_week(metrics: list[DailyMetric]) -> list[HrvDayOfWeekBucket]:
     for m in metrics:
         if m.hrv.nightly_avg is not None:
             try:
-                weekday = datetime.strptime(m.date, "%Y-%m-%d").weekday()
+                weekday = date_type.fromisoformat(m.date).weekday()
             except ValueError:
                 continue
             groups[weekday].append(m.hrv.nightly_avg)

@@ -19,7 +19,14 @@ from app.domains.garmin_analytics.contracts import (
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.garmin_health.domain.daily_metrics import is_balanced_hrv_status
 
-_BAD_HRV_STATUSES = {"Low", "Unbalanced"}
+_BAD_HRV_STATUSES = frozenset({"Low", "Unbalanced"})
+_LOW_RECOVERY_STATUSES = frozenset({"suppressed", "below_baseline"})
+
+_RECOVERY_STATUS_MESSAGES: dict[str, tuple[str, str, str]] = {
+    "suppressed": ("warning", "HRV appears suppressed", "Nightly HRV is below expected levels."),
+    "below_baseline": ("caution", "HRV is below baseline", "Nightly HRV is mildly below baseline."),
+    "elevated": ("good", "HRV is above baseline", "Nightly HRV is above baseline."),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,41 +45,17 @@ class InsightContext:
 
 def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
     """Describe the selected day's HRV level versus its recent baseline."""
-    status = ctx.recovery.status
-    if status == "suppressed":
-        return HrvInsight(
-            level="warning",
-            title="HRV appears suppressed",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is below expected levels.",
-        )
-    if status == "below_baseline":
-        return HrvInsight(
-            level="caution",
-            title="HRV is below baseline",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is mildly below baseline.",
-        )
-    if status == "elevated":
-        return HrvInsight(
-            level="good",
-            title="HRV is above baseline",
-            detail=(
-                f"Nightly HRV is {ctx.recovery.delta_nightly_from_baseline:+.1f} ms versus the "
-                "prior 7-day baseline."
-            )
-            if ctx.recovery.delta_nightly_from_baseline is not None
-            else "Nightly HRV is above baseline.",
-        )
-    return None
+    message = _RECOVERY_STATUS_MESSAGES.get(ctx.recovery.status or "")
+    if message is None:
+        return None
+    level, title, fallback_detail = message
+    delta = ctx.recovery.delta_nightly_from_baseline
+    detail = (
+        f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
+        if delta is not None
+        else fallback_detail
+    )
+    return HrvInsight(level=level, title=title, detail=detail)
 
 
 def acute_weekly_gap_rule(ctx: InsightContext) -> HrvInsight | None:
@@ -94,7 +77,7 @@ def overnight_volatility_rule(ctx: InsightContext) -> HrvInsight | None:
     if (
         ctx.overnight_stdev is None
         or ctx.overnight_stdev <= 25
-        or ctx.recovery.status not in {"suppressed", "below_baseline"}
+        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
     ):
         return None
     return HrvInsight(
@@ -131,7 +114,7 @@ def falling_trajectory_rule(ctx: InsightContext) -> HrvInsight | None:
     if (
         ctx.trajectory is None
         or ctx.trajectory.direction != "falling"
-        or ctx.recovery.status not in {"suppressed", "below_baseline"}
+        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
     ):
         return None
     return HrvInsight(
@@ -166,7 +149,7 @@ def sleep_recovery_rule(ctx: InsightContext) -> HrvInsight | None:
     if (
         sleep_score is None
         or sleep_score >= 70
-        or ctx.recovery.status not in {"suppressed", "below_baseline"}
+        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
     ):
         return None
     return HrvInsight(
@@ -181,7 +164,7 @@ def resting_hr_divergence_rule(ctx: InsightContext) -> HrvInsight | None:
     if (
         ctx.resting_delta is None
         or ctx.resting_delta < 4
-        or ctx.recovery.status not in {"suppressed", "below_baseline"}
+        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
     ):
         return None
     return HrvInsight(

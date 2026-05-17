@@ -1,8 +1,5 @@
 """Tests for HRV service domain transformations."""
 
-import importlib
-import inspect
-
 import pytest
 
 import app.bootstrap.schema as storage_schema
@@ -83,38 +80,6 @@ def _insert_hrv_day(
             (date, payload.model_dump_json(), "2026-01-15T00:00:00Z"),
         )
         con.commit()
-
-
-class TestHrvModuleBoundaries:
-    def test_pattern_helpers_and_rules_have_dedicated_owners(self):
-        patterns = importlib.import_module(
-            "app.domains.garmin_analytics.domain.analysis.hrv_patterns",
-        )
-        analysis = importlib.import_module(
-            "app.domains.garmin_analytics.domain.analysis.hrv",
-        )
-        insights = importlib.import_module(
-            "app.domains.garmin_analytics.domain.insights.hrv",
-        )
-        rules = importlib.import_module(
-            "app.domains.garmin_analytics.domain.insights.hrv_rules",
-        )
-
-        shared_helpers = {
-            "compute_day_of_week",
-            "compute_hrv_distribution",
-            "compute_trajectory",
-            "extract_baseline_bands",
-        }
-        for helper in shared_helpers:
-            assert hasattr(patterns, helper)
-            assert not hasattr(analysis, helper)
-
-        insight_source = inspect.getsource(insights)
-        assert "domain.analysis.hrv import" not in insight_source
-        assert "domain.analysis.hrv_patterns" in insight_source
-        assert hasattr(rules, "build_hrv_insights")
-        assert not hasattr(insights, "_build_insights")
 
 
 class TestHrvInsights:

@@ -4,7 +4,6 @@ from collections import Counter
 
 import numpy as np
 
-import app.domains.garmin_analytics.domain.analysis.hrv_patterns as hrv_patterns
 from app.domains.garmin_analytics.contracts import (
     HrvDataQuality,
     HrvInsightsResponse,
@@ -15,6 +14,7 @@ from app.domains.garmin_analytics.contracts import (
     HrvStreak,
     HrvTrendBand,
 )
+from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_analytics.domain.insights.hrv_rules import (
     InsightContext,
     build_hrv_insights,
