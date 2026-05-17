@@ -5,16 +5,36 @@ FIT messages mix full UTC timestamps, Garmin-epoch integers, and compressed
 parser extractors can stay focused on metric-specific fields.
 """
 
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from app.domains.garmin_health.contracts import DayData
+from app.utils.timeutil import parse_iso
 
-# Garmin FIT epoch: Dec 31, 1989 00:00:00 UTC
 _GARMIN_EPOCH = datetime(1989, 12, 31, tzinfo=UTC)
 _GARMIN_EPOCH_UNIX = int(_GARMIN_EPOCH.timestamp())
+
+# DayData attribute -> list-field names that hold timestamped readings.
+# Anything added to the canonical DayData with a `.timestamp` field must be
+# registered here so it is shifted to local time at ingest.
+_TIMESTAMPED_READING_FIELDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "wellness",
+        (
+            "heart_rate",
+            "stress",
+            "body_battery",
+            "spo2",
+            "respiration",
+            "activity",
+            "steps_summary",
+            "resting_hr",
+        ),
+    ),
+    ("sleep", ("sleep_levels",)),
+    ("hrv", ("hrv_values",)),
+    ("skin_temp", ("skin_temp_overnight",)),
+)
 
 
 def parse_datetime(dt: Any) -> str | None:
@@ -49,57 +69,20 @@ def _extract_utc_offset_hours(messages: dict) -> float | None:
     return None
 
 
-def _extract_offset_from_files(
-    files: list[Path],
-    decode_fit_file: Callable[[Path], dict[str, list[dict]]],
-) -> float | None:
-    """Decode WELLNESS files until one yields a UTC offset."""
-    for fit_file in sorted(files):
-        try:
-            messages = decode_fit_file(fit_file)
-            offset = _extract_utc_offset_hours(messages)
-            if offset is not None:
-                return offset
-        except Exception:
-            continue
-    return None
+def _shift_iso(iso: str | None, delta: timedelta) -> str | None:
+    if iso is None:
+        return None
+    dt = parse_iso(iso)
+    if dt is None:
+        return iso
+    return (dt + delta).replace(tzinfo=None).isoformat()
 
 
 def _shift_timestamps(day: DayData, offset_hours: float) -> None:
     """Shift all timestamp fields in a DayData from UTC to local time."""
     delta = timedelta(hours=offset_hours)
-
-    def shift(iso: str | None) -> str | None:
-        if iso is None:
-            return None
-        try:
-            dt = datetime.fromisoformat(iso) + delta
-            return dt.replace(tzinfo=None).isoformat()
-        except (ValueError, TypeError):
-            return iso
-
-    for r in day.wellness.heart_rate:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.stress:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.body_battery:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.spo2:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.respiration:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.activity:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.steps_summary:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.resting_hr:
-        r.timestamp = shift(r.timestamp)
-
-    for r in day.sleep.sleep_levels:
-        r.timestamp = shift(r.timestamp)
-
-    for r in day.hrv.hrv_values:
-        r.timestamp = shift(r.timestamp)
-
-    for r in day.skin_temp.skin_temp_overnight:
-        r.timestamp = shift(r.timestamp)
+    for group_name, list_fields in _TIMESTAMPED_READING_FIELDS:
+        group = getattr(day, group_name)
+        for field in list_fields:
+            for reading in getattr(group, field):
+                reading.timestamp = _shift_iso(reading.timestamp, delta)

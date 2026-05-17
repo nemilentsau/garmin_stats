@@ -20,6 +20,12 @@ def _is_canonical_day_dir_name(name: str) -> bool:
         return False
 
 
+def _classify_fit_file_type(fit_file: Path) -> str:
+    """Derive the Garmin file-type tag from a `{timestamp}_{TYPE}.fit` filename."""
+    name_parts = fit_file.stem.split("_")
+    return "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
+
+
 def get_available_days(data_dir: Path) -> list[str]:
     """Get list of available canonical date directories."""
     if not data_dir.exists():
@@ -42,9 +48,7 @@ def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
         date_dir = rel_parts[0]
         if not _is_canonical_day_dir_name(date_dir):
             continue
-        name_parts = fit_file.stem.split("_")
-        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
-        files_by_day[date_dir][file_type].append(fit_file)
+        files_by_day[date_dir][_classify_fit_file_type(fit_file)].append(fit_file)
 
     return {k: dict(v) for k, v in sorted(files_by_day.items())}
 
@@ -57,11 +61,8 @@ def get_day_summary(data_dir: Path, date: str) -> dict:
 
     files = list(day_dir.glob("*.fit"))
     file_types: dict[str, int] = defaultdict(int)
-
     for fit_file in files:
-        name_parts = fit_file.stem.split("_")
-        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
-        file_types[file_type] += 1
+        file_types[_classify_fit_file_type(fit_file)] += 1
 
     return {
         "date": date,

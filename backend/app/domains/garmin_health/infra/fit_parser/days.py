@@ -25,8 +25,19 @@ from app.domains.garmin_health.infra.fit_parser.extractors import (
 )
 from app.domains.garmin_health.infra.fit_parser.files import get_files_by_day
 from app.domains.garmin_health.infra.fit_parser.timestamps import (
-    _extract_offset_from_files,
+    _extract_utc_offset_hours,
     _shift_timestamps,
+)
+
+_WELLNESS_LIST_FIELDS: tuple[str, ...] = (
+    "heart_rate",
+    "stress",
+    "body_battery",
+    "spo2",
+    "respiration",
+    "activity",
+    "steps_summary",
+    "resting_hr",
 )
 
 log = logging.getLogger(__name__)
@@ -53,24 +64,34 @@ def _parse_day[ParsedDay: (DayWellness, DaySleep, DayHrv, DaySkinTemp)](
     return merged
 
 
+def _parse_wellness_day_with_offset(
+    files: list[Path], date: str
+) -> tuple[DayWellness, float | None]:
+    """Decode WELLNESS files once, returning merged wellness and the day's UTC offset.
+
+    Garmin WELLNESS files carry both the per-day monitoring data and the UTC
+    offset in ``monitoring_info_mesgs``.  Pulling both pieces out of the same
+    decode pass avoids re-reading every WELLNESS file twice per ingest day.
+    """
+    merged = DayWellness(date=date)
+    offset: float | None = None
+    for fit_file in sorted(files):
+        try:
+            messages = decode_fit_file(fit_file)
+            extracted = _extract_wellness(messages, date)
+            for field in _WELLNESS_LIST_FIELDS:
+                getattr(merged, field).extend(getattr(extracted, field))
+            if offset is None:
+                offset = _extract_utc_offset_hours(messages)
+        except Exception as e:
+            log.warning("Error parsing %s: %s", fit_file, e)
+    return merged, offset
+
+
 def parse_wellness_day(files: list[Path], date: str) -> DayWellness:
     """Decode all WELLNESS files for one day, merge into a single DayWellness."""
-    return _parse_day(
-        files,
-        date,
-        empty=DayWellness,
-        extractor=_extract_wellness,
-        list_fields=(
-            "heart_rate",
-            "stress",
-            "body_battery",
-            "spo2",
-            "respiration",
-            "activity",
-            "steps_summary",
-            "resting_hr",
-        ),
-    )
+    wellness, _ = _parse_wellness_day_with_offset(files, date)
+    return wellness
 
 
 def parse_sleep_day(files: list[Path], date: str) -> DaySleep:
@@ -108,12 +129,13 @@ def parse_skin_temp_day(files: list[Path], date: str) -> DaySkinTemp:
 
 def parse_day(date_str: str, day_files: dict[str, list[Path]]) -> DayData:
     """Parse a single day's FIT files into a DayData."""
-    wellness_files = day_files.get("WELLNESS", [])
-    offset = _extract_offset_from_files(wellness_files, decode_fit_file)
+    wellness, offset = _parse_wellness_day_with_offset(
+        day_files.get("WELLNESS", []), date_str
+    )
     day = DayData(
         date=date_str,
         utc_offset_hours=offset,
-        wellness=parse_wellness_day(wellness_files, date_str),
+        wellness=wellness,
         sleep=parse_sleep_day(day_files.get("SLEEP_DATA", []), date_str),
         hrv=parse_hrv_day(day_files.get("HRV_STATUS", []), date_str),
         skin_temp=parse_skin_temp_day(day_files.get("SKIN_TEMP", []), date_str),

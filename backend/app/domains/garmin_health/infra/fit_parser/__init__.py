@@ -23,7 +23,6 @@ from app.domains.garmin_health.infra.fit_parser.files import (
 )
 from app.domains.garmin_health.infra.fit_parser.timestamps import (
     _GARMIN_EPOCH_UNIX,
-    _extract_offset_from_files,
     _extract_utc_offset_hours,
     _resolve_timestamp_16,
     _shift_timestamps,
@@ -33,7 +32,6 @@ from app.domains.garmin_health.infra.fit_parser.timestamps import (
 __all__ = [
     "_GARMIN_EPOCH_UNIX",
     "_extract_hrv",
-    "_extract_offset_from_files",
     "_extract_skin_temp",
     "_extract_sleep",
     "_extract_utc_offset_hours",

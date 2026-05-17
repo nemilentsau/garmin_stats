@@ -10,7 +10,6 @@ logic at the app root.
 from app.domains.garmin_health.infra.fit_parser import (
     _GARMIN_EPOCH_UNIX,
     _extract_hrv,
-    _extract_offset_from_files,
     _extract_skin_temp,
     _extract_sleep,
     _extract_utc_offset_hours,
@@ -34,7 +33,6 @@ from app.domains.garmin_health.infra.fit_parser import (
 __all__ = [
     "_GARMIN_EPOCH_UNIX",
     "_extract_hrv",
-    "_extract_offset_from_files",
     "_extract_skin_temp",
     "_extract_sleep",
     "_extract_utc_offset_hours",
