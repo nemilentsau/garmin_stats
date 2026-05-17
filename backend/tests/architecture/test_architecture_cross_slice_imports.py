@@ -179,6 +179,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.garmin_health.domain.daily_metrics.hrv",
     },
+    "backend/app/domains/garmin_analytics/domain/analysis/hrv_patterns.py": {
+        GARMIN_HEALTH_CONTRACTS,
+    },
     "backend/app/domains/garmin_analytics/domain/analysis/sleep.py": {
         GARMIN_HEALTH_CONTRACTS,
     },
@@ -194,6 +197,10 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.garmin_health.domain.daily_metrics",
     },
     "backend/app/domains/garmin_analytics/domain/insights/hrv.py": {
+        GARMIN_HEALTH_CONTRACTS,
+        "app.domains.garmin_health.domain.daily_metrics",
+    },
+    "backend/app/domains/garmin_analytics/domain/insights/hrv_rules.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.garmin_health.domain.daily_metrics",
     },
