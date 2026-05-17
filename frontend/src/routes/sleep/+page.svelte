@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import {
 		api,
-		type DailyAggregates,
+		type SleepDaily,
 		type SleepData,
 		type SleepAnalysis
 	} from '$lib/api';
@@ -17,7 +17,7 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: SleepDaily | null = $state(null);
 	let analysis: SleepAnalysis | null = $state(null);
 	let intradayData: SleepData | null = $state(null);
 	let selectedDate = $state('');
@@ -27,7 +27,7 @@
 
 	async function fetchData() {
 		const [nextAgg, nextAnalysis] = await Promise.all([
-			api.getDailyAggregates(),
+			api.getSleepDaily(),
 			api.getSleepAnalysis()
 		]);
 		agg = nextAgg;
@@ -280,7 +280,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const s = pw.sleep;
+		const s = pw;
 		return {
 			avg: s.avg_score,
 			avgDeep: s.avg_deep_score,

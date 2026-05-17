@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type RespirationRawData } from '$lib/api';
+	import { api, type RespirationDaily, type RespirationRawData } from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
@@ -13,7 +13,7 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: RespirationDaily | null = $state(null);
 	let intradayData: RespirationRawData | null = $state(null);
 	let selectedDate = $state('');
 	let trendRange: TrendRange = $state('3M');
@@ -21,7 +21,7 @@
 	let error: string | null = $state(null);
 
 	async function fetchData() {
-		agg = await api.getDailyAggregates();
+		agg = await api.getRespirationDaily();
 		const date = selectedDate;
 		if (date) {
 			const data = await api.getRespirationRaw(date);
@@ -174,7 +174,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const resp = pw.respiration;
+		const resp = pw;
 		return {
 			overallAvg: resp.avg,
 			typicalLow: resp.typical_low,

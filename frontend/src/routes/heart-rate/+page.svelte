@@ -3,7 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import {
 		api,
-		type DailyAggregates,
+		type HeartRateDaily,
 		type HeartRateRawData,
 		type HeartRateInsights,
 		type HRAnalysis,
@@ -24,7 +24,7 @@
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
-	let agg: DailyAggregates | null = $state(null);
+	let agg: HeartRateDaily | null = $state(null);
 	let analysis: HRAnalysis | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -46,7 +46,7 @@
 	// ── Data fetching ──
 	async function fetchData() {
 		const [nextAgg, nextAnalysis] = await Promise.all([
-			api.getDailyAggregates(),
+			api.getHeartRateDaily(),
 			api.getHeartRateAnalysis()
 		]);
 		agg = nextAgg;
@@ -132,7 +132,7 @@
 	let latestStats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const hr = pw.heart_rate;
+		const hr = pw;
 		return { overallAvg: hr.avg, typicalLow: hr.typical_low, typicalHigh: hr.typical_high, avgResting: hr.avg_resting };
 	});
 
@@ -148,7 +148,7 @@
 	let dayRecoveryMap = $derived.by(() => {
 		if (!agg) return new Map<string, string>();
 		const map = new Map<string, string>();
-		const avgResting = agg.period_windows?.[PERIOD_KEY_MAP[trendRange]]?.heart_rate.avg_resting;
+		const avgResting = agg.period_windows?.[PERIOD_KEY_MAP[trendRange]]?.avg_resting;
 		if (avgResting == null) return map;
 		for (const d of agg.daily) {
 			const rhr = d.heart_rate.resting;
@@ -363,8 +363,8 @@
 		if (!analysis || analysis.daily_avg_trend.length === 0) return null;
 		const t = filterByRange(analysis.daily_avg_trend, trendRange);
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
-		const typicalLow = pw?.heart_rate.typical_low ?? null;
-		const typicalHigh = pw?.heart_rate.typical_high ?? null;
+		const typicalLow = pw?.typical_low ?? null;
+		const typicalHigh = pw?.typical_high ?? null;
 		const labels = t.map((p) => p.date);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
 

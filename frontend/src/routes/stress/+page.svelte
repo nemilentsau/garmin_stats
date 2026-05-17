@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import {
 		api,
-		type DailyAggregates,
+		type StressDaily,
 		type StressRawData,
 		type StressAnalysis
 	} from '$lib/api';
@@ -17,7 +17,7 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: StressDaily | null = $state(null);
 	let analysis: StressAnalysis | null = $state(null);
 	let intradayData: StressRawData | null = $state(null);
 	let selectedDate = $state('');
@@ -27,7 +27,7 @@
 
 	async function fetchData() {
 		const [nextAgg, nextAnalysis] = await Promise.all([
-			api.getDailyAggregates(),
+			api.getStressDaily(),
 			api.getStressAnalysis()
 		]);
 		agg = nextAgg;
@@ -249,7 +249,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const s = pw.stress;
+		const s = pw;
 		return {
 			avg: s.avg,
 			typicalLow: s.typical_low,

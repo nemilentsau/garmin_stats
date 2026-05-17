@@ -180,7 +180,7 @@ Current contents:
   experiment analysis, or assistant retrieval logic.
 
 - `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, daily metric response wrapping, period summaries, metric-specific raw biometric routes, sleep, HRV, and skin temperature reads, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns read-model calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`raw`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
+  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, full and metric-scoped daily metric responses, period summaries, metric-specific raw biometric routes, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns read-model calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`raw`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
 
 - `domains/experiments/`
   Experiment CRUD, design preview/import, target metric registry, exposure
@@ -317,8 +317,9 @@ is reserved for shared app primitives rather than important product workflows.
 - Must not import: Garmin sync, routines, experiments, assistant, artifacts,
   journal, programs, FastAPI from application modules, or SQLite helpers from
   application modules.
-- Public entrypoints: dashboard, sleep, HRV, skin temperature, daily metric,
-  heart-rate, stress, body-battery, respiration, and pulse-ox API routes. Application files
+- Public entrypoints: dashboard, daily metric, and metric-scoped raw/daily/analysis/insight
+  API routes for sleep, HRV, skin temperature, heart rate, stress, body battery,
+  respiration, and pulse ox. Application files
   are named by concern: `raw_biometrics.py` reads raw biometric tables,
   `daily_aggregates.py` wraps persisted daily metrics and computes period windows,
   `dashboard.py` loads overview inputs,
@@ -422,17 +423,17 @@ Experiment adherence is protocol-defined and day-grain.
 
 ### Health and ingest
 
-- `/api/ingest`
+- `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync`
 - `/api/dashboard`
-- `/api/sleep`
 - `/api/daily-aggregates`
-- `/api/skin-temp`
-- `/api/heart-rate`
-- `/api/hrv`
-- `/api/stress`
-- `/api/body-battery`
-- `/api/respiration`
-- `/api/pulse-ox`
+- `/api/sleep/raw`, `/api/sleep/daily`, `/api/sleep/analysis`
+- `/api/skin-temp/raw`, `/api/skin-temp/daily`
+- `/api/heart-rate/raw`, `/api/heart-rate/daily`, `/api/heart-rate/analysis`, `/api/heart-rate/insights`, `/api/heart-rate/distribution`
+- `/api/hrv/raw`, `/api/hrv/daily`, `/api/hrv/analysis`, `/api/hrv/insights`
+- `/api/stress/raw`, `/api/stress/daily`, `/api/stress/analysis`
+- `/api/body-battery/raw`, `/api/body-battery/daily`, `/api/body-battery/analysis`
+- `/api/respiration/raw`, `/api/respiration/daily`
+- `/api/pulse-ox/raw`, `/api/pulse-ox/daily`
 - `/api/events`
 
 ### Assistant
@@ -503,7 +504,7 @@ Normal artifact flow:
 
 Garmin analytics is biometric-first but not `DailyMetric`-only.
 
-- Domain routes mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, sleep, HRV, skin temperature, daily metrics, heart-rate raw/insights/analysis/distribution, stress raw/analysis, body-battery raw/analysis, respiration raw, and pulse-ox raw.
+- Domain routes mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, full daily metrics, metric-scoped daily summaries, canonical metric raw reads, heart-rate and HRV insights, and analysis endpoints for heart rate, HRV, sleep, stress, and body battery.
 - New Garmin analytics code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
 - `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
