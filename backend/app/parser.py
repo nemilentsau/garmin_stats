@@ -13,11 +13,8 @@ converted to local time.
 """
 
 import logging
-from collections import defaultdict
-from datetime import UTC, datetime, timedelta
-from datetime import date as date_cls
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 from garmin_fit_sdk import Decoder, Stream
 
@@ -41,16 +38,49 @@ from app.domains.garmin_health.contracts import (
     StepsReading,
     StressReading,
 )
+from app.parser_files import get_available_days, get_day_summary, get_files_by_day
+from app.parser_timestamps import (
+    _GARMIN_EPOCH_UNIX,
+    _extract_offset_from_files,
+    _extract_utc_offset_hours,
+    _resolve_timestamp_16,
+    _shift_timestamps,
+    parse_datetime,
+)
 
 log = logging.getLogger(__name__)
 
-# Garmin FIT epoch: Dec 31, 1989 00:00:00 UTC
-_GARMIN_EPOCH = datetime(1989, 12, 31, tzinfo=UTC)
-_GARMIN_EPOCH_UNIX = int(_GARMIN_EPOCH.timestamp())
+__all__ = [
+    "_GARMIN_EPOCH_UNIX",
+    "_extract_hrv",
+    "_extract_offset_from_files",
+    "_extract_skin_temp",
+    "_extract_sleep",
+    "_extract_utc_offset_hours",
+    "_extract_wellness",
+    "_parse_day",
+    "_resolve_timestamp_16",
+    "_shift_timestamps",
+    "decode_fit_file",
+    "get_available_days",
+    "get_day_summary",
+    "get_files_by_day",
+    "parse_all_days",
+    "parse_datetime",
+    "parse_day",
+    "parse_hrv",
+    "parse_hrv_day",
+    "parse_skin_temp",
+    "parse_skin_temp_day",
+    "parse_sleep",
+    "parse_sleep_day",
+    "parse_wellness",
+    "parse_wellness_day",
+]
 
 
 # ---------------------------------------------------------------------------
-# Utilities (unchanged)
+# FIT decoding
 # ---------------------------------------------------------------------------
 
 def decode_fit_file(file_path: Path) -> dict[str, list[dict]]:
@@ -59,91 +89,6 @@ def decode_fit_file(file_path: Path) -> dict[str, list[dict]]:
     decoder = Decoder(stream)
     messages, errors = decoder.read()
     return messages
-
-
-def parse_datetime(dt: Any) -> str | None:
-    """Convert datetime to ISO string."""
-    if dt is None:
-        return None
-    if hasattr(dt, "isoformat"):
-        return dt.isoformat()
-    return str(dt)
-
-
-def _resolve_timestamp_16(ts16: int, ref_garmin: int) -> datetime:
-    """Resolve a compressed 16-bit FIT timestamp using a reference timestamp.
-
-    FIT monitoring messages use ``timestamp_16`` — the lower 16 bits of a
-    full Garmin-epoch timestamp.  We reconstruct the full timestamp by
-    combining these with the upper bits of the most recent reference
-    timestamp, handling 16-bit rollover.
-    """
-    upper = ref_garmin & ~0xFFFF
-    resolved = upper | ts16
-    if resolved < ref_garmin:
-        resolved += 0x10000  # 16-bit rollover
-    return datetime.fromtimestamp(resolved + _GARMIN_EPOCH_UNIX, tz=UTC)
-
-
-def _is_canonical_day_dir_name(name: str) -> bool:
-    """Return True only for exact YYYY-MM-DD day directory names."""
-    if len(name) != 10:
-        return False
-    try:
-        return date_cls.fromisoformat(name).isoformat() == name
-    except ValueError:
-        return False
-
-
-def get_available_days(data_dir: Path) -> list[str]:
-    """Get list of available date directories."""
-    if not data_dir.exists():
-        return []
-    return sorted([
-        d.name
-        for d in data_dir.iterdir()
-        if d.is_dir() and _is_canonical_day_dir_name(d.name)
-    ])
-
-
-def get_files_by_day(data_dir: Path) -> dict[str, dict[str, list[Path]]]:
-    """Group FIT files by date and type."""
-    files_by_day: dict[str, dict[str, list[Path]]] = defaultdict(lambda: defaultdict(list))
-
-    for fit_file in data_dir.rglob("*.fit"):
-        rel_parts = fit_file.relative_to(data_dir).parts
-        if not rel_parts:
-            continue
-        date_dir = rel_parts[0]
-        if not _is_canonical_day_dir_name(date_dir):
-            continue
-        name_parts = fit_file.stem.split("_")
-        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
-        files_by_day[date_dir][file_type].append(fit_file)
-
-    return {k: dict(v) for k, v in sorted(files_by_day.items())}
-
-
-def get_day_summary(data_dir: Path, date: str) -> dict:
-    """Get summary for a specific day."""
-    day_dir = data_dir / date
-    if not day_dir.exists():
-        return {"error": f"Day {date} not found"}
-
-    files = list(day_dir.glob("*.fit"))
-    file_types: dict[str, int] = defaultdict(int)
-
-    for f in files:
-        name_parts = f.stem.split("_")
-        file_type = "_".join(name_parts[1:]) if len(name_parts) >= 2 else "UNKNOWN"
-        file_types[file_type] += 1
-
-    return {
-        "date": date,
-        "total_files": len(files),
-        "file_types": dict(file_types),
-        "total_size_kb": round(sum(f.stat().st_size for f in files) / 1024, 1),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -326,148 +271,81 @@ def _extract_skin_temp(messages: dict, date: str) -> DaySkinTemp:
 
 
 # ---------------------------------------------------------------------------
-# UTC offset extraction + timestamp shifting
-# ---------------------------------------------------------------------------
-
-def _extract_utc_offset_hours(messages: dict) -> float | None:
-    """Extract UTC offset from monitoring_info_mesgs.
-
-    Each WELLNESS file carries monitoring_info with both a UTC `timestamp`
-    and a `local_timestamp` (Garmin-epoch int).  The difference gives the
-    device's local UTC offset for that day.
-    """
-    for msg in messages.get("monitoring_info_mesgs", []):
-        utc_ts = msg.get("timestamp")
-        local_raw = msg.get("local_timestamp")
-        if utc_ts is None or local_raw is None:
-            continue
-        if not hasattr(utc_ts, "timestamp"):
-            continue
-        local_dt = datetime.fromtimestamp(int(local_raw) + _GARMIN_EPOCH_UNIX, tz=UTC)
-        return (local_dt - utc_ts).total_seconds() / 3600
-    return None
-
-
-def _extract_offset_from_files(files: list[Path]) -> float | None:
-    """Decode WELLNESS files until we find a UTC offset, then return it."""
-    for fit_file in sorted(files):
-        try:
-            messages = decode_fit_file(fit_file)
-            offset = _extract_utc_offset_hours(messages)
-            if offset is not None:
-                return offset
-        except Exception:
-            continue
-    return None
-
-
-def _shift_timestamps(day: DayData, offset_hours: float) -> None:
-    """Shift all timestamp fields in a DayData from UTC to local time."""
-    delta = timedelta(hours=offset_hours)
-
-    def shift(iso: str | None) -> str | None:
-        if iso is None:
-            return None
-        try:
-            dt = datetime.fromisoformat(iso) + delta
-            return dt.replace(tzinfo=None).isoformat()
-        except (ValueError, TypeError):
-            return iso
-
-    # Wellness readings
-    for r in day.wellness.heart_rate:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.stress:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.body_battery:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.spo2:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.respiration:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.activity:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.steps_summary:
-        r.timestamp = shift(r.timestamp)
-    for r in day.wellness.resting_hr:
-        r.timestamp = shift(r.timestamp)
-
-    # Sleep
-    for r in day.sleep.sleep_levels:
-        r.timestamp = shift(r.timestamp)
-
-    # HRV
-    for r in day.hrv.hrv_values:
-        r.timestamp = shift(r.timestamp)
-
-    # Skin temp
-    for r in day.skin_temp.skin_temp_overnight:
-        r.timestamp = shift(r.timestamp)
-
-
-# ---------------------------------------------------------------------------
 # Layer 2 — Per-day parsers (merge multiple files of same type)
 # ---------------------------------------------------------------------------
 
-def parse_wellness_day(files: list[Path], date: str) -> DayWellness:
-    """Decode all WELLNESS files for one day, merge into a single DayWellness."""
-    merged = DayWellness(date=date)
+def _parse_day[ParsedDay: (DayWellness, DaySleep, DayHrv, DaySkinTemp)](
+    files: list[Path],
+    date: str,
+    *,
+    empty: Callable[..., ParsedDay],
+    extractor: Callable[[dict, str], ParsedDay],
+    list_fields: tuple[str, ...],
+) -> ParsedDay:
+    """Decode one metric type's files for a day and merge configured list fields."""
+    merged = empty(date=date)
     for fit_file in sorted(files):
         try:
             messages = decode_fit_file(fit_file)
-            extracted = _extract_wellness(messages, date)
-            merged.heart_rate.extend(extracted.heart_rate)
-            merged.stress.extend(extracted.stress)
-            merged.body_battery.extend(extracted.body_battery)
-            merged.spo2.extend(extracted.spo2)
-            merged.respiration.extend(extracted.respiration)
-            merged.activity.extend(extracted.activity)
-            merged.steps_summary.extend(extracted.steps_summary)
-            merged.resting_hr.extend(extracted.resting_hr)
+            extracted = extractor(messages, date)
+            for field in list_fields:
+                getattr(merged, field).extend(getattr(extracted, field))
         except Exception as e:
             log.warning("Error parsing %s: %s", fit_file, e)
     return merged
+
+
+def parse_wellness_day(files: list[Path], date: str) -> DayWellness:
+    """Decode all WELLNESS files for one day, merge into a single DayWellness."""
+    return _parse_day(
+        files,
+        date,
+        empty=DayWellness,
+        extractor=_extract_wellness,
+        list_fields=(
+            "heart_rate",
+            "stress",
+            "body_battery",
+            "spo2",
+            "respiration",
+            "activity",
+            "steps_summary",
+            "resting_hr",
+        ),
+    )
 
 
 def parse_sleep_day(files: list[Path], date: str) -> DaySleep:
     """Decode all SLEEP_DATA files for one day, merge."""
-    merged = DaySleep(date=date)
-    for fit_file in sorted(files):
-        try:
-            messages = decode_fit_file(fit_file)
-            extracted = _extract_sleep(messages, date)
-            merged.sleep_levels.extend(extracted.sleep_levels)
-            merged.sleep_assessments.extend(extracted.sleep_assessments)
-        except Exception as e:
-            log.warning("Error parsing %s: %s", fit_file, e)
-    return merged
+    return _parse_day(
+        files,
+        date,
+        empty=DaySleep,
+        extractor=_extract_sleep,
+        list_fields=("sleep_levels", "sleep_assessments"),
+    )
 
 
 def parse_hrv_day(files: list[Path], date: str) -> DayHrv:
     """Decode all HRV_STATUS files for one day, merge."""
-    merged = DayHrv(date=date)
-    for fit_file in sorted(files):
-        try:
-            messages = decode_fit_file(fit_file)
-            extracted = _extract_hrv(messages, date)
-            merged.hrv_values.extend(extracted.hrv_values)
-            merged.hrv_summaries.extend(extracted.hrv_summaries)
-        except Exception as e:
-            log.warning("Error parsing %s: %s", fit_file, e)
-    return merged
+    return _parse_day(
+        files,
+        date,
+        empty=DayHrv,
+        extractor=_extract_hrv,
+        list_fields=("hrv_values", "hrv_summaries"),
+    )
 
 
 def parse_skin_temp_day(files: list[Path], date: str) -> DaySkinTemp:
     """Decode all SKIN_TEMP files for one day, merge."""
-    merged = DaySkinTemp(date=date)
-    for fit_file in sorted(files):
-        try:
-            messages = decode_fit_file(fit_file)
-            extracted = _extract_skin_temp(messages, date)
-            merged.skin_temp_overnight.extend(extracted.skin_temp_overnight)
-        except Exception as e:
-            log.warning("Error parsing %s: %s", fit_file, e)
-    return merged
+    return _parse_day(
+        files,
+        date,
+        empty=DaySkinTemp,
+        extractor=_extract_skin_temp,
+        list_fields=("skin_temp_overnight",),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +403,7 @@ def parse_skin_temp(data_dir: Path, date: str | None = None) -> list[DaySkinTemp
 def parse_day(date_str: str, day_files: dict[str, list[Path]]) -> DayData:
     """Parse a single day's FIT files into a DayData."""
     wellness_files = day_files.get("WELLNESS", [])
-    offset = _extract_offset_from_files(wellness_files)
+    offset = _extract_offset_from_files(wellness_files, decode_fit_file)
     day = DayData(
         date=date_str,
         utc_offset_hours=offset,

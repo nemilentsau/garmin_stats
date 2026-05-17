@@ -19,6 +19,7 @@ from app.parser import (
     _extract_hrv,
     _extract_utc_offset_hours,
     _extract_wellness,
+    _parse_day,
     _shift_timestamps,
     get_available_days,
     get_files_by_day,
@@ -49,6 +50,71 @@ class TestExtractorZeroValues:
         }
         day = _extract_hrv(messages, "2026-01-15")
         assert [r.value for r in day.hrv_values] == [0]
+
+
+class TestParseDayMerge:
+    def test_extends_configured_list_fields_in_sorted_file_order(self, monkeypatch, tmp_path: Path):
+        first = tmp_path / "b.fit"
+        second = tmp_path / "a.fit"
+        first.write_text("", encoding="ascii")
+        second.write_text("", encoding="ascii")
+        decoded_paths: list[Path] = []
+
+        def decode(file_path: Path) -> dict[str, list[dict]]:
+            decoded_paths.append(file_path)
+            return {"source": [{"path": file_path.name}]}
+
+        def extract(messages: dict, date: str) -> DaySleep:
+            return DaySleep(
+                date=date,
+                sleep_levels=[
+                    SleepLevel(date=date, timestamp=None, level=messages["source"][0]["path"]),
+                ],
+            )
+
+        monkeypatch.setattr("app.parser.decode_fit_file", decode)
+
+        day = _parse_day(
+            [first, second],
+            "2026-01-15",
+            empty=DaySleep,
+            extractor=extract,
+            list_fields=("sleep_levels",),
+        )
+
+        assert decoded_paths == [second, first]
+        assert [level.level for level in day.sleep_levels] == ["a.fit", "b.fit"]
+
+    def test_skips_failed_files_and_keeps_merging_later_files(self, monkeypatch, tmp_path: Path):
+        bad = tmp_path / "a.fit"
+        good = tmp_path / "b.fit"
+        bad.write_text("", encoding="ascii")
+        good.write_text("", encoding="ascii")
+
+        def decode(file_path: Path) -> dict[str, list[dict]]:
+            if file_path == bad:
+                raise ValueError("corrupt")
+            return {"source": [{"path": file_path.name}]}
+
+        def extract(messages: dict, date: str) -> DayHrv:
+            return DayHrv(
+                date=date,
+                hrv_values=[
+                    HrvValue(date=date, timestamp=None, value=len(messages["source"][0]["path"])),
+                ],
+            )
+
+        monkeypatch.setattr("app.parser.decode_fit_file", decode)
+
+        day = _parse_day(
+            [bad, good],
+            "2026-01-15",
+            empty=DayHrv,
+            extractor=extract,
+            list_fields=("hrv_values",),
+        )
+
+        assert [value.value for value in day.hrv_values] == [5]
 
 
 # ---------------------------------------------------------------------------
