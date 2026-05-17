@@ -27,7 +27,9 @@ def test_assistant_application_modules_follow_strict_boundary():
         "backend/app/domains/assistant/application/retrieval.py",
         "backend/app/domains/assistant/application/intent_routing.py",
         "backend/app/domains/assistant/application/memory_aliases.py",
+        "backend/app/domains/assistant/application/runtime_stream.py",
         "backend/app/domains/assistant/application/threads.py",
+        "backend/app/domains/assistant/application/turn_context.py",
     ])
 
 
@@ -143,7 +145,9 @@ def test_assistant_application_does_not_import_storage_adapters_or_runtime():
             "backend/app/domains/assistant/application/retrieval.py",
             "backend/app/domains/assistant/application/intent_routing.py",
             "backend/app/domains/assistant/application/memory_aliases.py",
+            "backend/app/domains/assistant/application/runtime_stream.py",
             "backend/app/domains/assistant/application/threads.py",
+            "backend/app/domains/assistant/application/turn_context.py",
         ],
         [
             "app.domains.assistant.adapters",
@@ -172,13 +176,18 @@ def test_assistant_chat_uses_contract_models_for_thread_state():
 
 def test_assistant_chat_delegates_memory_alias_policy():
     chat_source = read_repo_file("backend/app/domains/assistant/application/chat.py")
+    turn_context_source = read_repo_file(
+        "backend/app/domains/assistant/application/turn_context.py"
+    )
     memory_alias_path = (
         REPO_ROOT / "backend/app/domains/assistant/application/memory_aliases.py"
     )
 
     assert memory_alias_path.exists()
     memory_alias_source = memory_alias_path.read_text(encoding="utf-8")
-    assert "application.memory_aliases import" in chat_source
+    assert "prepare_turn_context(" in chat_source
+    assert "application.memory_aliases import" not in chat_source
+    assert "application.memory_aliases import" in turn_context_source
     assert "resolve_entities(" not in memory_alias_source
 
     delegated_policy = [
@@ -187,6 +196,7 @@ def test_assistant_chat_delegates_memory_alias_policy():
         "_query_contains_alias",
     ]
     assert [policy for policy in delegated_policy if policy in chat_source] == []
+    assert [policy for policy in delegated_policy if policy in turn_context_source] == []
     assert [policy for policy in delegated_policy if policy not in memory_alias_source] == []
 
 

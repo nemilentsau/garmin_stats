@@ -123,11 +123,11 @@
 - Create: `backend/app/domains/assistant/application/runtime_stream.py`
 - Test: `backend/tests/domains/assistant/test_assistant_chat_application.py`
 
-- [ ] Move route/entity/memory/evidence preparation into a pure `prepare_turn_context()` helper.
-- [ ] Move runtime event consumption and assistant-message assembly into `stream_runtime_reply()`.
-- [ ] Keep `stream_reply()` responsible for transaction order and emitted JSON line events.
-- [ ] Preserve failure persistence behavior for runs.
-- [ ] Run `cd backend && uv run pytest tests/domains/assistant/test_assistant_chat_application.py -v`.
+- [x] Move route/entity/memory/evidence preparation into a pure `prepare_turn_context()` helper.
+- [x] Move runtime event consumption and assistant-message assembly into `stream_runtime_reply()`.
+- [x] Keep `stream_reply()` responsible for transaction order and emitted JSON line events.
+- [x] Preserve failure persistence behavior for runs.
+- [x] Run `cd backend && uv run pytest tests/domains/assistant/test_assistant_chat_application.py -v`.
 
 ## Task 7: Split Parser File Discovery and Collapse Day-Merge Duplication
 
