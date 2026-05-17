@@ -71,7 +71,9 @@ The Garmin health dependency direction is:
   Shared cross-cutting modules being extracted out of the flat app root.
 
 - `backend/app/parser.py`
-  Compatibility facade for the active Garmin FIT parser imports.
+  Compatibility facade for active Garmin FIT parser imports. The parser
+  implementation lives under
+  `backend/app/domains/garmin_health/infra/fit_parser/`.
 
 - `backend/app/utils/`
   Shared, domain-agnostic helpers. See "Shared Utilities" below for the rule on what may live here.
@@ -393,18 +395,15 @@ is reserved for shared app primitives rather than important product workflows.
   or unrelated SQLite helpers from application modules.
 - Public entrypoints: `/api/profile` and profile read/write use cases.
 
-### Migrated slice boundary convention
-
-The project now uses "migrated" to mean both route/file-layout migration and
-strict boundary migration.
+### Slice Boundary Convention
 
 - Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
 - `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import global storage modules, `app.services.*`, or `app.routers.*`.
-- `adapters.py` modules are the SQLite or external-system boundary for flat migrated slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
+- `adapters.py` modules are the SQLite or external-system boundary for small flat slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
 - Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
-- Architecture tests guard migrated shim removal and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
+- Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
 
-Fully migrated slices today: `domains/assistant`, `domains/routines`,
+Current strict-boundary slices: `domains/assistant`, `domains/routines`,
 `domains/garmin_sync`, `domains/garmin_analytics`, `domains/experiments`,
 `domains/artifacts`, `domains/programs`, `domains/journal`, and `core/profile`.
 Transitional domain-routed slices today: none.
@@ -471,7 +470,6 @@ Experiment adherence is protocol-defined and day-grain.
 This is the most important current product boundary.
 
 - Domain routes now mount from `backend/app/domains/routines/routes.py`.
-- Flat routine/today router and service compatibility shims have been removed.
 - `/routines/schedule` handles routine review and bundle import
 - `/today` reads one day of live compiled occurrences and writes logs only
 
@@ -505,12 +503,10 @@ Normal artifact flow:
 
 Garmin analytics is biometric-first but not `DailyMetric`-only.
 
-- Domain routes now mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, sleep, HRV, skin temperature, daily metrics, heart-rate raw/insights/analysis/distribution, stress raw/analysis, body-battery raw/analysis, respiration raw, and pulse-ox raw.
-- Migrated Garmin analytics flat route and service shims have been removed; new code should import from `backend/app/domains/garmin_analytics/`.
+- Domain routes mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, sleep, HRV, skin temperature, daily metrics, heart-rate raw/insights/analysis/distribution, stress raw/analysis, body-battery raw/analysis, respiration raw, and pulse-ox raw.
+- New Garmin analytics code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
 - `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
-- The legacy `/api/days` parser-summary route has been removed; route inventory
-  now reflects user-facing analytics and ingest APIs only.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend
@@ -567,9 +563,6 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
   Bundle import contract.
-
-- [docs/REFACTOR_PLAN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/REFACTOR_PLAN.md)
-  Active backend architecture cleanup plan.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
   Current dataset observations.

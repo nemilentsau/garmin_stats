@@ -87,7 +87,7 @@ models; the boundary rules matter more than the package label:
 - `domains/journal/` owns daily check-ins and notes.
 - `core/profile/` owns app-level profile configuration.
 
-Fully migrated slices follow the same boundary convention: route/API modules
+Current strict-boundary slices follow the same convention: route/API modules
 handle FastAPI and dependency lookup, workflow/application modules own
 orchestration without importing SQLite helpers or the dependency container, and
 adapter modules are the infrastructure boundary. Repository and callable
@@ -95,8 +95,8 @@ dependencies live in `dependencies.py`; API and persistence shapes live in
 `contracts.py`. Larger slices may split large route or contract surfaces into
 packages, while small capability slices prefer clearer flat names like
 `routes.py`, `adapters.py`, `dependencies.py`, and `contracts.py`. Any future
-transitional slices should be explicitly allowlisted in architecture tests until
-persistence dependencies are moved behind explicit contracts and adapters.
+transitional slices should be explicitly allowlisted in architecture tests with
+their permitted boundary violations.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
 overview, metric detail pages, assistant chat, Today board, and routine schedule
@@ -135,7 +135,7 @@ backend/
 frontend/
   src/          SvelteKit routes, components, API client, chart helpers
 scripts/        Local utility scripts for Garmin download, ingest, FIT inspection
-docs/           Architecture notes, active refactor plan, bundle specs, examples
+docs/           Architecture notes, design direction, bundle specs, examples
 data/           Local Garmin exports, ignored by git
 storage/        Local SQLite database, ignored by git
 ```
@@ -233,8 +233,6 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
   ownership boundaries, and route inventory.
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
   canonical routine bundle JSON contract.
-- [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) - active backend architecture
-  cleanup plan.
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned
   activity/session analytics and experiment-day joins.
 - [FINDINGS.md](FINDINGS.md) - current observations and data quality notes from
