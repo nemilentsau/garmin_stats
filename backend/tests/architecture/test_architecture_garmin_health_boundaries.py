@@ -14,6 +14,13 @@ def test_garmin_health_owns_canonical_contracts_and_daily_metric_composer():
         base / "domain/__init__.py",
         base / "domain/daily.py",
         base / "domain/daily_metrics/__init__.py",
+        base / "infra/__init__.py",
+        base / "infra/fit_parser/__init__.py",
+        base / "infra/fit_parser/days.py",
+        base / "infra/fit_parser/decode.py",
+        base / "infra/fit_parser/extractors.py",
+        base / "infra/fit_parser/files.py",
+        base / "infra/fit_parser/timestamps.py",
         base / "domain/daily_metrics/heart_rate.py",
         base / "domain/daily_metrics/stress.py",
         base / "domain/daily_metrics/body_battery.py",
@@ -65,3 +72,14 @@ def test_garmin_health_does_not_import_feature_domains():
             "app.infra.database",
         ],
     )
+
+
+def test_root_parser_is_only_a_compatibility_facade_for_active_ingest_api():
+    source = read_repo_file("backend/app/parser.py")
+
+    assert "from app.domains.garmin_health.infra.fit_parser import" in source
+    assert "def _extract_wellness" not in source
+    assert "def parse_wellness(" not in source
+    assert "def parse_sleep(" not in source
+    assert "def parse_hrv(" not in source
+    assert "def parse_skin_temp(" not in source

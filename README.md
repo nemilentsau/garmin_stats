@@ -35,7 +35,7 @@ The `data/` and `storage/` directories are gitignored.
 ```text
 Garmin day zip
   -> extracted FIT files
-  -> backend/app/parser.py
+  -> backend/app/domains/garmin_health/infra/fit_parser/
   -> Garmin health daily metric composer
   -> SQLite storage
   -> backend domain/application services
@@ -66,9 +66,9 @@ models; the boundary rules matter more than the package label:
 - `domains/garmin_sync/` is a Garmin data acquisition capability. It owns
   `/api/ingest`, Garmin Connect wellness archive download orchestration, archive
   extraction, ingest status, and affected-date ingest decisions.
-- `domains/garmin_health/` owns canonical Garmin health contracts and daily
-  metric composition used by parser, ingest persistence, analytics,
-  experiments, and assistant.
+- `domains/garmin_health/` owns canonical Garmin health contracts, FIT parsing,
+  timestamp normalization, and daily metric composition used by ingest
+  persistence, analytics, experiments, and assistant.
 - `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
   biometric reads, recovery insights, analyses, and period summaries.
 - `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,

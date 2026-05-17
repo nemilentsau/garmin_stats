@@ -72,7 +72,10 @@ class TestParseDayMerge:
                 ],
             )
 
-        monkeypatch.setattr("app.parser.decode_fit_file", decode)
+        monkeypatch.setattr(
+            "app.domains.garmin_health.infra.fit_parser.days.decode_fit_file",
+            decode,
+        )
 
         day = _parse_day(
             [first, second],
@@ -104,7 +107,10 @@ class TestParseDayMerge:
                 ],
             )
 
-        monkeypatch.setattr("app.parser.decode_fit_file", decode)
+        monkeypatch.setattr(
+            "app.domains.garmin_health.infra.fit_parser.days.decode_fit_file",
+            decode,
+        )
 
         day = _parse_day(
             [bad, good],
