@@ -118,8 +118,8 @@ async def stream_reply(
                 assistant_message = event.assistant_message
                 session_id = event.session_id
 
-        if assistant_message is None:
-            raise RuntimeError("assistant runtime completed without assistant message")
+        # stream_runtime_reply always emits RuntimeReplyComplete last
+        assert assistant_message is not None
         thread = _thread_with_state(
             thread=thread,
             last_message_at=assistant_message.created_at or now_iso(),

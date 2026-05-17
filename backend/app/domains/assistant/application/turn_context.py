@@ -15,6 +15,7 @@ from app.domains.assistant.application.evidence import build_evidence_bundle
 from app.domains.assistant.application.intent_routing import route_user_query
 from app.domains.assistant.application.memory_aliases import (
     build_entity_alias_memory_record,
+    confirm_alias_reroute,
     load_resolution_memory_records,
     maybe_reroute_from_memory_alias,
 )
@@ -49,9 +50,8 @@ def prepare_turn_context(
 ) -> PreparedTurnContext:
     """Return route, memory, entity, and evidence context for one user query.
 
-    The helper intentionally performs reads only. It may return a memory record
-    that should be saved if the reply completes, but it never writes that record
-    itself.
+    Any returned `pending_memory_record` must be saved by the caller only when
+    the reply completes; this helper never writes it itself.
     """
     prompt_memory_records, entity_memory_records = load_resolution_memory_records(
         recall_store,
@@ -70,14 +70,12 @@ def prepare_turn_context(
         route=route,
         query=query,
     )
-    if alias_entity_ids:
-        # A memory-alias reroute only stands when resolution lands on that alias's entity.
-        resolved_experiment_ids = {
-            entity.entity_id for entity in entities if entity.kind == "experiment"
-        }
-        if not resolved_experiment_ids.intersection(alias_entity_ids):
-            route = original_route
-            entities = []
+    route, entities = confirm_alias_reroute(
+        route=route,
+        original_route=original_route,
+        entities=entities,
+        alias_entity_ids=alias_entity_ids,
+    )
 
     pending_memory_record = build_entity_alias_memory_record(
         route=route,

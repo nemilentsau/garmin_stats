@@ -111,6 +111,29 @@ def maybe_reroute_from_memory_alias(
     return experiment_route, matched_entity_ids
 
 
+def confirm_alias_reroute(
+    *,
+    route: AssistantRouteDecision,
+    original_route: AssistantRouteDecision,
+    entities: list[AssistantResolvedEntity],
+    alias_entity_ids: set[str],
+) -> tuple[AssistantRouteDecision, list[AssistantResolvedEntity]]:
+    """Keep an alias reroute only when resolution lands on the aliased entity.
+
+    Otherwise the reroute is reverted: the original route is restored and the
+    entity list is cleared so downstream evidence assembly does not act on a
+    mis-targeted alias hit.
+    """
+    if not alias_entity_ids:
+        return route, entities
+    resolved_experiment_ids = {
+        entity.entity_id for entity in entities if entity.kind == "experiment"
+    }
+    if not resolved_experiment_ids.intersection(alias_entity_ids):
+        return original_route, []
+    return route, entities
+
+
 def build_entity_alias_memory_record(
     *,
     route: AssistantRouteDecision,
