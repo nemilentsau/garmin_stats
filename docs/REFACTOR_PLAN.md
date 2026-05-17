@@ -165,16 +165,16 @@
 
 **DRY target:** The literal SQL fragment `json_extract(data, '$.status') = ?` (and its `IN ({placeholders})` variant) is duplicated across `routines/adapters.py:46,71`, `programs/adapters.py:39`, `experiments/adapters.py:45`, and `artifacts/adapters.py:52,75`. Centralize the predicate so JSON-payload field paths and placeholder building live in one place.
 
-- [ ] Add a small helper on `JsonStore` (or a sibling module) such as `status_predicate(values: Sequence[str]) -> tuple[str, tuple[object, ...]]` that returns the `where_sql` fragment and params tuple, supporting both single-value and `IN (...)` cases.
-- [ ] Generalize the helper so any allowlisted JSON field path can be filtered (e.g. `json_field_predicate(path, values)`), since `artifacts/adapters.py` also filters on `$.kind` and `$.payload_json.id`. Do not interpolate arbitrary caller-provided paths into SQL.
-- [ ] Define empty-value behavior explicitly: callers that pass an empty sequence should get a predicate that matches no rows, or adapters should return early before building a query. Do not emit invalid `IN ()` SQL.
-- [ ] Update each adapter listed above to use the helper instead of building the SQL string locally.
-- [ ] Verify no behavior change with unit tests that exercise single-value, multi-value, and empty-value cases, plus an adapter-level behavior test for at least one status filter and the artifact payload-id lookup.
-- [ ] Run `cd backend && uv run pytest tests/infra tests/domains/routines tests/domains/programs tests/domains/experiments tests/domains/artifacts -v`.
+- [x] Add a small helper on `JsonStore` (or a sibling module) such as `status_predicate(values: Sequence[str]) -> tuple[str, tuple[object, ...]]` that returns the `where_sql` fragment and params tuple, supporting both single-value and `IN (...)` cases.
+- [x] Generalize the helper so any allowlisted JSON field path can be filtered (e.g. `json_field_predicate(path, values)`), since `artifacts/adapters.py` also filters on `$.kind` and `$.payload_json.id`. Do not interpolate arbitrary caller-provided paths into SQL.
+- [x] Define empty-value behavior explicitly: callers that pass an empty sequence should get a predicate that matches no rows, or adapters should return early before building a query. Do not emit invalid `IN ()` SQL.
+- [x] Update each adapter listed above to use the helper instead of building the SQL string locally.
+- [x] Verify no behavior change with unit tests that exercise single-value, multi-value, and empty-value cases, plus an adapter-level behavior test for at least one status filter and the artifact payload-id lookup.
+- [x] Run `cd backend && uv run pytest tests/infra tests/domains/routines tests/domains/programs tests/domains/experiments tests/domains/artifacts -v`.
 
 ## Final Verification
 
-- [ ] Run `cd backend && uv run ruff check`.
-- [ ] Run `cd backend && uv run pyright app/ tests/`.
-- [ ] Run `cd backend && uv run pytest tests/ -v`.
+- [x] Run `cd backend && uv run ruff check`.
+- [x] Run `cd backend && uv run pyright app/ tests/`.
+- [x] Run `cd backend && uv run pytest tests/ -v`.
 - [ ] If any backend route or Pydantic schema changes unexpectedly, run `bash scripts/generate-api-types.sh` from the repo root and then `cd frontend && npm run check`.

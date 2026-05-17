@@ -36,8 +36,7 @@ class SqliteProgramRepository:
         where_sql = ""
         params: tuple[object, ...] = ()
         if status is not None:
-            where_sql = "json_extract(data, '$.status') = ?"
-            params = (status,)
+            where_sql, params = _STORE.status_predicate((status,))
         return _STORE.load_many(
             "programs",
             Program,

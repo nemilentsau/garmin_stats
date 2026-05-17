@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
@@ -21,6 +21,13 @@ JSON_RECORD_COLUMNS_SQL = (
     "created_at TEXT NOT NULL, updated_at TEXT NOT NULL"
 )
 """SQL column fragment for tables consumed by ``JsonStore`` defaults."""
+
+JSON_FIELD_SQL: dict[str, str] = {
+    "$.kind": "json_extract(data, '$.kind')",
+    "$.payload_json.id": "json_extract(data, '$.payload_json.id')",
+    "$.status": "json_extract(data, '$.status')",
+}
+"""Allowlisted JSON payload paths that may be used in SQL predicates."""
 
 
 def model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
@@ -33,7 +40,7 @@ def model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
 
 
 class JsonStore:
-    """SQLite JSON-record CRUD bound to a fixed table whitelist."""
+    """SQLite JSON-record CRUD bound to fixed table and JSON-field allowlists."""
 
     def __init__(self, allowed_tables: Iterable[str]) -> None:
         self._allowed = frozenset(allowed_tables)
@@ -41,6 +48,37 @@ class JsonStore:
     def _check(self, table: str) -> None:
         if table not in self._allowed:
             raise ValueError(f"Invalid table name: {table}")
+
+    def json_field_predicate(
+        self,
+        path: str,
+        values: Sequence[object],
+    ) -> tuple[str, tuple[object, ...]]:
+        """Build a parameterized predicate for an allowlisted JSON payload field.
+
+        Empty value sequences deliberately match no rows so callers never emit
+        invalid ``IN ()`` SQL. JSON paths are mapped through ``JSON_FIELD_SQL``
+        before reaching SQL, keeping caller-provided path strings out of query
+        interpolation.
+        """
+        field_sql = JSON_FIELD_SQL.get(path)
+        if field_sql is None:
+            raise ValueError(f"Invalid JSON filter path: {path}")
+
+        params = tuple(values)
+        if not params:
+            return "0 = 1", ()
+        if len(params) == 1:
+            return f"{field_sql} = ?", params
+        placeholders = ", ".join("?" for _ in params)
+        return f"{field_sql} IN ({placeholders})", params
+
+    def status_predicate(
+        self,
+        values: Sequence[object],
+    ) -> tuple[str, tuple[object, ...]]:
+        """Build a predicate for the conventional JSON ``status`` field."""
+        return self.json_field_predicate("$.status", values)
 
     def save(
         self,

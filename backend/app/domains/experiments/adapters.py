@@ -35,9 +35,7 @@ class SqliteExperimentRepository:
         where_sql = ""
         params: tuple[object, ...] = ()
         if statuses is not None:
-            placeholders = ", ".join("?" for _ in statuses)
-            where_sql = f"json_extract(data, '$.status') IN ({placeholders})"
-            params = statuses
+            where_sql, params = _STORE.status_predicate(statuses)
         return _STORE.load_many("experiments", Experiment, where_sql=where_sql, params=params)
 
     def get_experiment(self, experiment_id: str) -> Experiment | None:
