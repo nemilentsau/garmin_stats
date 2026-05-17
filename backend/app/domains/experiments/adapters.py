@@ -12,7 +12,6 @@ from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
     ExperimentExposure,
-    ExperimentReport,
 )
 from app.infra.jsonstore import JsonStore
 from app.infra.sqlite import connect
@@ -21,7 +20,6 @@ from app.utils.timeutil import now_iso
 _STORE = JsonStore({
     "experiments",
     "experiment_exposures",
-    "experiment_reports",
 })
 
 
@@ -53,10 +51,6 @@ class SqliteExperimentRepository:
     def save_experiment(self, experiment: Experiment) -> None:
         """Persist one experiment definition."""
         _STORE.save("experiments", experiment.id, experiment.model_dump_json())
-
-    def delete_experiment(self, experiment_id: str) -> None:
-        """Delete one experiment definition by id."""
-        _STORE.delete("experiments", experiment_id)
 
     def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
         """Load all cached analysis snapshots keyed by experiment id."""
@@ -182,30 +176,3 @@ class SqliteExperimentRepository:
                     "entry_date": exposure.date,
                 },
             )
-
-    def list_experiment_reports(
-        self,
-        experiment_id: str | None = None,
-    ) -> list[ExperimentReport]:
-        """Load experiment reports, optionally restricted to one experiment."""
-        where_sql = "experiment_id = ?" if experiment_id is not None else ""
-        params = (experiment_id,) if experiment_id is not None else ()
-        return _STORE.load_many(
-            "experiment_reports",
-            ExperimentReport,
-            where_sql=where_sql,
-            params=params,
-            order_by="report_date, created_at, id",
-        )
-
-    def save_experiment_report(self, report: ExperimentReport) -> None:
-        """Persist one generated experiment report."""
-        _STORE.save(
-            "experiment_reports",
-            report.id,
-            report.model_dump_json(),
-            extra_columns={
-                "experiment_id": report.experiment_id,
-                "report_date": report.report_date,
-            },
-        )

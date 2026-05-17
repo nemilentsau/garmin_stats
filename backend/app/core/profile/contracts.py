@@ -1,19 +1,10 @@
-"""Contracts for profile and goal configuration."""
+"""Contracts for profile configuration."""
 
 from __future__ import annotations
 
-from app.contracts.base import AutoTotalResponse, DefaultsRequired, EntityStatus
+from app.contracts.base import DefaultsRequired
 
 DEFAULT_PROFILE_ID = "default"
-
-
-class Goal(DefaultsRequired):
-    id: str
-    title: str
-    description: str | None = None
-    status: EntityStatus = "active"
-    priority: int = 0
-    tags: list[str] = []
 
 
 class UserProfile(DefaultsRequired):
@@ -32,7 +23,3 @@ class UserProfile(DefaultsRequired):
     sleep_constraints: list[str] = []
     nutrition_preferences: list[str] = []
     coaching_style_preferences: list[str] = []
-
-
-class GoalsResponse(AutoTotalResponse, items_field="goals"):
-    goals: list[Goal] = []
