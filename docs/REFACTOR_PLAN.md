@@ -108,11 +108,11 @@
 - Modify: `backend/app/domains/experiments/domain/metric_paths.py`
 - Test: `backend/tests/domains/experiments/`
 
-- [ ] Replace in-place mutation of `experiment.design` with a copied design returned from date-resolution helpers.
-- [ ] Move baseline/treatment date rules into `design_dates.py`.
-- [ ] Move check-in field validation next to path resolution so `preview.py` does not hard-code `DailyCheckIn` field names.
-- [ ] Keep `preview_experiment()` as orchestration only: resolve dates, load metrics, call validators, assemble response.
-- [ ] Run `cd backend && uv run pytest tests/domains/experiments -v`.
+- [x] Replace in-place mutation of `experiment.design` with a copied design returned from date-resolution helpers.
+- [x] Move baseline/treatment date rules into `design_dates.py`.
+- [x] Move check-in field validation next to path resolution so `preview.py` does not hard-code `DailyCheckIn` field names.
+- [x] Keep `preview_experiment()` as orchestration only: resolve dates, load metrics, call validators, assemble response.
+- [x] Run `cd backend && uv run pytest tests/domains/experiments -v`.
 
 ## Task 6: Split Assistant Chat Turn Orchestration
 
