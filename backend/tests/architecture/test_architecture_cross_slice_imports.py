@@ -54,7 +54,6 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.journal.contracts",
     },
     "backend/app/domains/experiments/application/preview.py": {
-        GARMIN_HEALTH_CONTRACTS,
         "app.domains.routines.dependencies",
     },
     "backend/app/domains/experiments/application/exposure_sync.py": {

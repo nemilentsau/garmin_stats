@@ -58,38 +58,41 @@ def resolve_design_dates(
     linked_routine_ids: Sequence[str],
     routine_lookup: RoutineLookup,
 ) -> DesignDateResolution:
-    """Return a copied design with routine-derived dates filled when needed."""
-    resolved = design.model_copy(deep=True)
+    """Return the design (copied with routine-derived dates) and any issues.
+
+    Returns the input ``design`` unchanged when no resolution is needed or when
+    a validation error blocks resolution.
+    """
     issues: list[ExperimentPreviewIssue] = []
 
     has_dates = (
-        resolved.baseline_start_date
-        and resolved.baseline_end_date
-        and resolved.treatment_start_date
+        design.baseline_start_date
+        and design.baseline_end_date
+        and design.treatment_start_date
     )
     if has_dates:
-        return DesignDateResolution(design=resolved, issues=issues)
+        return DesignDateResolution(design=design, issues=issues)
 
-    if resolved.baseline_duration_days is None:
+    if design.baseline_duration_days is None:
         issues.append(ExperimentPreviewIssue(
             level="error",
             message="Either provide explicit dates or baseline_duration_days.",
         ))
-        return DesignDateResolution(design=resolved, issues=issues)
+        return DesignDateResolution(design=design, issues=issues)
 
-    if resolved.baseline_duration_days < 1:
+    if design.baseline_duration_days < 1:
         issues.append(ExperimentPreviewIssue(
             level="error",
             message="baseline_duration_days must be at least 1.",
         ))
-        return DesignDateResolution(design=resolved, issues=issues)
+        return DesignDateResolution(design=design, issues=issues)
 
     if not linked_routine_ids:
         issues.append(ExperimentPreviewIssue(
             level="error",
             message="baseline_duration_days requires a linked routine to derive dates.",
         ))
-        return DesignDateResolution(design=resolved, issues=issues)
+        return DesignDateResolution(design=design, issues=issues)
 
     routine_id = linked_routine_ids[0]
     routine = routine_lookup(routine_id)
@@ -99,22 +102,22 @@ def resolve_design_dates(
             message=f"Linked routine '{routine_id}' not found. "
                     "Import and activate the routine before the experiment.",
         ))
-        return DesignDateResolution(design=resolved, issues=issues)
+        return DesignDateResolution(design=design, issues=issues)
 
     treatment_start = date_type.fromisoformat(routine.start_date)
     baseline_end = treatment_start - timedelta(days=1)
-    baseline_start = baseline_end - timedelta(days=resolved.baseline_duration_days - 1)
+    baseline_start = baseline_end - timedelta(days=design.baseline_duration_days - 1)
 
     updates = {
         "baseline_start_date": baseline_start.isoformat(),
         "baseline_end_date": baseline_end.isoformat(),
         "treatment_start_date": treatment_start.isoformat(),
     }
-    if routine.end_date and resolved.treatment_end_date is None:
+    if routine.end_date and design.treatment_end_date is None:
         updates["treatment_end_date"] = routine.end_date
 
     return DesignDateResolution(
-        design=resolved.model_copy(update=updates),
+        design=design.model_copy(update=updates),
         issues=issues,
     )
 
@@ -123,10 +126,21 @@ def validate_design_date_window(design: ExperimentDesign) -> DesignDateValidatio
     """Parse and validate baseline/treatment date ordering."""
     issues: list[ExperimentPreviewIssue] = []
 
+    if (
+        not design.baseline_start_date
+        or not design.baseline_end_date
+        or not design.treatment_start_date
+    ):
+        issues.append(ExperimentPreviewIssue(
+            level="error",
+            message="Baseline start, baseline end, and treatment start dates are required.",
+        ))
+        return DesignDateValidation(window=None, issues=issues)
+
     try:
-        b_start = date_type.fromisoformat(_required_date(design.baseline_start_date))
-        b_end = date_type.fromisoformat(_required_date(design.baseline_end_date))
-        t_start = date_type.fromisoformat(_required_date(design.treatment_start_date))
+        b_start = date_type.fromisoformat(design.baseline_start_date)
+        b_end = date_type.fromisoformat(design.baseline_end_date)
+        t_start = date_type.fromisoformat(design.treatment_start_date)
     except ValueError as e:
         issues.append(ExperimentPreviewIssue(level="error", message=f"Invalid date: {e}"))
         return DesignDateValidation(window=None, issues=issues)
@@ -164,9 +178,3 @@ def validate_design_date_window(design: ExperimentDesign) -> DesignDateValidatio
         ),
         issues=issues,
     )
-
-
-def _required_date(value: str | None) -> str:
-    if value is None:
-        raise ValueError("required design date is missing")
-    return value

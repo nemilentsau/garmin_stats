@@ -54,7 +54,10 @@ def preview_experiment(
         routine_repo.get_routine,
     )
     design = date_resolution.design
-    previewed_experiment = experiment.model_copy(update={"design": design}, deep=True)
+    previewed_experiment = (
+        experiment if design is experiment.design
+        else experiment.model_copy(update={"design": design})
+    )
     issues.extend(date_resolution.issues)
     if any(i.level == "error" for i in date_resolution.issues):
         return ExperimentPreviewResponse(

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.journal.contracts import DailyCheckIn
 
-_CHECKIN_PREFIX = "checkin."
+CHECKIN_PATH_PREFIX = "checkin."
 _CHECKIN_NON_SCALAR_FIELDS = frozenset({"id", "date", "notes"})
 _VALID_CHECKIN_FIELDS = frozenset(
     field
@@ -38,9 +38,9 @@ def resolve_metric_path(metric: DailyMetric, path: str) -> float | None:
 
 def is_valid_checkin_path(path: str) -> bool:
     """Return whether a dotted check-in path names a supported scalar field."""
-    if not path.startswith(_CHECKIN_PREFIX):
+    if not path.startswith(CHECKIN_PATH_PREFIX):
         return False
-    return path.removeprefix(_CHECKIN_PREFIX) in _VALID_CHECKIN_FIELDS
+    return path.removeprefix(CHECKIN_PATH_PREFIX) in _VALID_CHECKIN_FIELDS
 
 
 def resolve_checkin_path(checkin: DailyCheckIn, path: str) -> float | bool | None:
@@ -59,10 +59,10 @@ def resolve_path(
     path: str,
 ) -> float | bool | None:
     """Resolve a metric or check-in path based on its prefix."""
-    if path.startswith(_CHECKIN_PREFIX):
+    if path.startswith(CHECKIN_PATH_PREFIX):
         if checkin is None:
             return None
-        return resolve_checkin_path(checkin, path.removeprefix(_CHECKIN_PREFIX))
+        return resolve_checkin_path(checkin, path.removeprefix(CHECKIN_PATH_PREFIX))
     if metric is None:
         return None
     return resolve_metric_path(metric, path)

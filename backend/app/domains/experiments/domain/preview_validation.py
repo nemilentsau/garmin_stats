@@ -15,6 +15,7 @@ from app.domains.experiments.contracts import (
     OutcomeMetric,
 )
 from app.domains.experiments.domain.metric_paths import (
+    CHECKIN_PATH_PREFIX,
     is_valid_checkin_path,
     resolve_metric_path,
 )
@@ -108,7 +109,7 @@ def validate_confounder_paths(
     """Validate Garmin and check-in confounder paths for preview warnings."""
     issues: list[ExperimentPreviewIssue] = []
     for path in confounder_paths:
-        if path.startswith("checkin."):
+        if path.startswith(CHECKIN_PATH_PREFIX):
             if not is_valid_checkin_path(path):
                 issues.append(ExperimentPreviewIssue(
                     level="error",
