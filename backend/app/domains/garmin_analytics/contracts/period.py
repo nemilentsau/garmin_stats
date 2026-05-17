@@ -97,128 +97,96 @@ class DailyAggregatesResponse(DefaultsRequired):
 
 
 class HeartRateDailyPoint(DefaultsRequired):
-    """Heart-rate daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     heart_rate: DailyHeartRateStats
 
 
 class HeartRateDailyResponse(DefaultsRequired):
-    """Daily heart-rate metrics plus heart-rate period summaries."""
-
     days: list[str]
     daily: list[HeartRateDailyPoint]
     period_windows: dict[str, PeriodHeartRateStats] = {}
 
 
 class HrvDailyPoint(DefaultsRequired):
-    """HRV daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     hrv: DailyHrvStats
 
 
 class HrvDailyResponse(DefaultsRequired):
-    """Daily HRV metrics plus HRV period summaries."""
-
     days: list[str]
     daily: list[HrvDailyPoint]
     period_windows: dict[str, PeriodHrvStats] = {}
 
 
 class SleepDailyPoint(DefaultsRequired):
-    """Sleep daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     sleep: DailySleepStats
 
 
 class SleepDailyResponse(DefaultsRequired):
-    """Daily sleep metrics plus sleep period summaries."""
-
     days: list[str]
     daily: list[SleepDailyPoint]
     period_windows: dict[str, PeriodSleepStats] = {}
 
 
 class StressDailyPoint(DefaultsRequired):
-    """Stress daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     stress: DailyMetricStats
 
 
 class StressDailyResponse(DefaultsRequired):
-    """Daily stress metrics plus stress period summaries."""
-
     days: list[str]
     daily: list[StressDailyPoint]
     period_windows: dict[str, PeriodMetricStats] = {}
 
 
 class RespirationDailyPoint(DefaultsRequired):
-    """Respiration daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     respiration: DailyMetricStats
 
 
 class RespirationDailyResponse(DefaultsRequired):
-    """Daily respiration metrics plus respiration period summaries."""
-
     days: list[str]
     daily: list[RespirationDailyPoint]
     period_windows: dict[str, PeriodMetricStats] = {}
 
 
 class SpO2DailyPoint(DefaultsRequired):
-    """Pulse-ox daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     spo2: DailyMetricStats
 
 
 class SpO2DailyResponse(DefaultsRequired):
-    """Daily pulse-ox metrics plus pulse-ox period summaries."""
-
     days: list[str]
     daily: list[SpO2DailyPoint]
     period_windows: dict[str, PeriodSpo2Stats] = {}
 
 
 class SkinTempDailyPoint(DefaultsRequired):
-    """Skin-temperature daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     skin_temp: DailySkinTempStats
 
 
 class SkinTempDailyResponse(DefaultsRequired):
-    """Daily skin-temperature metrics plus skin-temperature period summaries."""
-
     days: list[str]
     daily: list[SkinTempDailyPoint]
     period_windows: dict[str, PeriodSkinTempStats] = {}
 
 
 class BodyBatteryDailyPoint(DefaultsRequired):
-    """Body Battery daily metric row for metric-scoped endpoints."""
-
     date: str
     utc_offset_hours: float | None = None
     body_battery: DailyBodyBatteryStats
 
 
 class BodyBatteryDailyResponse(DefaultsRequired):
-    """Daily Body Battery metrics plus Body Battery period summaries."""
-
     days: list[str]
     daily: list[BodyBatteryDailyPoint]
     period_windows: dict[str, PeriodBodyBatteryStats] = {}

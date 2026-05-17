@@ -111,6 +111,8 @@ function unwrap<T>(data: T | undefined, error: unknown): T {
 	return data;
 }
 
+const dateQuery = (date?: string) => ({ params: { query: date ? { date } : {} } });
+
 export const api = {
 	getDailyAggregates: async () => {
 		const { data, error } = await client.GET('/api/daily-aggregates');
@@ -153,57 +155,39 @@ export const api = {
 		return unwrap(data, error);
 	},
 	getHeartRateRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/heart-rate/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/heart-rate/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getStressRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/stress/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/stress/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getBodyBatteryRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/body-battery/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/body-battery/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getPulseOxRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/pulse-ox/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/pulse-ox/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getRespirationRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/respiration/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/respiration/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getSleepRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/sleep/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/sleep/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getHrvRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/hrv/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/hrv/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getSkinTempRaw: async (date?: string) => {
-		const { data, error } = await client.GET('/api/skin-temp/raw', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/skin-temp/raw', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getHrvInsights: async (date?: string) => {
-		const { data, error } = await client.GET('/api/hrv/insights', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/hrv/insights', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getHrvAnalysis: async () => {
@@ -211,9 +195,7 @@ export const api = {
 		return unwrap(data, error);
 	},
 	getHeartRateInsights: async (date?: string) => {
-		const { data, error } = await client.GET('/api/heart-rate/insights', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/heart-rate/insights', dateQuery(date));
 		return unwrap(data, error);
 	},
 	getHeartRateAnalysis: async () => {
@@ -302,9 +284,7 @@ export const api = {
 		return unwrap(data, error);
 	},
 	getCheckins: async (date?: string) => {
-		const { data, error } = await client.GET('/api/checkins', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/checkins', dateQuery(date));
 		return unwrap(data, error);
 	},
 	createCheckin: async (checkin: DailyCheckInInput) => {
@@ -312,9 +292,7 @@ export const api = {
 		return unwrap(data, error);
 	},
 	getNotes: async (date?: string) => {
-		const { data, error } = await client.GET('/api/notes', {
-			params: { query: date ? { date } : {} }
-		});
+		const { data, error } = await client.GET('/api/notes', dateQuery(date));
 		return unwrap(data, error);
 	},
 	createNote: async (note: NoteInput) => {
