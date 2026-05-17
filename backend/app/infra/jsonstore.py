@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
@@ -22,12 +23,14 @@ JSON_RECORD_COLUMNS_SQL = (
 )
 """SQL column fragment for tables consumed by ``JsonStore`` defaults."""
 
-JSON_FIELD_SQL: dict[str, str] = {
+JsonFieldPath = Literal["$.kind", "$.payload_json.id", "$.status"]
+"""JSON payload paths allowed in ``JsonStore`` predicate helpers."""
+
+_JSON_FIELD_SQL: dict[JsonFieldPath, str] = {
     "$.kind": "json_extract(data, '$.kind')",
     "$.payload_json.id": "json_extract(data, '$.payload_json.id')",
     "$.status": "json_extract(data, '$.status')",
 }
-"""Allowlisted JSON payload paths that may be used in SQL predicates."""
 
 
 def model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
@@ -51,17 +54,17 @@ class JsonStore:
 
     def json_field_predicate(
         self,
-        path: str,
+        path: JsonFieldPath,
         values: Sequence[object],
     ) -> tuple[str, tuple[object, ...]]:
         """Build a parameterized predicate for an allowlisted JSON payload field.
 
         Empty value sequences deliberately match no rows so callers never emit
-        invalid ``IN ()`` SQL. JSON paths are mapped through ``JSON_FIELD_SQL``
-        before reaching SQL, keeping caller-provided path strings out of query
-        interpolation.
+        invalid ``IN ()`` SQL. JSON paths are mapped through the private
+        allowlist before reaching SQL, keeping caller-provided path strings out
+        of query interpolation.
         """
-        field_sql = JSON_FIELD_SQL.get(path)
+        field_sql = _JSON_FIELD_SQL.get(path)
         if field_sql is None:
             raise ValueError(f"Invalid JSON filter path: {path}")
 
@@ -77,7 +80,7 @@ class JsonStore:
         self,
         values: Sequence[object],
     ) -> tuple[str, tuple[object, ...]]:
-        """Build a predicate for the conventional JSON ``status`` field."""
+        """Convenience wrapper so callers don't repeat the ``$.status`` path."""
         return self.json_field_predicate("$.status", values)
 
     def save(

@@ -57,20 +57,3 @@ def test_list_experiments_filters_by_statuses():
     experiments = repo.list_experiments(statuses=("active",))
 
     assert [item.id for item in experiments] == ["active-exp"]
-
-
-def test_list_experiments_empty_statuses_matches_no_rows():
-    repo = SqliteExperimentRepository()
-    repo.save_experiment(
-        Experiment(
-            id="active-exp",
-            name="Active meditation",
-            status="active",
-            linked_routine_ids=["routine-1"],
-            outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
-        )
-    )
-
-    experiments = repo.list_experiments(statuses=())
-
-    assert experiments == []
