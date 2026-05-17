@@ -33,7 +33,7 @@
 		agg = nextAgg;
 		analysis = nextAnalysis;
 		if (selectedDate) {
-			const data = await api.getSleep(selectedDate);
+			const data = await api.getSleepRaw(selectedDate);
 			intradayData = data;
 		}
 	}
@@ -49,7 +49,7 @@
 	const onDateChange = createDateLoader<SleepData>({
 		setSelectedDate: (date) => { selectedDate = date; },
 		clearData: () => { intradayData = null; },
-		fetchByDate: (date) => api.getSleep(date),
+		fetchByDate: (date) => api.getSleepRaw(date),
 		setData: (data) => { intradayData = data; },
 		setError: (message) => { error = message; }
 	});
