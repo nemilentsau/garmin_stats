@@ -21,22 +21,30 @@ from app.domains.garmin_analytics.application.dashboard import (
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
     BodyBatteryAnalysisResponse,
+    BodyBatteryDailyResponse,
     BodyBatteryRawResponse,
     DailyAggregatesResponse,
     DashboardOverviewResponse,
     HeartRateAnalysisResponse,
+    HeartRateDailyResponse,
     HeartRateInsightsResponse,
     HeartRateRawResponse,
     HRDistributionResponse,
     HrvAnalysisResponse,
+    HrvDailyResponse,
     HrvInsightsResponse,
     HrvResponse,
+    RespirationDailyResponse,
     RespirationRawResponse,
+    SkinTempDailyResponse,
     SkinTempResponse,
     SleepAnalysisResponse,
+    SleepDailyResponse,
     SleepResponse,
+    SpO2DailyResponse,
     SpO2RawResponse,
     StressAnalysisResponse,
+    StressDailyResponse,
     StressRawResponse,
 )
 
@@ -70,12 +78,12 @@ def get_dashboard_overview(repo: BiometricsRepo):
     return load_dashboard_overview(repo)
 
 
-@sleep_router.get("", response_model=SleepResponse)
-def get_sleep(
+@sleep_router.get("/raw", response_model=SleepResponse)
+def get_sleep_raw(
     repo: BiometricsRepo,
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
-    """Get sleep data (stages, assessment scores)."""
+    """Get raw sleep data (stages, assessment scores)."""
     return raw_biometrics_uc.get_sleep(repo, date=date)
 
 
@@ -85,12 +93,18 @@ def get_sleep_analysis(repo: BiometricsRepo):
     return metric_analysis_uc.load_sleep_analysis(repo)
 
 
-@hrv_router.get("", response_model=HrvResponse)
-def get_hrv(
+@sleep_router.get("/daily", response_model=SleepDailyResponse)
+def get_sleep_daily(repo: BiometricsRepo):
+    """Return daily sleep metrics and period summaries."""
+    return daily_aggregates_uc.get_sleep_daily(repo)
+
+
+@hrv_router.get("/raw", response_model=HrvResponse)
+def get_hrv_raw(
     repo: BiometricsRepo,
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
-    """Get HRV data (values, summaries)."""
+    """Get raw HRV data (values, summaries)."""
     return raw_biometrics_uc.get_hrv(repo, date=date)
 
 
@@ -98,6 +112,12 @@ def get_hrv(
 def get_hrv_analysis(repo: BiometricsRepo):
     """Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots)."""
     return metric_analysis_uc.load_hrv_analysis(repo)
+
+
+@hrv_router.get("/daily", response_model=HrvDailyResponse)
+def get_hrv_daily(repo: BiometricsRepo):
+    """Return daily HRV metrics and period summaries."""
+    return daily_aggregates_uc.get_hrv_daily(repo)
 
 
 @hrv_router.get("/insights", response_model=HrvInsightsResponse)
@@ -109,13 +129,19 @@ def get_hrv_insights(
     return metric_insights_uc.get_hrv_insights(repo, date)
 
 
-@skin_temp_router.get("", response_model=SkinTempResponse)
-def get_skin_temp(
+@skin_temp_router.get("/raw", response_model=SkinTempResponse)
+def get_skin_temp_raw(
     repo: BiometricsRepo,
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
 ):
-    """Get skin temperature data."""
+    """Get raw skin-temperature data."""
     return raw_biometrics_uc.get_skin_temp(repo, date=date)
+
+
+@skin_temp_router.get("/daily", response_model=SkinTempDailyResponse)
+def get_skin_temp_daily(repo: BiometricsRepo):
+    """Return daily skin-temperature metrics and period summaries."""
+    return daily_aggregates_uc.get_skin_temp_daily(repo)
 
 
 @daily_aggregates_router.get("", response_model=DailyAggregatesResponse)
@@ -131,6 +157,12 @@ def get_heart_rate_insights(
 ):
     """Return backend-derived heart-rate insights for UI rendering."""
     return metric_insights_uc.get_heart_rate_insights(repo, date)
+
+
+@heart_rate_router.get("/daily", response_model=HeartRateDailyResponse)
+def get_heart_rate_daily(repo: BiometricsRepo):
+    """Return daily heart-rate metrics and period summaries."""
+    return daily_aggregates_uc.get_heart_rate_daily(repo)
 
 
 @heart_rate_router.get("/raw", response_model=HeartRateRawResponse)
@@ -166,6 +198,12 @@ def get_stress_raw(
     return raw_biometrics_uc.get_stress_raw(repo, date=date)
 
 
+@stress_router.get("/daily", response_model=StressDailyResponse)
+def get_stress_daily(repo: BiometricsRepo):
+    """Return daily stress metrics and period summaries."""
+    return daily_aggregates_uc.get_stress_daily(repo)
+
+
 @stress_router.get("/analysis", response_model=StressAnalysisResponse)
 def get_stress_analysis(repo: BiometricsRepo):
     """Return period-level stress analysis (avg trend, weekly boxplots)."""
@@ -179,6 +217,12 @@ def get_body_battery_raw(
 ):
     """Get raw body-battery readings."""
     return raw_biometrics_uc.get_body_battery_raw(repo, date=date)
+
+
+@body_battery_router.get("/daily", response_model=BodyBatteryDailyResponse)
+def get_body_battery_daily(repo: BiometricsRepo):
+    """Return daily Body Battery metrics and period summaries."""
+    return daily_aggregates_uc.get_body_battery_daily(repo)
 
 
 @body_battery_router.get("/analysis", response_model=BodyBatteryAnalysisResponse)
@@ -196,6 +240,12 @@ def get_respiration_raw(
     return raw_biometrics_uc.get_respiration_raw(repo, date=date)
 
 
+@respiration_router.get("/daily", response_model=RespirationDailyResponse)
+def get_respiration_daily(repo: BiometricsRepo):
+    """Return daily respiration metrics and period summaries."""
+    return daily_aggregates_uc.get_respiration_daily(repo)
+
+
 @pulse_ox_router.get("/raw", response_model=SpO2RawResponse)
 def get_pulse_ox_raw(
     repo: BiometricsRepo,
@@ -203,3 +253,9 @@ def get_pulse_ox_raw(
 ):
     """Get raw pulse-ox readings."""
     return raw_biometrics_uc.get_spo2_raw(repo, date=date)
+
+
+@pulse_ox_router.get("/daily", response_model=SpO2DailyResponse)
+def get_pulse_ox_daily(repo: BiometricsRepo):
+    """Return daily pulse-ox metrics and period summaries."""
+    return daily_aggregates_uc.get_spo2_daily(repo)

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates, type SpO2RawData } from '$lib/api';
+	import { api, type SpO2Daily, type SpO2RawData } from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
@@ -13,7 +13,7 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: SpO2Daily | null = $state(null);
 	let intradayData: SpO2RawData | null = $state(null);
 	let selectedDate = $state('');
 	let trendRange: TrendRange = $state('3M');
@@ -21,7 +21,7 @@
 	let error: string | null = $state(null);
 
 	async function fetchData() {
-		agg = await api.getDailyAggregates();
+		agg = await api.getPulseOxDaily();
 		const date = selectedDate;
 		if (date) {
 			const data = await api.getPulseOxRaw(date);
@@ -186,7 +186,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const spo2 = pw.spo2;
+		const spo2 = pw;
 		return {
 			overallAvg: spo2.avg,
 			lowestMin: spo2.lowest_min,

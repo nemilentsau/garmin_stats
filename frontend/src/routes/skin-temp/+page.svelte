@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type DailyAggregates } from '$lib/api';
+	import { api, type SkinTempDaily } from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
@@ -11,13 +11,13 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: SkinTempDaily | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let trendRange: TrendRange = $state('3M');
 
 	async function fetchData() {
-		agg = await api.getDailyAggregates();
+		agg = await api.getSkinTempDaily();
 	}
 
 	onMount(() => {
@@ -102,7 +102,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const st = pw.skin_temp;
+		const st = pw;
 		return {
 			avgDeviation: st.avg_deviation?.toFixed(2) ?? null,
 			maxDeviation: st.max_deviation?.toFixed(2) ?? null,

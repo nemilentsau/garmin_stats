@@ -5,10 +5,16 @@
  * To regenerate: bash scripts/generate-api-types.sh
  */
 
-import type { components } from './api-types';
+import createClient from 'openapi-fetch';
+import type { components, paths } from './api-types';
 import { API_BASE } from './config';
 
 type Schemas = components['schemas'];
+
+const client = createClient<paths>({
+	baseUrl: API_BASE,
+	cache: 'no-store'
+});
 
 // Re-export generated types with existing frontend names
 export type HeartRateRawData = Schemas['HeartRateRawResponse'];
@@ -20,6 +26,14 @@ export type SleepData = Schemas['SleepResponse'];
 export type HrvData = Schemas['HrvResponse'];
 export type SkinTempData = Schemas['SkinTempResponse'];
 export type DailyAggregates = Schemas['DailyAggregatesResponse'];
+export type HeartRateDaily = Schemas['HeartRateDailyResponse'];
+export type HrvDaily = Schemas['HrvDailyResponse'];
+export type SleepDaily = Schemas['SleepDailyResponse'];
+export type StressDaily = Schemas['StressDailyResponse'];
+export type BodyBatteryDaily = Schemas['BodyBatteryDailyResponse'];
+export type RespirationDaily = Schemas['RespirationDailyResponse'];
+export type SpO2Daily = Schemas['SpO2DailyResponse'];
+export type SkinTempDaily = Schemas['SkinTempDailyResponse'];
 export type DailyMetric = Schemas['DailyMetric'];
 export type IngestResult = Schemas['IngestResult'];
 export type IngestStatus = Schemas['IngestStatus'];
@@ -87,130 +101,321 @@ export type ProgramsResponse = Schemas['ProgramsResponse'];
 export type ProgramVersion = Schemas['ProgramVersion'];
 export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
 
-async function fetchJson<T>(endpoint: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(`${API_BASE}${endpoint}`, {
-		cache: 'no-store',
-		...init
-	});
-	if (!response.ok) {
-		throw new Error(`API error: ${response.status} ${response.statusText}`);
+function unwrap<T>(data: T | undefined, error: unknown): T {
+	if (error) {
+		throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
 	}
-	return response.json();
+	if (data === undefined) {
+		throw new Error('API response did not include JSON data');
+	}
+	return data;
 }
 
-async function sendJson<T>(endpoint: string, method: 'POST' | 'PUT', body: unknown): Promise<T> {
-	return fetchJson<T>(endpoint, {
-		method,
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
-}
+const dateQuery = (date?: string) => ({ params: { query: date ? { date } : {} } });
 
 export const api = {
-	getDailyAggregates: () => fetchJson<DailyAggregates>('/api/daily-aggregates'),
-	getDashboardOverview: () => fetchJson<DashboardOverview>('/api/dashboard'),
-	getHeartRateRaw: (date?: string) =>
-		fetchJson<HeartRateRawData>(`/api/heart-rate/raw${date ? `?date=${date}` : ''}`),
-	getStressRaw: (date?: string) =>
-		fetchJson<StressRawData>(`/api/stress/raw${date ? `?date=${date}` : ''}`),
-	getBodyBatteryRaw: (date?: string) =>
-		fetchJson<BodyBatteryRawData>(`/api/body-battery/raw${date ? `?date=${date}` : ''}`),
-	getPulseOxRaw: (date?: string) =>
-		fetchJson<SpO2RawData>(`/api/pulse-ox/raw${date ? `?date=${date}` : ''}`),
-	getRespirationRaw: (date?: string) =>
-		fetchJson<RespirationRawData>(`/api/respiration/raw${date ? `?date=${date}` : ''}`),
-	getSleep: (date?: string) => fetchJson<SleepData>(`/api/sleep${date ? `?date=${date}` : ''}`),
-	getHrv: (date?: string) => fetchJson<HrvData>(`/api/hrv${date ? `?date=${date}` : ''}`),
-	getHrvInsights: (date?: string) =>
-		fetchJson<HrvInsights>(`/api/hrv/insights${date ? `?date=${date}` : ''}`),
-	getHrvAnalysis: () => fetchJson<HrvAnalysis>('/api/hrv/analysis'),
-	getSkinTemp: (date?: string) =>
-		fetchJson<SkinTempData>(`/api/skin-temp${date ? `?date=${date}` : ''}`),
-	getHeartRateInsights: (date?: string) =>
-		fetchJson<HeartRateInsights>(`/api/heart-rate/insights${date ? `?date=${date}` : ''}`),
-	getHeartRateAnalysis: () => fetchJson<HRAnalysis>('/api/heart-rate/analysis'),
-	getHRDistribution: (date: string) =>
-		fetchJson<HRDistribution>(`/api/heart-rate/distribution?date=${date}`),
-	triggerIngest: () => fetchJson<IngestResult>('/api/ingest', { method: 'POST' }),
-	triggerSync: () => sendJson<SyncResult>('/api/ingest/sync', 'POST', {}),
-	getIngestStatus: () => fetchJson<IngestStatus>('/api/ingest/status'),
-	getSleepAnalysis: () => fetchJson<SleepAnalysis>('/api/sleep/analysis'),
-	getStressAnalysis: () => fetchJson<StressAnalysis>('/api/stress/analysis'),
-	getBodyBatteryAnalysis: () => fetchJson<BodyBatteryAnalysis>('/api/body-battery/analysis'),
-	getProfile: () => fetchJson<UserProfile>('/api/profile'),
-	updateProfile: (profile: UserProfileInput) => sendJson<UserProfile>('/api/profile', 'PUT', profile),
-	getRoutines: (status?: string) =>
-		fetchJson<RoutineSchedulesResponse>(`/api/routines${status ? `?status=${status}` : ''}`),
-	getRoutineScheduleWindow: (startDate: string) =>
-		fetchJson<ScheduleWindow>(
-			`/api/routines/schedule-window?start_date=${encodeURIComponent(startDate)}`
-		),
-	getRoutineAssignments: (routineId: string) =>
-		fetchJson<RoutineAssignmentsResponse>(`/api/routines/${routineId}/assignments`),
-	getCards: (status?: string) =>
-		fetchJson<CardTemplatesResponse>(`/api/cards${status ? `?status=${status}` : ''}`),
-	getToday: (date: string) => fetchJson<TodayResponse>(`/api/today?date=${date}`),
-	updateTodayCard: (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) =>
-		sendJson<CardLog>(`/api/today/${date}/cards/${encodeURIComponent(occurrenceKey)}`, 'PUT', payload),
-	getCardLogsRange: (startDate: string, endDate: string) =>
-		fetchJson<CardLogRangeResponse>(`/api/today/card-logs?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`),
-	getCheckins: (date?: string) =>
-		fetchJson<DailyCheckInsResponse>(`/api/checkins${date ? `?date=${date}` : ''}`),
-	createCheckin: (checkin: DailyCheckInInput) =>
-		sendJson<DailyCheckIn>('/api/checkins', 'POST', checkin),
-	getNotes: (date?: string) => fetchJson<NotesResponse>(`/api/notes${date ? `?date=${date}` : ''}`),
-	createNote: (note: NoteInput) => sendJson<Note>('/api/notes', 'POST', note),
-	getExperiments: () => fetchJson<ExperimentsResponse>('/api/experiments'),
-	getExperiment: (experimentId: string) =>
-		fetchJson<ExperimentWithAnalysis>(`/api/experiments/${experimentId}`),
-	getExperimentAnalysis: (experimentId: string) =>
-		fetchJson<ExperimentAnalysis | null>(`/api/experiments/${experimentId}/analysis`),
-	previewExperiment: (experiment: ExperimentInput) =>
-		sendJson<ExperimentPreviewResponse>('/api/experiments/preview', 'POST', experiment),
-	importExperiment: (experiment: ExperimentInput) =>
-		sendJson<ExperimentWithAnalysis>('/api/experiments/import', 'POST', experiment),
-	createExperiment: (experiment: ExperimentInput) =>
-		sendJson<Experiment>('/api/experiments', 'POST', experiment),
-	updateExperiment: (experimentId: string, experiment: ExperimentInput) =>
-		sendJson<Experiment>(`/api/experiments/${experimentId}`, 'PUT', experiment),
-	refreshExperimentAnalyses: () =>
-		sendJson<{ refreshed: number }>('/api/experiments/refresh-analyses', 'POST', {}),
-	getTargetMetrics: () => fetchJson<TargetMetricsResponse>('/api/target-metrics'),
-	getAssistantThreads: () => fetchJson<AssistantThreadsResponse>('/api/assistant/threads'),
-	getAssistantArtifacts: (params?: { kind?: string; status?: string }) =>
-		fetchJson<AssistantArtifactsResponse>(
-			`/api/assistant/artifacts${
-				params?.kind || params?.status
-					? `?${[
-							params?.kind ? `kind=${encodeURIComponent(params.kind)}` : '',
-							params?.status ? `status=${encodeURIComponent(params.status)}` : ''
-						]
-							.filter(Boolean)
-							.join('&')}`
-					: ''
-			}`
-		),
-	createAssistantArtifact: (artifact: AssistantArtifactInput) =>
-		sendJson<AssistantArtifact>('/api/assistant/artifacts', 'POST', artifact),
-	activateAssistantArtifact: (artifactId: string) =>
-		sendJson<AssistantArtifact>(`/api/assistant/artifacts/${artifactId}/activate`, 'POST', {}),
-	previewAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
-		sendJson<ArtifactBundlePreviewResponse>('/api/assistant/artifact-bundles/preview', 'POST', bundle),
-	importAssistantArtifactBundle: (bundle: ArtifactBundleSpec) =>
-		sendJson<ArtifactBundleImportResponse>('/api/assistant/artifact-bundles/import', 'POST', bundle),
-	createAssistantThread: (thread: AssistantThreadInput) =>
-		sendJson<AssistantThread>('/api/assistant/threads', 'POST', thread),
-	getAssistantThreadMessages: (threadId: string) =>
-		fetchJson<AssistantMessagesResponse>(`/api/assistant/threads/${threadId}/messages`),
-	getPrograms: (status?: string) =>
-		fetchJson<ProgramsResponse>(`/api/programs${status ? `?status=${status}` : ''}`),
-	getProgram: (programId: string) => fetchJson<Program>(`/api/programs/${programId}`),
-	importProgram: (spec: Record<string, unknown>) =>
-		sendJson<Program>('/api/programs/import', 'POST', spec),
-	retireProgram: (programId: string) =>
-		sendJson<Program>(`/api/programs/${programId}/retire`, 'PUT', {}),
-	activateProgram: (programId: string) =>
-		sendJson<Program>(`/api/programs/${programId}/activate`, 'PUT', {}),
-	getProgramVersions: (programId: string) =>
-		fetchJson<ProgramVersionsResponse>(`/api/programs/${programId}/versions`)
+	getDailyAggregates: async () => {
+		const { data, error } = await client.GET('/api/daily-aggregates');
+		return unwrap(data, error);
+	},
+	getDashboardOverview: async () => {
+		const { data, error } = await client.GET('/api/dashboard');
+		return unwrap(data, error);
+	},
+	getHeartRateDaily: async () => {
+		const { data, error } = await client.GET('/api/heart-rate/daily');
+		return unwrap(data, error);
+	},
+	getHrvDaily: async () => {
+		const { data, error } = await client.GET('/api/hrv/daily');
+		return unwrap(data, error);
+	},
+	getSleepDaily: async () => {
+		const { data, error } = await client.GET('/api/sleep/daily');
+		return unwrap(data, error);
+	},
+	getStressDaily: async () => {
+		const { data, error } = await client.GET('/api/stress/daily');
+		return unwrap(data, error);
+	},
+	getBodyBatteryDaily: async () => {
+		const { data, error } = await client.GET('/api/body-battery/daily');
+		return unwrap(data, error);
+	},
+	getRespirationDaily: async () => {
+		const { data, error } = await client.GET('/api/respiration/daily');
+		return unwrap(data, error);
+	},
+	getPulseOxDaily: async () => {
+		const { data, error } = await client.GET('/api/pulse-ox/daily');
+		return unwrap(data, error);
+	},
+	getSkinTempDaily: async () => {
+		const { data, error } = await client.GET('/api/skin-temp/daily');
+		return unwrap(data, error);
+	},
+	getHeartRateRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/heart-rate/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getStressRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/stress/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getBodyBatteryRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/body-battery/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getPulseOxRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/pulse-ox/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getRespirationRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/respiration/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getSleepRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/sleep/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getHrvRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/hrv/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getSkinTempRaw: async (date?: string) => {
+		const { data, error } = await client.GET('/api/skin-temp/raw', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getHrvInsights: async (date?: string) => {
+		const { data, error } = await client.GET('/api/hrv/insights', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getHrvAnalysis: async () => {
+		const { data, error } = await client.GET('/api/hrv/analysis');
+		return unwrap(data, error);
+	},
+	getHeartRateInsights: async (date?: string) => {
+		const { data, error } = await client.GET('/api/heart-rate/insights', dateQuery(date));
+		return unwrap(data, error);
+	},
+	getHeartRateAnalysis: async () => {
+		const { data, error } = await client.GET('/api/heart-rate/analysis');
+		return unwrap(data, error);
+	},
+	getHRDistribution: async (date: string) => {
+		const { data, error } = await client.GET('/api/heart-rate/distribution', {
+			params: { query: { date } }
+		});
+		return unwrap(data, error);
+	},
+	triggerIngest: async () => {
+		const { data, error } = await client.POST('/api/ingest');
+		return unwrap(data, error);
+	},
+	triggerSync: async () => {
+		const { data, error } = await client.POST('/api/ingest/sync');
+		return unwrap(data, error);
+	},
+	getIngestStatus: async () => {
+		const { data, error } = await client.GET('/api/ingest/status');
+		return unwrap(data, error);
+	},
+	getSleepAnalysis: async () => {
+		const { data, error } = await client.GET('/api/sleep/analysis');
+		return unwrap(data, error);
+	},
+	getStressAnalysis: async () => {
+		const { data, error } = await client.GET('/api/stress/analysis');
+		return unwrap(data, error);
+	},
+	getBodyBatteryAnalysis: async () => {
+		const { data, error } = await client.GET('/api/body-battery/analysis');
+		return unwrap(data, error);
+	},
+	getProfile: async () => {
+		const { data, error } = await client.GET('/api/profile');
+		return unwrap(data, error);
+	},
+	updateProfile: async (profile: UserProfileInput) => {
+		const { data, error } = await client.PUT('/api/profile', { body: profile });
+		return unwrap(data, error);
+	},
+	getRoutines: async (status?: string) => {
+		const { data, error } = await client.GET('/api/routines', {
+			params: { query: status ? { status } : {} }
+		});
+		return unwrap(data, error);
+	},
+	getRoutineScheduleWindow: async (startDate: string) => {
+		const { data, error } = await client.GET('/api/routines/schedule-window', {
+			params: { query: { start_date: startDate } }
+		});
+		return unwrap(data, error);
+	},
+	getRoutineAssignments: async (routineId: string) => {
+		const { data, error } = await client.GET('/api/routines/{routine_id}/assignments', {
+			params: { path: { routine_id: routineId } }
+		});
+		return unwrap(data, error);
+	},
+	getCards: async (status?: string) => {
+		const { data, error } = await client.GET('/api/cards', {
+			params: { query: status ? { status } : {} }
+		});
+		return unwrap(data, error);
+	},
+	getToday: async (date: string) => {
+		const { data, error } = await client.GET('/api/today', {
+			params: { query: { date } }
+		});
+		return unwrap(data, error);
+	},
+	updateTodayCard: async (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) => {
+		const { data, error } = await client.PUT('/api/today/{date}/cards/{occurrence_key}', {
+			params: { path: { date, occurrence_key: occurrenceKey } },
+			body: payload
+		});
+		return unwrap(data, error);
+	},
+	getCardLogsRange: async (startDate: string, endDate: string) => {
+		const { data, error } = await client.GET('/api/today/card-logs', {
+			params: { query: { start_date: startDate, end_date: endDate } }
+		});
+		return unwrap(data, error);
+	},
+	getCheckins: async (date?: string) => {
+		const { data, error } = await client.GET('/api/checkins', dateQuery(date));
+		return unwrap(data, error);
+	},
+	createCheckin: async (checkin: DailyCheckInInput) => {
+		const { data, error } = await client.POST('/api/checkins', { body: checkin });
+		return unwrap(data, error);
+	},
+	getNotes: async (date?: string) => {
+		const { data, error } = await client.GET('/api/notes', dateQuery(date));
+		return unwrap(data, error);
+	},
+	createNote: async (note: NoteInput) => {
+		const { data, error } = await client.POST('/api/notes', { body: note });
+		return unwrap(data, error);
+	},
+	getExperiments: async () => {
+		const { data, error } = await client.GET('/api/experiments');
+		return unwrap(data, error);
+	},
+	getExperiment: async (experimentId: string) => {
+		const { data, error } = await client.GET('/api/experiments/{experiment_id}', {
+			params: { path: { experiment_id: experimentId } }
+		});
+		return unwrap(data, error);
+	},
+	getExperimentAnalysis: async (experimentId: string) => {
+		const { data, error } = await client.GET('/api/experiments/{experiment_id}/analysis', {
+			params: { path: { experiment_id: experimentId } }
+		});
+		return unwrap(data, error);
+	},
+	previewExperiment: async (experiment: ExperimentInput) => {
+		const { data, error } = await client.POST('/api/experiments/preview', { body: experiment });
+		return unwrap(data, error);
+	},
+	importExperiment: async (experiment: ExperimentInput) => {
+		const { data, error } = await client.POST('/api/experiments/import', { body: experiment });
+		return unwrap(data, error);
+	},
+	createExperiment: async (experiment: ExperimentInput) => {
+		const { data, error } = await client.POST('/api/experiments', { body: experiment });
+		return unwrap(data, error);
+	},
+	updateExperiment: async (experimentId: string, experiment: ExperimentInput) => {
+		const { data, error } = await client.PUT('/api/experiments/{experiment_id}', {
+			params: { path: { experiment_id: experimentId } },
+			body: experiment
+		});
+		return unwrap(data, error);
+	},
+	refreshExperimentAnalyses: async () => {
+		const { data, error } = await client.POST('/api/experiments/refresh-analyses');
+		return unwrap(data, error);
+	},
+	getTargetMetrics: async () => {
+		const { data, error } = await client.GET('/api/target-metrics');
+		return unwrap(data, error);
+	},
+	getAssistantThreads: async () => {
+		const { data, error } = await client.GET('/api/assistant/threads');
+		return unwrap(data, error);
+	},
+	getAssistantArtifacts: async (params?: { kind?: string; status?: string }) => {
+		const { data, error } = await client.GET('/api/assistant/artifacts', {
+			params: { query: params ?? {} }
+		});
+		return unwrap(data, error);
+	},
+	createAssistantArtifact: async (artifact: AssistantArtifactInput) => {
+		const { data, error } = await client.POST('/api/assistant/artifacts', { body: artifact });
+		return unwrap(data, error);
+	},
+	activateAssistantArtifact: async (artifactId: string) => {
+		const { data, error } = await client.POST('/api/assistant/artifacts/{artifact_id}/activate', {
+			params: { path: { artifact_id: artifactId } }
+		});
+		return unwrap(data, error);
+	},
+	previewAssistantArtifactBundle: async (bundle: ArtifactBundleSpec) => {
+		const { data, error } = await client.POST('/api/assistant/artifact-bundles/preview', {
+			body: bundle
+		});
+		return unwrap(data, error);
+	},
+	importAssistantArtifactBundle: async (bundle: ArtifactBundleSpec) => {
+		const { data, error } = await client.POST('/api/assistant/artifact-bundles/import', {
+			body: bundle
+		});
+		return unwrap(data, error);
+	},
+	createAssistantThread: async (thread: AssistantThreadInput) => {
+		const { data, error } = await client.POST('/api/assistant/threads', { body: thread });
+		return unwrap(data, error);
+	},
+	getAssistantThreadMessages: async (threadId: string) => {
+		const { data, error } = await client.GET('/api/assistant/threads/{thread_id}/messages', {
+			params: { path: { thread_id: threadId } }
+		});
+		return unwrap(data, error);
+	},
+	getPrograms: async (status?: 'active' | 'retired') => {
+		const { data, error } = await client.GET('/api/programs', {
+			params: { query: status ? { status } : {} }
+		});
+		return unwrap(data, error);
+	},
+	getProgram: async (programId: string) => {
+		const { data, error } = await client.GET('/api/programs/{program_id}', {
+			params: { path: { program_id: programId } }
+		});
+		return unwrap(data, error);
+	},
+	importProgram: async (spec: Record<string, unknown>) => {
+		const { data, error } = await client.POST('/api/programs/import', { body: spec });
+		return unwrap(data, error);
+	},
+	retireProgram: async (programId: string) => {
+		const { data, error } = await client.PUT('/api/programs/{program_id}/retire', {
+			params: { path: { program_id: programId } }
+		});
+		return unwrap(data, error);
+	},
+	activateProgram: async (programId: string) => {
+		const { data, error } = await client.PUT('/api/programs/{program_id}/activate', {
+			params: { path: { program_id: programId } }
+		});
+		return unwrap(data, error);
+	},
+	getProgramVersions: async (programId: string) => {
+		const { data, error } = await client.GET('/api/programs/{program_id}/versions', {
+			params: { path: { program_id: programId } }
+		});
+		return unwrap(data, error);
+	}
 };

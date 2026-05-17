@@ -3,7 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import {
 		api,
-		type DailyAggregates,
+		type HrvDaily,
 		type DashboardOverview,
 		type HrvInsights,
 		type HrvAnalysis
@@ -22,7 +22,7 @@
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
-	let agg: DailyAggregates | null = $state(null);
+	let agg: HrvDaily | null = $state(null);
 	let analysis: HrvAnalysis | null = $state(null);
 	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
@@ -40,7 +40,7 @@
 	// ── Data fetching ──
 	async function fetchData() {
 		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
-			api.getDailyAggregates(),
+			api.getHrvDaily(),
 			api.getHrvAnalysis(),
 			api.getDashboardOverview()
 		]);

@@ -3,7 +3,7 @@
 	import {
 		api,
 		type BodyBatteryRawData,
-		type DailyAggregates,
+		type BodyBatteryDaily,
 		type BodyBatteryAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
@@ -17,7 +17,7 @@
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
-	let agg: DailyAggregates | null = $state(null);
+	let agg: BodyBatteryDaily | null = $state(null);
 	let analysis: BodyBatteryAnalysis | null = $state(null);
 	let intradayData: BodyBatteryRawData | null = $state(null);
 	let selectedDate = $state('');
@@ -27,7 +27,7 @@
 
 	async function fetchData() {
 		const [nextAgg, nextAnalysis] = await Promise.all([
-			api.getDailyAggregates(),
+			api.getBodyBatteryDaily(),
 			api.getBodyBatteryAnalysis()
 		]);
 		agg = nextAgg;
@@ -263,7 +263,7 @@
 	let stats = $derived.by(() => {
 		const pw = agg?.period_windows?.[PERIOD_KEY_MAP[trendRange]];
 		if (!pw) return null;
-		const bb = pw.body_battery;
+		const bb = pw;
 		return {
 			avgMin: bb.avg_min,
 			avgMax: bb.avg_max,

@@ -1,7 +1,16 @@
 """Period-window Garmin summary contracts."""
 
 from app.contracts.base import DefaultsRequired
-from app.domains.garmin_health.contracts import DailyMetric, HRZoneBucket
+from app.domains.garmin_health.contracts import (
+    DailyBodyBatteryStats,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
+    HRZoneBucket,
+)
 
 
 class PeriodHeartRateStats(DefaultsRequired):
@@ -85,3 +94,99 @@ class DailyAggregatesResponse(DefaultsRequired):
     days: list[str]
     daily: list[DailyMetric]
     period_windows: dict[str, PeriodSummary] = {}
+
+
+class HeartRateDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    heart_rate: DailyHeartRateStats
+
+
+class HeartRateDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[HeartRateDailyPoint]
+    period_windows: dict[str, PeriodHeartRateStats] = {}
+
+
+class HrvDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    hrv: DailyHrvStats
+
+
+class HrvDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[HrvDailyPoint]
+    period_windows: dict[str, PeriodHrvStats] = {}
+
+
+class SleepDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    sleep: DailySleepStats
+
+
+class SleepDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[SleepDailyPoint]
+    period_windows: dict[str, PeriodSleepStats] = {}
+
+
+class StressDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    stress: DailyMetricStats
+
+
+class StressDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[StressDailyPoint]
+    period_windows: dict[str, PeriodMetricStats] = {}
+
+
+class RespirationDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    respiration: DailyMetricStats
+
+
+class RespirationDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[RespirationDailyPoint]
+    period_windows: dict[str, PeriodMetricStats] = {}
+
+
+class SpO2DailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    spo2: DailyMetricStats
+
+
+class SpO2DailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[SpO2DailyPoint]
+    period_windows: dict[str, PeriodSpo2Stats] = {}
+
+
+class SkinTempDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    skin_temp: DailySkinTempStats
+
+
+class SkinTempDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[SkinTempDailyPoint]
+    period_windows: dict[str, PeriodSkinTempStats] = {}
+
+
+class BodyBatteryDailyPoint(DefaultsRequired):
+    date: str
+    utc_offset_hours: float | None = None
+    body_battery: DailyBodyBatteryStats
+
+
+class BodyBatteryDailyResponse(DefaultsRequired):
+    days: list[str]
+    daily: list[BodyBatteryDailyPoint]
+    period_windows: dict[str, PeriodBodyBatteryStats] = {}
