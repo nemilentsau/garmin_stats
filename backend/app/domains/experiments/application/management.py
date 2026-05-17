@@ -104,8 +104,9 @@ def import_experiment(
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")
         raise ValueError(f"Experiment has validation errors: {msg}")
 
-    experiment.status = "active"
-    repo.save_experiment(experiment)
-    analysis = persist_experiment_analysis(repo, read_source, experiment)
+    resolved = preview.experiment or experiment
+    resolved.status = "active"
+    repo.save_experiment(resolved)
+    analysis = persist_experiment_analysis(repo, read_source, resolved)
 
-    return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
+    return ExperimentWithAnalysis(experiment=resolved, analysis=analysis)

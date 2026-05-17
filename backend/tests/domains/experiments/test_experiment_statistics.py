@@ -6,6 +6,7 @@ import warnings
 import pytest
 
 from app.domains.experiments.domain.metric_paths import (
+    is_valid_checkin_path,
     resolve_checkin_path,
     resolve_metric_path,
     resolve_path,
@@ -94,6 +95,16 @@ class TestResolveCheckinPath:
     def test_none_field(self):
         c = DailyCheckIn(id="c1", date="2026-01-01")
         assert resolve_checkin_path(c, "energy") is None
+
+
+class TestCheckinPathValidation:
+    def test_numeric_and_bool_checkin_paths_are_valid(self):
+        assert is_valid_checkin_path("checkin.energy") is True
+        assert is_valid_checkin_path("checkin.alcohol_flag") is True
+
+    def test_notes_and_unknown_checkin_paths_are_invalid(self):
+        assert is_valid_checkin_path("checkin.notes") is False
+        assert is_valid_checkin_path("checkin.unknown_field") is False
 
 
 class TestResolvePath:
