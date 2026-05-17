@@ -84,7 +84,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/sleep": {
+    "/api/sleep/raw": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,10 +92,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Sleep
-         * @description Get sleep data (stages, assessment scores).
+         * Get Sleep Raw
+         * @description Get raw sleep data (stages, assessment scores).
          */
-        get: operations["get_sleep_api_sleep_get"];
+        get: operations["get_sleep_raw_api_sleep_raw_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -124,6 +124,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sleep/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sleep Daily
+         * @description Return daily sleep metrics and period summaries.
+         */
+        get: operations["get_sleep_daily_api_sleep_daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/daily-aggregates": {
         parameters: {
             query?: never;
@@ -144,7 +164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/skin-temp": {
+    "/api/skin-temp/raw": {
         parameters: {
             query?: never;
             header?: never;
@@ -152,10 +172,30 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Skin Temp
-         * @description Get skin temperature data.
+         * Get Skin Temp Raw
+         * @description Get raw skin-temperature data.
          */
-        get: operations["get_skin_temp_api_skin_temp_get"];
+        get: operations["get_skin_temp_raw_api_skin_temp_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skin-temp/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Skin Temp Daily
+         * @description Return daily skin-temperature metrics and period summaries.
+         */
+        get: operations["get_skin_temp_daily_api_skin_temp_daily_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -176,6 +216,26 @@ export interface paths {
          * @description Return backend-derived heart-rate insights for UI rendering.
          */
         get: operations["get_heart_rate_insights_api_heart_rate_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/heart-rate/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Heart Rate Daily
+         * @description Return daily heart-rate metrics and period summaries.
+         */
+        get: operations["get_heart_rate_daily_api_heart_rate_daily_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -244,7 +304,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/hrv": {
+    "/api/hrv/raw": {
         parameters: {
             query?: never;
             header?: never;
@@ -252,10 +312,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Hrv
-         * @description Get HRV data (values, summaries).
+         * Get Hrv Raw
+         * @description Get raw HRV data (values, summaries).
          */
-        get: operations["get_hrv_api_hrv_get"];
+        get: operations["get_hrv_raw_api_hrv_raw_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -276,6 +336,26 @@ export interface paths {
          * @description Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots).
          */
         get: operations["get_hrv_analysis_api_hrv_analysis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hrv/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hrv Daily
+         * @description Return daily HRV metrics and period summaries.
+         */
+        get: operations["get_hrv_daily_api_hrv_daily_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -324,6 +404,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stress/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stress Daily
+         * @description Return daily stress metrics and period summaries.
+         */
+        get: operations["get_stress_daily_api_stress_daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stress/analysis": {
         parameters: {
             query?: never;
@@ -356,6 +456,26 @@ export interface paths {
          * @description Get raw body-battery readings.
          */
         get: operations["get_body_battery_raw_api_body_battery_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/body-battery/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Body Battery Daily
+         * @description Return daily Body Battery metrics and period summaries.
+         */
+        get: operations["get_body_battery_daily_api_body_battery_daily_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -404,6 +524,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/respiration/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Respiration Daily
+         * @description Return daily respiration metrics and period summaries.
+         */
+        get: operations["get_respiration_daily_api_respiration_daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pulse-ox/raw": {
         parameters: {
             query?: never;
@@ -416,6 +556,26 @@ export interface paths {
          * @description Get raw pulse-ox readings.
          */
         get: operations["get_pulse_ox_raw_api_pulse_ox_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pulse-ox/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pulse Ox Daily
+         * @description Return daily pulse-ox metrics and period summaries.
+         */
+        get: operations["get_pulse_ox_daily_api_pulse_ox_daily_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1499,6 +1659,34 @@ export interface components {
             weekly_boxplots: components["schemas"]["WeeklyBodyBatteryBox"][];
         };
         /**
+         * BodyBatteryDailyPoint
+         * @description Body Battery daily metric row for metric-scoped endpoints.
+         */
+        BodyBatteryDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            body_battery: components["schemas"]["DailyBodyBatteryStats"];
+        };
+        /**
+         * BodyBatteryDailyResponse
+         * @description Daily Body Battery metrics plus Body Battery period summaries.
+         */
+        BodyBatteryDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["BodyBatteryDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodBodyBatteryStats"];
+            };
+        };
+        /**
          * BodyBatteryRawResponse
          * @description Raw Body Battery endpoint response.
          */
@@ -2417,6 +2605,34 @@ export interface components {
             };
         };
         /**
+         * HeartRateDailyPoint
+         * @description Heart-rate daily metric row for metric-scoped endpoints.
+         */
+        HeartRateDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            heart_rate: components["schemas"]["DailyHeartRateStats"];
+        };
+        /**
+         * HeartRateDailyResponse
+         * @description Daily heart-rate metrics plus heart-rate period summaries.
+         */
+        HeartRateDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["HeartRateDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodHeartRateStats"];
+            };
+        };
+        /**
          * HeartRateDataQuality
          * @description Coverage summary for selected-day heart-rate readings.
          */
@@ -2533,6 +2749,34 @@ export interface components {
             baseline_balanced_upper: number | null;
             /** Five Min High */
             five_min_high: number | null;
+        };
+        /**
+         * HrvDailyPoint
+         * @description HRV daily metric row for metric-scoped endpoints.
+         */
+        HrvDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            hrv: components["schemas"]["DailyHrvStats"];
+        };
+        /**
+         * HrvDailyResponse
+         * @description Daily HRV metrics plus HRV period summaries.
+         */
+        HrvDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["HrvDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodHrvStats"];
+            };
         };
         /**
          * HrvDataQuality
@@ -3259,6 +3503,34 @@ export interface components {
             label: string | null;
         };
         /**
+         * RespirationDailyPoint
+         * @description Respiration daily metric row for metric-scoped endpoints.
+         */
+        RespirationDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            respiration: components["schemas"]["DailyMetricStats"];
+        };
+        /**
+         * RespirationDailyResponse
+         * @description Daily respiration metrics plus respiration period summaries.
+         */
+        RespirationDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["RespirationDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodMetricStats"];
+            };
+        };
+        /**
          * RespirationRawResponse
          * @description Raw respiration endpoint response.
          */
@@ -3547,6 +3819,34 @@ export interface components {
             days: components["schemas"]["ScheduleDay"][];
         };
         /**
+         * SkinTempDailyPoint
+         * @description Skin-temperature daily metric row for metric-scoped endpoints.
+         */
+        SkinTempDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            skin_temp: components["schemas"]["DailySkinTempStats"];
+        };
+        /**
+         * SkinTempDailyResponse
+         * @description Daily skin-temperature metrics plus skin-temperature period summaries.
+         */
+        SkinTempDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["SkinTempDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodSkinTempStats"];
+            };
+        };
+        /**
          * SkinTempOvernight
          * @description Parsed overnight skin-temperature summary for one local date.
          */
@@ -3613,6 +3913,34 @@ export interface components {
             average_stress: number | null;
         };
         /**
+         * SleepDailyPoint
+         * @description Sleep daily metric row for metric-scoped endpoints.
+         */
+        SleepDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            sleep: components["schemas"]["DailySleepStats"];
+        };
+        /**
+         * SleepDailyResponse
+         * @description Daily sleep metrics plus sleep period summaries.
+         */
+        SleepDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["SleepDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodSleepStats"];
+            };
+        };
+        /**
          * SleepLevel
          * @description Parsed sleep-stage interval marker for one local date.
          */
@@ -3668,6 +3996,34 @@ export interface components {
              * @default 0
              */
             sample_count: number;
+        };
+        /**
+         * SpO2DailyPoint
+         * @description Pulse-ox daily metric row for metric-scoped endpoints.
+         */
+        SpO2DailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            spo2: components["schemas"]["DailyMetricStats"];
+        };
+        /**
+         * SpO2DailyResponse
+         * @description Daily pulse-ox metrics plus pulse-ox period summaries.
+         */
+        SpO2DailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["SpO2DailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodSpo2Stats"];
+            };
         };
         /**
          * SpO2RawResponse
@@ -3745,6 +4101,34 @@ export interface components {
              * @default []
              */
             weekly_boxplots: components["schemas"]["WeeklyStressBox"][];
+        };
+        /**
+         * StressDailyPoint
+         * @description Stress daily metric row for metric-scoped endpoints.
+         */
+        StressDailyPoint: {
+            /** Date */
+            date: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            stress: components["schemas"]["DailyMetricStats"];
+        };
+        /**
+         * StressDailyResponse
+         * @description Daily stress metrics plus stress period summaries.
+         */
+        StressDailyResponse: {
+            /** Days */
+            days: string[];
+            /** Daily */
+            daily: components["schemas"]["StressDailyPoint"][];
+            /**
+             * Period Windows
+             * @default {}
+             */
+            period_windows: {
+                [key: string]: components["schemas"]["PeriodMetricStats"];
+            };
         };
         /**
          * StressRawResponse
@@ -4335,7 +4719,7 @@ export interface operations {
             };
         };
     };
-    get_sleep_api_sleep_get: {
+    get_sleep_raw_api_sleep_raw_get: {
         parameters: {
             query?: {
                 /** @description Filter by date (YYYY-MM-DD) */
@@ -4387,6 +4771,26 @@ export interface operations {
             };
         };
     };
+    get_sleep_daily_api_sleep_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SleepDailyResponse"];
+                };
+            };
+        };
+    };
     get_daily_agg_api_daily_aggregates_get: {
         parameters: {
             query?: never;
@@ -4407,7 +4811,7 @@ export interface operations {
             };
         };
     };
-    get_skin_temp_api_skin_temp_get: {
+    get_skin_temp_raw_api_skin_temp_raw_get: {
         parameters: {
             query?: {
                 /** @description Filter by date (YYYY-MM-DD) */
@@ -4435,6 +4839,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_skin_temp_daily_api_skin_temp_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkinTempDailyResponse"];
                 };
             };
         };
@@ -4467,6 +4891,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_heart_rate_daily_api_heart_rate_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartRateDailyResponse"];
                 };
             };
         };
@@ -4555,7 +4999,7 @@ export interface operations {
             };
         };
     };
-    get_hrv_api_hrv_get: {
+    get_hrv_raw_api_hrv_raw_get: {
         parameters: {
             query?: {
                 /** @description Filter by date (YYYY-MM-DD) */
@@ -4603,6 +5047,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HrvAnalysisResponse"];
+                };
+            };
+        };
+    };
+    get_hrv_daily_api_hrv_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HrvDailyResponse"];
                 };
             };
         };
@@ -4671,6 +5135,26 @@ export interface operations {
             };
         };
     };
+    get_stress_daily_api_stress_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StressDailyResponse"];
+                };
+            };
+        };
+    };
     get_stress_analysis_api_stress_analysis_get: {
         parameters: {
             query?: never;
@@ -4719,6 +5203,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_body_battery_daily_api_body_battery_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyBatteryDailyResponse"];
                 };
             };
         };
@@ -4775,6 +5279,26 @@ export interface operations {
             };
         };
     };
+    get_respiration_daily_api_respiration_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespirationDailyResponse"];
+                };
+            };
+        };
+    };
     get_pulse_ox_raw_api_pulse_ox_raw_get: {
         parameters: {
             query?: {
@@ -4803,6 +5327,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pulse_ox_daily_api_pulse_ox_daily_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpO2DailyResponse"];
                 };
             };
         };
