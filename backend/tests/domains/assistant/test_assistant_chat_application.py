@@ -6,8 +6,15 @@ from typing import Any, cast
 
 from app.core.profile.contracts import UserProfile
 from app.domains.assistant.application.chat import stream_reply
+from app.domains.assistant.application.runtime_stream import (
+    RuntimeReplyComplete,
+    RuntimeReplyDelta,
+    stream_runtime_reply,
+)
+from app.domains.assistant.application.turn_context import prepare_turn_context
 from app.domains.assistant.contracts import (
     AssistantEvidenceBundle,
+    AssistantEvidenceItem,
     AssistantMemoryRecord,
     AssistantMessage,
     AssistantMessageCreateRequest,
@@ -347,6 +354,94 @@ def _assert_user_activity_touch(
     assert touched_thread.last_message_at == user_message.created_at
     assert touched_thread.last_context_snapshot_id is None
     assert touched_thread.claude_session_id is None
+
+
+def test_prepare_turn_context_builds_alias_routed_evidence_without_persistence():
+    repo = _FakeConversationStore(
+        thread_id="thread-1",
+        memory_records=[
+            AssistantMemoryRecord(
+                id="memory-alias",
+                kind="entity_alias",
+                entity_id="meditation-hrv-2026-03",
+                alias_text="sleep stack",
+            )
+        ],
+    )
+
+    context = prepare_turn_context(
+        recall_store=cast(Any, repo),
+        read_store=_FakeReadStore.for_experiment_review(),
+        thread_id="thread-1",
+        user_message_id="message-context",
+        query="sleep stack",
+    )
+
+    assert context.route.intent == "experiment_review"
+    assert context.evidence_bundle.intent == "experiment_review"
+    assert context.evidence_bundle.thread_id == "thread-1"
+    assert context.evidence_bundle.user_message_id == "message-context"
+    assert any(
+        entity.entity_id == "meditation-hrv-2026-03"
+        for entity in context.evidence_bundle.entities
+    )
+    assert context.prompt_memory_records == repo.memory_records
+    assert context.pending_memory_record is None
+    assert repo.saved_evidence_bundles == []
+    assert repo.saved_runs == []
+    assert len(repo.messages) == 0
+
+
+def test_stream_runtime_reply_returns_structured_events_and_assembled_message():
+    runtime = _FakeRuntime(
+        deltas=[" Runtime answer."],
+        done_session_id="session-runtime",
+    )
+    evidence_bundle = AssistantEvidenceBundle(
+        id="evidence-runtime",
+        thread_id="thread-1",
+        user_message_id="message-runtime",
+        intent="experiment_review",
+        items=[
+            AssistantEvidenceItem(
+                kind="experiment",
+                source="test",
+                entity_id="meditation-hrv-2026-03",
+                payload_json={"name": "Meditation to HRV"},
+            ),
+            AssistantEvidenceItem(
+                kind="exposures",
+                source="test",
+                entity_id="meditation-hrv-2026-03",
+                payload_json={"count": 1},
+            ),
+        ],
+    )
+
+    events = asyncio.run(
+        _collect(
+            stream_runtime_reply(
+                runtime=cast(Any, runtime),
+                evidence_bundle=evidence_bundle,
+                prior_messages=[],
+                memory_records=[],
+                user_message="How does the experiment look?",
+                model="sonnet",
+                thread_id="thread-1",
+            )
+        )
+    )
+
+    assert isinstance(events[0], RuntimeReplyDelta)
+    assert "Meditation to HRV" in events[0].text
+    assert isinstance(events[1], RuntimeReplyDelta)
+    assert events[1].text == " Runtime answer."
+    assert isinstance(events[-1], RuntimeReplyComplete)
+    assert events[-1].session_id == "session-runtime"
+    assert events[-1].assistant_message.thread_id == "thread-1"
+    assert events[-1].assistant_message.role == "assistant"
+    assert events[-1].assistant_message.evidence_refs_json == ["evidence-runtime"]
+    assert "Runtime answer" in events[-1].assistant_message.content_markdown
 
 
 def test_stream_reply_emits_fast_grounded_first_delta_before_runtime_tokens():

@@ -7,17 +7,13 @@ from collections.abc import AsyncIterator
 from contextlib import suppress
 from uuid import uuid4
 
-from app.domains.assistant.application.entity_resolution import resolve_entities
-from app.domains.assistant.application.evidence import build_evidence_bundle
-from app.domains.assistant.application.intent_routing import route_user_query
-from app.domains.assistant.application.memory_aliases import (
-    build_entity_alias_memory_record,
-    load_resolution_memory_records,
-    maybe_reroute_from_memory_alias,
+from app.domains.assistant.application.runtime_stream import (
+    RuntimeReplyComplete,
+    RuntimeReplyDelta,
+    stream_runtime_reply,
 )
+from app.domains.assistant.application.turn_context import prepare_turn_context
 from app.domains.assistant.contracts import (
-    AssistantEvidenceBundle,
-    AssistantMemoryRecord,
     AssistantMessage,
     AssistantMessageCreateRequest,
     AssistantRun,
@@ -54,30 +50,6 @@ def _thread_with_state(
     return thread.model_copy(update=updates)
 
 
-def _grounded_first_delta(bundle: AssistantEvidenceBundle) -> str:
-    experiment_name: str | None = None
-    exposure_count: int | None = None
-    for item in bundle.items:
-        if item.kind == "experiment":
-            name = item.payload_json.get("name")
-            if isinstance(name, str) and name:
-                experiment_name = name
-        if item.kind == "exposures":
-            count = item.payload_json.get("count")
-            if isinstance(count, int):
-                exposure_count = count
-
-    if experiment_name is None:
-        return ""
-    if exposure_count is None:
-        return f"Grounded quick read: {experiment_name} is loaded from current experiment evidence."
-    day_label = "day" if exposure_count == 1 else "days"
-    return (
-        f"Grounded quick read: {experiment_name} has "
-        f"{exposure_count} logged exposure {day_label}."
-    )
-
-
 async def stream_reply(
     *,
     repo: AssistantConversationStore,
@@ -87,11 +59,6 @@ async def stream_reply(
     request: AssistantMessageCreateRequest,
 ) -> AsyncIterator[str]:
     run: AssistantRun | None = None
-    thread: AssistantThread | None = None
-    evidence_bundle: AssistantEvidenceBundle | None = None
-    assistant_chunks: list[str] = []
-    session_id: str | None = None
-    pending_memory_record: AssistantMemoryRecord | None = None
 
     try:
         thread = repo.get_thread(thread_id)
@@ -108,44 +75,12 @@ async def stream_reply(
         )
         repo.save_message(user_message)
 
-        prompt_memory_records, entity_memory_records = load_resolution_memory_records(
-            repo,
-            query=request.content,
-        )
-        route = route_user_query(request.content)
-        original_route = route
-        route, alias_entity_ids = maybe_reroute_from_memory_alias(
-            memory_records=entity_memory_records,
-            route=route,
-            query=request.content,
-        )
-        entities = resolve_entities(
-            store=read_store,
-            memory=entity_memory_records,
-            route=route,
-            query=request.content,
-        )
-        if alias_entity_ids:
-            # A memory-alias reroute only stands when resolution lands on that alias's entity.
-            resolved_experiment_ids = {
-                entity.entity_id for entity in entities if entity.kind == "experiment"
-            }
-            if not resolved_experiment_ids.intersection(alias_entity_ids):
-                route = original_route
-                entities = []
-        pending_memory_record = build_entity_alias_memory_record(
-            route=route,
-            entities=entities,
-            memory_records=entity_memory_records,
-            query=request.content,
-        )
-        evidence_bundle = build_evidence_bundle(
-            read_store=read_store,
+        turn_context = prepare_turn_context(
             recall_store=repo,
-            route=route,
-            entities=entities,
+            read_store=read_store,
             thread_id=thread.id,
             user_message_id=request.id,
+            query=request.content,
         )
 
         run = AssistantRun(
@@ -153,54 +88,42 @@ async def stream_reply(
             task_type="chat",
             status="running",
             thread_id=thread.id,
-            context_snapshot_id=evidence_bundle.id,
+            context_snapshot_id=turn_context.evidence_bundle.id,
             command_json={
                 "model": _model_for_thread(thread),
-                "intent": route.intent,
-                "confidence": route.confidence,
-                "matched_signals": list(route.matched_signals),
+                "intent": turn_context.route.intent,
+                "confidence": turn_context.route.confidence,
+                "matched_signals": list(turn_context.route.matched_signals),
             },
             started_at=now_iso(),
         )
         repo.save_run(run)
-        repo.save_evidence_bundle(evidence_bundle)
+        repo.save_evidence_bundle(turn_context.evidence_bundle)
 
-        fast_delta = _grounded_first_delta(evidence_bundle)
-        if fast_delta:
-            assistant_chunks.append(fast_delta)
-            yield _json_line({"type": "delta", "text": fast_delta})
-
-        async for event in runtime.stream_chat(
-            evidence_bundle=evidence_bundle,
+        assistant_message: AssistantMessage | None = None
+        session_id: str | None = None
+        async for event in stream_runtime_reply(
+            runtime=runtime,
+            evidence_bundle=turn_context.evidence_bundle,
             prior_messages=prior_messages,
-            memory_records=prompt_memory_records,
+            memory_records=turn_context.prompt_memory_records,
             user_message=request.content,
             model=_model_for_thread(thread),
-        ):
-            event_type = event.get("type")
-            if event_type == "delta":
-                delta = event.get("text")
-                if isinstance(delta, str) and delta:
-                    assistant_chunks.append(delta)
-                    yield _json_line({"type": "delta", "text": delta})
-                continue
-            if event_type == "done":
-                candidate_session_id = event.get("session_id")
-                if isinstance(candidate_session_id, str):
-                    session_id = candidate_session_id
-
-        assistant_message = AssistantMessage(
-            id=f"assistant-{uuid4().hex}",
             thread_id=thread_id,
-            role="assistant",
-            content_markdown="".join(assistant_chunks).strip(),
-            evidence_refs_json=[evidence_bundle.id],
-            created_at=now_iso(),
-        )
+        ):
+            if isinstance(event, RuntimeReplyDelta):
+                yield _json_line({"type": "delta", "text": event.text})
+                continue
+            if isinstance(event, RuntimeReplyComplete):
+                assistant_message = event.assistant_message
+                session_id = event.session_id
+
+        # stream_runtime_reply always emits RuntimeReplyComplete last
+        assert assistant_message is not None
         thread = _thread_with_state(
             thread=thread,
             last_message_at=assistant_message.created_at or now_iso(),
-            snapshot_id=evidence_bundle.id,
+            snapshot_id=turn_context.evidence_bundle.id,
             session_id=session_id,
         )
         completed_run = run.model_copy(
@@ -214,14 +137,14 @@ async def stream_reply(
             assistant_message=assistant_message,
             updated_thread=thread,
             completed_run=completed_run,
-            memory_record=pending_memory_record,
+            memory_record=turn_context.pending_memory_record,
         )
         yield _json_line(
             {
                 "type": "done",
                 "message": assistant_message.model_dump(mode="json"),
                 "session_id": session_id,
-                "snapshot_id": evidence_bundle.id,
+                "snapshot_id": turn_context.evidence_bundle.id,
                 "run_id": completed_run.id,
             }
         )
