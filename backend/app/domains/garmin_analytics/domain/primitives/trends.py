@@ -57,26 +57,6 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
     return result
 
 
-def group_by_iso_week(
-    metrics: list[DailyMetric],
-    value_fn: Callable[[DailyMetric], float | None],
-) -> dict[str, list[float]]:
-    """Group daily metric values by ISO week, skipping None values."""
-    weeks: dict[str, list[float]] = {}
-    for metric in metrics:
-        val = value_fn(metric)
-        if val is None:
-            continue
-        try:
-            metric_date = date_type.fromisoformat(metric.date)
-        except ValueError:
-            continue
-        iso_year, iso_week, _ = metric_date.isocalendar()
-        key = f"{iso_year}-W{iso_week:02d}"
-        weeks.setdefault(key, []).append(val)
-    return weeks
-
-
 def weekly_five_number_summaries[T: _HasDate](
     items: list[T],
     value_fn: Callable[[T], float | None],

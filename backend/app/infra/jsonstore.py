@@ -156,12 +156,3 @@ class JsonStore:
                 (record_id,),
             ).fetchone()
         return row is not None
-
-    def delete(self, table: str, record_id: str) -> None:
-        """Delete one JSON-backed record by id."""
-        self._check(table)
-        with connect() as con, con:
-            con.execute(
-                f"DELETE FROM {table} WHERE id = ?",  # noqa: S608
-                (record_id,),
-            )

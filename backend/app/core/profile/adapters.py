@@ -7,12 +7,11 @@ through the shared SQLite connection primitives.
 
 from app.core.profile.contracts import (
     DEFAULT_PROFILE_ID,
-    Goal,
     UserProfile,
 )
 from app.infra.jsonstore import JsonStore
 
-_STORE = JsonStore({"user_profile", "goals"})
+_STORE = JsonStore({"user_profile"})
 
 
 class SqliteProfileRepository:
@@ -23,9 +22,3 @@ class SqliteProfileRepository:
 
     def save_profile(self, profile: UserProfile) -> None:
         _STORE.save("user_profile", profile.id, profile.model_dump_json())
-
-    def list_goals(self) -> list[Goal]:
-        return _STORE.load_many("goals", Goal)
-
-    def save_goal(self, goal: Goal) -> None:
-        _STORE.save("goals", goal.id, goal.model_dump_json())

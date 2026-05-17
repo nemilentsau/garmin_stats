@@ -41,12 +41,12 @@ when subpackages would only hold one file.
 
 There are two major paths:
 
-- Ingest path: FIT files -> `parser.py` -> Garmin health daily metric composer -> SQLite
+- Ingest path: FIT files -> Garmin health FIT parser -> daily metric composer -> SQLite
 - Read path: SQLite -> repository adapters -> domain/core application slices -> JSON API -> frontend
 
 The Garmin health dependency direction is:
 
-- `parser.py` and `garmin_sync` ingest adapters -> `garmin_health`, `app.utils`
+- `garmin_sync` ingest adapters -> `garmin_health`, `app.utils`
 - `garmin_analytics` -> `garmin_health`, `app.utils`
 - `experiments` and `assistant` -> `garmin_health` contracts, and analytics
   adapters only when loading analytics read data
@@ -71,14 +71,15 @@ The Garmin health dependency direction is:
   Shared cross-cutting modules being extracted out of the flat app root.
 
 - `backend/app/parser.py`
-  FIT parsing and timestamp normalization into local time.
+  Compatibility facade for the active Garmin FIT parser imports.
 
 - `backend/app/utils/`
   Shared, domain-agnostic helpers. See "Shared Utilities" below for the rule on what may live here.
 
 - `backend/app/domains/garmin_health/`
-  Canonical Garmin health contracts and deterministic daily metric composition
-  used by parser, ingest persistence, analytics, experiments, and assistant.
+  Canonical Garmin health contracts, deterministic FIT parsing, timestamp
+  normalization into local time, and daily metric composition.
+  Used by ingest persistence, analytics, experiments, and assistant.
 
 - `backend/app/main.py`
   Compatibility entrypoint that exposes the assembled FastAPI app.

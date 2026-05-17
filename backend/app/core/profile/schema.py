@@ -12,7 +12,6 @@ from app.infra.jsonstore import JSON_RECORD_COLUMNS_SQL
 
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS user_profile ({JSON_RECORD_COLUMNS_SQL});
-CREATE TABLE IF NOT EXISTS goals ({JSON_RECORD_COLUMNS_SQL});
 """
 
 

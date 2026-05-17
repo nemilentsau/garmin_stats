@@ -27,6 +27,28 @@ def _load_run(run_id: str) -> AssistantRun | None:
     return AssistantRun.model_validate_json(row["data"])
 
 
+def _save_memory_record(record: AssistantMemoryRecord) -> None:
+    repo = assistant_db.SqliteAssistantRepository()
+    thread = AssistantThread(id=f"thread-{record.id}", title="Recovery coach")
+    assistant_db.create_assistant_thread(thread)
+    repo.finalize_reply(
+        assistant_message=AssistantMessage(
+            id=f"message-{record.id}",
+            thread_id=thread.id,
+            role="assistant",
+            content_markdown="Saved.",
+        ),
+        updated_thread=thread,
+        completed_run=AssistantRun(
+            id=f"run-{record.id}",
+            task_type="chat",
+            thread_id=thread.id,
+            status="completed",
+        ),
+        memory_record=record,
+    )
+
+
 class TestAssistantAdapter:
     def test_migrate_assistant_storage_backfills_legacy_memory_alias_lookup(self, monkeypatch):
         with sqlite.connect() as con, con:
@@ -107,7 +129,7 @@ class TestAssistantAdapter:
 
     def test_loader_hydrates_generated_timestamps_from_columns(self):
         assistant_db.create_assistant_thread(AssistantThread(id="thread-1", title="Recovery coach"))
-        assistant_db.save_assistant_message(
+        assistant_db.SqliteAssistantRepository().save_message(
             AssistantMessage(
                 id="message-1",
                 thread_id="thread-1",
@@ -157,7 +179,7 @@ class TestAssistantAdapter:
         )
 
         assistant_db.create_assistant_thread(thread)
-        assistant_db.save_assistant_message(message)
+        assistant_db.SqliteAssistantRepository().save_message(message)
 
         threads = assistant_db.load_assistant_threads()
         messages = assistant_db.load_assistant_messages("thread-1")
@@ -313,13 +335,13 @@ class TestAssistantAdapter:
             payload_json={"source": "resolver"},
         )
 
-        assistant_db.save_assistant_memory_record(record)
+        _save_memory_record(record)
         loaded = assistant_db.load_assistant_memory_records(kind="entity_alias")
 
         assert loaded[0].alias_text == "meditation experiment"
 
     def test_assistant_memory_record_alias_lookup_filters_candidates(self):
-        assistant_db.save_assistant_memory_record(
+        _save_memory_record(
             AssistantMemoryRecord(
                 id="memory-1",
                 kind="entity_alias",
@@ -327,7 +349,7 @@ class TestAssistantAdapter:
                 alias_text="sleep stack",
             )
         )
-        assistant_db.save_assistant_memory_record(
+        _save_memory_record(
             AssistantMemoryRecord(
                 id="memory-2",
                 kind="entity_alias",

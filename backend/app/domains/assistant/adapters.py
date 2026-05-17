@@ -86,16 +86,6 @@ def load_assistant_threads() -> list[AssistantThread]:
     return _STORE.load_many("assistant_threads", AssistantThread)
 
 
-def save_assistant_message(message: AssistantMessage) -> None:
-    _STORE.save(
-        "assistant_messages",
-        message.id,
-        message.model_dump_json(),
-        extra_columns={"thread_id": message.thread_id},
-        created_at=message.created_at,
-    )
-
-
 def _save_assistant_message_in_connection(
     con: sqlite3.Connection,
     message: AssistantMessage,
@@ -254,18 +244,6 @@ def load_assistant_evidence_bundles_excluding_thread(
         params=(thread_id,),
         order_by="created_at, id",
         last_n=last_n,
-    )
-
-
-def save_assistant_memory_record(record: AssistantMemoryRecord) -> None:
-    """Persist one memory record alongside its alias_normalized lookup column."""
-    _STORE.save(
-        "assistant_memory_records",
-        record.id,
-        record.model_dump_json(),
-        extra_columns=_memory_record_columns(record),
-        created_at=record.created_at,
-        updated_at=record.updated_at,
     )
 
 

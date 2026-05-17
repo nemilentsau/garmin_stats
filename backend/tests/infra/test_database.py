@@ -3,10 +3,8 @@
 import app.domains.routines.adapters as routine_db
 import app.infra.sqlite as sqlite
 from app.core.profile.adapters import SqliteProfileRepository
-from app.core.profile.contracts import (
-    Goal,
-    UserProfile,
-)
+from app.core.profile.contracts import UserProfile
+from app.domains.assistant.contracts import AssistantThread, AssistantThreadsResponse
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -122,18 +120,18 @@ class TestStoreAndLoad:
 
     def test_json_record_update_preserves_created_at(self):
         repo = SqliteProfileRepository()
-        repo.save_goal(Goal(id="goal-1", title="Recover better"))
+        repo.save_profile(UserProfile(name="Andrei"))
         with sqlite.connect() as con:
             first = con.execute(
-                "SELECT created_at, updated_at FROM goals WHERE id = ?",
-                ("goal-1",),
+                "SELECT created_at, updated_at FROM user_profile WHERE id = ?",
+                ("default",),
             ).fetchone()
 
-        repo.save_goal(Goal(id="goal-1", title="Recover much better"))
+        repo.save_profile(UserProfile(name="Andrei N."))
         with sqlite.connect() as con:
             second = con.execute(
-                "SELECT created_at, updated_at FROM goals WHERE id = ?",
-                ("goal-1",),
+                "SELECT created_at, updated_at FROM user_profile WHERE id = ?",
+                ("default",),
             ).fetchone()
 
         assert first is not None
@@ -227,15 +225,16 @@ class TestCardOverridesRange:
 
 class TestAutoTotal:
     def test_auto_total_computed_from_items(self):
-        from app.core.profile.contracts import GoalsResponse
-
-        response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")])
+        response = AssistantThreadsResponse(
+            threads=[AssistantThread(id="thread-1", title="Recovery")],
+        )
 
         assert response.total == 1
 
     def test_explicit_total_is_respected(self):
-        from app.core.profile.contracts import GoalsResponse
-
-        response = GoalsResponse(goals=[Goal(id="g1", title="Recovery")], total=42)
+        response = AssistantThreadsResponse(
+            threads=[AssistantThread(id="thread-1", title="Recovery")],
+            total=42,
+        )
 
         assert response.total == 42

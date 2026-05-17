@@ -134,20 +134,23 @@
 **Files:**
 
 - Modify: `backend/app/parser.py`
-- Create: `backend/app/parser_files.py`
-- Create: `backend/app/parser_timestamps.py`
+- Create: `backend/app/domains/garmin_health/infra/fit_parser/files.py`
+- Create: `backend/app/domains/garmin_health/infra/fit_parser/timestamps.py`
+- Create: `backend/app/domains/garmin_health/infra/fit_parser/decode.py`
+- Create: `backend/app/domains/garmin_health/infra/fit_parser/extractors.py`
+- Create: `backend/app/domains/garmin_health/infra/fit_parser/days.py`
 - Test: `backend/tests/infra/test_parser.py`
 - Test: `backend/tests/domains/garmin_health/`
 - Test: `backend/tests/domains/garmin_sync/`
 
 **DRY target:** `parse_wellness_day`, `parse_sleep_day`, `parse_hrv_day`, and `parse_skin_temp_day` (parser.py:412–470) share an identical decode + extract + merge-list-fields loop. Only the extractor function and the merged-field list differ. Collapse to one parameterized helper.
 
-- [ ] Move day-directory and FIT file grouping helpers into `parser_files.py`.
-- [ ] Move Garmin timestamp parsing, compressed timestamp resolution, UTC-offset extraction, and local-time shifting into `parser_timestamps.py`.
-- [ ] Introduce a single `_parse_day(files, date, *, empty, extractor, list_fields)` helper that owns the decode + try/except + per-field `extend` loop, and reduce each of the four `parse_*_day` functions to a one-line call binding its extractor and field list.
-- [ ] Keep `parser.py` as the public compatibility facade for existing imports.
-- [ ] Run `cd backend && uv run pytest tests/infra/test_parser.py tests/domains/garmin_health tests/domains/garmin_sync -v`.
-- [ ] Because parser behavior changed, run the required local re-ingest smoke check: `cd backend && uv run python ../scripts/reingest.py`.
+- [x] Move day-directory and FIT file grouping helpers into the Garmin health FIT parser package.
+- [x] Move Garmin timestamp parsing, compressed timestamp resolution, UTC-offset extraction, and local-time shifting into the Garmin health FIT parser package.
+- [x] Introduce a single `_parse_day(files, date, *, empty, extractor, list_fields)` helper that owns the decode + try/except + per-field `extend` loop, and reduce each of the four `parse_*_day` functions to a one-line call binding its extractor and field list.
+- [x] Keep `parser.py` as the active compatibility facade and remove unused per-metric directory-scan parser APIs.
+- [x] Run `cd backend && uv run pytest tests/infra/test_parser.py tests/domains/garmin_health tests/domains/garmin_sync -v`.
+- [x] Because parser behavior changed, run the required local re-ingest smoke check: `cd backend && uv run python ../scripts/reingest.py`.
 
 ## Task 8: Centralize Status Filter SQL Predicate
 

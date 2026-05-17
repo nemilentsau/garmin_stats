@@ -59,25 +59,6 @@ class ExperimentExposure(DefaultsRequired):
         return f"exposure:auto:{experiment_id}:{date}"
 
 
-class ExperimentMetricEffect(DefaultsRequired):
-    metric: str
-    baseline_value: float | None = None
-    current_value: float | None = None
-    delta_abs: float | None = None
-    delta_pct: float | None = None
-    sample_count: int = 0
-
-
-class ExperimentReport(DefaultsRequired):
-    id: str
-    experiment_id: str
-    report_date: str
-    summary: str | None = None
-    confidence: ExperimentReportConfidence = "insufficient"
-    confounders: list[str] = []
-    effects: list[ExperimentMetricEffect] = []
-
-
 class MetricLagResult(DefaultsRequired):
     lag_days: int
     treatment_start_effective: str
