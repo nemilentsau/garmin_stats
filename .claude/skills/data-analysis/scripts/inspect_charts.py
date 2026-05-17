@@ -31,7 +31,7 @@ import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime
 
-from app.infra.database import DATA_DIR
+from app.core.config import get_app_config
 from app.parser import parse_all_days
 from app.domains.garmin_health.domain.daily import (
     compute_daily_metrics,
@@ -433,7 +433,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate chart images for visual inspection")
-    parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--data-dir", type=Path, default=get_app_config().data_dir)
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / ".claude" / "chart-inspections")
     parser.add_argument("--chart", choices=["all", "dashboard", "distributions", "minmax", "correlations"],
                         default="all", help="Which charts to generate")

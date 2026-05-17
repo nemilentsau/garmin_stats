@@ -46,11 +46,13 @@ class SqliteArtifactRepository:
         clauses: list[str] = []
         params: list[object] = []
         if kind is not None:
-            clauses.append("json_extract(data, '$.kind') = ?")
-            params.append(kind)
+            clause, clause_params = _STORE.json_field_predicate("$.kind", (kind,))
+            clauses.append(clause)
+            params.extend(clause_params)
         if status is not None:
-            clauses.append("json_extract(data, '$.status') = ?")
-            params.append(status)
+            clause, clause_params = _STORE.status_predicate((status,))
+            clauses.append(clause)
+            params.extend(clause_params)
         return _STORE.load_many(
             "assistant_artifacts",
             AssistantArtifact,
@@ -65,31 +67,38 @@ class SqliteArtifactRepository:
         payload_id: str,
         statuses: tuple[str, ...],
     ) -> AssistantArtifact | None:
-        if not statuses:
-            return None
-        placeholders = ", ".join("?" for _ in statuses)
+        kind_sql, kind_params = _STORE.json_field_predicate("$.kind", (kind,))
+        payload_id_sql, payload_id_params = _STORE.json_field_predicate(
+            "$.payload_json.id",
+            (payload_id,),
+        )
+        status_sql, status_params = _STORE.status_predicate(statuses)
         rows_query = (
             "SELECT data, created_at, updated_at FROM assistant_artifacts "
-            "WHERE json_extract(data, '$.kind') = ? "
-            "AND json_extract(data, '$.payload_json.id') = ? "
-            f"AND json_extract(data, '$.status') IN ({placeholders}) "
+            f"WHERE {kind_sql} "
+            f"AND {payload_id_sql} "
+            f"AND {status_sql} "
             "ORDER BY created_at DESC LIMIT 1"
         )
         with connect() as con:
-            row = con.execute(rows_query, (kind, payload_id, *statuses)).fetchone()
+            row = con.execute(
+                rows_query,
+                (*kind_params, *payload_id_params, *status_params),
+            ).fetchone()
         if row is None:
             return None
         return _model_from_row(AssistantArtifact, row)
 
     def get_max_artifact_revision(self, *, kind: str, id_prefix: str) -> int:
+        kind_sql, kind_params = _STORE.json_field_predicate("$.kind", (kind,))
         query = (
             "SELECT MAX(CAST(SUBSTR(id, ?) AS INTEGER)) AS max_rev "
             "FROM assistant_artifacts "
-            "WHERE json_extract(data, '$.kind') = ? AND id LIKE ? || '%'"
+            f"WHERE {kind_sql} AND id LIKE ? || '%'"
         )
         prefix_len = len(id_prefix) + 1
         with connect() as con:
-            row = con.execute(query, (prefix_len, kind, id_prefix)).fetchone()
+            row = con.execute(query, (prefix_len, *kind_params, id_prefix)).fetchone()
         if row is None or row["max_rev"] is None:
             return 0
         return int(row["max_rev"])

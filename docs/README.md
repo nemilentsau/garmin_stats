@@ -12,9 +12,6 @@ parallel source of truth.
 - [ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
   Current assistant-authored routine bundle JSON contract.
 
-- [REFACTOR_PLAN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/REFACTOR_PLAN.md)
-  Active backend architecture cleanup plan.
-
 ## Domain Direction
 
 - [ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)

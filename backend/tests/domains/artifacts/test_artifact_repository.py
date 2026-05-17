@@ -27,6 +27,24 @@ class TestArtifactRepository:
         assert result is not None
         assert result.id == artifact.id
 
+    def test_load_artifact_by_payload_id_empty_statuses_returns_none(self):
+        repo = SqliteArtifactRepository()
+        now = now_iso()
+        artifact = AssistantArtifact(
+            id="bundle:test-bundle:card_template:card-1:r1",
+            kind="card_template",
+            schema_version=1,
+            status="validated",
+            payload_json={"id": "card-1", "name": "Test"},
+            created_at=now,
+            updated_at=now,
+        )
+        repo.save_assistant_artifact(artifact)
+
+        result = repo.get_assistant_artifact_by_payload_id("card_template", "card-1", ())
+
+        assert result is None
+
     def test_load_max_artifact_revision_returns_highest(self):
         repo = SqliteArtifactRepository()
         now = now_iso()

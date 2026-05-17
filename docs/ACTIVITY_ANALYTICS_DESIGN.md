@@ -66,7 +66,7 @@ Do not start with full generic sports science ontology work.
 
 The current ingest path is:
 
-`FIT files -> parser.py -> garmin_health daily metric composition -> daily tables + daily_metrics`
+`FIT files -> garmin_health FIT parser package -> daily metric composition -> daily tables + daily_metrics`
 
 That works for:
 
@@ -278,7 +278,9 @@ The parser should accept:
 - activity files stored under a date folder
 - activity files stored directly under the data root
 
-Recommended additions to `parser.py`:
+Recommended additions to `backend/app/domains/garmin_health/infra/fit_parser/`,
+with compatibility exports from `backend/app/parser.py` only if existing ingest
+callers need them:
 
 - `parse_activity_file(file_path: Path) -> ActivitySession`
 - `parse_activities(data_dir: Path) -> list[ActivitySession]`
@@ -306,7 +308,7 @@ The right sequence is:
 
 The ingest path should become:
 
-`FIT files -> parser.py -> canonical day/session models -> derived marts -> SQLite`
+`FIT files -> garmin_health FIT parser package -> canonical day/session models -> derived marts -> SQLite`
 
 ### V1 write path
 
@@ -405,7 +407,7 @@ Recommended new backend modules:
 
 Recommended current-module changes:
 
-- `parser.py`
+- `domains/garmin_health/infra/fit_parser/`
   Add activity file parsing.
 - `domains/garmin_health/contracts/`
   Add `ActivitySession`, `ActivityDailyFeatures`, and new sleep timing fields.

@@ -42,8 +42,7 @@ def load_card_templates(status: str | None = None) -> list[CardTemplate]:
     where_sql = ""
     params: tuple[object, ...] = ()
     if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
+        where_sql, params = _STORE.status_predicate((status,))
     return _STORE.load_many(
         "card_templates",
         CardTemplate,
@@ -67,8 +66,7 @@ def load_routine_schedules(status: str | None = None) -> list[RoutineSchedule]:
     where_sql = ""
     params: tuple[object, ...] = ()
     if status is not None:
-        where_sql = "json_extract(data, '$.status') = ?"
-        params = (status,)
+        where_sql, params = _STORE.status_predicate((status,))
     return _STORE.load_many(
         "routine_schedules",
         RoutineSchedule,
