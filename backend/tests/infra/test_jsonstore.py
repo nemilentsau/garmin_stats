@@ -1,8 +1,10 @@
 """Tests for shared JSON-store SQL predicate helpers."""
 
+from typing import cast
+
 import pytest
 
-from app.infra.jsonstore import JsonStore
+from app.infra.jsonstore import JsonFieldPath, JsonStore
 
 
 def test_json_field_predicate_matches_single_value() -> None:
@@ -34,9 +36,10 @@ def test_json_field_predicate_empty_values_match_no_rows() -> None:
 
 def test_json_field_predicate_rejects_unknown_paths() -> None:
     store = JsonStore({"records"})
+    unknown_path = cast(JsonFieldPath, "$.unexpected")
 
     with pytest.raises(ValueError, match="Invalid JSON filter path"):
-        store.json_field_predicate("$.unexpected", ("value",))
+        store.json_field_predicate(unknown_path, ("value",))
 
 
 def test_status_predicate_uses_status_field() -> None:
