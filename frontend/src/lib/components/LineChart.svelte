@@ -1,31 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { Chart } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
+	import ChartCanvas from '$lib/components/charts/ChartCanvas.svelte';
 
-	let { config, height = 300 }: { config: ChartConfiguration<'line'>; height?: number } =
-		$props();
-
-	let canvas: HTMLCanvasElement;
-	let chart: Chart<'line'> | null = null;
-
-	onMount(() => {
-		chart = new Chart(canvas, { ...config, type: 'line' });
-		return () => {
-			chart?.destroy();
-		};
-	});
-
-	$effect(() => {
-		if (!chart) return;
-		chart.data = config.data;
-		if (config.options) {
-			chart.options = config.options as Chart<'line'>['options'];
-		}
-		chart.update();
-	});
+	let { config, height = 300 }: { config: ChartConfiguration<'line'>; height?: number } = $props();
 </script>
 
-<div style="height: {height}px; position: relative;">
-	<canvas bind:this={canvas}></canvas>
-</div>
+<ChartCanvas type="line" {config} {height} />
