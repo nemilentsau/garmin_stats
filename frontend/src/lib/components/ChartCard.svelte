@@ -4,12 +4,10 @@
 	let {
 		title,
 		footnote = '',
-		compact = false,
 		children
 	}: {
 		title: string;
 		footnote?: string;
-		compact?: boolean;
 		children: Snippet;
 	} = $props();
 </script>

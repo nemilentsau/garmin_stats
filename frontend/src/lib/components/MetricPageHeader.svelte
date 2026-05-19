@@ -4,18 +4,16 @@
 
 	let {
 		title,
-		trendRange = $bindable(),
-		showTrendRange = true
+		trendRange = $bindable()
 	}: {
 		title: string;
 		trendRange?: TrendRange;
-		showTrendRange?: boolean;
 	} = $props();
 </script>
 
 <div class="mb-4 flex items-center justify-between gap-4">
 	<h1 class="text-xl font-bold text-[#e8f0f5]">{title}</h1>
-	{#if showTrendRange && trendRange}
+	{#if trendRange}
 		<TrendRangePicker bind:value={trendRange} />
 	{/if}
 </div>
