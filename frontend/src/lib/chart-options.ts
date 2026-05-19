@@ -1,9 +1,9 @@
 import type { ChartConfiguration, ChartDataset } from 'chart.js';
 import { chartTooltip, DARK_BORDER, DARK_GRID, DARK_GRID_Y, DARK_TICK } from '$lib/chart-setup';
-import { withAlpha } from '$lib/colors';
+import { DARK_MUTED_TEXT, withAlpha } from '$lib/colors';
 
 export const darkLegend = {
-	labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' }
+	labels: { boxWidth: 12, font: { size: 11 }, color: DARK_MUTED_TEXT }
 } as const;
 
 export function categoryXAxis(maxTicksLimit?: number) {

@@ -22,10 +22,13 @@ export function withAlpha(color: string, alpha: string): string {
 	return color + alpha;
 }
 
+/** Muted gray used for legend labels and the neutral insight-level fallback. */
+export const DARK_MUTED_TEXT = '#8a9baa';
+
 /** Map insight severity level to a display color. */
 export function insightLevelColor(level: string): string {
 	if (level === 'warning') return COLORS.heartRate;
 	if (level === 'caution') return COLORS.stress;
 	if (level === 'good') return COLORS.heartRateResting;
-	return '#8a9baa';
+	return DARK_MUTED_TEXT;
 }
