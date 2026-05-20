@@ -67,7 +67,7 @@ export function simpleIntradayLineConfig(args: {
 	label: string;
 	color: string;
 	yTitle: string;
-	labels: string[];
+	labels: Array<string | null>;
 	values: Array<number | null>;
 	beginAtZero?: boolean;
 	min?: number;
