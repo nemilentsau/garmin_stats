@@ -33,12 +33,10 @@ test('metric stat cards do not use runtime-built Tailwind color classes', () => 
 	}
 });
 
-test('api client uses shared request helpers instead of per-method unwrap boilerplate', () => {
+test('api client uses a shared unwrap helper instead of per-method boilerplate', () => {
 	const source = readFileSync(join('src/lib', 'api.ts'), 'utf8');
 
-	assert.match(source, /async function apiGet</);
-	assert.match(source, /async function apiPost</);
-	assert.match(source, /async function apiPut</);
+	assert.match(source, /async function unwrapResponse</);
 	assert.doesNotMatch(source, /const \{ data, error \} = await client\.(GET|POST|PUT)/);
 });
 

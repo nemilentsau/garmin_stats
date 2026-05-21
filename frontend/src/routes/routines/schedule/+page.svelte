@@ -12,14 +12,13 @@
 	} from '$lib/api';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
 	import {
-		SLOT_INDEX,
 		SLOT_LABELS,
+		SLOT_ORDER,
 		cardBrief,
 		checklistPayload,
 		exercisePayload,
 		slotAccent,
-		timerPayload,
-		type SlotName
+		timerPayload
 	} from '$lib/routines/card-payloads';
 	import { errorMessage } from '$lib/utils';
 
@@ -113,7 +112,7 @@
 	function sortOccurrences(a: ScheduleOccurrence, b: ScheduleOccurrence): number {
 		return (
 			a.date.localeCompare(b.date) ||
-			SLOT_INDEX[a.slot as SlotName] - SLOT_INDEX[b.slot as SlotName] ||
+			SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) ||
 			a.position - b.position ||
 			a.name.localeCompare(b.name)
 		);
@@ -417,7 +416,7 @@
 											</div>
 										<span class="card-brief">{cardBrief(occ)}</span>
 										<div class="card-badges">
-											<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot as SlotName]}</span>
+											<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot]}</span>
 										</div>
 										<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
 											<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

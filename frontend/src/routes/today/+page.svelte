@@ -7,11 +7,10 @@
 		cardBrief,
 		checklistPayload,
 		exercisePayload,
-		isRecord,
 		slotAccent,
 		timerPayload
 	} from '$lib/routines/card-payloads';
-	import { errorMessage } from '$lib/utils';
+	import { errorMessage, isRecord } from '$lib/utils';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
