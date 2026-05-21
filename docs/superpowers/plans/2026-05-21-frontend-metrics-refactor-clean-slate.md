@@ -13,6 +13,7 @@
 ## Current Decisions
 
 - The completed shell/color cleanup is no longer tracked in this plan.
+- General pre-analytics cleanup is no longer tracked here: the API client uses shared request helpers, and Today/Schedule share routine card payload helpers.
 - Do not structurally refactor `heart-rate`, `hrv`, or dashboard/overview pages before the analytics-agent review.
 - Keep chart dataset semantics local on heavy metric pages until the analytics review decides what those pages should show.
 - Do not move statistical computation, smoothing, period aggregation, exposure logic, or data transformations into the frontend.
@@ -117,29 +118,6 @@ cd frontend && npm test
 
 Expected: the plan names the exact routes to inspect in the browser and the interactions to exercise.
 
-### Task 3: Optional Routine Payload Cleanup
-
-**Files to inspect or modify only if this cleanup is still useful:**
-- `frontend/src/routes/today/+page.svelte`
-- `frontend/src/routes/routines/schedule/+page.svelte`
-- `frontend/src/lib/routines/card-payloads.ts`
-
-- [ ] **Step 1: Confirm duplication still exists**
-
-Run:
-
-```bash
-rg -n "type TimerPayload|type ChecklistPayload|type ExercisePayload|SLOT_ORDER|SLOT_LABELS|SLOT_INDEX|rendererIcon|rendererLabel|cardBrief|timerPayload|checklistPayload|exercisePayload" frontend/src/routes/today frontend/src/routes/routines/schedule frontend/src/lib/routines
-```
-
-Expected: continue only if Today and Routine Schedule still duplicate routine-card payload types, labels, icons, slot accents, or card brief logic.
-
-- [ ] **Step 2: Decide whether this belongs before or after the analytics pass**
-
-Proceed only if it is independent from the selected heavy metric-page slice and does not compete with analytics-agent review work.
-
-Expected: either create a separate small cleanup plan, or leave this untouched.
-
 ## Completion Criteria
 
 This clean-slate plan is complete when:
@@ -148,4 +126,4 @@ This clean-slate plan is complete when:
 - One heavy metric-page implementation slice has a focused follow-up plan.
 - Any backend schema change plan includes API type regeneration.
 - Any frontend change plan includes `npm run check`, `npm test`, and browser visual verification.
-- No task in this file asks to redo completed shell/color cleanup.
+- No task in this file asks to redo completed shell/color or general pre-analytics cleanup.
