@@ -229,6 +229,8 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
 
 ## Documentation
 
+- [docs/README.md](docs/README.md) - documentation index and source-of-truth
+  guide.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
   ownership boundaries, and route inventory.
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -

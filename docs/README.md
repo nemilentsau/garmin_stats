@@ -17,6 +17,11 @@ parallel source of truth.
 - [ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
   Future Garmin activity/session marts, analyst-agent direction, and experiment-day joins.
 
+## Active Working Plans
+
+- [Frontend metrics refactor clean slate](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-frontend-metrics-refactor-clean-slate.md)
+  Current next-step plan for analytics-agent review of heavy metric pages.
+
 ## Data And Bundle Examples
 
 - [meditation_hrv_experiment.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/meditation_hrv_experiment.json)
