@@ -12,8 +12,7 @@
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
-	import { simpleIntradayLineConfig } from '$lib/chart-options';
+	import { darkLineOptions, simpleIntradayLineConfig } from '$lib/chart-options';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: RespirationDaily | null = $state(null);
@@ -103,29 +102,7 @@
 					}
 				]
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.respiration, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'br/min', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
+			options: darkLineOptions({ color: COLORS.respiration, yTitle: 'br/min', beginAtZero: false })
 		};
 	});
 
@@ -152,7 +129,7 @@
 		};
 	});
 
-	let intradayFootnote = $derived.by(() => `${intradayData ? intradayData.respiration.length : 0} readings`);
+	let intradayFootnote = $derived.by(() => `${intradayData?.respiration.length ?? 0} readings`);
 </script>
 
 <svelte:head><title>Respiration - Garmin Stats</title></svelte:head>
@@ -179,9 +156,9 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-				<StatCard title="Overall Avg" value={fmt(stats?.overallAvg)} unit="br/min" colorClass="text-[#5BB5A6]" />
-				<StatCard title="Typical Low" value={fmt(stats?.typicalLow)} unit="br/min" colorClass="text-[#4A90D9]" />
-				<StatCard title="Typical High" value={fmt(stats?.typicalHigh)} unit="br/min" colorClass="text-[#D4944C]" />
+				<StatCard title="Overall Avg" value={fmt(stats.overallAvg)} unit="br/min" colorClass="text-[#5BB5A6]" />
+				<StatCard title="Typical Low" value={fmt(stats.typicalLow)} unit="br/min" colorClass="text-[#4A90D9]" />
+				<StatCard title="Typical High" value={fmt(stats.typicalHigh)} unit="br/min" colorClass="text-[#D4944C]" />
 			</div>
 		{/if}
 

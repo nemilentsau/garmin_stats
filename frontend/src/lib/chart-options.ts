@@ -1,4 +1,4 @@
-import type { ChartConfiguration, ChartDataset } from 'chart.js';
+import type { ChartConfiguration } from 'chart.js';
 import { chartTooltip, DARK_BORDER, DARK_GRID, DARK_GRID_Y, DARK_TICK } from '$lib/chart-setup';
 import { DARK_MUTED_TEXT, withAlpha } from '$lib/colors';
 
@@ -102,60 +102,3 @@ export function simpleIntradayLineConfig(args: {
 	};
 }
 
-export function weeklySpreadDatasets<T>(
-	boxes: T[],
-	color: string,
-	fields: { max: keyof T; q3: keyof T; median: keyof T; q1: keyof T; min: keyof T }
-): ChartDataset<'line'>[] {
-	return [
-		{
-			label: 'Max',
-			data: boxes.map((box) => box[fields.max] as number | null),
-			borderColor: withAlpha(color, '30'),
-			borderWidth: 1,
-			borderDash: [3, 3],
-			pointRadius: 0,
-			tension: 0.3,
-			fill: false
-		},
-		{
-			label: 'Q3',
-			data: boxes.map((box) => box[fields.q3] as number | null),
-			borderColor: withAlpha(color, '50'),
-			borderWidth: 1,
-			pointRadius: 0,
-			tension: 0.3,
-			fill: false
-		},
-		{
-			label: 'Median',
-			data: boxes.map((box) => box[fields.median] as number | null),
-			borderColor: color,
-			borderWidth: 2.5,
-			pointRadius: 0,
-			tension: 0.3,
-			fill: '-1',
-			backgroundColor: withAlpha(color, '15')
-		},
-		{
-			label: 'Q1',
-			data: boxes.map((box) => box[fields.q1] as number | null),
-			borderColor: withAlpha(color, '50'),
-			borderWidth: 1,
-			pointRadius: 0,
-			tension: 0.3,
-			fill: '-1',
-			backgroundColor: withAlpha(color, '10')
-		},
-		{
-			label: 'Min',
-			data: boxes.map((box) => box[fields.min] as number | null),
-			borderColor: withAlpha(color, '30'),
-			borderWidth: 1,
-			borderDash: [3, 3],
-			pointRadius: 0,
-			tension: 0.3,
-			fill: false
-		}
-	];
-}

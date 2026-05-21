@@ -9,8 +9,8 @@
 	import PageState from '$lib/components/PageState.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
-	import { COLORS, withAlpha } from '$lib/colors';
-	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import { COLORS } from '$lib/colors';
+	import { darkLineOptions } from '$lib/chart-options';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: SkinTempDaily | null = $state(null);
@@ -76,28 +76,7 @@
 					}
 				]
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.skinTemp, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						title: { display: true, text: '\u00B0C deviation', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
+			options: darkLineOptions({ color: COLORS.skinTemp, yTitle: '\u00B0C deviation' })
 		};
 	});
 
@@ -142,10 +121,10 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-				<StatCard title="Avg Deviation" value={stats?.avgDeviation ?? '-'} unit="&deg;C" colorClass="text-[#C9933A]" />
-				<StatCard title="Max Deviation" value={stats?.maxDeviation ?? '-'} unit="&deg;C" colorClass="text-[#E85D4A]" />
-				<StatCard title="Min Deviation" value={stats?.minDeviation ?? '-'} unit="&deg;C" colorClass="text-[#4A90D9]" />
-				<StatCard title="Avg Nightly" value={stats?.avgNightly ?? '-'} unit="&deg;C" colorClass="text-[#8a9baa]" />
+				<StatCard title="Avg Deviation" value={stats.avgDeviation ?? '-'} unit="&deg;C" colorClass="text-[#C9933A]" />
+				<StatCard title="Max Deviation" value={stats.maxDeviation ?? '-'} unit="&deg;C" colorClass="text-[#E85D4A]" />
+				<StatCard title="Min Deviation" value={stats.minDeviation ?? '-'} unit="&deg;C" colorClass="text-[#4A90D9]" />
+				<StatCard title="Avg Nightly" value={stats.avgNightly ?? '-'} unit="&deg;C" colorClass="text-[#8a9baa]" />
 			</div>
 		{/if}
 
