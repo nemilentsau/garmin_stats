@@ -7,10 +7,12 @@
 		type BodyBatteryAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import ChartCard from '$lib/components/ChartCard.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
+	import PageState from '$lib/components/PageState.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -274,55 +276,41 @@
 
 <svelte:head><title>Body Battery - Garmin Stats</title></svelte:head>
 
-{#if error}
-	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
-		<p class="text-[#E85D4A]">Error: {error}</p>
-	</div>
-{:else if loading}
-	<div class="flex items-center justify-center h-64">
-		<div class="text-[#5e7282]">Loading...</div>
-	</div>
-{:else if agg}
-	<div class="flex items-center justify-between mb-4">
-		<h1 class="text-xl font-bold text-[#e8f0f5]">Body Battery</h1>
-		<TrendRangePicker bind:value={trendRange} />
-	</div>
+<PageState {error} {loading}>
+	{#if agg}
+		<MetricPageHeader title="Body Battery" bind:trendRange />
 
-	<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
+		<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
 
-	{#if stats}
-		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-			<StatCard title="Avg Daily Min" value={fmt(stats.avgMin)} unit="%" colorClass="text-[{COLORS.heartRate}]" />
-			<StatCard title="Avg Daily Max" value={fmt(stats.avgMax)} unit="%" colorClass="text-[{COLORS.bodyBattery}]" />
-			<StatCard title="Days Tracked" value={stats.days} colorClass="text-[#8a9baa]" />
-		</div>
-	{/if}
-
-	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Body Battery Trend</h2>
-		{#if trendConfig}
-			<LineChart config={trendConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Bold line = 7-day moving average of daily min · Shaded area = daily min-max range</p>
+		{#if stats}
+			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+				<StatCard title="Avg Daily Min" value={fmt(stats.avgMin)} unit="%" color={COLORS.heartRate} />
+				<StatCard title="Avg Daily Max" value={fmt(stats.avgMax)} unit="%" color={COLORS.bodyBattery} />
+				<StatCard title="Days Tracked" value={stats.days} color="#8a9baa" />
+			</div>
 		{/if}
-	</div>
 
-	{#if boxplotConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Weekly Spread (Daily Min)</h2>
-			<LineChart config={boxplotConfig} height={260} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Shaded band = middle 50% · Dashes = extremes · Bold = median</p>
-		</div>
-	{/if}
+		<ChartCard
+			title="Body Battery Trend"
+			footnote={trendConfig ? 'Bold line = 7-day moving average of daily min · Shaded area = daily min-max range' : ''}
+		>
+			{#if trendConfig}
+				<LineChart config={trendConfig} height={300} />
+			{/if}
+		</ChartCard>
 
-	{#if selectedDate && intradayConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-				Intraday — {selectedDate}
-			</h2>
-			<LineChart config={intradayConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.body_battery.length ?? 0} readings</p>
-		</div>
-	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		{#if boxplotConfig}
+			<ChartCard title="Weekly Spread (Daily Min)" footnote="Shaded band = middle 50% · Dashes = extremes · Bold = median">
+				<LineChart config={boxplotConfig} height={260} />
+			</ChartCard>
+		{/if}
+
+		{#if selectedDate && intradayConfig}
+			<ChartCard title={`Intraday — ${selectedDate}`} footnote={`${intradayData?.body_battery.length ?? 0} readings`}>
+				<LineChart config={intradayConfig} height={300} />
+			</ChartCard>
+		{:else if selectedDate}
+			<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		{/if}
 	{/if}
-{/if}
+</PageState>

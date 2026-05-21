@@ -23,3 +23,12 @@ test('metric detail pages use metric-scoped daily APIs', () => {
 		assert.doesNotMatch(source, /\bDailyAggregates\b/, route);
 	}
 });
+
+test('metric stat cards do not use runtime-built Tailwind color classes', () => {
+	for (const [route] of metricPages) {
+		const source = readFileSync(join('src/routes', route, '+page.svelte'), 'utf8');
+
+		assert.doesNotMatch(source, /colorClass="text-\[\{/, route);
+		assert.doesNotMatch(source, /colorClass=\{`text-\[\$\{/, route);
+	}
+});

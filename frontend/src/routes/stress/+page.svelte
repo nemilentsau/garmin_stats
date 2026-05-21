@@ -7,10 +7,12 @@
 		type StressAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import ChartCard from '$lib/components/ChartCard.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
+	import PageState from '$lib/components/PageState.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -260,55 +262,38 @@
 
 <svelte:head><title>Stress - Garmin Stats</title></svelte:head>
 
-{#if error}
-	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
-		<p class="text-[#E85D4A]">Error: {error}</p>
-	</div>
-{:else if loading}
-	<div class="flex items-center justify-center h-64">
-		<div class="text-[#5e7282]">Loading...</div>
-	</div>
-{:else if agg}
-	<div class="flex items-center justify-between mb-4">
-		<h1 class="text-xl font-bold text-[#e8f0f5]">Stress</h1>
-		<TrendRangePicker bind:value={trendRange} />
-	</div>
+<PageState {error} {loading}>
+	{#if agg}
+		<MetricPageHeader title="Stress" bind:trendRange />
 
-	<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
+		<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
 
-	{#if stats}
-		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-			<StatCard title="Overall Avg" value={fmt(stats.avg)} colorClass="text-[{COLORS.stress}]" />
-			<StatCard title="Typical Low" value={fmt(stats.typicalLow)} colorClass="text-[#4A90D9]" />
-			<StatCard title="Typical High" value={fmt(stats.typicalHigh)} colorClass="text-[#E85D4A]" />
-		</div>
-	{/if}
-
-	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Stress Trend</h2>
-		{#if trendConfig}
-			<LineChart config={trendConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Bold line = 7-day moving average</p>
+		{#if stats}
+			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+				<StatCard title="Overall Avg" value={fmt(stats.avg)} color={COLORS.stress} />
+				<StatCard title="Typical Low" value={fmt(stats.typicalLow)} color={COLORS.spo2} />
+				<StatCard title="Typical High" value={fmt(stats.typicalHigh)} color={COLORS.heartRate} />
+			</div>
 		{/if}
-	</div>
 
-	{#if boxplotConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Weekly Spread</h2>
-			<LineChart config={boxplotConfig} height={260} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Shaded band = middle 50% · Dashes = extremes · Bold = median</p>
-		</div>
-	{/if}
+		<ChartCard title="Stress Trend" footnote={trendConfig ? 'Bold line = 7-day moving average' : ''}>
+			{#if trendConfig}
+				<LineChart config={trendConfig} height={300} />
+			{/if}
+		</ChartCard>
 
-	{#if selectedDate && intradayConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-				Intraday — {selectedDate}
-			</h2>
-			<LineChart config={intradayConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.stress.length ?? 0} readings</p>
-		</div>
-	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		{#if boxplotConfig}
+			<ChartCard title="Weekly Spread" footnote="Shaded band = middle 50% · Dashes = extremes · Bold = median">
+				<LineChart config={boxplotConfig} height={260} />
+			</ChartCard>
+		{/if}
+
+		{#if selectedDate && intradayConfig}
+			<ChartCard title={`Intraday — ${selectedDate}`} footnote={`${intradayData?.stress.length ?? 0} readings`}>
+				<LineChart config={intradayConfig} height={300} />
+			</ChartCard>
+		{:else if selectedDate}
+			<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		{/if}
 	{/if}
-{/if}
+</PageState>

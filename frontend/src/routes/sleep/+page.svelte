@@ -7,10 +7,12 @@
 		type SleepAnalysis
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import ChartCard from '$lib/components/ChartCard.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
+	import PageState from '$lib/components/PageState.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import DateSelector from '$lib/components/DateSelector.svelte';
-	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
@@ -291,64 +293,50 @@
 
 <svelte:head><title>Sleep - Garmin Stats</title></svelte:head>
 
-{#if error}
-	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
-		<p class="text-[#E85D4A]">Error: {error}</p>
-	</div>
-{:else if loading}
-	<div class="flex items-center justify-center h-64">
-		<div class="text-[#5e7282]">Loading...</div>
-	</div>
-{:else if agg}
-	<div class="flex items-center justify-between mb-4">
-		<h1 class="text-xl font-bold text-[#e8f0f5]">Sleep</h1>
-		<TrendRangePicker bind:value={trendRange} />
-	</div>
+<PageState {error} {loading}>
+	{#if agg}
+		<MetricPageHeader title="Sleep" bind:trendRange />
 
-	<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
+		<DateSelector days={agg.days} selected={selectedDate} onchange={onDateChange} />
 
-	{#if stats}
-		<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-			<StatCard title="Avg Score" value={fmt(stats.avg)} unit="pts" colorClass="text-[{COLORS.sleep}]" />
-			<StatCard title="Avg Deep" value={fmt(stats.avgDeep)} unit="pts" colorClass="text-[{COLORS.sleep7Day}]" />
-			<StatCard title="Days Tracked" value={stats.days} colorClass="text-[#8a9baa]" />
-		</div>
-	{/if}
-
-	<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-		<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Sleep Score Trend</h2>
-		{#if trendConfig}
-			<LineChart config={trendConfig} height={300} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Bold line = 7-day moving average · Dashed = deep sleep score</p>
-		{/if}
-	</div>
-
-	{#if boxplotConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">Weekly Spread</h2>
-			<LineChart config={boxplotConfig} height={260} />
-			<p class="text-xs text-[#4a5c6a] mt-2">Shaded band = middle 50% of nights · Dashes = extremes · Bold = median</p>
-		</div>
-	{/if}
-
-	{#if selectedDate && intradayConfig}
-		<div class="bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-lg p-5 mb-6">
-			<h2 class="text-sm font-semibold text-[#8a9baa] uppercase tracking-wide mb-3">
-				Sleep Stages — {selectedDate}
-			</h2>
-			<LineChart config={intradayConfig} height={260} />
-			<p class="text-xs text-[#4a5c6a] mt-2">{intradayData?.sleep_levels.filter(l => l.date === selectedDate).length ?? 0} readings</p>
-		</div>
-
-		{#if assessment}
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-				<StatCard title="Overall Score" value={fmt(assessment.overall_score)} colorClass="text-[{COLORS.sleep}]" />
-				<StatCard title="Deep Sleep" value={fmt(assessment.deep_sleep_score)} colorClass="text-[{COLORS.sleep7Day}]" />
-				<StatCard title="REM Sleep" value={fmt(assessment.rem_sleep_score)} colorClass="text-[#9B6BCD]" />
-				<StatCard title="Awakenings" value={fmt(assessment.awakenings_count)} colorClass="text-[#D4944C]" />
+		{#if stats}
+			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+				<StatCard title="Avg Score" value={fmt(stats.avg)} unit="pts" color={COLORS.sleep} />
+				<StatCard title="Avg Deep" value={fmt(stats.avgDeep)} unit="pts" color={COLORS.sleep7Day} />
+				<StatCard title="Days Tracked" value={stats.days} color="#8a9baa" />
 			</div>
 		{/if}
-	{:else if selectedDate}
-		<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+
+		<ChartCard title="Sleep Score Trend" footnote={trendConfig ? 'Bold line = 7-day moving average · Dashed = deep sleep score' : ''}>
+			{#if trendConfig}
+				<LineChart config={trendConfig} height={300} />
+			{/if}
+		</ChartCard>
+
+		{#if boxplotConfig}
+			<ChartCard title="Weekly Spread" footnote="Shaded band = middle 50% of nights · Dashes = extremes · Bold = median">
+				<LineChart config={boxplotConfig} height={260} />
+			</ChartCard>
+		{/if}
+
+		{#if selectedDate && intradayConfig}
+			<ChartCard
+				title={`Sleep Stages — ${selectedDate}`}
+				footnote={`${intradayData?.sleep_levels.filter((level) => level.date === selectedDate).length ?? 0} readings`}
+			>
+				<LineChart config={intradayConfig} height={260} />
+			</ChartCard>
+
+			{#if assessment}
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+					<StatCard title="Overall Score" value={fmt(assessment.overall_score)} color={COLORS.sleep} />
+					<StatCard title="Deep Sleep" value={fmt(assessment.deep_sleep_score)} color={COLORS.sleep7Day} />
+					<StatCard title="REM Sleep" value={fmt(assessment.rem_sleep_score)} color={COLORS.hrv} />
+					<StatCard title="Awakenings" value={fmt(assessment.awakenings_count)} color={COLORS.stress} />
+				</div>
+			{/if}
+		{:else if selectedDate}
+			<div class="text-sm text-[#5e7282]">Loading intraday data...</div>
+		{/if}
 	{/if}
-{/if}
+</PageState>

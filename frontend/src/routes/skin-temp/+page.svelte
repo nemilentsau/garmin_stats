@@ -121,10 +121,10 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-				<StatCard title="Avg Deviation" value={stats.avgDeviation ?? '-'} unit="&deg;C" colorClass="text-[#C9933A]" />
-				<StatCard title="Max Deviation" value={stats.maxDeviation ?? '-'} unit="&deg;C" colorClass="text-[#E85D4A]" />
-				<StatCard title="Min Deviation" value={stats.minDeviation ?? '-'} unit="&deg;C" colorClass="text-[#4A90D9]" />
-				<StatCard title="Avg Nightly" value={stats.avgNightly ?? '-'} unit="&deg;C" colorClass="text-[#8a9baa]" />
+				<StatCard title="Avg Deviation" value={stats.avgDeviation ?? '-'} unit="&deg;C" color={COLORS.skinTemp} />
+				<StatCard title="Max Deviation" value={stats.maxDeviation ?? '-'} unit="&deg;C" color={COLORS.heartRate} />
+				<StatCard title="Min Deviation" value={stats.minDeviation ?? '-'} unit="&deg;C" color={COLORS.spo2} />
+				<StatCard title="Avg Nightly" value={stats.avgNightly ?? '-'} unit="&deg;C" color="#8a9baa" />
 			</div>
 		{/if}
 

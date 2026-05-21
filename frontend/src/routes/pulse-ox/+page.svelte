@@ -169,15 +169,15 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-				<StatCard title="Overall Avg" value={fmt(stats.overallAvg)} unit="%" colorClass="text-[#4A90D9]" />
-				<StatCard title="Lowest Reading" value={fmt(stats.lowestMin)} unit="%" colorClass="text-[#E85D4A]" />
+				<StatCard title="Overall Avg" value={fmt(stats.overallAvg)} unit="%" color={COLORS.spo2} />
+				<StatCard title="Lowest Reading" value={fmt(stats.lowestMin)} unit="%" color={COLORS.spo2Min} />
 				<StatCard
 					title="Days Below 90%"
 					value={stats.lowDays ?? '-'}
-					colorClass={stats.lowDays ? 'text-[#E85D4A]' : 'text-[#4CAF82]'}
+					color={stats.lowDays ? COLORS.spo2Min : COLORS.heartRateResting}
 					subtitle="of {stats.totalDays} days"
 				/>
-				<StatCard title="Days Tracked" value={stats.totalDays ?? '-'} colorClass="text-[#8a9baa]" />
+				<StatCard title="Days Tracked" value={stats.totalDays ?? '-'} color="#8a9baa" />
 			</div>
 		{/if}
 

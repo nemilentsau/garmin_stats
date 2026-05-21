@@ -156,9 +156,9 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-				<StatCard title="Overall Avg" value={fmt(stats.overallAvg)} unit="br/min" colorClass="text-[#5BB5A6]" />
-				<StatCard title="Typical Low" value={fmt(stats.typicalLow)} unit="br/min" colorClass="text-[#4A90D9]" />
-				<StatCard title="Typical High" value={fmt(stats.typicalHigh)} unit="br/min" colorClass="text-[#D4944C]" />
+				<StatCard title="Overall Avg" value={fmt(stats.overallAvg)} unit="br/min" color={COLORS.respiration} />
+				<StatCard title="Typical Low" value={fmt(stats.typicalLow)} unit="br/min" color={COLORS.spo2} />
+				<StatCard title="Typical High" value={fmt(stats.typicalHigh)} unit="br/min" color={COLORS.stress} />
 			</div>
 		{/if}
 
