@@ -10,50 +10,18 @@
 		type ScheduleOccurrence,
 		type ScheduleWindow
 	} from '$lib/api';
-	import { COLORS, withAlpha } from '$lib/colors';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
+	import {
+		SLOT_INDEX,
+		SLOT_LABELS,
+		cardBrief,
+		checklistPayload,
+		exercisePayload,
+		slotAccent,
+		timerPayload,
+		type SlotName
+	} from '$lib/routines/card-payloads';
 	import { errorMessage } from '$lib/utils';
-
-	type SlotName = ScheduleOccurrence['slot'];
-
-	type TimerPayload = {
-		duration_minutes?: number;
-		pattern?: string;
-		instructions?: string;
-		segments?: { label: string; duration_seconds: number }[];
-	};
-
-	type ChecklistPayload = {
-		instructions?: string;
-		items?: { id: string; label: string; detail?: string }[];
-	};
-
-	type ExercisePayload = {
-		instructions?: string;
-		exercises?: { id: string; label: string; detail?: string; reps?: string; duration_seconds?: number }[];
-	};
-
-	const SLOT_ORDER: SlotName[] = ['morning', 'midday', 'evening', 'anytime'];
-	const SLOT_LABELS: Record<SlotName, string> = {
-		morning: 'Morning',
-		midday: 'Midday',
-		evening: 'Evening',
-		anytime: 'Anytime'
-	};
-	const SLOT_ACCENTS: Record<SlotName, { color: string; shadow: string }> = {
-		morning: { color: COLORS.respiration, shadow: withAlpha(COLORS.respiration, '30') },
-		midday: { color: COLORS.spo2, shadow: withAlpha(COLORS.spo2, '30') },
-		evening: { color: COLORS.hrv, shadow: withAlpha(COLORS.hrv, '30') },
-		anytime: { color: COLORS.stress, shadow: withAlpha(COLORS.stress, '30') }
-	};
-	const SLOT_INDEX = Object.fromEntries(
-		SLOT_ORDER.map((slot, index) => [slot, index])
-	) as Record<SlotName, number>;
-	const RENDERER_ICONS: Record<ScheduleOccurrence['renderer'], string> = {
-		exercise_block: '\u{1F4AA}',
-		timer_session: '\u{23F1}',
-		checklist_block: '\u{2611}'
-	};
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -145,7 +113,7 @@
 	function sortOccurrences(a: ScheduleOccurrence, b: ScheduleOccurrence): number {
 		return (
 			a.date.localeCompare(b.date) ||
-			SLOT_INDEX[a.slot] - SLOT_INDEX[b.slot] ||
+			SLOT_INDEX[a.slot as SlotName] - SLOT_INDEX[b.slot as SlotName] ||
 			a.position - b.position ||
 			a.name.localeCompare(b.name)
 		);
@@ -166,30 +134,6 @@
 	}
 	function formatWindowRange(start: string, end: string): string {
 		return `${formatShortDate(start)} \u2013 ${formatShortDate(end)}`;
-	}
-
-	function cardBrief(occ: ScheduleOccurrence): string {
-		const p = occ.payload_json as Record<string, unknown>;
-		if (occ.renderer === 'timer_session') {
-			const dur = p?.duration_minutes as number | undefined;
-			return dur ? `${dur} min` : '';
-		}
-		if (occ.renderer === 'exercise_block') {
-			const ex = (p?.exercises as unknown[]) ?? [];
-			return ex.length ? `${ex.length} exercises` : '';
-		}
-		const items = (p?.items as unknown[]) ?? [];
-		return items.length ? `${items.length} items` : '';
-	}
-
-	function timerPayload(p: Record<string, unknown>): TimerPayload {
-		return p as unknown as TimerPayload;
-	}
-	function exercisePayload(p: Record<string, unknown>): ExercisePayload {
-		return p as unknown as ExercisePayload;
-	}
-	function checklistPayload(p: Record<string, unknown>): ChecklistPayload {
-		return p as unknown as ChecklistPayload;
 	}
 
 	function readInitialState(): { startDate: string; routineId: string | null } {
@@ -447,7 +391,7 @@
 									<div class="routine-divider">{group.routineName}</div>
 								{/if}
 								{#each group.occurrences as occ}
-									{@const accent = SLOT_ACCENTS[occ.slot]}
+									{@const accent = slotAccent(occ.slot)}
 									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
 									{@const status = occStatus(occ)}
 									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
@@ -473,7 +417,7 @@
 											</div>
 										<span class="card-brief">{cardBrief(occ)}</span>
 										<div class="card-badges">
-											<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot]}</span>
+											<span class="slot-badge" style={`--sb-color: ${accent.color}`}>{SLOT_LABELS[occ.slot as SlotName]}</span>
 										</div>
 										<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
 											<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -483,7 +427,7 @@
 										{#if isExpanded}
 											<div class="detail-panel">
 												{#if occ.renderer === 'timer_session'}
-													{@const tp = timerPayload(occ.payload_json as Record<string, unknown>)}
+													{@const tp = timerPayload(occ.payload_json)}
 													{#if tp.instructions}
 														<p class="detail-copy">{tp.instructions}</p>
 													{/if}
@@ -498,7 +442,7 @@
 														</div>
 													{/if}
 												{:else if occ.renderer === 'exercise_block'}
-													{@const ep = exercisePayload(occ.payload_json as Record<string, unknown>)}
+													{@const ep = exercisePayload(occ.payload_json)}
 													{#if ep.instructions}
 														<p class="detail-copy">{ep.instructions}</p>
 													{/if}
@@ -517,7 +461,7 @@
 														</div>
 													{/if}
 												{:else}
-													{@const cp = checklistPayload(occ.payload_json as Record<string, unknown>)}
+													{@const cp = checklistPayload(occ.payload_json)}
 													{#if cp.instructions}
 														<p class="detail-copy">{cp.instructions}</p>
 													{/if}

@@ -3,56 +3,15 @@
 
 	import { api, type TodayResponse } from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import {
+		cardBrief,
+		checklistPayload,
+		exercisePayload,
+		isRecord,
+		slotAccent,
+		timerPayload
+	} from '$lib/routines/card-payloads';
 	import { errorMessage } from '$lib/utils';
-
-	type SlotAccent = {
-		color: string;
-		shadow: string;
-	};
-
-	type TimerPayload = {
-		duration_minutes?: number;
-		pattern?: string;
-		instructions?: string;
-		segments?: { label: string; duration_seconds: number }[];
-		rating_prompts?: { key: string; label: string; scale_min?: number; scale_max?: number }[];
-	};
-
-	type ChecklistPayload = {
-		instructions?: string;
-		items?: { id: string; label: string; detail?: string }[];
-	};
-
-	type ExercisePayload = {
-		instructions?: string;
-		exercises?: {
-			id: string;
-			label: string;
-			detail?: string;
-			reps?: string;
-			duration_seconds?: number;
-		}[];
-	};
-
-	const slotAccent: Record<string, SlotAccent> = {
-		morning: { color: COLORS.respiration, shadow: withAlpha(COLORS.respiration, '30') },
-		midday: { color: COLORS.spo2, shadow: withAlpha(COLORS.spo2, '30') },
-		evening: { color: COLORS.hrv, shadow: withAlpha(COLORS.hrv, '30') },
-		anytime: { color: COLORS.stress, shadow: withAlpha(COLORS.stress, '30') }
-	};
-
-	const rendererIcon: Record<string, string> = {
-		exercise_block: '\u{1F4AA}',
-		timer_session: '\u{23F1}',
-		checklist_block: '\u{2611}'
-	};
-
-	const rendererLabel: Record<string, string> = {
-		exercise_block: 'Exercise',
-		timer_session: 'Timer',
-		checklist_block: 'Checklist'
-	};
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -132,22 +91,6 @@
 		return urlDate && isIsoDateString(urlDate) ? urlDate : fallback;
 	}
 
-	function isRecord(value: unknown): value is Record<string, unknown> {
-		return typeof value === 'object' && value !== null && !Array.isArray(value);
-	}
-
-	function timerPayload(payload: Record<string, unknown>): TimerPayload {
-		return payload as TimerPayload;
-	}
-
-	function checklistPayload(payload: Record<string, unknown>): ChecklistPayload {
-		return payload as ChecklistPayload;
-	}
-
-	function exercisePayload(payload: Record<string, unknown>): ExercisePayload {
-		return payload as ExercisePayload;
-	}
-
 	async function loadToday(date: string, requestToken: number) {
 		const response = await api.getToday(date);
 		if (requestToken !== todayRequestToken || date !== selectedDate) return;
@@ -193,7 +136,7 @@
 		detailDuration = null;
 
 		if (card.renderer === 'timer_session') {
-			const payload = timerPayload(card.payload_json as Record<string, unknown>);
+			const payload = timerPayload(card.payload_json);
 			detailDuration =
 				typeof actual.actual_minutes === 'number'
 					? actual.actual_minutes
@@ -219,8 +162,8 @@
 
 		const items =
 			card.renderer === 'checklist_block'
-				? (checklistPayload(card.payload_json as Record<string, unknown>).items ?? [])
-				: (exercisePayload(card.payload_json as Record<string, unknown>).exercises ?? []);
+				? (checklistPayload(card.payload_json).items ?? [])
+				: (exercisePayload(card.payload_json).exercises ?? []);
 		for (const item of items) {
 			if (!(item.id in detailItemStates)) {
 				detailItemStates[item.id] = false;
@@ -364,20 +307,6 @@
 		return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 	}
 
-	function cardBrief(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	): string {
-		if (card.renderer === 'timer_session') {
-			const p = timerPayload(card.payload_json as Record<string, unknown>);
-			return p.duration_minutes ? `${p.duration_minutes} min` : '';
-		}
-		if (card.renderer === 'exercise_block') {
-			const p = exercisePayload(card.payload_json as Record<string, unknown>);
-			return p.exercises?.length ? `${p.exercises.length} exercises` : '';
-		}
-		const p = checklistPayload(card.payload_json as Record<string, unknown>);
-		return p.items?.length ? `${p.items.length} items` : '';
-	}
 </script>
 
 <svelte:head>
@@ -447,7 +376,7 @@
 					<button
 						class="slot-jump"
 						class:active={slotFilter === slot.slot}
-						style={`--sj-color: ${slotAccent[slot.slot]?.color ?? '#8a9baa'}`}
+						style={`--sj-color: ${slotAccent(slot.slot).color}`}
 						onclick={() => (slotFilter = slotFilter === slot.slot ? null : slot.slot)}
 					>
 						{slot.label}
@@ -465,7 +394,7 @@
 					<div
 						class="slot-divider"
 						id={`slot-${slot.slot}`}
-						style={`--sd-color: ${slotAccent[slot.slot]?.color ?? '#8a9baa'}`}
+						style={`--sd-color: ${slotAccent(slot.slot).color}`}
 					>
 						<span class="slot-label">{slot.label}</span>
 						<span class="slot-count">{cards.length}</span>
@@ -594,9 +523,7 @@
 							{#if isExpanded}
 								<div class="detail-panel">
 									{#if card.renderer === 'timer_session'}
-										{@const payload = timerPayload(
-											card.payload_json as Record<string, unknown>
-										)}
+										{@const payload = timerPayload(card.payload_json)}
 										{#if payload.pattern}
 											<p class="detail-pattern">{payload.pattern}</p>
 										{/if}
@@ -635,9 +562,7 @@
 											</div>
 										{/if}
 									{:else if card.renderer === 'checklist_block'}
-										{@const payload = checklistPayload(
-											card.payload_json as Record<string, unknown>
-										)}
+										{@const payload = checklistPayload(card.payload_json)}
 										{#if payload.instructions}
 											<p class="detail-copy">{payload.instructions}</p>
 										{/if}
@@ -659,9 +584,7 @@
 											{/each}
 										</div>
 									{:else}
-										{@const payload = exercisePayload(
-											card.payload_json as Record<string, unknown>
-										)}
+										{@const payload = exercisePayload(card.payload_json)}
 										{#if payload.instructions}
 											<p class="detail-copy">{payload.instructions}</p>
 										{/if}
@@ -710,7 +633,7 @@
 					<div
 						class="slot-divider empty"
 						id={`slot-${slot.slot}`}
-						style={`--sd-color: ${slotAccent[slot.slot]?.color ?? '#8a9baa'}`}
+						style={`--sd-color: ${slotAccent(slot.slot).color}`}
 					>
 						<span class="slot-label">{slot.label}</span>
 						<span class="slot-empty-text">nothing scheduled</span>
