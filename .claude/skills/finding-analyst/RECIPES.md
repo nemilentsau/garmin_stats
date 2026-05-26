@@ -10,7 +10,7 @@ Named techniques the analyst applies, separate from *what* is being investigated
 | --- | --- | --- |
 | Anomaly window | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Pairwise correlation sweep | validated | `2026-05-26-multi-baseline-recharacterization` |
-| Change-point ⚠ | candidate | — |
+| Change-point ⚠ | validated | `2026-05-26-recovery-nov-regime-extent` (approximation; `ruptures` still not needed) |
 | Lagged correlation | candidate | — (reset 2026-05-26; awaiting a trusted run) |
 | Partial-correlation control | candidate | — (reset 2026-05-26; awaiting a trusted run) |
 | Period comparison | validated | `2026-05-26-multi-baseline-recharacterization` |
@@ -41,13 +41,13 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Validation:** heatmap + scatter the top under-documented pairs; confirm a flagged pair is genuinely novel, not a within-cluster edge the mask missed.
 
 ## Change-point ⚠
-- **Status:** candidate
-- **Question shape:** When did the baseline of metric X shift?
+- **Status:** validated (`2026-05-26-recovery-nov-regime-extent`, via the no-dependency approximation)
+- **Question shape:** When did the baseline of metric X shift? (Including: when does a *known* regime end?)
 - **Inputs:** one metric's daily series, the date range.
 - **Outputs:** estimated change-point date(s) with before/after level and magnitude.
-- **Method:** `ruptures` (PELT / binary segmentation) ⚠ not installed — until then, approximate with rolling-mean crossover + a manual segmented comparison in `numpy`/`scipy`.
-- **Caveats:** missingness creates false change-points; detrend or mask gaps first. Distinguish a true regime shift from a single outlier day.
-- **Validation:** overlay detected segments on the raw series; the shift should be visible by eye.
+- **Method:** `ruptures` (PELT / binary segmentation) ⚠ not installed — and **not needed for a single regime with a known start/end question**. The validated approximation: recovery-/direction-signed robust z per metric, 7-day centered smoothing, then the regime edge = last day the smoothed z crosses the suppression threshold; pair with a segmented period comparison. Reserve `ruptures` for detecting *unknown* change-points across a long series.
+- **Caveats:** missingness creates false change-points; smooth with a min-points-per-window guard and mask gaps. Distinguish a true regime shift from a single outlier day. **Define "recovered" strictly after the last suppressed day** — a mid-regime blip can otherwise be miscredited as the end (this bit the validated run until the logic was fixed). Edge dates are soft (threshold- and smoothing-dependent); trust the composite-level conclusion over exact per-metric days.
+- **Validation:** overlay the smoothed trajectory + segment medians on the raw series; the regime and its edges should be visible by eye (they were — composite returned to band ~Dec 11).
 
 ## Lagged correlation
 - **Status:** candidate (reset 2026-05-26)
