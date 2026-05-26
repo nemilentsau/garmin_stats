@@ -11,9 +11,9 @@ traces.db
 
 # Analyst finding runs: contain personal health data — keep local-only, never commit
 .claude/finding-runs/
-# Curated findings report: personal health data — local-only going forward
-# (NOTE: prior versions remain in git history / on the public remote)
-FINDINGS.md
+# Curated findings reports (incl. archived/preliminary): personal health data — local-only going forward
+# (NOTE: prior versions of FINDINGS.md remain in git history / on the public remote)
+FINDINGS*.md
 # Analyst friction log: keep local-only
 docs/superpowers/plans/2026-05-21-finding-analyst-friction.md
 
