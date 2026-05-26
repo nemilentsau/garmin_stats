@@ -9,7 +9,7 @@ Self-review walking each gate. Confidence may be **downgraded** here, never upgr
 | Statistical | | sample size + spread? median/IQR for skew? outliers handled w/ reason? baseline real not anecdotal? effect size before p? multiple-comparisons N stated? |
 | Visual | | every evidence plot inspected? units + ranges sane? gaps not bridged? 2–3 values spot-checked? plot supports/weakens/complicates recorded? |
 | Interpretation | | clear "so what"? alternatives named? exploratory labeled? descriptive only? |
-| Findings | | only confident promotes? snapshot date + range + n + caveats recorded? resolved question moved? |
+| Findings | | promotion matches tier (confident→Takeaway, provisional→attributed observation, tentative→run folder)? snapshot date + range + n + caveats recorded? resolved question moved? |
 
 ## Plot verdicts
 - `<plot>.png`: supports | weakens | complicates — <why>

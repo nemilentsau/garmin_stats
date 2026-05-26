@@ -10,7 +10,8 @@ Named techniques the analyst applies, separate from *what* is being investigated
 | --- | --- | --- |
 | Anomaly window | candidate | — |
 | Change-point ⚠ | candidate | — |
-| Lagged correlation | candidate | — |
+| Lagged correlation | validated | `2026-05-26-stress-hrv-lag` |
+| Partial-correlation control | validated | `2026-05-26-stress-hrv-lag` |
 | Period comparison | candidate | — |
 | Missingness pattern | validated | `2026-05-26-hrv-feb25-26-drop` |
 | Distribution shape | candidate | — |
@@ -39,13 +40,22 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Validation:** overlay detected segments on the raw series; the shift should be visible by eye.
 
 ## Lagged correlation
-- **Status:** candidate
+- **Status:** validated (`2026-05-26-stress-hrv-lag`)
 - **Question shape:** Does metric A on day D predict metric B on day D+k for k in 1..7?
 - **Inputs:** two daily series, a lag range.
 - **Outputs:** correlation per lag with sample size and CI; effect size (r) before any p-value.
-- **Method:** align series at each lag, `scipy.stats.pearsonr` / `spearmanr`. `statsmodels` ⚠ only if you need cross-correlation diagnostics or autocorrelation correction.
-- **Caveats:** **this is a multi-comparison sweep** (multiple lags × multiple pairs) — state N and treat a lone significant lag as `tentative`. Autocorrelation within a series inflates significance. Correlation ≠ causation.
+- **Method:** align series at each lag with **contiguous calendar pairing** (pair D with D+k only when both real dates exist exactly k days apart and both values are present — never bridge a gap, or a "lag +1" can secretly span weeks). `scipy.stats.spearmanr` for skewed/bounded metrics (stress, HRV, sleep). `statsmodels` ⚠ only if you need cross-correlation diagnostics or autocorrelation correction.
+- **Caveats:** **this is a multi-comparison sweep** (multiple lags × multiple pairs) — state N and treat a lone significant lag as `tentative`. **Autocorrelation within a series inflates significance** — use a **moving-block bootstrap** (block ≈ 7 days) for CIs rather than i.i.d. resampling (validated run measured stress AR +0.38). A raw lagged r often just re-expresses the same-day relationship plus autocorrelation; if the question is "beyond same-day," pair this with **Partial-correlation control**. Correlation ≠ causation.
 - **Validation:** scatter the strongest lag; confirm it isn't driven by a handful of points.
+
+## Partial-correlation control
+- **Status:** validated (`2026-05-26-stress-hrv-lag`)
+- **Question shape:** Does the A→B association survive once an obvious confound C is held constant? (e.g. does lagged stress→HRV survive controlling same-night stress and same-night HRV?)
+- **Inputs:** the A,B pair plus one or more control series C, aligned on the same contiguous, all-present rows.
+- **Outputs:** partial correlation r_AB·C with bootstrap CI; compared side-by-side against the raw r.
+- **Method:** rank-transform all variables (partial *Spearman*), regress A and B on the controls (with intercept) via `numpy.linalg.lstsq`, correlate the residuals. The residual method generalizes to ≥2 controls (the pairwise-formula version only handles one). Block-bootstrap the whole computation for the CI.
+- **Caveats:** controlling a variable *linearly* does not strip nonlinear or latent shared structure. If A and B share a derivation (e.g. Garmin computes both stress and HRV from HRV), a surviving partial may still reflect a common latent signal, not an independent channel — say so. A robustness control can only weaken the claim; declare it up-front, not after seeing whether it helps.
+- **Validation:** plot raw vs partial with CIs; confirm the partial clears the pre-registered floor and the CI excludes zero.
 
 ## Period comparison
 - **Status:** candidate

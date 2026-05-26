@@ -8,6 +8,18 @@
 - **Context sources in scope:** <e.g. persisted daily metrics, manual logs, none>
 - **Explicit exclusions:** <what this run deliberately does not cover>
 
+## Reported-number check (do before opening any data)
+> If the question quotes a value (a dashboard reading, a remembered figure), confirm it against the snapshot first. A mismatch is a finding and may reframe the run.
+
+- **Reported value(s):** <what was quoted, and where it was seen>
+- **Snapshot value(s):** <what the persisted data actually holds>
+- **Match?** <yes | no — if no, note how it reframes the question>
+
+## Presentation-layer flag (questions about what a surface displays)
+> "Why does the dashboard show X" may not be answerable from the mart. If so, plan to trace API/frontend source and treat the live render as evidence (annotated screenshots in `04-plots/`).
+
+- **Requires API/frontend tracing?** <no | yes — which surfaces (e.g. `/api/dashboard`, `+page.svelte`)>
+
 ## Pre-registration (hypothesis-test runs only — write before opening any data)
 - **Prediction:** <the specific expected outcome>
 - **Decision rule:** <what evidence would confirm vs falsify>
