@@ -1,5 +1,7 @@
 """Dashboard overview calculations for Garmin analytics."""
 
+from collections.abc import Callable
+
 import numpy as np
 
 from app.domains.garmin_analytics.contracts import (
@@ -187,13 +189,22 @@ def _compute_vitals(
 
 
 _SPARKLINE_DAYS = 91
+# The trailing MA looks back 6 days, so seed the display window with the 6 days
+# before it. Otherwise the MA ramps up from a single point at the window start,
+# producing spurious oscillation at the left edge of the chart.
+_MA_SEED_DAYS = 6
 
 
 def _build_series(
     window: list[DailyMetric],
-    raw_vals: list[float | None],
+    seed: list[DailyMetric],
+    value_fn: Callable[[DailyMetric], float | None],
 ) -> SparklineSeries:
-    ma_vals = trailing_ma7(raw_vals)
+    raw_vals = [value_fn(metric) for metric in window]
+    seed_vals = [value_fn(metric) for metric in seed]
+    # Compute the MA over seed + display, then drop the seed days. Their only
+    # job is to fill the trailing window for the first few displayed points.
+    ma_vals = trailing_ma7(seed_vals + raw_vals)[len(seed_vals):]
     non_null = [value for value in raw_vals if value is not None]
     summary = SparklineSummary(
         avg=safe_avg(non_null),
@@ -208,18 +219,19 @@ def _build_series(
 
 
 def _compute_sparklines(metrics: list[DailyMetric]) -> DashboardSparklines:
-    window = metrics[-_SPARKLINE_DAYS:]
+    display_start = max(0, len(metrics) - _SPARKLINE_DAYS)
+    seed_start = max(0, display_start - _MA_SEED_DAYS)
+    window = metrics[display_start:]
+    seed = metrics[seed_start:display_start]
     return DashboardSparklines(
         resting_hr=_build_series(
-            window,
-            [optional_float(metric.heart_rate.resting) for metric in window],
+            window, seed, lambda metric: optional_float(metric.heart_rate.resting),
         ),
-        nightly_hrv=_build_series(window, [metric.hrv.nightly_avg for metric in window]),
+        nightly_hrv=_build_series(window, seed, lambda metric: metric.hrv.nightly_avg),
         sleep_score=_build_series(
-            window,
-            [optional_float(metric.sleep.score) for metric in window],
+            window, seed, lambda metric: optional_float(metric.sleep.score),
         ),
-        stress_avg=_build_series(window, [metric.stress.avg for metric in window]),
+        stress_avg=_build_series(window, seed, lambda metric: metric.stress.avg),
     )
 
 

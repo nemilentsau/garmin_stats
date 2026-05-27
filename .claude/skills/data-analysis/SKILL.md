@@ -107,6 +107,9 @@ When you plot min/max alongside an average, the bands are dominated by extreme o
 - Always state the smoothing window size
 - Never smooth without disclosing it
 
+### 3.3.1 Seed rolling windows before truncating to a display range
+A rolling average needs the N-1 points *before* the first visible point to be correct. If you cut the series to the display range (e.g. "last 3 months") **and then** compute the moving average, the first point averages only itself, the second only two points, and so on — the smoothed line ramps up and oscillates at the left edge. Always compute the rolling average over `seed + display` (seed = the window-1 days preceding the range), then drop the seed from what you plot. Same rule for any windowed stat (rolling median, EMA warm-up). Compute on full history, slice for display second.
+
 ### 3.4 Axis integrity
 - Bar charts: must start at zero
 - Line charts: non-zero baselines are OK but must be labeled
@@ -258,6 +261,7 @@ Note any strong correlations (|r| > 0.5) in the EDA analysis. Cross-metric consi
 | Bar chart with non-zero baseline | Bars start at zero |
 | No units on axes | Always include units in parentheses |
 | Smoothing without disclosure | State window size; show raw + smooth |
+| Truncating to display range, then computing rolling avg | Seed with window-1 prior points; compute on `seed + display`, slice after |
 | Line through data gaps | Break line at gaps > 2-3 points |
 | Filter bias undisclosed | State filter in chart subtitle |
 | Summary stats without scatter plot | Always plot before trusting aggregates |
