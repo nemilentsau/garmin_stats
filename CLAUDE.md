@@ -44,7 +44,7 @@
 
 ## Skills
 
-Five skills support this project. Each owns specific code layers:
+Six skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `backend/app/domains/garmin_health/infra/fit_parser/`, the `backend/app/parser.py` compatibility facade, FIT field names/types/filters, SDK quirks
@@ -58,6 +58,12 @@ Five skills support this project. Each owns specific code layers:
 **Trigger:** touching `domains/garmin_health/domain/daily_metrics/`, `domains/garmin_analytics/domain/aggregates/`, analytics contracts, or building/modifying charts
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - Pipeline traces go to `.claude/chart-inspections/<metric>-<context>/`. Never overwrite previous trace directories.
+
+### `finding-analyst` — health-data investigation workflow
+**Owns:** Question-led, exploratory, and scout analysis runs over the Garmin dataset; `FINDINGS.md` evidence and update policy
+**Trigger:** investigating a question about the dataset, reviewing a metric area, running a scout pass for candidate signals, or proposing a `FINDINGS.md` update
+- Skill docs: `.claude/skills/finding-analyst/SKILL.md` — run types, confidence tiers, recipes (`RECIPES.md`), and report templates
+- Findings land in `FINDINGS.md`; chart inspections reuse the `data-analysis` trace convention under `.claude/chart-inspections/`
 
 ### `analytical-dashboard` — dashboard design system
 **Owns:** Information hierarchy, chart selection, data visualization best practices, number formatting, interaction patterns

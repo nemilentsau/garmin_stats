@@ -22,8 +22,8 @@ parallel source of truth.
 - [Frontend metrics refactor clean slate](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-frontend-metrics-refactor-clean-slate.md)
   Current next-step plan for analytics-agent review of heavy metric pages.
 
-- [Insight analyst phase 1](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-insight-analyst-phase-1.md)
-  Manual analyst workflow, report artifacts, quality gates, and `FINDINGS.md` update policy before headless scans.
+- [Analyst data-discovery program](/Users/andreinemilentsau/Projects/garmin_stats/docs/analyst-data-discovery.md)
+  Phased research agenda for the stress/recovery copilot — discover axes, define and validate scores, drive dashboard tabs.
 
 ## Data And Bundle Examples
 

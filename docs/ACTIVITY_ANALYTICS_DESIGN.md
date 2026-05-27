@@ -1,5 +1,15 @@
 # Activity Analytics Design
 
+> **STATUS: PROPOSED — not yet implemented (as of 2026-05-27).** This is a
+> forward-looking design. None of it exists in code yet: there is no
+> `ActivitySession` / `ExperimentDayRow` model, no `activity_sessions` /
+> `activity_daily_features` tables, no `parse_activity_file` / `parse_activities`
+> parser, no activity routes or pages, and no sleep-timing/training-load fields on
+> the daily mart. Activity FIT files are not ingested. Treat every schema and
+> module path below as a target to build, not a contract that exists. The
+> pre-existing foundations it references (the `daily_metrics` mart, `parse_all_days`,
+> WELLNESS/SLEEP/HRV/SKIN_TEMP parsing, `alcohol_flag` daily check-ins) are real.
+
 This document defines the next analytical foundation for Garmin Stats.
 
 It exists because the current recovery-first daily aggregate model is correct for overnight and all-day health signals, but it is the wrong grain for tracked activities and for experiment analysis that joins training, sleep timing, alcohol, and recovery.
