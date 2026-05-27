@@ -1,6 +1,7 @@
 """Tests for dashboard overview service."""
 
 import warnings
+from datetime import date, timedelta
 
 import pytest
 
@@ -201,6 +202,66 @@ class TestReadiness:
         assert result.readiness.component_hints["resting_hr"] == (
             "Resting HR is 0.4 bpm above 7-day average — possible stress"
         )
+
+
+class TestSparklineMovingAverage:
+    """The 91-day sparkline trims its display window after computing the MA,
+    so the first displayed day's trailing 7-day average is seeded by the six
+    days preceding the window — not left to ramp up from a single point."""
+
+    def test_window_start_ma7_seeded_by_six_days_before_display_window(self):
+        # 100 days total → display window is the trailing 91 (indices 9-99).
+        # Seed the six days just before the window (indices 3-8) low and the
+        # first display day high, so an un-seeded MA would differ sharply.
+        start = date(2026, 1, 1)
+        for i in range(100):
+            day = (start + timedelta(days=i)).isoformat()
+            if 3 <= i <= 8:
+                resting = 40
+            elif i == 9:
+                resting = 60
+            else:
+                resting = 50
+            _insert(_make_metric(day, resting_hr=resting))
+
+        result = load_dashboard_overview()
+        assert result.sparklines is not None
+        points = result.sparklines.resting_hr.points
+
+        assert len(points) == 91
+        # First display day (index 9, resting 60) seeded by indices 3-8 (40);
+        # the MA is rounded to one decimal by safe_avg.
+        assert points[0].ma7 == pytest.approx(round((40 * 6 + 60) / 7, 1))
+
+    def test_summary_reflects_only_the_display_window_not_the_seed(self):
+        # Seed days carry an extreme value that must not leak into min/max/avg.
+        start = date(2026, 1, 1)
+        for i in range(100):
+            day = (start + timedelta(days=i)).isoformat()
+            resting = 200 if i < 9 else 50
+            _insert(_make_metric(day, resting_hr=resting))
+
+        result = load_dashboard_overview()
+        assert result.sparklines is not None
+        summary = result.sparklines.resting_hr.summary
+
+        assert summary.max == 50
+        assert summary.min == 50
+        assert summary.avg == pytest.approx(50)
+
+    def test_window_start_ma7_falls_back_when_no_prior_days_exist(self):
+        # Fewer than 91 days → window starts at the true series start, so the
+        # first day has no seed and its MA is just its own value.
+        _insert(_make_metric("2026-01-01", resting_hr=60))
+        _insert(_make_metric("2026-01-02", resting_hr=50))
+        _insert(_make_metric("2026-01-03", resting_hr=40))
+
+        result = load_dashboard_overview()
+        assert result.sparklines is not None
+        points = result.sparklines.resting_hr.points
+
+        assert len(points) == 3
+        assert points[0].ma7 == pytest.approx(60)
 
 
 class TestCorrelations:
