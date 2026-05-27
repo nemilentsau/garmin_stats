@@ -11,8 +11,8 @@ Named techniques the analyst applies, separate from *what* is being investigated
 | Anomaly window | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Pairwise correlation sweep | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Change-point ⚠ | validated | `2026-05-26-recovery-nov-regime-extent` (approximation; `ruptures` still not needed) |
-| Lagged correlation | candidate | — (reset 2026-05-26; awaiting a trusted run) |
-| Partial-correlation control | candidate | — (reset 2026-05-26; awaiting a trusted run) |
+| Lagged correlation | validated | `2026-05-27-sleep-deep-signal-or-noise` (self-autocorrelation form) |
+| Partial-correlation control | validated | `2026-05-26-spo2-incremental-value` |
 | Period comparison | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Missingness pattern | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Distribution shape | validated | `2026-05-26-multi-baseline-recharacterization` |
@@ -50,7 +50,7 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Validation:** overlay the smoothed trajectory + segment medians on the raw series; the regime and its edges should be visible by eye (they were — composite returned to band ~Dec 11).
 
 ## Lagged correlation
-- **Status:** candidate (reset 2026-05-26)
+- **Status:** validated (`2026-05-27-sleep-deep-signal-or-noise`, self-autocorrelation form)
 - **Question shape:** Does metric A on day D predict metric B on day D+k for k in 1..7?
 - **Inputs:** two daily series, a lag range.
 - **Outputs:** correlation per lag with sample size and CI; effect size (r) before any p-value.
@@ -59,7 +59,7 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Validation:** scatter the strongest lag; confirm it isn't driven by a handful of points.
 
 ## Partial-correlation control
-- **Status:** candidate (reset 2026-05-26)
+- **Status:** validated (`2026-05-26-spo2-incremental-value`)
 - **Question shape:** Does the A→B association survive once an obvious confound C is held constant? (e.g. does lagged stress→HRV survive controlling same-night stress and same-night HRV?)
 - **Inputs:** the A,B pair plus one or more control series C, aligned on the same contiguous, all-present rows.
 - **Outputs:** partial correlation r_AB·C with bootstrap CI; compared side-by-side against the raw r.
@@ -90,9 +90,9 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Question shape:** Is metric X unimodal, bimodal, or skewed? Does the shape change by month?
 - **Inputs:** one metric's daily values, optional grouping (month).
 - **Outputs:** histogram/KDE, skew, modality call, per-group shape.
-- **Method:** `numpy.histogram`, `scipy.stats.skew`, `scipy.stats.gaussian_kde`.
-- **Caveats:** small per-group n makes modality unreliable; don't over-read a second bump from 8 points.
-- **Validation:** look at the histogram — modality claims must be visible, not just a statistic.
+- **Method:** `numpy.histogram`, `scipy.stats.skew`, `scipy.stats.gaussian_kde`. For a **modality** call, triangulate three diagnostics — never trust one: bimodality coefficient (Sarle's; >0.555 leans bimodal), 1- vs 2-component Gaussian mixture by **BIC** (hand-rolled 1D EM — no library has it; sklearn not installed; read ΔBIC as 0–2 negligible / 2–6 positive / 6–10 strong), and the KDE by eye. A two-Gaussian fit will *always* return two components — check the KDE is genuinely two-peaked, not one peak with a shoulder.
+- **Caveats:** small per-group n makes modality unreliable; don't over-read a second bump from 8 points. **Apparent bimodality is often a regime mixture, not intrinsic** — before claiming bimodality, re-test on residuals from a long rolling median and/or within a single stable regime; if the bumps vanish, they were the pooled mixture of the series' regimes (the HRV-bimodality run found exactly this: BC 0.44, BIC tie, unimodal-with-shoulder KDE).
+- **Validation:** look at the histogram/KDE — modality claims must be visible as separated peaks, not just a statistic; confirm any verdict is robust to a simple alternative (e.g. a median split reproducing a mode contrast).
 
 ## Day-type clustering ⚠
 - **Status:** candidate
