@@ -27,12 +27,20 @@ Settled structure (from R7, R9):
 
 | Tier | Content | Interaction |
 |---|---|---|
-| **L1 — Glance** | Recovery score (MA7) + meaningful-change badge + 7-day sparkline; two flag chips (incl. "unknown") | Always visible |
+| **L1 — Glance** | State banner (score band × trend); recovery score (MA7) + meaningful-change badge + 7-day sparkline; two flag chips (incl. "unknown") | Always visible |
 | **L2 — Scan** | Evidence stack: the 7 inputs, each with value / personal baseline / delta / coverage | Visible on load |
 | **L3 — Investigate** | Recovery trend (raw + MA7, 90-day, event-annotated); per-input mini-trends; flag detail panels; sleep architecture sub-section | On expand |
 
 ## L1 — Recovery headline
 
+- **State banner (Q4.1):** "state before score" — but **not** named physiological archetypes.
+  The recovery dimension is a continuum (Q4.1: PC1 74%, no discrete clusters), so the banner is
+  a composed label from two already-validated quantities: a coarse **score band** (suppressed /
+  typical / strong — bands on the score vs personal baseline) × a **trend direction** (improving
+  / steady / declining — sign of R2's Δ7 against its 0.97 z threshold). E.g. "Typical recovery,
+  improving" or "Suppressed, declining." No invented "deep suppression / clean recovery /
+  stress-loaded-but-recovering" types — those failed the discrete-state test. The exact band
+  cutoffs ride on the z→display scaling decision (below).
 - **Score:** the MA7-smoothed recovery score (R5). Render as a number + a **bullet graph**
   against the personal baseline band (not a circular gauge — Few). The score is robust-z; the
   display-scaling decision (z → a 0–100 or −/0/+ surface) is the one **open contract field**
@@ -151,9 +159,9 @@ flags, and evidence stack are computed.
 
 ## Explicitly out of scope (and why)
 
-- **State banner / headline state label** — needs agenda Q4.1 (do days cluster into recurring
-  states?), unanswered. Open scope decision in the plan: the overview leads with the score
-  until Q4.1 is run. Do not ship a state label unbacked.
+- **State banner** — **now in scope** (Q4.1 resolved, run `2026-06-11-recovery-day-states`): a
+  score-band × trend label, specced in L1. Not named archetypes (the discrete-state test
+  failed — continuum).
 - **z → 0–100 (or −/0/+) display scaling + final UI labels/tooltips** — the one remaining
   score-contract field; a UX decision, taken at build time. Thresholds scale with it (R2).
 - **Raw-nightly-values toggle on the HRV chart** — `FINDINGS.md` Open Question 5, a separate

@@ -18,7 +18,7 @@ Named techniques the analyst applies, separate from *what* is being investigated
 | Distribution shape | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Loading-stability comparison | validated | `2026-06-11-multi-axis-loading-stability` |
 | Normalization window sweep | validated | `2026-06-11-recovery-normalization-baseline` |
-| Day-type clustering ⚠ | candidate | — |
+| Day-type clustering ⚠ | validated | `2026-06-11-recovery-day-states` (returned a continuum / no-discrete-clusters verdict) |
 | Trigger search | candidate | — (reset 2026-05-26; awaiting a trusted run) |
 | Single-point context | candidate | — (reset 2026-05-26; awaiting a trusted run) |
 
@@ -115,13 +115,13 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Validation:** regime-zoom overlay of all candidates (adaptation must be visible by eye); spot-check composite values by independent recomputation, including one surprising day traced back to raw values.
 
 ## Day-type clustering ⚠
-- **Status:** candidate
-- **Question shape:** What recovery-day archetypes exist across the dataset?
-- **Inputs:** standardized multi-metric daily vectors.
-- **Outputs:** cluster labels + centroid profile per cluster + cluster sizes.
-- **Method:** `scipy.cluster` (hierarchical/k-means) — works without extra deps; `pandas` ⚠ convenient for the feature table but not required.
-- **Caveats:** clustering always returns clusters; validate stability and interpretability before believing archetypes. Standardize first or high-variance metrics dominate.
-- **Validation:** plot centroids as a small-multiple profile; confirm clusters are separable on at least two metrics.
+- **Status:** validated (`2026-06-11-recovery-day-states` — correctly returned a continuum / no-discrete-states verdict)
+- **Question shape:** What recovery-day archetypes exist across the dataset — or is it a continuum?
+- **Inputs:** standardized (R3-normalized) multi-metric daily vectors.
+- **Outputs:** cluster labels + centroid profiles; PCA variance shares; silhouette across k; split-half ARI; PC1-slice reproduction.
+- **Method:** k-means/hierarchical (hand-rolled in numpy — no sklearn in the venv; `scipy.cluster` also works). To separate real states from continuum slices, ALSO run: PCA (a discrete-state structure needs a real 2nd dimension, PC2 ≳ 15%); silhouette across k (a continuum has no knee, monotonic decline from k=2); a **PC1-slice test** (do PC1 quantiles reproduce the clusters? ≥80% → the clusters ARE the 1D score); split-half ARI for stability.
+- **Caveats:** **clustering always returns clusters** — k=2 on an elongated 1D cloud yields ~0.4 silhouette by construction, which is a *score band* (above/below baseline), not two states. Stability (high ARI) is necessary but NOT sufficient: stable clusters can still be continuum slices. The decisive tests are the 2nd-dimension check + PC1-slice reproduction + the visual (one elongated cloud vs separated blobs). Standardize first or high-variance metrics dominate.
+- **Validation:** PC scatter colored by the 1D score — a smooth gradient along PC1 with no blob separation = continuum; plot centroids as a small-multiple profile only if discrete states survive.
 
 ## Trigger search
 - **Status:** candidate (reset 2026-05-26)

@@ -1,7 +1,8 @@
 # Dashboard Metrics Refactor — Findings & Run Plan
 
-**Status:** analyst backlog **complete (P0–P2 done, 2026-06-11)** — score contract validated,
-flags defined, drill-down specced; ready for the dashboard build · **Created:** 2026-06-11 ·
+**Status:** analyst program **COMPLETE (R1–R10 + Q4.1 done, 2026-06-11)** — score contract
+validated, flags defined, drill-down + state banner specced, experiment response ruled out
+(blocked on data); **ready for the dashboard build** · **Created:** 2026-06-11 ·
 **Owner:** dashboard copilot effort
 
 This document consolidates what the `finding-analyst` runs have established, reconciles it
@@ -14,8 +15,9 @@ layout idea backlog), and `docs/dashboard-drilldown-spec.md` (the R8 drill-down 
 **Done:** R1 (weights), R2 (meaningful change), R3 (normalization), R4 (axis stability),
 R5 (smoothing), R6 (construct-validity gate — passed), R7 (one card, sleep is an input),
 R8 (drill-down spec), R9 (two flags), R10 (experiment response — verdict: blocked on data,
-must not surface). **Remaining:** the open state-banner scope decision (needs agenda Q4.1) —
-the only non-build item left. The analyst program is otherwise complete; next is the build.
+must not surface), Q4.1 (state banner — continuum, score-band × trend, no archetypes).
+**Nothing left in the analyst program. Next is the dashboard build** on the validated contract
+(`dashboard.py` → analytics contract → API types → frontend), per `docs/dashboard-drilldown-spec.md`.
 
 ## The refactor goal (as stated)
 
@@ -184,11 +186,14 @@ score's time series, so it needs both.
   resolved `FINDINGS.md` Open Question 2 (Apr-21→27 = real low-oxygen episode).
   → *Produced: both flag thresholds + missing-data behavior + clear rule.*
 
-**Open scope decision — state banner.** The idea backlog's headline pattern is "state before
-score" (a state label above the numeric score), which needs agenda Q4.1 (do days cluster into a
-few recurring states?) answered first. Decide whether the banner is part of this refactor: if
-yes, Q4.1 joins P2 as its own R-item; if no, the overview leads with the score and the banner
-waits for a later phase. Don't let it ship unbacked either way.
+**Resolved scope decision — state banner** (agenda Q4.1, run `2026-06-11-recovery-day-states`,
+confident): days do **not** cluster into discrete states — the recovery dimension is a continuum
+(PC1 74%, PC2 8.8%; k-means clusters are 1D-score slices, not types). So the banner ships, but
+**not as named physiological archetypes**: it is a coarse **score band** (suppressed / typical /
+strong, vs personal baseline) × **Δ7 trend direction** (improving / steady / declining) — all
+from already-validated quantities. The idea-backlog's "deep suppression / clean recovery /
+stress-loaded-but-recovering" named states are not evidence-backed and must not ship. Spec
+folded into `docs/dashboard-drilldown-spec.md` (L1).
 
 ### Queued behind R6 — experiment response (post-score follow-up)
 
