@@ -1,12 +1,23 @@
 # Analyst Data-Discovery Program
 
-**Status:** active research agenda · **Created:** 2026-05-27 · **Owner:** dashboard copilot effort
+**Status:** active research agenda (rationale + method constraints) · **Created:** 2026-05-27 ·
+**Last reconciled:** 2026-06-11 · **Owner:** dashboard copilot effort
 
-This document defines the questions we pose to the data analyst (the `finding-analyst`
-skill, executed run-by-run) to turn a year of Garmin health data into a defensible
-**stress / recovery copilot**. It is a research agenda, not an implementation plan: each
-phase produces durable evidence in `FINDINGS.md`, and that evidence — not intuition —
-defines the dashboard's scores, axes, and drill-down tabs.
+This document defines the *rationale, operating principles, and method constraints* for the
+questions we pose to the data analyst (the `finding-analyst` skill, executed run-by-run) to turn a
+year of Garmin health data into a defensible **stress / recovery copilot**. It is a research
+agenda, not an implementation plan: each phase produces durable evidence in `FINDINGS.md`, and that
+evidence — not intuition — defines the dashboard's scores, axes, drill-down tabs, and language.
+
+> **Where to look for current status.** This file holds the durable *why and how*. The
+> answered-vs-open status of each question, and the prioritized run order, live in
+> `docs/dashboard-metrics-plan.md` (the execution companion). Promoted evidence lives in
+> `FINDINGS.md`. When this file and the plan disagree on what is still open, the plan and
+> `FINDINGS.md` win — this file is not a second question tracker.
+
+The current dashboard should remain a scaffold until the agenda has earned a replacement.
+Dashboard concepts and candidate layouts are tracked separately in
+`docs/analytical-dashboard-ideas.md` so ideas do not accidentally become product claims.
 
 ---
 
@@ -43,16 +54,18 @@ them as independent pillars would double-count the same signal, the same flaw th
 composite already risks.
 
 So the first job is a **dimensionality question**: how many genuinely independent axes exist
-in the data, and what loads onto each? The pillars fall out of that answer. Our working prior
-(to be confirmed or overturned by Phase 1):
+in the data, and what loads onto each? The pillars fall out of that answer.
 
-| Candidate axis | Evidence | Status |
-|---|---|---|
-| **Autonomic balance** (the stress↔recovery continuum) | Dominant, tightly correlated cluster | strong |
-| **Sleep** | `sleep_score` tracks recovery, but `deep_score` is orthogonal to everything (r=−0.01) | partly independent |
-| **Respiratory / oxygenation** | `spo2_min` near-orthogonal to the whole stack (\|r\|<0.09) | weak, intermittent |
-| **Thermoregulation / illness** | `skin_temp` deviation centered with meaningful outliers | acute event-flag, not a daily gauge |
-| **Load / strain ("progress")** | *Not in the daily mart yet* | genuinely missing |
+> **Phase 1 is now answered (see `FINDINGS.md`, snapshot 2026-05-26).** The data resolved into
+> **one dominant recovery↔stress axis** (stress, HR avg, resting HR, respiration on one pole; HRV,
+> body battery, sleep score on the other; pairwise |r| 0.5–0.84) — *not* separate stress and
+> recovery pillars. Three metrics sit off the axis: SpO2 (rejected as a recovery signal — a
+> low-oxygen health *flag* only), `sleep_deep_score` (low-information — exclude from trends), and
+> skin-temp deviation (an acute event-flag, not a daily gauge). `sleep_rem_score` is only weakly
+> tied (r≈0.48 to sleep score) and unresolved. **Load / strain ("progress") remains genuinely
+> missing** from the daily mart and is deferred to Phase 5 / `docs/ACTIVITY_ANALYTICS_DESIGN.md`
+> rather than faked now. The honest output is roughly one recovery score + two health flags, not a
+> handful of independent axes — see `docs/dashboard-metrics-plan.md` for the implications.
 
 This mirrors how serious wearables decompose physiology (Whoop: Recovery / Strain / Sleep;
 Oura: Readiness / Sleep / Activity) — and it makes the missing **Load** axis explicit, which
@@ -75,6 +88,9 @@ battery, SpO2 (avg/min), respiration, nightly + weekly HRV + HRV status, sleep s
   and causal claims must stay honest about this.
 - This is **"a strong recovery dataset, not yet a strong training-performance dataset."** The
   program must not let the copilot over-claim.
+- The preliminary findings file is archived and superseded. It is useful as a question backlog,
+  but no score, axis, or UI phrase can cite it as current evidence. The active trust record is
+  `FINDINGS.md`.
 
 ### Operating principles for every question
 
@@ -88,6 +104,14 @@ battery, SpO2 (avg/min), respiration, nightly + weekly HRV + HRV status, sleep s
 4. **Prefer the honest, smaller answer.** Fewer well-backed axes beat more intuitive ones.
 5. **Phases are sequential.** We do not ask "how do I score this axis" before the data has
    confirmed the axis exists.
+6. **Derived metrics are labeled.** Garmin-derived composites (`stress`, Body Battery,
+   `hrv_status`, sleep score) are useful, but a new score built from them may mostly repackage
+   Garmin's model. Each run must distinguish source-native observations from proprietary or
+   derived Garmin summaries.
+7. **Validation cannot only reuse discovery examples.** If November, February, or
+   `2026-02-26` are used to discover an axis, they cannot be the only evidence that validates
+   the score. Use holdout windows, leave-event-out checks, or clearly label the result as
+   in-sample construct validation.
 
 ---
 
@@ -111,6 +135,19 @@ on it.
   `spo2_min` and `deep_score` orthogonality — keep or drop each.
   → *Produces: the metric shortlist each score is built from.*
 
+Minimum method constraints for Phase 1:
+
+- Use robust association checks, not only Pearson correlations. Spearman/rank checks and
+  missingness sensitivity are required for skewed, bounded, and structurally missing metrics.
+- Treat time-series autocorrelation as real. Use block/bootstrap uncertainty or an equivalent
+  caveat when claiming loading stability or correlation strength.
+- Check whether results survive known missingness blocks and major regimes. A complete-case
+  result that silently drops the SpO2 missing blocks is not a dashboard-ready finding.
+- Separate source-native measurements from Garmin-derived composites before deciding that two
+  signals independently support the same axis.
+- Produce at least one visual diagnostic for the factor/cluster result: correlation heatmap,
+  clustered matrix, loading plot, or small-multiple time-series comparison.
+
 ### Phase 2 — Define each axis score
 
 For each axis confirmed in Phase 1, decide how to turn its metrics into a single defensible
@@ -131,6 +168,16 @@ number.
   (seed lead-in days vs suppress until a full window exists).
   → *Produces: smoothing spec + edge handling.*
 
+Every score definition must output a score contract, not only prose:
+
+- Metric inputs, with each input labeled as source-native, derived Garmin, or backend-derived.
+- Normalization rule and baseline window.
+- Missing-data rule: suppress score, degrade confidence, or substitute neutral value.
+- Weighting rule and why it does not double-count redundant metrics.
+- Smoothing rule, including lead-in/seed behavior.
+- Meaningful-change threshold and default comparison period.
+- UI-safe label, tooltip explanation, and language guardrails.
+
 ### Phase 3 — Validate the scores mean something
 
 A score is not trustworthy because it computes cleanly. Prove it.
@@ -145,6 +192,10 @@ A score is not trustworthy because it computes cleanly. Prove it.
   the copilot can say "dropped meaningfully" instead of reporting a raw "−14.4."
   → *Produces: the threshold for flagging deltas.*
 
+Validation must explicitly state whether it is out-of-sample, leave-event-out, or in-sample
+construct validation. A score that only explains the events used to design it may still be
+useful, but it should not earn strong dashboard language.
+
 ### Phase 4 — Make it a copilot (narrative + drill-down)
 
 Turn validated scores into something that explains and guides.
@@ -158,6 +209,11 @@ Turn validated scores into something that explains and guides.
 - **Q4.3 — Per axis, what is the right drill-down tab?** Which sub-metrics, what time window, and
   what comparison (vs personal baseline / vs distribution).
   → *Produces: each tab's spec.*
+
+Copilot language guardrails apply here, even though Phase 5 finalizes them. Use "consistent
+with", "suggests", "flag", "expected after", and "worth checking" before causal or diagnostic
+phrasing. Do not use language that implies medical diagnosis, performance prescription, or
+training readiness until the required data exists.
 
 ### Phase 5 — Honest limits & the future "progress" axis
 
@@ -183,16 +239,22 @@ Define where we stop and what would let us go further.
 - The dashboard build is **downstream of this agenda** — the `data-analysis`,
   `analytical-dashboard`, and `ux-design` skills consume Phase 1–4 outputs to define scores,
   charts, and tabs. No dashboard scoring change ships ahead of the finding that justifies it.
+- Before the first Phase 1 result ships, `FINDINGS.md` must exist and state whether there are
+  any trusted findings yet. Broken or implied trust records make the dashboard contract
+  unenforceable.
 
 ## 4. Open questions inherited from preliminary findings
 
-These pre-existing open questions feed directly into the phases above and should be resolved
-within them rather than tracked separately:
+These pre-existing leads fed into the phases above. Their current state is tracked in `FINDINGS.md`
+(Resolved / Open Questions); the live status as of 2026-06-11 is:
 
-- November suppression block — does it extend through early December (~4 weeks, or a distinct
-  second event)? → Phase 1 Q1.2, Phase 3 Q3.2.
-- SpO2 min vs avg as the surfaced oxygen metric. → Phase 1 Q1.3.
-- Median vs mean / rolling-median defaults for HRV and sleep. → Phase 2 Q2.3.
-- `deep_score` — independent signal or noise? → Phase 1 Q1.3.
-- How much of the lagged stress→HRV link is physiology vs shared HRV-derivation. → Phase 4 Q4.2,
-  Phase 5 Q5.1.
+- November suppression block extent → **resolved** (~5-week regime, Nov 5 → early Dec; `FINDINGS.md`).
+- SpO2 min vs avg as the surfaced oxygen metric → **resolved** (neither — SpO2 is a health flag, not
+  a recovery signal; `FINDINGS.md`).
+- `deep_score` — independent signal or noise? → **resolved** (low-information; exclude from trends;
+  `FINDINGS.md`).
+- Median vs mean / rolling-median defaults for HRV and sleep → **partly resolved**: the static
+  summary-stat policy is set (`FINDINGS.md` Distribution Snapshot); the rolling/smoothing defaults
+  remain open as Phase 2 Q2.4 (plan R5).
+- How much of the lagged stress→HRV link is physiology vs shared HRV-derivation → **still open**
+  (needs a non-HRV-derived stressor proxy; `FINDINGS.md` Open Question; Phase 4 Q4.2 / Phase 5 Q5.1).

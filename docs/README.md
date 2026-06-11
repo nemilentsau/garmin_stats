@@ -17,13 +17,19 @@ parallel source of truth.
 - [ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
   Future Garmin activity/session marts, analyst-agent direction, and experiment-day joins.
 
+- [analytical-dashboard-ideas.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/analytical-dashboard-ideas.md)
+  Non-implementation backlog for future stress/recovery dashboard concepts and guardrails.
+
 ## Active Working Plans
 
 - [Frontend metrics refactor clean slate](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-frontend-metrics-refactor-clean-slate.md)
   Current next-step plan for analytics-agent review of heavy metric pages.
 
 - [Analyst data-discovery program](/Users/andreinemilentsau/Projects/garmin_stats/docs/analyst-data-discovery.md)
-  Phased research agenda for the stress/recovery copilot — discover axes, define and validate scores, drive dashboard tabs.
+  Rationale, operating principles, and method constraints for the stress/recovery copilot research agenda. Durable *why and how*; current question status lives in the dashboard metrics plan below.
+
+- [Dashboard metrics refactor plan](/Users/andreinemilentsau/Projects/garmin_stats/docs/dashboard-metrics-plan.md)
+  Execution companion: what the analyst runs have settled, what is still open, and the prioritized run order before the dashboard score refactor.
 
 ## Data And Bundle Examples
 
@@ -37,4 +43,4 @@ parallel source of truth.
   Human-readable product overview, high-level architecture, and local setup.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
-  Current analytical observations from the live dataset.
+  Local-only, gitignored analytical trust record for promoted findings from the live dataset.
