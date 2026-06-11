@@ -16,6 +16,8 @@ Named techniques the analyst applies, separate from *what* is being investigated
 | Period comparison | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Missingness pattern | validated | `2026-05-26-multi-baseline-recharacterization` |
 | Distribution shape | validated | `2026-05-26-multi-baseline-recharacterization` |
+| Loading-stability comparison | validated | `2026-06-11-multi-axis-loading-stability` |
+| Normalization window sweep | validated | `2026-06-11-recovery-normalization-baseline` |
 | Day-type clustering ⚠ | candidate | — |
 | Trigger search | candidate | — (reset 2026-05-26; awaiting a trusted run) |
 | Single-point context | candidate | — (reset 2026-05-26; awaiting a trusted run) |
@@ -93,6 +95,24 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Method:** `numpy.histogram`, `scipy.stats.skew`, `scipy.stats.gaussian_kde`. For a **modality** call, triangulate three diagnostics — never trust one: bimodality coefficient (Sarle's; >0.555 leans bimodal), 1- vs 2-component Gaussian mixture by **BIC** (hand-rolled 1D EM — no library has it; sklearn not installed; read ΔBIC as 0–2 negligible / 2–6 positive / 6–10 strong), and the KDE by eye. A two-Gaussian fit will *always* return two components — check the KDE is genuinely two-peaked, not one peak with a shoulder.
 - **Caveats:** small per-group n makes modality unreliable; don't over-read a second bump from 8 points. **Apparent bimodality is often a regime mixture, not intrinsic** — before claiming bimodality, re-test on residuals from a long rolling median and/or within a single stable regime; if the bumps vanish, they were the pooled mixture of the series' regimes (the HRV-bimodality run found exactly this: BC 0.44, BIC tie, unimodal-with-shoulder KDE).
 - **Validation:** look at the histogram/KDE — modality claims must be visible as separated peaks, not just a statistic; confirm any verdict is robust to a simple alternative (e.g. a median split reproducing a mode contrast).
+
+## Loading-stability comparison
+- **Status:** validated (`2026-06-11-multi-axis-loading-stability`)
+- **Question shape:** Is a multi-metric correlation/loading structure stable across time windows (regimes, seasons), or does scoring need to be window-aware?
+- **Inputs:** daily metrics for one axis, two or more pre-registered window schemes.
+- **Outputs:** per-window PC1 loadings + variance share; Tucker congruence per window pair with bootstrap CI; decisive pairwise-shift list.
+- **Method:** per window, rank-standardize complete-case rows and take PC1 of the Spearman matrix (sign-align on a chosen metric); Tucker congruence `φ = a·b / (|a||b|)` between window pairs; moving-block bootstrap (≈7-day blocks, both windows independently) for congruence and pairwise-r CIs. Pair with a pairwise sweep flagging |Δr| ≥ 0.30 with disjoint CIs.
+- **Caveats:** within-window range restriction attenuates |r| without implying structural change — pre-register that attenuation alone is non-disqualifying, and lean the verdict on congruence + sign pattern. Count decisive shifts as **distinct metric pairs**, not comparison events. Small severe-regime windows (n < 30) give wide CIs; corroborate with a calendar scheme covering the same period. Complete-case windows silently drop the worst missing-cluster days — profile the overlap first.
+- **Validation:** loading bars per window plotted side-by-side must look near-identical for a "stable" verdict; heatmaps must keep block structure visibly.
+
+## Normalization window sweep
+- **Status:** validated (`2026-06-11-recovery-normalization-baseline`)
+- **Question shape:** Which baseline (absolute, expanding, trailing-W) should normalize a score, and what missing-data rule keeps it valid?
+- **Inputs:** daily metrics for the score's inputs; pre-registered candidate baselines; pre-registered selection criteria anchored on *confirmed* events (regime fidelity, acute sensitivity, stable-period noise floor, coverage cost) in priority order.
+- **Outputs:** per-candidate criteria table; winner (or honest no-winner); leave-one-metric-out robustness; per-day input-count distribution + low-input bias check for the missing-data rule.
+- **Method:** per-metric robust z (median/MAD×1.4826, current day excluded) under each candidate; equal-weight signed probe composite (declare it is a probe, not the final weights); evaluate registered criteria; LOMO ×k to confirm the choice isn't driven by one input.
+- **Caveats:** **include a hindsight absolute reference** — if a criterion fails the reference too, it measures the composite, not the baselines, and cannot rank candidates (this run's acute criterion did exactly that; demotion is a post-hoc amendment that caps the selection at provisional). Event-anchored criteria are in-sample design choices, not validation — say so and hand validation to a separate run. Trailing windows recenter on sustained regimes by ~window/2 — check the post-regime overshoot too, not just in-regime fidelity.
+- **Validation:** regime-zoom overlay of all candidates (adaptation must be visible by eye); spot-check composite values by independent recomputation, including one surprising day traced back to raw values.
 
 ## Day-type clustering ⚠
 - **Status:** candidate
