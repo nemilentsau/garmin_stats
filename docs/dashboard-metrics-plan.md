@@ -13,8 +13,9 @@ layout idea backlog), and `docs/dashboard-drilldown-spec.md` (the R8 drill-down 
 
 **Done:** R1 (weights), R2 (meaningful change), R3 (normalization), R4 (axis stability),
 R5 (smoothing), R6 (construct-validity gate — passed), R7 (one card, sleep is an input),
-R8 (drill-down spec), R9 (two flags). **Remaining:** R10 (experiment response, post-build
-follow-up) and the open state-banner scope decision (needs agenda Q4.1).
+R8 (drill-down spec), R9 (two flags), R10 (experiment response — verdict: blocked on data,
+must not surface). **Remaining:** the open state-banner scope decision (needs agenda Q4.1) —
+the only non-build item left. The analyst program is otherwise complete; next is the build.
 
 ## The refactor goal (as stated)
 
@@ -69,6 +70,7 @@ supports today and is a far more honest dashboard than the current scaffold.
 | R7 — sleep: 2nd score? | confident | No — one axis, sleep is an input (R² 0.47, independent part is noise); REM = drill-down detail; one card + two flags | `2026-06-11-sleep-second-score-or-axis` |
 | R9 — flag definitions | confident | O₂: spo2_avg < ~90.5% (personal); missing = "unknown"; thermo: skin-temp outside ±~0.9°C; resolved Apr-21→27 episode | `2026-06-11-spo2-skintemp-flag-thresholds` |
 | R8 — drill-down tab spec | done (design) | One recovery drill-down + evidence stack replaces the 4 metric tabs; flags + sleep sub-section specced | `docs/dashboard-drilldown-spec.md` |
+| R10 — experiment response | confident (data-gap) | Blocked on data — only 5 exposure days in 1 block; not claimable; HRV-shared-input tautology; dashboard must not surface it | `2026-06-11-experiment-response-detectability` |
 
 ## Run plan — questions to answer before refactoring
 
@@ -190,13 +192,19 @@ waits for a later phase. Don't let it ship unbacked either way.
 
 ### Queued behind R6 — experiment response (post-score follow-up)
 
-- **R10 · Does the validated recovery score detect experiment-exposure effects?**
-  The refactor goal names "response to experiments"; exposures already exist as
-  `experiment_id + date` records, but the question is only answerable against a validated score.
-  Once R6 passes: does the score move on exposure days (e.g. the meditation routine) vs
-  non-exposure days, with exposure defined by dose satisfaction across all linked cards per date?
-  → *Produces: whether the dashboard can honestly claim experiment response, and the effect size
-  if so.*
+- **R10 · Does the validated recovery score detect experiment-exposure effects?** ✅ **Done —
+  BLOCKED ON DATA** (`2026-06-11-experiment-response-detectability`, confident data-gap verdict):
+  **no — not claimable from current data.** The only experiment (`meditation-hrv-2026-03`) has
+  just **5 logged exposure days in one consecutive block** (2026-05-23→05-27, 3 full + 2
+  partial; 9 card logs) — the spec's 14-day March design is a draft placeholder. 5 consecutive
+  days < one Δ7 window, no across-time exposure contrast, and the score shares its HRV input
+  with the experiment's target (tautology). The dashboard must **not** surface an
+  experiment-response number for this experiment. Descriptive caution: the recovery bump
+  *predates* the block (reverse-causation trap). **A claimable attempt needs:** sustained logged
+  exposures (≥~2 wk), ≥2 separated blocks or a baseline-vs-treatment contrast, and an
+  HRV-excluded recovery proxy. The causal HRV question stays with the experiment's own
+  `compute_experiment_analysis` pipeline.
+  → *Produced: the honest verdict (blocked on data) + the requirements to unblock.*
 
 ### Out of scope until activity ingest exists
 

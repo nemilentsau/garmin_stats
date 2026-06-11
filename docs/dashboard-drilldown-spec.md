@@ -160,5 +160,9 @@ flags, and evidence stack are computed.
   display question.
 - **Any load / strain / training-response card** — no activity data in the mart
   (`docs/ACTIVITY_ANALYTICS_DESIGN.md`); no fake progress axis.
-- **Experiment-response surfacing** — pending R10 (does the validated score detect
-  meditation-exposure effects?).
+- **Experiment-response surfacing** — **excluded** (R10 verdict, run
+  `2026-06-11-experiment-response-detectability`): blocked on data — only 5 logged exposure days
+  in one block, below the score's noise floor, and the score shares its HRV input with the
+  experiment's target. The dashboard must **not** show an experiment-response number for the
+  meditation experiment. Revisit only when sustained exposures exist; the causal HRV question
+  stays in the experiment's own analysis pipeline, not the recovery card.
