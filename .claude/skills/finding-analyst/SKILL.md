@@ -88,4 +88,4 @@ Conflict between a rebuilt section and a standing takeaway is itself a finding t
 
 ## Friction
 
-Log concrete pain points to `docs/superpowers/plans/2026-05-21-finding-analyst-friction.md` as you hit them. Phase 2 planning starts from that log, not from speculation.
+Log concrete pain points to a dated friction note under `docs/superpowers/plans/` as you hit them, so future planning starts from real use rather than speculation.

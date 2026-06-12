@@ -192,7 +192,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     },
     "backend/app/domains/garmin_analytics/domain/dashboard.py": {
         GARMIN_HEALTH_CONTRACTS,
-        "app.domains.garmin_health.domain.daily_metrics",
+    },
+    "backend/app/domains/garmin_analytics/domain/recovery_score/evidence.py": {
+        GARMIN_HEALTH_CONTRACTS,
     },
     "backend/app/domains/garmin_analytics/domain/insights/heart_rate.py": {
         GARMIN_HEALTH_CONTRACTS,

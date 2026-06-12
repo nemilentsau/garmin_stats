@@ -1,40 +1,37 @@
 # Documentation Index
 
-This directory contains current project documentation only. Historical
-implementation plans and stale design notes are intentionally not kept as a
-parallel source of truth.
+Current project documentation only. Completed implementation plans and superseded design notes are
+not kept as a parallel source of truth (git history retains them).
 
 ## Read First
 
-- [ARCHITECTURE.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ARCHITECTURE.md)
-  Current backend/frontend structure, ownership boundaries, route inventory, and domain rules.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — backend/frontend structure, ownership boundaries, route
+  inventory, and domain rules.
+- [recovery-dashboard.md](recovery-dashboard.md) — the recovery score, health flags, regime
+  detection, and the dashboard overview: what they are, why, and where they are computed.
 
-- [ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
-  Current assistant-authored routine bundle JSON contract.
+## Specs & Domain Direction
 
-## Domain Direction
+- [ROUTINE_ARTIFACT_BUNDLE_SPEC.md](ROUTINE_ARTIFACT_BUNDLE_SPEC.md) — assistant-authored routine
+  bundle JSON contract.
+- [ACTIVITY_ANALYTICS_DESIGN.md](ACTIVITY_ANALYTICS_DESIGN.md) — future Garmin activity/session
+  marts and the experiment-day joins that would unlock a load/progress axis.
 
-- [ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
-  Future Garmin activity/session marts, analyst-agent direction, and experiment-day joins.
+## Analyst Method
 
-## Active Working Plans
+- [analytics-approach.md](analytics-approach.md) — why AI-assisted analysis of this dataset is
+  structured the way it is, the failure modes it guards against, and how the `finding-analyst`
+  skill enforces the discipline. (The promoted evidence itself lives in the local-only
+  `FINDINGS.md`.)
 
-- [Frontend metrics refactor clean slate](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-frontend-metrics-refactor-clean-slate.md)
-  Current next-step plan for analytics-agent review of heavy metric pages.
+## Data & Bundle Examples
 
-- [Insight analyst phase 1](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-insight-analyst-phase-1.md)
-  Manual analyst workflow, report artifacts, quality gates, and `FINDINGS.md` update policy before headless scans.
-
-## Data And Bundle Examples
-
-- [meditation_hrv_experiment.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/meditation_hrv_experiment.json)
-- [two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
-- [two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
+- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
+- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
+- [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
 
 ## Root Docs
 
-- [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
-  Human-readable product overview, high-level architecture, and local setup.
-
-- [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
-  Current analytical observations from the live dataset.
+- [../README.md](../README.md) — product overview, high-level architecture, and local setup.
+- `FINDINGS.md` (repo root, local-only / gitignored) — analytical trust record for promoted
+  findings from the live dataset.

@@ -44,7 +44,7 @@
 
 ## Skills
 
-Five skills support this project. Each owns specific code layers:
+Six skills support this project. Each owns specific code layers:
 
 ### `garmin-data` — FIT parsing layer
 **Owns:** `backend/app/domains/garmin_health/infra/fit_parser/`, the `backend/app/parser.py` compatibility facade, FIT field names/types/filters, SDK quirks
@@ -59,6 +59,12 @@ Five skills support this project. Each owns specific code layers:
 - Skill docs: `.claude/skills/data-analysis/SKILL.md`
 - Pipeline traces go to `.claude/chart-inspections/<metric>-<context>/`. Never overwrite previous trace directories.
 
+### `finding-analyst` — health-data investigation workflow
+**Owns:** Question-led, exploratory, and scout analysis runs over the Garmin dataset; `FINDINGS.md` evidence and update policy
+**Trigger:** investigating a question about the dataset, reviewing a metric area, running a scout pass for candidate signals, or proposing a `FINDINGS.md` update
+- Skill docs: `.claude/skills/finding-analyst/SKILL.md` — run types, confidence tiers, recipes (`RECIPES.md`), and report templates
+- Findings land in `FINDINGS.md`; chart inspections reuse the `data-analysis` trace convention under `.claude/chart-inspections/`
+
 ### `analytical-dashboard` — dashboard design system
 **Owns:** Information hierarchy, chart selection, data visualization best practices, number formatting, interaction patterns
 **Trigger:** designing or modifying any dashboard layout, choosing chart types, formatting numbers/stats, evaluating data density or readability
@@ -69,7 +75,7 @@ Five skills support this project. Each owns specific code layers:
 **Owns:** Frontend UX aesthetics, visual styling, project-specific dashboard rules
 **Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
-- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces. Includes the **"Cards Are a Last Resort" forcing rule** — apply it before any card/grid layout; the per-metric detail tabs are exempt.
 - Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools
 
 ### `testing` — test discipline

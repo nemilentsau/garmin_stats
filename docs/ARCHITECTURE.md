@@ -144,9 +144,10 @@ Current contents:
   resolution, read-model interaction, evidence assembly, retrieval, and chat
   orchestration, `domain/` owns pure assistant evidence payload policy,
   `dependencies.py` owns conversation/read-model/runtime dependencies,
-  `adapters.py` owns assistant SQLite persistence and explicit read-model
-  wiring, `runtime.py` owns Claude Code subprocess execution, and `contracts.py`
-  owns assistant API and persistence shapes.
+  `adapters.py` owns assistant SQLite persistence, `read_gateway.py` owns the
+  cross-domain read-model wiring for evidence assembly, `runtime.py` owns Claude
+  Code subprocess execution, and `contracts.py` owns assistant API and
+  persistence shapes.
 
 - `domains/routines/`
   Routine catalog, schedule projection, activation, and Today execution. This
@@ -215,7 +216,7 @@ Current contents:
   check-in caching.
 
 - `core/profile/`
-  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. The route uses the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `infra/` owns the SQLite adapter.
+  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. `api.py` owns the route using the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `adapters.py` owns the SQLite adapter.
 
 - `domains/programs/`
   Secondary backend domain for program spec import and management. This domain
@@ -507,7 +508,8 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - Domain routes mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, full daily metrics, metric-scoped daily summaries, canonical metric raw reads, heart-rate and HRV insights, and analysis endpoints for heart rate, HRV, sleep, stress, and body battery.
 - New Garmin analytics code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
-- `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, `domain/dashboard.py` owns dashboard readiness/vitals/sparkline/correlation calculations, and `domain/primitives/` owns generic numeric/window helpers.
+- `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, and `domain/primitives/` owns generic numeric/window helpers.
+- `domain/recovery_score/` owns the validated single-axis recovery score and the two health flags: `normalization` (expanding robust-z), `weighting` (correlation-deflated, recovery-signed), `smoothing` (seeded MA7), `thresholds` (meaningful-change/band/trend), `flags` (oxygen/thermoregulation + structural gaps), `regimes` (data-driven low/elevated detection), and `evidence` (per-day driver assembly). Each module is pure and unit-tested. `domain/dashboard.py` maps these onto the `DashboardOverviewResponse` (state, trajectory, evidence, driver series, flags, regimes; correlations retained for the HRV tab). See `docs/recovery-dashboard.md`.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend

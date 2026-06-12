@@ -14,7 +14,6 @@ export const COLORS = {
 	skinTemp: '#C9933A',
 	skinTemp7Day: '#e0b35e',
 	baseline: '#5e7282',
-	zoneRest: '#4A6FA5',
 } as const;
 
 /** Append hex alpha to a color string. */

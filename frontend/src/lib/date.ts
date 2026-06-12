@@ -32,3 +32,23 @@ export function elapsedDaysInWindow(
 ): number {
 	return Math.max(0, Math.min(calendarDayDiff(startIsoDate, currentIsoDate) + 1, plannedDays));
 }
+
+// Shared display formatters (Intl instances created once, not per render).
+const _fullDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const _dayMonth = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const _weekdayDayMonth = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+/** "Jun 5, 2026" */
+export function fmtFullDate(date: Date): string {
+	return _fullDate.format(date);
+}
+
+/** "Jun 5" */
+export function fmtDayMonth(date: Date): string {
+	return _dayMonth.format(date);
+}
+
+/** "Thu, Jun 5" */
+export function fmtWeekdayDayMonth(date: Date): string {
+	return _weekdayDayMonth.format(date);
+}

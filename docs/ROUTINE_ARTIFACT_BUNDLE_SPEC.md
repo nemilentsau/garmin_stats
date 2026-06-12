@@ -180,5 +180,5 @@ debugging or one-off flows, but that is not the canonical path.
 
 ## Checked-In Examples
 
-- [docs/two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
-- [docs/two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
+- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
+- [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)

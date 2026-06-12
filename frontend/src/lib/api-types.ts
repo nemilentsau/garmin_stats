@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * Get Dashboard Overview
-         * @description Return readiness score and cross-domain correlations.
+         * @description Return the recovery overview: state, score trajectory, evidence, and health flags.
          */
         get: operations["get_dashboard_overview_api_dashboard_get"];
         put?: never;
@@ -1658,10 +1658,7 @@ export interface components {
              */
             weekly_boxplots: components["schemas"]["WeeklyBodyBatteryBox"][];
         };
-        /**
-         * BodyBatteryDailyPoint
-         * @description Body Battery daily metric row for metric-scoped endpoints.
-         */
+        /** BodyBatteryDailyPoint */
         BodyBatteryDailyPoint: {
             /** Date */
             date: string;
@@ -1669,10 +1666,7 @@ export interface components {
             utc_offset_hours: number | null;
             body_battery: components["schemas"]["DailyBodyBatteryStats"];
         };
-        /**
-         * BodyBatteryDailyResponse
-         * @description Daily Body Battery metrics plus Body Battery period summaries.
-         */
+        /** BodyBatteryDailyResponse */
         BodyBatteryDailyResponse: {
             /** Days */
             days: string[];
@@ -1919,7 +1913,7 @@ export interface components {
         };
         /**
          * CorrelationPoint
-         * @description One point in a dashboard metric correlation scatterplot.
+         * @description One point in a nightly-HRV-vs-other-metric scatter (consumed by the HRV tab).
          */
         CorrelationPoint: {
             /** Date */
@@ -2173,14 +2167,54 @@ export interface components {
         };
         /**
          * DashboardOverviewResponse
-         * @description Latest dashboard overview response.
+         * @description Latest recovery dashboard overview.
+         *
+         *     `correlations` is not rendered on the overview itself; it is retained for the HRV
+         *     detail tab, which reads it from this endpoint.
          */
         DashboardOverviewResponse: {
             /** Date */
             date: string;
-            readiness: components["schemas"]["ReadinessScore"] | null;
-            vitals: components["schemas"]["TodayVitals"] | null;
-            sparklines: components["schemas"]["DashboardSparklines"] | null;
+            /** @default {} */
+            state: components["schemas"]["RecoveryState"];
+            /**
+             * Score
+             * @default []
+             */
+            score: components["schemas"]["RecoveryScorePoint"][];
+            /**
+             * @default {
+             *       "is_meaningful": false,
+             *       "comparison_label": "vs prior week",
+             *       "is_acute": false
+             *     }
+             */
+            change: components["schemas"]["MeaningfulChange"];
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: components["schemas"]["EvidenceRow"][];
+            /**
+             * Driver Series
+             * @default []
+             */
+            driver_series: components["schemas"]["DriverSeries"][];
+            /**
+             * Flags
+             * @default []
+             */
+            flags: components["schemas"]["HealthFlag"][];
+            /**
+             * Spo2 Gaps
+             * @default []
+             */
+            spo2_gaps: components["schemas"]["StructuralGap"][];
+            /**
+             * Events
+             * @default []
+             */
+            events: components["schemas"]["TrajectoryEvent"][];
             /**
              * Correlations
              * @default []
@@ -2188,38 +2222,82 @@ export interface components {
             correlations: components["schemas"]["MetricCorrelation"][];
         };
         /**
-         * DashboardSparklines
-         * @description All dashboard sparkline series.
+         * DriverSeries
+         * @description Per-metric value/baseline/Δz over the trajectory window (for hover-brushing).
+         *
+         *     Aligned index-for-index with `score`; the frontend joins these with the latest-day
+         *     `evidence` metadata to rebuild 'what moved it' for any hovered day.
          */
-        DashboardSparklines: {
+        DriverSeries: {
+            /** Metric */
+            metric: string;
             /**
-             * @default {
-             *       "points": [],
-             *       "summary": {}
-             *     }
+             * Values
+             * @default []
              */
-            resting_hr: components["schemas"]["SparklineSeries"];
+            values: (number | null)[];
             /**
-             * @default {
-             *       "points": [],
-             *       "summary": {}
-             *     }
+             * Baselines
+             * @default []
              */
-            nightly_hrv: components["schemas"]["SparklineSeries"];
+            baselines: (number | null)[];
             /**
-             * @default {
-             *       "points": [],
-             *       "summary": {}
-             *     }
+             * Deltas Z
+             * @default []
              */
-            sleep_score: components["schemas"]["SparklineSeries"];
+            deltas_z: (number | null)[];
             /**
-             * @default {
-             *       "points": [],
-             *       "summary": {}
-             *     }
+             * Recovery Good
+             * @default []
              */
-            stress_avg: components["schemas"]["SparklineSeries"];
+            recovery_good: (boolean | null)[];
+        };
+        /**
+         * EvidenceRow
+         * @description One recovery input's contribution to today's score, linking to its detail tab.
+         */
+        EvidenceRow: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /** Tab Href */
+            tab_href: string;
+            /**
+             * Source Type
+             * @enum {string}
+             */
+            source_type: "native" | "device" | "derived";
+            /** Latest Value */
+            latest_value: number | null;
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Baseline */
+            baseline: number | null;
+            /** Delta Z */
+            delta_z: number | null;
+            /** Delta Raw */
+            delta_raw: number | null;
+            /** Recovery Good */
+            recovery_good: boolean | null;
+            /**
+             * Coverage Ok
+             * @default true
+             */
+            coverage_ok: boolean;
+            /**
+             * Degraded
+             * @default false
+             */
+            degraded: boolean;
+            /**
+             * Sparkline
+             * @default []
+             */
+            sparkline: components["schemas"]["SparkPoint"][];
         };
         /** Experiment */
         "Experiment-Input": {
@@ -2572,6 +2650,39 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HealthFlag
+         * @description A point-in-time health flag (oxygen / thermoregulation) with an 'unknown' state.
+         */
+        HealthFlag: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "oxygen" | "thermoregulation";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "clear" | "flag" | "unknown";
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
+            /** Threshold High */
+            threshold_high: number | null;
+            /** Direction */
+            direction: string | null;
+            /**
+             * Recent
+             * @default false
+             */
+            recent: boolean;
+            /** Tab Href */
+            tab_href: string;
+        };
+        /**
          * HeartRateAnalysisResponse
          * @description Heart-rate chart and distribution analysis response.
          */
@@ -2604,10 +2715,7 @@ export interface components {
                 [key: string]: components["schemas"]["HRPatternWindow"];
             };
         };
-        /**
-         * HeartRateDailyPoint
-         * @description Heart-rate daily metric row for metric-scoped endpoints.
-         */
+        /** HeartRateDailyPoint */
         HeartRateDailyPoint: {
             /** Date */
             date: string;
@@ -2615,10 +2723,7 @@ export interface components {
             utc_offset_hours: number | null;
             heart_rate: components["schemas"]["DailyHeartRateStats"];
         };
-        /**
-         * HeartRateDailyResponse
-         * @description Daily heart-rate metrics plus heart-rate period summaries.
-         */
+        /** HeartRateDailyResponse */
         HeartRateDailyResponse: {
             /** Days */
             days: string[];
@@ -2750,10 +2855,7 @@ export interface components {
             /** Five Min High */
             five_min_high: number | null;
         };
-        /**
-         * HrvDailyPoint
-         * @description HRV daily metric row for metric-scoped endpoints.
-         */
+        /** HrvDailyPoint */
         HrvDailyPoint: {
             /** Date */
             date: string;
@@ -2761,10 +2863,7 @@ export interface components {
             utc_offset_hours: number | null;
             hrv: components["schemas"]["DailyHrvStats"];
         };
-        /**
-         * HrvDailyResponse
-         * @description Daily HRV metrics plus HRV period summaries.
-         */
+        /** HrvDailyResponse */
         HrvDailyResponse: {
             /** Days */
             days: string[];
@@ -3081,6 +3180,33 @@ export interface components {
             /** Days On Disk */
             days_on_disk: number;
         };
+        /**
+         * MeaningfulChange
+         * @description Sustained (Δ7) and acute (Δ1) change of the score against the R2 thresholds.
+         */
+        MeaningfulChange: {
+            /** Delta7 Z */
+            delta7_z: number | null;
+            /**
+             * Is Meaningful
+             * @default false
+             */
+            is_meaningful: boolean;
+            /** Direction */
+            direction: ("improving" | "steady" | "declining") | null;
+            /**
+             * Comparison Label
+             * @default vs prior week
+             */
+            comparison_label: string;
+            /** Delta1 Z */
+            delta1_z: number | null;
+            /**
+             * Is Acute
+             * @default false
+             */
+            is_acute: boolean;
+        };
         /** MetricAnalysis */
         MetricAnalysis: {
             /** Path */
@@ -3098,7 +3224,7 @@ export interface components {
         };
         /**
          * MetricCorrelation
-         * @description Correlation series between nightly HRV and another dashboard metric.
+         * @description Correlation series between nightly HRV and another metric (HRV tab scatter).
          */
         MetricCorrelation: {
             /** Metric */
@@ -3479,33 +3605,34 @@ export interface components {
             programs: components["schemas"]["Program"][];
         };
         /**
-         * ReadinessScore
-         * @description Composite recovery readiness score and component explanations.
+         * RecoveryScorePoint
+         * @description One day of the recovery trajectory: raw score, seeded MA7, and typical band.
          */
-        ReadinessScore: {
-            /** Score */
-            score: number | null;
-            /**
-             * Components
-             * @default {}
-             */
-            components: {
-                [key: string]: number;
-            };
-            /**
-             * Component Hints
-             * @default {}
-             */
-            component_hints: {
-                [key: string]: string;
-            };
-            /** Label */
-            label: string | null;
+        RecoveryScorePoint: {
+            /** Date */
+            date: string;
+            /** Raw */
+            raw: number | null;
+            /** Ma7 */
+            ma7: number | null;
+            /** Baseline Lo */
+            baseline_lo: number;
+            /** Baseline Hi */
+            baseline_hi: number;
         };
         /**
-         * RespirationDailyPoint
-         * @description Respiration daily metric row for metric-scoped endpoints.
+         * RecoveryState
+         * @description The 'state before score' label: a continuum band x trend (Q4.1), not an archetype.
          */
+        RecoveryState: {
+            /** Band */
+            band: ("suppressed" | "typical" | "strong") | null;
+            /** Trend */
+            trend: ("improving" | "steady" | "declining") | null;
+            /** Score Z */
+            score_z: number | null;
+        };
+        /** RespirationDailyPoint */
         RespirationDailyPoint: {
             /** Date */
             date: string;
@@ -3513,10 +3640,7 @@ export interface components {
             utc_offset_hours: number | null;
             respiration: components["schemas"]["DailyMetricStats"];
         };
-        /**
-         * RespirationDailyResponse
-         * @description Daily respiration metrics plus respiration period summaries.
-         */
+        /** RespirationDailyResponse */
         RespirationDailyResponse: {
             /** Days */
             days: string[];
@@ -3818,10 +3942,7 @@ export interface components {
              */
             days: components["schemas"]["ScheduleDay"][];
         };
-        /**
-         * SkinTempDailyPoint
-         * @description Skin-temperature daily metric row for metric-scoped endpoints.
-         */
+        /** SkinTempDailyPoint */
         SkinTempDailyPoint: {
             /** Date */
             date: string;
@@ -3829,10 +3950,7 @@ export interface components {
             utc_offset_hours: number | null;
             skin_temp: components["schemas"]["DailySkinTempStats"];
         };
-        /**
-         * SkinTempDailyResponse
-         * @description Daily skin-temperature metrics plus skin-temperature period summaries.
-         */
+        /** SkinTempDailyResponse */
         SkinTempDailyResponse: {
             /** Days */
             days: string[];
@@ -3912,10 +4030,7 @@ export interface components {
             /** Average Stress */
             average_stress: number | null;
         };
-        /**
-         * SleepDailyPoint
-         * @description Sleep daily metric row for metric-scoped endpoints.
-         */
+        /** SleepDailyPoint */
         SleepDailyPoint: {
             /** Date */
             date: string;
@@ -3923,10 +4038,7 @@ export interface components {
             utc_offset_hours: number | null;
             sleep: components["schemas"]["DailySleepStats"];
         };
-        /**
-         * SleepDailyResponse
-         * @description Daily sleep metrics plus sleep period summaries.
-         */
+        /** SleepDailyResponse */
         SleepDailyResponse: {
             /** Days */
             days: string[];
@@ -3997,10 +4109,7 @@ export interface components {
              */
             sample_count: number;
         };
-        /**
-         * SpO2DailyPoint
-         * @description Pulse-ox daily metric row for metric-scoped endpoints.
-         */
+        /** SpO2DailyPoint */
         SpO2DailyPoint: {
             /** Date */
             date: string;
@@ -4008,10 +4117,7 @@ export interface components {
             utc_offset_hours: number | null;
             spo2: components["schemas"]["DailyMetricStats"];
         };
-        /**
-         * SpO2DailyResponse
-         * @description Daily pulse-ox metrics plus pulse-ox period summaries.
-         */
+        /** SpO2DailyResponse */
         SpO2DailyResponse: {
             /** Days */
             days: string[];
@@ -4050,41 +4156,14 @@ export interface components {
             mode: string;
         };
         /**
-         * SparklinePoint
-         * @description One dated sparkline point with raw value and moving average.
+         * SparkPoint
+         * @description One dated point in an inline evidence sparkline (raw metric value).
          */
-        SparklinePoint: {
+        SparkPoint: {
             /** Date */
             date: string;
             /** Value */
             value: number | null;
-            /** Ma7 */
-            ma7: number | null;
-        };
-        /**
-         * SparklineSeries
-         * @description Dashboard sparkline points and summary stats for one metric.
-         */
-        SparklineSeries: {
-            /**
-             * Points
-             * @default []
-             */
-            points: components["schemas"]["SparklinePoint"][];
-            /** @default {} */
-            summary: components["schemas"]["SparklineSummary"];
-        };
-        /**
-         * SparklineSummary
-         * @description Summary stats for one dashboard sparkline series.
-         */
-        SparklineSummary: {
-            /** Avg */
-            avg: number | null;
-            /** Min */
-            min: number | null;
-            /** Max */
-            max: number | null;
         };
         /**
          * StressAnalysisResponse
@@ -4102,10 +4181,7 @@ export interface components {
              */
             weekly_boxplots: components["schemas"]["WeeklyStressBox"][];
         };
-        /**
-         * StressDailyPoint
-         * @description Stress daily metric row for metric-scoped endpoints.
-         */
+        /** StressDailyPoint */
         StressDailyPoint: {
             /** Date */
             date: string;
@@ -4113,10 +4189,7 @@ export interface components {
             utc_offset_hours: number | null;
             stress: components["schemas"]["DailyMetricStats"];
         };
-        /**
-         * StressDailyResponse
-         * @description Daily stress metrics plus stress period summaries.
-         */
+        /** StressDailyResponse */
         StressDailyResponse: {
             /** Days */
             days: string[];
@@ -4161,6 +4234,16 @@ export interface components {
             avg: number | null;
             /** Ma7 */
             ma7: number | null;
+        };
+        /**
+         * StructuralGap
+         * @description A contiguous SpO2 coverage gap, rendered as an explicit 'no data' span.
+         */
+        StructuralGap: {
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
         };
         /** SyncResult */
         SyncResult: {
@@ -4363,24 +4446,21 @@ export interface components {
             pending: number;
         };
         /**
-         * TodayVitals
-         * @description Latest selected-day vitals shown in the recovery dashboard.
+         * TrajectoryEvent
+         * @description A sustained recovery regime detected from the score (low / elevated), for annotation.
          */
-        TodayVitals: {
-            /** Resting Hr */
-            resting_hr: number | null;
-            /** Resting Hr Delta 7D */
-            resting_hr_delta_7d: number | null;
-            /** Nightly Hrv */
-            nightly_hrv: number | null;
-            /** Nightly Hrv Delta 7D */
-            nightly_hrv_delta_7d: number | null;
-            /** Hrv Status */
-            hrv_status: string | null;
-            /** Sleep Score */
-            sleep_score: number | null;
-            /** Stress Avg */
-            stress_avg: number | null;
+        TrajectoryEvent: {
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "low" | "elevated";
+            /** Label */
+            label: string;
         };
         /** UserProfile */
         "UserProfile-Input": {
