@@ -74,7 +74,7 @@ pulse_ox_router = APIRouter(prefix="/api/pulse-ox", tags=["pulse-ox"])
 
 @dashboard_router.get("", response_model=DashboardOverviewResponse)
 def get_dashboard_overview(repo: BiometricsRepo):
-    """Return readiness score and cross-domain correlations."""
+    """Return the recovery overview: state, score trajectory, evidence, and health flags."""
     return load_dashboard_overview(repo)
 
 

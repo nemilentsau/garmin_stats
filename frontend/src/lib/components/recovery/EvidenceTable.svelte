@@ -21,8 +21,10 @@
 
 	const driverByMetric = $derived(new Map(driverSeries.map((d) => [d.metric, d])));
 	const hoverIndex = $derived(hoveredDate ? dates.indexOf(hoveredDate) : -1);
+	// Count z-score inputs (not raw values) to match the backend's `degraded` rule:
+	// a warm-up day can have a raw reading but no computable z yet.
 	const presentAtHover = $derived(
-		hoverIndex < 0 ? 7 : driverSeries.filter((d) => d.values[hoverIndex] != null).length
+		hoverIndex < 0 ? 7 : driverSeries.filter((d) => d.deltas_z[hoverIndex] != null).length
 	);
 
 	const absDelta = (z: number | null) => (z == null ? -1 : Math.abs(z));

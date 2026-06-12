@@ -39,6 +39,7 @@
 		]);
 		data = nextData;
 		overview = nextOverview;
+		hoveredDate = null; // drop any brushed day when the data reloads (SSE/sync)
 		emptyState = null;
 	}
 

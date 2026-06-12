@@ -146,6 +146,22 @@ class TestRecoveryOverview:
         assert deltas == sorted(deltas, reverse=True)
         assert result.evidence[0].metric == "hrv_nightly_avg"
 
+    def test_full_response_is_well_formed_with_aligned_driver_series(self):
+        _seed_baseline(50)
+        result = load_dashboard_overview()
+        assert result.change is not None
+        assert {f.kind for f in result.flags} == {"oxygen", "thermoregulation"}
+        assert len(result.driver_series) == 7
+        # every driver series aligns index-for-index with the score window
+        assert all(len(d.deltas_z) == len(result.score) for d in result.driver_series)
+        assert isinstance(result.events, list) and isinstance(result.correlations, list)
+
+    def test_warmup_dataset_yields_empty_state_not_a_crash(self):
+        _seed_baseline(20)  # below the 30-day warm-up
+        result = load_dashboard_overview()
+        assert result.state.band is None and result.state.score_z is None
+        assert len(result.evidence) == 7  # rows present (raw values), just no z yet
+
     def test_oxygen_flag_unknown_when_latest_spo2_missing(self):
         _seed_baseline(39)
         latest = _make_metric("2026-02-09").model_copy(

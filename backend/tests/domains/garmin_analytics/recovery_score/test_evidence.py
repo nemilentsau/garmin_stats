@@ -59,6 +59,22 @@ def test_empty_metrics_returns_none():
     assert compute_recovery([]) is None
 
 
+def test_warmup_dataset_returns_all_none_scores_without_crashing():
+    # A non-empty series shorter than the 30-day warm-up: a fresh deployment hits
+    # this. Every score is None, but the structure must still be populated.
+    result = _compute(_baseline_series(20))
+    assert len(result.score_series) == 20
+    assert all(p.raw is None and p.ma7 is None for p in result.score_series)
+    assert result.score_z is None and result.delta7_z is None and result.delta1_z is None
+    assert [row.metric for row in result.evidence] == list(METRIC_GETTERS)
+    # raw values are present; baseline and z are not yet computable
+    hrv = next(r for r in result.evidence if r.metric == "hrv_nightly_avg")
+    assert hrv.latest_value == 53.0 and hrv.baseline is None and hrv.delta_z is None
+    # driver-series z is None across the whole warm-up window
+    for series in result.driver_series:
+        assert len(series.deltas_z) == 20 and all(z is None for z in series.deltas_z)
+
+
 def test_produces_seven_evidence_rows_for_the_seven_axis_metrics():
     result = compute_recovery(_baseline_series())
     assert result is not None

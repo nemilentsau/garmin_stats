@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * Get Dashboard Overview
-         * @description Return readiness score and cross-domain correlations.
+         * @description Return the recovery overview: state, score trajectory, evidence, and health flags.
          */
         get: operations["get_dashboard_overview_api_dashboard_get"];
         put?: never;
