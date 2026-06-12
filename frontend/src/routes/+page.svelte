@@ -21,6 +21,7 @@
 	let error: string | null = $state(null);
 	let syncing = $state(false);
 	let syncResult = $state<SyncResult | null>(null);
+	let hoveredDate = $state<string | null>(null);
 
 	const bannerDateFormat = new Intl.DateTimeFormat('en-US', {
 		month: 'short',
@@ -199,8 +200,18 @@
 
 	{#if overview}
 		<StateLine state={overview.state} date={overview.date} />
-		<RecoveryTrajectory score={overview.score} change={overview.change} events={overview.events} />
-		<EvidenceTable evidence={overview.evidence} />
+		<RecoveryTrajectory
+			score={overview.score}
+			change={overview.change}
+			events={overview.events}
+			onHoverDate={(d) => (hoveredDate = d)}
+		/>
+		<EvidenceTable
+			evidence={overview.evidence}
+			driverSeries={overview.driver_series}
+			dates={overview.score.map((p) => p.date)}
+			{hoveredDate}
+		/>
 		<FlagStrip flags={overview.flags} />
 	{/if}
 

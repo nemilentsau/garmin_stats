@@ -2196,6 +2196,11 @@ export interface components {
              */
             evidence: components["schemas"]["EvidenceRow"][];
             /**
+             * Driver Series
+             * @default []
+             */
+            driver_series: components["schemas"]["DriverSeries"][];
+            /**
              * Flags
              * @default []
              */
@@ -2215,6 +2220,37 @@ export interface components {
              * @default []
              */
             correlations: components["schemas"]["MetricCorrelation"][];
+        };
+        /**
+         * DriverSeries
+         * @description Per-metric value/baseline/Δz over the trajectory window (for hover-brushing).
+         *
+         *     Aligned index-for-index with `score`; the frontend joins these with the latest-day
+         *     `evidence` metadata to rebuild 'what moved it' for any hovered day.
+         */
+        DriverSeries: {
+            /** Metric */
+            metric: string;
+            /**
+             * Values
+             * @default []
+             */
+            values: (number | null)[];
+            /**
+             * Baselines
+             * @default []
+             */
+            baselines: (number | null)[];
+            /**
+             * Deltas Z
+             * @default []
+             */
+            deltas_z: (number | null)[];
+            /**
+             * Recovery Good
+             * @default []
+             */
+            recovery_good: (boolean | null)[];
         };
         /**
          * EvidenceRow

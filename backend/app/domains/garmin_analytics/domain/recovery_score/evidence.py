@@ -115,6 +115,21 @@ class EvidenceRowData:
 
 
 @dataclass(frozen=True, slots=True)
+class DriverSeriesData:
+    """Per-metric value/baseline/z over the display window, aligned to the score dates.
+
+    Powers trajectory hover-brushing: the frontend joins these with the latest-day
+    evidence metadata (label/unit/tab) to show 'what moved it' for any hovered day.
+    """
+
+    metric: str
+    values: list[float | None]
+    baselines: list[float | None]
+    deltas_z: list[float | None]
+    recovery_good: list[bool | None]
+
+
+@dataclass(frozen=True, slots=True)
 class RecoveryComputation:
     date: str
     score_z: float | None
@@ -122,6 +137,7 @@ class RecoveryComputation:
     delta1_z: float | None
     score_series: list[ScorePoint]
     evidence: list[EvidenceRowData]
+    driver_series: list[DriverSeriesData]
 
 
 def _delta1(raw_scores: list[float | None], index: int) -> float | None:
@@ -191,6 +207,20 @@ def compute_recovery(metrics: list[DailyMetric]) -> RecoveryComputation | None:
         for offset in range(len(display))
     ]
 
+    driver_series = [
+        DriverSeriesData(
+            metric=key,
+            values=series_by_metric[key][display_start:],
+            baselines=baseline_by_metric[key][display_start:],
+            deltas_z=z_by_metric[key][display_start:],
+            recovery_good=[
+                None if z is None else (RECOVERY_SIGNS[key] * z) > 0
+                for z in z_by_metric[key][display_start:]
+            ],
+        )
+        for key in METRIC_GETTERS
+    ]
+
     latest = n - 1
     spark_start = max(0, n - _SPARKLINE_DAYS)
     evidence = [
@@ -215,6 +245,7 @@ def compute_recovery(metrics: list[DailyMetric]) -> RecoveryComputation | None:
         delta1_z=_delta1(raw_scores, latest),
         score_series=score_series,
         evidence=evidence,
+        driver_series=driver_series,
     )
 
 

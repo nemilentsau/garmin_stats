@@ -72,6 +72,20 @@ class EvidenceRow(DefaultsRequired):
     sparkline: list[SparkPoint] = []
 
 
+class DriverSeries(DefaultsRequired):
+    """Per-metric value/baseline/Δz over the trajectory window (for hover-brushing).
+
+    Aligned index-for-index with `score`; the frontend joins these with the latest-day
+    `evidence` metadata to rebuild 'what moved it' for any hovered day.
+    """
+
+    metric: str
+    values: list[float | None] = []
+    baselines: list[float | None] = []
+    deltas_z: list[float | None] = []
+    recovery_good: list[bool | None] = []
+
+
 class HealthFlag(DefaultsRequired):
     """A point-in-time health flag (oxygen / thermoregulation) with an 'unknown' state."""
 
@@ -132,6 +146,7 @@ class DashboardOverviewResponse(DefaultsRequired):
     score: list[RecoveryScorePoint] = []
     change: MeaningfulChange = MeaningfulChange()
     evidence: list[EvidenceRow] = []
+    driver_series: list[DriverSeries] = []
     flags: list[HealthFlag] = []
     spo2_gaps: list[StructuralGap] = []
     events: list[TrajectoryEvent] = []

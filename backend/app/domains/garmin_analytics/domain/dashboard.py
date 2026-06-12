@@ -15,6 +15,7 @@ import numpy as np
 from app.domains.garmin_analytics.contracts import (
     CorrelationPoint,
     DashboardOverviewResponse,
+    DriverSeries,
     EvidenceRow,
     HealthFlag,
     MeaningfulChange,
@@ -81,6 +82,23 @@ def _score_series(computation: RecoveryComputation) -> list[RecoveryScorePoint]:
             baseline_hi=point.baseline_hi,
         )
         for point in computation.score_series
+    ]
+
+
+def _round_opt(value: float | None, digits: int) -> float | None:
+    return None if value is None else round(value, digits)
+
+
+def _driver_series(computation: RecoveryComputation) -> list[DriverSeries]:
+    return [
+        DriverSeries(
+            metric=series.metric,
+            values=[_round_opt(v, 1) for v in series.values],
+            baselines=[_round_opt(b, 1) for b in series.baselines],
+            deltas_z=[_round_opt(z, 2) for z in series.deltas_z],
+            recovery_good=series.recovery_good,
+        )
+        for series in computation.driver_series
     ]
 
 
@@ -251,6 +269,7 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
         score=_score_series(computation),
         change=_change(computation.delta7_z, computation.delta1_z),
         evidence=_evidence(computation),
+        driver_series=_driver_series(computation),
         flags=[_oxygen_flag(metrics), _thermo_flag(metrics)],
         spo2_gaps=_spo2_gaps(metrics),
         events=_events(computation),

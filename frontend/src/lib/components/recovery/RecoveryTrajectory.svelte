@@ -8,11 +8,13 @@
 	let {
 		score,
 		change,
-		events
+		events,
+		onHoverDate
 	}: {
 		score: DashboardOverview['score'];
 		change: DashboardOverview['change'];
 		events: DashboardOverview['events'];
+		onHoverDate?: (date: string | null) => void;
 	} = $props();
 
 	type RangeKey = '7d' | '30d' | '90d' | '180d' | '360d';
@@ -91,6 +93,10 @@
 			responsive: true,
 			maintainAspectRatio: false,
 			interaction: { mode: 'index', intersect: false },
+			onHover: (_event, elements) => {
+				const i = elements[0]?.index;
+				onHoverDate?.(i != null && windowed[i] ? windowed[i].date : null);
+			},
 			scales: {
 				x: {
 					type: 'time',
@@ -178,7 +184,8 @@
 			{/each}
 		</div>
 	</header>
-	<div class="chart">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="chart" onmouseleave={() => onHoverDate?.(null)}>
 		<LineChart {config} height={320} />
 	</div>
 </section>

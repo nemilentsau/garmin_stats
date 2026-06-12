@@ -36,6 +36,7 @@ from .analysis import (
 from .dashboard import (
     CorrelationPoint,
     DashboardOverviewResponse,
+    DriverSeries,
     EvidenceRow,
     HealthFlag,
     MeaningfulChange,
@@ -111,6 +112,7 @@ __all__ = [
     "DailyAggregatesResponse",
     "DailyAvgHRTrendPoint",
     "DashboardOverviewResponse",
+    "DriverSeries",
     "EvidenceRow",
     "HealthFlag",
     "HeartRateAnalysisResponse",

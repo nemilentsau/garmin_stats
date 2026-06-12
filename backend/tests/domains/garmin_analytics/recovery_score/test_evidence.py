@@ -108,6 +108,20 @@ def test_score_series_spans_display_window_with_seeded_ma7():
     assert result.score_series[-1].baseline_hi == 0.5
 
 
+def test_driver_series_aligns_with_score_window():
+    result = _compute(_baseline_series(45))
+    assert [s.metric for s in result.driver_series] == list(METRIC_GETTERS)
+    n = len(result.score_series)
+    for series in result.driver_series:
+        assert (
+            len(series.values)
+            == len(series.baselines)
+            == len(series.deltas_z)
+            == len(series.recovery_good)
+            == n
+        )
+
+
 def test_evidence_carries_baseline_and_sparkline():
     row = next(
         r for r in _compute(_baseline_series()).evidence

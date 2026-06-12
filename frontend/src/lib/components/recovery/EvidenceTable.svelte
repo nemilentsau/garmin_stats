@@ -3,8 +3,60 @@
 	import EvidenceSparkline from './EvidenceSparkline.svelte';
 	import { recoveryColor, sourceGlyph, deltaArrow } from '$lib/recovery-format';
 	import { fmt } from '$lib/format';
+	import { parseIsoDate } from '$lib/date';
 
-	let { evidence }: { evidence: DashboardOverview['evidence'] } = $props();
+	let {
+		evidence,
+		driverSeries,
+		dates,
+		hoveredDate = null
+	}: {
+		evidence: DashboardOverview['evidence'];
+		driverSeries: DashboardOverview['driver_series'];
+		dates: string[];
+		hoveredDate?: string | null;
+	} = $props();
+
+	type Row = DashboardOverview['evidence'][number];
+
+	const driverByMetric = $derived(new Map(driverSeries.map((d) => [d.metric, d])));
+	const hoverIndex = $derived(hoveredDate ? dates.indexOf(hoveredDate) : -1);
+	const presentAtHover = $derived(
+		hoverIndex < 0 ? 7 : driverSeries.filter((d) => d.values[hoverIndex] != null).length
+	);
+
+	const absDelta = (z: number | null) => (z == null ? -1 : Math.abs(z));
+
+	// Default: the latest-day rows (already metadata-rich). On hover: re-point each
+	// row's value/baseline/Δz to the hovered day via the aligned driver series,
+	// keeping label/unit/tab/sparkline. Re-sorted by impact either way.
+	const displayRows = $derived.by<Row[]>(() => {
+		const rows: Row[] =
+			hoverIndex < 0
+				? [...evidence]
+				: evidence.map((meta) => {
+						const ds = driverByMetric.get(meta.metric);
+						const value = ds?.values[hoverIndex] ?? null;
+						return {
+							...meta,
+							latest_value: value,
+							baseline: ds?.baselines[hoverIndex] ?? null,
+							delta_z: ds?.deltas_z[hoverIndex] ?? null,
+							recovery_good: ds?.recovery_good[hoverIndex] ?? null,
+							coverage_ok: value != null,
+							degraded: presentAtHover < 7
+						};
+					});
+		return rows.sort((a, b) => absDelta(b.delta_z) - absDelta(a.delta_z));
+	});
+
+	const whenLabel = $derived(
+		hoveredDate
+			? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
+					parseIsoDate(hoveredDate)
+				)
+			: 'today'
+	);
 
 	function deltaText(z: number | null): string {
 		if (z == null) return '—';
@@ -15,7 +67,7 @@
 <section class="evidence">
 	<header>
 		<h2>What moved it</h2>
-		<span class="hint">today vs your baseline · sorted by impact</span>
+		<span class="hint" class:hovering={hoveredDate}>{whenLabel} vs your baseline · sorted by impact</span>
 	</header>
 	<table>
 		<thead>
@@ -28,7 +80,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each evidence as row (row.metric)}
+			{#each displayRows as row (row.metric)}
 				{@const src = sourceGlyph(row.source_type)}
 				{@const color = recoveryColor(row.recovery_good)}
 				<tr>
@@ -72,6 +124,10 @@
 	.hint {
 		font-size: 12px;
 		color: #5e7282;
+		transition: color 0.12s;
+	}
+	.hint.hovering {
+		color: #7ea8d8;
 	}
 	table {
 		width: 100%;
