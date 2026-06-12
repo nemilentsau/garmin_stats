@@ -10,11 +10,15 @@ the evidence rows and flags link out to those existing tabs.
 
 from typing import cast
 
+import numpy as np
+
 from app.domains.garmin_analytics.contracts import (
+    CorrelationPoint,
     DashboardOverviewResponse,
     EvidenceRow,
     HealthFlag,
     MeaningfulChange,
+    MetricCorrelation,
     RecoveryScorePoint,
     RecoveryState,
     SparkPoint,
@@ -172,6 +176,52 @@ def _spo2_gaps(metrics: list[DailyMetric]) -> list[StructuralGap]:
     ]
 
 
+_MIN_CORRELATION_POINTS = 7
+
+
+def _correlations(metrics: list[DailyMetric]) -> list[MetricCorrelation]:
+    """Nightly-HRV-vs-sleep/resting-HR scatters for the HRV detail tab (not the overview)."""
+    pairings: list[tuple[str, str]] = [
+        ("sleep_score", "Sleep Score"),
+        ("resting_hr", "Resting HR"),
+    ]
+    results: list[MetricCorrelation] = []
+    for metric_key, label in pairings:
+        points: list[CorrelationPoint] = []
+        for metric in metrics:
+            nightly = metric.hrv.nightly_avg
+            other = (
+                metric.sleep.score
+                if metric_key == "sleep_score"
+                else metric.heart_rate.resting
+            )
+            if nightly is None or other is None:
+                continue
+            points.append(
+                CorrelationPoint(
+                    date=metric.date, hrv_nightly=nightly, other_value=float(other)
+                )
+            )
+        if len(points) < _MIN_CORRELATION_POINTS:
+            continue
+        x = [point.hrv_nightly for point in points]
+        y = [point.other_value for point in points]
+        r_value: float | None = None
+        if min(x) != max(x) and min(y) != max(y):
+            r_raw = float(np.corrcoef(x, y)[0, 1])
+            r_value = None if np.isnan(r_raw) else round(r_raw, 2)
+        results.append(
+            MetricCorrelation(
+                metric=metric_key,
+                label=label,
+                points=points,
+                r_value=r_value,
+                sample_count=len(points),
+            )
+        )
+    return results
+
+
 def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewResponse:
     """Compute the latest recovery dashboard overview from ordered daily metrics."""
     computation = compute_recovery(metrics)
@@ -186,4 +236,5 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
         evidence=_evidence(computation),
         flags=[_oxygen_flag(metrics), _thermo_flag(metrics)],
         spo2_gaps=_spo2_gaps(metrics),
+        correlations=_correlations(metrics),
     )

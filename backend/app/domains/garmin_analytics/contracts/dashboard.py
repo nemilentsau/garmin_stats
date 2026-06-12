@@ -93,8 +93,30 @@ class StructuralGap(DefaultsRequired):
     end: str
 
 
+class CorrelationPoint(DefaultsRequired):
+    """One point in a nightly-HRV-vs-other-metric scatter (consumed by the HRV tab)."""
+
+    date: str
+    hrv_nightly: float
+    other_value: float
+
+
+class MetricCorrelation(DefaultsRequired):
+    """Correlation series between nightly HRV and another metric (HRV tab scatter)."""
+
+    metric: str
+    label: str
+    points: list[CorrelationPoint] = []
+    r_value: float | None = None
+    sample_count: int = 0
+
+
 class DashboardOverviewResponse(DefaultsRequired):
-    """Latest recovery dashboard overview."""
+    """Latest recovery dashboard overview.
+
+    `correlations` is not rendered on the overview itself; it is retained for the HRV
+    detail tab, which reads it from this endpoint.
+    """
 
     date: str
     state: RecoveryState = RecoveryState()
@@ -103,3 +125,4 @@ class DashboardOverviewResponse(DefaultsRequired):
     evidence: list[EvidenceRow] = []
     flags: list[HealthFlag] = []
     spo2_gaps: list[StructuralGap] = []
+    correlations: list[MetricCorrelation] = []

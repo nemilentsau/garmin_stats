@@ -1912,6 +1912,18 @@ export interface components {
             treatment_total_days: number | null;
         };
         /**
+         * CorrelationPoint
+         * @description One point in a nightly-HRV-vs-other-metric scatter (consumed by the HRV tab).
+         */
+        CorrelationPoint: {
+            /** Date */
+            date: string;
+            /** Hrv Nightly */
+            hrv_nightly: number;
+            /** Other Value */
+            other_value: number;
+        };
+        /**
          * DailyAggregatesResponse
          * @description Daily metric mart plus standard period-window summaries.
          */
@@ -2156,6 +2168,9 @@ export interface components {
         /**
          * DashboardOverviewResponse
          * @description Latest recovery dashboard overview.
+         *
+         *     `correlations` is not rendered on the overview itself; it is retained for the HRV
+         *     detail tab, which reads it from this endpoint.
          */
         DashboardOverviewResponse: {
             /** Date */
@@ -2190,6 +2205,11 @@ export interface components {
              * @default []
              */
             spo2_gaps: components["schemas"]["StructuralGap"][];
+            /**
+             * Correlations
+             * @default []
+             */
+            correlations: components["schemas"]["MetricCorrelation"][];
         };
         /**
          * EvidenceRow
@@ -3160,6 +3180,28 @@ export interface components {
             /** Best Lag */
             best_lag: number;
             best_result: components["schemas"]["MetricLagResult"];
+        };
+        /**
+         * MetricCorrelation
+         * @description Correlation series between nightly HRV and another metric (HRV tab scatter).
+         */
+        MetricCorrelation: {
+            /** Metric */
+            metric: string;
+            /** Label */
+            label: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["CorrelationPoint"][];
+            /** R Value */
+            r_value: number | null;
+            /**
+             * Sample Count
+             * @default 0
+             */
+            sample_count: number;
         };
         /** MetricLagResult */
         MetricLagResult: {

@@ -1,0 +1,162 @@
+<script lang="ts">
+	import type { DashboardOverview } from '$lib/api';
+	import EvidenceSparkline from './EvidenceSparkline.svelte';
+	import { recoveryColor, sourceGlyph, deltaArrow } from '$lib/recovery-format';
+	import { fmt } from '$lib/format';
+
+	let { evidence }: { evidence: DashboardOverview['evidence'] } = $props();
+
+	function deltaText(z: number | null): string {
+		if (z == null) return '—';
+		return `${z > 0 ? '+' : ''}${z.toFixed(1)}`;
+	}
+</script>
+
+<section class="evidence">
+	<header>
+		<h2>What moved it</h2>
+		<span class="hint">today vs your baseline · sorted by impact</span>
+	</header>
+	<table>
+		<thead>
+			<tr>
+				<th class="metric">metric</th>
+				<th class="num">latest</th>
+				<th class="num">baseline</th>
+				<th class="num">Δz</th>
+				<th class="spark">30 days</th>
+				<th class="src">src</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#each evidence as row (row.metric)}
+				{@const src = sourceGlyph(row.source_type)}
+				{@const color = recoveryColor(row.recovery_good)}
+				<tr>
+					<td class="metric">
+						<a href={row.tab_href}>{row.label}</a>
+						{#if !row.coverage_ok}<span class="nodata" title="No reading today">no reading</span>{/if}
+						{#if row.degraded}<span class="nodata" title="Score ran on fewer than 7 inputs">degraded</span>{/if}
+					</td>
+					<td class="num value">{fmt(row.latest_value)}{#if row.unit}<span class="unit">{row.unit}</span>{/if}</td>
+					<td class="num baseline">{fmt(row.baseline)}</td>
+					<td class="num delta" style="color:{color}">
+						<span class="arrow">{deltaArrow(row.delta_z)}</span>{deltaText(row.delta_z)}
+					</td>
+					<td class="spark"><EvidenceSparkline points={row.sparkline} {color} /></td>
+					<td class="src"><span title={src.title}>{src.glyph}</span></td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</section>
+
+<style>
+	.evidence {
+		padding: 18px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 10px;
+	}
+	h2 {
+		font-size: 13px;
+		font-weight: 600;
+		color: #c8d6e0;
+		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.hint {
+		font-size: 12px;
+		color: #5e7282;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 13px;
+	}
+	thead th {
+		font-weight: 500;
+		font-size: 11px;
+		color: #5e7282;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 4px 10px;
+		text-align: right;
+	}
+	thead th.metric {
+		text-align: left;
+	}
+	thead th.spark,
+	thead th.src {
+		text-align: center;
+	}
+	tbody td {
+		padding: 7px 10px;
+		border-top: 1px solid rgba(255, 255, 255, 0.04);
+		vertical-align: middle;
+	}
+	.num {
+		text-align: right;
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums lining-nums;
+		white-space: nowrap;
+	}
+	.metric a {
+		color: #e8f0f5;
+		text-decoration: none;
+		font-weight: 500;
+	}
+	.metric a:hover {
+		color: #7ea8d8;
+		text-decoration: underline;
+	}
+	.nodata {
+		margin-left: 6px;
+		font-size: 10px;
+		color: #8a6a4a;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+	.value {
+		color: #e8f0f5;
+	}
+	.unit {
+		color: #5e7282;
+		font-size: 11px;
+		margin-left: 2px;
+	}
+	.baseline {
+		color: #8a9baa;
+	}
+	.delta .arrow {
+		margin-right: 3px;
+		font-size: 10px;
+	}
+	td.spark {
+		text-align: center;
+		width: 110px;
+	}
+	td.spark :global(svg) {
+		margin: 0 auto;
+	}
+	td.src {
+		text-align: center;
+		color: #5e7282;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+	}
+	@media (max-width: 640px) {
+		th.spark,
+		td.spark,
+		th.src,
+		td.src {
+			display: none;
+		}
+	}
+</style>

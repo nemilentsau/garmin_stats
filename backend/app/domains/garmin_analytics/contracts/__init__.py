@@ -34,10 +34,12 @@ from .analysis import (
     WeeklyStressBox,
 )
 from .dashboard import (
+    CorrelationPoint,
     DashboardOverviewResponse,
     EvidenceRow,
     HealthFlag,
     MeaningfulChange,
+    MetricCorrelation,
     RecoveryScorePoint,
     RecoveryState,
     SparkPoint,
@@ -104,6 +106,7 @@ __all__ = [
     "BodyBatteryRawResponse",
     "BodyBatteryTrendPoint",
     "CircadianHRPoint",
+    "CorrelationPoint",
     "DailyAggregatesResponse",
     "DailyAvgHRTrendPoint",
     "DashboardOverviewResponse",
@@ -141,6 +144,7 @@ __all__ = [
     "HrvTrendBand",
     "HRZoneDuration",
     "MeaningfulChange",
+    "MetricCorrelation",
     "NightlyHrvTrendPoint",
     "PeriodBodyBatteryStats",
     "PeriodHeartRateStats",

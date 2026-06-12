@@ -70,3 +70,4 @@ htmlcov/
 garmin_stats.db
 garmin_stats.db-wal
 garmin_stats.db-shm
+overview-*.png
