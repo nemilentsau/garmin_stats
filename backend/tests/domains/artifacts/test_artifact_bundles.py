@@ -35,13 +35,13 @@ from tests._routines_helpers import (
     upsert_today_card_log,
 )
 
-_CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_core_bundle.json"
+_CORE_BUNDLE_PATH = REPO_ROOT / "docs" / "routine_bundles" / "two_week_core_bundle.json"
 _ARTIFACT_REPO = SqliteArtifactRepository()
 
 
 def load_assistant_artifacts(*, kind: str | None = None, status: str | None = None):
     return _ARTIFACT_REPO.list_assistant_artifacts(kind=kind, status=status)
-_MEDITATION_BUNDLE_PATH = REPO_ROOT / "docs" / "two_week_meditation_bundle.json"
+_MEDITATION_BUNDLE_PATH = REPO_ROOT / "docs" / "routine_bundles" / "two_week_meditation_bundle.json"
 
 
 def _card_request(

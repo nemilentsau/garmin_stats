@@ -149,7 +149,7 @@ class TestRecoveryOverview:
     def test_full_response_is_well_formed_with_aligned_driver_series(self):
         _seed_baseline(50)
         result = load_dashboard_overview()
-        assert result.change is not None
+        assert result.change.delta7_z is not None  # 50 days clears warm-up + a Δ7 window
         assert {f.kind for f in result.flags} == {"oxygen", "thermoregulation"}
         assert len(result.driver_series) == 7
         # every driver series aligns index-for-index with the score window

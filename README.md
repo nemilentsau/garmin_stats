@@ -128,7 +128,7 @@ math.
 
 The bundle format is documented in
 [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
-Example bundles live in `docs/*_bundle.json`.
+Example bundles live in `docs/routine_bundles/`.
 
 ## Repository Layout
 

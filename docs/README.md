@@ -17,19 +17,18 @@ not kept as a parallel source of truth (git history retains them).
 - [ACTIVITY_ANALYTICS_DESIGN.md](ACTIVITY_ANALYTICS_DESIGN.md) — future Garmin activity/session
   marts and the experiment-day joins that would unlock a load/progress axis.
 
-## Analyst Method (research record)
+## Analyst Method
 
 - [analytics-approach.md](analytics-approach.md) — why AI-assisted analysis of this dataset is
-  structured the way it is, and the failure modes it guards against.
-- [analyst-data-discovery.md](analyst-data-discovery.md) — the (now-complete) stress/recovery
-  research agenda: rationale, operating principles, and method constraints. Retained as the
-  operating manual for future analyst runs.
+  structured the way it is, the failure modes it guards against, and how the `finding-analyst`
+  skill enforces the discipline. (The promoted evidence itself lives in the local-only
+  `FINDINGS.md`.)
 
 ## Data & Bundle Examples
 
-- [meditation_hrv_experiment.json](meditation_hrv_experiment.json)
-- [two_week_core_bundle.json](two_week_core_bundle.json)
-- [two_week_meditation_bundle.json](two_week_meditation_bundle.json)
+- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
+- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
+- [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
 
 ## Root Docs
 
