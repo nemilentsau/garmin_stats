@@ -17,9 +17,13 @@ assistant + routines.
 - Imports daily Garmin health archives from `data/garmin_health_stats/`.
 - Parses FIT files into local-time records and stores derived data in SQLite.
 - Computes all statistics in the backend, including daily metrics, period
-  summaries, moving averages, readiness signals, and metric insights.
-- Renders a frontend recovery dashboard with metric drill-downs for HRV, sleep,
-  heart rate, stress, body battery, respiration, skin temperature, and pulse ox.
+  summaries, moving averages, a validated single-axis recovery score with health
+  flags, and metric insights.
+- Renders a frontend recovery dashboard whose overview is the recovery score —
+  a state-before-score banner, a shared-axis trajectory, an evidence table of what
+  moved it, and oxygen/thermoregulation flags — with full metric drill-downs for
+  HRV, sleep, heart rate, stress, body battery, respiration, skin temperature, and
+  pulse ox. See [docs/recovery-dashboard.md](docs/recovery-dashboard.md).
 - Provides an assistant chat that uses curated evidence bundles instead of direct
   raw database access.
 - Supports routine bundles that compile into live schedules and a Today execution
@@ -233,6 +237,8 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
   guide.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
   ownership boundaries, and route inventory.
+- [docs/recovery-dashboard.md](docs/recovery-dashboard.md) - the recovery score, health
+  flags, and dashboard overview design reference.
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
   canonical routine bundle JSON contract.
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned

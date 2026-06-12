@@ -1,46 +1,38 @@
 # Documentation Index
 
-This directory contains current project documentation only. Historical
-implementation plans and stale design notes are intentionally not kept as a
-parallel source of truth.
+Current project documentation only. Completed implementation plans and superseded design notes are
+not kept as a parallel source of truth (git history retains them).
 
 ## Read First
 
-- [ARCHITECTURE.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ARCHITECTURE.md)
-  Current backend/frontend structure, ownership boundaries, route inventory, and domain rules.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — backend/frontend structure, ownership boundaries, route
+  inventory, and domain rules.
+- [recovery-dashboard.md](recovery-dashboard.md) — the recovery score, health flags, regime
+  detection, and the dashboard overview: what they are, why, and where they are computed.
 
-- [ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
-  Current assistant-authored routine bundle JSON contract.
+## Specs & Domain Direction
 
-## Domain Direction
+- [ROUTINE_ARTIFACT_BUNDLE_SPEC.md](ROUTINE_ARTIFACT_BUNDLE_SPEC.md) — assistant-authored routine
+  bundle JSON contract.
+- [ACTIVITY_ANALYTICS_DESIGN.md](ACTIVITY_ANALYTICS_DESIGN.md) — future Garmin activity/session
+  marts and the experiment-day joins that would unlock a load/progress axis.
 
-- [ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
-  Future Garmin activity/session marts, analyst-agent direction, and experiment-day joins.
+## Analyst Method (research record)
 
-- [analytical-dashboard-ideas.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/analytical-dashboard-ideas.md)
-  Non-implementation backlog for future stress/recovery dashboard concepts and guardrails.
+- [analytics-approach.md](analytics-approach.md) — why AI-assisted analysis of this dataset is
+  structured the way it is, and the failure modes it guards against.
+- [analyst-data-discovery.md](analyst-data-discovery.md) — the (now-complete) stress/recovery
+  research agenda: rationale, operating principles, and method constraints. Retained as the
+  operating manual for future analyst runs.
 
-## Active Working Plans
+## Data & Bundle Examples
 
-- [Frontend metrics refactor clean slate](/Users/andreinemilentsau/Projects/garmin_stats/docs/superpowers/plans/2026-05-21-frontend-metrics-refactor-clean-slate.md)
-  Current next-step plan for analytics-agent review of heavy metric pages.
-
-- [Analyst data-discovery program](/Users/andreinemilentsau/Projects/garmin_stats/docs/analyst-data-discovery.md)
-  Rationale, operating principles, and method constraints for the stress/recovery copilot research agenda. Durable *why and how*; current question status lives in the dashboard metrics plan below.
-
-- [Dashboard metrics refactor plan](/Users/andreinemilentsau/Projects/garmin_stats/docs/dashboard-metrics-plan.md)
-  Execution companion: what the analyst runs have settled, what is still open, and the prioritized run order before the dashboard score refactor.
-
-## Data And Bundle Examples
-
-- [meditation_hrv_experiment.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/meditation_hrv_experiment.json)
-- [two_week_core_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_core_bundle.json)
-- [two_week_meditation_bundle.json](/Users/andreinemilentsau/Projects/garmin_stats/docs/two_week_meditation_bundle.json)
+- [meditation_hrv_experiment.json](meditation_hrv_experiment.json)
+- [two_week_core_bundle.json](two_week_core_bundle.json)
+- [two_week_meditation_bundle.json](two_week_meditation_bundle.json)
 
 ## Root Docs
 
-- [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
-  Human-readable product overview, high-level architecture, and local setup.
-
-- [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
-  Local-only, gitignored analytical trust record for promoted findings from the live dataset.
+- [../README.md](../README.md) — product overview, high-level architecture, and local setup.
+- `FINDINGS.md` (repo root, local-only / gitignored) — analytical trust record for promoted
+  findings from the live dataset.

@@ -1,23 +1,20 @@
 # Analyst Data-Discovery Program
 
-**Status:** active research agenda (rationale + method constraints) · **Created:** 2026-05-27 ·
-**Last reconciled:** 2026-06-11 · **Owner:** dashboard copilot effort
+**Status:** **program complete (2026-06-11)** — kept as the durable rationale + method record ·
+**Created:** 2026-05-27 · **Owner:** dashboard copilot effort
 
 This document defines the *rationale, operating principles, and method constraints* for the
-questions we pose to the data analyst (the `finding-analyst` skill, executed run-by-run) to turn a
+questions posed to the data analyst (the `finding-analyst` skill, executed run-by-run) to turn a
 year of Garmin health data into a defensible **stress / recovery copilot**. It is a research
-agenda, not an implementation plan: each phase produces durable evidence in `FINDINGS.md`, and that
-evidence — not intuition — defines the dashboard's scores, axes, drill-down tabs, and language.
+agenda, not an implementation plan: each phase produced durable evidence in `FINDINGS.md`, and that
+evidence — not intuition — defined the dashboard's score, flags, and language.
 
-> **Where to look for current status.** This file holds the durable *why and how*. The
-> answered-vs-open status of each question, and the prioritized run order, live in
-> `docs/dashboard-metrics-plan.md` (the execution companion). Promoted evidence lives in
-> `FINDINGS.md`. When this file and the plan disagree on what is still open, the plan and
-> `FINDINGS.md` win — this file is not a second question tracker.
-
-The current dashboard should remain a scaffold until the agenda has earned a replacement.
-Dashboard concepts and candidate layouts are tracked separately in
-`docs/analytical-dashboard-ideas.md` so ideas do not accidentally become product claims.
+> **This program is complete.** Every question (Phases 1–4 + Q4.1) was answered; the resulting
+> recovery score, two health flags, and overview were built and shipped. The promoted evidence
+> lives in `FINDINGS.md`; the resulting design is documented in `docs/recovery-dashboard.md`.
+> Phase 5 (a future activity / "progress" axis) remains deferred to
+> `docs/ACTIVITY_ANALYTICS_DESIGN.md`. This file is retained for the durable *why and how* behind
+> the method, and as the operating manual for any **future** analyst runs on this dataset.
 
 ---
 
@@ -65,7 +62,7 @@ in the data, and what loads onto each? The pillars fall out of that answer.
 > tied (r≈0.48 to sleep score) and unresolved. **Load / strain ("progress") remains genuinely
 > missing** from the daily mart and is deferred to Phase 5 / `docs/ACTIVITY_ANALYTICS_DESIGN.md`
 > rather than faked now. The honest output is roughly one recovery score + two health flags, not a
-> handful of independent axes — see `docs/dashboard-metrics-plan.md` for the implications.
+> handful of independent axes — see `docs/recovery-dashboard.md` for the shipped result.
 
 This mirrors how serious wearables decompose physiology (Whoop: Recovery / Strain / Sleep;
 Oura: Readiness / Sleep / Activity) — and it makes the missing **Load** axis explicit, which
