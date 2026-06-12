@@ -93,6 +93,15 @@ class StructuralGap(DefaultsRequired):
     end: str
 
 
+class TrajectoryEvent(DefaultsRequired):
+    """A sustained recovery regime detected from the score (low / elevated), for annotation."""
+
+    start: str
+    end: str
+    kind: Literal["low", "elevated"]
+    label: str
+
+
 class CorrelationPoint(DefaultsRequired):
     """One point in a nightly-HRV-vs-other-metric scatter (consumed by the HRV tab)."""
 
@@ -125,4 +134,5 @@ class DashboardOverviewResponse(DefaultsRequired):
     evidence: list[EvidenceRow] = []
     flags: list[HealthFlag] = []
     spo2_gaps: list[StructuralGap] = []
+    events: list[TrajectoryEvent] = []
     correlations: list[MetricCorrelation] = []

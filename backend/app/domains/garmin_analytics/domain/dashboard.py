@@ -8,7 +8,7 @@ their recency from the loaded metrics. The per-metric detail endpoints are untou
 the evidence rows and flags link out to those existing tabs.
 """
 
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 
@@ -23,6 +23,7 @@ from app.domains.garmin_analytics.contracts import (
     RecoveryState,
     SparkPoint,
     StructuralGap,
+    TrajectoryEvent,
 )
 from app.domains.garmin_analytics.contracts.dashboard import (
     Band,
@@ -31,6 +32,7 @@ from app.domains.garmin_analytics.contracts.dashboard import (
     Trend,
 )
 from app.domains.garmin_analytics.domain.recovery_score import flags as flag_rules
+from app.domains.garmin_analytics.domain.recovery_score import regimes as regime_rules
 from app.domains.garmin_analytics.domain.recovery_score import thresholds
 from app.domains.garmin_analytics.domain.recovery_score.evidence import (
     RecoveryComputation,
@@ -79,6 +81,21 @@ def _score_series(computation: RecoveryComputation) -> list[RecoveryScorePoint]:
             baseline_hi=point.baseline_hi,
         )
         for point in computation.score_series
+    ]
+
+
+def _events(computation: RecoveryComputation) -> list[TrajectoryEvent]:
+    """Sustained low/elevated regimes detected from the displayed MA7 score."""
+    dates = [point.date for point in computation.score_series]
+    ma7 = [point.ma7 for point in computation.score_series]
+    return [
+        TrajectoryEvent(
+            start=regime.start,
+            end=regime.end,
+            kind=cast(Literal["low", "elevated"], regime.kind),
+            label=regime.label,
+        )
+        for regime in regime_rules.detect_regimes(dates, ma7)
     ]
 
 
@@ -236,5 +253,6 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
         evidence=_evidence(computation),
         flags=[_oxygen_flag(metrics), _thermo_flag(metrics)],
         spo2_gaps=_spo2_gaps(metrics),
+        events=_events(computation),
         correlations=_correlations(metrics),
     )

@@ -7,33 +7,32 @@
 
 	let {
 		score,
-		change
+		change,
+		events
 	}: {
 		score: DashboardOverview['score'];
 		change: DashboardOverview['change'];
+		events: DashboardOverview['events'];
 	} = $props();
 
+	type RangeKey = '7d' | '30d' | '90d' | '180d' | '360d';
 	const RANGES = [
+		{ key: '7d', days: 7 },
+		{ key: '30d', days: 30 },
 		{ key: '90d', days: 90 },
 		{ key: '180d', days: 180 },
 		{ key: '360d', days: 360 }
 	] as const;
-	let rangeKey = $state<'90d' | '180d' | '360d'>('180d');
+	let rangeKey = $state<RangeKey>('90d');
 
 	const SCORE_COLOR = '#7ea8d8';
 	const RAW_COLOR = 'rgba(255,255,255,0.14)';
+	const EVENT_FILL = { low: 'rgba(232,93,74,0.06)', elevated: 'rgba(76,175,130,0.06)' };
 
-	// Promoted recovery events (FINDINGS.md). Shown only where they overlap the window.
-	const EVENTS = [
-		{ start: '2025-11-05', end: '2025-12-10', label: 'Nov regime' },
-		{ start: '2026-01-01', end: '2026-03-31', label: 'plateau' },
-		{ start: '2026-04-01', end: '2026-05-31', label: 'softening' }
-	];
+	const rangeDays = $derived(RANGES.find((r) => r.key === rangeKey)?.days ?? 90);
+	const timeUnit = $derived(rangeDays <= 31 ? 'day' : 'month');
 
-	const windowed = $derived.by(() => {
-		const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 180;
-		return score.slice(Math.max(0, score.length - days));
-	});
+	const windowed = $derived.by(() => score.slice(Math.max(0, score.length - rangeDays)));
 
 	const yScale = $derived(tightScale(windowed.flatMap((p) => [p.raw, p.ma7])));
 
@@ -42,19 +41,19 @@
 		const lo = windowed[0].date;
 		const hi = windowed[windowed.length - 1].date;
 		const out: Record<string, object> = {};
-		for (const ev of EVENTS) {
+		for (const [i, ev] of events.entries()) {
 			if (ev.end < lo || ev.start > hi) continue;
-			out[`ev-${ev.label}`] = {
+			out[`ev-${i}`] = {
 				type: 'box',
 				xMin: ev.start < lo ? lo : ev.start,
 				xMax: ev.end > hi ? hi : ev.end,
-				backgroundColor: 'rgba(255,255,255,0.022)',
+				backgroundColor: EVENT_FILL[ev.kind] ?? 'rgba(255,255,255,0.022)',
 				borderWidth: 0,
 				label: {
 					display: true,
 					content: ev.label,
 					position: { x: 'center', y: 'start' },
-					color: '#5e7282',
+					color: '#6b8299',
 					font: { size: 10 },
 					backgroundColor: 'transparent'
 				}
@@ -95,7 +94,7 @@
 			scales: {
 				x: {
 					type: 'time',
-					time: { unit: 'month' },
+					time: { unit: timeUnit },
 					grid: { display: false },
 					border: DARK_BORDER,
 					ticks: { color: DARK_TICK.color, maxRotation: 0, autoSkipPadding: 28 }

@@ -199,7 +199,7 @@
 
 	{#if overview}
 		<StateLine state={overview.state} date={overview.date} />
-		<RecoveryTrajectory score={overview.score} change={overview.change} />
+		<RecoveryTrajectory score={overview.score} change={overview.change} events={overview.events} />
 		<EvidenceTable evidence={overview.evidence} />
 		<FlagStrip flags={overview.flags} />
 	{/if}

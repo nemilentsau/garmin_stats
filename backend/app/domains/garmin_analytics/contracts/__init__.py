@@ -44,6 +44,7 @@ from .dashboard import (
     RecoveryState,
     SparkPoint,
     StructuralGap,
+    TrajectoryEvent,
 )
 from .insights import (
     HeartRateDataQuality,
@@ -179,6 +180,7 @@ __all__ = [
     "StressRawResponse",
     "StressTrendPoint",
     "StructuralGap",
+    "TrajectoryEvent",
     "WeeklyBodyBatteryBox",
     "WeeklyHrvBox",
     "WeeklyRestingHRBox",

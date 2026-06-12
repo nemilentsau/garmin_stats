@@ -2206,6 +2206,11 @@ export interface components {
              */
             spo2_gaps: components["schemas"]["StructuralGap"][];
             /**
+             * Events
+             * @default []
+             */
+            events: components["schemas"]["TrajectoryEvent"][];
+            /**
              * Correlations
              * @default []
              */
@@ -4403,6 +4408,23 @@ export interface components {
              * @default 0
              */
             pending: number;
+        };
+        /**
+         * TrajectoryEvent
+         * @description A sustained recovery regime detected from the score (low / elevated), for annotation.
+         */
+        TrajectoryEvent: {
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "low" | "elevated";
+            /** Label */
+            label: string;
         };
         /** UserProfile */
         "UserProfile-Input": {
