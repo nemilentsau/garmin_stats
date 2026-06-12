@@ -4,6 +4,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import { DARK_BORDER, DARK_GRID_Y, DARK_TICK, chartTooltip } from '$lib/chart-setup';
 	import { tightScale } from '$lib/chart-scale';
+	import { fmtFullDate } from '$lib/date';
 
 	let {
 		score,
@@ -123,12 +124,7 @@
 				tooltip: {
 					...chartTooltip(SCORE_COLOR),
 					callbacks: {
-						title: (items) =>
-							new Intl.DateTimeFormat('en-US', {
-								month: 'short',
-								day: 'numeric',
-								year: 'numeric'
-							}).format(new Date(items[0].parsed.x ?? 0)),
+						title: (items) => fmtFullDate(new Date(items[0].parsed.x ?? 0)),
 						label: (item) =>
 							`${item.dataset.label}: ${item.parsed.y == null ? '—' : item.parsed.y.toFixed(2)} z`
 					}

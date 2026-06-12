@@ -2,8 +2,8 @@
 	import type { DashboardOverview } from '$lib/api';
 	import EvidenceSparkline from './EvidenceSparkline.svelte';
 	import { recoveryColor, sourceGlyph, deltaArrow } from '$lib/recovery-format';
-	import { fmt } from '$lib/format';
-	import { parseIsoDate } from '$lib/date';
+	import { fmt, fmtSigned } from '$lib/format';
+	import { parseIsoDate, fmtDayMonth } from '$lib/date';
 
 	let {
 		evidence,
@@ -50,17 +50,10 @@
 		return rows.sort((a, b) => absDelta(b.delta_z) - absDelta(a.delta_z));
 	});
 
-	const whenLabel = $derived(
-		hoveredDate
-			? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
-					parseIsoDate(hoveredDate)
-				)
-			: 'today'
-	);
+	const whenLabel = $derived(hoveredDate ? fmtDayMonth(parseIsoDate(hoveredDate)) : 'today');
 
 	function deltaText(z: number | null): string {
-		if (z == null) return '—';
-		return `${z > 0 ? '+' : ''}${z.toFixed(1)}`;
+		return z == null ? '—' : fmtSigned(z);
 	}
 </script>
 

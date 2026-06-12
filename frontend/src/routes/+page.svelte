@@ -8,7 +8,7 @@
 		type SyncResult
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
-	import { calendarDayDiff, localDateIso, parseIsoDate } from '$lib/date';
+	import { calendarDayDiff, localDateIso, parseIsoDate, fmtFullDate } from '$lib/date';
 	import StateLine from '$lib/components/recovery/StateLine.svelte';
 	import RecoveryTrajectory from '$lib/components/recovery/RecoveryTrajectory.svelte';
 	import EvidenceTable from '$lib/components/recovery/EvidenceTable.svelte';
@@ -22,12 +22,6 @@
 	let syncing = $state(false);
 	let syncResult = $state<SyncResult | null>(null);
 	let hoveredDate = $state<string | null>(null);
-
-	const bannerDateFormat = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric'
-	});
 
 	async function fetchData() {
 		error = null;
@@ -49,7 +43,7 @@
 	}
 
 	function formatBannerDate(date: string): string {
-		return bannerDateFormat.format(parseIsoDate(date));
+		return fmtFullDate(parseIsoDate(date));
 	}
 
 	onMount(() => {

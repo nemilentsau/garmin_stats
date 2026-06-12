@@ -8,6 +8,7 @@ their recency from the loaded metrics. The per-metric detail endpoints are untou
 the evidence rows and flags link out to those existing tabs.
 """
 
+from collections.abc import Callable
 from typing import Literal, cast
 
 import numpy as np
@@ -46,6 +47,10 @@ _THERMO_TAB = "/skin-temp"
 _RECENT_WINDOW = 7
 
 
+def _round_opt(value: float | None, digits: int) -> float | None:
+    return None if value is None else round(value, digits)
+
+
 def _state(score_z: float | None, delta7_z: float | None) -> RecoveryState:
     if score_z is None:
         return RecoveryState()
@@ -55,19 +60,19 @@ def _state(score_z: float | None, delta7_z: float | None) -> RecoveryState:
         if delta7_z is not None
         else None
     )
-    return RecoveryState(band=band, trend=trend, score_z=round(score_z, 2))
+    return RecoveryState(band=band, trend=trend, score_z=_round_opt(score_z, 2))
 
 
 def _change(delta7_z: float | None, delta1_z: float | None) -> MeaningfulChange:
     return MeaningfulChange(
-        delta7_z=None if delta7_z is None else round(delta7_z, 2),
+        delta7_z=_round_opt(delta7_z, 2),
         is_meaningful=delta7_z is not None and thresholds.is_meaningful_delta7(delta7_z),
         direction=(
             None
             if delta7_z is None
             else cast(Trend, thresholds.trend_direction(delta7_z))
         ),
-        delta1_z=None if delta1_z is None else round(delta1_z, 2),
+        delta1_z=_round_opt(delta1_z, 2),
         is_acute=delta1_z is not None and thresholds.is_acute_delta1(delta1_z),
     )
 
@@ -76,17 +81,13 @@ def _score_series(computation: RecoveryComputation) -> list[RecoveryScorePoint]:
     return [
         RecoveryScorePoint(
             date=point.date,
-            raw=None if point.raw is None else round(point.raw, 3),
-            ma7=None if point.ma7 is None else round(point.ma7, 3),
+            raw=_round_opt(point.raw, 3),
+            ma7=_round_opt(point.ma7, 3),
             baseline_lo=point.baseline_lo,
             baseline_hi=point.baseline_hi,
         )
         for point in computation.score_series
     ]
-
-
-def _round_opt(value: float | None, digits: int) -> float | None:
-    return None if value is None else round(value, digits)
 
 
 def _driver_series(computation: RecoveryComputation) -> list[DriverSeries]:
@@ -141,38 +142,32 @@ def _evidence(computation: RecoveryComputation) -> list[EvidenceRow]:
     return rows
 
 
-def _recent_oxygen(values: list[float | None], histories: list[list[float | None]]) -> bool:
-    """Whether the oxygen flag fired on any of the trailing days."""
-    return any(
-        flag_rules.oxygen_flag_state(value, history=history)[0] == "flag"
-        for value, history in zip(values, histories, strict=True)
-    )
+def _recent_flag(
+    series: list[float | None],
+    flag_fn: Callable[..., tuple[str, object]],
+) -> bool:
+    """Whether `flag_fn` reports 'flag' on any of the trailing _RECENT_WINDOW days.
 
-
-def _recent_thermo(values: list[float | None], histories: list[list[float | None]]) -> bool:
+    Each day is evaluated against its own prior history, mirroring how the latest-day
+    flag is computed.
+    """
     return any(
-        flag_rules.thermo_flag_state(value, history=history)[0] == "flag"
-        for value, history in zip(values, histories, strict=True)
+        flag_fn(series[i], history=series[:i])[0] == "flag"
+        for i in range(max(0, len(series) - _RECENT_WINDOW), len(series))
     )
 
 
 def _oxygen_flag(metrics: list[DailyMetric]) -> HealthFlag:
     series = [m.spo2.avg for m in metrics]
-    latest = series[-1]
-    history = series[:-1]
-    state, threshold = flag_rules.oxygen_flag_state(latest, history=history)
-    recent_values = series[-_RECENT_WINDOW:]
-    recent_histories = [
-        series[: len(series) - _RECENT_WINDOW + i] for i in range(len(recent_values))
-    ]
+    state, threshold = flag_rules.oxygen_flag_state(series[-1], history=series[:-1])
     return HealthFlag(
         kind="oxygen",
         state=cast(FlagState, state),
         label="Oxygen",
-        value=latest,
-        threshold_low=None if threshold is None else round(threshold, 1),
+        value=series[-1],
+        threshold_low=_round_opt(threshold, 1),
         direction="low" if state == "flag" else None,
-        recent=_recent_oxygen(recent_values, recent_histories),
+        recent=_recent_flag(series, flag_rules.oxygen_flag_state),
         tab_href=_OXYGEN_TAB,
     )
 
@@ -180,24 +175,19 @@ def _oxygen_flag(metrics: list[DailyMetric]) -> HealthFlag:
 def _thermo_flag(metrics: list[DailyMetric]) -> HealthFlag:
     series = [m.skin_temp.deviation for m in metrics]
     latest = series[-1]
-    history = series[:-1]
-    state, band = flag_rules.thermo_flag_state(latest, history=history)
+    state, band = flag_rules.thermo_flag_state(latest, history=series[:-1])
     direction: str | None = None
     if state == "flag" and band is not None and latest is not None:
         direction = "below" if latest < band[0] else "above"
-    recent_values = series[-_RECENT_WINDOW:]
-    recent_histories = [
-        series[: len(series) - _RECENT_WINDOW + i] for i in range(len(recent_values))
-    ]
     return HealthFlag(
         kind="thermoregulation",
         state=cast(FlagState, state),
         label="Thermoregulation",
         value=latest,
-        threshold_low=None if band is None else round(band[0], 2),
-        threshold_high=None if band is None else round(band[1], 2),
+        threshold_low=_round_opt(band[0], 2) if band is not None else None,
+        threshold_high=_round_opt(band[1], 2) if band is not None else None,
         direction=direction,
-        recent=_recent_thermo(recent_values, recent_histories),
+        recent=_recent_flag(series, flag_rules.thermo_flag_state),
         tab_href=_THERMO_TAB,
     )
 

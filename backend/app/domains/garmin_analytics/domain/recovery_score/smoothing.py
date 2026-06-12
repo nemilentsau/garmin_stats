@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.utils.numeric import safe_avg
+from app.domains.garmin_analytics.domain.primitives.trends import trailing_ma7
 
 WINDOW = 7
 SEED_DAYS = WINDOW - 1
@@ -22,14 +22,10 @@ def seeded_ma7(
     seed: Sequence[float | None],
     display: Sequence[float | None],
 ) -> list[float | None]:
-    """Trailing 7-day MA over seed + display, returning only the display portion."""
-    combined = list(seed) + list(display)
-    smoothed: list[float | None] = []
-    for index in range(len(combined)):
-        window = [
-            value
-            for value in combined[max(0, index - SEED_DAYS): index + 1]
-            if value is not None
-        ]
-        smoothed.append(safe_avg(window))
-    return smoothed[len(seed):]
+    """Trailing 7-day MA over seed + display, returning only the display portion.
+
+    Delegates the windowing to the canonical `trailing_ma7` (same 7-day, None-skipping
+    window); the seed days only exist to fill the left edge and are dropped from the
+    result.
+    """
+    return trailing_ma7(list(seed) + list(display))[len(seed):]

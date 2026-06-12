@@ -1,18 +1,15 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
 	import { stateSentence, bandColor } from '$lib/recovery-format';
-	import { parseIsoDate } from '$lib/date';
+	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
+	import { fmtSigned } from '$lib/format';
 
 	let { state, date }: { state: DashboardOverview['state']; date: string } = $props();
 
 	const sentence = $derived(stateSentence(state));
 	const color = $derived(bandColor(state.band));
-	const dateLabel = $derived(
-		new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(
-			parseIsoDate(date)
-		)
-	);
-	const zText = $derived(state.score_z == null ? '—' : `${state.score_z > 0 ? '+' : ''}${state.score_z.toFixed(1)} z`);
+	const dateLabel = $derived(fmtWeekdayDayMonth(parseIsoDate(date)));
+	const zText = $derived(state.score_z == null ? '—' : `${fmtSigned(state.score_z)} z`);
 </script>
 
 <div class="state-line">
