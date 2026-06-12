@@ -25,7 +25,6 @@
 				<th class="num">baseline</th>
 				<th class="num">Δz</th>
 				<th class="spark">30 days</th>
-				<th class="src">src</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -34,7 +33,7 @@
 				{@const color = recoveryColor(row.recovery_good)}
 				<tr>
 					<td class="metric">
-						<a href={row.tab_href}>{row.label}</a>
+						<a href={row.tab_href} title={src.title}>{row.label}</a>
 						{#if !row.coverage_ok}<span class="nodata" title="No reading today">no reading</span>{/if}
 						{#if row.degraded}<span class="nodata" title="Score ran on fewer than 7 inputs">degraded</span>{/if}
 					</td>
@@ -44,7 +43,6 @@
 						<span class="arrow">{deltaArrow(row.delta_z)}</span>{deltaText(row.delta_z)}
 					</td>
 					<td class="spark"><EvidenceSparkline points={row.sparkline} {color} /></td>
-					<td class="src"><span title={src.title}>{src.glyph}</span></td>
 				</tr>
 			{/each}
 		</tbody>
@@ -92,8 +90,7 @@
 	thead th.metric {
 		text-align: left;
 	}
-	thead th.spark,
-	thead th.src {
+	thead th.spark {
 		text-align: center;
 	}
 	tbody td {
@@ -145,17 +142,9 @@
 	td.spark :global(svg) {
 		margin: 0 auto;
 	}
-	td.src {
-		text-align: center;
-		color: #5e7282;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-	}
 	@media (max-width: 640px) {
 		th.spark,
-		td.spark,
-		th.src,
-		td.src {
+		td.spark {
 			display: none;
 		}
 	}

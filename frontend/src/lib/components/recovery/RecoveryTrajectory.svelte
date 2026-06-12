@@ -3,6 +3,7 @@
 	import type { DashboardOverview } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import { DARK_BORDER, DARK_GRID_Y, DARK_TICK, chartTooltip } from '$lib/chart-setup';
+	import { tightScale } from '$lib/chart-scale';
 
 	let {
 		score,
@@ -13,116 +14,155 @@
 	} = $props();
 
 	const RANGES = [
-		{ key: '7d', days: 7 },
-		{ key: '30d', days: 30 },
-		{ key: '90d', days: 90 }
+		{ key: '90d', days: 90 },
+		{ key: '180d', days: 180 },
+		{ key: '360d', days: 360 }
 	] as const;
-	let rangeKey = $state<'7d' | '30d' | '90d'>('90d');
+	let rangeKey = $state<'90d' | '180d' | '360d'>('180d');
 
 	const SCORE_COLOR = '#7ea8d8';
-	const RAW_COLOR = 'rgba(255,255,255,0.16)';
-	const BAND_FILL = 'rgba(126,168,216,0.06)';
+	const RAW_COLOR = 'rgba(255,255,255,0.14)';
+
+	// Promoted recovery events (FINDINGS.md). Shown only where they overlap the window.
+	const EVENTS = [
+		{ start: '2025-11-05', end: '2025-12-10', label: 'Nov regime' },
+		{ start: '2026-01-01', end: '2026-03-31', label: 'plateau' },
+		{ start: '2026-04-01', end: '2026-05-31', label: 'softening' }
+	];
 
 	const windowed = $derived.by(() => {
-		const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 90;
+		const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 180;
 		return score.slice(Math.max(0, score.length - days));
 	});
 
-	const config = $derived.by<ChartConfiguration<'line'>>(() => {
-		const labels = windowed.map((p) => p.date);
-		return {
-			type: 'line',
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'daily',
-						data: windowed.map((p) => p.raw),
-						borderColor: RAW_COLOR,
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.2,
-						spanGaps: false
-					},
-					{
-						label: '7-day average',
-						data: windowed.map((p) => p.ma7),
-						borderColor: SCORE_COLOR,
-						borderWidth: 2,
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: false
-					}
-				]
+	const yScale = $derived(tightScale(windowed.flatMap((p) => [p.raw, p.ma7])));
+
+	const eventAnnotations = $derived.by(() => {
+		if (!windowed.length) return {};
+		const lo = windowed[0].date;
+		const hi = windowed[windowed.length - 1].date;
+		const out: Record<string, object> = {};
+		for (const ev of EVENTS) {
+			if (ev.end < lo || ev.start > hi) continue;
+			out[`ev-${ev.label}`] = {
+				type: 'box',
+				xMin: ev.start < lo ? lo : ev.start,
+				xMax: ev.end > hi ? hi : ev.end,
+				backgroundColor: 'rgba(255,255,255,0.022)',
+				borderWidth: 0,
+				label: {
+					display: true,
+					content: ev.label,
+					position: { x: 'center', y: 'start' },
+					color: '#5e7282',
+					font: { size: 10 },
+					backgroundColor: 'transparent'
+				}
+			};
+		}
+		return out;
+	});
+
+	const config = $derived.by<ChartConfiguration<'line'>>(() => ({
+		type: 'line',
+		data: {
+			labels: windowed.map((p) => p.date),
+			datasets: [
+				{
+					label: 'daily',
+					data: windowed.map((p) => p.raw),
+					borderColor: RAW_COLOR,
+					borderWidth: 1,
+					pointRadius: 0,
+					tension: 0.2,
+					spanGaps: false
+				},
+				{
+					label: '7-day average',
+					data: windowed.map((p) => p.ma7),
+					borderColor: SCORE_COLOR,
+					borderWidth: 2.25,
+					pointRadius: 0,
+					tension: 0.3,
+					spanGaps: false
+				}
+			]
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			interaction: { mode: 'index', intersect: false },
+			scales: {
+				x: {
+					type: 'time',
+					time: { unit: 'month' },
+					grid: { display: false },
+					border: DARK_BORDER,
+					ticks: { color: DARK_TICK.color, maxRotation: 0, autoSkipPadding: 28 }
+				},
+				y: {
+					min: yScale?.min,
+					max: yScale?.max,
+					afterBuildTicks: yScale
+						? (axis) => {
+								axis.ticks = yScale.ticks.map((value) => ({ value }));
+							}
+						: undefined,
+					grid: DARK_GRID_Y,
+					border: { display: false },
+					ticks: { color: DARK_TICK.color }
+				}
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index', intersect: false },
-				scales: {
-					x: {
-						type: 'time',
-						time: { unit: rangeKey === '7d' ? 'day' : 'month' },
-						grid: { display: false },
-						border: DARK_BORDER,
-						ticks: { color: DARK_TICK.color, maxRotation: 0, autoSkipPadding: 24 }
-					},
-					y: {
-						grid: DARK_GRID_Y,
-						border: { display: false },
-						ticks: { color: DARK_TICK.color, stepSize: 1 },
-						title: { display: true, text: 'recovery (z vs your baseline)', color: '#5e7282', font: { size: 11 } }
+			plugins: {
+				legend: { display: false },
+				tooltip: {
+					...chartTooltip(SCORE_COLOR),
+					callbacks: {
+						title: (items) =>
+							new Intl.DateTimeFormat('en-US', {
+								month: 'short',
+								day: 'numeric',
+								year: 'numeric'
+							}).format(new Date(items[0].parsed.x ?? 0)),
+						label: (item) =>
+							`${item.dataset.label}: ${item.parsed.y == null ? '—' : item.parsed.y.toFixed(2)} z`
 					}
 				},
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						...chartTooltip(SCORE_COLOR),
-						callbacks: {
-							title: (items) =>
-								new Intl.DateTimeFormat('en-US', {
-									month: 'short',
-									day: 'numeric',
-									year: 'numeric'
-								}).format(new Date(items[0].parsed.x ?? 0)),
-							label: (item) =>
-								`${item.dataset.label}: ${item.parsed.y == null ? '—' : item.parsed.y.toFixed(2)} z`
-						}
-					},
-					annotation: {
-						annotations: {
-							typicalBand: {
-								type: 'box',
-								yMin: -0.5,
-								yMax: 0.5,
-								backgroundColor: BAND_FILL,
-								borderWidth: 0,
-								label: {
-									display: true,
-									content: 'typical',
-									position: { x: 'start', y: 'center' },
-									color: '#5e7282',
-									font: { size: 10 },
-									backgroundColor: 'transparent'
-								}
-							},
-							zeroLine: {
-								type: 'line',
-								yMin: 0,
-								yMax: 0,
-								borderColor: 'rgba(255,255,255,0.10)',
-								borderWidth: 1
+				annotation: {
+					annotations: {
+						typicalBand: {
+							type: 'box',
+							yMin: -0.5,
+							yMax: 0.5,
+							backgroundColor: 'rgba(126,168,216,0.08)',
+							borderColor: 'rgba(126,168,216,0.16)',
+							borderWidth: 1,
+							label: {
+								display: true,
+								content: 'typical',
+								position: { x: 'start', y: 'center' },
+								color: '#6b8299',
+								font: { size: 10 },
+								backgroundColor: 'transparent'
 							}
-						}
+						},
+						zeroLine: {
+							type: 'line',
+							yMin: 0,
+							yMax: 0,
+							borderColor: 'rgba(255,255,255,0.10)',
+							borderWidth: 1
+						},
+						...eventAnnotations
 					}
 				}
 			}
-		};
-	});
+		}
+	}));
 
 	const subtitle = $derived(
 		change.is_meaningful && change.direction
-			? `7-day avg ${change.direction} vs prior week (Δ ${change.delta7_z?.toFixed(1)} z)`
+			? `7-day average · ${change.direction} vs prior week (Δ ${change.delta7_z?.toFixed(1)} z)`
 			: '7-day average · change within normal range'
 	);
 </script>
@@ -140,7 +180,7 @@
 		</div>
 	</header>
 	<div class="chart">
-		<LineChart {config} height={260} />
+		<LineChart {config} height={320} />
 	</div>
 </section>
 
@@ -153,7 +193,7 @@
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 16px;
-		margin-bottom: 8px;
+		margin-bottom: 10px;
 	}
 	.titles {
 		display: flex;
@@ -182,7 +222,7 @@
 		color: #8a9baa;
 		background: transparent;
 		border: 1px solid rgba(255, 255, 255, 0.08);
-		padding: 3px 8px;
+		padding: 3px 9px;
 		cursor: pointer;
 		border-radius: 4px;
 	}

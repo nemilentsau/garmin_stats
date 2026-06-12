@@ -78,7 +78,7 @@ TAB_HREF: dict[str, str] = {
     "sleep_score": "/sleep",
 }
 
-_DISPLAY_DAYS = 91
+_DISPLAY_DAYS = 366  # up to a full year of trajectory (frontend toggles 90/180/360)
 _SPARKLINE_DAYS = 30
 
 

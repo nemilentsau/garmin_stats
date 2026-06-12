@@ -88,6 +88,12 @@ Concrete removals:
 
 **Lie factor:** The visual size of an effect must match the numerical size. A 10% increase should look like 10%, not 50%. Always start bar chart y-axes at zero. Line charts may use a narrower range when showing variation within a metric (e.g., resting HR 55-65 bpm), but annotate the baseline clearly.
 
+**Hug the data — never let a line-chart axis overshoot to round bounds.** This is a recurring failure: a series spanning −2.0 to +1.3 gets an auto-ranged axis of −3 to +2, which flattens the signal into the middle third of the chart. Default auto-ranging is wrong for small, bounded metrics (z-scores, temperature deviations, ratios). Instead:
+- Set the axis `min`/`max` to `dataMin − pad` / `dataMax + pad` with a *small* pad (e.g. 0.1), so the line nearly fills the plot height.
+- Place ticks ONLY at round values (integers or half-integers) that fall *inside* those bounds. Do NOT put a tick/label at the padded extremes — the top and bottom numbers carry no information and can be inferred from context.
+- Never hard-code a fixed range like [−3, 3] "to be safe"; compute it from the visible window's data every render.
+- In this project use `frontend/src/lib/chart-scale.ts` (`tightScale(values, pad, step)`), which returns `{min, max, ticks}`; apply ticks via Chart.js `afterBuildTicks`.
+
 ### 2.3 Few's Dashboard-Specific Rules
 
 - **Bullet graphs over gauges.** Circular gauges waste space and are harder to read than linear bullet graphs. A gauge takes the space of 4 bullet graphs.
