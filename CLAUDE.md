@@ -75,7 +75,7 @@ Six skills support this project. Each owns specific code layers:
 **Owns:** Frontend UX aesthetics, visual styling, project-specific dashboard rules
 **Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
-- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces. Includes the **"Cards Are a Last Resort" forcing rule** — apply it before any card/grid layout; the per-metric detail tabs are exempt.
 - Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools
 
 ### `testing` — test discipline

@@ -22,6 +22,18 @@ This project is a dense Garmin health, assistant, Today, and routine-management 
 - Color encodes metric identity, state, or action. Avoid decorative gradients, orbs, bokeh, and purple-blue default palettes.
 - Text must fit at mobile and desktop widths. Compact panels need compact headings, not hero-scale type.
 
+## Cards Are a Last Resort (forcing rule)
+
+Before rendering any card/tile/grid-of-boxes, answer out loud:
+> **Does this data need to be COMPARED across items, or read as a TREND over time?**
+> If yes, a card grid is the wrong container — it isolates what should be aligned.
+
+- Comparison across items → an aligned table or small multiples (shared axis/scale), so the reader scans one column/row to see co-movement.
+- Trend over time → one shared-axis time series (raw + smoothed), not a number-in-a-box with a tiny sparkline.
+- A self-contained independent entity (one routine, one experiment, one message, one metric's own detail page) → a card/panel is fine.
+
+Cards are correct for independent objects and for a single metric's own detail surface; they are wrong for facets of one signal shown together. The dashboard OVERVIEW's recovery metrics are one axis (they co-move) → aligned evidence table + shared trajectory, never a per-metric card grid. The per-metric DETAIL tabs each show one system and are exempt. Erase any pixel that is not data (Tufte); a ring/gauge is never right for a value whose meaning is its trend (Few).
+
 ## Interaction Rules
 
 - Use familiar controls: icon buttons for tools, segmented controls for modes, toggles for binary settings, inputs/sliders for numeric values, tabs for view changes, menus for option sets.
