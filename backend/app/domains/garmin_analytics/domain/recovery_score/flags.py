@@ -11,16 +11,16 @@ threshold lands near the conventional 90% reference. Absolute cutoffs are useles
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 K = 2.5
 _MAD_SCALE = 1.4826
 _MIN_HISTORY = 30
 
-FlagState = str  # "clear" | "flag" | "unknown"
 
-
-def _robust_center_scale(history: list[float | None]) -> tuple[float, float] | None:
+def _robust_center_scale(history: Sequence[float | None]) -> tuple[float, float] | None:
     """Median and MAD-derived scale of the present history; None if too short."""
     values = np.array([h for h in history if h is not None], dtype=float)
     if len(values) < _MIN_HISTORY:
@@ -34,8 +34,8 @@ def _robust_center_scale(history: list[float | None]) -> tuple[float, float] | N
 def oxygen_flag_state(
     value: float | None,
     *,
-    history: list[float | None],
-) -> tuple[FlagState, float | None]:
+    history: Sequence[float | None],
+) -> tuple[str, float | None]:
     """Low-oxygen flag from nightly spo2_avg vs the personal lower threshold.
 
     Returns (state, threshold). A missing value is "unknown" (never "clear"); with too
@@ -55,8 +55,8 @@ def oxygen_flag_state(
 def thermo_flag_state(
     value: float | None,
     *,
-    history: list[float | None],
-) -> tuple[FlagState, tuple[float, float] | None]:
+    history: Sequence[float | None],
+) -> tuple[str, tuple[float, float] | None]:
     """Thermoregulation flag from skin-temp deviation vs a two-sided personal band.
 
     Returns (state, (low, high)). A missing value is "unknown"; with too little history
@@ -77,8 +77,8 @@ def thermo_flag_state(
 
 
 def structural_gaps(
-    dates: list[str],
-    present: list[bool],
+    dates: Sequence[str],
+    present: Sequence[bool],
     *,
     min_len: int = 3,
 ) -> list[tuple[str, str]]:

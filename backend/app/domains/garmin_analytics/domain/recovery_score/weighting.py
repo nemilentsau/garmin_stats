@@ -11,6 +11,8 @@ is present that day (the R3 missing-data rule).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 MIN_INPUTS = 5
 
 RECOVERY_SIGNS: dict[str, int] = {
@@ -34,7 +36,7 @@ DEFLATED_WEIGHTS: dict[str, float] = {
 }
 
 
-def weighted_recovery_score(raw_z: dict[str, float | None]) -> tuple[float | None, int]:
+def weighted_recovery_score(raw_z: Mapping[str, float | None]) -> tuple[float | None, int]:
     """Recovery-signed weighted mean of present per-metric z's; None if < 5 present.
 
     Accepts RAW (un-signed) per-metric z keyed by metric name; applies RECOVERY_SIGNS

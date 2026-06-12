@@ -10,13 +10,15 @@ a std fallback for degenerate (zero-spread) history.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 MIN_PRIOR_DAYS = 30
 _MAD_SCALE = 1.4826
 
 
-def expanding_robust_z(values: list[float | None]) -> list[float | None]:
+def expanding_robust_z(values: Sequence[float | None]) -> list[float | None]:
     """Robust-z each value against the median/MAD of its prior present values.
 
     Returns None for a day that is itself missing or that has fewer than
@@ -39,7 +41,7 @@ def expanding_robust_z(values: list[float | None]) -> list[float | None]:
     return out
 
 
-def expanding_baseline_median(values: list[float | None]) -> list[float | None]:
+def expanding_baseline_median(values: Sequence[float | None]) -> list[float | None]:
     """Median of prior present values per day (raw units) — the baseline the z is vs.
 
     Same warm-up rule as `expanding_robust_z`, so the two align index-for-index. Used

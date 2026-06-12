@@ -10,6 +10,8 @@ over-smooths). None values inside a window are skipped, not treated as zero.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from app.utils.numeric import safe_avg
 
 WINDOW = 7
@@ -17,8 +19,8 @@ SEED_DAYS = WINDOW - 1
 
 
 def seeded_ma7(
-    seed: list[float | None],
-    display: list[float | None],
+    seed: Sequence[float | None],
+    display: Sequence[float | None],
 ) -> list[float | None]:
     """Trailing 7-day MA over seed + display, returning only the display portion."""
     combined = list(seed) + list(display)

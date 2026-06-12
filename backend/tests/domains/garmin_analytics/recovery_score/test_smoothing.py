@@ -5,7 +5,7 @@ from app.domains.garmin_analytics.domain.recovery_score.smoothing import seeded_
 
 def test_seeded_left_edge_pulls_toward_the_seed():
     seeded = seeded_ma7([0.0] * 6, [3.0, 3.0, 3.0])
-    assert seeded[0] < 3.0  # blends the six prior zeros, not a bare 3.0
+    assert seeded[0] is not None and seeded[0] < 3.0  # blends the six prior zeros
     assert len(seeded) == 3  # only the display portion is returned
 
 

@@ -49,6 +49,12 @@ def _baseline_series(days: int = 40) -> list[DailyMetric]:
     return [_metric(f"2025-06-{day:02d}") for day in range(1, days + 1)]
 
 
+def _compute(metrics: list[DailyMetric]):
+    result = compute_recovery(metrics)
+    assert result is not None
+    return result
+
+
 def test_empty_metrics_returns_none():
     assert compute_recovery([]) is None
 
@@ -60,7 +66,7 @@ def test_produces_seven_evidence_rows_for_the_seven_axis_metrics():
 
 
 def test_source_type_and_tab_links_are_assigned():
-    rows = {row.metric: row for row in compute_recovery(_baseline_series()).evidence}
+    rows = {row.metric: row for row in _compute(_baseline_series()).evidence}
     assert rows["respiration_avg"].source_type == "native"
     assert rows["heart_rate_resting"].source_type == "device"
     assert rows["hrv_nightly_avg"].source_type == "derived"
@@ -73,7 +79,7 @@ def test_recovery_direction_reflects_metric_sign():
     series = _baseline_series()
     # latest day: HRV well above baseline (good), resting HR well above baseline (bad)
     series.append(_metric("2025-07-11", hrv=85.0, resting=64))
-    rows = {row.metric: row for row in compute_recovery(series).evidence}
+    rows = {row.metric: row for row in _compute(series).evidence}
     assert rows["hrv_nightly_avg"].recovery_good is True
     assert rows["heart_rate_resting"].recovery_good is False
 
@@ -89,12 +95,12 @@ def test_degraded_flag_set_when_latest_day_has_few_inputs():
             body_battery=None,
         )
     )
-    result = compute_recovery(series)
+    result = _compute(series)
     assert all(row.degraded for row in result.evidence)
 
 
 def test_score_series_spans_display_window_with_seeded_ma7():
-    result = compute_recovery(_baseline_series(45))
+    result = _compute(_baseline_series(45))
     # 45 days, 30-day warm-up -> 15 scored days, all within the display window
     assert len(result.score_series) == 45
     assert result.score_series[-1].ma7 is not None
@@ -104,7 +110,7 @@ def test_score_series_spans_display_window_with_seeded_ma7():
 
 def test_evidence_carries_baseline_and_sparkline():
     row = next(
-        r for r in compute_recovery(_baseline_series()).evidence
+        r for r in _compute(_baseline_series()).evidence
         if r.metric == "hrv_nightly_avg"
     )
     assert row.baseline == 53.0  # median of the typical history
