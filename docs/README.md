@@ -16,6 +16,16 @@ not kept as a parallel source of truth (git history retains them).
   bundle JSON contract.
 - [ACTIVITY_ANALYTICS_DESIGN.md](ACTIVITY_ANALYTICS_DESIGN.md) — future Garmin activity/session
   marts and the experiment-day joins that would unlock a load/progress axis.
+- [load-data.md](load-data.md) — data requirements and validation questions for a future
+  load/strain axis.
+- [adaptation-progress.md](adaptation-progress.md) — data requirements and validation questions
+  for sport-specific adaptation and progress metrics.
+- [sleep-opportunity-regularity.md](sleep-opportunity-regularity.md) — data requirements and
+  validation questions for sleep duration, timing, debt, and regularity metrics.
+- [health-exceptions.md](health-exceptions.md) — data requirements and validation questions for
+  health-context flags such as oxygen, thermoregulation, illness-like patterns, and data coverage.
+- [experiment-adherence.md](experiment-adherence.md) — data requirements and validation questions
+  for experiment-day routine exposure, protocol adherence, and analyzability gates.
 
 ## Analyst Method
 
