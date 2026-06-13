@@ -68,3 +68,17 @@ test('routine surfaces share card payload helpers', () => {
 	assert.doesNotMatch(scheduleSource, /const RENDERER_ICONS/);
 	assert.doesNotMatch(scheduleSource, /function cardBrief/);
 });
+
+test('dashboard health flags use historical flag series when brushing dates', () => {
+	const dashboardSource = readFileSync(join('src/routes', '+page.svelte'), 'utf8');
+	const flagStripSource = readFileSync(
+		join('src/lib', 'components', 'recovery', 'FlagStrip.svelte'),
+		'utf8'
+	);
+
+	assert.match(dashboardSource, /flagSeries=\{overview\.flag_series\}/);
+	assert.match(dashboardSource, /\{hoveredDate\}/);
+	assert.match(flagStripSource, /flagSeries/);
+	assert.match(flagStripSource, /hoveredDate/);
+	assert.match(flagStripSource, /displayFlags/);
+});

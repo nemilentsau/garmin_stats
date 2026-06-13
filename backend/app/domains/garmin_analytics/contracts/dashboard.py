@@ -100,6 +100,27 @@ class HealthFlag(DefaultsRequired):
     tab_href: str
 
 
+class HealthFlagPoint(DefaultsRequired):
+    """One dated health-flag state, aligned to the recovery trajectory for hover history."""
+
+    date: str
+    state: FlagState
+    value: float | None = None
+    threshold_low: float | None = None
+    threshold_high: float | None = None
+    direction: str | None = None
+    recent: bool = False
+
+
+class HealthFlagSeries(DefaultsRequired):
+    """Historical health-flag states for one flag kind."""
+
+    kind: FlagKind
+    label: str
+    tab_href: str
+    points: list[HealthFlagPoint] = []
+
+
 class StructuralGap(DefaultsRequired):
     """A contiguous SpO2 coverage gap, rendered as an explicit 'no data' span."""
 
@@ -148,6 +169,7 @@ class DashboardOverviewResponse(DefaultsRequired):
     evidence: list[EvidenceRow] = []
     driver_series: list[DriverSeries] = []
     flags: list[HealthFlag] = []
+    flag_series: list[HealthFlagSeries] = []
     spo2_gaps: list[StructuralGap] = []
     events: list[TrajectoryEvent] = []
     correlations: list[MetricCorrelation] = []

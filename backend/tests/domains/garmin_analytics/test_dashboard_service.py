@@ -44,6 +44,8 @@ def _make_metric(
     sleep_score: int | None = 80,
     resting_hr: int | None = 46,
     weekly_avg: float | None = 50.0,
+    spo2_avg: float | None = 96.0,
+    skin_temp_deviation: float | None = 0.1,
 ) -> DailyMetric:
     return DailyMetric(
         date=date,
@@ -52,14 +54,14 @@ def _make_metric(
         ),
         stress=DailyMetricStats(avg=25.0),
         body_battery=DailyBodyBatteryStats(avg=60.0),
-        spo2=DailyMetricStats(avg=96.0),
+        spo2=DailyMetricStats(avg=spo2_avg),
         respiration=DailyMetricStats(avg=14.0),
         hrv=DailyHrvStats(
             nightly_avg=nightly_avg, weekly_avg=weekly_avg,
             status=hrv_status,
         ),
         sleep=DailySleepStats(score=sleep_score),
-        skin_temp=DailySkinTempStats(deviation=0.1),
+        skin_temp=DailySkinTempStats(deviation=skin_temp_deviation),
     )
 
 
@@ -172,3 +174,20 @@ class TestRecoveryOverview:
             flag for flag in load_dashboard_overview().flags if flag.kind == "oxygen"
         )
         assert oxygen.state == "unknown"
+
+    def test_historical_flag_series_preserves_past_oxygen_flags_when_latest_is_clear(self):
+        _seed_baseline(40)
+        _insert(_make_metric("2026-02-10", spo2_avg=84.0))
+        _insert(_make_metric("2026-02-11", spo2_avg=96.0))
+
+        result = load_dashboard_overview()
+
+        latest_oxygen = next(flag for flag in result.flags if flag.kind == "oxygen")
+        oxygen_series = next(
+            series for series in result.flag_series if series.kind == "oxygen"
+        )
+        by_date = {point.date: point for point in oxygen_series.points}
+
+        assert latest_oxygen.state == "clear"
+        assert by_date["2026-02-10"].state == "flag"
+        assert by_date["2026-02-11"].state == "clear"

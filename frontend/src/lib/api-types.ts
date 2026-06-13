@@ -2206,6 +2206,11 @@ export interface components {
              */
             flags: components["schemas"]["HealthFlag"][];
             /**
+             * Flag Series
+             * @default []
+             */
+            flag_series: components["schemas"]["HealthFlagSeries"][];
+            /**
              * Spo2 Gaps
              * @default []
              */
@@ -2681,6 +2686,52 @@ export interface components {
             recent: boolean;
             /** Tab Href */
             tab_href: string;
+        };
+        /**
+         * HealthFlagPoint
+         * @description One dated health-flag state, aligned to the recovery trajectory for hover history.
+         */
+        HealthFlagPoint: {
+            /** Date */
+            date: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "clear" | "flag" | "unknown";
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
+            /** Threshold High */
+            threshold_high: number | null;
+            /** Direction */
+            direction: string | null;
+            /**
+             * Recent
+             * @default false
+             */
+            recent: boolean;
+        };
+        /**
+         * HealthFlagSeries
+         * @description Historical health-flag states for one flag kind.
+         */
+        HealthFlagSeries: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "oxygen" | "thermoregulation";
+            /** Label */
+            label: string;
+            /** Tab Href */
+            tab_href: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["HealthFlagPoint"][];
         };
         /**
          * HeartRateAnalysisResponse

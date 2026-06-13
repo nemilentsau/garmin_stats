@@ -112,7 +112,9 @@ them in tiles hides the co-movement that is the point). Top to bottom:
   (|Δz|)**, each metric linking into its detail tab. Hovering the trajectory repopulates these to
   the hovered day via the per-metric `driver_series`.
 - **Flag strip** — two ternary chips (clear / flag / unknown), linking to `/pulse-ox` and
-  `/skin-temp`.
+  `/skin-temp`. It follows trajectory hover just like the evidence table, so a historical low-SpO₂
+  or temperature flag is shown when the hovered day had that flag, rather than staying pinned to the
+  latest day.
 
 The nine per-metric detail tabs (`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`,
 `/respiration`, `/skin-temp`, `/pulse-ox`) are **kept as-is** — they carry intraday curves,
@@ -137,6 +139,7 @@ overview is the entry point; the evidence rows and flags link into them.
 | `evidence[]` | latest-day per-input rows (value, baseline, Δz, source, tab link, sparkline) |
 | `driver_series[]` | per-metric value/baseline/Δz aligned to `score` dates — powers hover-brushing |
 | `flags[]` | oxygen + thermoregulation (incl. `unknown`, tab links) |
+| `flag_series[]` | dated oxygen + thermoregulation states aligned to `score` dates — powers historical flag hover |
 | `spo2_gaps[]` | structural SpO₂ coverage gaps |
 | `events[]` | detected low/elevated regimes |
 | `correlations[]` | nightly-HRV-vs-sleep/resting-HR scatters — **not shown on the overview**; retained for the HRV detail tab |

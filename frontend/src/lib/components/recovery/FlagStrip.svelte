@@ -1,14 +1,44 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
 	import { flagDisplay, flagColor } from '$lib/recovery-format';
+	import { parseIsoDate, fmtDayMonth } from '$lib/date';
 
-	let { flags }: { flags: DashboardOverview['flags'] } = $props();
+	let {
+		flags,
+		flagSeries,
+		hoveredDate = null
+	}: {
+		flags: DashboardOverview['flags'];
+		flagSeries: DashboardOverview['flag_series'];
+		hoveredDate?: string | null;
+	} = $props();
+
+	type HealthFlag = DashboardOverview['flags'][number];
+
+	const seriesByKind = $derived(new Map(flagSeries.map((series) => [series.kind, series])));
+	const displayFlags = $derived.by<HealthFlag[]>(() => {
+		if (!hoveredDate) return flags;
+		return flags.map((flag) => {
+			const point = seriesByKind.get(flag.kind)?.points.find((p) => p.date === hoveredDate);
+			if (!point) return flag;
+			return {
+				...flag,
+				state: point.state,
+				value: point.value,
+				threshold_low: point.threshold_low,
+				threshold_high: point.threshold_high,
+				direction: point.direction,
+				recent: point.recent
+			};
+		});
+	});
+	const whenLabel = $derived(hoveredDate ? fmtDayMonth(parseIsoDate(hoveredDate)) : 'today');
 </script>
 
 <section class="flag-strip">
-	<span class="label">Health flags</span>
+	<span class="label">Health flags · {whenLabel}</span>
 	<div class="chips">
-		{#each flags as flag (flag.kind)}
+		{#each displayFlags as flag (flag.kind)}
 			{@const d = flagDisplay(flag)}
 			{@const color = flagColor(d.tone)}
 			<a class="chip" href={flag.tab_href} class:unknown={d.tone === 'unknown'}>
