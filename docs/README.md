@@ -16,6 +16,9 @@ not kept as a parallel source of truth (git history retains them).
   bundle JSON contract.
 - [ACTIVITY_ANALYTICS_DESIGN.md](ACTIVITY_ANALYTICS_DESIGN.md) — future Garmin activity/session
   marts and the experiment-day joins that would unlock a load/progress axis.
+- [central-dashboard-readiness.md](central-dashboard-readiness.md) — critical summary of which
+  dashboard axes are ready now, which need backend derivation, and which require new data
+  ingestion.
 - [load-data.md](load-data.md) — data requirements and validation questions for a future
   load/strain axis.
 - [adaptation-progress.md](adaptation-progress.md) — data requirements and validation questions
