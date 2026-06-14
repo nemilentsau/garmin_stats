@@ -48,8 +48,8 @@ Use:
 
 - recovery band and trend: suppressed / typical / strong plus improving / steady / declining
 - current score in personal z units
-- 7-day smoothed trajectory
-- raw daily trace as supporting context
+- 7-day smoothed trajectory (the raw daily line is not drawn; per-day dispersion, ±1 SD, is shown
+  on hover)
 - detected sustained regimes
 
 Do not describe this as "fitness," "training readiness," or "overall health." The score is a

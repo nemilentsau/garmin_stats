@@ -101,10 +101,16 @@ state, read as trajectory + evidence* — not a card grid (the seven inputs are 
 them in tiles hides the co-movement that is the point). Top to bottom:
 
 - **State line** — the band × trend sentence + the score (small, in z). A sentence, not a gauge.
-- **Recovery trajectory (the hero)** — one shared-axis time series: thin raw daily + bold seeded
-  MA7, a shaded typical band, and the detected-regime annotations. Range toggles **7d / 30d / 90d
-  / 180d / 360d** (default 90d), with the x-axis unit adapting (day ≤31d, month otherwise). The
-  y-axis **hugs the data** (`frontend/src/lib/chart-scale.ts`) — tight bounds with round-only
+- **Recovery trajectory (the hero)** — one shared-axis time series: the bold seeded MA7 line over
+  a shaded typical band, with the detected-regime annotations. The raw daily series is **not
+  drawn** — it dominated the axis and competed with the trend as visual noise. Instead each day's
+  **dispersion (±1 SD of the daily score over a trailing 14 days)** is surfaced in the hover
+  tooltip as a `±X.XX z` figure. (A filled dispersion band was prototyped and rejected: a 14-day
+  SD is near-constant-width, so it just parallels the average and visually swallowed the typical
+  band; as a per-day number the spread does vary meaningfully, so it lives in the tooltip.) Range
+  toggles **7d / 30d / 90d / 180d / 360d** (default 90d), with the x-axis unit adapting (day ≤31d,
+  month otherwise). The y-axis **hugs the data** (`frontend/src/lib/chart-scale.ts`) — scaled to
+  the MA7 and the ±0.5 typical band so the trend fills the plot, with tight bounds and round-only
   ticks, never auto-overshooting to round extremes that flatten the signal. **Hover-brushing:**
   hovering a day re-points the evidence table to that day.
 - **Evidence table ("what moved it")** — the seven inputs as aligned rows (value / personal
@@ -136,7 +142,7 @@ overview is the entry point; the evidence rows and flags link into them.
 | Field | Purpose |
 |---|---|
 | `state` | band / trend / score_z |
-| `score[]` | trajectory points (raw, seeded ma7, typical-band bounds) |
+| `score[]` | trajectory points (raw, seeded ma7, ±1 SD dispersion-band bounds `band_lo`/`band_hi` — tooltip spread only, typical-band bounds) |
 | `change` | Δ7 / Δ1 + meaningful/acute flags |
 | `evidence[]` | latest-day per-input rows (value, baseline, Δz, source, tab link, sparkline) |
 | `driver_series[]` | per-metric value/baseline/Δz aligned to `score` dates — powers hover-brushing |
