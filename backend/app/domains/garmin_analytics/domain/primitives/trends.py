@@ -70,6 +70,9 @@ def trailing_sd(
     window holds fewer than `min_valid` non-None values, so a thin left edge or a
     sparse stretch produces no spurious spread. Mirrors the None-skipping policy of
     `trailing_ma7`; used to size the recovery trajectory's dispersion band.
+
+    Callers must pass ``min_valid >= 2``; sample SD (ddof=1) is undefined for a
+    single value.
     """
     result: list[float | None] = []
     for i in range(len(values)):
