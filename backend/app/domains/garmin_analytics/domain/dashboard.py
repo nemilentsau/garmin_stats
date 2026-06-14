@@ -4,11 +4,10 @@ Maps the validated `recovery_score` domain computation onto the API contract: th
 recovery trajectory, the state (band x trend), the meaningful-change badge, the
 per-input evidence rows, and the two health flags. All statistics live in
 `recovery_score`; this module only shapes the response and derives the two flags +
-their recency from the loaded metrics. The per-metric detail endpoints are untouched —
-the evidence rows and flags link out to those existing tabs.
+their historical point series from the loaded metrics. The per-metric detail endpoints
+are untouched — the evidence rows and flags link out to those existing tabs.
 """
 
-from collections.abc import Callable
 from typing import Literal, cast
 
 import numpy as np
@@ -18,18 +17,22 @@ from app.domains.garmin_analytics.contracts import (
     DashboardOverviewResponse,
     DriverSeries,
     EvidenceRow,
-    HealthFlag,
+    HealthFlags,
+    HealthFlagSeries,
     MeaningfulChange,
     MetricCorrelation,
+    OxygenHealthFlag,
+    OxygenHealthFlagPoint,
     RecoveryScorePoint,
     RecoveryState,
     SparkPoint,
     StructuralGap,
+    ThermoregulationHealthFlag,
+    ThermoregulationHealthFlagPoint,
     TrajectoryEvent,
 )
 from app.domains.garmin_analytics.contracts.dashboard import (
     Band,
-    FlagState,
     SourceType,
     Trend,
 )
@@ -44,7 +47,6 @@ from app.domains.garmin_health.contracts import DailyMetric
 
 _OXYGEN_TAB = "/pulse-ox"
 _THERMO_TAB = "/skin-temp"
-_RECENT_WINDOW = 7
 
 
 def _round_opt(value: float | None, digits: int) -> float | None:
@@ -142,54 +144,87 @@ def _evidence(computation: RecoveryComputation) -> list[EvidenceRow]:
     return rows
 
 
-def _recent_flag(
-    series: list[float | None],
-    flag_fn: Callable[..., tuple[str, object]],
-) -> bool:
-    """Whether `flag_fn` reports 'flag' on any of the trailing _RECENT_WINDOW days.
-
-    Each day is evaluated against its own prior history, mirroring how the latest-day
-    flag is computed.
-    """
-    return any(
-        flag_fn(series[i], history=series[:i])[0] == "flag"
-        for i in range(max(0, len(series) - _RECENT_WINDOW), len(series))
-    )
-
-
-def _oxygen_flag(metrics: list[DailyMetric]) -> HealthFlag:
-    series = [m.spo2.avg for m in metrics]
-    state, threshold = flag_rules.oxygen_flag_state(series[-1], history=series[:-1])
-    return HealthFlag(
-        kind="oxygen",
-        state=cast(FlagState, state),
-        label="Oxygen",
-        value=series[-1],
-        threshold_low=_round_opt(threshold, 1),
-        direction="low" if state == "flag" else None,
-        recent=_recent_flag(series, flag_rules.oxygen_flag_state),
+def _oxygen_flag_from_point(point: OxygenHealthFlagPoint) -> OxygenHealthFlag:
+    return OxygenHealthFlag(
+        status=point.status,
+        value=point.value,
+        threshold_low=point.threshold_low,
         tab_href=_OXYGEN_TAB,
     )
 
 
-def _thermo_flag(metrics: list[DailyMetric]) -> HealthFlag:
-    series = [m.skin_temp.deviation for m in metrics]
-    latest = series[-1]
-    state, band = flag_rules.thermo_flag_state(latest, history=series[:-1])
-    direction: str | None = None
-    if state == "flag" and band is not None and latest is not None:
-        direction = "below" if latest < band[0] else "above"
-    return HealthFlag(
-        kind="thermoregulation",
-        state=cast(FlagState, state),
-        label="Thermoregulation",
-        value=latest,
-        threshold_low=_round_opt(band[0], 2) if band is not None else None,
-        threshold_high=_round_opt(band[1], 2) if band is not None else None,
-        direction=direction,
-        recent=_recent_flag(series, flag_rules.thermo_flag_state),
+def _oxygen_flag_series(metrics: list[DailyMetric]) -> list[OxygenHealthFlagPoint]:
+    series = [m.spo2.avg for m in metrics]
+    points: list[OxygenHealthFlagPoint] = []
+    for index, metric in enumerate(metrics):
+        status, threshold = flag_rules.oxygen_flag_status(
+            series[index], history=series[:index]
+        )
+        points.append(
+            OxygenHealthFlagPoint(
+                date=metric.date,
+                status=status,
+                value=series[index],
+                threshold_low=_round_opt(threshold, 1),
+            )
+        )
+    return points
+
+
+def _thermo_flag_from_point(
+    point: ThermoregulationHealthFlagPoint,
+) -> ThermoregulationHealthFlag:
+    return ThermoregulationHealthFlag(
+        status=point.status,
+        value=point.value,
+        threshold_low=point.threshold_low,
+        threshold_high=point.threshold_high,
         tab_href=_THERMO_TAB,
     )
+
+
+def _thermo_flag_series(
+    metrics: list[DailyMetric],
+) -> list[ThermoregulationHealthFlagPoint]:
+    series = [m.skin_temp.deviation for m in metrics]
+    points: list[ThermoregulationHealthFlagPoint] = []
+    for index, metric in enumerate(metrics):
+        value = series[index]
+        status, band = flag_rules.thermo_flag_status(value, history=series[:index])
+        points.append(
+            ThermoregulationHealthFlagPoint(
+                date=metric.date,
+                status=status,
+                value=value,
+                threshold_low=_round_opt(band[0], 2) if band is not None else None,
+                threshold_high=_round_opt(band[1], 2) if band is not None else None,
+            )
+        )
+    return points
+
+
+def _health_flag_series(metrics: list[DailyMetric]) -> HealthFlagSeries:
+    return HealthFlagSeries(
+        oxygen=_oxygen_flag_series(metrics),
+        thermoregulation=_thermo_flag_series(metrics),
+    )
+
+
+def _latest_health_flags(series: HealthFlagSeries) -> HealthFlags:
+    return HealthFlags(
+        oxygen=_oxygen_flag_from_point(series.oxygen[-1]),
+        thermoregulation=_thermo_flag_from_point(series.thermoregulation[-1]),
+    )
+
+
+def _filter_flag_series(series: HealthFlagSeries, dates: set[str]) -> HealthFlagSeries:
+    oxygen_points = [
+        point for point in series.oxygen if point.date in dates
+    ]
+    thermo_points = [
+        point for point in series.thermoregulation if point.date in dates
+    ]
+    return HealthFlagSeries(oxygen=oxygen_points, thermoregulation=thermo_points)
 
 
 def _spo2_gaps(metrics: list[DailyMetric]) -> list[StructuralGap]:
@@ -253,6 +288,8 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
     if computation is None:
         return DashboardOverviewResponse(date=metrics[-1].date if metrics else "")
 
+    score_dates = {point.date for point in computation.score_series}
+    flag_series = _health_flag_series(metrics)
     return DashboardOverviewResponse(
         date=computation.date,
         state=_state(computation.score_z, computation.delta7_z),
@@ -260,7 +297,8 @@ def compute_dashboard_overview(metrics: list[DailyMetric]) -> DashboardOverviewR
         change=_change(computation.delta7_z, computation.delta1_z),
         evidence=_evidence(computation),
         driver_series=_driver_series(computation),
-        flags=[_oxygen_flag(metrics), _thermo_flag(metrics)],
+        flags=_latest_health_flags(flag_series),
+        flag_series=_filter_flag_series(flag_series, score_dates),
         spo2_gaps=_spo2_gaps(metrics),
         events=_events(computation),
         correlations=_correlations(metrics),

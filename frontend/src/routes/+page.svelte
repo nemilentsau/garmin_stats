@@ -207,7 +207,12 @@
 			dates={overview.score.map((p) => p.date)}
 			{hoveredDate}
 		/>
-		<FlagStrip flags={overview.flags} />
+		<FlagStrip
+			flags={overview.flags}
+			flagSeries={overview.flag_series}
+			latestDate={overview.date}
+			{hoveredDate}
+		/>
 	{/if}
 
 {/if}

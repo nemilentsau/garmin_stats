@@ -1,20 +1,33 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
-	import { flagDisplay, flagColor } from '$lib/recovery-format';
+	import { flagDisplay, flagColor, healthFlagStripViewModel } from '$lib/recovery-format';
 
-	let { flags }: { flags: DashboardOverview['flags'] } = $props();
+	let {
+		flags,
+		flagSeries,
+		latestDate,
+		hoveredDate = null
+	}: {
+		flags: DashboardOverview['flags'];
+		flagSeries: DashboardOverview['flag_series'];
+		latestDate: string;
+		hoveredDate?: string | null;
+	} = $props();
+
+	const viewModel = $derived(
+		healthFlagStripViewModel({ flags, flagSeries, latestDate, hoveredDate })
+	);
 </script>
 
 <section class="flag-strip">
-	<span class="label">Health flags</span>
+	<span class="label">Health flags · {viewModel.whenLabel}</span>
 	<div class="chips">
-		{#each flags as flag (flag.kind)}
+		{#each viewModel.flags as flag (flag.kind)}
 			{@const d = flagDisplay(flag)}
 			{@const color = flagColor(d.tone)}
 			<a class="chip" href={flag.tab_href} class:unknown={d.tone === 'unknown'}>
 				<span class="dot" style="background:{color}"></span>
 				<span class="text" style="color:{color}">{d.text}</span>
-				{#if flag.recent && d.tone === 'clear'}<span class="recent">recent</span>{/if}
 			</a>
 		{/each}
 	</div>
@@ -65,11 +78,5 @@
 			transparent 4px
 		);
 		border: 1px solid #5e7282;
-	}
-	.recent {
-		font-size: 10px;
-		color: #8a6a4a;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
 	}
 </style>

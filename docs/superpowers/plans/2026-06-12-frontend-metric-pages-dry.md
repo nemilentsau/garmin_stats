@@ -5,12 +5,16 @@ extending the abstractions that already exist, and improve each tab's UX in the 
 hug-the-data axis, the anti-card lens). Done one tab per increment, behavior-preserving.
 
 **Scope:** `frontend/src/routes/{heart-rate,hrv,sleep,stress,body-battery,respiration,skin-temp,pulse-ox}/+page.svelte`
-and the shared `frontend/src/lib/` helpers/components they use. **Out of scope:** `src/routes/+page.svelte`
-(the overview — already rebuilt and clean) and any backend contract change unless a tab genuinely
-needs new data (decide per tab, don't pre-build).
+and the shared `frontend/src/lib/` helpers/components they use. The overview
+(`frontend/src/routes/+page.svelte`) is not the main target because its first slate is already
+rebuilt, but small access/status additions are allowed when they are backed by existing data or a
+narrow dashboard contract. Backend contract changes should happen only when a tab or status lane
+genuinely needs them; do not pre-build speculative fields.
 
-**Status:** plan only (not started). Parts 1 & 2 of the broader DRY-up (backend dashboard helpers
-+ overview formatters) are already done (commit `7dc90f5`).
+**Status:** active frontend direction as of 2026-06-13. Parts 1 & 2 of the broader DRY-up
+(backend dashboard helpers + overview formatters) are already done (commit `7dc90f5`). The current
+sequence is: central dashboard first slate complete, then generic metric detail pages DRY-up and
+visual improvement, with activity/workout ingestion deferred until those dashboards are stable.
 
 ---
 
@@ -55,6 +59,11 @@ Feasible consolidation: ~630–700 lines.
    Keep UX changes small and screenshot-reviewed.
 4. **No backend change unless required.** If a tab needs data it doesn't have, decide then —
    don't pre-build contract fields.
+5. **No activity/workout ingestion in this phase.** Load, strain, and progress remain design docs
+   until the generic Garmin metric dashboards are DRY and visually stable.
+6. **Central dashboard access is allowed, not central-dashboard expansion.** Keep overview changes
+   to drill-down links, historical/context status, or experiment/status entry points that are
+   already supported by existing data.
 
 ---
 
@@ -134,9 +143,12 @@ Doing 1–3 first banks the shared builders and de-risks the heavy 4–5.
 
 ## Explicit non-goals
 
-- Do not touch the overview (`/`).
+- Do not redesign the overview (`/`) or turn it into a multi-lane training-state dashboard during
+  this refactor.
 - Do not remove any information a tab shows (intraday curves, distributions, sleep stages, HR
   zones, circadian profiles, the HRV correlations) — this is a *code* DRY-up + axis/UX polish, not
   a content change.
 - Do not introduce a parallel composable/factory that competes with `createDateLoader` /
   `StatCard` / the chart helper.
+- Do not add Garmin activity/session/workout ingestion, load/strain metrics, or progress metrics in
+  this phase.

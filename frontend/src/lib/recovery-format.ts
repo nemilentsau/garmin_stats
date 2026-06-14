@@ -7,10 +7,18 @@
  */
 import { COLORS, DARK_MUTED_TEXT } from './colors';
 import type { DashboardOverview } from './api';
+import { fmtDayMonth, parseIsoDate } from './date';
 
 type RecoveryState = DashboardOverview['state'];
-type HealthFlag = DashboardOverview['flags'][number];
+type OxygenHealthFlag = DashboardOverview['flags']['oxygen'];
+type ThermoregulationHealthFlag = DashboardOverview['flags']['thermoregulation'];
+type HealthFlag = OxygenHealthFlag | ThermoregulationHealthFlag;
+type HealthFlags = DashboardOverview['flags'];
+type HealthFlagSeries = DashboardOverview['flag_series'];
+type OxygenHealthFlagPoint = HealthFlagSeries['oxygen'][number];
+type ThermoregulationHealthFlagPoint = HealthFlagSeries['thermoregulation'][number];
 type SourceType = DashboardOverview['evidence'][number]['source_type'];
+type FlagTone = 'normal' | 'warning' | 'unknown';
 
 const BAND_WORD: Record<string, string> = {
 	suppressed: 'Suppressed recovery',
@@ -67,21 +75,80 @@ export function deltaArrow(deltaZ: number | null | undefined): string {
 	return deltaZ > 0 ? '▲' : '▼';
 }
 
-/** A flag's human label + tone for the strip. */
-export function flagDisplay(flag: HealthFlag): { text: string; tone: 'clear' | 'flag' | 'unknown' } {
-	if (flag.state === 'unknown') {
+/** A health exception's human label + tone for the strip. */
+export function flagDisplay(flag: HealthFlag): { text: string; tone: FlagTone } {
+	if (flag.status === 'unknown') {
 		return { text: `${flag.label}: no reading`, tone: 'unknown' };
 	}
-	if (flag.state === 'flag') {
-		const dir = flag.direction ? ` (${flag.direction})` : '';
-		return { text: `${flag.label}: flagged${dir}`, tone: 'flag' };
+
+	if (flag.kind === 'oxygen') {
+		if (flag.status === 'low') {
+			return { text: `${flag.label}: low`, tone: 'warning' };
+		}
+		return { text: `${flag.label}: normal`, tone: 'normal' };
 	}
-	return { text: `${flag.label}: clear`, tone: 'clear' };
+
+	if (flag.status === 'below_usual') {
+		return { text: `${flag.label}: below usual`, tone: 'warning' };
+	}
+	if (flag.status === 'above_usual') {
+		return { text: `${flag.label}: above usual`, tone: 'warning' };
+	}
+	return { text: `${flag.label}: normal`, tone: 'normal' };
 }
 
-/** Colour for a flag tone. */
-export function flagColor(tone: 'clear' | 'flag' | 'unknown'): string {
-	if (tone === 'flag') return COLORS.stress;
+/** Colour for a health exception tone. */
+export function flagColor(tone: FlagTone): string {
+	if (tone === 'warning') return COLORS.stress;
 	if (tone === 'unknown') return DARK_MUTED_TEXT;
 	return COLORS.heartRateResting;
+}
+
+function oxygenFlagForDate(base: OxygenHealthFlag, point: OxygenHealthFlagPoint | undefined): OxygenHealthFlag {
+	if (!point) return base;
+	return {
+		...base,
+		status: point.status,
+		value: point.value,
+		threshold_low: point.threshold_low
+	};
+}
+
+function thermoregulationFlagForDate(
+	base: ThermoregulationHealthFlag,
+	point: ThermoregulationHealthFlagPoint | undefined
+): ThermoregulationHealthFlag {
+	if (!point) return base;
+	return {
+		...base,
+		status: point.status,
+		value: point.value,
+		threshold_low: point.threshold_low,
+		threshold_high: point.threshold_high
+	};
+}
+
+/** Display model for the health-exception strip on the recovery overview. */
+export function healthFlagStripViewModel({
+	flags,
+	flagSeries,
+	latestDate,
+	hoveredDate
+}: {
+	flags: HealthFlags;
+	flagSeries: HealthFlagSeries;
+	latestDate: string;
+	hoveredDate?: string | null;
+}): { whenLabel: string; flags: HealthFlag[] } {
+	const selectedDate = hoveredDate ?? latestDate;
+	const oxygenPoint = flagSeries.oxygen.find((point) => point.date === selectedDate);
+	const thermoPoint = flagSeries.thermoregulation.find((point) => point.date === selectedDate);
+
+	return {
+		whenLabel: selectedDate ? fmtDayMonth(parseIsoDate(selectedDate)) : 'latest',
+		flags: [
+			oxygenFlagForDate(flags.oxygen, oxygenPoint),
+			thermoregulationFlagForDate(flags.thermoregulation, thermoPoint)
+		]
+	};
 }

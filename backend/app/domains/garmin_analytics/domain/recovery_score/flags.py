@@ -1,7 +1,7 @@
 """Health flags: low-oxygen (spo2_avg) and thermoregulation (skin-temp deviation).
 
 Personal robust thresholds (median +- 2.5*MAD); oxygen is one-sided low, thermo is
-two-sided. A missing reading is a distinct "unknown" state, never "clear" — the SpO2
+two-sided. A missing reading is a distinct "unknown" status, never "normal" — the SpO2
 gaps are structural (two device-coverage blocks), not health events. Validated in run
 2026-06-11-spo2-skintemp-flag-thresholds: spo2_avg beats spo2_min as the flag metric
 (it catches the whole low-oxygen episode as a block), and the personal ~90.5%
@@ -12,12 +12,15 @@ threshold lands near the conventional 90% reference. Absolute cutoffs are useles
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 
 K = 2.5
 _MAD_SCALE = 1.4826
 _MIN_HISTORY = 30
+OxygenRuleStatus = Literal["normal", "low", "unknown"]
+ThermoregulationRuleStatus = Literal["normal", "below_usual", "above_usual", "unknown"]
 
 
 def _robust_center_scale(history: Sequence[float | None]) -> tuple[float, float] | None:
@@ -31,15 +34,15 @@ def _robust_center_scale(history: Sequence[float | None]) -> tuple[float, float]
     return median, scale
 
 
-def oxygen_flag_state(
+def oxygen_flag_status(
     value: float | None,
     *,
     history: Sequence[float | None],
-) -> tuple[str, float | None]:
+) -> tuple[OxygenRuleStatus, float | None]:
     """Low-oxygen flag from nightly spo2_avg vs the personal lower threshold.
 
-    Returns (state, threshold). A missing value is "unknown" (never "clear"); with too
-    little history the flag stays "clear" with no threshold.
+    Returns (status, threshold). A missing value is "unknown" (never "normal"); with
+    too little history the oxygen status stays "normal" with no threshold.
     """
     center_scale = _robust_center_scale(history)
     threshold = (
@@ -48,19 +51,19 @@ def oxygen_flag_state(
     if value is None:
         return "unknown", threshold
     if threshold is None:
-        return "clear", None
-    return ("flag" if value < threshold else "clear"), threshold
+        return "normal", None
+    return ("low" if value < threshold else "normal"), threshold
 
 
-def thermo_flag_state(
+def thermo_flag_status(
     value: float | None,
     *,
     history: Sequence[float | None],
-) -> tuple[str, tuple[float, float] | None]:
+) -> tuple[ThermoregulationRuleStatus, tuple[float, float] | None]:
     """Thermoregulation flag from skin-temp deviation vs a two-sided personal band.
 
-    Returns (state, (low, high)). A missing value is "unknown"; with too little history
-    the flag stays "clear" with no band.
+    Returns (status, (low, high)). A missing value is "unknown"; with too little
+    history the thermoregulation status stays "normal" with no band.
     """
     center_scale = _robust_center_scale(history)
     band = (
@@ -71,9 +74,13 @@ def thermo_flag_state(
     if value is None:
         return "unknown", band
     if band is None:
-        return "clear", None
+        return "normal", None
     low, high = band
-    return ("flag" if (value < low or value > high) else "clear"), band
+    if value < low:
+        return "below_usual", band
+    if value > high:
+        return "above_usual", band
+    return "normal", band
 
 
 def structural_gaps(

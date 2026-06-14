@@ -24,6 +24,10 @@ assistant + routines.
   moved it, and oxygen/thermoregulation flags — with full metric drill-downs for
   HRV, sleep, heart rate, stress, body battery, respiration, skin temperature, and
   pulse ox. See [docs/recovery-dashboard.md](docs/recovery-dashboard.md).
+- Tracks the next central-dashboard lanes separately from the recovery score. Sleep opportunity,
+  health exceptions, and experiment adherence can build from existing data/contracts; load and
+  progress are deferred until activity/session ingestion is intentionally started. See
+  [docs/central-dashboard-readiness.md](docs/central-dashboard-readiness.md).
 - Provides an assistant chat that uses curated evidence bundles instead of direct
   raw database access.
 - Supports routine bundles that compile into live schedules and a Today execution
@@ -239,6 +243,10 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
   ownership boundaries, and route inventory.
 - [docs/recovery-dashboard.md](docs/recovery-dashboard.md) - the recovery score, health
   flags, and dashboard overview design reference.
+- [docs/recovery-score.md](docs/recovery-score.md) - product explanation and critique of
+  the recovery score as one lane of the dashboard.
+- [docs/central-dashboard-readiness.md](docs/central-dashboard-readiness.md) - current
+  central-dashboard roadmap and data-readiness summary.
 - [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
   canonical routine bundle JSON contract.
 - [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned

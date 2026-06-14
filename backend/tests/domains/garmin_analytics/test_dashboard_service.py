@@ -44,6 +44,8 @@ def _make_metric(
     sleep_score: int | None = 80,
     resting_hr: int | None = 46,
     weekly_avg: float | None = 50.0,
+    spo2_avg: float | None = 96.0,
+    skin_temp_deviation: float | None = 0.1,
 ) -> DailyMetric:
     return DailyMetric(
         date=date,
@@ -52,14 +54,14 @@ def _make_metric(
         ),
         stress=DailyMetricStats(avg=25.0),
         body_battery=DailyBodyBatteryStats(avg=60.0),
-        spo2=DailyMetricStats(avg=96.0),
+        spo2=DailyMetricStats(avg=spo2_avg),
         respiration=DailyMetricStats(avg=14.0),
         hrv=DailyHrvStats(
             nightly_avg=nightly_avg, weekly_avg=weekly_avg,
             status=hrv_status,
         ),
         sleep=DailySleepStats(score=sleep_score),
-        skin_temp=DailySkinTempStats(deviation=0.1),
+        skin_temp=DailySkinTempStats(deviation=skin_temp_deviation),
     )
 
 
@@ -119,10 +121,32 @@ class TestRecoveryOverview:
 
     def test_two_health_flags_with_tab_links(self):
         _seed_baseline()
-        flags = {flag.kind: flag for flag in load_dashboard_overview().flags}
-        assert set(flags) == {"oxygen", "thermoregulation"}
-        assert flags["oxygen"].tab_href == "/pulse-ox"
-        assert flags["thermoregulation"].tab_href == "/skin-temp"
+        flags = load_dashboard_overview().flags
+        assert flags.oxygen.kind == "oxygen"
+        assert flags.oxygen.label == "Oxygen"
+        assert flags.oxygen.tab_href == "/pulse-ox"
+        assert flags.thermoregulation.kind == "thermoregulation"
+        assert flags.thermoregulation.label == "Skin temp"
+        assert flags.thermoregulation.tab_href == "/skin-temp"
+        assert "state" not in flags.oxygen.model_dump()
+        assert "direction" not in flags.oxygen.model_dump()
+        assert "state" not in flags.thermoregulation.model_dump()
+        assert "direction" not in flags.thermoregulation.model_dump()
+
+    def test_health_flags_use_domain_specific_status_vocabularies(self):
+        _seed_baseline(39)
+        _insert(
+            _make_metric(
+                "2026-02-09",
+                spo2_avg=84.0,
+                skin_temp_deviation=-1.5,
+            )
+        )
+
+        flags = load_dashboard_overview().flags
+
+        assert flags.oxygen.status == "low"
+        assert flags.thermoregulation.status == "below_usual"
 
     def test_score_series_spans_window_with_seeded_ma7_and_band(self):
         _seed_baseline()
@@ -150,7 +174,8 @@ class TestRecoveryOverview:
         _seed_baseline(50)
         result = load_dashboard_overview()
         assert result.change.delta7_z is not None  # 50 days clears warm-up + a Δ7 window
-        assert {f.kind for f in result.flags} == {"oxygen", "thermoregulation"}
+        assert result.flags.oxygen.kind == "oxygen"
+        assert result.flags.thermoregulation.kind == "thermoregulation"
         assert len(result.driver_series) == 7
         # every driver series aligns index-for-index with the score window
         assert all(len(d.deltas_z) == len(result.score) for d in result.driver_series)
@@ -168,7 +193,19 @@ class TestRecoveryOverview:
             update={"spo2": DailyMetricStats(avg=None)}
         )
         _insert(latest)
-        oxygen = next(
-            flag for flag in load_dashboard_overview().flags if flag.kind == "oxygen"
-        )
-        assert oxygen.state == "unknown"
+        assert load_dashboard_overview().flags.oxygen.status == "unknown"
+
+    def test_historical_flag_series_preserves_past_oxygen_status_when_latest_is_normal(self):
+        _seed_baseline(40)
+        _insert(_make_metric("2026-02-10", spo2_avg=84.0))
+        _insert(_make_metric("2026-02-11", spo2_avg=96.0))
+
+        result = load_dashboard_overview()
+
+        latest_oxygen = result.flags.oxygen
+        by_date = {point.date: point for point in result.flag_series.oxygen}
+
+        assert latest_oxygen.status == "normal"
+        assert by_date["2026-02-10"].status == "low"
+        assert by_date["2026-02-11"].status == "normal"
+        assert "recent" not in by_date["2026-02-10"].model_dump()
