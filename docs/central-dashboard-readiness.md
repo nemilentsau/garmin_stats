@@ -4,6 +4,13 @@ This note summarizes the dashboard-axis documents and separates what Garmin Stat
 show on the central dashboard now from what requires new backend derivation, new data ingestion, or
 more logged exposure.
 
+**Current sequencing (2026-06-13):** the central dashboard first slate is in place. The active
+frontend work is to DRY up and visually improve the generic metric detail dashboards
+(`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`, `/respiration`, `/skin-temp`,
+`/pulse-ox`). During that refactor, central-dashboard additions should be limited to access points
+and status lanes backed by existing data or already-designed backend contracts. Do not begin Garmin
+activity/workout ingestion until the generic dashboards are stable.
+
 The critical product conclusion is that the central dashboard should become a **training state**
 surface, not a bigger recovery score. Recovery is one validated axis. The other useful lanes answer
 different questions:
@@ -23,7 +30,7 @@ Do not blend these into one score until each lane has its own validated construc
 | --- | --- | --- | --- | --- |
 | Recovery state | How suppressed or strong is the current physiological recovery state? | Implemented and validated. | **Yes.** This is the current headline axis. | Keep wording narrow: physiological recovery state, not total readiness. |
 | Recovery evidence | Which inputs moved the recovery score? | Implemented. | **Yes.** Evidence table should stay near the headline. | Keep Garmin composites labeled as derived context. |
-| Health exceptions: oxygen and temperature | Is there an unusual oxygen or thermoregulation context? | Partially implemented. | **Yes.** Show as compact flags, not a score. | Add stronger coverage state handling and avoid diagnosis language. |
+| Health exceptions: oxygen and temperature | Is there an unusual oxygen or thermoregulation context? | Implemented for latest state and historical trajectory hover; broader exception coverage is still partial. | **Yes.** Show as compact flags, not a score. | Add stronger coverage state handling and avoid diagnosis language. |
 | Sleep opportunity / regularity | Did the user create enough sleep time and stable timing? | Not implemented as an axis, but sleep-stage data is already parsed. | **Not yet.** | Backend derivation from existing parsed sleep levels: duration, window, midpoint, efficiency, debt, regularity. |
 | Experiment adherence | Was the active protocol exposure satisfied? | Experiments, routines, exposure rows, and analysis are wired. Central dashboard integration is not ready. | **Not yet, except perhaps a link/status stub.** | Add central-dashboard contract, analyzability status, suppression reasons, and eventually dose-aware exposure. |
 | Experiment response | Did an intervention change an outcome? | Blocked by current exposure history and confounding risk. | **No.** | More logged exposure, enough contrast, confounder joins, and non-circular outcome choices. |
@@ -68,10 +75,11 @@ Low oxygen and thermoregulation can stay on the central dashboard now.
 
 Use:
 
-- oxygen: clear / flag / unknown
-- temperature: clear / flag / unknown
+- oxygen: normal / below range / no reading
+- thermoregulation: normal / below baseline / above baseline / no reading
 - current value and personal threshold/band
-- missingness as unknown, not clear
+- historical state when the recovery trajectory is hovered
+- missingness as unknown/no reading, not normal
 - links to pulse-ox and skin-temperature detail pages
 
 Do not turn these into a blended health score. Named flags are more honest and more useful.
@@ -219,8 +227,20 @@ Central dashboard should show:
 2. Recovery evidence table.
 3. Oxygen and thermoregulation flags.
 4. Explicit unknown/missing states where available.
+5. Links from central evidence/flags into the metric detail pages.
 
 This is modest, but defensible.
+
+### During the metric-dashboard refactor
+
+The frontend refactor should focus on the detail pages first: shared chart builders, shared page
+state, tighter axes, less duplicated CSS, and visual cleanup. Central-dashboard changes should stay
+small and access-oriented:
+
+1. Make drill-down paths from recovery evidence and flags obvious.
+2. Add lightweight status/access stubs only when the backend contract already exists or is narrowly
+   derivable from current data.
+3. Avoid adding new dashboard lanes that would need activity/session ingestion.
 
 ### Next without new source ingestion
 
@@ -232,7 +252,7 @@ Add:
 
 These lanes explain recovery without pretending to be recovery.
 
-### Later after new ingestion
+### Later after generic dashboards and new ingestion
 
 Add:
 
@@ -254,4 +274,3 @@ Add:
 
 The dashboard should earn each lane by tying it to a distinct user question and a distinct data
 contract.
-

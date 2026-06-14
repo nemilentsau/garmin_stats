@@ -14,6 +14,10 @@ The current app has a recovery-first daily mart and no parsed activity-session m
 app can describe physiological state, but it cannot yet answer whether the user is becoming fitter,
 faster, stronger, more durable, or more efficient.
 
+Current sequencing note: this lane depends on the same deferred activity/session foundation as
+load. Keep it as a design and validation target until the generic Garmin metric dashboards are DRYed
+up and visually stable.
+
 Do **not** infer progress from:
 
 - higher training load alone

@@ -1,46 +1,46 @@
-"""Personal robust health-flag thresholds, the 'unknown' state, and structural gaps (R9)."""
+"""Personal robust health-flag thresholds, unknown readings, and structural gaps (R9)."""
 
 from app.domains.garmin_analytics.domain.recovery_score.flags import (
-    oxygen_flag_state,
+    oxygen_flag_status,
     structural_gaps,
-    thermo_flag_state,
+    thermo_flag_status,
 )
 
 
-def test_oxygen_missing_value_is_unknown_not_clear():
-    state, _threshold = oxygen_flag_state(None, history=[93.0] * 40)
-    assert state == "unknown"
+def test_oxygen_missing_value_is_unknown_not_normal():
+    status, _threshold = oxygen_flag_status(None, history=[93.0] * 40)
+    assert status == "unknown"
 
 
 def test_oxygen_flags_a_value_below_the_personal_threshold():
     history = [93.0, 92.0, 94.0] * 14  # spread present so the threshold is meaningful
-    state, threshold = oxygen_flag_state(82.0, history=history)
-    assert state == "flag" and threshold is not None and threshold > 82.0
+    status, threshold = oxygen_flag_status(82.0, history=history)
+    assert status == "below_range" and threshold is not None and threshold > 82.0
 
 
-def test_oxygen_clear_at_a_typical_value():
-    state, _threshold = oxygen_flag_state(93.0, history=[93.0, 92.0, 94.0] * 14)
-    assert state == "clear"
+def test_oxygen_normal_at_a_typical_value():
+    status, _threshold = oxygen_flag_status(93.0, history=[93.0, 92.0, 94.0] * 14)
+    assert status == "normal"
 
 
-def test_oxygen_clear_with_insufficient_history():
-    state, threshold = oxygen_flag_state(80.0, history=[93.0] * 10)
-    assert state == "clear" and threshold is None
+def test_oxygen_normal_with_insufficient_history():
+    status, threshold = oxygen_flag_status(80.0, history=[93.0] * 10)
+    assert status == "normal" and threshold is None
 
 
-def test_thermo_flags_both_directions():
+def test_thermo_distinguishes_below_and_above_baseline():
     history = [0.1, -0.1, 0.2, -0.2] * 10
-    assert thermo_flag_state(1.5, history=history)[0] == "flag"
-    assert thermo_flag_state(-1.5, history=history)[0] == "flag"
+    assert thermo_flag_status(1.5, history=history)[0] == "above_baseline"
+    assert thermo_flag_status(-1.5, history=history)[0] == "below_baseline"
 
 
-def test_thermo_clear_near_baseline():
+def test_thermo_normal_near_baseline():
     history = [0.1, -0.1, 0.2, -0.2] * 10
-    assert thermo_flag_state(0.05, history=history)[0] == "clear"
+    assert thermo_flag_status(0.05, history=history)[0] == "normal"
 
 
 def test_thermo_missing_value_is_unknown():
-    assert thermo_flag_state(None, history=[0.0] * 40)[0] == "unknown"
+    assert thermo_flag_status(None, history=[0.0] * 40)[0] == "unknown"
 
 
 def test_structural_gaps_finds_blocks_not_singletons():

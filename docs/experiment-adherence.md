@@ -21,6 +21,10 @@ The experiment domain already has the right grain:
 This is the correct foundation. The important product constraint is that exposure is an
 experiment-day property, not a routine-card property.
 
+Current sequencing note: experiments are wired enough to support future dashboard access/status,
+but the central overview still needs a compact contract, analyzability state, and suppression
+reasons before adherence should become a first-class dashboard lane.
+
 The current derivation is intentionally simple:
 
 - completed entries count as `1.0`
@@ -261,6 +265,5 @@ Before promoting this lane to a central dashboard axis:
 5. Add an analyzability status and suppression reason to experiment analysis responses.
 6. Join exposure rows to sleep, load, recovery, health exceptions, and manual confounders in an
    experiment-day mart.
-7. Surface adherence immediately, but surface response estimates only after the analyzability gate
-   passes.
-
+7. Surface adherence as a compact status lane once the central-dashboard contract exists, but
+   surface response estimates only after the analyzability gate passes.

@@ -72,7 +72,7 @@ Two **flags**, not gauges — point-in-time health context, off the recovery axi
 - **Low-oxygen:** nightly `spo2_avg` < personal **median − 2.5·MAD (≈ 90.5%)**. `spo2_avg` beats
   `spo2_min` (which is integer-coarse) as the flag metric; `spo2_min` is supporting nadir detail.
   Absolute cutoffs are useless here (this user's nightly minimum runs ~80%), so the threshold is
-  personal. **A missing reading is a distinct `unknown` state, never `clear`** — the ~18% SpO₂
+  personal. **A missing reading is a distinct `unknown` status, never `normal`** — the ~18% SpO₂
   gaps are two structural device-coverage blocks, surfaced as `spo2_gaps`, not health events.
 - **Thermoregulation:** skin-temp deviation outside personal **median ± 2.5·MAD (≈ ±0.9 °C)**,
   two-sided. Independent of the oxygen flag.
@@ -111,12 +111,14 @@ them in tiles hides the co-movement that is the point). Top to bottom:
   baseline / Δz with direction / a comparable inline sparkline / source-type), **sorted by impact
   (|Δz|)**, each metric linking into its detail tab. Hovering the trajectory repopulates these to
   the hovered day via the per-metric `driver_series`.
-- **Flag strip** — two ternary chips (clear / flag / unknown), linking to `/pulse-ox` and
-  `/skin-temp`. It follows trajectory hover just like the evidence table, so a historical low-SpO₂
-  or temperature flag is shown when the hovered day had that flag, rather than staying pinned to the
-  latest day.
+- **Flag strip** — two named health-exception chips, linking to `/pulse-ox` and `/skin-temp`.
+  Oxygen uses `normal` / `below_range` / `unknown`; thermoregulation uses `normal` /
+  `below_baseline` / `above_baseline` / `unknown`. The shared amber color is only a UI warning
+  tone, not a shared reason or severity. It follows trajectory hover just like the evidence table,
+  so a historical low-SpO₂ or temperature exception is shown for the hovered day, rather than
+  staying pinned to the latest day.
 
-The nine per-metric detail tabs (`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`,
+The eight per-metric detail tabs (`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`,
 `/respiration`, `/skin-temp`, `/pulse-ox`) are **kept as-is** — they carry intraday curves,
 distributions, sleep stages, HR zones, and circadian profiles a daily score cannot encode. The
 overview is the entry point; the evidence rows and flags link into them.
@@ -138,8 +140,8 @@ overview is the entry point; the evidence rows and flags link into them.
 | `change` | Δ7 / Δ1 + meaningful/acute flags |
 | `evidence[]` | latest-day per-input rows (value, baseline, Δz, source, tab link, sparkline) |
 | `driver_series[]` | per-metric value/baseline/Δz aligned to `score` dates — powers hover-brushing |
-| `flags[]` | oxygen + thermoregulation (incl. `unknown`, tab links) |
-| `flag_series[]` | dated oxygen + thermoregulation states aligned to `score` dates — powers historical flag hover |
+| `flags` | grouped latest health-exception objects: `oxygen` + `thermoregulation` with their own status vocabularies and tab links |
+| `flag_series` | grouped dated oxygen + thermoregulation statuses aligned to `score` dates — powers historical flag hover |
 | `spo2_gaps[]` | structural SpO₂ coverage gaps |
 | `events[]` | detected low/elevated regimes |
 | `correlations[]` | nightly-HRV-vs-sleep/resting-HR scatters — **not shown on the overview**; retained for the HRV detail tab |

@@ -81,4 +81,30 @@ test('dashboard health flags use historical flag series when brushing dates', ()
 	assert.match(flagStripSource, /flagSeries/);
 	assert.match(flagStripSource, /hoveredDate/);
 	assert.match(flagStripSource, /displayFlags/);
+	assert.match(flagStripSource, /flags\.oxygen/);
+	assert.match(flagStripSource, /flags\.thermoregulation/);
+	assert.match(flagStripSource, /flagSeries\.oxygen/);
+	assert.match(flagStripSource, /flagSeries\.thermoregulation/);
+});
+
+test('dashboard health flag strip shows selected-day statuses only', () => {
+	const flagStripSource = readFileSync(
+		join('src/lib', 'components', 'recovery', 'FlagStrip.svelte'),
+		'utf8'
+	);
+
+	assert.doesNotMatch(flagStripSource, /flag\.recent/);
+	assert.doesNotMatch(flagStripSource, /recentLabel/);
+	assert.doesNotMatch(flagStripSource, /last 7d/);
+	assert.doesNotMatch(flagStripSource, /prior 7d/);
+});
+
+test('dashboard health flag copy comes from domain-specific statuses', () => {
+	const formatSource = readFileSync(join('src/lib', 'recovery-format.ts'), 'utf8');
+
+	assert.doesNotMatch(formatSource, /flag\.direction/);
+	assert.doesNotMatch(formatSource, /flagged/);
+	assert.match(formatSource, /below_range/);
+	assert.match(formatSource, /below_baseline/);
+	assert.match(formatSource, /above_baseline/);
 });

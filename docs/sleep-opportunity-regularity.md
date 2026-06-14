@@ -16,6 +16,10 @@ sleep-stage markers (`awake`, `light`, `deep`, `rem`) and are the best current s
 duration and timing. The daily mart currently persists only Garmin sleep scores (`sleep_score`,
 `deep_score`, `rem_score`), so it cannot yet answer opportunity or regularity questions.
 
+Current sequencing note: this is the most plausible next new dashboard lane because it can be
+derived from existing parsed data. Validation that controls for training load should wait until the
+later activity/session foundation exists.
+
 Do **not** use Garmin `sleep_score` as the main input for this axis. Sleep score is an opaque
 Garmin-derived composite. It can be useful context, but opportunity and regularity should come from
 timing and duration fields first.

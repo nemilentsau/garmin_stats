@@ -130,8 +130,8 @@ health exceptions + behavior context.
 
 ## Axes to study next
 
-The next analyst work should look for product axes, not "another recovery axis." Suggested
-priorities:
+The next analyst work should look for product axes, not "another recovery axis." These are product
+directions to study, not all immediate implementation work:
 
 1. **Training load / strain.** Use source-native activity fields first: `training_load_peak`,
    training effect, activity duration, distance, sport, and previous-day run load. Do not infer load
@@ -148,9 +148,19 @@ priorities:
    meditation, and training days to explain state changes. This should explain the recovery score;
    it should not be blended into it.
 
-The practical next step is to build and validate the load and sleep-opportunity axes before
-redesigning the central dashboard. If those axes carry real signal, the overview should become a
-multi-lane training-state dashboard instead of a single recovery-score dashboard.
+The practical product sequence is narrower than the analytical wish list:
+
+1. Finish the generic metric detail dashboard refactor first, so HR, HRV, sleep, stress, body
+   battery, respiration, skin temperature, and pulse ox share clean visual and code patterns.
+2. While doing that, add only small central-dashboard access/status improvements backed by existing
+   data: clear drill-down links, historical health flags, data-coverage guardrails, and eventually a
+   basic experiment-adherence status.
+3. Build sleep opportunity / regularity next because the raw sleep-stage data is already parsed.
+4. Defer load / strain and adaptation / progress until Garmin activity/session ingestion is
+   intentionally started after the generic dashboards are stable.
+
+If those later axes carry real signal, the overview can grow into a multi-lane training-state
+dashboard. It should not become one by stretching the recovery score.
 
 ---
 

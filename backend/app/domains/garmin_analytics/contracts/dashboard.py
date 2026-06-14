@@ -14,8 +14,10 @@ from app.contracts.base import DefaultsRequired
 Band = Literal["suppressed", "typical", "strong"]
 Trend = Literal["improving", "steady", "declining"]
 SourceType = Literal["native", "device", "derived"]
-FlagKind = Literal["oxygen", "thermoregulation"]
-FlagState = Literal["clear", "flag", "unknown"]
+OxygenFlagStatus = Literal["normal", "below_range", "unknown"]
+ThermoregulationFlagStatus = Literal[
+    "normal", "below_baseline", "above_baseline", "unknown"
+]
 
 
 class SparkPoint(DefaultsRequired):
@@ -86,39 +88,70 @@ class DriverSeries(DefaultsRequired):
     recovery_good: list[bool | None] = []
 
 
-class HealthFlag(DefaultsRequired):
-    """A point-in-time health flag (oxygen / thermoregulation) with an 'unknown' state."""
+class OxygenHealthFlag(DefaultsRequired):
+    """Point-in-time oxygen exception status.
 
-    kind: FlagKind
-    state: FlagState
-    label: str
+    Oxygen owns its own status vocabulary because its rule is one-sided: low SpO2
+    relative to the user's personal range.
+    """
+
+    kind: Literal["oxygen"] = "oxygen"
+    status: OxygenFlagStatus
+    label: str = "Oxygen"
     value: float | None = None
     threshold_low: float | None = None
-    threshold_high: float | None = None
-    direction: str | None = None  # "low" | "above" | "below" when flagged
-    recent: bool = False          # fired within the trailing 7 days
     tab_href: str
 
 
-class HealthFlagPoint(DefaultsRequired):
-    """One dated health-flag state, aligned to the recovery trajectory for hover history."""
+class OxygenHealthFlagPoint(DefaultsRequired):
+    """One dated oxygen exception status for trajectory hover history."""
 
     date: str
-    state: FlagState
+    status: OxygenFlagStatus
+    value: float | None = None
+    threshold_low: float | None = None
+
+
+class ThermoregulationHealthFlag(DefaultsRequired):
+    """Point-in-time thermoregulation exception status.
+
+    Thermoregulation owns its own status vocabulary because skin temperature is a
+    two-sided deviation: below-baseline and above-baseline are different findings.
+    """
+
+    kind: Literal["thermoregulation"] = "thermoregulation"
+    status: ThermoregulationFlagStatus
+    label: str = "Thermoregulation"
     value: float | None = None
     threshold_low: float | None = None
     threshold_high: float | None = None
-    direction: str | None = None
-    recent: bool = False
+    tab_href: str
+
+
+class ThermoregulationHealthFlagPoint(DefaultsRequired):
+    """One dated thermoregulation exception status for trajectory hover history."""
+
+    date: str
+    status: ThermoregulationFlagStatus
+    value: float | None = None
+    threshold_low: float | None = None
+    threshold_high: float | None = None
+
+
+class HealthFlags(DefaultsRequired):
+    """Dashboard health exceptions grouped by domain-specific contracts."""
+
+    oxygen: OxygenHealthFlag = OxygenHealthFlag(status="unknown", tab_href="")
+    thermoregulation: ThermoregulationHealthFlag = ThermoregulationHealthFlag(
+        status="unknown", tab_href=""
+    )
 
 
 class HealthFlagSeries(DefaultsRequired):
-    """Historical health-flag states for one flag kind."""
+    """Dated health exception statuses grouped by domain-specific contracts."""
 
-    kind: FlagKind
-    label: str
-    tab_href: str
-    points: list[HealthFlagPoint] = []
+    oxygen: list[OxygenHealthFlagPoint] = []
+    thermoregulation: list[ThermoregulationHealthFlagPoint] = []
 
 
 class StructuralGap(DefaultsRequired):
@@ -168,8 +201,8 @@ class DashboardOverviewResponse(DefaultsRequired):
     change: MeaningfulChange = MeaningfulChange()
     evidence: list[EvidenceRow] = []
     driver_series: list[DriverSeries] = []
-    flags: list[HealthFlag] = []
-    flag_series: list[HealthFlagSeries] = []
+    flags: HealthFlags = HealthFlags()
+    flag_series: HealthFlagSeries = HealthFlagSeries()
     spo2_gaps: list[StructuralGap] = []
     events: list[TrajectoryEvent] = []
     correlations: list[MetricCorrelation] = []

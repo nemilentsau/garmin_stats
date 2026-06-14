@@ -15,6 +15,10 @@ The current daily mart is recovery-first: HRV, heart rate, stress, respiration, 
 SpO2, and skin temperature. That is the right grain for overnight and all-day recovery signals, but
 it is the wrong source of truth for training load.
 
+Current sequencing note: this lane is deliberately deferred until the generic Garmin metric
+dashboards are DRYed up and visually stable. Do not start activity/session ingestion just to fill
+the central dashboard sooner.
+
 Do **not** infer training load from recovery outputs such as HRV, resting HR, body battery, sleep
 score, stress average, or a recovery score. Those are outcomes or context. They may help explain the
 effect of load, but they are not the load itself.

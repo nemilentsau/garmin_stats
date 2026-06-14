@@ -9,8 +9,11 @@ import { COLORS, DARK_MUTED_TEXT } from './colors';
 import type { DashboardOverview } from './api';
 
 type RecoveryState = DashboardOverview['state'];
-type HealthFlag = DashboardOverview['flags'][number];
+type OxygenHealthFlag = DashboardOverview['flags']['oxygen'];
+type ThermoregulationHealthFlag = DashboardOverview['flags']['thermoregulation'];
+type HealthFlag = OxygenHealthFlag | ThermoregulationHealthFlag;
 type SourceType = DashboardOverview['evidence'][number]['source_type'];
+type FlagTone = 'normal' | 'warning' | 'unknown';
 
 const BAND_WORD: Record<string, string> = {
 	suppressed: 'Suppressed recovery',
@@ -67,21 +70,31 @@ export function deltaArrow(deltaZ: number | null | undefined): string {
 	return deltaZ > 0 ? '▲' : '▼';
 }
 
-/** A flag's human label + tone for the strip. */
-export function flagDisplay(flag: HealthFlag): { text: string; tone: 'clear' | 'flag' | 'unknown' } {
-	if (flag.state === 'unknown') {
+/** A health exception's human label + tone for the strip. */
+export function flagDisplay(flag: HealthFlag): { text: string; tone: FlagTone } {
+	if (flag.status === 'unknown') {
 		return { text: `${flag.label}: no reading`, tone: 'unknown' };
 	}
-	if (flag.state === 'flag') {
-		const dir = flag.direction ? ` (${flag.direction})` : '';
-		return { text: `${flag.label}: flagged${dir}`, tone: 'flag' };
+
+	if (flag.kind === 'oxygen') {
+		if (flag.status === 'below_range') {
+			return { text: `${flag.label}: below range`, tone: 'warning' };
+		}
+		return { text: `${flag.label}: normal`, tone: 'normal' };
 	}
-	return { text: `${flag.label}: clear`, tone: 'clear' };
+
+	if (flag.status === 'below_baseline') {
+		return { text: `${flag.label}: below baseline`, tone: 'warning' };
+	}
+	if (flag.status === 'above_baseline') {
+		return { text: `${flag.label}: above baseline`, tone: 'warning' };
+	}
+	return { text: `${flag.label}: normal`, tone: 'normal' };
 }
 
-/** Colour for a flag tone. */
-export function flagColor(tone: 'clear' | 'flag' | 'unknown'): string {
-	if (tone === 'flag') return COLORS.stress;
+/** Colour for a health exception tone. */
+export function flagColor(tone: FlagTone): string {
+	if (tone === 'warning') return COLORS.stress;
 	if (tone === 'unknown') return DARK_MUTED_TEXT;
 	return COLORS.heartRateResting;
 }

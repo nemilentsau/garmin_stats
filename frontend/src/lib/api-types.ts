@@ -2201,15 +2201,29 @@ export interface components {
              */
             driver_series: components["schemas"]["DriverSeries"][];
             /**
-             * Flags
-             * @default []
+             * @default {
+             *       "oxygen": {
+             *         "kind": "oxygen",
+             *         "label": "Oxygen",
+             *         "status": "unknown",
+             *         "tab_href": ""
+             *       },
+             *       "thermoregulation": {
+             *         "kind": "thermoregulation",
+             *         "label": "Thermoregulation",
+             *         "status": "unknown",
+             *         "tab_href": ""
+             *       }
+             *     }
              */
-            flags: components["schemas"]["HealthFlag"][];
+            flags: components["schemas"]["HealthFlags"];
             /**
-             * Flag Series
-             * @default []
+             * @default {
+             *       "oxygen": [],
+             *       "thermoregulation": []
+             *     }
              */
-            flag_series: components["schemas"]["HealthFlagSeries"][];
+            flag_series: components["schemas"]["HealthFlagSeries"];
             /**
              * Spo2 Gaps
              * @default []
@@ -2655,83 +2669,44 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
-         * HealthFlag
-         * @description A point-in-time health flag (oxygen / thermoregulation) with an 'unknown' state.
-         */
-        HealthFlag: {
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "oxygen" | "thermoregulation";
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "clear" | "flag" | "unknown";
-            /** Label */
-            label: string;
-            /** Value */
-            value: number | null;
-            /** Threshold Low */
-            threshold_low: number | null;
-            /** Threshold High */
-            threshold_high: number | null;
-            /** Direction */
-            direction: string | null;
-            /**
-             * Recent
-             * @default false
-             */
-            recent: boolean;
-            /** Tab Href */
-            tab_href: string;
-        };
-        /**
-         * HealthFlagPoint
-         * @description One dated health-flag state, aligned to the recovery trajectory for hover history.
-         */
-        HealthFlagPoint: {
-            /** Date */
-            date: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "clear" | "flag" | "unknown";
-            /** Value */
-            value: number | null;
-            /** Threshold Low */
-            threshold_low: number | null;
-            /** Threshold High */
-            threshold_high: number | null;
-            /** Direction */
-            direction: string | null;
-            /**
-             * Recent
-             * @default false
-             */
-            recent: boolean;
-        };
-        /**
          * HealthFlagSeries
-         * @description Historical health-flag states for one flag kind.
+         * @description Dated health exception statuses grouped by domain-specific contracts.
          */
         HealthFlagSeries: {
             /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "oxygen" | "thermoregulation";
-            /** Label */
-            label: string;
-            /** Tab Href */
-            tab_href: string;
-            /**
-             * Points
+             * Oxygen
              * @default []
              */
-            points: components["schemas"]["HealthFlagPoint"][];
+            oxygen: components["schemas"]["OxygenHealthFlagPoint"][];
+            /**
+             * Thermoregulation
+             * @default []
+             */
+            thermoregulation: components["schemas"]["ThermoregulationHealthFlagPoint"][];
+        };
+        /**
+         * HealthFlags
+         * @description Dashboard health exceptions grouped by domain-specific contracts.
+         */
+        HealthFlags: {
+            /**
+             * @default {
+             *       "kind": "oxygen",
+             *       "status": "unknown",
+             *       "label": "Oxygen",
+             *       "tab_href": ""
+             *     }
+             */
+            oxygen: components["schemas"]["OxygenHealthFlag"];
+            /**
+             * @default {
+             *       "kind": "thermoregulation",
+             *       "status": "unknown",
+             *       "label": "Thermoregulation",
+             *       "tab_href": ""
+             *     }
+             */
+            thermoregulation: components["schemas"]["ThermoregulationHealthFlag"];
         };
         /**
          * HeartRateAnalysisResponse
@@ -3441,6 +3416,54 @@ export interface components {
              * @default 0.2
              */
             min_effect_size: number;
+        };
+        /**
+         * OxygenHealthFlag
+         * @description Point-in-time oxygen exception status.
+         *
+         *     Oxygen owns its own status vocabulary because its rule is one-sided: low SpO2
+         *     relative to the user's personal range.
+         */
+        OxygenHealthFlag: {
+            /**
+             * Kind
+             * @default oxygen
+             * @constant
+             */
+            kind: "oxygen";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "normal" | "below_range" | "unknown";
+            /**
+             * Label
+             * @default Oxygen
+             */
+            label: string;
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
+            /** Tab Href */
+            tab_href: string;
+        };
+        /**
+         * OxygenHealthFlagPoint
+         * @description One dated oxygen exception status for trajectory hover history.
+         */
+        OxygenHealthFlagPoint: {
+            /** Date */
+            date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "normal" | "below_range" | "unknown";
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
         };
         /**
          * PeriodBodyBatteryStats
@@ -4334,6 +4357,58 @@ export interface components {
              * @default []
              */
             metrics: components["schemas"]["TargetMetricDefinition"][];
+        };
+        /**
+         * ThermoregulationHealthFlag
+         * @description Point-in-time thermoregulation exception status.
+         *
+         *     Thermoregulation owns its own status vocabulary because skin temperature is a
+         *     two-sided deviation: below-baseline and above-baseline are different findings.
+         */
+        ThermoregulationHealthFlag: {
+            /**
+             * Kind
+             * @default thermoregulation
+             * @constant
+             */
+            kind: "thermoregulation";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "normal" | "below_baseline" | "above_baseline" | "unknown";
+            /**
+             * Label
+             * @default Thermoregulation
+             */
+            label: string;
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
+            /** Threshold High */
+            threshold_high: number | null;
+            /** Tab Href */
+            tab_href: string;
+        };
+        /**
+         * ThermoregulationHealthFlagPoint
+         * @description One dated thermoregulation exception status for trajectory hover history.
+         */
+        ThermoregulationHealthFlagPoint: {
+            /** Date */
+            date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "normal" | "below_baseline" | "above_baseline" | "unknown";
+            /** Value */
+            value: number | null;
+            /** Threshold Low */
+            threshold_low: number | null;
+            /** Threshold High */
+            threshold_high: number | null;
         };
         /**
          * TodayCard

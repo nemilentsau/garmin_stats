@@ -13,24 +13,34 @@
 		hoveredDate?: string | null;
 	} = $props();
 
-	type HealthFlag = DashboardOverview['flags'][number];
+	type OxygenHealthFlag = DashboardOverview['flags']['oxygen'];
+	type ThermoregulationHealthFlag = DashboardOverview['flags']['thermoregulation'];
+	type DisplayFlag = OxygenHealthFlag | ThermoregulationHealthFlag;
 
-	const seriesByKind = $derived(new Map(flagSeries.map((series) => [series.kind, series])));
-	const displayFlags = $derived.by<HealthFlag[]>(() => {
-		if (!hoveredDate) return flags;
-		return flags.map((flag) => {
-			const point = seriesByKind.get(flag.kind)?.points.find((p) => p.date === hoveredDate);
-			if (!point) return flag;
-			return {
-				...flag,
-				state: point.state,
-				value: point.value,
-				threshold_low: point.threshold_low,
-				threshold_high: point.threshold_high,
-				direction: point.direction,
-				recent: point.recent
-			};
-		});
+	const displayFlags = $derived.by<DisplayFlag[]>(() => {
+		if (!hoveredDate) return [flags.oxygen, flags.thermoregulation];
+
+		const oxygenPoint = flagSeries.oxygen.find((point) => point.date === hoveredDate);
+		const thermoPoint = flagSeries.thermoregulation.find((point) => point.date === hoveredDate);
+		const oxygen: OxygenHealthFlag = oxygenPoint
+			? {
+					...flags.oxygen,
+					status: oxygenPoint.status,
+					value: oxygenPoint.value,
+					threshold_low: oxygenPoint.threshold_low
+				}
+			: flags.oxygen;
+		const thermoregulation: ThermoregulationHealthFlag = thermoPoint
+			? {
+					...flags.thermoregulation,
+					status: thermoPoint.status,
+					value: thermoPoint.value,
+					threshold_low: thermoPoint.threshold_low,
+					threshold_high: thermoPoint.threshold_high
+				}
+			: flags.thermoregulation;
+
+		return [oxygen, thermoregulation];
 	});
 	const whenLabel = $derived(hoveredDate ? fmtDayMonth(parseIsoDate(hoveredDate)) : 'today');
 </script>
@@ -44,7 +54,6 @@
 			<a class="chip" href={flag.tab_href} class:unknown={d.tone === 'unknown'}>
 				<span class="dot" style="background:{color}"></span>
 				<span class="text" style="color:{color}">{d.text}</span>
-				{#if flag.recent && d.tone === 'clear'}<span class="recent">recent</span>{/if}
 			</a>
 		{/each}
 	</div>
@@ -95,11 +104,5 @@
 			transparent 4px
 		);
 		border: 1px solid #5e7282;
-	}
-	.recent {
-		font-size: 10px;
-		color: #8a6a4a;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
 	}
 </style>

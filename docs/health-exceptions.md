@@ -16,6 +16,10 @@ The dashboard already computes two per-day flags:
 - **Low oxygen** from nightly `spo2_avg`, with `spo2_min` as supporting nadir detail.
 - **Thermoregulation** from skin-temperature deviation.
 
+The overview exposes both the latest flag status and a dated flag series aligned to the recovery
+trajectory, so hovering historical dates shows the oxygen and thermoregulation status for that date
+rather than keeping the strip pinned to today.
+
 These flags are deliberately outside the recovery score. They answer "is there an unusual health
 context?" rather than "how recovered am I?"
 
@@ -34,18 +38,25 @@ Health exceptions should answer:
 This lane should use descriptive language only. It should not diagnose illness, altitude exposure,
 infection, or medical risk.
 
-## Flag states
+## Flag contracts
 
-Every health exception should use an explicit state:
+Every health exception must own its own status vocabulary. Oxygen and thermoregulation are separate
+contracts, not members of one shared reason set:
 
-| State | Meaning |
-| --- | --- |
-| `clear` | Data is present and the rule did not fire. |
-| `watch` | Mild or partial pattern; worth noticing, not a strong flag. |
-| `flag` | Rule fired decisively. |
-| `unknown` | Required data is missing or coverage is too weak. |
+| Flag | Current status values | Meaning |
+| --- | --- | --- |
+| Oxygen | `normal`, `below_range`, `unknown` | One-sided low-SpO2 guardrail against the personal lower threshold. |
+| Thermoregulation | `normal`, `below_baseline`, `above_baseline`, `unknown` | Two-sided skin-temperature deviation guardrail against the personal baseline band. |
 
-Missing data must never be treated as `clear`.
+Missing data must never be treated as `normal`.
+
+The frontend can map multiple statuses to the same visual tone. For example, `below_range`,
+`below_baseline`, and `above_baseline` are all warning-toned in the central strip, but they remain
+different backend statuses with different meanings.
+
+Future health exceptions may introduce their own status vocabularies, such as a respiratory-stress
+flag with `normal` / `watch` / `elevated` / `unknown`. Do not force future flags into oxygen's or
+thermoregulation's vocabulary.
 
 Each rendered flag should show:
 
@@ -82,7 +93,7 @@ Current evidence:
 
 Dashboard behavior:
 
-- show `clear`, `flag`, or `unknown`
+- show `normal`, `below_range`, or `unknown`
 - show current `spo2_avg`, threshold, and `spo2_min`
 - show structural coverage gaps instead of connecting across missing spans
 
@@ -108,10 +119,10 @@ Current evidence:
 
 Dashboard behavior:
 
-- show `clear`, `flag`, or `unknown`
-- show deviation, personal band, and direction
-- avoid sticky multi-day recent chips unless validated; temperature flags can become too noisy if
-  the lookback window is too long
+- show `normal`, `below_baseline`, `above_baseline`, or `unknown`
+- show deviation and personal band
+- show the selected date's status only; do not add sticky multi-day lookback chips to the strip
+- if episode recency becomes useful later, model it as a separate dated episode annotation
 
 ## Candidate future flags
 
@@ -129,7 +140,7 @@ Candidate ingredients:
 - low `spo2_min`
 - elevated respiration
 - elevated resting HR
-- normal or non-flagged skin temperature
+- normal or unexceptional skin temperature
 
 Use case:
 
@@ -198,7 +209,7 @@ Candidate ingredients:
 
 Use case:
 
-- prevent "no flag" from being read as "all clear" when data is absent.
+- prevent "no exception" from being read as "all normal" when data is absent.
 
 This is a first-class health exception. Data absence can be the reason the dashboard should be
 cautious.
@@ -255,20 +266,20 @@ Recommended explicit fields:
 
 | Field | Meaning |
 | --- | --- |
-| `health.oxygen_state` | `clear` / `flag` / `unknown`. |
+| `health.oxygen_status` | `normal` / `below_range` / `unknown`. |
 | `health.oxygen_value` | Current `spo2_avg`. |
 | `health.oxygen_threshold` | Personal low threshold. |
 | `health.oxygen_nadir` | Supporting `spo2_min`. |
 | `health.oxygen_coverage_state` | Present, partial, missing, or structural gap. |
-| `health.thermo_state` | `clear` / `flag` / `unknown`. |
+| `health.thermo_status` | `normal` / `below_baseline` / `above_baseline` / `unknown`. |
 | `health.thermo_value` | Current skin-temperature deviation. |
 | `health.thermo_band_low` / `health.thermo_band_high` | Personal thermoregulation band. |
-| `health.respiratory_state` | Future respiratory-stress flag state. |
-| `health.illness_like_state` | Future multi-system flag state. |
-| `health.sleep_disruption_state` | Future sleep-disruption flag state. |
-| `health.data_quality_state` | Coverage guardrail state. |
+| `health.respiratory_status` | Future respiratory-stress flag status. |
+| `health.illness_like_status` | Future multi-system flag status. |
+| `health.sleep_disruption_status` | Future sleep-disruption flag status. |
+| `health.data_quality_status` | Coverage guardrail status. |
 
-Store the ingredients used for each flag alongside the state so the frontend can explain why a flag
+Store the ingredients used for each flag alongside the status so the frontend can explain why a flag
 fired.
 
 ## Threshold policy
@@ -291,12 +302,13 @@ The dashboard should show health exceptions as a compact flag strip or aligned l
 
 Recommended display:
 
-- Oxygen: `clear` / `flag` / `unknown`
-- Temperature: `clear` / `flag` / `unknown`
-- Illness-like: `clear` / `watch` / `flag` / `unknown`
+- Oxygen: `normal` / `below range` / `no reading`
+- Thermoregulation: `normal` / `below baseline` / `above baseline` / `no reading`
+- Illness-like: future domain-specific statuses, not yet a product contract
 - Data coverage: `ok` / `partial` / `missing`
 
 Each flag should be clickable into its detail page or evidence panel.
+On the central recovery trajectory, the rendered flag status should follow the hovered date.
 
 Avoid:
 
@@ -321,7 +333,7 @@ Before shipping additional health exceptions, answer:
 
 ## Data quality risks
 
-- **Missingness as false clear:** absent SpO2 or HRV can hide the relevant signal.
+- **Missingness as false normal:** absent SpO2 or HRV can hide the relevant signal.
 - **Sensor artifacts:** wrist contact, motion, and fit can create bad readings.
 - **Structural gaps:** long coverage gaps need explicit rendering.
 - **Training confounding:** hard training can elevate HR, stress, and respiration without illness.
