@@ -29,6 +29,7 @@
 	let rangeKey = $state<RangeKey>('90d');
 
 	const SCORE_COLOR = '#7ea8d8';
+	const MA7_LABEL = '7-day average';
 	const EVENT_FILL = { low: 'rgba(232,93,74,0.06)', elevated: 'rgba(76,175,130,0.06)' };
 
 	const rangeDays = $derived(RANGES.find((r) => r.key === rangeKey)?.days ?? 90);
@@ -37,9 +38,7 @@
 	const windowed = $derived.by(() => score.slice(Math.max(0, score.length - rangeDays)));
 
 	const yScale = $derived(
-		tightScale(
-			windowed.flatMap((p) => [p.band_lo, p.band_hi, p.ma7]).filter((v): v is number => v != null)
-		)
+		tightScale(windowed.flatMap((p) => [p.band_lo, p.band_hi, p.ma7]))
 	);
 
 	const eventAnnotations = $derived.by(() => {
@@ -79,6 +78,8 @@
 					borderColor: 'transparent',
 					borderWidth: 0,
 					pointRadius: 0,
+					// Band fill: 'band-hi' fills DOWN to 'band-lo', which MUST be the
+					// immediately-following dataset. Keep these two adjacent and in order.
 					fill: '+1',
 					backgroundColor: 'rgba(126,168,216,0.10)',
 					tension: 0.3,
@@ -90,12 +91,11 @@
 					borderColor: 'transparent',
 					borderWidth: 0,
 					pointRadius: 0,
-					fill: false,
 					tension: 0.3,
 					spanGaps: false
 				},
 				{
-					label: '7-day average',
+					label: MA7_LABEL,
 					data: windowed.map((p) => p.ma7),
 					borderColor: SCORE_COLOR,
 					borderWidth: 2.25,
@@ -138,7 +138,7 @@
 				legend: { display: false },
 				tooltip: {
 					...chartTooltip(SCORE_COLOR),
-					filter: (item) => item.dataset.label === '7-day average',
+					filter: (item) => item.dataset.label === MA7_LABEL,
 					callbacks: {
 						title: (items) => fmtFullDate(new Date(items[0].parsed.x ?? 0)),
 						label: (item) =>
