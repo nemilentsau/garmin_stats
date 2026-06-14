@@ -46,7 +46,7 @@ it.
 - **Default comparison:** the 7-day mean vs the prior 7-day mean. A change is *meaningful* when
   **|Δ7| ≥ 0.97 z**; a single-day move is *acute* when **|Δ1| ≥ 1.86 z** (run
   `2026-06-11-recovery-score-meaningful-change`). Single-night events are surfaced as an acute
-  note and in the raw trace, never as the headline.
+  note (and the day's raw value on hover), never as the headline.
 - **Band:** the score is cut at **±0.5 z** into `suppressed` / `typical` / `strong`.
 - **Trend:** from Δ7 against the 0.97 threshold → `improving` / `steady` / `declining`.
 - **State label:** the "state before score" banner composes **band × trend** ("Typical recovery,
