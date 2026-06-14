@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
 	import EvidenceSparkline from './EvidenceSparkline.svelte';
+	import { COLORS } from '$lib/colors';
 	import { recoveryColor, sourceGlyph, deltaArrow } from '$lib/recovery-format';
 	import { fmt, fmtSigned } from '$lib/format';
 	import { parseIsoDate, fmtDayMonth } from '$lib/date';
@@ -96,7 +97,8 @@
 					<td class="num delta" style="color:{color}">
 						<span class="arrow">{deltaArrow(row.delta_z)}</span>{deltaText(row.delta_z)}
 					</td>
-					<td class="spark"><EvidenceSparkline points={row.sparkline} color="#5e7282" width={300} /></td>
+					<!-- width 300: fixed SVG; the colgroup's last col flexes to hold it (spark col hidden < 640px) -->
+					<td class="spark"><EvidenceSparkline points={row.sparkline} color={COLORS.baseline} width={300} /></td>
 				</tr>
 			{/each}
 		</tbody>
