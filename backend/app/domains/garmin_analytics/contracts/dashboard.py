@@ -14,10 +14,8 @@ from app.contracts.base import DefaultsRequired
 Band = Literal["suppressed", "typical", "strong"]
 Trend = Literal["improving", "steady", "declining"]
 SourceType = Literal["native", "device", "derived"]
-OxygenFlagStatus = Literal["normal", "below_range", "unknown"]
-ThermoregulationFlagStatus = Literal[
-    "normal", "below_baseline", "above_baseline", "unknown"
-]
+OxygenFlagStatus = Literal["normal", "low", "unknown"]
+ThermoregulationFlagStatus = Literal["normal", "below_usual", "above_usual", "unknown"]
 
 
 class SparkPoint(DefaultsRequired):
@@ -91,8 +89,8 @@ class DriverSeries(DefaultsRequired):
 class OxygenHealthFlag(DefaultsRequired):
     """Point-in-time oxygen exception status.
 
-    Oxygen owns its own status vocabulary because its rule is one-sided: low SpO2
-    relative to the user's personal range.
+    Oxygen owns its own status vocabulary because its rule is one-sided:
+    low SpO2 relative to the user's personal threshold.
     """
 
     kind: Literal["oxygen"] = "oxygen"
@@ -116,12 +114,13 @@ class ThermoregulationHealthFlag(DefaultsRequired):
     """Point-in-time thermoregulation exception status.
 
     Thermoregulation owns its own status vocabulary because skin temperature is a
-    two-sided deviation: below-baseline and above-baseline are different findings.
+    two-sided deviation from the user's usual band: below-usual and above-usual
+    are different findings.
     """
 
     kind: Literal["thermoregulation"] = "thermoregulation"
     status: ThermoregulationFlagStatus
-    label: str = "Thermoregulation"
+    label: str = "Skin temp"
     value: float | None = None
     threshold_low: float | None = None
     threshold_high: float | None = None

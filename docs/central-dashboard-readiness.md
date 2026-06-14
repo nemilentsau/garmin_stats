@@ -75,8 +75,8 @@ Low oxygen and thermoregulation can stay on the central dashboard now.
 
 Use:
 
-- oxygen: normal / below range / no reading
-- thermoregulation: normal / below baseline / above baseline / no reading
+- oxygen: normal / low / no reading
+- skin temp: normal / below usual / above usual / no reading
 - current value and personal threshold/band
 - historical state when the recovery trajectory is hovered
 - missingness as unknown/no reading, not normal

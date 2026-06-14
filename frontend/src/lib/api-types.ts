@@ -2210,7 +2210,7 @@ export interface components {
              *       },
              *       "thermoregulation": {
              *         "kind": "thermoregulation",
-             *         "label": "Thermoregulation",
+             *         "label": "Skin temp",
              *         "status": "unknown",
              *         "tab_href": ""
              *       }
@@ -2702,7 +2702,7 @@ export interface components {
              * @default {
              *       "kind": "thermoregulation",
              *       "status": "unknown",
-             *       "label": "Thermoregulation",
+             *       "label": "Skin temp",
              *       "tab_href": ""
              *     }
              */
@@ -3421,8 +3421,8 @@ export interface components {
          * OxygenHealthFlag
          * @description Point-in-time oxygen exception status.
          *
-         *     Oxygen owns its own status vocabulary because its rule is one-sided: low SpO2
-         *     relative to the user's personal range.
+         *     Oxygen owns its own status vocabulary because its rule is one-sided:
+         *     low SpO2 relative to the user's personal threshold.
          */
         OxygenHealthFlag: {
             /**
@@ -3435,7 +3435,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "normal" | "below_range" | "unknown";
+            status: "normal" | "low" | "unknown";
             /**
              * Label
              * @default Oxygen
@@ -3459,7 +3459,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "normal" | "below_range" | "unknown";
+            status: "normal" | "low" | "unknown";
             /** Value */
             value: number | null;
             /** Threshold Low */
@@ -4363,7 +4363,8 @@ export interface components {
          * @description Point-in-time thermoregulation exception status.
          *
          *     Thermoregulation owns its own status vocabulary because skin temperature is a
-         *     two-sided deviation: below-baseline and above-baseline are different findings.
+         *     two-sided deviation from the user's usual band: below-usual and above-usual
+         *     are different findings.
          */
         ThermoregulationHealthFlag: {
             /**
@@ -4376,10 +4377,10 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "normal" | "below_baseline" | "above_baseline" | "unknown";
+            status: "normal" | "below_usual" | "above_usual" | "unknown";
             /**
              * Label
-             * @default Thermoregulation
+             * @default Skin temp
              */
             label: string;
             /** Value */
@@ -4402,7 +4403,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "normal" | "below_baseline" | "above_baseline" | "unknown";
+            status: "normal" | "below_usual" | "above_usual" | "unknown";
             /** Value */
             value: number | null;
             /** Threshold Low */

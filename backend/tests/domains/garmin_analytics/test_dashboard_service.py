@@ -123,8 +123,10 @@ class TestRecoveryOverview:
         _seed_baseline()
         flags = load_dashboard_overview().flags
         assert flags.oxygen.kind == "oxygen"
+        assert flags.oxygen.label == "Oxygen"
         assert flags.oxygen.tab_href == "/pulse-ox"
         assert flags.thermoregulation.kind == "thermoregulation"
+        assert flags.thermoregulation.label == "Skin temp"
         assert flags.thermoregulation.tab_href == "/skin-temp"
         assert "state" not in flags.oxygen.model_dump()
         assert "direction" not in flags.oxygen.model_dump()
@@ -143,8 +145,8 @@ class TestRecoveryOverview:
 
         flags = load_dashboard_overview().flags
 
-        assert flags.oxygen.status == "below_range"
-        assert flags.thermoregulation.status == "below_baseline"
+        assert flags.oxygen.status == "low"
+        assert flags.thermoregulation.status == "below_usual"
 
     def test_score_series_spans_window_with_seeded_ma7_and_band(self):
         _seed_baseline()
@@ -204,6 +206,6 @@ class TestRecoveryOverview:
         by_date = {point.date: point for point in result.flag_series.oxygen}
 
         assert latest_oxygen.status == "normal"
-        assert by_date["2026-02-10"].status == "below_range"
+        assert by_date["2026-02-10"].status == "low"
         assert by_date["2026-02-11"].status == "normal"
         assert "recent" not in by_date["2026-02-10"].model_dump()

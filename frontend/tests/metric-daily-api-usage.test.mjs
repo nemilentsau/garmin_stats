@@ -104,7 +104,10 @@ test('dashboard health flag copy comes from domain-specific statuses', () => {
 
 	assert.doesNotMatch(formatSource, /flag\.direction/);
 	assert.doesNotMatch(formatSource, /flagged/);
-	assert.match(formatSource, /below_range/);
-	assert.match(formatSource, /below_baseline/);
-	assert.match(formatSource, /above_baseline/);
+	assert.doesNotMatch(formatSource, /below_range/);
+	assert.doesNotMatch(formatSource, /below_baseline/);
+	assert.doesNotMatch(formatSource, /above_baseline/);
+	assert.match(formatSource, /'low'/);
+	assert.match(formatSource, /below_usual/);
+	assert.match(formatSource, /above_usual/);
 });

@@ -77,17 +77,17 @@ export function flagDisplay(flag: HealthFlag): { text: string; tone: FlagTone } 
 	}
 
 	if (flag.kind === 'oxygen') {
-		if (flag.status === 'below_range') {
-			return { text: `${flag.label}: below range`, tone: 'warning' };
+		if (flag.status === 'low') {
+			return { text: `${flag.label}: low`, tone: 'warning' };
 		}
 		return { text: `${flag.label}: normal`, tone: 'normal' };
 	}
 
-	if (flag.status === 'below_baseline') {
-		return { text: `${flag.label}: below baseline`, tone: 'warning' };
+	if (flag.status === 'below_usual') {
+		return { text: `${flag.label}: below usual`, tone: 'warning' };
 	}
-	if (flag.status === 'above_baseline') {
-		return { text: `${flag.label}: above baseline`, tone: 'warning' };
+	if (flag.status === 'above_usual') {
+		return { text: `${flag.label}: above usual`, tone: 'warning' };
 	}
 	return { text: `${flag.label}: normal`, tone: 'normal' };
 }

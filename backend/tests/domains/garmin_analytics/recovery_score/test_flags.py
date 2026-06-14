@@ -15,7 +15,7 @@ def test_oxygen_missing_value_is_unknown_not_normal():
 def test_oxygen_flags_a_value_below_the_personal_threshold():
     history = [93.0, 92.0, 94.0] * 14  # spread present so the threshold is meaningful
     status, threshold = oxygen_flag_status(82.0, history=history)
-    assert status == "below_range" and threshold is not None and threshold > 82.0
+    assert status == "low" and threshold is not None and threshold > 82.0
 
 
 def test_oxygen_normal_at_a_typical_value():
@@ -28,10 +28,10 @@ def test_oxygen_normal_with_insufficient_history():
     assert status == "normal" and threshold is None
 
 
-def test_thermo_distinguishes_below_and_above_baseline():
+def test_thermo_distinguishes_below_and_above_usual():
     history = [0.1, -0.1, 0.2, -0.2] * 10
-    assert thermo_flag_status(1.5, history=history)[0] == "above_baseline"
-    assert thermo_flag_status(-1.5, history=history)[0] == "below_baseline"
+    assert thermo_flag_status(1.5, history=history)[0] == "above_usual"
+    assert thermo_flag_status(-1.5, history=history)[0] == "below_usual"
 
 
 def test_thermo_normal_near_baseline():

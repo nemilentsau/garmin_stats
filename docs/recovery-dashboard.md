@@ -74,7 +74,7 @@ Two **flags**, not gauges — point-in-time health context, off the recovery axi
   Absolute cutoffs are useless here (this user's nightly minimum runs ~80%), so the threshold is
   personal. **A missing reading is a distinct `unknown` status, never `normal`** — the ~18% SpO₂
   gaps are two structural device-coverage blocks, surfaced as `spo2_gaps`, not health events.
-- **Thermoregulation:** skin-temp deviation outside personal **median ± 2.5·MAD (≈ ±0.9 °C)**,
+- **Skin temp:** skin-temp deviation outside personal **median ± 2.5·MAD (≈ ±0.9 °C)**,
   two-sided. Independent of the oxygen flag.
 
 ## 5. Validation (the shipping gate)
@@ -112,8 +112,8 @@ them in tiles hides the co-movement that is the point). Top to bottom:
   (|Δz|)**, each metric linking into its detail tab. Hovering the trajectory repopulates these to
   the hovered day via the per-metric `driver_series`.
 - **Flag strip** — two named health-exception chips, linking to `/pulse-ox` and `/skin-temp`.
-  Oxygen uses `normal` / `below_range` / `unknown`; thermoregulation uses `normal` /
-  `below_baseline` / `above_baseline` / `unknown`. The shared amber color is only a UI warning
+  Oxygen uses `normal` / `low` / `unknown`; skin temp uses `normal` / `below_usual` /
+  `above_usual` / `unknown`. The shared amber color is only a UI warning
   tone, not a shared reason or severity. It follows trajectory hover just like the evidence table,
   so a historical low-SpO₂ or temperature exception is shown for the hovered day, rather than
   staying pinned to the latest day.

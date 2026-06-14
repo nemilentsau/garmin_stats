@@ -45,14 +45,15 @@ contracts, not members of one shared reason set:
 
 | Flag | Current status values | Meaning |
 | --- | --- | --- |
-| Oxygen | `normal`, `below_range`, `unknown` | One-sided low-SpO2 guardrail against the personal lower threshold. |
-| Thermoregulation | `normal`, `below_baseline`, `above_baseline`, `unknown` | Two-sided skin-temperature deviation guardrail against the personal baseline band. |
+| Oxygen | `normal`, `low`, `unknown` | One-sided low-SpO2 guardrail against the personal lower threshold. |
+| Skin temp | `normal`, `below_usual`, `above_usual`, `unknown` | Two-sided skin-temperature deviation guardrail against the personal usual band. |
 
 Missing data must never be treated as `normal`.
 
-The frontend can map multiple statuses to the same visual tone. For example, `below_range`,
-`below_baseline`, and `above_baseline` are all warning-toned in the central strip, but they remain
-different backend statuses with different meanings.
+The frontend can map multiple statuses to the same visual tone. For example, `low`,
+`below_usual`, and `above_usual` are all warning-toned in the central strip, but they remain
+different backend statuses with different meanings. This is display formatting, not a semantic
+translation layer.
 
 Future health exceptions may introduce their own status vocabularies, such as a respiratory-stress
 flag with `normal` / `watch` / `elevated` / `unknown`. Do not force future flags into oxygen's or
@@ -93,7 +94,7 @@ Current evidence:
 
 Dashboard behavior:
 
-- show `normal`, `below_range`, or `unknown`
+- show `normal`, `low`, or `unknown`
 - show current `spo2_avg`, threshold, and `spo2_min`
 - show structural coverage gaps instead of connecting across missing spans
 
@@ -119,7 +120,7 @@ Current evidence:
 
 Dashboard behavior:
 
-- show `normal`, `below_baseline`, `above_baseline`, or `unknown`
+- show `normal`, `below_usual`, `above_usual`, or `unknown`
 - show deviation and personal band
 - show the selected date's status only; do not add sticky multi-day lookback chips to the strip
 - if episode recency becomes useful later, model it as a separate dated episode annotation
@@ -266,12 +267,12 @@ Recommended explicit fields:
 
 | Field | Meaning |
 | --- | --- |
-| `health.oxygen_status` | `normal` / `below_range` / `unknown`. |
+| `health.oxygen_status` | `normal` / `low` / `unknown`. |
 | `health.oxygen_value` | Current `spo2_avg`. |
 | `health.oxygen_threshold` | Personal low threshold. |
 | `health.oxygen_nadir` | Supporting `spo2_min`. |
 | `health.oxygen_coverage_state` | Present, partial, missing, or structural gap. |
-| `health.thermo_status` | `normal` / `below_baseline` / `above_baseline` / `unknown`. |
+| `health.thermo_status` | `normal` / `below_usual` / `above_usual` / `unknown`. |
 | `health.thermo_value` | Current skin-temperature deviation. |
 | `health.thermo_band_low` / `health.thermo_band_high` | Personal thermoregulation band. |
 | `health.respiratory_status` | Future respiratory-stress flag status. |
@@ -302,8 +303,8 @@ The dashboard should show health exceptions as a compact flag strip or aligned l
 
 Recommended display:
 
-- Oxygen: `normal` / `below range` / `no reading`
-- Thermoregulation: `normal` / `below baseline` / `above baseline` / `no reading`
+- Oxygen: `normal` / `low` / `no reading`
+- Skin temp: `normal` / `below usual` / `above usual` / `no reading`
 - Illness-like: future domain-specific statuses, not yet a product contract
 - Data coverage: `ok` / `partial` / `missing`
 

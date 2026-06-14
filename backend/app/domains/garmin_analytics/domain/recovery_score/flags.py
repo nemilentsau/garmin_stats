@@ -19,10 +19,8 @@ import numpy as np
 K = 2.5
 _MAD_SCALE = 1.4826
 _MIN_HISTORY = 30
-OxygenRuleStatus = Literal["normal", "below_range", "unknown"]
-ThermoregulationRuleStatus = Literal[
-    "normal", "below_baseline", "above_baseline", "unknown"
-]
+OxygenRuleStatus = Literal["normal", "low", "unknown"]
+ThermoregulationRuleStatus = Literal["normal", "below_usual", "above_usual", "unknown"]
 
 
 def _robust_center_scale(history: Sequence[float | None]) -> tuple[float, float] | None:
@@ -54,7 +52,7 @@ def oxygen_flag_status(
         return "unknown", threshold
     if threshold is None:
         return "normal", None
-    return ("below_range" if value < threshold else "normal"), threshold
+    return ("low" if value < threshold else "normal"), threshold
 
 
 def thermo_flag_status(
@@ -79,9 +77,9 @@ def thermo_flag_status(
         return "normal", None
     low, high = band
     if value < low:
-        return "below_baseline", band
+        return "below_usual", band
     if value > high:
-        return "above_baseline", band
+        return "above_usual", band
     return "normal", band
 
 
