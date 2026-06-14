@@ -20,7 +20,7 @@ from app.domains.garmin_health.contracts import DailyMetric
 from app.utils.numeric import optional_float, safe_avg
 
 from .normalization import expanding_baseline_median, expanding_robust_z
-from .smoothing import SEED_DAYS, seeded_ma7
+from .smoothing import BAND_SEED_DAYS, SEED_DAYS, seeded_ma7, seeded_sd
 from .thresholds import _BAND
 from .weighting import RECOVERY_SIGNS, weighted_recovery_score
 
@@ -93,6 +93,8 @@ class ScorePoint:
     date: str
     raw: float | None
     ma7: float | None
+    band_lo: float | None
+    band_hi: float | None
     baseline_lo: float
     baseline_hi: float
 
@@ -138,6 +140,13 @@ class RecoveryComputation:
     score_series: list[ScorePoint]
     evidence: list[EvidenceRowData]
     driver_series: list[DriverSeriesData]
+
+
+def _band_edge(center: float | None, spread: float | None, sign: int) -> float | None:
+    """ma7 +/- sd, or None if either is missing for this day."""
+    if center is None or spread is None:
+        return None
+    return center + sign * spread
 
 
 def _delta1(raw_scores: list[float | None], index: int) -> float | None:
@@ -191,16 +200,19 @@ def compute_recovery(metrics: list[DailyMetric]) -> RecoveryComputation | None:
         input_counts.append(count)
 
     display_start = max(0, n - _DISPLAY_DAYS)
-    seed_start = max(0, display_start - SEED_DAYS)
-    seed = raw_scores[seed_start:display_start]
+    ma_seed = raw_scores[max(0, display_start - SEED_DAYS):display_start]
+    sd_seed = raw_scores[max(0, display_start - BAND_SEED_DAYS):display_start]
     display = raw_scores[display_start:]
-    ma7 = seeded_ma7(seed, display)
+    ma7 = seeded_ma7(ma_seed, display)
+    sd = seeded_sd(sd_seed, display)
 
     score_series = [
         ScorePoint(
             date=metrics[display_start + offset].date,
             raw=display[offset],
             ma7=ma7[offset],
+            band_lo=_band_edge(ma7[offset], sd[offset], -1),
+            band_hi=_band_edge(ma7[offset], sd[offset], +1),
             baseline_lo=-_BAND,
             baseline_hi=_BAND,
         )
