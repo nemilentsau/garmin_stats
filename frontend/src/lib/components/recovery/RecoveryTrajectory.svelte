@@ -29,7 +29,6 @@
 	let rangeKey = $state<RangeKey>('90d');
 
 	const SCORE_COLOR = '#7ea8d8';
-	const RAW_COLOR = 'rgba(255,255,255,0.14)';
 	const EVENT_FILL = { low: 'rgba(232,93,74,0.06)', elevated: 'rgba(76,175,130,0.06)' };
 
 	const rangeDays = $derived(RANGES.find((r) => r.key === rangeKey)?.days ?? 90);
@@ -37,7 +36,11 @@
 
 	const windowed = $derived.by(() => score.slice(Math.max(0, score.length - rangeDays)));
 
-	const yScale = $derived(tightScale(windowed.flatMap((p) => [p.raw, p.ma7])));
+	const yScale = $derived(
+		tightScale(
+			windowed.flatMap((p) => [p.band_lo, p.band_hi, p.ma7]).filter((v): v is number => v != null)
+		)
+	);
 
 	const eventAnnotations = $derived.by(() => {
 		if (!windowed.length) return {};
@@ -71,12 +74,24 @@
 			labels: windowed.map((p) => p.date),
 			datasets: [
 				{
-					label: 'daily',
-					data: windowed.map((p) => p.raw),
-					borderColor: RAW_COLOR,
-					borderWidth: 1,
+					label: 'band-hi',
+					data: windowed.map((p) => p.band_hi),
+					borderColor: 'transparent',
+					borderWidth: 0,
 					pointRadius: 0,
-					tension: 0.2,
+					fill: '+1',
+					backgroundColor: 'rgba(126,168,216,0.10)',
+					tension: 0.3,
+					spanGaps: false
+				},
+				{
+					label: 'band-lo',
+					data: windowed.map((p) => p.band_lo),
+					borderColor: 'transparent',
+					borderWidth: 0,
+					pointRadius: 0,
+					fill: false,
+					tension: 0.3,
 					spanGaps: false
 				},
 				{
@@ -123,6 +138,7 @@
 				legend: { display: false },
 				tooltip: {
 					...chartTooltip(SCORE_COLOR),
+					filter: (item) => item.dataset.label === '7-day average',
 					callbacks: {
 						title: (items) => fmtFullDate(new Date(items[0].parsed.x ?? 0)),
 						label: (item) =>
