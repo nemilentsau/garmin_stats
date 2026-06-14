@@ -29,7 +29,7 @@
 	let rangeKey = $state<RangeKey>('90d');
 
 	const SCORE_COLOR = '#7ea8d8';
-	const RAW_COLOR = 'rgba(255,255,255,0.14)';
+	const MA7_LABEL = '7-day average';
 	const EVENT_FILL = { low: 'rgba(232,93,74,0.06)', elevated: 'rgba(76,175,130,0.06)' };
 
 	const rangeDays = $derived(RANGES.find((r) => r.key === rangeKey)?.days ?? 90);
@@ -37,7 +37,9 @@
 
 	const windowed = $derived.by(() => score.slice(Math.max(0, score.length - rangeDays)));
 
-	const yScale = $derived(tightScale(windowed.flatMap((p) => [p.raw, p.ma7])));
+	const yScale = $derived(
+		tightScale(windowed.flatMap((p) => [p.ma7, p.baseline_lo, p.baseline_hi]))
+	);
 
 	const eventAnnotations = $derived.by(() => {
 		if (!windowed.length) return {};
@@ -71,16 +73,7 @@
 			labels: windowed.map((p) => p.date),
 			datasets: [
 				{
-					label: 'daily',
-					data: windowed.map((p) => p.raw),
-					borderColor: RAW_COLOR,
-					borderWidth: 1,
-					pointRadius: 0,
-					tension: 0.2,
-					spanGaps: false
-				},
-				{
-					label: '7-day average',
+					label: MA7_LABEL,
 					data: windowed.map((p) => p.ma7),
 					borderColor: SCORE_COLOR,
 					borderWidth: 2.25,
@@ -125,16 +118,22 @@
 					...chartTooltip(SCORE_COLOR),
 					callbacks: {
 						title: (items) => fmtFullDate(new Date(items[0].parsed.x ?? 0)),
-						label: (item) =>
-							`${item.dataset.label}: ${item.parsed.y == null ? '—' : item.parsed.y.toFixed(2)} z`
+						label: (item) => {
+							if (item.parsed.y == null) return `${item.dataset.label}: — z`;
+							const p = windowed[item.dataIndex];
+							const spread =
+								p?.band_hi != null && p?.ma7 != null ? p.band_hi - p.ma7 : null;
+							const spreadText = spread == null ? '' : ` · ±${spread.toFixed(2)}`;
+							return `${item.dataset.label}: ${item.parsed.y.toFixed(2)} z${spreadText}`;
+						}
 					}
 				},
 				annotation: {
 					annotations: {
 						typicalBand: {
 							type: 'box',
-							yMin: -0.5,
-							yMax: 0.5,
+							yMin: windowed[0]?.baseline_lo ?? -0.5,
+							yMax: windowed[0]?.baseline_hi ?? 0.5,
 							backgroundColor: 'rgba(126,168,216,0.08)',
 							borderColor: 'rgba(126,168,216,0.16)',
 							borderWidth: 1,

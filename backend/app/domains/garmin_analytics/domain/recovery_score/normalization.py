@@ -14,8 +14,9 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from app.utils.numeric import robust_center_scale
+
 MIN_PRIOR_DAYS = 30
-_MAD_SCALE = 1.4826
 
 
 def expanding_robust_z(values: Sequence[float | None]) -> list[float | None]:
@@ -34,9 +35,7 @@ def expanding_robust_z(values: Sequence[float | None]) -> list[float | None]:
         if len(prior) < MIN_PRIOR_DAYS:
             out.append(None)
             continue
-        median = float(np.median(prior))
-        mad = float(np.median(np.abs(prior - median))) * _MAD_SCALE
-        scale = mad if mad > 1e-9 else (float(np.std(prior)) or 1e-9)
+        median, scale = robust_center_scale(prior)
         out.append((float(arr[i]) - median) / scale)
     return out
 

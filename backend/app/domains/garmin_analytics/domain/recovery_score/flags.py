@@ -14,24 +14,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Literal
 
-import numpy as np
+from app.utils.numeric import robust_center_scale
 
 K = 2.5
-_MAD_SCALE = 1.4826
 _MIN_HISTORY = 30
 OxygenRuleStatus = Literal["normal", "low", "unknown"]
 ThermoregulationRuleStatus = Literal["normal", "below_usual", "above_usual", "unknown"]
 
 
 def _robust_center_scale(history: Sequence[float | None]) -> tuple[float, float] | None:
-    """Median and MAD-derived scale of the present history; None if too short."""
-    values = np.array([h for h in history if h is not None], dtype=float)
+    """Median and MAD-derived scale of the present history; None if too short.
+
+    Delegates the median/MAD math to the shared `robust_center_scale`; this wrapper owns
+    only the present-filtering and the flag domain's minimum-history policy.
+    """
+    values = [h for h in history if h is not None]
     if len(values) < _MIN_HISTORY:
         return None
-    median = float(np.median(values))
-    mad = float(np.median(np.abs(values - median))) * _MAD_SCALE
-    scale = mad if mad > 1e-9 else (float(np.std(values)) or 1e-9)
-    return median, scale
+    return robust_center_scale(values)
 
 
 def oxygen_flag_status(

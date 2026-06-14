@@ -60,27 +60,6 @@
 </svelte:head>
 
 <div class="topo-page">
-	<!-- SVG topo pattern background -->
-	<svg class="topo-bg" xmlns="http://www.w3.org/2000/svg">
-		<defs>
-			<filter id="topo-noise">
-				<feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="4" seed="2" />
-				<feColorMatrix type="saturate" values="0" />
-				<feComponentTransfer>
-					<feFuncA type="linear" slope="0.06" />
-				</feComponentTransfer>
-			</filter>
-			<pattern id="topo-lines" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
-				<path d="M0,40 Q50,20 100,40 T200,40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
-				<path d="M0,80 Q60,55 120,80 T200,80" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
-				<path d="M0,120 Q40,100 100,120 T200,120" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
-				<path d="M0,160 Q70,140 130,165 T200,160" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
-			</pattern>
-		</defs>
-		<rect width="100%" height="100%" filter="url(#topo-noise)" />
-		<rect width="100%" height="100%" fill="url(#topo-lines)" />
-	</svg>
-
 	<!-- Header -->
 	<header class="topo-header">
 		<div class="header-left">
@@ -126,15 +105,6 @@
 		font-family: 'Instrument Sans', sans-serif;
 		position: relative;
 		overflow-x: hidden;
-	}
-
-	.topo-bg {
-		position: fixed;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-		z-index: 0;
 	}
 
 	.topo-header {

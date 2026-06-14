@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
 	import EvidenceSparkline from './EvidenceSparkline.svelte';
+	import { COLORS } from '$lib/colors';
 	import { recoveryColor, sourceGlyph, deltaArrow } from '$lib/recovery-format';
 	import { fmt, fmtSigned } from '$lib/format';
 	import { parseIsoDate, fmtDayMonth } from '$lib/date';
@@ -65,6 +66,13 @@
 		<span class="hint" class:hovering={hoveredDate}>{whenLabel} vs your baseline · sorted by impact</span>
 	</header>
 	<table>
+		<colgroup>
+			<col style="width: 180px" />
+			<col style="width: 96px" />
+			<col style="width: 96px" />
+			<col style="width: 80px" />
+			<col />
+		</colgroup>
 		<thead>
 			<tr>
 				<th class="metric">metric</th>
@@ -89,7 +97,8 @@
 					<td class="num delta" style="color:{color}">
 						<span class="arrow">{deltaArrow(row.delta_z)}</span>{deltaText(row.delta_z)}
 					</td>
-					<td class="spark"><EvidenceSparkline points={row.sparkline} {color} /></td>
+					<!-- width 300: fixed SVG; the colgroup's last col flexes to hold it (spark col hidden < 640px) -->
+					<td class="spark"><EvidenceSparkline points={row.sparkline} color={COLORS.baseline} width={300} /></td>
 				</tr>
 			{/each}
 		</tbody>
@@ -188,7 +197,6 @@
 	}
 	td.spark {
 		text-align: center;
-		width: 110px;
 	}
 	td.spark :global(svg) {
 		margin: 0 auto;

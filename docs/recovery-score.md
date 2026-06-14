@@ -78,7 +78,8 @@ negative = suppressed physiological recovery state.**
 **4. Smooth for the trend.** The main line on the dashboard is a 7-day average of that daily score.
 
 > *Why:* day-to-day recovery is genuinely noisy; the 7-day average is the trend you can actually act
-> on. The raw daily values are still shown underneath.
+> on. The noisy raw daily line is not drawn (it would compete with the trend); each day's raw value
+> and its dispersion are available on hover.
 
 ## How to read the number
 

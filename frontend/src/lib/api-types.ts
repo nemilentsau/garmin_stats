@@ -3680,7 +3680,7 @@ export interface components {
         };
         /**
          * RecoveryScorePoint
-         * @description One day of the recovery trajectory: raw score, seeded MA7, and typical band.
+         * @description One day of the recovery trajectory: raw score, seeded MA7, dispersion band, and baseline.
          */
         RecoveryScorePoint: {
             /** Date */
@@ -3689,6 +3689,10 @@ export interface components {
             raw: number | null;
             /** Ma7 */
             ma7: number | null;
+            /** Band Lo */
+            band_lo: number | null;
+            /** Band Hi */
+            band_hi: number | null;
             /** Baseline Lo */
             baseline_lo: number;
             /** Baseline Hi */

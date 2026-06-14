@@ -146,3 +146,31 @@ def test_evidence_carries_baseline_and_sparkline():
     assert row.baseline == 53.0  # median of the typical history
     assert row.latest_value == 53.0
     assert len(row.sparkline) > 0 and row.sparkline[-1].value == 53.0
+
+
+def test_score_points_carry_a_symmetric_dispersion_band():
+    # Vary one input day to day so the rolling SD is > 0.
+    metrics = []
+    for i, day in enumerate(range(1, 41)):
+        metrics.append(_metric(f"2025-06-{day:02d}", hr_avg=67.0 + (i % 5)))
+    result = _compute(metrics)
+    banded = [
+        p for p in result.score_series
+        if p.ma7 is not None and p.band_lo is not None and p.band_hi is not None
+    ]
+    assert banded, "expected at least one fully-banded score point"
+    for p in banded:
+        # band is ma7 +/- sd: symmetric around ma7, and non-degenerate here.
+        assert p.ma7 is not None and p.band_lo is not None and p.band_hi is not None
+        assert abs((p.band_hi - p.ma7) - (p.ma7 - p.band_lo)) < 1e-6
+        assert p.band_hi >= p.ma7 >= p.band_lo
+
+
+def test_band_is_none_when_ma7_is_none():
+    # 40 days: display starts at day 31 (after the 30-day warm-up), so the first
+    # displayed point has no prior seed to form a 7-day MA — ma7 is None there.
+    result = _compute(_baseline_series(days=40))
+    first = result.score_series[0]
+    assert first.ma7 is None  # warm-up: no computable average yet
+    assert first.band_lo is None
+    assert first.band_hi is None

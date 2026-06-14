@@ -15,7 +15,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-BAND = 0.5  # typical-band edge (matches thresholds._BAND)
+from .thresholds import _BAND as BAND  # single source of truth for the typical-band edge
+
 MIN_RUN_DAYS = 14
 MERGE_GAP_DAYS = 3
 
