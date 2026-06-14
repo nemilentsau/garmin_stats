@@ -7,11 +7,16 @@
  */
 import { COLORS, DARK_MUTED_TEXT } from './colors';
 import type { DashboardOverview } from './api';
+import { fmtDayMonth, parseIsoDate } from './date';
 
 type RecoveryState = DashboardOverview['state'];
 type OxygenHealthFlag = DashboardOverview['flags']['oxygen'];
 type ThermoregulationHealthFlag = DashboardOverview['flags']['thermoregulation'];
 type HealthFlag = OxygenHealthFlag | ThermoregulationHealthFlag;
+type HealthFlags = DashboardOverview['flags'];
+type HealthFlagSeries = DashboardOverview['flag_series'];
+type OxygenHealthFlagPoint = HealthFlagSeries['oxygen'][number];
+type ThermoregulationHealthFlagPoint = HealthFlagSeries['thermoregulation'][number];
 type SourceType = DashboardOverview['evidence'][number]['source_type'];
 type FlagTone = 'normal' | 'warning' | 'unknown';
 
@@ -97,4 +102,53 @@ export function flagColor(tone: FlagTone): string {
 	if (tone === 'warning') return COLORS.stress;
 	if (tone === 'unknown') return DARK_MUTED_TEXT;
 	return COLORS.heartRateResting;
+}
+
+function oxygenFlagForDate(base: OxygenHealthFlag, point: OxygenHealthFlagPoint | undefined): OxygenHealthFlag {
+	if (!point) return base;
+	return {
+		...base,
+		status: point.status,
+		value: point.value,
+		threshold_low: point.threshold_low
+	};
+}
+
+function thermoregulationFlagForDate(
+	base: ThermoregulationHealthFlag,
+	point: ThermoregulationHealthFlagPoint | undefined
+): ThermoregulationHealthFlag {
+	if (!point) return base;
+	return {
+		...base,
+		status: point.status,
+		value: point.value,
+		threshold_low: point.threshold_low,
+		threshold_high: point.threshold_high
+	};
+}
+
+/** Display model for the health-exception strip on the recovery overview. */
+export function healthFlagStripViewModel({
+	flags,
+	flagSeries,
+	latestDate,
+	hoveredDate
+}: {
+	flags: HealthFlags;
+	flagSeries: HealthFlagSeries;
+	latestDate: string;
+	hoveredDate?: string | null;
+}): { whenLabel: string; flags: HealthFlag[] } {
+	const selectedDate = hoveredDate ?? latestDate;
+	const oxygenPoint = flagSeries.oxygen.find((point) => point.date === selectedDate);
+	const thermoPoint = flagSeries.thermoregulation.find((point) => point.date === selectedDate);
+
+	return {
+		whenLabel: selectedDate ? fmtDayMonth(parseIsoDate(selectedDate)) : 'latest',
+		flags: [
+			oxygenFlagForDate(flags.oxygen, oxygenPoint),
+			thermoregulationFlagForDate(flags.thermoregulation, thermoPoint)
+		]
+	};
 }

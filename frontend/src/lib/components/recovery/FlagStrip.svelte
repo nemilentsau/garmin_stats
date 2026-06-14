@@ -1,54 +1,28 @@
 <script lang="ts">
 	import type { DashboardOverview } from '$lib/api';
-	import { flagDisplay, flagColor } from '$lib/recovery-format';
-	import { parseIsoDate, fmtDayMonth } from '$lib/date';
+	import { flagDisplay, flagColor, healthFlagStripViewModel } from '$lib/recovery-format';
 
 	let {
 		flags,
 		flagSeries,
+		latestDate,
 		hoveredDate = null
 	}: {
 		flags: DashboardOverview['flags'];
 		flagSeries: DashboardOverview['flag_series'];
+		latestDate: string;
 		hoveredDate?: string | null;
 	} = $props();
 
-	type OxygenHealthFlag = DashboardOverview['flags']['oxygen'];
-	type ThermoregulationHealthFlag = DashboardOverview['flags']['thermoregulation'];
-	type DisplayFlag = OxygenHealthFlag | ThermoregulationHealthFlag;
-
-	const displayFlags = $derived.by<DisplayFlag[]>(() => {
-		if (!hoveredDate) return [flags.oxygen, flags.thermoregulation];
-
-		const oxygenPoint = flagSeries.oxygen.find((point) => point.date === hoveredDate);
-		const thermoPoint = flagSeries.thermoregulation.find((point) => point.date === hoveredDate);
-		const oxygen: OxygenHealthFlag = oxygenPoint
-			? {
-					...flags.oxygen,
-					status: oxygenPoint.status,
-					value: oxygenPoint.value,
-					threshold_low: oxygenPoint.threshold_low
-				}
-			: flags.oxygen;
-		const thermoregulation: ThermoregulationHealthFlag = thermoPoint
-			? {
-					...flags.thermoregulation,
-					status: thermoPoint.status,
-					value: thermoPoint.value,
-					threshold_low: thermoPoint.threshold_low,
-					threshold_high: thermoPoint.threshold_high
-				}
-			: flags.thermoregulation;
-
-		return [oxygen, thermoregulation];
-	});
-	const whenLabel = $derived(hoveredDate ? fmtDayMonth(parseIsoDate(hoveredDate)) : 'today');
+	const viewModel = $derived(
+		healthFlagStripViewModel({ flags, flagSeries, latestDate, hoveredDate })
+	);
 </script>
 
 <section class="flag-strip">
-	<span class="label">Health flags · {whenLabel}</span>
+	<span class="label">Health flags · {viewModel.whenLabel}</span>
 	<div class="chips">
-		{#each displayFlags as flag (flag.kind)}
+		{#each viewModel.flags as flag (flag.kind)}
 			{@const d = flagDisplay(flag)}
 			{@const color = flagColor(d.tone)}
 			<a class="chip" href={flag.tab_href} class:unknown={d.tone === 'unknown'}>
