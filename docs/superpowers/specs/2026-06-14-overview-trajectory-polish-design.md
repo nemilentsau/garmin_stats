@@ -38,6 +38,30 @@ average (`ma7`) window stays 7 days.
 
 ---
 
+## ⚠️ Post-implementation revision (2026-06-14, after visual review)
+
+Change 1 was built as specified (a filled ±1 SD band) and then **revised during visual
+review**. The filled band proved low-value: because the 14-day SD is near-constant, the
+band just parallels the average at a roughly fixed offset (carrying little information)
+and visually swallowed the fixed ±0.5 "typical" reference band. Final shipped behavior:
+
+- **No filled band on the chart.** The chart shows only the 7-day average line.
+- **Axis tightened to the average + typical band** (`tightScale` over `[ma7,
+  baseline_lo, baseline_hi]`), so the average fills the plot height while the constant
+  ±0.5 typical band stays in frame and clearly legible.
+- **The SD is surfaced as a number in the hover tooltip** (`7-day average: X.XX z ·
+  ±S.SS`, where `S = band_hi − ma7`). As text the spread *does* vary meaningfully day to
+  day (e.g. ±0.9 in volatile stretches vs ±0.5 in calm ones), so it is non-redundant —
+  unlike the near-constant visual ribbon.
+- **Backend unchanged:** the `band_lo`/`band_hi` fields and the `trailing_sd`/`seeded_sd`
+  computation (Tasks 1–4) remain; they now feed only the tooltip figure. If the tooltip
+  ± is later judged unhelpful, removing it is a one-line frontend change (the backend
+  band can stay or be reverted separately).
+
+The original Change 1 design below is retained for history; the revision above governs.
+
+---
+
 ## Change 1 — Dispersion band replaces the raw daily line
 
 Replace the raw daily line on the trajectory with a **±1 SD dispersion band** that
