@@ -43,6 +43,23 @@ def safe_percentile(values: Sequence[int | float], pct: float) -> float | None:
     return round(float(np.percentile(values, pct)), 1) if values else None
 
 
+MAD_SCALE = 1.4826  # MAD -> normal-consistent SD
+
+
+def robust_center_scale(values: Sequence[float] | np.ndarray) -> tuple[float, float]:
+    """Median and MAD-derived robust scale (MAD x `MAD_SCALE`) of `values`.
+
+    Falls back to the standard deviation (then a tiny floor) when the MAD is ~0, so a
+    zero-spread history never divides by zero. `values` must be non-empty and contain no
+    None; callers own the present-filtering and any minimum-history policy.
+    """
+    arr = np.asarray(values, dtype=float)
+    median = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - median))) * MAD_SCALE
+    scale = mad if mad > 1e-9 else (float(np.std(arr)) or 1e-9)
+    return median, scale
+
+
 def safe_min(values: Sequence[int | float], ndigits: int = 1) -> float | None:
     """Min with rounding, or None if empty."""
     return round(float(min(values)), ndigits) if values else None

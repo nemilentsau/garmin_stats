@@ -132,8 +132,8 @@
 					annotations: {
 						typicalBand: {
 							type: 'box',
-							yMin: -0.5,
-							yMax: 0.5,
+							yMin: windowed[0]?.baseline_lo ?? -0.5,
+							yMax: windowed[0]?.baseline_hi ?? 0.5,
 							backgroundColor: 'rgba(126,168,216,0.08)',
 							borderColor: 'rgba(126,168,216,0.16)',
 							borderWidth: 1,
