@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import date as date_type
 from typing import Protocol
 
+import numpy as np
+
 from app.domains.garmin_health.contracts import DailyMetric
 from app.utils.numeric import (
     safe_avg,
@@ -54,6 +56,29 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
         window_start = max(0, i - 6)
         window = [v for v in values[window_start : i + 1] if v is not None]
         result.append(safe_avg(window))
+    return result
+
+
+def trailing_sd(
+    values: list[float | None],
+    window: int,
+    min_valid: int,
+) -> list[float | None]:
+    """Rolling sample standard deviation (ddof=1) over a trailing `window`.
+
+    None values inside a window are skipped. Returns None at any position whose
+    window holds fewer than `min_valid` non-None values, so a thin left edge or a
+    sparse stretch produces no spurious spread. Mirrors the None-skipping policy of
+    `trailing_ma7`; used to size the recovery trajectory's dispersion band.
+    """
+    result: list[float | None] = []
+    for i in range(len(values)):
+        window_start = max(0, i - (window - 1))
+        present = [v for v in values[window_start : i + 1] if v is not None]
+        if len(present) < min_valid:
+            result.append(None)
+        else:
+            result.append(round(float(np.std(present, ddof=1)), 3))
     return result
 
 

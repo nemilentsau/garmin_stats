@@ -5,6 +5,7 @@ from importlib import import_module
 
 from app.domains.garmin_analytics.domain.analysis import hrv
 from app.domains.garmin_analytics.domain.primitives import trends
+from app.domains.garmin_analytics.domain.primitives.trends import trailing_sd
 from app.utils import numeric
 
 
@@ -92,6 +93,32 @@ def test_timestamp_coverage_summary_counts_records_and_ignores_unparseable_times
     assert summary.coverage_start == "2026-01-01T01:00:00"
     assert summary.coverage_end == "2026-01-01T03:30:00"
     assert summary.coverage_hours == 2.5
+
+
+def test_trailing_sd_returns_none_below_min_valid():
+    # window has only 4 present values, min_valid=5 -> None
+    out = trailing_sd([1.0, 2.0, 3.0, 4.0], window=14, min_valid=5)
+    assert out == [None, None, None, None]
+
+
+def test_trailing_sd_skips_none_inside_window():
+    # present values are [2,4,6,8,10]; sample SD (ddof=1) of those
+    out = trailing_sd([2.0, None, 4.0, 6.0, None, 8.0, 10.0], window=14, min_valid=5)
+    import numpy as np
+    expected = round(float(np.std([2.0, 4.0, 6.0, 8.0, 10.0], ddof=1)), 3)
+    assert out[-1] == expected
+
+
+def test_trailing_sd_constant_series_is_zero():
+    out = trailing_sd([5.0] * 6, window=14, min_valid=5)
+    assert out[-1] == 0.0
+
+
+def test_trailing_sd_window_excludes_old_values():
+    # window=3, min_valid=2: last position sees only the final 3 values
+    out = trailing_sd([100.0, 1.0, 2.0, 3.0], window=3, min_valid=2)
+    import numpy as np
+    assert out[-1] == round(float(np.std([1.0, 2.0, 3.0], ddof=1)), 3)
 
 
 def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
