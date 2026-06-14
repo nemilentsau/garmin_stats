@@ -38,7 +38,7 @@
 	const windowed = $derived.by(() => score.slice(Math.max(0, score.length - rangeDays)));
 
 	const yScale = $derived(
-		tightScale(windowed.flatMap((p) => [p.band_lo, p.band_hi, p.ma7]))
+		tightScale(windowed.flatMap((p) => [p.ma7, p.baseline_lo, p.baseline_hi]))
 	);
 
 	const eventAnnotations = $derived.by(() => {
@@ -72,28 +72,6 @@
 		data: {
 			labels: windowed.map((p) => p.date),
 			datasets: [
-				{
-					label: 'band-hi',
-					data: windowed.map((p) => p.band_hi),
-					borderColor: 'transparent',
-					borderWidth: 0,
-					pointRadius: 0,
-					// Band fill: 'band-hi' fills DOWN to 'band-lo', which MUST be the
-					// immediately-following dataset. Keep these two adjacent and in order.
-					fill: '+1',
-					backgroundColor: 'rgba(126,168,216,0.10)',
-					tension: 0.3,
-					spanGaps: false
-				},
-				{
-					label: 'band-lo',
-					data: windowed.map((p) => p.band_lo),
-					borderColor: 'transparent',
-					borderWidth: 0,
-					pointRadius: 0,
-					tension: 0.3,
-					spanGaps: false
-				},
 				{
 					label: MA7_LABEL,
 					data: windowed.map((p) => p.ma7),
@@ -138,11 +116,16 @@
 				legend: { display: false },
 				tooltip: {
 					...chartTooltip(SCORE_COLOR),
-					filter: (item) => item.dataset.label === MA7_LABEL,
 					callbacks: {
 						title: (items) => fmtFullDate(new Date(items[0].parsed.x ?? 0)),
-						label: (item) =>
-							`${item.dataset.label}: ${item.parsed.y == null ? '—' : item.parsed.y.toFixed(2)} z`
+						label: (item) => {
+							if (item.parsed.y == null) return `${item.dataset.label}: — z`;
+							const p = windowed[item.dataIndex];
+							const spread =
+								p?.band_hi != null && p?.ma7 != null ? p.band_hi - p.ma7 : null;
+							const spreadText = spread == null ? '' : ` · ±${spread.toFixed(2)}`;
+							return `${item.dataset.label}: ${item.parsed.y.toFixed(2)} z${spreadText}`;
+						}
 					}
 				},
 				annotation: {
