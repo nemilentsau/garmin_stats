@@ -26,11 +26,13 @@ class SparkPoint(DefaultsRequired):
 
 
 class RecoveryScorePoint(DefaultsRequired):
-    """One day of the recovery trajectory: raw score, seeded MA7, and typical band."""
+    """One day of the recovery trajectory: raw score, seeded MA7, dispersion band, and baseline."""
 
     date: str
     raw: float | None = None
     ma7: float | None = None
+    band_lo: float | None = None
+    band_hi: float | None = None
     baseline_lo: float
     baseline_hi: float
 

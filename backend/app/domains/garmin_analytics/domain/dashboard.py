@@ -85,6 +85,8 @@ def _score_series(computation: RecoveryComputation) -> list[RecoveryScorePoint]:
             date=point.date,
             raw=_round_opt(point.raw, 3),
             ma7=_round_opt(point.ma7, 3),
+            band_lo=_round_opt(point.band_lo, 3),
+            band_hi=_round_opt(point.band_hi, 3),
             baseline_lo=point.baseline_lo,
             baseline_hi=point.baseline_hi,
         )

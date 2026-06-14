@@ -209,3 +209,12 @@ class TestRecoveryOverview:
         assert by_date["2026-02-10"].status == "low"
         assert by_date["2026-02-11"].status == "normal"
         assert "recent" not in by_date["2026-02-10"].model_dump()
+
+    def test_overview_score_points_expose_band_fields(self):
+        _seed_baseline(40)
+        result = load_dashboard_overview()
+        assert result.score, "expected a non-empty score series"
+        for p in result.score:
+            assert hasattr(p, "band_lo") and hasattr(p, "band_hi")
+            if p.ma7 is not None and p.band_lo is not None and p.band_hi is not None:
+                assert p.band_lo <= p.ma7 <= p.band_hi
