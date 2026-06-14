@@ -21,7 +21,10 @@
 			hoveredDate = null; // drop any brushed day when the data reloads
 			error = null;
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : String(e);
+			// Keep the last good data on a failed background reload; only surface the
+			// error when we have nothing to show (the initial load failed). The next
+			// successful refresh clears it.
+			if (!overview) error = e instanceof Error ? e.message : String(e);
 		}
 	}
 
