@@ -214,7 +214,9 @@ class TestRecoveryOverview:
         _seed_baseline(40)
         result = load_dashboard_overview()
         assert result.score, "expected a non-empty score series"
+        assert any(
+            p.band_lo is not None and p.band_hi is not None for p in result.score
+        ), "expected at least one score point with a band"
         for p in result.score:
-            assert hasattr(p, "band_lo") and hasattr(p, "band_hi")
             if p.ma7 is not None and p.band_lo is not None and p.band_hi is not None:
                 assert p.band_lo <= p.ma7 <= p.band_hi
