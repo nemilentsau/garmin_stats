@@ -65,6 +65,13 @@
 		<span class="hint" class:hovering={hoveredDate}>{whenLabel} vs your baseline · sorted by impact</span>
 	</header>
 	<table>
+		<colgroup>
+			<col style="width: 180px" />
+			<col style="width: 96px" />
+			<col style="width: 96px" />
+			<col style="width: 80px" />
+			<col />
+		</colgroup>
 		<thead>
 			<tr>
 				<th class="metric">metric</th>
@@ -89,7 +96,7 @@
 					<td class="num delta" style="color:{color}">
 						<span class="arrow">{deltaArrow(row.delta_z)}</span>{deltaText(row.delta_z)}
 					</td>
-					<td class="spark"><EvidenceSparkline points={row.sparkline} {color} /></td>
+					<td class="spark"><EvidenceSparkline points={row.sparkline} color="#5e7282" width={300} /></td>
 				</tr>
 			{/each}
 		</tbody>
@@ -188,7 +195,6 @@
 	}
 	td.spark {
 		text-align: center;
-		width: 110px;
 	}
 	td.spark :global(svg) {
 		margin: 0 auto;
