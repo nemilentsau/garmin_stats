@@ -167,8 +167,10 @@ def test_score_points_carry_a_symmetric_dispersion_band():
 
 
 def test_band_is_none_when_ma7_is_none():
-    # A single day cannot form a 7-day MA seed nor a 5-point SD window.
-    result = _compute(_baseline_series(days=1))
+    # 40 days: display starts at day 31 (after the 30-day warm-up), so the first
+    # displayed point has no prior seed to form a 7-day MA — ma7 is None there.
+    result = _compute(_baseline_series(days=40))
     first = result.score_series[0]
-    if first.ma7 is None:
-        assert first.band_lo is None and first.band_hi is None
+    assert first.ma7 is None  # warm-up: no computable average yet
+    assert first.band_lo is None
+    assert first.band_hi is None

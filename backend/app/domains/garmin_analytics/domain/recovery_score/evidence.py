@@ -200,6 +200,7 @@ def compute_recovery(metrics: list[DailyMetric]) -> RecoveryComputation | None:
         input_counts.append(count)
 
     display_start = max(0, n - _DISPLAY_DAYS)
+    # Two seeds: the 7d average and the 14d SD band need different left-edge fills.
     ma_seed = raw_scores[max(0, display_start - SEED_DAYS):display_start]
     sd_seed = raw_scores[max(0, display_start - BAND_SEED_DAYS):display_start]
     display = raw_scores[display_start:]
