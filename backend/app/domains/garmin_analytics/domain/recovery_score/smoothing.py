@@ -1,11 +1,12 @@
-"""Seeded trailing 7-day moving average for the displayed recovery trend.
+"""Seeded trailing moving-average and dispersion-band wrappers for the recovery trend.
 
-Compute the MA over seed + display, then drop the seed days, so the first displayed
-points use the 6 days before the window instead of ramping up from a single point.
-Mirrors the dashboard `_MA_SEED_DAYS` precedent. The MA7 window is validated in run
-2026-06-11-recovery-score-smoothing-spec (86% plateau-noise reduction, 0 added lag to
-regime-onset detection, sustained regime depth preserved; MA3 too jagged, MA14
-over-smooths). None values inside a window are skipped, not treated as zero.
+Owns two smoothers: (1) a 7-day MA center line and (2) a 14-day SD dispersion band.
+Both use the same seeding pattern — compute over seed + display, then drop the seed
+days, so the first displayed points use the preceding days instead of ramping up from
+a single point. Mirrors the dashboard `_MA_SEED_DAYS` precedent. The MA7 window is
+validated in run 2026-06-11-recovery-score-smoothing-spec (86% plateau-noise reduction,
+0 added lag to regime-onset detection, sustained regime depth preserved; MA3 too jagged,
+MA14 over-smooths). None values inside a window are skipped, not treated as zero.
 """
 
 from __future__ import annotations
@@ -35,8 +36,8 @@ def seeded_ma7(
 
 
 BAND_WINDOW = 14
-BAND_SEED_DAYS = BAND_WINDOW - 1
-BAND_MIN_VALID = 5
+BAND_SEED_DAYS = BAND_WINDOW - 1  # consumed by evidence.py for left-edge band seeding
+BAND_MIN_VALID = 5  # >= a near-full week; trailing_sd needs >= 2 for ddof=1
 
 
 def seeded_sd(
