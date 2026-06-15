@@ -1,27 +1,27 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import {
 		api,
 		type DailyAggregates,
-		type DashboardOverview,
 		type IngestStatus,
 		type SyncResult
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { calendarDayDiff, localDateIso, parseIsoDate, fmtFullDate } from '$lib/date';
-	import StateLine from '$lib/components/recovery/StateLine.svelte';
-	import RecoveryTrajectory from '$lib/components/recovery/RecoveryTrajectory.svelte';
-	import EvidenceTable from '$lib/components/recovery/EvidenceTable.svelte';
-	import FlagStrip from '$lib/components/recovery/FlagStrip.svelte';
+	import { createRefreshBus, DASHBOARD_REFRESH } from '$lib/dashboard/refresh-bus';
+	import RecoverySection from '$lib/components/recovery/RecoverySection.svelte';
 
 	let data: DailyAggregates | null = $state(null);
-	let overview: DashboardOverview | null = $state(null);
 	let ingestStatus: IngestStatus | null = $state(null);
 	let emptyState: IngestStatus | null = $state(null);
 	let error: string | null = $state(null);
 	let syncing = $state(false);
 	let syncResult = $state<SyncResult | null>(null);
-	let hoveredDate = $state<string | null>(null);
+
+	// One refresh bus for the whole overview; axis sections subscribe to re-fetch on
+	// realtime/sync. setContext must run during component init (here), not in onMount.
+	const bus = createRefreshBus();
+	setContext(DASHBOARD_REFRESH, bus);
 
 	async function fetchData() {
 		error = null;
@@ -29,18 +29,12 @@
 		ingestStatus = status;
 		if (status.days_in_db === 0) {
 			data = null;
-			overview = null;
 			emptyState = status;
 			return;
 		}
-		const [nextData, nextOverview] = await Promise.all([
-			api.getDailyAggregates(),
-			api.getDashboardOverview()
-		]);
-		data = nextData;
-		overview = nextOverview;
-		hoveredDate = null; // drop any brushed day when the data reloads (SSE/sync)
+		data = await api.getDailyAggregates();
 		emptyState = null;
+		bus.emit(); // tell mounted axis sections the data changed
 	}
 
 	function formatBannerDate(date: string): string {
@@ -193,27 +187,7 @@
 		</div>
 	{/if}
 
-	{#if overview}
-		<StateLine state={overview.state} date={overview.date} />
-		<RecoveryTrajectory
-			score={overview.score}
-			change={overview.change}
-			events={overview.events}
-			onHoverDate={(d) => (hoveredDate = d)}
-		/>
-		<EvidenceTable
-			evidence={overview.evidence}
-			driverSeries={overview.driver_series}
-			dates={overview.score.map((p) => p.date)}
-			{hoveredDate}
-		/>
-		<FlagStrip
-			flags={overview.flags}
-			flagSeries={overview.flag_series}
-			latestDate={overview.date}
-			{hoveredDate}
-		/>
-	{/if}
+		<RecoverySection />
 
 {/if}
 

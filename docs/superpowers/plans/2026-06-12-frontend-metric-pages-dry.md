@@ -45,6 +45,36 @@ The duplication, by magnitude (from a full line-by-line survey):
 
 Feasible consolidation: ~630–700 lines.
 
+## File organization (do this *with* the tab work, not before)
+
+Separate from the line-level DRY above, `src/lib` is flat and the chart layer is scattered.
+The key fact that decides *when* to fix it: **the chart pieces and the metric-page component
+family are imported by the same 8 metric pages this plan rewrites.** So their import churn lands
+on exactly these files — doing a standalone "move + re-import" pass now would touch all 8 pages
+twice and lock in a folder shape before the DRY reveals the right abstractions. Fold the
+reorganization into this work instead, as an opening structural step per tab batch:
+
+- **Consolidate the chart module.** Today: `components/charts/` holds only `ChartCanvas`, while
+  `BarChart`/`LineChart`/`ScatterChart`/`PolarAreaChart`/`ChartCard` sit flat in `components/`,
+  and the chart helpers `chart-options.ts`/`chart-scale.ts`/`chart-setup.ts` sit at `lib/` root.
+  Move the chart components into `components/charts/` (joining `ChartCanvas`) and the chart
+  helpers into a `lib/charts/` (or co-locate). Charts are a *stable* concept — a `LineChart`
+  adapter does not change shape because of the page DRY — so this grouping is safe; the only
+  reason to defer it is to pay the 8-page import churn once, here. If the chart-config-builder
+  extraction (Part A) produces a new builder, it lives in this module too.
+- **Group the metric-page component family.** `MetricPageHeader`, `MetricDefinition`, `StatCard`,
+  `ChartCard`, `DateSelector`, `TrendRangePicker`, `PageState` → a `components/metric-page/`
+  module. Unlike charts, the *right* shape here is whatever the DRY produces (e.g. a `StatBar`
+  extraction, a shared page scaffold), so group these as the abstractions settle, not up front.
+- **Independent micro-move (any time, not blocked on this plan):** `recovery-format.ts` is used
+  only by the recovery components, not the metric pages — it can move into `components/recovery/`
+  or a `lib/recovery/` whenever convenient, with zero blast radius.
+- **Leave flat:** the primitives `format.ts`/`date.ts`/`colors.ts`/`utils.ts`/`markdown.ts` —
+  grouping them is low-value churn. `lib/dashboard/` already exists (the overview refresh bus).
+
+(Captured 2026-06-14 while refactoring the overview into axis sections, which raised the same
+flat-`src/lib` observation.)
+
 ## Guiding principles (do not violate)
 
 1. **Extend, don't fork.** The 6 modern pages already prove the target pattern. Reuse
