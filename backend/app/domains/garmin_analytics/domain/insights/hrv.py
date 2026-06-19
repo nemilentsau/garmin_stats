@@ -209,7 +209,6 @@ def compute_hrv_insights(
     overnight_segment = _build_intraday_segment(
         key="all", label="Overnight HRV", values=day_values,
     )
-    overnight_stdev = overnight_segment.stdev
     nightly_vals = [
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
@@ -231,10 +230,8 @@ def compute_hrv_insights(
         recovery=recovery,
         quality=quality,
         resting_delta=resting_delta,
-        overnight_stdev=overnight_stdev,
         streak=streak,
         long_baseline=long_baseline,
-        trajectory=trajectory,
     ))
 
     return HrvInsightsResponse(

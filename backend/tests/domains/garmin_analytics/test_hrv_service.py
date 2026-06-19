@@ -255,7 +255,10 @@ class TestStdev:
         result = load_hrv_insights("2026-01-15")
         assert result.intraday_segments[0].stdev is None
 
-    def test_high_stdev_with_suppressed_fires_volatility_insight(self):
+    def test_high_overnight_stdev_no_longer_emits_volatility_insight(self):
+        """overnight_volatility_rule was removed: its >25ms threshold was unreachable
+        and its premise inverted (FINDINGS OQ#11). High overnight stdev with suppressed
+        recovery -- the exact condition that used to fire it -- must now emit nothing."""
         _insert_metric(_make_daily_metric(
             date="2026-01-14",
             nightly_avg=60.0, weekly_avg=62.0,
@@ -266,27 +269,7 @@ class TestStdev:
             nightly_avg=45.0, weekly_avg=55.0,
             hrv_status="low", sleep_score=80, resting_hr=46,
         ))
-        # Wide-ranging values to produce stdev > 25
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=20.0),
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=80.0),
-        ])
-
-        result = load_hrv_insights("2026-01-15")
-        titles = {item.title for item in result.insights}
-        assert "High overnight HRV volatility" in titles
-
-    def test_high_stdev_with_stable_does_not_fire_volatility_insight(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-14",
-            nightly_avg=60.0, weekly_avg=60.0,
-            hrv_status="balanced", sleep_score=85, resting_hr=46,
-        ))
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15",
-            nightly_avg=61.0, weekly_avg=60.0,
-            hrv_status="balanced", sleep_score=85, resting_hr=46,
-        ))
+        # Wide-ranging values produce stdev > 25, which used to trip the old rule.
         _insert_hrv_day("2026-01-15", [
             HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=20.0),
             HrvValue(date="2026-01-15", timestamp="2026-01-15T00:05:00", value=80.0),
@@ -759,7 +742,11 @@ class TestTrajectory:
         assert result.trajectory is not None
         assert result.trajectory.direction == "flat"
 
-    def test_falling_with_suppressed_fires_insight(self):
+    def test_falling_trajectory_no_longer_emits_insight(self):
+        """falling_trajectory_rule was removed: overnight HRV rises ~+10ms on the median
+        night and "falling" (4% of nights) is noise-indistinguishable (Q12). A falling
+        trajectory with suppressed recovery -- the condition that used to fire it -- must
+        emit nothing, though the trajectory field itself is still computed."""
         _insert_metric(_make_daily_metric(
             date="2026-01-14", nightly_avg=60.0, weekly_avg=60.0,
             hrv_status="balanced", sleep_score=85, resting_hr=46,
@@ -779,7 +766,7 @@ class TestTrajectory:
         assert result.trajectory is not None
         assert result.trajectory.direction == "falling"
         titles = {item.title for item in result.insights}
-        assert "HRV declined through the night" in titles
+        assert "HRV declined through the night" not in titles
 
 
 class TestDayOfWeek:

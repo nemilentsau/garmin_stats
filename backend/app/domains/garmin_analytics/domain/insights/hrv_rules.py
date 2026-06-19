@@ -14,7 +14,6 @@ from app.domains.garmin_analytics.contracts import (
     HrvLongBaseline,
     HrvRecovery,
     HrvStreak,
-    HrvTrajectory,
 )
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.garmin_health.domain.daily_metrics import is_balanced_hrv_status
@@ -37,10 +36,8 @@ class InsightContext:
     recovery: HrvRecovery
     quality: HrvDataQuality
     resting_delta: float | None
-    overnight_stdev: float | None = None
     streak: HrvStreak | None = None
     long_baseline: HrvLongBaseline | None = None
-    trajectory: HrvTrajectory | None = None
 
 
 def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
@@ -72,24 +69,6 @@ def acute_weekly_gap_rule(ctx: InsightContext) -> HrvInsight | None:
     )
 
 
-def overnight_volatility_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Flag high overnight HRV variance when recovery is already low."""
-    if (
-        ctx.overnight_stdev is None
-        or ctx.overnight_stdev <= 25
-        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
-    ):
-        return None
-    return HrvInsight(
-        level="caution",
-        title="High overnight HRV volatility",
-        detail=(
-            f"Overnight HRV stdev is {ctx.overnight_stdev:.1f} ms, suggesting irregular "
-            "autonomic activity alongside suppressed recovery."
-        ),
-    )
-
-
 def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
     """Warn on three or more consecutive days of low/unbalanced HRV status."""
     if (
@@ -106,21 +85,6 @@ def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
             f"{ctx.streak.current_status} HRV status. "
             "Consider reviewing recent stressors, sleep, or training load."
         ),
-    )
-
-
-def falling_trajectory_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Warn when overnight HRV falls while selected-day recovery is low."""
-    if (
-        ctx.trajectory is None
-        or ctx.trajectory.direction != "falling"
-        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
-    ):
-        return None
-    return HrvInsight(
-        level="warning",
-        title="HRV declined through the night",
-        detail="HRV declined through the night, suggesting disrupted recovery.",
     )
 
 
@@ -211,9 +175,7 @@ def low_coverage_rule(ctx: InsightContext) -> HrvInsight | None:
 _CAUTIONARY_RULES: tuple[Callable[[InsightContext], HrvInsight | None], ...] = (
     recovery_status_rule,
     acute_weekly_gap_rule,
-    overnight_volatility_rule,
     low_status_streak_rule,
-    falling_trajectory_rule,
     long_baseline_rule,
     sleep_recovery_rule,
     resting_hr_divergence_rule,
