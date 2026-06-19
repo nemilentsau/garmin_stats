@@ -140,3 +140,12 @@ Named techniques the analyst applies, separate from *what* is being investigated
 - **Method:** distribution of consecutive-day deltas (`numpy`), z-score the focal delta; cross-check correlates and coverage.
 - **Caveats:** a single point is inherently `tentative` — it cannot replicate. Garmin-provided nightly values (HRV nightly, sleep score) can move from short/partial nights or sensor gaps, not only physiology; always check coverage first.
 - **Validation:** plot the focal date in context with neighbors annotated; spot-check the two endpoint values against the snapshot.
+
+## Rule/threshold bake-off
+- **Status:** candidate (added 2026-06-19, first used by `2026-06-18-hrv-recovery-cue-bakeoff`)
+- **Question shape:** A classifier/threshold display is suspected bad — which replacement rule is best, on a pre-registered, candidate-agnostic scorecard?
+- **Inputs:** the live rule (imported, not reimplemented) as the C0 baseline; 2-4 candidate rules defined before scoring; labeled evaluation sets cut purely from a derived quantity (e.g. acute-event set, calm/neutral set); the per-night series.
+- **Outputs:** one scorecard row per candidate with identical columns — sensitivity/recall on the event set, false-headline rate on the calm set, night-to-night flip (flicker), neutral share — plus a single decision-rule verdict.
+- **Method:** fix candidates + scorecard + decision rule in `01-question.md` first; reproduce the baseline's published numbers before scoring (verify-first); score every candidate identically; small-multiple the per-night headline state so flicker is visible.
+- **Caveats:** **the discretization, not the threshold values, is usually the flicker source** — always include a continuous (no-category) candidate and a smoothed-basis candidate, or you only compare bucket placements. A noisy signal flips ~any same-night categorical label at a high rate regardless of cuts. Personal-SD-scaled thresholds drift as the dataset grows; call them illustrative. n-of-1 ceilings cap confidence at provisional.
+- **Validation:** headline-state timeline small-multiples (categorical candidates show interleaved flicker; continuous/sustained show calm/blocked); event-window zoom confirming every candidate catches the canonical event.
