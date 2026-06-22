@@ -23,3 +23,26 @@ The run needed a "score N candidate rules on one pre-registered scorecard" patte
 *always include a no-category and a smoothed-basis candidate, because discretization (not cut
 placement) is the usual flicker source* — is worth surfacing wherever the skill discusses classifier
 or threshold questions.
+
+---
+
+# Addendum — 2026-06-22, from run `2026-06-18-hrv-dow-display` (D9A)
+
+## 3. A pre-registered statistic can be degenerate; correct it transparently before scoring
+The D9A pre-registration's decision rule was "peak-to-trough bootstrap CI excludes 0." But
+peak-to-trough = max−min of 7 weekday means is **≥ 0 by construction**, so its bootstrap CI can never
+include 0 — the rule was unfalsifiable. Caught it before scoring, swapped to per-bin signed CIs
+(which can cross 0) + a circular-shift null for the swing, and documented the swap in 05/06 rather
+than silently changing the registered analysis. **Lesson for the skill:** when pre-registering a
+test statistic, sanity-check that its null *can* fail; bounded-positive statistics (ranges, |effect|,
+max−min) need a surrogate/null, not a CI-excludes-0 check. Now baked into the new
+*Weekday / cyclic seasonality bootstrap* recipe's caveats.
+
+## 4. The audit's "stability" check was a deterministic subsample, not a bootstrap — and overstated it
+The surface audit reported split-half Spearman 0.75 and subsample p2t stability via a deterministic
+2-of-3 loop. A real moving-block bootstrap + clean split-half gave Spearman 0.61 and an
+autocorrelation-honest null p≈0.03 — still a real, provisional effect, but more modest. Re-derivation
+on the frozen snapshot corrected the FINDINGS observation in place. **Lesson:** treat any
+"stable under subsampling" claim that didn't use a real resampling null as provisional until a
+bootstrap confirms it; serial autocorrelation alone manufactures a sizeable swing (~6 ms here), so
+iid-flavored stability checks overstate significance.
