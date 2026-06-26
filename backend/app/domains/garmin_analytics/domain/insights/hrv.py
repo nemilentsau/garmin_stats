@@ -1,7 +1,5 @@
 """HRV insight calculations for Garmin analytics."""
 
-from collections import Counter
-
 import numpy as np
 
 from app.domains.garmin_analytics.contracts import (
@@ -10,7 +8,6 @@ from app.domains.garmin_analytics.contracts import (
     HrvIntradaySegment,
     HrvLongBaseline,
     HrvRecovery,
-    HrvStatusBucket,
     HrvStreak,
     HrvTrendBand,
 )
@@ -109,28 +106,6 @@ def _compute_trend_band(nightly_vals: list[float]) -> HrvTrendBand:
     return HrvTrendBand(nightly_typical_low=low, nightly_typical_high=high)
 
 
-def _compute_status_mix(metrics: list[DailyMetric], selected_index: int) -> list[HrvStatusBucket]:
-    window = metrics[max(0, selected_index - 13):selected_index + 1]
-    labels = [
-        normalize_hrv_status(metric.hrv.status)
-        for metric in window
-        if metric.hrv.status
-    ]
-    if not labels:
-        return []
-    counts = Counter(labels)
-    total = sum(counts.values())
-    sorted_items = sorted(counts.items(), key=lambda item: item[1], reverse=True)
-    return [
-        HrvStatusBucket(
-            label=label,
-            count=count,
-            pct=round(count / total * 100, 1),
-        )
-        for label, count in sorted_items
-    ]
-
-
 def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStreak:
     current_status = normalize_hrv_status(metrics[selected_index].hrv.status)
     streak_days = 1
@@ -217,12 +192,9 @@ def compute_hrv_insights(
     long_baseline = _compute_long_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d,
     )
-    baseline_bands = hrv_patterns.extract_baseline_bands(day_rows)
     distribution = hrv_patterns.compute_hrv_distribution(
         nightly_vals, selected_metric.hrv.nightly_avg,
     )
-    trajectory = hrv_patterns.compute_trajectory(day_values)
-    status_mix = _compute_status_mix(metrics, selected_index)
     day_of_week = hrv_patterns.compute_day_of_week(metrics)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
     insights = build_hrv_insights(InsightContext(
@@ -243,10 +215,7 @@ def compute_hrv_insights(
         trend_band=trend_band,
         streak=streak,
         long_baseline=long_baseline,
-        baseline_bands=baseline_bands,
         distribution=distribution,
-        trajectory=trajectory,
-        status_mix=status_mix,
         day_of_week=day_of_week,
         insights=insights,
     )

@@ -80,15 +80,6 @@ class HeartRateAnalysisResponse(DefaultsRequired):
     pattern_windows: dict[str, HRPatternWindow] = {}
 
 
-class HrvBaselineBands(DefaultsRequired):
-    """Garmin HRV baseline bands extracted from overnight summaries."""
-
-    baseline_low_upper: float | None = None
-    baseline_balanced_lower: float | None = None
-    baseline_balanced_upper: float | None = None
-    five_min_high: float | None = None
-
-
 class HrvDistributionBin(DefaultsRequired):
     """One histogram bin for nightly HRV values."""
 
@@ -104,15 +95,6 @@ class HrvDistribution(DefaultsRequired):
     total_days: int = 0
     selected_value: float | None = None
     selected_percentile: float | None = None
-
-
-class HrvTrajectory(DefaultsRequired):
-    """Overnight HRV trajectory across early, middle, and late segments."""
-
-    early_avg: float | None = None
-    mid_avg: float | None = None
-    late_avg: float | None = None
-    direction: str | None = None  # "rising", "falling", "flat", or None
 
 
 class HrvDayOfWeekBucket(DefaultsRequired):

@@ -155,7 +155,6 @@ class TestHrvInsights:
         insights = load_hrv_insights("2026-01-15")
         assert any(item.title == "HRV recovery signals look stable" for item in insights.insights)
         assert all(item.title != "Low HRV sample coverage" for item in insights.insights)
-        assert sum(bucket.count for bucket in insights.status_mix) == 2
 
     def test_unbalanced_status_does_not_trigger_stable_signal_without_baseline(self):
         _insert_metric(_make_daily_metric(
@@ -532,66 +531,6 @@ class TestLongBaseline:
         assert result.long_baseline is None
 
 
-class TestBaselineBands:
-    def test_bands_extracted_when_summary_has_baseline_values(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day(
-            "2026-01-15",
-            [HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0)],
-            summaries=[HrvSummary(
-                date="2026-01-15",
-                status="balanced",
-                baseline_low_upper=35.0,
-                baseline_balanced_lower=40.0,
-                baseline_balanced_upper=65.0,
-                last_night_5_min_high=72.0,
-            )],
-        )
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.baseline_bands is not None
-        assert result.baseline_bands.baseline_low_upper == 35.0
-        assert result.baseline_bands.baseline_balanced_lower == 40.0
-        assert result.baseline_bands.baseline_balanced_upper == 65.0
-        assert result.baseline_bands.five_min_high == 72.0
-
-    def test_bands_none_when_no_summaries(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0),
-        ])
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.baseline_bands is None
-
-    def test_bands_none_when_summary_fields_all_null(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day(
-            "2026-01-15",
-            [HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0)],
-            summaries=[HrvSummary(
-                date="2026-01-15",
-                status="balanced",
-                baseline_low_upper=None,
-                baseline_balanced_lower=None,
-                baseline_balanced_upper=None,
-                last_night_5_min_high=None,
-            )],
-        )
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.baseline_bands is None
-
-
 class TestHrvDistribution:
     def _insert_days(self, nightly_values: list[float | None]) -> None:
         """Insert len(nightly_values) days, last day is selected."""
@@ -660,93 +599,11 @@ class TestHrvDistribution:
 
 
 class TestTrajectory:
-    def test_returns_none_when_fewer_than_6_readings(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=50.0)
-            for i in range(5)
-        ])
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is None
-
-    def test_computes_three_segment_averages(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        # 9 values evenly spaced: 00:00 to 08:00 (1h apart)
-        # early=00-02:39 (0,1,2), mid=02:40-05:19 (3,4,5), late=05:20-08:00 (6,7,8)
-        values = [
-            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=40.0 + i * 3.0)
-            for i in range(9)
-        ]
-        _insert_hrv_day("2026-01-15", values)
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is not None
-        assert result.trajectory.early_avg is not None
-        assert result.trajectory.mid_avg is not None
-        assert result.trajectory.late_avg is not None
-        # Verify late > early since values are increasing
-        assert result.trajectory.late_avg > result.trajectory.early_avg
-
-    def test_rising_direction_when_late_exceeds_early_by_more_than_5(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        # early ~30, late ~50 → diff > 5 → rising
-        values = [
-            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=30.0 + i * 3.0)
-            for i in range(9)
-        ]
-        _insert_hrv_day("2026-01-15", values)
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is not None
-        assert result.trajectory.direction == "rising"
-
-    def test_falling_direction_when_early_exceeds_late_by_more_than_5(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        # early ~60, late ~36 → diff < -5 → falling
-        values = [
-            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=60.0 - i * 3.0)
-            for i in range(9)
-        ]
-        _insert_hrv_day("2026-01-15", values)
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is not None
-        assert result.trajectory.direction == "falling"
-
-    def test_flat_direction_when_difference_within_5(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        # All values ~50 → |diff| ≤ 5 → flat
-        values = [
-            HrvValue(date="2026-01-15", timestamp=f"2026-01-15T0{i}:00:00", value=50.0)
-            for i in range(9)
-        ]
-        _insert_hrv_day("2026-01-15", values)
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is not None
-        assert result.trajectory.direction == "flat"
-
     def test_falling_trajectory_no_longer_emits_insight(self):
         """falling_trajectory_rule was removed: overnight HRV rises ~+10ms on the median
         night and "falling" (4% of nights) is noise-indistinguishable (Q12). A falling
         trajectory with suppressed recovery -- the condition that used to fire it -- must
-        emit nothing, though the trajectory field itself is still computed."""
+        emit nothing."""
         _insert_metric(_make_daily_metric(
             date="2026-01-14", nightly_avg=60.0, weekly_avg=60.0,
             hrv_status="balanced", sleep_score=85, resting_hr=46,
@@ -763,8 +620,6 @@ class TestTrajectory:
         _insert_hrv_day("2026-01-15", values)
 
         result = load_hrv_insights("2026-01-15")
-        assert result.trajectory is not None
-        assert result.trajectory.direction == "falling"
         titles = {item.title for item in result.insights}
         assert "HRV declined through the night" not in titles
 

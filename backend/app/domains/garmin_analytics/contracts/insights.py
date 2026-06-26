@@ -8,10 +8,8 @@ from app.domains.garmin_health.contracts import (
 )
 
 from .analysis import (
-    HrvBaselineBands,
     HrvDayOfWeekBucket,
     HrvDistribution,
-    HrvTrajectory,
 )
 
 
@@ -95,14 +93,6 @@ class HrvIntradaySegment(DefaultsRequired):
     values: list[HrvValue] = []
 
 
-class HrvStatusBucket(DefaultsRequired):
-    """Count and percentage for one HRV status bucket."""
-
-    label: str
-    count: int
-    pct: float
-
-
 class HrvTrendBand(DefaultsRequired):
     """Typical nightly HRV band across the analysis window."""
 
@@ -144,9 +134,6 @@ class HrvInsightsResponse(DefaultsRequired):
     trend_band: HrvTrendBand
     streak: HrvStreak | None = None
     long_baseline: HrvLongBaseline | None = None
-    baseline_bands: HrvBaselineBands | None = None
     distribution: HrvDistribution | None = None
-    trajectory: HrvTrajectory | None = None
-    status_mix: list[HrvStatusBucket] = []
     day_of_week: list[HrvDayOfWeekBucket] = []
     insights: list[HrvInsight] = []

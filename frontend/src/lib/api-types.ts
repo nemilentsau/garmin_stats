@@ -2867,20 +2867,6 @@ export interface components {
                 [key: string]: components["schemas"]["HrvPatternWindow"];
             };
         };
-        /**
-         * HrvBaselineBands
-         * @description Garmin HRV baseline bands extracted from overnight summaries.
-         */
-        HrvBaselineBands: {
-            /** Baseline Low Upper */
-            baseline_low_upper: number | null;
-            /** Baseline Balanced Lower */
-            baseline_balanced_lower: number | null;
-            /** Baseline Balanced Upper */
-            baseline_balanced_upper: number | null;
-            /** Five Min High */
-            five_min_high: number | null;
-        };
         /** HrvDailyPoint */
         HrvDailyPoint: {
             /** Date */
@@ -2999,14 +2985,7 @@ export interface components {
             trend_band: components["schemas"]["HrvTrendBand"];
             streak: components["schemas"]["HrvStreak"] | null;
             long_baseline: components["schemas"]["HrvLongBaseline"] | null;
-            baseline_bands: components["schemas"]["HrvBaselineBands"] | null;
             distribution: components["schemas"]["HrvDistribution"] | null;
-            trajectory: components["schemas"]["HrvTrajectory"] | null;
-            /**
-             * Status Mix
-             * @default []
-             */
-            status_mix: components["schemas"]["HrvStatusBucket"][];
             /**
              * Day Of Week
              * @default []
@@ -3101,18 +3080,6 @@ export interface components {
             hrv_summaries: components["schemas"]["HrvSummary"][];
         };
         /**
-         * HrvStatusBucket
-         * @description Count and percentage for one HRV status bucket.
-         */
-        HrvStatusBucket: {
-            /** Label */
-            label: string;
-            /** Count */
-            count: number;
-            /** Pct */
-            pct: number;
-        };
-        /**
          * HrvStreak
          * @description Current and recent HRV status streak information.
          */
@@ -3151,20 +3118,6 @@ export interface components {
             baseline_balanced_upper: number | null;
             /** Status */
             status: string;
-        };
-        /**
-         * HrvTrajectory
-         * @description Overnight HRV trajectory across early, middle, and late segments.
-         */
-        HrvTrajectory: {
-            /** Early Avg */
-            early_avg: number | null;
-            /** Mid Avg */
-            mid_avg: number | null;
-            /** Late Avg */
-            late_avg: number | null;
-            /** Direction */
-            direction: string | null;
         };
         /**
          * HrvTrendBand
