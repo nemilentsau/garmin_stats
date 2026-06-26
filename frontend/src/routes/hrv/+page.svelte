@@ -18,6 +18,7 @@
 	import { localDateIso } from '$lib/date';
 	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
+	import { tightScale } from '$lib/chart-scale';
 
 	// ── State ──
 	let agg: HrvDaily | null = $state(null);
@@ -327,27 +328,23 @@
 			});
 		}
 
-		// Raw nightly (light) + 7-day MA (bold)
-		datasets.push(
-			{
-				label: 'Nightly HRV',
-				data: t.map((p) => p.nightly_avg),
-				borderColor: withAlpha(COLORS.hrv, '50'),
-				borderWidth: 1,
-				pointRadius: 2,
-				pointBackgroundColor: withAlpha(COLORS.hrv, '50'),
-				tension: 0.3,
-				spanGaps: false
-			},
-			{
-				label: '7-Day MA',
-				data: t.map((p) => p.ma7),
-				borderColor: COLORS.hrv,
-				borderWidth: 2.5,
-				pointRadius: 0,
-				tension: 0.3,
-				spanGaps: true
-			}
+		// 7-day moving average is the signal. Raw nightly is dropped: its ~20-90ms
+		// swings forced the axis wide and flattened the trend, with no readable value.
+		datasets.push({
+			label: '7-Day MA',
+			data: t.map((p) => p.ma7),
+			borderColor: COLORS.hrv,
+			borderWidth: 2.5,
+			pointRadius: 0,
+			tension: 0.3,
+			spanGaps: true
+		});
+
+		// Hug the y-axis to the trend + band so the average fills the plot.
+		const yScale = tightScale(
+			[...t.map((p) => p.ma7), lowBand, highBand, baseline30d],
+			2,
+			5
 		);
 
 		return {
@@ -360,15 +357,32 @@
 				onClick: (_event: unknown, elements: { index: number }[], chart: { data: { labels?: unknown[] } }) => handleTrendClick(_event, elements, chart),
 				plugins: {
 					...darkPlugins,
+					legend: { display: false },
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
+						type: 'time',
+						time: {
+							unit: 'month',
+							displayFormats: { month: "MMM ''yy" },
+							parser: (v: unknown) => {
+								const [yy, mo, dd] = String(v).split('-').map(Number);
+								return Date.UTC(yy, mo - 1, dd);
+							}
+						},
+						ticks: { maxRotation: 0, autoSkipPadding: 20, font: { size: 10 }, ...DARK_TICK },
 						grid: DARK_GRID,
 						border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
+						min: yScale?.min,
+						max: yScale?.max,
+						afterBuildTicks: yScale
+							? (axis) => {
+									axis.ticks = yScale.ticks.map((value) => ({ value }));
+								}
+							: undefined,
 						title: { display: true, text: 'ms', ...DARK_TICK },
 						ticks: DARK_TICK,
 						grid: DARK_GRID_Y,
@@ -624,10 +638,15 @@
 	{#if nightlyTrendConfig}
 		<div class="card hero-card">
 			<div class="hero-header">
-				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Raw nightly dots + 7-day moving average (bold). Shaded band = your typical range. Breaks in the thin line are nights without a reading. Click any point to explore that night.">ⓘ</span></h2>
+				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average (the trend). Shaded band = your typical range (middle 50% of nights). Click the line to open a night.">ⓘ</span></h2>
 				<TrendRangePicker bind:value={trendRange} />
 			</div>
 			<LineChart config={nightlyTrendConfig} height={300} />
+			<div class="chart-legend">
+				<span class="lg"><i class="lg-line" style="background: {COLORS.hrv};"></i>7-day average</span>
+				<span class="lg"><i class="lg-band" style="background: {withAlpha(COLORS.hrvWeekly, '22')}; border-color: {withAlpha(COLORS.hrvWeekly, '55')};"></i>typical range</span>
+				<span class="lg"><i class="lg-dash" style="border-color: {COLORS.baseline};"></i>30-day baseline</span>
+			</div>
 		</div>
 	{/if}
 
@@ -993,7 +1012,7 @@
 	}
 	.day-strip {
 		display: flex;
-		gap: 2px;
+		gap: 0;
 		padding: 2px 0;
 	}
 	.day-strip::-webkit-scrollbar { display: none; }
@@ -1001,12 +1020,12 @@
 	.day-cell {
 		flex: 1;
 		min-width: 0;
-		height: 22px;
-		border-radius: 2px;
+		height: 28px;
+		border-radius: 0;
 		border: none;
 		cursor: pointer;
 		transition: all 0.12s;
-		opacity: 0.7;
+		opacity: 0.9;
 	}
 	.day-cell:hover { opacity: 1; transform: scaleY(1.3); }
 	.day-cell.selected {
@@ -1210,7 +1229,7 @@
 	/* ── Month axis under timeline ── */
 	.month-axis {
 		display: flex;
-		gap: 1px;
+		gap: 0;
 		margin-top: 4px;
 	}
 	.month-tick {
@@ -1281,6 +1300,38 @@
 		font-variant-numeric: tabular-nums;
 		color: #5e7282;
 		text-align: right;
+	}
+
+	/* ── Plain chart legend (footnote) ── */
+	.chart-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		margin-top: 10px;
+		padding-left: 4px;
+	}
+	.lg {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11px;
+		color: #8a9baa;
+	}
+	.lg-line {
+		width: 16px;
+		height: 3px;
+		border-radius: 2px;
+	}
+	.lg-band {
+		width: 16px;
+		height: 11px;
+		border-radius: 2px;
+		border: 1px dashed;
+	}
+	.lg-dash {
+		width: 16px;
+		height: 0;
+		border-top: 2px dashed;
 	}
 
 	/* ── Responsive ── */
