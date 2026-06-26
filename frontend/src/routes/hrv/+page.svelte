@@ -136,8 +136,6 @@
 	// ── Computed: Historical day ──
 	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
 	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
-	let historicalTrajectory = $derived.by(() => historicalInsights?.trajectory ?? null);
-	let historicalStatusMix = $derived.by(() => historicalInsights?.status_mix ?? []);
 
 	// ── Latest overnight intraday chart ──
 	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
@@ -259,7 +257,6 @@
 		const lowBand = latestInsights?.trend_band.nightly_typical_low ?? null;
 		const highBand = latestInsights?.trend_band.nightly_typical_high ?? null;
 		const baseline30d = latestInsights?.long_baseline?.baseline_30d ?? null;
-		const baselineBands = latestInsights?.baseline_bands ?? null;
 
 		const labels = t.map((p) => p.date);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
@@ -328,30 +325,6 @@
 			}
 		);
 
-		// Zone annotations
-		const annotationPlugin = baselineBands
-			? {
-					annotations: {
-						lowZone: {
-							type: 'box' as const,
-							yMin: 0,
-							yMax: baselineBands.baseline_low_upper ?? undefined,
-							backgroundColor: withAlpha(COLORS.heartRate, '0F'),
-							borderWidth: 0,
-							adjustScaleRange: false
-						},
-						balancedZone: {
-							type: 'box' as const,
-							yMin: baselineBands.baseline_balanced_lower ?? undefined,
-							yMax: baselineBands.baseline_balanced_upper ?? undefined,
-							backgroundColor: withAlpha(COLORS.heartRateResting, '0F'),
-							borderWidth: 0,
-							adjustScaleRange: false
-						}
-					}
-				}
-			: undefined;
-
 		return {
 			type: 'line',
 			data: { labels, datasets },
@@ -362,7 +335,6 @@
 				onClick: (_event: unknown, elements: { index: number }[], chart: { data: { labels?: unknown[] } }) => handleTrendClick(_event, elements, chart),
 				plugins: {
 					...darkPlugins,
-					annotation: annotationPlugin
 				},
 				scales: {
 					x: {
@@ -611,18 +583,6 @@
 		return '#6b7d8e';
 	}
 
-	function trajectoryArrow(direction: string | null | undefined): string {
-		if (direction === 'rising') return '↑';
-		if (direction === 'falling') return '↓';
-		return '→';
-	}
-
-	function trajectoryColor(direction: string | null | undefined): string {
-		if (direction === 'rising') return '#4CAF82';
-		if (direction === 'falling') return '#E85D4A';
-		return '#8a9baa';
-	}
-
 	// ── Correlations (from dashboard overview) ──
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
 
@@ -846,50 +806,6 @@
 				<div class="text-sm text-[#5e7282] py-4">Loading overnight data...</div>
 			{/if}
 
-			<!-- Trajectory mini-bar -->
-			{#if historicalTrajectory}
-				{@const tVals = [historicalTrajectory.early_avg, historicalTrajectory.mid_avg, historicalTrajectory.late_avg]}
-				{@const tMax = Math.max(...tVals.filter((v): v is number => v != null))}
-				<div class="history-section">
-					<h3 class="history-section-title">Overnight Trajectory</h3>
-					<div class="trajectory-bar">
-						{#each [{ label: 'Early', val: tVals[0] }, { label: 'Mid', val: tVals[1] }, { label: 'Late', val: tVals[2] }] as segment}
-							<div class="trajectory-segment">
-								<div class="trajectory-fill" style="height: {segment.val != null && tMax > 0 ? (segment.val / tMax) * 100 : 0}%; background: {withAlpha(COLORS.hrv, '60')};"></div>
-								<span class="trajectory-val">{fmt(segment.val)}</span>
-								<span class="trajectory-label">{segment.label}</span>
-							</div>
-						{/each}
-						<span class="trajectory-direction" style="color: {trajectoryColor(historicalTrajectory.direction)};">
-							{trajectoryArrow(historicalTrajectory.direction)} {historicalTrajectory.direction ?? 'flat'}
-						</span>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Status mix (14d context) -->
-			{#if historicalStatusMix.length > 0}
-				<div class="history-section">
-					<h3 class="history-section-title">Status Mix (14 days)</h3>
-					<div class="flex h-5 rounded overflow-hidden mb-1">
-						{#each historicalStatusMix as bucket}
-							<div
-								class="flex items-center justify-center text-[9px] font-medium text-white/90"
-								style="width:{bucket.pct}%; background-color:{bucket.label === 'Balanced' ? '#4CAF82' : bucket.label === 'Low' ? '#E85D4A' : bucket.label === 'Unbalanced' ? '#D4944C' : '#8a9baa'};"
-								title="{bucket.label}: {bucket.count} days ({bucket.pct}%)"
-							>
-								{#if bucket.pct >= 12}{bucket.pct}%{/if}
-							</div>
-						{/each}
-					</div>
-					<div class="flex gap-3 flex-wrap">
-						{#each historicalStatusMix as bucket}
-							<span class="text-[10px] text-[#6b7d8e]">{bucket.label}: {bucket.count}d</span>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
 			<!-- Recovery Insights -->
 			{#if historicalInsights && historicalInsights.insights.length > 0}
 				<div class="history-section">
@@ -992,7 +908,7 @@
 			</div>
 			<div class="guide-section">
 				<strong class="guide-heading">History strip</strong>
-				<p>Green = Balanced · Orange = Unbalanced · Red = Low. Each block is one night. Click any block to drill into that night's data, trajectory, and recovery insights.</p>
+				<p>Green = Balanced · Orange = Unbalanced · Red = Low. Each block is one night. Click any block to drill into that night's data and recovery insights.</p>
 			</div>
 			<div class="guide-section">
 				<strong class="guide-heading">Trend charts — the bold line is the signal</strong>
@@ -1316,49 +1232,6 @@
 		text-transform: uppercase;
 		letter-spacing: 1px;
 		margin-bottom: 10px;
-	}
-
-	/* ── Trajectory mini-bar ── */
-	.trajectory-bar {
-		display: flex;
-		align-items: flex-end;
-		gap: 12px;
-		height: 80px;
-		padding: 4px 0;
-	}
-	.trajectory-segment {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		flex: 1;
-		height: 100%;
-		justify-content: flex-end;
-	}
-	.trajectory-fill {
-		width: 100%;
-		max-width: 40px;
-		border-radius: 3px 3px 0 0;
-		transition: height 0.3s;
-	}
-	.trajectory-val {
-		font-family: 'DM Mono', monospace;
-		font-size: 12px;
-		color: #c8d6e0;
-		font-weight: 500;
-	}
-	.trajectory-label {
-		font-size: 10px;
-		color: #5e7282;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-	.trajectory-direction {
-		font-family: 'DM Mono', monospace;
-		font-size: 13px;
-		font-weight: 600;
-		align-self: center;
-		white-space: nowrap;
 	}
 
 	/* ── Cards ── */
