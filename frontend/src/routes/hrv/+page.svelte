@@ -11,8 +11,6 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
-	import ScatterChart from '$lib/components/ScatterChart.svelte';
-	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
 	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
@@ -91,6 +89,16 @@
 		historicalInsights = null;
 	}
 
+	function onTimelineKeydown(e: KeyboardEvent) {
+		if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			navigateDay(1);
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			navigateDay(-1);
+		}
+	}
+
 	// ── Computed: Latest day ──
 	let latestDate = $derived.by(() => {
 		if (!agg) return '';
@@ -98,8 +106,24 @@
 	});
 	let latestDayStats = $derived.by(() => latestInsights?.day_stats ?? null);
 	let latestRecovery = $derived.by(() => latestInsights?.recovery ?? null);
-	let latestStreak = $derived.by(() => latestInsights?.streak ?? null);
 	let latestQuality = $derived.by(() => latestInsights?.quality ?? null);
+	let monthSegments = $derived.by(() => {
+		const days = agg?.days ?? [];
+		const segs: { month: string; label: string; count: number }[] = [];
+		for (const d of days) {
+			const month = d.slice(0, 7);
+			const last = segs[segs.length - 1];
+			if (last && last.month === month) {
+				last.count += 1;
+			} else {
+				const dt = new Date(d + 'T00:00:00');
+				let label = dt.toLocaleString('en-US', { month: 'short' });
+				if (month.slice(5) === '01') label += ` ’${month.slice(2, 4)}`;
+				segs.push({ month, label, count: 1 });
+			}
+		}
+		return segs;
+	});
 
 	// ── Computed: History strip colors ──
 	const HRV_STATUS_COLORS: Record<string, string> = {
@@ -136,6 +160,7 @@
 	// ── Computed: Historical day ──
 	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
 	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
+	let historicalDistribution = $derived.by(() => historicalInsights?.distribution ?? null);
 
 	// ── Latest overnight intraday chart ──
 	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
@@ -312,7 +337,7 @@
 				pointRadius: 2,
 				pointBackgroundColor: withAlpha(COLORS.hrv, '50'),
 				tension: 0.3,
-				spanGaps: true
+				spanGaps: false
 			},
 			{
 				label: '7-Day MA',
@@ -471,55 +496,6 @@
 		return analysis?.pattern_windows?.[key] ?? null;
 	});
 
-	// ── Distribution chart ──
-	let distribution = $derived.by(() => patternWindow?.distribution ?? null);
-
-	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
-		if (!distribution || distribution.bins.length === 0) return null;
-		const selectedValue = distribution.selected_value;
-		return {
-			type: 'bar',
-			data: {
-				labels: distribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
-				datasets: [
-					{
-						label: 'Nights',
-						data: distribution.bins.map((b) => b.count),
-						backgroundColor: distribution.bins.map((b) =>
-							selectedValue != null && selectedValue >= b.bin_start && selectedValue < b.bin_end
-								? withAlpha(COLORS.hrv, 'cc')
-								: withAlpha(COLORS.hrv, '55')
-						),
-						borderRadius: 2
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
-				},
-				scales: {
-					x: {
-						title: { display: true, text: 'HRV (ms)', ...DARK_TICK },
-						ticks: { ...DARK_TICK, font: { size: 10 } },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						title: { display: true, text: 'Nights', ...DARK_TICK },
-						ticks: { ...DARK_TICK, stepSize: 1 },
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	});
-
 	// ── Day of Week chart ──
 	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
@@ -577,73 +553,17 @@
 		return '#6b7d8e';
 	}
 
-	function streakColor(status: string | null | undefined): string {
-		if (status === 'Low' || status === 'Unbalanced') return '#E85D4A';
-		if (status === 'Balanced' || status === 'High') return '#4CAF82';
-		return '#6b7d8e';
-	}
-
 	// ── Correlations (from dashboard overview) ──
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
 
-	function makeScatterConfig(corr: CorrelationItem): ChartConfiguration<'scatter'> {
-		return {
-			type: 'scatter',
-			data: {
-				datasets: [
-					{
-						label: corr.label,
-						data: corr.points.map((p) => ({ x: p.hrv_nightly, y: p.other_value })),
-						backgroundColor: withAlpha(COLORS.hrv, '88'),
-						borderColor: withAlpha(COLORS.hrv, 'cc'),
-						borderWidth: 1,
-						pointRadius: 3,
-						pointHoverRadius: 5
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						...chartTooltip(withAlpha(COLORS.hrv, '60')),
-						callbacks: {
-							label: (ctx) => {
-								const raw = ctx.raw as { x: number; y: number };
-								return `HRV ${raw.x} ms · ${corr.label} ${raw.y}`;
-							}
-						}
-					}
-				},
-				scales: {
-					x: {
-						title: {
-							display: true,
-							text: 'HRV (ms)',
-							...DARK_TICK,
-							font: { family: 'DM Mono', size: 10 }
-						},
-						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						title: {
-							display: true,
-							text: corr.label,
-							...DARK_TICK,
-							font: { family: 'DM Mono', size: 10 }
-						},
-						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	}
+	let coMovements = $derived.by(() => {
+		const items = dashOverview?.correlations ?? [];
+		return items
+			.filter((c) => c.r_value != null)
+			.slice()
+			.sort((x, y) => Math.abs(y.r_value!) - Math.abs(x.r_value!));
+	});
+
 </script>
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
@@ -659,7 +579,7 @@
 {:else if agg}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 1: TODAY                                        -->
+	<!-- TIER 1: TONIGHT — headline + hero trend              -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header">
@@ -667,7 +587,7 @@
 		<span class="section-date">{latestDate}</span>
 	</div>
 
-	<!-- Stat bar — always latest day -->
+	<!-- Headline — latest night -->
 	<div class="stat-bar">
 		<div class="stat-item">
 			<span class="stat-label">Nightly HRV</span>
@@ -687,34 +607,9 @@
 				{latestRecovery?.status ? latestRecovery.status.replace('_', ' ').toUpperCase() : '-'}
 			</span>
 		</div>
-		<div class="stat-item">
-			<span class="stat-label">Weekly Avg</span>
-			<span class="stat-value" style="color: {COLORS.hrvWeekly};">
-				{fmt(latestDayStats?.weekly_avg)}
-			</span>
-			<span class="stat-unit">ms</span>
-			{#if latestDayStats?.status}
-				<span class="stat-delta" style="color: {streakColor(latestDayStats.status)};">
-					{latestDayStats.status}
-				</span>
-			{/if}
-		</div>
-		<div class="stat-item">
-			<span class="stat-label">Streak</span>
-			{#if latestStreak}
-				<span class="stat-value" style="color: {streakColor(latestStreak.current_status)};">
-					{latestStreak.streak_days}d
-				</span>
-				<span class="stat-delta" style="color: {streakColor(latestStreak.current_status)};">
-					{latestStreak.current_status ?? '-'}
-				</span>
-			{:else}
-				<span class="stat-value" style="color: #6b7d8e;">-</span>
-			{/if}
-		</div>
 	</div>
 
-	<!-- Insight line — latest day -->
+	<!-- Insight line — latest night -->
 	{#if latestInsights && latestInsights.insights.length > 0}
 		{@const topInsight = latestInsights.insights[0]}
 		<div class="insight-line">
@@ -725,11 +620,22 @@
 		</div>
 	{/if}
 
-	<!-- Overnight intraday chart — latest day -->
+	<!-- Hero: nightly HRV trend (the multi-day signal) -->
+	{#if nightlyTrendConfig}
+		<div class="card hero-card">
+			<div class="hero-header">
+				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Raw nightly dots + 7-day moving average (bold). Shaded band = your typical range. Breaks in the thin line are nights without a reading. Click any point to explore that night.">ⓘ</span></h2>
+				<TrendRangePicker bind:value={trendRange} />
+			</div>
+			<LineChart config={nightlyTrendConfig} height={300} />
+		</div>
+	{/if}
+
+	<!-- Latest overnight trace -->
 	{#if latestIntradayConfig}
 		<div class="card">
 			<h2 class="card-title">Overnight HRV — {latestDate}</h2>
-			<LineChart config={latestIntradayConfig} height={260} />
+			<LineChart config={latestIntradayConfig} height={240} />
 			<p class="card-footnote">
 				{latestIntradaySegment?.sample_count ?? 0} readings
 				{#if latestQuality}· {fmtTimeWindow(latestQuality.coverage_start, latestQuality.coverage_end)}{/if}
@@ -739,15 +645,15 @@
 	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 2: HISTORY STRIP + EXPANDABLE DETAIL            -->
+	<!-- TIER 2: HISTORY TIMELINE + DETAIL                     -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header tier2-header">
 		<span class="section-label">History</span>
-		<span class="section-sublabel">Click a night to explore</span>
+		<span class="section-sublabel">Click a night to explore · ← → to step</span>
 	</div>
 
-	<!-- Day selector strip -->
+	<!-- Labelled timeline -->
 	<div class="day-nav">
 		<div class="day-nav-controls">
 			<button class="nav-arrow" disabled={!canPrev} onclick={() => navigateDay(-1)}>←</button>
@@ -757,7 +663,14 @@
 			<button class="nav-arrow" disabled={!canNext} onclick={() => navigateDay(1)}>→</button>
 		</div>
 		<div class="day-strip-container">
-			<div class="day-strip">
+			<div
+				class="day-strip"
+				role="toolbar"
+				aria-orientation="horizontal"
+				aria-label="HRV nightly timeline — left and right arrow keys step between nights"
+				tabindex="0"
+				onkeydown={onTimelineKeydown}
+			>
 				{#each agg.days as day}
 					<button
 						class="day-cell"
@@ -768,6 +681,11 @@
 					></button>
 				{/each}
 			</div>
+			<div class="month-axis" aria-hidden="true">
+				{#each monthSegments as seg}
+					<span class="month-tick" style="flex: {seg.count};">{seg.label}</span>
+				{/each}
+			</div>
 			<div class="day-strip-legend">
 				<span><i class="legend-dot" style="background:#4CAF82;"></i>Balanced</span>
 				<span><i class="legend-dot" style="background:#D4944C;"></i>Unbalanced</span>
@@ -776,7 +694,7 @@
 		</div>
 	</div>
 
-	<!-- Expandable day detail panel -->
+	<!-- Expandable night detail -->
 	{#if historyOpen && selectedDate}
 		<div class="history-detail" transition:slide={{ duration: 300 }}>
 			<div class="history-detail-header">
@@ -806,6 +724,16 @@
 				<div class="text-sm text-[#5e7282] py-4">Loading overnight data...</div>
 			{/if}
 
+			<!-- Where this night ranks (full-history percentile, selected night) -->
+			{#if historicalDistribution?.selected_percentile != null}
+				<div class="history-section">
+					<h3 class="history-section-title">Where this night ranks</h3>
+					<p class="percentile-readout">
+						<strong>{historicalDistribution.selected_percentile}th percentile</strong> of your full history ({historicalDistribution.total_days} nights)
+					</p>
+				</div>
+			{/if}
+
 			<!-- Recovery Insights -->
 			{#if historicalInsights && historicalInsights.insights.length > 0}
 				<div class="history-section">
@@ -825,105 +753,53 @@
 	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 3: TRENDS                                       -->
+	<!-- TIER 3: PATTERNS                                      -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header tier3-header">
-		<span class="section-label">Trends</span>
-		<TrendRangePicker bind:value={trendRange} />
+		<span class="section-label">Patterns</span>
 	</div>
 
-	<!-- Nightly HRV Trend + Weekly Boxplot — side by side -->
+	<!-- Weekly spread + day of week -->
 	<div class="two-col-row">
-		{#if nightlyTrendConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">Nightly HRV — Click to Explore <span class="info-hint" data-tip="Click any point to explore that night. Thick line = 7-day moving average. Shaded band = your typical range.">ⓘ</span></h2>
-				<LineChart config={nightlyTrendConfig} height={260} />
-			</div>
-		{/if}
-
 		{#if boxplotConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">Nightly HRV — Weekly Spread <span class="info-hint" data-tip="How much your nightly HRV varies each week. Narrow band = consistent. Wide band = variable.">ⓘ</span></h2>
-				<LineChart config={boxplotConfig} height={260} />
+				<h2 class="card-title">Weekly spread <span class="info-hint" data-tip="How much your nightly HRV varies each week. Shaded band = middle 50% of nights, bold line = median.">ⓘ</span></h2>
+				<LineChart config={boxplotConfig} height={240} />
 				<p class="card-footnote">Shaded band = middle 50% of nights · dashes = extremes · bold line = median</p>
-			</div>
-		{/if}
-	</div>
-
-	<!-- Distribution + Day of Week — side by side -->
-	<div class="section-subheader">
-		<span class="section-sublabel">Patterns</span>
-	</div>
-
-	<div class="two-col-row">
-		{#if distributionConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">HRV Distribution <span class="info-hint" data-tip="Where your nightly HRV typically falls. Highlighted bin = selected night.">ⓘ</span></h2>
-				<BarChart config={distributionConfig} height={220} />
-				{#if distribution}
-					<p class="card-footnote">
-						{distribution.total_days} nights{#if distribution.selected_percentile != null} · selected night at {distribution.selected_percentile}th percentile{/if}
-					</p>
-				{/if}
 			</div>
 		{/if}
 
 		{#if dayOfWeekConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">HRV by Day of Week <span class="info-hint" data-tip="Average nightly HRV by weekday. Higher bars = better recovery on those nights.">ⓘ</span></h2>
-				<BarChart config={dayOfWeekConfig} height={220} />
-				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights</p>
+				<h2 class="card-title">By day of week <span class="info-hint" data-tip="Average nightly HRV by weekday. A weekly rhythm describes long-run averages, not any single night.">ⓘ</span></h2>
+				<BarChart config={dayOfWeekConfig} height={240} />
+				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights · weekday averages, not single-night predictions</p>
 			</div>
 		{/if}
 	</div>
 
-	<!-- Cross-Domain Correlations -->
-	{#if dashOverview && dashOverview.correlations.length > 0}
+	<!-- What moves with HRV (co-movement, not cause) -->
+	{#if coMovements.length > 0}
 		<div class="section-subheader">
-			<span class="section-sublabel">Cross-Domain Correlations</span>
+			<span class="section-sublabel">What moves with HRV</span>
 		</div>
-		<div class="two-col-row">
-			{#each dashOverview.correlations as corr}
-				<div class="card two-col-item">
-					<div class="corr-header">
-						<h2 class="card-title">HRV vs {corr.label}</h2>
-						{#if corr.r_value != null}
-							<span class="corr-r" style="color:{COLORS.hrv}">r = {corr.r_value}</span>
-						{/if}
+		<div class="card">
+			<p class="comove-caption">These recovery metrics co-move with nightly HRV — shown as correlation strength and direction. Association, not cause.</p>
+			<div class="comove-list">
+				{#each coMovements as corr}
+					<div class="comove-row">
+						<span class="comove-label">{corr.label}</span>
+						<div class="comove-track">
+							<div class="comove-fill" style="width: {Math.abs(corr.r_value ?? 0) * 100}%; background: {(corr.r_value ?? 0) >= 0 ? COLORS.hrv : COLORS.heartRate};"></div>
+						</div>
+						<span class="comove-r">{fmtSigned(corr.r_value)}</span>
+						<span class="comove-n">{corr.sample_count}n</span>
 					</div>
-					<ScatterChart config={makeScatterConfig(corr)} height={220} />
-					<p class="card-footnote">{corr.sample_count} nights</p>
-				</div>
-			{/each}
+				{/each}
+			</div>
 		</div>
 	{/if}
-
-	<!-- Reading Guide -->
-	<MetricDefinition title="How to Read This Dashboard">
-		<div class="reading-guide">
-			<div class="guide-section">
-				<strong class="guide-heading">Tonight (top)</strong>
-				<p>Your overnight snapshot. Nightly HRV is measured during sleep — it's the most reliable window into autonomic function. The recovery pill shows whether you're above or below your 7-day baseline.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">History strip</strong>
-				<p>Green = Balanced · Orange = Unbalanced · Red = Low. Each block is one night. Click any block to drill into that night's data and recovery insights.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">Trend charts — the bold line is the signal</strong>
-				<p>Raw nightly values are noisy. The thick 7-day moving average reveals the real trend — watch it for multi-week drift up or down. Click any point to explore that night.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">Weekly spread — consistency is the goal</strong>
-				<p>A narrow, stable band means your HRV baseline is consistent. A widening band or dropping median may signal accumulated stress, poor sleep, or overtraining.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">What affects HRV</strong>
-				<p>Poor sleep, alcohol, illness, overtraining, and stress lower HRV. Good sleep, fitness, relaxation, and recovery raise it. Trends matter more than any single night.</p>
-			</div>
-		</div>
-	</MetricDefinition>
 {/if}
 
 <style>
@@ -982,7 +858,7 @@
 	/* ── Stat Bar ── */
 	.stat-bar {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		gap: 1px;
 		background: rgba(255,255,255,0.06);
 		border-radius: 10px;
@@ -1118,15 +994,13 @@
 	.day-strip {
 		display: flex;
 		gap: 2px;
-		overflow-x: auto;
-		scrollbar-width: none;
 		padding: 2px 0;
 	}
 	.day-strip::-webkit-scrollbar { display: none; }
 
 	.day-cell {
-		width: 8px;
-		min-width: 8px;
+		flex: 1;
+		min-width: 0;
 		height: 22px;
 		border-radius: 2px;
 		border: none;
@@ -1293,25 +1167,6 @@
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 
-	/* ── Dashboard reading guide ── */
-	.reading-guide {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		padding-top: 4px;
-	}
-	.guide-section {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-	.guide-heading {
-		color: #c8d6e0;
-		font-size: 12px;
-		font-weight: 600;
-		letter-spacing: 0.3px;
-	}
-
 	/* ── Insights list ── */
 	.insights-list {
 		display: flex;
@@ -1342,17 +1197,90 @@
 		margin-top: 2px;
 	}
 
-	/* ── Correlation header ── */
-	.corr-header {
+	/* ── Hero trend header ── */
+	.hero-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 10px;
+		gap: 12px;
+		margin-bottom: 8px;
 	}
-	.corr-r {
+	.hero-header .card-title { margin-bottom: 0; }
+
+	/* ── Month axis under timeline ── */
+	.month-axis {
+		display: flex;
+		gap: 1px;
+		margin-top: 4px;
+	}
+	.month-tick {
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
 		font-family: 'DM Mono', monospace;
+		font-size: 9px;
+		color: #5e7282;
+		border-left: 1px solid rgba(255,255,255,0.06);
+		padding-left: 2px;
+	}
+
+	/* ── Selected-night percentile ── */
+	.percentile-readout {
 		font-size: 13px;
-		font-weight: 500;
+		color: #c8d6e0;
+	}
+	.percentile-readout strong {
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ── Co-movement summary ── */
+	.comove-caption {
+		font-size: 12px;
+		color: #6b7d8e;
+		margin-bottom: 12px;
+	}
+	.comove-list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.comove-row {
+		display: grid;
+		grid-template-columns: 132px 1fr 56px 40px;
+		align-items: center;
+		gap: 10px;
+	}
+	.comove-label {
+		font-size: 12px;
+		color: #c8d6e0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.comove-track {
+		height: 10px;
+		background: rgba(255,255,255,0.04);
+		border-radius: 5px;
+		overflow: hidden;
+	}
+	.comove-fill {
+		height: 100%;
+		border-radius: 5px;
+	}
+	.comove-r {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		color: #d9e5ec;
+		text-align: right;
+	}
+	.comove-n {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+		color: #5e7282;
+		text-align: right;
 	}
 
 	/* ── Responsive ── */
