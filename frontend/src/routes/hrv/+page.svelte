@@ -416,25 +416,21 @@
 			: analysis.weekly_boxplots;
 		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
 
+		const yScale = tightScale(
+			boxes.flatMap((b) => [b.q1_ms, b.median_ms, b.q3_ms]),
+			2,
+			5
+		);
+
 		return {
 			type: 'line',
 			data: {
 				labels,
 				datasets: [
 					{
-						label: 'Min',
-						data: boxes.map((b) => b.min_ms),
-						borderColor: withAlpha('#c8d6e0', '30'),
-						borderWidth: 1,
-						borderDash: [4, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
 						label: 'Q1',
 						data: boxes.map((b) => b.q1_ms),
-						borderColor: withAlpha('#c8d6e0', '50'),
+						borderColor: withAlpha(COLORS.hrv, '45'),
 						borderWidth: 1,
 						pointRadius: 0,
 						tension: 0.3,
@@ -443,32 +439,22 @@
 					{
 						label: 'Median',
 						data: boxes.map((b) => b.median_ms),
-						borderColor: '#c8d6e0',
+						borderColor: COLORS.hrv,
 						borderWidth: 2.5,
 						pointRadius: 3,
-						pointBackgroundColor: '#c8d6e0',
+						pointBackgroundColor: COLORS.hrv,
 						tension: 0.3,
 						fill: false
 					},
 					{
 						label: 'Q3',
 						data: boxes.map((b) => b.q3_ms),
-						borderColor: withAlpha('#c8d6e0', '50'),
+						borderColor: withAlpha(COLORS.hrv, '45'),
 						borderWidth: 1,
 						pointRadius: 0,
 						tension: 0.3,
 						fill: '-2',
-						backgroundColor: withAlpha('#c8d6e0', '12')
-					},
-					{
-						label: 'Max',
-						data: boxes.map((b) => b.max_ms),
-						borderColor: withAlpha('#c8d6e0', '30'),
-						borderWidth: 1,
-						borderDash: [4, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
+						backgroundColor: withAlpha(COLORS.hrv, '16')
 					}
 				]
 			},
@@ -505,6 +491,13 @@
 					},
 					y: {
 						beginAtZero: false,
+						min: yScale?.min,
+						max: yScale?.max,
+						afterBuildTicks: yScale
+							? (axis) => {
+									axis.ticks = yScale.ticks.map((value) => ({ value }));
+								}
+							: undefined,
 						title: { display: true, text: 'ms', ...DARK_TICK },
 						ticks: DARK_TICK,
 						grid: DARK_GRID_Y,
@@ -801,9 +794,9 @@
 	<div class="two-col-row">
 		{#if boxplotConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">Weekly spread <span class="info-hint" data-tip="How much your nightly HRV varies each week. Shaded band = middle 50% of nights, bold line = median.">ⓘ</span></h2>
+				<h2 class="card-title">Week-to-week steadiness <span class="info-hint" data-tip="Each point is one week. Bold line = that week's median nightly HRV; shaded band = the middle 50% of the week's nights. A narrow band = a steady week.">ⓘ</span></h2>
 				<LineChart config={boxplotConfig} height={240} />
-				<p class="card-footnote">Shaded band = middle 50% of nights · dashes = extremes · bold line = median</p>
+				<p class="card-footnote">Each point = one week · bold line = weekly median · shaded band = middle 50% of that week's nights</p>
 			</div>
 		{/if}
 
