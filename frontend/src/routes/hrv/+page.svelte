@@ -33,6 +33,7 @@
 	// Historical day (Tier 2 — selected via strip)
 	let selectedDate = $state('');
 	let historyOpen = $state(false);
+	let dayHover: { date: string; x: number; y: number } | null = $state(null);
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dateRequestId = 0;
 
@@ -98,6 +99,16 @@
 			e.preventDefault();
 			navigateDay(-1);
 		}
+	}
+
+	function showDayHover(e: MouseEvent, day: string) {
+		dayHover = { date: day, x: e.clientX, y: e.clientY };
+	}
+	function moveDayHover(e: MouseEvent) {
+		if (dayHover) dayHover = { ...dayHover, x: e.clientX, y: e.clientY };
+	}
+	function hideDayHover() {
+		dayHover = null;
 	}
 
 	// ── Computed: Latest day ──
@@ -689,13 +700,16 @@
 				aria-label="HRV nightly timeline — left and right arrow keys step between nights"
 				tabindex="0"
 				onkeydown={onTimelineKeydown}
+				onmousemove={moveDayHover}
+				onmouseleave={hideDayHover}
 			>
 				{#each agg.days as day}
 					<button
 						class="day-cell"
 						class:selected={day === selectedDate}
 						style="background: {dayStatusMap.get(day) ?? '#3a4a5a'};"
-						title={day}
+						aria-label={day}
+						onmouseenter={(e) => showDayHover(e, day)}
 						onclick={() => onDateChange(day === selectedDate ? '' : day)}
 					></button>
 				{/each}
@@ -712,6 +726,10 @@
 			</div>
 		</div>
 	</div>
+
+	{#if dayHover}
+		<div class="day-tooltip" style="left: {dayHover.x}px; top: {dayHover.y}px;">{dayHover.date}</div>
+	{/if}
 
 	<!-- Expandable night detail -->
 	{#if historyOpen && selectedDate}
@@ -1332,6 +1350,22 @@
 		width: 16px;
 		height: 0;
 		border-top: 2px dashed;
+	}
+
+	/* ── Instant timeline tooltip ── */
+	.day-tooltip {
+		position: fixed;
+		transform: translate(-50%, -150%);
+		background: #1a2530;
+		border: 1px solid rgba(255,255,255,0.1);
+		color: #d9e5ec;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		padding: 3px 7px;
+		border-radius: 4px;
+		pointer-events: none;
+		white-space: nowrap;
+		z-index: 100;
 	}
 
 	/* ── Responsive ── */
