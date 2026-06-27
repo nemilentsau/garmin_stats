@@ -1,7 +1,8 @@
-# HRV Tab Refactor — Findings & Design Proposal
+# HRV Tab — Findings & What Shipped
 
-*A summary of the investigation behind the HRV tab redesign. Based on roughly one year of this
-user's nightly HRV data (365 nights, June 2025 – June 2026).*
+*The investigation behind the HRV tab redesign, and the design that shipped (branch `refactor-hr`,
+2026-06-27). Based on roughly one year of this user's nightly HRV data (365 nights, June 2025 –
+June 2026).*
 
 ---
 
@@ -15,7 +16,7 @@ answered no clear question and several actively misled.
 The working hypothesis going in was simple: **the tab tries to turn a noisy, continuous signal into
 discrete labels and standalone widgets, and most of those labels are displaying noise rather than
 signal.** The job was to test that hypothesis widget by widget against the actual data, keep what
-genuinely informs, and cut what doesn't — then propose a cleaner tab built around the one question a
+genuinely informs, and cut what doesn't — then build a cleaner tab around the one question a
 person actually asks: *"Is my nightly HRV stable, drifting, or acutely suppressed — and how does
 the latest night compare?"*
 
@@ -92,9 +93,6 @@ headline.
   noise: overnight HRV rises on the large majority of nights, and the "falling" reading appeared on
   only 4% of nights, indistinguishable from measurement scatter.
 
-The two warning rules have already been removed; the trajectory/status-mix UI is still slated for
-removal.
-
 ### 5. The correlation scatter grid said one thing six times
 
 The grid of "HRV vs respiration," "HRV vs resting heart rate," etc. showed six strong relationships
@@ -104,105 +102,77 @@ plots implying six independent insights (and hinting at causation) is better tol
 
 ---
 
-## The design proposal
+## What shipped
 
-The redesigned tab is organized top-to-bottom around level → trend → context, and leads with the
-chart that actually answers the user's question.
+The redesigned tab is organized into two parts — **State** (recent: "what's my HRV doing lately, and
+was any night off?") and **Structure** (stable patterns) — and leads with the chart that answers the
+user's actual question.
 
-**1. A compact summary strip (top)**
-- Latest night's HRV, in milliseconds, as the number — no status word.
-- How it compares to the recent baseline, shown as a signed difference ("+6 ms vs your 7-day
-  average") with a personal scale, so the reader sees magnitude, not a verdict.
-- A short trend cue — whether the multi-day direction is steady, drifting down, or recovering — based
-  on the 7-day-vs-30-day movement, which is stable enough not to flip every night.
-- A coverage note when the latest night's data is thin, shown *before* any interpretation.
-- Garmin's own status, if shown at all, as its own separate chip — never silently merged into the
-  app's reading.
+**State**
 
-**2. The nightly trend chart — the hero (promoted above the fold)**
-- Raw nightly dots (light) plus a bold 7-day average line, both kept — the raw dots are what make a
-  sudden dip visible instead of smoothed away.
-- One honest "your typical range" band based on the full history.
-- Gaps in the data shown as gaps, not bridged with a misleading line.
-- The Garmin baseline zones removed.
+- **Summary strip:** the latest night's HRV in ms (no status word), its signed difference vs the
+  recent baseline, the recovery state, and a coverage note when the night's data is thin. Garmin's
+  own status, if shown, stays a separate chip.
+- **Nightly trend chart (hero):** a bold 7-day moving-average line over a **moving "typical range"
+  ribbon** computed from a **trailing, user-selectable baseline window** (30 / 60 / 90 days, default
+  60; robust median ± 1σ via MAD × 1.4826, current night excluded). The ribbon drifts with the
+  user's normal range as fitness changes; gaps in the data are shown as gaps, not bridged.
+- **Extreme-night markers:** nights outside their trailing band (robust |z| > 2) are marked at the
+  band edge they breached — so they flag the night *and* its direction without stretching the axis;
+  the actual nightly value is in the hover.
+- **Window knob:** the 30/60/90 control is URL-persisted (`?baseline=`) and governs the ribbon, the
+  markers, and the headline "7-day avg vs baseline" delta — one baseline definition everywhere on the
+  tab. It is visually distinct from the separate display-range picker (labelled **Baseline** vs
+  **Show**).
+- **History timeline + selected-night detail:** a labelled timeline (visible dates, month markers,
+  keyboard nav); selecting a night shows how it ranks as a **trailing-window z** ("±X SD vs your
+  N-day baseline") rather than an all-history percentile, plus that night's insights.
 
-This chart, not a single noisy overnight trace, is what belongs in the prime spot.
+**Structure**
 
-**3. A labelled history timeline**
-- Replaces the current hover-only strip of unlabelled cells with a readable timeline: each night
-  shaded by how it compares to baseline, with visible dates, month markers, and keyboard navigation.
+- **Day-of-week:** kept as a small secondary panel of weekday averages, computed over its own longer
+  span (labelled, e.g. "last 3 months") — deliberately *not* the knob window, since a weekday needs
+  many samples to be stable. Bars are colored against a backend-supplied sample-weighted reference
+  mean (the frontend does no statistics of its own).
+- **What moves with HRV:** the old 6-plot correlation scatter grid replaced by one compact
+  co-movement summary, labelled association — not cause.
 
-**4. A trimmed selected-night detail (on demand)**
-- When you pick a night: its overnight HRV line (shown only when coverage is adequate), its
-  difference from baseline, and — if kept at all — a single, clearly-labelled "this selected night
-  ranked around the Nth percentile of your full history" readout instead of the standalone histogram.
-  Full-history and keyed to the *selected* night (not the latest) is what keeps this a wiring fix
-  rather than a new backend field — a "last 90 days" window would need a new ranged percentile.
-
-**5. A small relationships summary**
-- The scatter grid replaced by one compact "what moves with HRV" summary, labelled as co-movement,
-  not cause.
-
-**6. Day-of-week, demoted and honest**
-- Kept as a small secondary panel showing the average weekday pattern with its uncertainty and a
-  plain-language note that it describes long-run averages, not any single night. Shown as a deviation
-  from typical, never as raw bars on a zero baseline that would exaggerate it.
-
-### What's removed outright
-
-The fixed-cutoff status pill as a headline, the standalone histogram, the overnight trajectory
-mini-bar, the 14-day status-mix bar, the correlation scatter grid, the Garmin baseline zones, the
-weekly-average duplicate stat, the "current streak" headline, the broken volatility and trajectory
-warnings (already gone), and the generic explanatory text that just restated the UI.
+**Removed outright:** the fixed-cutoff status pill as a headline, the standalone histogram, the
+overnight minute-by-minute trace, the overnight "trajectory" mini-bar, the 14-day status-mix bar, the
+correlation scatter grid, the Garmin baseline zones, the weekly-average duplicate stat, the
+"current streak" headline, the (already-deleted) broken volatility/trajectory warning rules, and the
+generic explanatory text that just restated the UI.
 
 ---
 
-## Execution matrix
+## Design principle & the baseline divergence
 
-The implementation source of truth. **Status** legend: **Done** = landed; **Ready** = analyzed/audited,
-safe to build now with no further decision; **Gated** = needs a schema addition or open product
-decision first. Validation shorthand: *FE* = `npm run check` + browser visual check; *BE* = ruff +
-pyright + pytest; *regen* = `scripts/generate-api-types.sh` + commit `api-types.ts`.
+Every surviving element does one of three jobs: show the **trend** honestly, flag a **genuinely
+unusual night** against a fair recent baseline, or attach a **stable pattern** worth a glance.
+Anything that only rendered "here's the distribution of my HRV" was cut.
 
-| Surface | Decision | Frontend action | Backend / API action | Status | Validation |
-|---|---|---|---|---|---|
-| Recovery status pill | Drop the categorical pill; lead with the ms number + signed delta (personal scale) + slow trend cue | Replace pill in summary strip with number + signed delta + 7d-vs-30d trend cue | **Additive:** expose `recovery.delta_z`; leave `status` field as-is (kept, no longer the headline) | **Gated** (schema add) | BE + regen; FE |
-| Distribution histogram | Remove | Delete histogram block | none | **Ready** | FE |
-| Percentile readout | Optional single **full-history, selected-night** percentile, window labelled | Wire the selected night's percentile; label the window | Wiring only — feed the selected night its already-computed full-history value; **no new field** | **Ready** | BE (if touched); FE |
-| Garmin baseline zones (`baseline_bands`) | Remove | Remove the annotation-plugin block on the trend chart | Delete `HrvBaselineBands` type + field, `extract_baseline_bands`, composer wiring. **Keep** the raw `HrvSummary` baseline fields + FIT extractor (name-collision trap) | **Ready** (delete-safe, D12) | BE + regen (del `TestBaselineBands`); FE |
-| Overnight trajectory mini-bar (`trajectory`) | Remove | Remove mini-bar block + dead `trajectory*` helpers/CSS | Delete `HrvTrajectory` type + field, `compute_trajectory`, wiring; drop the `result.trajectory*` asserts from `test_falling_trajectory_no_longer_emits_insight`. **Keep** recovery-score trajectory code (name-collision trap) | **Ready** (rules done; UI + field pending) | BE + regen; FE |
-| 14-day status-mix bar (`status_mix`) | Remove | Remove the bar | Delete `HrvStatusBucket` + field, `_compute_status_mix`; drop the `status_mix` assert from `test_adds_stable_signal_when_metrics_look_good` | **Ready** (delete-safe, D12) | BE + regen; FE |
-| Overnight volatility warning rule | Remove | — | Rule + `InsightContext.overnight_stdev` removed | **Done** (D12-#3) | landed w/ tests |
-| Falling-trajectory warning rule | Remove | — | Rule + `InsightContext.trajectory` removed | **Done** (D12-#3) | landed w/ tests |
-| Correlation scatter grid | Replace 6 plots with one compact "what moves with HRV" summary, labelled co-movement not cause | Replace grid with summary component | Reuse existing correlation values; no new field expected | **Ready** (design) | FE |
-| Nightly trend chart (hero) | Promote above the fold; raw dots + bold 7d line + full-history band; show gaps as gaps; drop baseline zones | Reorder to top; add band; gap-aware line | none | **Ready** (design) | FE |
-| History timeline | Labelled timeline (visible dates, month markers, keyboard nav) replacing the hover-only cell strip | Rebuild the strip as a timeline | none | **Ready** (design) | FE |
-| Day-of-week panel | Keep, demoted; detrended-residual bars + effect size + CI; shown as deviation-from-typical | Rebuild as a small secondary panel | Serve the **adjusted** weekday residuals + effect size, not the raw averages it sends now | **Gated** (schema change) | BE + regen; FE |
-| Weekly-avg stat · current-streak headline · generic explainer text | Remove | Delete each | none | **Ready** | FE |
-
-Sequencing note (from the D12 audit): ship the **frontend stop-render** for the three retired fields
-first — it is independently shippable and reversible — then do the **backend contract deletion** +
-regen in a single change, then the additive/gated schema work, then the full redesign.
+One deliberate, documented decision: the HRV tab's baseline is **trailing** ("is tonight unusual
+*right now*"), while the recovery score keeps an **expanding** personal baseline ("what state am I in
+vs my whole history"). Trailing 30–60d windows were *validated and rejected* for the recovery score
+(finding run `2026-06-11-recovery-normalization-baseline`: they absorb sustained regimes). So the
+same nightly HRV can read a different z on the two surfaces — this is intentional, and any future
+"one baseline everywhere" work must reconcile it rather than blindly migrate the recovery core to
+trailing. See `FINDINGS.md` (Open Questions #12–#13).
 
 ---
 
-## What this means under the hood
+## Under the hood
 
-Most of the proposal is presentation. A few backend touch-points:
+Most of the tab is presentation, but the baseline engine is real:
 
-- **Already done:** the two broken warning rules have been removed, with tests confirming they no
-  longer fire.
-- **Small, additive:** expose the personal-scaled difference number so the front end can show
-  magnitude without inventing a new label. The existing recovery status is no longer used as a
-  headline, but its meaning is left unchanged for now.
-- **No new field needed (full-history readout only):** the percentile fix is wiring the correct
-  (already-computed) full-history value to the *selected* night and naming its window. This holds
-  *only* for a full-history percentile; choosing a "last 90 days" window instead would require a new
-  ranged field and is therefore a schema change, not a wiring fix.
-- **If day-of-week stays:** the back end should serve the *adjusted* weekday pattern with its effect
-  size, not the raw averages it currently sends.
-- **Cleanup, verified safe:** the three retired widgets' data fields are used only by this one tab
-  and nothing else, so they can be removed cleanly once the front end stops drawing them.
+- A single backend primitive, `trailing_robust_band` (`domain/primitives/trends.py`), computes the
+  per-night band + robust z from the prior N present nights (current night excluded). Both the
+  `/analysis` (trend series) and `/insights` (selected-day) endpoints take a `baseline` window param
+  and feed off the same primitive, so the chart and the panel always agree for a given night + window.
+- Degenerate (zero-spread) windows emit no z / no extreme flag rather than a garbage value; the
+  `/analysis` cache is keyed per window so switching the knob never serves a stale window.
+- Day-of-week coloring reads `HrvPatternWindow.overall_avg` (a sample-weighted mean from the backend),
+  keeping the frontend display-only.
 
 ---
 

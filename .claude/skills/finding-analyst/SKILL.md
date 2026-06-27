@@ -88,4 +88,4 @@ Conflict between a rebuilt section and a standing takeaway is itself a finding t
 
 ## Friction
 
-Log concrete pain points to a dated friction note under `docs/superpowers/plans/` as you hit them, so future planning starts from real use rather than speculation.
+Log concrete pain points to a dated friction note under `.claude/finding-runs/` (alongside the run that surfaced them) as you hit them, so future planning starts from real use rather than speculation.

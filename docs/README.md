@@ -15,12 +15,12 @@ not kept as a parallel source of truth (git history retains them).
   roadmap: what is shippable now, what can be added from existing data, and what is deferred until
   new ingestion exists.
 
-## Current Work
+## Detail Tabs
 
-- [superpowers/plans/2026-06-12-frontend-metric-pages-dry.md](superpowers/plans/2026-06-12-frontend-metric-pages-dry.md)
-  — active frontend refactor plan for the metric detail pages. The current sequence is central
-  dashboard first slate complete, then generic metric dashboards DRY-up and visual improvement,
-  with only small central-dashboard access/status additions while that work is underway.
+- [HRV_TAB_REFACTOR.md](HRV_TAB_REFACTOR.md) — the HRV detail tab: what the redesign investigation
+  found (why the old widgets misled), what shipped (trailing baseline-window knob, moving ribbon,
+  extreme-night markers, trailing-z night readout), and the deliberate baseline divergence from the
+  recovery score.
 
 ## Specs & Domain Direction
 
