@@ -13,6 +13,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import { fmt, fmtSigned } from '$lib/format';
+	import { fmtFullDate, parseIsoDate } from '$lib/date';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
@@ -28,6 +29,10 @@
 	let loading = $state(true);
 	let baselineLoading = $state(false);
 	let error: string | null = $state(null);
+	// Non-blocking error scoped to a single failed sub-fetch (night detail / baseline
+	// refresh). Kept separate from `error` so one failed secondary request never blanks
+	// the already-loaded dashboard.
+	let detailError = $state<string | null>(null);
 
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HrvInsights | null = $state(null);
@@ -39,6 +44,9 @@
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dateRequestId = 0;
 	let baselineRequestId = 0;
+	// Monotonic guard for fetchData itself: out-of-order completions (e.g. rapid
+	// baseline-window switches) must not write a stale window's data under the new labels.
+	let fetchSeq = 0;
 
 	// ── Baseline window ──
 	const ALLOWED_WINDOWS = [30, 60, 90];
@@ -50,19 +58,25 @@
 
 	// ── Data fetching ──
 	async function fetchData() {
+		const seq = ++fetchSeq;
 		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
 			api.getHrvDaily(),
 			api.getHrvAnalysis(baselineWindow),
 			api.getDashboardOverview()
 		]);
+		if (seq !== fetchSeq) return;
 		agg = nextAgg;
 		analysis = nextAnalysis;
 		dashOverview = nextOverview;
 
 		if (nextAgg.days.length > 0) {
 			const latest = nextAgg.days[nextAgg.days.length - 1];
-			latestInsights = await api.getHrvInsights(latest, baselineWindow);
+			const nextInsights = await api.getHrvInsights(latest, baselineWindow);
+			if (seq !== fetchSeq) return;
+			latestInsights = nextInsights;
 		}
+		// A successful load supersedes any prior top-level error.
+		error = null;
 	}
 
 	onMount(() => {
@@ -79,27 +93,35 @@
 			selectedDate = '';
 			historyOpen = false;
 			historicalInsights = null;
+			detailError = null;
 			return;
 		}
 		selectedDate = date;
 		historyOpen = true;
 		historicalInsights = null;
+		detailError = null;
 		const requestId = ++dateRequestId;
 		try {
 			const nextInsights = await api.getHrvInsights(date, baselineWindow);
 			if (requestId !== dateRequestId) return;
 			historicalInsights = nextInsights;
+			detailError = null;
 		} catch (e: unknown) {
 			if (requestId !== dateRequestId) return;
-			error = e instanceof Error ? e.message : String(e);
+			detailError = e instanceof Error ? e.message : String(e);
 		}
 	}
 
-	async function onBaselineChange(w: number) {
-		baselineWindow = w;
+	function setBaselineUrl(w: number) {
 		const url = new URL(window.location.href);
 		url.searchParams.set('baseline', String(w));
 		replaceState(url, {});
+	}
+
+	async function onBaselineChange(w: number) {
+		const prev = baselineWindow;
+		baselineWindow = w;
+		setBaselineUrl(w);
 		const requestId = ++baselineRequestId;
 		baselineLoading = true;
 		try {
@@ -112,7 +134,11 @@
 			}
 		} catch (e: unknown) {
 			if (requestId !== baselineRequestId) return;
-			error = e instanceof Error ? e.message : String(e);
+			// Roll back to the last good window (state + URL) and surface a non-blocking
+			// error so the dashboard keeps showing the prior window's data.
+			baselineWindow = prev;
+			setBaselineUrl(prev);
+			detailError = e instanceof Error ? e.message : String(e);
 		} finally {
 			if (requestId === baselineRequestId) baselineLoading = false;
 		}
@@ -122,6 +148,7 @@
 		selectedDate = '';
 		historyOpen = false;
 		historicalInsights = null;
+		detailError = null;
 	}
 
 	function onTimelineKeydown(e: KeyboardEvent) {
@@ -203,7 +230,6 @@
 
 	// ── Computed: Historical day ──
 	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
-	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
 
 	// ── Trend time-window ──
 	let trendRange: TrendRange = $state('3M');
@@ -282,10 +308,16 @@
 					tooltip: {
 						...darkPlugins.tooltip,
 						callbacks: {
+							title: (items) => {
+								const idx = items[0]?.dataIndex;
+								const raw = idx != null ? t[idx]?.date : null;
+								return raw ? fmtFullDate(parseIsoDate(raw)) : '';
+							},
 							label: (ctx) => {
 								if (ctx.dataset.label === 'Extreme night') {
-									const v = t[ctx.dataIndex]?.nightly_avg;
-									return v != null ? `Extreme night: ${v} ms` : '';
+									const p = t[ctx.dataIndex];
+									if (!p?.is_extreme || p.nightly_avg == null) return undefined;
+									return `Extreme night: ${p.nightly_avg} ms`;
 								}
 								return `${ctx.dataset.label}: ${ctx.formattedValue}`;
 							}
@@ -299,8 +331,11 @@
 							unit: 'month',
 							displayFormats: { month: "MMM ''yy" },
 							parser: (v: unknown) => {
+								// Parse the local YYYY-MM-DD label in local time (matching the
+								// adapter's local formatting) so tooltips never show the prior day
+								// in negative-offset timezones. Mirrors parseIsoDate in $lib/date.
 								const [yy, mo, dd] = String(v).split('-').map(Number);
-								return Date.UTC(yy, mo - 1, dd);
+								return new Date(yy, mo - 1, dd).getTime();
 							}
 						},
 						ticks: { maxRotation: 0, autoSkipPadding: 20, font: { size: 10 }, ...DARK_TICK },
@@ -324,13 +359,28 @@
 		return analysis?.pattern_windows?.[key] ?? null;
 	});
 
+	// Human label for the actual pattern window the card summarises. Because 1M floors
+	// to the 3M window, the trend (≈30 days) and this card can span different ranges, so
+	// we state the real span explicitly.
+	let patternWindowLabel = $derived.by(() => {
+		switch (PERIOD_KEY_MAP[trendRange]) {
+			case '6M':
+				return 'last 6 months';
+			case 'All':
+				return 'all time';
+			default:
+				return 'last 3 months';
+		}
+	});
+
 	// ── Day of Week chart ──
 	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
 	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (dayOfWeek.length === 0) return null;
-		const validAvgs = dayOfWeek.filter((b) => b.avg_nightly != null).map((b) => b.avg_nightly!);
-		const overallAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : null;
+		// Backend-supplied grand mean (true sample-weighted reference); the frontend does
+		// no statistical computation here. Null → neutral colouring for every bar.
+		const overallAvg = patternWindow?.overall_avg ?? null;
 		return {
 			type: 'bar',
 			data: {
@@ -375,6 +425,13 @@
 	});
 
 	// ── Helper functions ──
+	/** Signed 2-decimal format for correlation r-values (display only). */
+	function fmtRValue(n: number | null | undefined): string {
+		if (n == null) return '-';
+		const r = n.toFixed(2);
+		return n > 0 ? `+${r}` : r;
+	}
+
 	function recoveryColor(status: string | null | undefined): string {
 		if (status === 'suppressed' || status === 'below_baseline') return '#E85D4A';
 		if (status === 'elevated' || status === 'stable') return '#4CAF82';
@@ -396,11 +453,11 @@
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
 
-{#if error}
+{#if !agg && error}
 	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
 		<p class="text-[#E85D4A]">Error: {error}</p>
 	</div>
-{:else if loading}
+{:else if !agg && loading}
 	<div class="flex items-center justify-center h-64">
 		<div class="text-[#5e7282]">Loading...</div>
 	</div>
@@ -454,8 +511,15 @@
 			<div class="hero-header">
 				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average. Shaded ribbon = your typical range over the chosen baseline window. Dots = nights outside that range. Click the line to open a night.">ⓘ</span></h2>
 				<div class="hero-controls">
-					<BaselineWindowPicker value={baselineWindow} onchange={onBaselineChange} />
-					<TrendRangePicker bind:value={trendRange} />
+					<div class="control-group">
+						<span class="control-label">Baseline</span>
+						<BaselineWindowPicker value={baselineWindow} onchange={onBaselineChange} disabled={baselineLoading} />
+					</div>
+					<span class="control-sep" aria-hidden="true"></span>
+					<div class="control-group">
+						<span class="control-label">Show</span>
+						<TrendRangePicker bind:value={trendRange} />
+					</div>
 				</div>
 			</div>
 			<LineChart config={nightlyTrendConfig} height={300} />
@@ -543,7 +607,9 @@
 				<button class="close-btn" onclick={closeHistory} title="Close">✕</button>
 			</div>
 
-			{#if !historicalInsights}
+			{#if detailError}
+				<div class="detail-error">Couldn't load this night: {detailError}</div>
+			{:else if !historicalInsights}
 				<div class="text-sm text-[#5e7282] py-4">Loading night data...</div>
 			{/if}
 
@@ -593,7 +659,7 @@
 			<div class="card two-col-item">
 				<h2 class="card-title">By day of week <span class="info-hint" data-tip="Average nightly HRV by weekday. A weekly rhythm describes long-run averages, not any single night.">ⓘ</span></h2>
 				<BarChart config={dayOfWeekConfig} height={240} />
-				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights · weekday averages, not single-night predictions</p>
+				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights ({patternWindowLabel}) · weekday averages, not single-night predictions</p>
 			</div>
 		{/if}
 	</div>
@@ -612,7 +678,7 @@
 						<div class="comove-track">
 							<div class="comove-fill" style="width: {Math.abs(corr.r_value ?? 0) * 100}%; background: {(corr.r_value ?? 0) >= 0 ? COLORS.hrv : COLORS.heartRate};"></div>
 						</div>
-						<span class="comove-r">{fmtSigned(corr.r_value)}</span>
+						<span class="comove-r">{fmtRValue(corr.r_value)}</span>
 						<span class="comove-n">{corr.sample_count}n</span>
 					</div>
 				{/each}
@@ -927,6 +993,17 @@
 		margin-bottom: 10px;
 	}
 
+	/* ── Scoped (non-blocking) detail error ── */
+	.detail-error {
+		font-size: 12px;
+		color: #E85D4A;
+		background: rgba(232,93,74,0.08);
+		border: 1px solid rgba(232,93,74,0.25);
+		border-radius: 6px;
+		padding: 8px 12px;
+		margin: 4px 0 4px;
+	}
+
 	/* ── Cards ── */
 	.card {
 		background: rgba(255,255,255,0.02);
@@ -1034,7 +1111,31 @@
 		margin-bottom: 8px;
 	}
 	.hero-header .card-title { margin-bottom: 0; }
-	.hero-controls { display: flex; gap: 0.5rem; align-items: center; }
+	.hero-controls {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		flex-wrap: wrap;
+	}
+	.control-group {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.control-label {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		color: #5e7282;
+		white-space: nowrap;
+	}
+	.control-sep {
+		width: 1px;
+		height: 16px;
+		background: rgba(255,255,255,0.1);
+		flex-shrink: 0;
+	}
 
 	/* ── Month axis under timeline ── */
 	.month-axis {

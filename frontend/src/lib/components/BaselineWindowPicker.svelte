@@ -1,11 +1,20 @@
 <script lang="ts">
 	const WINDOWS = [30, 60, 90] as const;
-	let { value, onchange }: { value: number; onchange: (w: number) => void } = $props();
+	let {
+		value,
+		onchange,
+		disabled = false
+	}: { value: number; onchange: (w: number) => void; disabled?: boolean } = $props();
 </script>
 
 <div class="range-picker">
 	{#each WINDOWS as w}
-		<button class="range-btn" class:active={value === w} onclick={() => onchange(w)}>{w}d</button>
+		<button
+			class="range-btn"
+			class:active={value === w}
+			disabled={disabled}
+			onclick={() => onchange(w)}>{w}d</button
+		>
 	{/each}
 </div>
 
@@ -34,5 +43,13 @@
 		color: #c8d6e0;
 		background: rgba(255,255,255,0.08);
 		border-color: rgba(255,255,255,0.2);
+	}
+	.range-btn:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+	.range-btn:disabled:hover {
+		color: #6b7d8e;
+		border-color: rgba(255,255,255,0.1);
 	}
 </style>
