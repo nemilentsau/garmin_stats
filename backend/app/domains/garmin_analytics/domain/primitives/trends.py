@@ -9,9 +9,15 @@ import numpy as np
 
 from app.domains.garmin_health.contracts import DailyMetric
 from app.utils.numeric import (
+    robust_center_scale,
     safe_avg,
     safe_percentile,
 )
+
+BASELINE_WINDOW_DEFAULT = 60
+BASELINE_MIN_DAYS = 21
+BASELINE_K_SIGMA = 1.0
+BASELINE_Z_EXTREME = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +31,22 @@ class WeeklyFiveNumberSummary:
     q3: float | None
     max: float
     count: int
+
+
+@dataclass(frozen=True, slots=True)
+class TrailingBandPoint:
+    """Trailing robust baseline at one series index.
+
+    Fields are all ``None`` (and ``is_extreme`` False) when the trailing window
+    holds fewer than the minimum present values, so callers can render an
+    explicit insufficient-data state instead of a misleading band.
+    """
+
+    band_low: float | None
+    band_high: float | None
+    median: float | None
+    z: float | None
+    is_extreme: bool
 
 
 class _HasDate(Protocol):
@@ -57,6 +79,41 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
         window = [v for v in values[window_start : i + 1] if v is not None]
         result.append(safe_avg(window))
     return result
+
+
+def trailing_robust_band(
+    values: list[float | None],
+    *,
+    window: int,
+    min_days: int,
+    k_sigma: float = BASELINE_K_SIGMA,
+    z_extreme: float = BASELINE_Z_EXTREME,
+) -> list[TrailingBandPoint]:
+    """Per-index robust normal range from the trailing ``window`` present values.
+
+    For each index the band is built from present values in the half-open
+    trailing window ``[i - window, i)`` (current value excluded, matching the
+    recovery core's prior-only convention). Indices whose trailing window holds
+    fewer than ``min_days`` present values yield an empty ``TrailingBandPoint``.
+    """
+    out: list[TrailingBandPoint] = []
+    for i in range(len(values)):
+        prior = [v for v in values[max(0, i - window):i] if v is not None]
+        if len(prior) < min_days:
+            out.append(TrailingBandPoint(None, None, None, None, False))
+            continue
+        median, scale = robust_center_scale(prior)
+        low = round(median - k_sigma * scale, 1)
+        high = round(median + k_sigma * scale, 1)
+        current = values[i]
+        if current is None:
+            out.append(TrailingBandPoint(low, high, round(median, 1), None, False))
+            continue
+        z = (current - median) / scale
+        out.append(
+            TrailingBandPoint(low, high, round(median, 1), round(z, 2), abs(z) > z_extreme)
+        )
+    return out
 
 
 def trailing_sd(
