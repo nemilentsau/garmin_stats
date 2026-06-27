@@ -9,9 +9,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.domains.garmin_analytics.contracts import (
+    HrvBaseline,
     HrvDataQuality,
     HrvInsight,
-    HrvLongBaseline,
     HrvRecovery,
     HrvStreak,
 )
@@ -37,7 +37,7 @@ class InsightContext:
     quality: HrvDataQuality
     resting_delta: float | None
     streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
+    baseline: HrvBaseline | None = None
 
 
 def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
@@ -88,21 +88,22 @@ def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
     )
 
 
-def long_baseline_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Flag recent 7-day HRV baseline deterioration versus the 30-day baseline."""
+def baseline_rule(ctx: InsightContext) -> HrvInsight | None:
+    """Flag the recent 7-day HRV baseline trending below the trailing baseline."""
+    b = ctx.baseline
     if (
-        ctx.long_baseline is None
-        or ctx.long_baseline.delta_7d_vs_30d is None
-        or ctx.long_baseline.baseline_30d is None
-        or ctx.long_baseline.delta_7d_vs_30d >= -5
+        b is None
+        or b.delta_7d_vs_baseline is None
+        or b.baseline is None
+        or b.delta_7d_vs_baseline >= -5
     ):
         return None
     return HrvInsight(
         level="caution",
-        title="7-day baseline is trending below 30-day average",
+        title=f"7-day baseline is trending below {b.window_days}-day average",
         detail=(
-            f"Recent 7-day baseline is {ctx.long_baseline.delta_7d_vs_30d:+.1f} ms versus "
-            f"30-day average of {ctx.long_baseline.baseline_30d:.1f} ms."
+            f"Recent 7-day baseline is {b.delta_7d_vs_baseline:+.1f} ms versus the "
+            f"{b.window_days}-day average of {b.baseline:.1f} ms."
         ),
     )
 
@@ -176,7 +177,7 @@ _CAUTIONARY_RULES: tuple[Callable[[InsightContext], HrvInsight | None], ...] = (
     recovery_status_rule,
     acute_weekly_gap_rule,
     low_status_streak_rule,
-    long_baseline_rule,
+    baseline_rule,
     sleep_recovery_rule,
     resting_hr_divergence_rule,
 )

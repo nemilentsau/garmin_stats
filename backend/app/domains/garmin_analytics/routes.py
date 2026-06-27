@@ -132,9 +132,10 @@ def get_hrv_daily(repo: BiometricsRepo):
 def get_hrv_insights(
     repo: BiometricsRepo,
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
+    baseline: _HrvBaseline = BaselineWindow.D60,
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    return metric_insights_uc.get_hrv_insights(repo, date)
+    return metric_insights_uc.get_hrv_insights(repo, date, baseline=int(baseline))
 
 
 @skin_temp_router.get("/raw", response_model=SkinTempResponse)

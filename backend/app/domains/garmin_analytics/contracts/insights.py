@@ -4,7 +4,6 @@ from app.contracts.base import DefaultsRequired
 from app.domains.garmin_health.contracts import (
     DailyHeartRateStats,
     DailyHrvStats,
-    HrvValue,
 )
 
 from .analysis import (
@@ -77,29 +76,6 @@ class HrvDataQuality(DefaultsRequired):
     coverage_hours: float | None = None
 
 
-class HrvIntradaySegment(DefaultsRequired):
-    """Aggregated HRV stats for one intraday segment."""
-
-    key: str
-    label: str
-    sample_count: int = 0
-    avg: float | None = None
-    min: float | None = None
-    max: float | None = None
-    stdev: float | None = None
-    coverage_start: str | None = None
-    coverage_end: str | None = None
-    coverage_hours: float | None = None
-    values: list[HrvValue] = []
-
-
-class HrvTrendBand(DefaultsRequired):
-    """Typical nightly HRV band across the analysis window."""
-
-    nightly_typical_low: float | None = None
-    nightly_typical_high: float | None = None
-
-
 class HrvStreak(DefaultsRequired):
     """Current and recent HRV status streak information."""
 
@@ -108,11 +84,14 @@ class HrvStreak(DefaultsRequired):
     worst_recent_streak: int = 0
 
 
-class HrvLongBaseline(DefaultsRequired):
-    """Longer baseline comparison for recent HRV trend."""
+class HrvBaseline(DefaultsRequired):
+    """Selected-day comparison against the trailing robust baseline."""
 
-    baseline_30d: float | None = None
-    delta_7d_vs_30d: float | None = None
+    baseline: float | None = None
+    delta_7d_vs_baseline: float | None = None
+    window_days: int = 60
+    selected_z: float | None = None
+    selected_is_extreme: bool = False
 
 
 class HrvInsight(DefaultsRequired):
@@ -130,10 +109,8 @@ class HrvInsightsResponse(DefaultsRequired):
     day_stats: DailyHrvStats
     recovery: HrvRecovery
     quality: HrvDataQuality
-    intraday_segments: list[HrvIntradaySegment] = []
-    trend_band: HrvTrendBand
+    baseline: HrvBaseline | None = None
     streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
     distribution: HrvDistribution | None = None
     day_of_week: list[HrvDayOfWeekBucket] = []
     insights: list[HrvInsight] = []

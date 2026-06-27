@@ -1,15 +1,11 @@
 """HRV insight calculations for Garmin analytics."""
 
-import numpy as np
-
 from app.domains.garmin_analytics.contracts import (
+    HrvBaseline,
     HrvDataQuality,
     HrvInsightsResponse,
-    HrvIntradaySegment,
-    HrvLongBaseline,
     HrvRecovery,
     HrvStreak,
-    HrvTrendBand,
 )
 from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_analytics.domain.insights.hrv_rules import (
@@ -19,7 +15,12 @@ from app.domains.garmin_analytics.domain.insights.hrv_rules import (
 from app.domains.garmin_analytics.domain.primitives.timestamps import (
     summarize_timestamp_coverage,
 )
-from app.domains.garmin_analytics.domain.primitives.trends import prior_7d_avg
+from app.domains.garmin_analytics.domain.primitives.trends import (
+    BASELINE_MIN_DAYS,
+    BASELINE_WINDOW_DEFAULT,
+    prior_7d_avg,
+    trailing_robust_band,
+)
 from app.domains.garmin_health.contracts import (
     DailyMetric,
     DayHrv,
@@ -29,12 +30,7 @@ from app.domains.garmin_health.domain.daily_metrics import (
     classify_hrv_recovery,
     normalize_hrv_status,
 )
-from app.utils.numeric import (
-    optional_float,
-    safe_avg,
-    safe_max,
-    safe_min,
-)
+from app.utils.numeric import optional_float
 
 _BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
@@ -69,43 +65,6 @@ def _compute_quality(hrv_values: list[HrvValue]) -> HrvDataQuality:
     )
 
 
-def _build_intraday_segment(
-    *,
-    key: str,
-    label: str,
-    values: list[HrvValue],
-) -> HrvIntradaySegment:
-    values = sorted(values, key=lambda v: v.timestamp or "")
-    coverage = summarize_timestamp_coverage([value.timestamp for value in values])
-    sample_values = [value.value for value in values]
-    stdev = (
-        round(float(np.std(sample_values, ddof=1)), 1)
-        if len(sample_values) >= 2 else None
-    )
-
-    return HrvIntradaySegment(
-        key=key,
-        label=label,
-        sample_count=coverage.sample_count,
-        avg=safe_avg(sample_values),
-        min=safe_min(sample_values),
-        max=safe_max(sample_values),
-        stdev=stdev,
-        coverage_start=coverage.coverage_start,
-        coverage_end=coverage.coverage_end,
-        coverage_hours=coverage.coverage_hours,
-        values=values,
-    )
-
-
-def _compute_trend_band(nightly_vals: list[float]) -> HrvTrendBand:
-    if len(nightly_vals) < 2:
-        return HrvTrendBand()
-    low = round(float(np.percentile(nightly_vals, 25)), 1)
-    high = round(float(np.percentile(nightly_vals, 75)), 1)
-    return HrvTrendBand(nightly_typical_low=low, nightly_typical_high=high)
-
-
 def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStreak:
     current_status = normalize_hrv_status(metrics[selected_index].hrv.status)
     streak_days = 1
@@ -133,23 +92,28 @@ def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStrea
     )
 
 
-def _compute_long_baseline(
+def _compute_baseline(
     metrics: list[DailyMetric],
     selected_index: int,
     baseline_7d: float | None,
-) -> HrvLongBaseline | None:
-    window = metrics[max(0, selected_index - 30):selected_index]
-    nightly_vals = [
-        m.hrv.nightly_avg for m in window if m.hrv.nightly_avg is not None
-    ]
-    if len(nightly_vals) < 14:
+    window: int,
+) -> HrvBaseline | None:
+    """Selected-day comparison against its trailing robust baseline."""
+    nightly = [m.hrv.nightly_avg for m in metrics]
+    band = trailing_robust_band(nightly, window=window, min_days=BASELINE_MIN_DAYS)
+    point = band[selected_index]
+    if point.median is None:
         return None
-    baseline_30d = safe_avg(nightly_vals)
     delta = (
-        round(baseline_7d - baseline_30d, 1)
-        if baseline_7d is not None and baseline_30d is not None else None
+        round(baseline_7d - point.median, 1) if baseline_7d is not None else None
     )
-    return HrvLongBaseline(baseline_30d=baseline_30d, delta_7d_vs_30d=delta)
+    return HrvBaseline(
+        baseline=point.median,
+        delta_7d_vs_baseline=delta,
+        window_days=window,
+        selected_z=point.z,
+        selected_is_extreme=point.is_extreme,
+    )
 
 
 def _resting_delta_vs_recent(metrics: list[DailyMetric], selected_index: int) -> float | None:
@@ -168,6 +132,7 @@ def compute_hrv_insights(
     metrics: list[DailyMetric],
     selected_date: str,
     day_rows: list[DayHrv],
+    window: int = BASELINE_WINDOW_DEFAULT,
 ) -> HrvInsightsResponse:
     """Compute selected-day HRV insights from daily metrics and raw rows."""
     selected_index = next(
@@ -181,16 +146,12 @@ def compute_hrv_insights(
     day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
-    overnight_segment = _build_intraday_segment(
-        key="all", label="Overnight HRV", values=day_values,
-    )
     nightly_vals = [
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
-    trend_band = _compute_trend_band(nightly_vals)
     streak = _compute_streak(metrics, selected_index)
-    long_baseline = _compute_long_baseline(
-        metrics, selected_index, recovery.baseline_nightly_7d,
+    baseline = _compute_baseline(
+        metrics, selected_index, recovery.baseline_nightly_7d, window,
     )
     distribution = hrv_patterns.compute_hrv_distribution(
         nightly_vals, selected_metric.hrv.nightly_avg,
@@ -203,7 +164,7 @@ def compute_hrv_insights(
         quality=quality,
         resting_delta=resting_delta,
         streak=streak,
-        long_baseline=long_baseline,
+        baseline=baseline,
     ))
 
     return HrvInsightsResponse(
@@ -211,10 +172,8 @@ def compute_hrv_insights(
         day_stats=selected_metric.hrv,
         recovery=recovery,
         quality=quality,
-        intraday_segments=[overnight_segment],
-        trend_band=trend_band,
+        baseline=baseline,
         streak=streak,
-        long_baseline=long_baseline,
         distribution=distribution,
         day_of_week=day_of_week,
         insights=insights,

@@ -18,6 +18,7 @@ from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insight
 def get_hrv_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
+    baseline: int = 60,
 ) -> HrvInsightsResponse:
     """Return HRV insights for the selected date or latest metric date."""
     metrics = repo.load_daily_metrics()
@@ -26,7 +27,7 @@ def get_hrv_insights(
 
     selected_date = date or metrics[-1].date
     day_rows = repo.load_hrv(selected_date)
-    return compute_hrv_insights(metrics, selected_date, day_rows)
+    return compute_hrv_insights(metrics, selected_date, day_rows, window=baseline)
 
 
 def get_heart_rate_insights(
