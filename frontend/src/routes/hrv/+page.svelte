@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { replaceState } from '$app/navigation';
 	import {
 		api,
 		type HrvDaily,
@@ -96,7 +97,7 @@
 		baselineWindow = w;
 		const url = new URL(window.location.href);
 		url.searchParams.set('baseline', String(w));
-		history.replaceState(history.state, '', url);
+		replaceState(url, {});
 		await fetchData();
 		if (selectedDate) {
 			historicalInsights = await api.getHrvInsights(selectedDate, baselineWindow);
