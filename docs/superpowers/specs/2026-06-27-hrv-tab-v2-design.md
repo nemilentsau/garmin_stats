@@ -75,7 +75,7 @@ Persistent structural patterns get a standing home because findings get buried.
 ## Scope & isolation
 
 - The recovery score's expanding robust z (`domain/recovery_score/normalization.py`, `MIN_PRIOR_DAYS = 30`) is **not touched** — confirmed isolated; no re-validation needed.
-- Consequence: the recovery evidence table still shows HRV against the old expanding baseline, so the two surfaces will disagree until a later, deliberate unification step migrates the core to the same trailing definition (with re-validation). That migration is **out of scope** here and noted as the end-state goal.
+- Consequence: the recovery evidence table still scores HRV with the expanding robust-z while the HRV tab uses the trailing baseline, so the two surfaces report HRV "unusualness" differently. This is intentional for this change (recovery core untouched). Reconciling them is **out of scope** here and is deliberately *not* pre-decided in favor of trailing — the recovery core's expanding window was validated, not accidental (see the Out-of-scope note and `FINDINGS.md`).
 
 ## Edge cases / degraded states
 - Trailing window with < 21 present nights → explicit insufficient-data state (no garbage band/markers).
@@ -90,7 +90,7 @@ Persistent structural patterns get a standing home because findings get buried.
 - Visual: browser MCP screenshots of the redesigned tab at each knob setting (30/60/90), the insufficient-data state, and the selected-night panel — per the non-negotiable visual-verification rule.
 
 ## Out of scope / future
-- Migrating the recovery core to the trailing baseline (end-state: one definition everywhere).
+- Reconciling the HRV-tab baseline with the recovery-score baseline. **Do not assume the direction is "migrate the recovery core to trailing."** Run `2026-06-11-recovery-normalization-baseline` *validated and rejected* trailing 30–60d windows for the recovery score (they absorb sustained regimes); the expanding personal baseline was a deliberate choice. The two surfaces answer different questions — the HRV tab asks "is tonight unusual *right now*" (trailing), the recovery score asks "what state am I in vs my personal baseline" (expanding) — so reconciliation must either keep them deliberately distinct with clearly different labels, or re-validate before changing either. See `FINDINGS.md`.
 - Exponential weighting (EWMA) of the baseline instead of a hard window.
 - Attaching activity/training-load context to day-of-week and to extreme-day markers (the "why" layer) — this is the on-ramp to activity-data ingestion.
 - A continuous baseline slider (would switch from URL-preset to a param-driven refetch model).
