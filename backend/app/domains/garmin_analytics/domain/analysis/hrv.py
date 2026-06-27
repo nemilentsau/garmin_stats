@@ -8,7 +8,10 @@ from app.domains.garmin_analytics.contracts import (
 )
 from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_analytics.domain.primitives.trends import (
+    BASELINE_MIN_DAYS,
+    BASELINE_WINDOW_DEFAULT,
     trailing_ma7,
+    trailing_robust_band,
     weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
@@ -27,16 +30,22 @@ def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | N
 
 def compute_nightly_hrv_trend(
     metrics: list[DailyMetric],
+    window: int = BASELINE_WINDOW_DEFAULT,
 ) -> list[NightlyHrvTrendPoint]:
-    """Raw nightly HRV + 7-day trailing moving average."""
+    """Nightly HRV with its 7-day MA and a trailing robust baseline band."""
     nightly_values: list[float | None] = [m.hrv.nightly_avg for m in metrics]
     ma7_values = trailing_ma7(nightly_values)
+    band = trailing_robust_band(nightly_values, window=window, min_days=BASELINE_MIN_DAYS)
 
     return [
         NightlyHrvTrendPoint(
             date=m.date,
             nightly_avg=nightly_values[i],
             ma7=ma7_values[i],
+            band_low=band[i].band_low,
+            band_high=band[i].band_high,
+            z=band[i].z,
+            is_extreme=band[i].is_extreme,
         )
         for i, m in enumerate(metrics)
     ]

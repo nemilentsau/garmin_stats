@@ -107,11 +107,15 @@ class HrvDayOfWeekBucket(DefaultsRequired):
 
 
 class NightlyHrvTrendPoint(DefaultsRequired):
-    """Daily nightly-HRV trend point."""
+    """Daily nightly-HRV trend point with its trailing robust baseline."""
 
     date: str
     nightly_avg: float | None = None
     ma7: float | None = None
+    band_low: float | None = None
+    band_high: float | None = None
+    z: float | None = None
+    is_extreme: bool = False
 
 
 class WeeklyHrvBox(DefaultsRequired):

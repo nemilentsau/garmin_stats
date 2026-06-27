@@ -130,3 +130,41 @@ def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
     assert hrv.classify_hrv_recovery(delta=-5, status="Balanced") == "below_baseline"
     assert hrv.classify_hrv_recovery(delta=8, status="Balanced") == "elevated"
     assert hrv.classify_hrv_recovery(delta=0, status="Balanced") == "stable"
+
+
+def test_nightly_trend_populates_trailing_band_after_warmup():
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.domain.analysis import hrv as hrv_analysis
+    from app.domains.garmin_health.contracts import (
+        DailyBodyBatteryStats,
+        DailyHeartRateStats,
+        DailyHrvStats,
+        DailyMetric,
+        DailyMetricStats,
+        DailySkinTempStats,
+        DailySleepStats,
+    )
+
+    def metric(d: str, nightly: float) -> DailyMetric:
+        return DailyMetric(
+            date=d,
+            heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, median=72.0, resting=48),
+            stress=DailyMetricStats(avg=25.0),
+            body_battery=DailyBodyBatteryStats(avg=60.0),
+            spo2=DailyMetricStats(avg=96.0),
+            respiration=DailyMetricStats(avg=14.0),
+            hrv=DailyHrvStats(nightly_avg=nightly, weekly_avg=nightly, status="balanced"),
+            sleep=DailySleepStats(score=85),
+            skin_temp=DailySkinTempStats(deviation=0.1),
+        )
+
+    start = date(2026, 1, 1)
+    metrics = [metric((start + timedelta(days=i)).isoformat(), 50.0 + (i % 5)) for i in range(25)]
+    metrics.append(metric((start + timedelta(days=25)).isoformat(), 200.0))  # extreme night
+
+    trend = hrv_analysis.compute_nightly_hrv_trend(metrics, window=30)
+
+    assert trend[0].band_low is None  # warmup: fewer than 21 prior nights
+    assert trend[22].band_low is not None and trend[22].band_high is not None
+    assert trend[25].is_extreme is True
