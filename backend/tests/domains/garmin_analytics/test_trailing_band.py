@@ -1,8 +1,57 @@
-"""Unit tests for the trailing robust baseline primitive."""
+"""Unit tests for the trailing robust baseline primitive and HRV analysis loader."""
 
 from typing import cast
 
+import pytest
+
+import app.bootstrap.schema as storage_schema
+import app.infra.sqlite as sqlite
+from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
+from app.domains.garmin_analytics.application.metric_analysis import load_hrv_analysis
 from app.domains.garmin_analytics.domain.primitives import trends
+from app.domains.garmin_health.contracts import (
+    DailyBodyBatteryStats,
+    DailyHeartRateStats,
+    DailyHrvStats,
+    DailyMetric,
+    DailyMetricStats,
+    DailySkinTempStats,
+    DailySleepStats,
+)
+from app.infra import cache
+
+
+@pytest.fixture()
+def tmp_db(tmp_path, monkeypatch):
+    """Isolated SQLite database for tests that need DB access."""
+    test_db = tmp_path / "test.db"
+    monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+    cache.invalidate()
+    storage_schema.init_storage()
+    yield
+
+
+def _make_daily_metric(date: str, nightly_avg: float | None) -> DailyMetric:
+    return DailyMetric(
+        date=date,
+        heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, median=72.0, resting=46),
+        stress=DailyMetricStats(avg=25.0),
+        body_battery=DailyBodyBatteryStats(avg=60.0),
+        spo2=DailyMetricStats(avg=96.0),
+        respiration=DailyMetricStats(avg=14.0),
+        hrv=DailyHrvStats(nightly_avg=nightly_avg, weekly_avg=50.0, status="balanced"),
+        sleep=DailySleepStats(score=80),
+        skin_temp=DailySkinTempStats(deviation=0.1),
+    )
+
+
+def _insert_metric(metric: DailyMetric) -> None:
+    with sqlite.connect() as con:
+        con.execute(
+            "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
+            (metric.date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
+        )
+        con.commit()
 
 
 def test_insufficient_prior_nights_yields_empty_point():
@@ -51,3 +100,25 @@ def test_window_limits_lookback():
     )
     band = trends.trailing_robust_band(values, window=21, min_days=21)
     assert band[22].median == 51.0  # median of 41..61
+
+
+def test_baseline_window_enum_rejects_unlisted_values():
+    from app.domains.garmin_analytics.contracts import BaselineWindow
+
+    assert int(BaselineWindow(60)) == 60
+    with pytest.raises(ValueError):
+        BaselineWindow(45)
+
+
+def test_hrv_analysis_drops_boxplots_and_threads_window(tmp_db):
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 1)
+    for i in range(22):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0 + i * 0.1))
+
+    repo = SqliteBiometricRepository()
+    resp = load_hrv_analysis(repo, baseline=30)
+    assert not hasattr(resp, "weekly_boxplots")
+    assert resp.nightly_trend[-1].band_low is not None

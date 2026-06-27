@@ -4,7 +4,6 @@ from app.domains.garmin_analytics.contracts import (
     HrvAnalysisResponse,
     HrvPatternWindow,
     NightlyHrvTrendPoint,
-    WeeklyHrvBox,
 )
 from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_analytics.domain.primitives.trends import (
@@ -12,7 +11,6 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
     BASELINE_WINDOW_DEFAULT,
     trailing_ma7,
     trailing_robust_band,
-    weekly_five_number_summaries,
 )
 from app.domains.garmin_analytics.domain.primitives.windows import compute_windows
 from app.domains.garmin_health.contracts import (
@@ -51,25 +49,6 @@ def compute_nightly_hrv_trend(
     ]
 
 
-def compute_weekly_hrv_boxplots(
-    metrics: list[DailyMetric],
-) -> list[WeeklyHrvBox]:
-    """Group nightly HRV by ISO week, compute 5-number summary."""
-    summaries = weekly_five_number_summaries(metrics, lambda m: m.hrv.nightly_avg)
-    return [
-        WeeklyHrvBox(
-            iso_week=summary.iso_week,
-            min_ms=summary.min,
-            q1_ms=summary.q1,
-            median_ms=summary.median,
-            q3_ms=summary.q3,
-            max_ms=summary.max,
-            day_count=summary.count,
-        )
-        for summary in summaries
-    ]
-
-
 def compute_pattern_window(
     metrics: list[DailyMetric],
     selected_nightly: float | None,
@@ -97,13 +76,15 @@ def compute_pattern_windows(
     )
 
 
-def compute_hrv_analysis(metrics: list[DailyMetric]) -> HrvAnalysisResponse:
+def compute_hrv_analysis(
+    metrics: list[DailyMetric],
+    window: int = BASELINE_WINDOW_DEFAULT,
+) -> HrvAnalysisResponse:
     """Compute HRV analysis read model from daily metrics."""
     selected_nightly: float | None = None
     if metrics and metrics[-1].hrv.nightly_avg is not None:
         selected_nightly = metrics[-1].hrv.nightly_avg
     return HrvAnalysisResponse(
-        nightly_trend=compute_nightly_hrv_trend(metrics),
-        weekly_boxplots=compute_weekly_hrv_boxplots(metrics),
+        nightly_trend=compute_nightly_hrv_trend(metrics, window=window),
         pattern_windows=compute_pattern_windows(metrics, selected_nightly),
     )

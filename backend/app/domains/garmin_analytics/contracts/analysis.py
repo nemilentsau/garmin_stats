@@ -1,6 +1,16 @@
 """Chart, trend, and distribution response contracts."""
 
+from enum import IntEnum
+
 from app.contracts.base import DefaultsRequired
+
+
+class BaselineWindow(IntEnum):
+    """Allowed trailing baseline windows (days) for HRV surfaces."""
+
+    D30 = 30
+    D60 = 60
+    D90 = 90
 
 
 class CircadianHRPoint(DefaultsRequired):
@@ -118,18 +128,6 @@ class NightlyHrvTrendPoint(DefaultsRequired):
     is_extreme: bool = False
 
 
-class WeeklyHrvBox(DefaultsRequired):
-    """Weekly five-number summary for nightly HRV."""
-
-    iso_week: str
-    min_ms: float | None = None
-    q1_ms: float | None = None
-    median_ms: float | None = None
-    q3_ms: float | None = None
-    max_ms: float | None = None
-    day_count: int = 0
-
-
 class HrvPatternWindow(DefaultsRequired):
     """Pre-computed distribution + day-of-week for a time window."""
 
@@ -141,7 +139,6 @@ class HrvAnalysisResponse(DefaultsRequired):
     """HRV chart and pattern analysis response."""
 
     nightly_trend: list[NightlyHrvTrendPoint] = []
-    weekly_boxplots: list[WeeklyHrvBox] = []
     pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
 
 

@@ -81,9 +81,9 @@ def load_hr_distribution(
     )
 
 
-def load_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
+def load_hrv_analysis(repo: BiometricReadRepository, baseline: int = 60) -> HrvAnalysisResponse:
     """Load cached HRV trend, pattern, and distribution analysis."""
     return cache.cached(
         cache.HRV_ANALYSIS,
-        lambda: compute_hrv_analysis(repo.load_daily_metrics()),
+        lambda: compute_hrv_analysis(repo.load_daily_metrics(), window=baseline),
     )

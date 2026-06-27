@@ -20,6 +20,7 @@ from app.domains.garmin_analytics.application.dashboard import (
 )
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
+    BaselineWindow,
     BodyBatteryAnalysisResponse,
     BodyBatteryDailyResponse,
     BodyBatteryRawResponse,
@@ -55,6 +56,10 @@ def get_biometrics_repo() -> BiometricReadRepository:
 
 
 BiometricsRepo = Annotated[BiometricReadRepository, Depends(get_biometrics_repo)]
+_HrvBaseline = Annotated[
+    BaselineWindow,
+    Query(description="Trailing baseline window (days)"),
+]
 
 
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -109,9 +114,12 @@ def get_hrv_raw(
 
 
 @hrv_router.get("/analysis", response_model=HrvAnalysisResponse)
-def get_hrv_analysis(repo: BiometricsRepo):
-    """Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots)."""
-    return metric_analysis_uc.load_hrv_analysis(repo)
+def get_hrv_analysis(
+    repo: BiometricsRepo,
+    baseline: _HrvBaseline = BaselineWindow.D60,
+):
+    """Return pre-computed HRV analysis (nightly trend with 7d MA + trailing band)."""
+    return metric_analysis_uc.load_hrv_analysis(repo, baseline=int(baseline))
 
 
 @hrv_router.get("/daily", response_model=HrvDailyResponse)

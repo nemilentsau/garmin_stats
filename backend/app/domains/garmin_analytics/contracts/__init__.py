@@ -5,6 +5,7 @@ keeps the original `app.domains.garmin_analytics.contracts` import path stable.
 """
 
 from .analysis import (
+    BaselineWindow,
     BodyBatteryAnalysisResponse,
     BodyBatteryTrendPoint,
     CircadianHRPoint,
@@ -26,7 +27,6 @@ from .analysis import (
     StressAnalysisResponse,
     StressTrendPoint,
     WeeklyBodyBatteryBox,
-    WeeklyHrvBox,
     WeeklyRestingHRBox,
     WeeklySleepBox,
     WeeklyStressBox,
@@ -104,6 +104,7 @@ from .raw import (
 )
 
 __all__ = [
+    "BaselineWindow",
     "BodyBatteryAnalysisResponse",
     "BodyBatteryDailyPoint",
     "BodyBatteryDailyResponse",
@@ -188,7 +189,6 @@ __all__ = [
     "ThermoregulationHealthFlagPoint",
     "TrajectoryEvent",
     "WeeklyBodyBatteryBox",
-    "WeeklyHrvBox",
     "WeeklyRestingHRBox",
     "WeeklySleepBox",
     "WeeklyStressBox",
