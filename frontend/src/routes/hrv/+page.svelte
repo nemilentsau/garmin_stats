@@ -248,8 +248,8 @@
 				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: true
 			},
 			{
-				label: 'Extreme nights',
-				data: t.map((p) => (p.is_extreme ? p.nightly_avg : null)),
+				label: 'Extreme night',
+				data: t.map((p) => (p.is_extreme ? (p.z != null && p.z < 0 ? p.band_low : p.band_high) : null)),
 				borderColor: 'transparent',
 				backgroundColor: COLORS.heartRate,
 				pointRadius: t.map((p) => (p.is_extreme ? 4 : 0)),
@@ -262,8 +262,7 @@
 			[
 				...t.map((p) => p.ma7),
 				...t.map((p) => p.band_low),
-				...t.map((p) => p.band_high),
-				...t.filter((p) => p.is_extreme).map((p) => p.nightly_avg)
+				...t.map((p) => p.band_high)
 			],
 			2,
 			5
@@ -277,7 +276,22 @@
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
 				onClick: (_event: unknown, elements: { index: number }[], chart: { data: { labels?: unknown[] } }) => handleTrendClick(_event, elements, chart),
-				plugins: { ...darkPlugins, legend: { display: false } },
+				plugins: {
+					...darkPlugins,
+					legend: { display: false },
+					tooltip: {
+						...darkPlugins.tooltip,
+						callbacks: {
+							label: (ctx) => {
+								if (ctx.dataset.label === 'Extreme night') {
+									const v = t[ctx.dataIndex]?.nightly_avg;
+									return v != null ? `Extreme night: ${v} ms` : '';
+								}
+								return `${ctx.dataset.label}: ${ctx.formattedValue}`;
+							}
+						}
+					}
+				},
 				scales: {
 					x: {
 						type: 'time',
