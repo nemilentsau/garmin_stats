@@ -3017,6 +3017,11 @@ export interface components {
         /**
          * HrvPatternWindow
          * @description Pre-computed distribution + day-of-week for a time window.
+         *
+         *     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
+         *     in the window (true grand mean, not a mean-of-weekday-means). Provided so
+         *     the frontend can use a backend-computed reference for relative bar colouring
+         *     without doing any statistical computation itself.
          */
         HrvPatternWindow: {
             distribution: components["schemas"]["HrvDistribution"] | null;
@@ -3025,6 +3030,8 @@ export interface components {
              * @default []
              */
             day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
+            /** Overall Avg */
+            overall_avg: number | null;
         };
         /**
          * HrvRecovery
