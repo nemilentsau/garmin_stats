@@ -26,6 +26,7 @@
 	let analysis: HrvAnalysis | null = $state(null);
 	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
+	let baselineLoading = $state(false);
 	let error: string | null = $state(null);
 
 	// Latest day (Tier 1 — always the most recent)
@@ -37,6 +38,7 @@
 	let dayHover: { date: string; x: number; y: number } | null = $state(null);
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dateRequestId = 0;
+	let baselineRequestId = 0;
 
 	// ── Baseline window ──
 	const ALLOWED_WINDOWS = [30, 60, 90];
@@ -98,9 +100,21 @@
 		const url = new URL(window.location.href);
 		url.searchParams.set('baseline', String(w));
 		replaceState(url, {});
-		await fetchData();
-		if (selectedDate) {
-			historicalInsights = await api.getHrvInsights(selectedDate, baselineWindow);
+		const requestId = ++baselineRequestId;
+		baselineLoading = true;
+		try {
+			await fetchData();
+			if (requestId !== baselineRequestId) return;
+			if (selectedDate) {
+				const nextInsights = await api.getHrvInsights(selectedDate, baselineWindow);
+				if (requestId !== baselineRequestId) return;
+				historicalInsights = nextInsights;
+			}
+		} catch (e: unknown) {
+			if (requestId !== baselineRequestId) return;
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			if (requestId === baselineRequestId) baselineLoading = false;
 		}
 	}
 
@@ -219,13 +233,13 @@
 				label: 'Band Low',
 				data: t.map((p) => p.band_low),
 				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
-				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: true, fill: false
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false, fill: false
 			},
 			{
 				label: 'Band High',
 				data: t.map((p) => p.band_high),
 				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
-				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: true,
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false,
 				fill: '-1', backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
 			},
 			{
@@ -422,7 +436,7 @@
 
 	<!-- Hero: nightly HRV trend (the multi-day signal) -->
 	{#if nightlyTrendConfig}
-		<div class="card hero-card">
+		<div class="card hero-card" class:baseline-updating={baselineLoading}>
 			<div class="hero-header">
 				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average. Shaded ribbon = your typical range over the chosen baseline window. Dots = nights outside that range. Click the line to open a night.">ⓘ</span></h2>
 				<div class="hero-controls">
@@ -986,6 +1000,15 @@
 		font-size: 12px;
 		color: #6b7d8e;
 		margin-top: 2px;
+	}
+
+	/* ── Hero trend: in-flight baseline refresh ── */
+	.hero-card.baseline-updating {
+		opacity: 0.6;
+		transition: opacity 0.15s;
+	}
+	.hero-card {
+		transition: opacity 0.15s;
 	}
 
 	/* ── Hero trend header ── */
