@@ -213,6 +213,39 @@ class TestHrvInsights:
         with pytest.raises(LookupError, match="Day 2026-01-16 not found"):
             load_hrv_insights("2026-01-16")
 
+    def test_baseline_rule_fires_when_7d_below_baseline(self):
+        from datetime import date, timedelta
+        start = date(2026, 1, 1)
+        for i in range(22):
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 70.0, 70.0, "balanced", 85, 46))
+        for i in range(22, 30):
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 50.0, 50.0, "balanced", 85, 46))
+
+        insights = load_hrv_insights()  # defaults baseline=60
+        assert insights.baseline is not None
+        assert insights.baseline.delta_7d_vs_baseline is not None
+        assert insights.baseline.delta_7d_vs_baseline < -5
+        titles = {item.title for item in insights.insights}
+        assert "7-day baseline is trending below 60-day average" in titles
+
+    def test_baseline_rule_silent_at_minus_5_boundary(self):
+        from datetime import date, timedelta
+        start = date(2026, 1, 1)
+        for i in range(22):
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 70.0, 70.0, "balanced", 85, 46))
+        for i in range(22, 30):
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 65.0, 65.0, "balanced", 85, 46))
+
+        insights = load_hrv_insights()
+        assert insights.baseline is not None
+        assert insights.baseline.delta_7d_vs_baseline == -5.0
+        titles = {item.title for item in insights.insights}
+        assert "7-day baseline is trending below 60-day average" not in titles
+
 
 class TestStdev:
     def test_high_overnight_stdev_no_longer_emits_volatility_insight(self):
