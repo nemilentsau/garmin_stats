@@ -11,11 +11,11 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
-	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { fmt, fmtSigned } from '$lib/format';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
-	import { localDateIso } from '$lib/date';
+	import BaselineWindowPicker from '$lib/components/BaselineWindowPicker.svelte';
 	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 	import { tightScale } from '$lib/chart-scale';
@@ -37,26 +37,33 @@
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dateRequestId = 0;
 
+	// ── Baseline window ──
+	const ALLOWED_WINDOWS = [30, 60, 90];
+	function readBaselineFromUrl(): number {
+		const raw = Number(new URL(window.location.href).searchParams.get('baseline'));
+		return ALLOWED_WINDOWS.includes(raw) ? raw : 60;
+	}
+	let baselineWindow = $state(60);
+
 	// ── Data fetching ──
 	async function fetchData() {
 		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
 			api.getHrvDaily(),
-			api.getHrvAnalysis(),
+			api.getHrvAnalysis(baselineWindow),
 			api.getDashboardOverview()
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
 		dashOverview = nextOverview;
 
-		// Always fetch latest day data for Tier 1
 		if (nextAgg.days.length > 0) {
 			const latest = nextAgg.days[nextAgg.days.length - 1];
-			const ins = await api.getHrvInsights(latest);
-			latestInsights = ins;
+			latestInsights = await api.getHrvInsights(latest, baselineWindow);
 		}
 	}
 
 	onMount(() => {
+		baselineWindow = readBaselineFromUrl();
 		return startRealtimePage({
 			fetchData,
 			setError: (message) => { error = message; },
@@ -76,12 +83,23 @@
 		historicalInsights = null;
 		const requestId = ++dateRequestId;
 		try {
-			const nextInsights = await api.getHrvInsights(date);
+			const nextInsights = await api.getHrvInsights(date, baselineWindow);
 			if (requestId !== dateRequestId) return;
 			historicalInsights = nextInsights;
 		} catch (e: unknown) {
 			if (requestId !== dateRequestId) return;
 			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function onBaselineChange(w: number) {
+		baselineWindow = w;
+		const url = new URL(window.location.href);
+		url.searchParams.set('baseline', String(w));
+		history.replaceState(history.state, '', url);
+		await fetchData();
+		if (selectedDate) {
+			historicalInsights = await api.getHrvInsights(selectedDate, baselineWindow);
 		}
 	}
 
@@ -118,7 +136,6 @@
 	});
 	let latestDayStats = $derived.by(() => latestInsights?.day_stats ?? null);
 	let latestRecovery = $derived.by(() => latestInsights?.recovery ?? null);
-	let latestQuality = $derived.by(() => latestInsights?.quality ?? null);
 	let monthSegments = $derived.by(() => {
 		const days = agg?.days ?? [];
 		const segs: { month: string; label: string; count: number }[] = [];
@@ -130,7 +147,7 @@
 			} else {
 				const dt = new Date(d + 'T00:00:00');
 				let label = dt.toLocaleString('en-US', { month: 'short' });
-				if (month.slice(5) === '01') label += ` ’${month.slice(2, 4)}`;
+				if (month.slice(5) === '01') label += ` '${month.slice(2, 4)}`;
 				segs.push({ month, label, count: 1 });
 			}
 		}
@@ -172,84 +189,6 @@
 	// ── Computed: Historical day ──
 	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
 	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
-	let historicalDistribution = $derived.by(() => historicalInsights?.distribution ?? null);
-
-	// ── Latest overnight intraday chart ──
-	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
-
-	function makeIntradayConfig(
-		segment: HrvIntradaySegment | null,
-		color: string
-	): ChartConfiguration<'line'> | null {
-		if (!segment || segment.values.length === 0) return null;
-		const points = segment.values.filter((value) => Boolean(value.timestamp));
-		if (points.length === 0) return null;
-		return {
-			type: 'line',
-			data: {
-				labels: points.map((value) => value.timestamp),
-				datasets: [
-					{
-						label: segment.label,
-						data: points.map((value) => value.value),
-						borderColor: color,
-						borderWidth: 1.5,
-						pointRadius: 1,
-						tension: 0.2
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
-				},
-				scales: {
-					x: {
-						type: 'time',
-						time: {
-							unit: 'hour',
-							displayFormats: { hour: 'HH:mm' },
-							parser: (v: unknown) => {
-								// Parse as UTC to avoid browser DST reinterpretation
-								const [y, mo, d, h, mi, s] = String(v).match(/\d+/g)!.map(Number);
-								return Date.UTC(y, mo - 1, d, h, mi, s);
-							}
-						},
-						ticks: {
-							font: { size: 10 },
-							...DARK_TICK,
-							callback: (val: string | number) => {
-								const dt = new Date(Number(val));
-								return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
-							}
-						},
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	}
-
-	let latestIntradaySegment = $derived.by(
-		() => latestInsights?.intraday_segments.find((s) => s.key === 'all') ?? null
-	);
-	let latestIntradayConfig = $derived.by(() => makeIntradayConfig(latestIntradaySegment, COLORS.hrv));
-
-	let historicalIntradaySegment = $derived.by(
-		() => historicalInsights?.intraday_segments.find((s) => s.key === 'all') ?? null
-	);
-	let historicalIntradayConfig = $derived.by(() => makeIntradayConfig(historicalIntradaySegment, COLORS.hrv));
 
 	// ── Trend time-window ──
 	let trendRange: TrendRange = $state('3M');
@@ -268,92 +207,49 @@
 		void onDateChange(label);
 	}
 
-	// ── ISO week helpers (for boxplot labels) ──
-	function isoWeekToMonday(isoWeek: string): Date | null {
-		const m = isoWeek.match(/^(\d{4})-W(\d{2})$/);
-		if (!m) return null;
-		const year = parseInt(m[1]), week = parseInt(m[2]);
-		const jan4 = new Date(year, 0, 4);
-		const dow = (jan4.getDay() + 6) % 7;
-		const weekStart = new Date(jan4);
-		weekStart.setDate(jan4.getDate() - dow + (week - 1) * 7);
-		return weekStart;
-	}
-
-	function fmtWeekLabel(isoWeek: string): string {
-		const d = isoWeekToMonday(isoWeek);
-		if (!d) return isoWeek;
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-	}
-
 	// ── Trend chart: Nightly HRV with 7-day MA ──
 	let nightlyTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.nightly_trend.length === 0) return null;
 		const cutoff = trendCutoff(trendRange);
 		const t = cutoff ? analysis.nightly_trend.filter((p) => p.date >= cutoff) : analysis.nightly_trend;
-		const lowBand = latestInsights?.trend_band.nightly_typical_low ?? null;
-		const highBand = latestInsights?.trend_band.nightly_typical_high ?? null;
-		const baseline30d = latestInsights?.long_baseline?.baseline_30d ?? null;
-
 		const labels = t.map((p) => p.date);
-		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
+			{
+				label: 'Band Low',
+				data: t.map((p) => p.band_low),
+				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: true, fill: false
+			},
+			{
+				label: 'Band High',
+				data: t.map((p) => p.band_high),
+				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: true,
+				fill: '-1', backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
+			},
+			{
+				label: '7-Day MA',
+				data: t.map((p) => p.ma7),
+				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: true
+			},
+			{
+				label: 'Extreme nights',
+				data: t.map((p) => (p.is_extreme ? p.nightly_avg : null)),
+				borderColor: 'transparent',
+				backgroundColor: COLORS.heartRate,
+				pointRadius: t.map((p) => (p.is_extreme ? 4 : 0)),
+				pointHoverRadius: 5,
+				showLine: false, spanGaps: false
+			}
+		];
 
-		// Typical low/high band
-		if (lowBand != null && highBand != null) {
-			datasets.push(
-				{
-					label: 'Typical Low',
-					data: labels.map(() => lowBand),
-					borderColor: withAlpha(COLORS.hrvWeekly, '40'),
-					borderWidth: 1,
-					borderDash: [3, 3],
-					pointRadius: 0,
-					tension: 0,
-					fill: false
-				},
-				{
-					label: 'Typical High',
-					data: labels.map(() => highBand),
-					borderColor: withAlpha(COLORS.hrvWeekly, '40'),
-					borderWidth: 1,
-					borderDash: [3, 3],
-					pointRadius: 0,
-					tension: 0,
-					fill: '-1',
-					backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
-				}
-			);
-		}
-
-		// 30-day baseline reference
-		if (baseline30d != null) {
-			datasets.push({
-				label: '30-Day Baseline',
-				data: labels.map(() => baseline30d),
-				borderColor: COLORS.baseline,
-				borderWidth: 1.5,
-				borderDash: [8, 4],
-				pointRadius: 0,
-				tension: 0,
-				fill: false
-			});
-		}
-
-		// 7-day moving average is the signal. Raw nightly is dropped: its ~20-90ms
-		// swings forced the axis wide and flattened the trend, with no readable value.
-		datasets.push({
-			label: '7-Day MA',
-			data: t.map((p) => p.ma7),
-			borderColor: COLORS.hrv,
-			borderWidth: 2.5,
-			pointRadius: 0,
-			tension: 0.3,
-			spanGaps: true
-		});
-
-		// Hug the y-axis to the trend + band so the average fills the plot.
 		const yScale = tightScale(
-			[...t.map((p) => p.ma7), lowBand, highBand, baseline30d],
+			[
+				...t.map((p) => p.ma7),
+				...t.map((p) => p.band_low),
+				...t.map((p) => p.band_high),
+				...t.filter((p) => p.is_extreme).map((p) => p.nightly_avg)
+			],
 			2,
 			5
 		);
@@ -366,10 +262,7 @@
 				maintainAspectRatio: false,
 				interaction: { mode: 'index' as const, intersect: false },
 				onClick: (_event: unknown, elements: { index: number }[], chart: { data: { labels?: unknown[] } }) => handleTrendClick(_event, elements, chart),
-				plugins: {
-					...darkPlugins,
-					legend: { display: false },
-				},
+				plugins: { ...darkPlugins, legend: { display: false } },
 				scales: {
 					x: {
 						type: 'time',
@@ -382,126 +275,14 @@
 							}
 						},
 						ticks: { maxRotation: 0, autoSkipPadding: 20, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
+						grid: DARK_GRID, border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
-						min: yScale?.min,
-						max: yScale?.max,
-						afterBuildTicks: yScale
-							? (axis) => {
-									axis.ticks = yScale.ticks.map((value) => ({ value }));
-								}
-							: undefined,
+						min: yScale?.min, max: yScale?.max,
+						afterBuildTicks: yScale ? (axis) => { axis.ticks = yScale.ticks.map((value) => ({ value })); } : undefined,
 						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	});
-
-	// ── Boxplot chart: Weekly HRV spread ──
-	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
-		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const boxes = cutoff
-			? analysis.weekly_boxplots.filter((b) => {
-					const mon = isoWeekToMonday(b.iso_week);
-					return mon ? localDateIso(mon) >= cutoff : true;
-				})
-			: analysis.weekly_boxplots;
-		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
-
-		const yScale = tightScale(
-			boxes.flatMap((b) => [b.q1_ms, b.median_ms, b.q3_ms]),
-			2,
-			5
-		);
-
-		return {
-			type: 'line',
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Q1',
-						data: boxes.map((b) => b.q1_ms),
-						borderColor: withAlpha(COLORS.hrv, '45'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Median',
-						data: boxes.map((b) => b.median_ms),
-						borderColor: COLORS.hrv,
-						borderWidth: 2.5,
-						pointRadius: 3,
-						pointBackgroundColor: COLORS.hrv,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q3',
-						data: boxes.map((b) => b.q3_ms),
-						borderColor: withAlpha(COLORS.hrv, '45'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-2',
-						backgroundColor: withAlpha(COLORS.hrv, '16')
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						...darkPlugins.tooltip,
-						callbacks: {
-							title: (items: { dataIndex: number }[]) => {
-								const box = boxes[items[0]?.dataIndex ?? 0];
-								const mon = isoWeekToMonday(box.iso_week);
-								if (!mon) return box.iso_week;
-								const sun = new Date(mon);
-								sun.setDate(mon.getDate() + 6);
-								const f = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-								return `${f(mon)} – ${f(sun)}`;
-							},
-							afterBody: (items: { dataIndex: number }[]) => {
-								const n = boxes[items[0]?.dataIndex ?? 0]?.day_count ?? 0;
-								return [`${n} day${n !== 1 ? 's' : ''} of data`];
-							}
-						}
-					}
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						min: yScale?.min,
-						max: yScale?.max,
-						afterBuildTicks: yScale
-							? (axis) => {
-									axis.ticks = yScale.ticks.map((value) => ({ value }));
-								}
-							: undefined,
-						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
+						ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER
 					}
 				}
 			}
@@ -642,28 +423,21 @@
 	{#if nightlyTrendConfig}
 		<div class="card hero-card">
 			<div class="hero-header">
-				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average (the trend). Shaded band = your typical range (middle 50% of nights). Click the line to open a night.">ⓘ</span></h2>
-				<TrendRangePicker bind:value={trendRange} />
+				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average. Shaded ribbon = your typical range over the chosen baseline window. Dots = nights outside that range. Click the line to open a night.">ⓘ</span></h2>
+				<div class="hero-controls">
+					<BaselineWindowPicker value={baselineWindow} onchange={onBaselineChange} />
+					<TrendRangePicker bind:value={trendRange} />
+				</div>
 			</div>
 			<LineChart config={nightlyTrendConfig} height={300} />
 			<div class="chart-legend">
 				<span class="lg"><i class="lg-line" style="background: {COLORS.hrv};"></i>7-day average</span>
-				<span class="lg"><i class="lg-band" style="background: {withAlpha(COLORS.hrvWeekly, '22')}; border-color: {withAlpha(COLORS.hrvWeekly, '55')};"></i>typical range</span>
-				<span class="lg"><i class="lg-dash" style="border-color: {COLORS.baseline};"></i>30-day baseline</span>
+				<span class="lg"><i class="lg-band" style="background: {withAlpha(COLORS.hrvWeekly, '22')}; border-color: {withAlpha(COLORS.hrvWeekly, '55')};"></i>typical range ({baselineWindow}d)</span>
+				<span class="lg"><i class="lg-dot" style="background: {COLORS.heartRate};"></i>extreme night</span>
 			</div>
-		</div>
-	{/if}
-
-	<!-- Latest overnight trace -->
-	{#if latestIntradayConfig}
-		<div class="card">
-			<h2 class="card-title">Overnight HRV — {latestDate}</h2>
-			<LineChart config={latestIntradayConfig} height={240} />
-			<p class="card-footnote">
-				{latestIntradaySegment?.sample_count ?? 0} readings
-				{#if latestQuality}· {fmtTimeWindow(latestQuality.coverage_start, latestQuality.coverage_end)}{/if}
-				{#if latestIntradaySegment?.avg != null} · avg {fmt(latestIntradaySegment.avg)} ms{/if}
-			</p>
+			{#if latestInsights?.baseline?.delta_7d_vs_baseline != null}
+				<p class="card-footnote">7-day average is {fmtSigned(latestInsights.baseline.delta_7d_vs_baseline)} ms vs your {latestInsights.baseline.window_days}-day baseline.</p>
+			{/if}
 		</div>
 	{/if}
 
@@ -740,26 +514,20 @@
 				<button class="close-btn" onclick={closeHistory} title="Close">✕</button>
 			</div>
 
-			{#if historicalIntradayConfig}
-				<div class="history-section">
-					<h3 class="history-section-title">Overnight HRV</h3>
-					<LineChart config={historicalIntradayConfig} height={220} />
-					<p class="card-footnote">
-						{historicalIntradaySegment?.sample_count ?? 0} readings
-						{#if historicalIntradaySegment?.avg != null} · avg {fmt(historicalIntradaySegment.avg)} ms{/if}
-						{#if historicalIntradaySegment?.stdev != null} · stdev {historicalIntradaySegment.stdev} ms{/if}
-					</p>
-				</div>
-			{:else if !historicalInsights}
-				<div class="text-sm text-[#5e7282] py-4">Loading overnight data...</div>
+			{#if !historicalInsights}
+				<div class="text-sm text-[#5e7282] py-4">Loading night data...</div>
 			{/if}
 
-			<!-- Where this night ranks (full-history percentile, selected night) -->
-			{#if historicalDistribution?.selected_percentile != null}
+			<!-- Where this night ranks (trailing-window z-score) -->
+			{#if historicalInsights?.baseline?.selected_z != null}
 				<div class="history-section">
 					<h3 class="history-section-title">Where this night ranks</h3>
 					<p class="percentile-readout">
-						<strong>{historicalDistribution.selected_percentile}th percentile</strong> of your full history ({historicalDistribution.total_days} nights)
+						<strong>{fmtSigned(historicalInsights.baseline.selected_z)} SD</strong>
+						vs your {historicalInsights.baseline.window_days}-day baseline
+						{#if historicalInsights.baseline.selected_is_extreme}
+							· <span style="color: {COLORS.heartRate};">extreme night</span>
+						{/if}
 					</p>
 				</div>
 			{/if}
@@ -790,16 +558,8 @@
 		<span class="section-label">Patterns</span>
 	</div>
 
-	<!-- Weekly spread + day of week -->
+	<!-- Day of week -->
 	<div class="two-col-row">
-		{#if boxplotConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">Week-to-week steadiness <span class="info-hint" data-tip="Each point is one week. Bold line = that week's median nightly HRV; shaded band = the middle 50% of the week's nights. A narrow band = a steady week.">ⓘ</span></h2>
-				<LineChart config={boxplotConfig} height={240} />
-				<p class="card-footnote">Each point = one week · bold line = weekly median · shaded band = middle 50% of that week's nights</p>
-			</div>
-		{/if}
-
 		{#if dayOfWeekConfig}
 			<div class="card two-col-item">
 				<h2 class="card-title">By day of week <span class="info-hint" data-tip="Average nightly HRV by weekday. A weekly rhythm describes long-run averages, not any single night.">ⓘ</span></h2>
@@ -1236,6 +996,7 @@
 		margin-bottom: 8px;
 	}
 	.hero-header .card-title { margin-bottom: 0; }
+	.hero-controls { display: flex; gap: 0.5rem; align-items: center; }
 
 	/* ── Month axis under timeline ── */
 	.month-axis {
@@ -1339,10 +1100,11 @@
 		border-radius: 2px;
 		border: 1px dashed;
 	}
-	.lg-dash {
-		width: 16px;
-		height: 0;
-		border-top: 2px dashed;
+	.lg-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		display: inline-block;
 	}
 
 	/* ── Instant timeline tooltip ── */

@@ -175,11 +175,11 @@ export const api = {
 	getSkinTempRaw: async (date?: string) => {
 		return unwrapResponse(client.GET('/api/skin-temp/raw', dateQuery(date)));
 	},
-	getHrvInsights: async (date?: string) => {
-		return unwrapResponse(client.GET('/api/hrv/insights', dateQuery(date)));
+	getHrvInsights: async (date?: string, baseline = 60) => {
+		return unwrapResponse(client.GET('/api/hrv/insights', { params: { query: { date, baseline: baseline as Schemas['BaselineWindow'] } } }));
 	},
-	getHrvAnalysis: async () => {
-		return unwrapResponse(client.GET('/api/hrv/analysis'));
+	getHrvAnalysis: async (baseline = 60) => {
+		return unwrapResponse(client.GET('/api/hrv/analysis', { params: { query: { baseline: baseline as Schemas['BaselineWindow'] } } }));
 	},
 	getHeartRateInsights: async (date?: string) => {
 		return unwrapResponse(client.GET('/api/heart-rate/insights', dateQuery(date)));
