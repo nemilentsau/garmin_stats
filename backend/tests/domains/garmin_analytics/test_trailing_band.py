@@ -147,5 +147,43 @@ def test_hrv_analysis_drops_boxplots_and_threads_window(tmp_db):
 
     repo = SqliteBiometricRepository()
     resp = load_hrv_analysis(repo, baseline=30)
+    # Positive shape assertions: response carries the expected fields
+    assert hasattr(resp, "nightly_trend")
+    assert hasattr(resp, "pattern_windows")
+    assert len(resp.nightly_trend) == 22
+    assert isinstance(resp.pattern_windows, dict)
+    # Retired field must not be present
     assert not hasattr(resp, "weekly_boxplots")
     assert resp.nightly_trend[-1].band_low is not None
+
+
+def test_degenerate_window_zero_spread_yields_null_z():
+    """A window of identical priors has no spread; z must be None and is_extreme False."""
+    # 22 identical priors (min_days=21 satisfied) + a different current value.
+    values: list[float | None] = cast(list[float | None], [60.0] * 22 + [45.0])
+    band = trends.trailing_robust_band(values, window=30, min_days=21)
+    point = band[22]
+    assert point.z is None
+    assert point.is_extreme is False
+    # Band collapses to the constant when there is no spread
+    assert point.band_low == point.band_high == 60.0
+
+
+def test_pattern_window_overall_avg_is_sample_weighted_mean(tmp_db):
+    """HrvPatternWindow.overall_avg must equal the true grand mean of nightly values,
+    not a mean-of-weekday-means (which would be biased when weekdays are uneven)."""
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 1)
+    nightly_vals = [40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+    for i, nv in enumerate(nightly_vals):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=nv))
+
+    repo = SqliteBiometricRepository()
+    resp = load_hrv_analysis(repo, baseline=30)
+    # "All" window always includes every inserted day regardless of today's date.
+    assert "All" in resp.pattern_windows
+    window = resp.pattern_windows["All"]
+    expected_avg = round(sum(nightly_vals) / len(nightly_vals), 1)
+    assert window.overall_avg == expected_avg

@@ -103,6 +103,13 @@ def trailing_robust_band(
             out.append(TrailingBandPoint(None, None, None, None, False))
             continue
         median, scale = robust_center_scale(prior)
+        if scale <= 1e-9:
+            # Degenerate window: all priors are identical — no spread to judge
+            # "unusual". Emit collapsed band (low == high) and null z so callers
+            # can render the insufficient-spread state rather than a bogus score.
+            med = round(median, 1)
+            out.append(TrailingBandPoint(med, med, med, None, False))
+            continue
         low = round(median - k_sigma * scale, 1)
         high = round(median + k_sigma * scale, 1)
         current = values[i]

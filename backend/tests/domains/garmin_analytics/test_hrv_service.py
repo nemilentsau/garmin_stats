@@ -126,10 +126,13 @@ class TestHrvInsights:
         from datetime import date, timedelta
 
         start = date(2026, 1, 1)
+        # Use varied priors (55–65 ms, median≈60, MAD≈3) so the window has genuine
+        # spread and the degenerate-scale guard does not suppress z.
         for i in range(22):
+            prior_avg = 55.0 + (i % 11)  # cycles 55,56,…,65 twice → spread ≈ 10 ms
             _insert_metric(_make_daily_metric(
                 date=(start + timedelta(days=i)).isoformat(),
-                nightly_avg=60.0, weekly_avg=60.0, hrv_status="balanced",
+                nightly_avg=prior_avg, weekly_avg=prior_avg, hrv_status="balanced",
                 sleep_score=85, resting_hr=46,
             ))
         _insert_metric(_make_daily_metric(
@@ -142,7 +145,10 @@ class TestHrvInsights:
         assert insights.baseline is not None
         assert insights.baseline.window_days == 60
         assert insights.baseline.selected_is_extreme is True
-        assert insights.baseline.selected_z is not None and insights.baseline.selected_z < -2
+        z = insights.baseline.selected_z
+        assert z is not None and z < -2
+        # With median≈60, MAD-scale≈4.5, current=20: z ≈ -9. Confirm sane magnitude.
+        assert z > -30  # not the ~1e10 garbage from the degenerate path
 
     def test_adds_stable_signal_when_metrics_look_good(self):
         _insert_metric(_make_daily_metric(
@@ -174,31 +180,34 @@ class TestHrvInsights:
         assert any(item.title == "HRV recovery signals look stable" for item in insights.insights)
         assert all(item.title != "Low HRV sample coverage" for item in insights.insights)
 
-    def test_unbalanced_status_does_not_trigger_stable_signal_without_baseline(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15",
-            nightly_avg=61.0,
-            weekly_avg=60.5,
-            hrv_status="unbalanced",
-            sleep_score=90,
-            resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(
-                date="2026-01-15",
-                timestamp=f"2026-01-15T00:{minute:02d}:00",
-                value=60.0 + minute * 0.1,
-            )
-            for minute in range(25)
-        ])
-
-        insights = load_hrv_insights("2026-01-15")
-
-        assert all(
-            item.title != "HRV recovery signals look stable"
-            for item in insights.insights
+    def test_unbalanced_status_does_not_trigger_stable_signal(self):
+        """stable_recovery_rule returns None for unbalanced HRV status (non-vacuous direct test)."""
+        from app.domains.garmin_analytics.contracts import HrvDataQuality, HrvRecovery
+        from app.domains.garmin_analytics.domain.insights.hrv_rules import (
+            InsightContext,
+            stable_recovery_rule,
         )
-        assert all(item.title != "Low HRV sample coverage" for item in insights.insights)
+
+        ctx = InsightContext(
+            selected=_make_daily_metric(
+                date="2026-01-15",
+                nightly_avg=61.0,
+                weekly_avg=60.5,
+                hrv_status="unbalanced",
+                sleep_score=90,
+                resting_hr=46,
+            ),
+            recovery=HrvRecovery(
+                baseline_nightly_7d=60.0,
+                delta_nightly_from_baseline=1.0,
+                acute_gap_vs_weekly=0.5,
+                status=None,
+            ),
+            quality=HrvDataQuality(sample_count=25),
+            resting_delta=None,
+        )
+        # Direct rule call — guaranteed non-vacuous regardless of other rules.
+        assert stable_recovery_rule(ctx) is None
 
     def test_unknown_date_raises_lookup_error(self):
         _insert_metric(_make_daily_metric(
@@ -245,6 +254,75 @@ class TestHrvInsights:
         assert insights.baseline.delta_7d_vs_baseline == -5.0
         titles = {item.title for item in insights.insights}
         assert "7-day baseline is trending below 60-day average" not in titles
+
+
+class TestRecoveryStatusRule:
+    def test_suppressed_status_with_positive_delta_uses_fallback_text(self):
+        """A below-type status (suppressed) with a non-negative 7-day delta must not
+        emit the contradictory '+X ms versus baseline' sentence. It must use the
+        fallback detail text defined in _RECOVERY_STATUS_MESSAGES instead."""
+        from app.domains.garmin_analytics.contracts import HrvDataQuality, HrvRecovery
+        from app.domains.garmin_analytics.domain.insights.hrv_rules import (
+            InsightContext,
+            recovery_status_rule,
+        )
+
+        ctx = InsightContext(
+            selected=_make_daily_metric(
+                date="2026-01-15",
+                nightly_avg=55.0,
+                weekly_avg=52.0,
+                hrv_status="low",
+                sleep_score=70,
+                resting_hr=50,
+            ),
+            recovery=HrvRecovery(
+                baseline_nightly_7d=52.0,
+                # Garmin multi-week status is suppressed, but short 7d delta is positive
+                delta_nightly_from_baseline=3.0,
+                acute_gap_vs_weekly=3.0,
+                status="suppressed",
+            ),
+            quality=HrvDataQuality(sample_count=10),
+            resting_delta=None,
+        )
+        result = recovery_status_rule(ctx)
+        assert result is not None
+        assert result.title == "HRV appears suppressed"
+        # Must NOT contain the delta sentence
+        assert "+3.0 ms versus the prior 7-day baseline" not in result.detail
+        # Must use the fallback text
+        assert result.detail == "Nightly HRV is below expected levels."
+
+    def test_suppressed_status_with_negative_delta_keeps_delta_sentence(self):
+        """A below-type status with a genuinely negative delta keeps the delta text."""
+        from app.domains.garmin_analytics.contracts import HrvDataQuality, HrvRecovery
+        from app.domains.garmin_analytics.domain.insights.hrv_rules import (
+            InsightContext,
+            recovery_status_rule,
+        )
+
+        ctx = InsightContext(
+            selected=_make_daily_metric(
+                date="2026-01-15",
+                nightly_avg=45.0,
+                weekly_avg=60.0,
+                hrv_status="low",
+                sleep_score=65,
+                resting_hr=52,
+            ),
+            recovery=HrvRecovery(
+                baseline_nightly_7d=60.0,
+                delta_nightly_from_baseline=-15.0,
+                acute_gap_vs_weekly=-15.0,
+                status="suppressed",
+            ),
+            quality=HrvDataQuality(sample_count=10),
+            resting_delta=None,
+        )
+        result = recovery_status_rule(ctx)
+        assert result is not None
+        assert "-15.0 ms versus the prior 7-day baseline" in result.detail
 
 
 class TestStdev:

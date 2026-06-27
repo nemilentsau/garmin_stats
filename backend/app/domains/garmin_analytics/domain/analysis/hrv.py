@@ -19,6 +19,7 @@ from app.domains.garmin_health.contracts import (
 from app.domains.garmin_health.domain.daily_metrics.hrv import (
     classify_hrv_recovery as _classify_hrv_recovery,
 )
+from app.utils.numeric import safe_avg
 
 
 def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | None:
@@ -53,7 +54,12 @@ def compute_pattern_window(
     metrics: list[DailyMetric],
     selected_nightly: float | None,
 ) -> HrvPatternWindow:
-    """Distribution + day-of-week stats for a given slice of metrics."""
+    """Distribution + day-of-week stats for a given slice of metrics.
+
+    ``overall_avg`` is the sample-weighted grand mean (not a mean-of-means) so
+    the frontend can colour day-of-week bars relative to a backend-authoritative
+    reference without any in-browser computation.
+    """
     nightly_vals = [
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
@@ -62,6 +68,7 @@ def compute_pattern_window(
             nightly_vals, selected_nightly,
         ),
         day_of_week=hrv_patterns.compute_day_of_week(metrics),
+        overall_avg=safe_avg(nightly_vals),
     )
 
 
