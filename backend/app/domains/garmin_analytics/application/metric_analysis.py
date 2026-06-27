@@ -82,8 +82,13 @@ def load_hr_distribution(
 
 
 def load_hrv_analysis(repo: BiometricReadRepository, baseline: int = 60) -> HrvAnalysisResponse:
-    """Load cached HRV trend, pattern, and distribution analysis."""
+    """Load cached HRV trend, pattern, and distribution analysis.
+
+    The cache key includes the baseline window so that requests with different
+    windows cache independently.  Generation-based invalidation in ``cache.cached``
+    still applies to all per-window keys, so re-ingest correctly invalidates them.
+    """
     return cache.cached(
-        cache.HRV_ANALYSIS,
+        f"{cache.HRV_ANALYSIS}:{baseline}",
         lambda: compute_hrv_analysis(repo.load_daily_metrics(), window=baseline),
     )

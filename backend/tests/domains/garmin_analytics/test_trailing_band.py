@@ -110,6 +110,33 @@ def test_baseline_window_enum_rejects_unlisted_values():
         BaselineWindow(45)
 
 
+def test_hrv_analysis_cache_does_not_collide_across_baselines(tmp_db):
+    """Regression: each baseline window must cache independently.
+
+    Build a level-shift series (30 nights at 50 ms, then 31 nights at 90 ms).
+    - trailing-30 priors: all 90 ms  → band centred near 90
+    - trailing-60 priors: 30×50 + 30×90 → band centred near 70
+    If the cache key were shared the second call would return the first call's
+    result and the assertion below would fail.
+    """
+    from datetime import date, timedelta
+
+    start = date(2025, 1, 1)
+    # 30 nights at low level
+    for i in range(30):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0))
+    # 31 nights at high level (30 priors + 1 current for last point)
+    for i in range(31):
+        d = (start + timedelta(days=30 + i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=90.0))
+
+    repo = SqliteBiometricRepository()
+    a = load_hrv_analysis(repo, baseline=30)
+    b = load_hrv_analysis(repo, baseline=60)
+    assert a.nightly_trend[-1].band_low != b.nightly_trend[-1].band_low
+
+
 def test_hrv_analysis_drops_boxplots_and_threads_window(tmp_db):
     from datetime import date, timedelta
 
