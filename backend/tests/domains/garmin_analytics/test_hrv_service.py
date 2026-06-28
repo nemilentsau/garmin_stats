@@ -276,43 +276,6 @@ class TestHrvInsights:
 
 
 class TestRecoveryStatusRule:
-    def test_suppressed_status_with_positive_delta_uses_fallback_text(self):
-        """A below-type status (suppressed) with a non-negative 7-day delta must not
-        emit the contradictory '+X ms versus baseline' sentence. It must use the
-        fallback detail text defined in _RECOVERY_STATUS_MESSAGES instead."""
-        from app.domains.garmin_analytics.contracts import HrvDataQuality, HrvRecovery
-        from app.domains.garmin_analytics.domain.insights.hrv_rules import (
-            InsightContext,
-            recovery_status_rule,
-        )
-
-        ctx = InsightContext(
-            selected=_make_daily_metric(
-                date="2026-01-15",
-                nightly_avg=55.0,
-                weekly_avg=52.0,
-                hrv_status="low",
-                sleep_score=70,
-                resting_hr=50,
-            ),
-            recovery=HrvRecovery(
-                baseline_nightly_7d=52.0,
-                # Garmin multi-week status is suppressed, but short 7d delta is positive
-                delta_nightly_from_baseline=3.0,
-                acute_gap_vs_weekly=3.0,
-                status="suppressed",
-            ),
-            quality=HrvDataQuality(sample_count=10),
-            resting_delta=None,
-        )
-        result = recovery_status_rule(ctx)
-        assert result is not None
-        assert result.title == "HRV appears suppressed"
-        # Must NOT contain the delta sentence
-        assert "+3.0 ms versus the prior 7-day baseline" not in result.detail
-        # Must use the fallback text
-        assert result.detail == "Nightly HRV is below expected levels."
-
     def test_suppressed_status_with_negative_delta_keeps_delta_sentence(self):
         """A below-type status with a genuinely negative delta keeps the delta text."""
         from app.domains.garmin_analytics.contracts import HrvDataQuality, HrvRecovery

@@ -48,16 +48,13 @@ def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
         return None
     level, title, fallback_detail = message
     delta = ctx.recovery.delta_nightly_from_baseline
-    # A below-type status (suppressed / below_baseline) with a non-negative
-    # 7-day delta is contradictory: the Garmin multi-week status and the
-    # short trailing delta diverge. Use the fallback text to avoid emitting
-    # "suppressed … is +3 ms versus baseline."
-    if status in _LOW_RECOVERY_STATUSES and delta is not None and delta >= 0:
-        detail = fallback_detail
-    elif delta is not None:
-        detail = f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
-    else:
-        detail = fallback_detail
+    # The verdict is delta-only, so a below-type status always has a negative delta —
+    # the old status-vs-delta contradiction can no longer arise.
+    detail = (
+        f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
+        if delta is not None
+        else fallback_detail
+    )
     return HrvInsight(level=level, title=title, detail=detail)
 
 
