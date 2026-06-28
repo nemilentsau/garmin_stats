@@ -8,6 +8,7 @@
 import createClient from 'openapi-fetch';
 import type { components, paths } from './api-types';
 import { API_BASE } from './config';
+import { DEFAULT_HRV_BASELINE_WINDOW } from './hrv-baseline';
 
 type Schemas = components['schemas'];
 
@@ -175,10 +176,10 @@ export const api = {
 	getSkinTempRaw: async (date?: string) => {
 		return unwrapResponse(client.GET('/api/skin-temp/raw', dateQuery(date)));
 	},
-	getHrvInsights: async (date?: string, baseline = 60) => {
+	getHrvInsights: async (date?: string, baseline = DEFAULT_HRV_BASELINE_WINDOW) => {
 		return unwrapResponse(client.GET('/api/hrv/insights', { params: { query: { date, baseline: baseline as Schemas['BaselineWindow'] } } }));
 	},
-	getHrvAnalysis: async (baseline = 60) => {
+	getHrvAnalysis: async (baseline = DEFAULT_HRV_BASELINE_WINDOW) => {
 		return unwrapResponse(client.GET('/api/hrv/analysis', { params: { query: { baseline: baseline as Schemas['BaselineWindow'] } } }));
 	},
 	getHeartRateInsights: async (date?: string) => {

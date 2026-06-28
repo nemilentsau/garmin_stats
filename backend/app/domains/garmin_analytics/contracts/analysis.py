@@ -13,6 +13,12 @@ class BaselineWindow(IntEnum):
     D90 = 90
 
 
+# Single source of truth for the default baseline window. Referenced by the application
+# loaders, the HrvBaseline contract default, and the trends primitive (which re-exports it)
+# so the product default lives in exactly one place.
+BASELINE_WINDOW_DEFAULT = 60
+
+
 class CircadianHRPoint(DefaultsRequired):
     """Average heart rate for one hour of day."""
 
@@ -115,13 +121,15 @@ class HrvPatternWindow(DefaultsRequired):
     """Pre-computed day-of-week HRV pattern for a time window.
 
     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
-    in the window (true grand mean, not a mean-of-weekday-means). Provided so
-    the frontend can use a backend-computed reference for relative bar colouring
-    without doing any statistical computation itself.
+    in the window (true grand mean, not a mean-of-weekday-means). ``total_sample_count``
+    is the number of nights represented across the weekday buckets (the sum of their
+    ``sample_count`` values). Both are provided so the frontend can show a
+    backend-authoritative reference and total without doing any aggregation itself.
     """
 
     day_of_week: list[HrvDayOfWeekBucket] = []
     overall_avg: float | None = None
+    total_sample_count: int = 0
 
 
 class HrvAnalysisResponse(DefaultsRequired):

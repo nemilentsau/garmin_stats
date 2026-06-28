@@ -21,7 +21,10 @@ HRV_ALL = "hrv_all"
 SKIN_TEMP_ALL = "skin_temp_all"
 WINDOWED_PERIOD = "windowed_period"
 HR_ANALYSIS = "hr_analysis"
-HRV_ANALYSIS = "hrv_analysis"
+# HRV analysis is split: the nightly trend is keyed per baseline window, while the
+# weekday pattern windows are baseline-independent and cached once.
+HRV_TREND = "hrv_trend"
+HRV_PATTERNS = "hrv_patterns"
 SLEEP_ANALYSIS = "sleep_analysis"
 STRESS_ANALYSIS = "stress_analysis"
 BODY_BATTERY_ANALYSIS = "body_battery_analysis"

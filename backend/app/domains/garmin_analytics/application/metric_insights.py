@@ -6,6 +6,7 @@ calculators. Interpretation rules and messages live in `domain.insights`.
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
+    BASELINE_WINDOW_DEFAULT,
     HeartRateInsightsResponse,
     HrvInsightsResponse,
 )
@@ -18,7 +19,7 @@ from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insight
 def get_hrv_insights(
     repo: BiometricReadRepository,
     date: str | None = None,
-    baseline: int = 60,
+    baseline: int = BASELINE_WINDOW_DEFAULT,
 ) -> HrvInsightsResponse:
     """Return HRV insights for the selected date or latest metric date."""
     metrics = repo.load_daily_metrics()

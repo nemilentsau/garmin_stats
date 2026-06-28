@@ -15,25 +15,62 @@ test('hrv baseline windows have one frontend source of truth', () => {
 	assert.doesNotMatch(picker, /const WINDOWS/);
 });
 
-test('hrv page stages baseline snapshots before committing state', () => {
+test('hrv async paths stage snapshots and guard against stale completions', () => {
 	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
 
+	// Staging pattern: load into an immutable snapshot, then commit it atomically. Never
+	// commit by assigning agg straight from a freshly-fetched value next to an insights
+	// call — that would write partial state before the snapshot is staged.
 	assert.match(page, /async function loadHrvSnapshot/);
 	assert.match(page, /function applyHrvSnapshot/);
-	assert.match(
-		page,
-		/const requestedBaseline = baselineWindow;[\s\S]*const snapshot = await loadHrvSnapshot\(requestedBaseline\);[\s\S]*requestedBaseline !== baselineWindow[\s\S]*applyHrvSnapshot\(snapshot, \{ clearDetailError: selectedDate === '' \}\);/,
-	);
-	assert.match(page, /const snapshot = await loadHrvSnapshot\(w, selectedForBaseline\);/);
-	assert.match(
-		page,
-		/async function onBaselineChange[\s\S]*\+\+fetchSeq;[\s\S]*const requestId = \+\+baselineRequestId;/,
-	);
-	assert.match(
-		page,
-		/applyHistorical: selectedForBaseline !== '' && (selectedForBaseline === selectedDate|selectedDate === selectedForBaseline)/,
-	);
 	assert.doesNotMatch(page, /agg = nextAgg;[\s\S]{0,300}api\.getHrvInsights/);
+
+	// One monotonic request token shared by every async path; the three independent
+	// counters that used to race (date / baseline / fetch) are gone.
+	assert.match(page, /let reqId = 0;/);
+	assert.doesNotMatch(page, /baselineRequestId|dateRequestId|fetchSeq/);
+
+	// Each async path captures the token on entry and guards before committing, so a stale
+	// completion (date-vs-date, baseline-vs-date, SSE-vs-anything) cannot overwrite fresher
+	// state.
+	assert.match(
+		page,
+		/async function fetchData[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
+	);
+	assert.match(
+		page,
+		/async function onBaselineChange[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
+	);
+	assert.match(
+		page,
+		/async function onDateChange[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
+	);
+
+	// Baseline switch loads with the selected night and commits historical only while that
+	// night is still selected, so the chart and the panel agree for a night + window.
+	assert.match(page, /loadHrvSnapshot\(w, selectedForBaseline, reuse\)/);
+	assert.match(
+		page,
+		/applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate/,
+	);
+
+	// Baseline switch reuses the window-independent daily aggregate + overview instead of
+	// re-fetching them; only the window-dependent analysis + insights are fetched.
+	assert.match(
+		page,
+		/reuse = agg && dashOverview \? \{ agg, dashOverview \} : undefined/,
+	);
+	assert.match(page, /reuse\s*\?\s*\[reuse\.agg, reuse\.dashOverview\]/);
+
+	// SSE refresh refetches the open night so the panel z-score can't go stale while the
+	// chart's bands move underneath it.
+	assert.match(
+		page,
+		/async function fetchData[\s\S]*?const historicalDate = selectedDate;[\s\S]*?loadHrvSnapshot\(requestedBaseline, historicalDate\)/,
+	);
+
+	// A failed baseline switch rolls back to the window actually on screen.
+	assert.match(page, /baselineWindow = lastAppliedBaseline;/);
 });
 
 test('hrv headline does not render the retired recovery status pill', () => {

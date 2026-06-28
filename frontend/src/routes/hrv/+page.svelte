@@ -34,10 +34,13 @@
 	let loading = $state(true);
 	let baselineLoading = $state(false);
 	let error: string | null = $state(null);
-	// Non-blocking error scoped to a single failed sub-fetch (night detail / baseline
-	// refresh). Kept separate from `error` so one failed secondary request never blanks
-	// the already-loaded dashboard.
+	// Non-blocking errors scoped to a failed secondary fetch, kept separate from `error`
+	// so one failed sub-request never blanks the already-loaded dashboard. `detailError`
+	// covers the selected-night fetch (rendered in the night-detail panel); `baselineError`
+	// covers a baseline-window switch (rendered by the trend hero, which is always visible
+	// when data is loaded, so the failure is surfaced even with no night open).
 	let detailError = $state<string | null>(null);
+	let baselineError = $state<string | null>(null);
 
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HrvInsights | null = $state(null);
@@ -49,11 +52,16 @@
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dayStripContainer: HTMLDivElement | null = $state(null);
 	let timelineHasAutoScrolled = false;
-	let dateRequestId = 0;
-	let baselineRequestId = 0;
-	// Monotonic guard for fetchData itself: out-of-order completions (e.g. rapid
-	// baseline-window switches) must not write a stale window's data under the new labels.
-	let fetchSeq = 0;
+	// Single monotonic request token shared by every async data path (initial/SSE load,
+	// night-detail fetch, baseline switch). Each path captures `++reqId` on entry and
+	// discards its result if a newer request started meanwhile, so the latest user intent
+	// always wins and a stale completion can never overwrite fresher state — whether the
+	// staleness is date-vs-date, baseline-vs-date, or SSE-vs-anything.
+	let reqId = 0;
+	// Window of the currently-rendered snapshot. Used to roll the picker back correctly
+	// when a baseline switch fails: it must revert to what is actually on screen, not to
+	// whatever transient value preceded a superseded switch.
+	let lastAppliedBaseline: HrvBaselineWindow = DEFAULT_HRV_BASELINE_WINDOW;
 
 	// ── Baseline window ──
 	function readBaselineFromUrl(): HrvBaselineWindow {
@@ -67,18 +75,25 @@
 		dashOverview: DashboardOverview;
 		latestInsights: HrvInsights | null;
 		historicalInsights: HrvInsights | null;
+		baseline: HrvBaselineWindow;
 	};
 
 	// ── Data fetching ──
 	async function loadHrvSnapshot(
 		window: HrvBaselineWindow,
-		historicalDate = ''
+		historicalDate = '',
+		// getHrvDaily and getDashboardOverview don't vary with the baseline window. On a
+		// baseline switch the caller passes the already-loaded copies via `reuse` so we fetch
+		// only the window-dependent analysis + insights instead of re-downloading them.
+		reuse?: { agg: HrvDaily; dashOverview: DashboardOverview }
 	): Promise<HrvSnapshot> {
-		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
-			api.getHrvDaily(),
-			api.getHrvAnalysis(window),
-			api.getDashboardOverview()
-		]);
+		// Kick off the window-dependent analysis immediately so it overlaps the (skippable)
+		// window-independent fetches on a full load.
+		const analysisP = api.getHrvAnalysis(window);
+		const [nextAgg, nextOverview] = reuse
+			? [reuse.agg, reuse.dashOverview]
+			: await Promise.all([api.getHrvDaily(), api.getDashboardOverview()]);
+		const nextAnalysis = await analysisP;
 		const latest = nextAgg.days[nextAgg.days.length - 1] ?? '';
 		const [nextLatestInsights, nextHistoricalInsights] = await Promise.all([
 			latest ? api.getHrvInsights(latest, window) : Promise.resolve(null),
@@ -89,7 +104,8 @@
 			analysis: nextAnalysis,
 			dashOverview: nextOverview,
 			latestInsights: nextLatestInsights,
-			historicalInsights: nextHistoricalInsights
+			historicalInsights: nextHistoricalInsights,
+			baseline: window
 		};
 	}
 
@@ -104,8 +120,10 @@
 		if (options.applyHistorical) {
 			historicalInsights = snapshot.historicalInsights;
 		}
-		// A successful load supersedes any prior top-level error.
+		lastAppliedBaseline = snapshot.baseline;
+		// A successful load supersedes any prior top-level and baseline errors.
 		error = null;
+		baselineError = null;
 		if (options.clearDetailError ?? true) {
 			detailError = null;
 		}
@@ -121,11 +139,18 @@
 	}
 
 	async function fetchData() {
-		const seq = ++fetchSeq;
+		const myReq = ++reqId;
 		const requestedBaseline = baselineWindow;
-		const snapshot = await loadHrvSnapshot(requestedBaseline);
-		if (seq !== fetchSeq || requestedBaseline !== baselineWindow) return;
-		applyHrvSnapshot(snapshot, { clearDetailError: selectedDate === '' });
+		// Refresh the open night's detail alongside the chart: an SSE-triggered reload must
+		// not move the chart's bands/markers while leaving the panel's z-score stale, since
+		// the chart and the panel must agree for a given night + window.
+		const historicalDate = selectedDate;
+		const snapshot = await loadHrvSnapshot(requestedBaseline, historicalDate);
+		if (myReq !== reqId) return;
+		applyHrvSnapshot(snapshot, {
+			applyHistorical: historicalDate !== '' && historicalDate === selectedDate,
+			clearDetailError: historicalDate === '' || historicalDate === selectedDate
+		});
 	}
 
 	onMount(() => {
@@ -139,6 +164,9 @@
 
 	async function onDateChange(date: string) {
 		if (date === '') {
+			// Bump the shared token so any night fetch still in flight is discarded
+			// rather than repopulating the panel after it closes.
+			++reqId;
 			selectedDate = '';
 			historyOpen = false;
 			historicalInsights = null;
@@ -149,14 +177,14 @@
 		historyOpen = true;
 		historicalInsights = null;
 		detailError = null;
-		const requestId = ++dateRequestId;
+		const myReq = ++reqId;
 		try {
 			const nextInsights = await api.getHrvInsights(date, baselineWindow);
-			if (requestId !== dateRequestId) return;
+			if (myReq !== reqId) return;
 			historicalInsights = nextInsights;
 			detailError = null;
 		} catch (e: unknown) {
-			if (requestId !== dateRequestId) return;
+			if (myReq !== reqId) return;
 			detailError = e instanceof Error ? e.message : String(e);
 		}
 	}
@@ -168,33 +196,39 @@
 	}
 
 	async function onBaselineChange(w: HrvBaselineWindow) {
-		const prev = baselineWindow;
 		const selectedForBaseline = selectedDate;
 		baselineWindow = w;
 		setBaselineUrl(w);
-		++fetchSeq;
-		const requestId = ++baselineRequestId;
+		const myReq = ++reqId;
 		baselineLoading = true;
+		baselineError = null;
 		try {
-			const snapshot = await loadHrvSnapshot(w, selectedForBaseline);
-			if (requestId !== baselineRequestId) return;
+			// The baseline knob only changes window-dependent data — reuse the loaded daily
+			// aggregate and dashboard overview instead of re-fetching them.
+			const reuse = agg && dashOverview ? { agg, dashOverview } : undefined;
+			const snapshot = await loadHrvSnapshot(w, selectedForBaseline, reuse);
+			if (myReq !== reqId) return;
 			applyHrvSnapshot(snapshot, {
 				applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate,
 				clearDetailError: selectedForBaseline === '' || selectedForBaseline === selectedDate
 			});
 		} catch (e: unknown) {
-			if (requestId !== baselineRequestId) return;
-			// Roll back to the last good window (state + URL) and surface a non-blocking
-			// error so the dashboard keeps showing the prior window's data.
-			baselineWindow = prev;
-			setBaselineUrl(prev);
-			detailError = e instanceof Error ? e.message : String(e);
+			if (myReq !== reqId) return;
+			// Roll back to the window currently on screen — not the pre-switch value, which
+			// may itself be an unapplied window from a superseded switch — and surface a
+			// non-blocking error so the dashboard keeps showing the rendered window's data.
+			const msg = e instanceof Error ? e.message : String(e);
+			baselineWindow = lastAppliedBaseline;
+			setBaselineUrl(lastAppliedBaseline);
+			baselineError = `Couldn't load the ${w}-day baseline — still showing ${lastAppliedBaseline}-day. ${msg}`;
 		} finally {
-			if (requestId === baselineRequestId) baselineLoading = false;
+			if (myReq === reqId) baselineLoading = false;
 		}
 	}
 
 	function closeHistory() {
+		// Cancel any in-flight night fetch so it can't repopulate after close.
+		++reqId;
 		selectedDate = '';
 		historyOpen = false;
 		historicalInsights = null;
@@ -247,22 +281,41 @@
 	});
 
 	// ── Computed: History strip colors ──
+	// Single source for HRV status colors, following the app's good→caution→warning
+	// convention (see insightLevelColor) so a palette change flows from one place.
 	const HRV_STATUS_COLORS: Record<string, string> = {
-		'Balanced': '#4CAF82',
-		'Low': '#E85D4A',
-		'Unbalanced': '#D4944C',
-		'High': '#5BB5A6'
+		Balanced: COLORS.heartRateResting, // good — green
+		Unbalanced: COLORS.stress,         // caution — amber
+		Low: COLORS.heartRate,             // warning — red
+		High: COLORS.respiration           // above normal — teal
 	};
+	const UNKNOWN_STATUS_COLOR = '#3a4a5a';
+
+	function statusKey(status: string | null | undefined): string | null {
+		return status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : null;
+	}
 
 	let dayStatusMap = $derived.by(() => {
 		const map = new Map<string, string>();
 		if (!agg) return map;
 		for (const d of agg.daily) {
-			const status = d.hrv.status;
-			const key = status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : null;
-			map.set(d.date, key ? (HRV_STATUS_COLORS[key] ?? '#3a4a5a') : '#3a4a5a');
+			const key = statusKey(d.hrv.status);
+			map.set(d.date, (key && HRV_STATUS_COLORS[key]) || UNKNOWN_STATUS_COLOR);
 		}
 		return map;
+	});
+
+	// Legend entries derived from the statuses actually present, in palette order — so every
+	// colored cell has a key, none drift from the cells, and absent statuses aren't shown.
+	let statusLegend = $derived.by(() => {
+		const present = new Set<string>();
+		for (const d of agg?.daily ?? []) {
+			const key = statusKey(d.hrv.status);
+			if (key && key in HRV_STATUS_COLORS) present.add(key);
+		}
+		return Object.keys(HRV_STATUS_COLORS)
+			.filter((label) => present.has(label))
+			.map((label) => ({ label, color: HRV_STATUS_COLORS[label] }));
 	});
 
 	// ── Navigation ──
@@ -321,7 +374,9 @@
 			{
 				label: '7-Day MA',
 				data: t.map((p) => p.ma7),
-				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: true
+				// spanGaps:false so the trend breaks at no-reading nights (the backend emits null
+				// points for them) instead of bridging a straight segment over missing data.
+				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: false
 			},
 			{
 				label: 'Extreme night',
@@ -482,12 +537,6 @@
 		return n > 0 ? `+${r}` : r;
 	}
 
-	function recoveryColor(status: string | null | undefined): string {
-		if (status === 'suppressed' || status === 'below_baseline') return '#E85D4A';
-		if (status === 'elevated' || status === 'stable') return '#4CAF82';
-		return '#6b7d8e';
-	}
-
 	// ── Correlations (from dashboard overview) ──
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
 
@@ -531,7 +580,9 @@
 			</span>
 			<span class="stat-unit">ms</span>
 			{#if latestRecovery?.delta_nightly_from_baseline != null}
-				<span class="stat-delta" style="color: {recoveryColor(latestRecovery?.status)};">
+				<!-- Neutral, non-verdict color: the delta is a single-night vs trailing-7d number;
+				     recovery state (which folds in Garmin's multi-day status) lives in the insight line below. -->
+				<span class="stat-delta">
 					{fmtSigned(latestRecovery.delta_nightly_from_baseline)} vs {fmt(latestRecovery.baseline_nightly_7d)} avg
 				</span>
 			{/if}
@@ -566,6 +617,9 @@
 					</div>
 				</div>
 			</div>
+			{#if baselineError}
+				<div class="detail-error">{baselineError}</div>
+			{/if}
 			<LineChart config={nightlyTrendConfig} height={300} />
 			<div class="chart-legend">
 				<span class="lg"><i class="lg-line" style="background: {COLORS.hrv};"></i>7-day average</span>
@@ -611,7 +665,7 @@
 					<button
 						class="day-cell"
 						class:selected={day === selectedDate}
-						style="background: {dayStatusMap.get(day) ?? '#3a4a5a'};"
+						style="background: {dayStatusMap.get(day) ?? UNKNOWN_STATUS_COLOR};"
 						aria-label={day}
 						onmouseenter={(e) => showDayHover(e, day)}
 						onclick={() => onDateChange(day === selectedDate ? '' : day)}
@@ -624,9 +678,9 @@
 				{/each}
 			</div>
 			<div class="day-strip-legend">
-				<span><i class="legend-dot" style="background:#4CAF82;"></i>Balanced</span>
-				<span><i class="legend-dot" style="background:#D4944C;"></i>Unbalanced</span>
-				<span><i class="legend-dot" style="background:#E85D4A;"></i>Low</span>
+				{#each statusLegend as { label, color }}
+					<span><i class="legend-dot" style="background:{color};"></i>{label}</span>
+				{/each}
 			</div>
 		</div>
 	</div>
@@ -703,7 +757,7 @@
 			<div class="card two-col-item">
 				<h2 class="card-title">By day of week <span class="info-hint" data-tip="Average nightly HRV by weekday. A weekly rhythm describes long-run averages, not any single night.">ⓘ</span></h2>
 				<BarChart config={dayOfWeekConfig} height={240} />
-				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights ({patternWindowLabel}) · weekday averages, not single-night predictions</p>
+				<p class="card-footnote">{patternWindow?.total_sample_count ?? 0} total nights ({patternWindowLabel}) · weekday averages, not single-night predictions</p>
 			</div>
 		{/if}
 	</div>
@@ -824,6 +878,7 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		margin-top: 2px;
+		color: #6b7d8e;
 	}
 
 	/* ── Insight line ── */

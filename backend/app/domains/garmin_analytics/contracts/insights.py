@@ -1,6 +1,7 @@
 """Selected-day insight response contracts."""
 
 from app.contracts.base import DefaultsRequired
+from app.domains.garmin_analytics.contracts.analysis import BASELINE_WINDOW_DEFAULT
 from app.domains.garmin_health.contracts import (
     DailyHeartRateStats,
     DailyHrvStats,
@@ -72,11 +73,14 @@ class HrvDataQuality(DefaultsRequired):
 
 
 class HrvStreak(DefaultsRequired):
-    """Current and recent HRV status streak information."""
+    """Current HRV status streak — an internal input to the low-streak insight rule.
+
+    Not serialized on any response; consumed only by ``low_status_streak_rule`` to decide
+    whether to emit the "Extended low HRV streak" insight.
+    """
 
     current_status: str | None = None
     streak_days: int = 0
-    worst_recent_streak: int = 0
 
 
 class HrvBaseline(DefaultsRequired):
@@ -84,7 +88,7 @@ class HrvBaseline(DefaultsRequired):
 
     baseline: float | None = None
     delta_7d_vs_baseline: float | None = None
-    window_days: int = 60
+    window_days: int = BASELINE_WINDOW_DEFAULT
     selected_z: float | None = None
     selected_is_extreme: bool = False
 
@@ -105,5 +109,4 @@ class HrvInsightsResponse(DefaultsRequired):
     recovery: HrvRecovery
     quality: HrvDataQuality
     baseline: HrvBaseline | None = None
-    streak: HrvStreak | None = None
     insights: list[HrvInsight] = []

@@ -7,6 +7,11 @@ from typing import Protocol
 
 import numpy as np
 
+# Re-exported so existing `from ...primitives.trends import BASELINE_WINDOW_DEFAULT`
+# importers keep working; the constant is defined once in the contracts layer.
+from app.domains.garmin_analytics.contracts.analysis import (
+    BASELINE_WINDOW_DEFAULT as BASELINE_WINDOW_DEFAULT,
+)
 from app.domains.garmin_health.contracts import DailyMetric
 from app.utils.numeric import (
     robust_center_scale,
@@ -14,7 +19,6 @@ from app.utils.numeric import (
     safe_percentile,
 )
 
-BASELINE_WINDOW_DEFAULT = 60
 BASELINE_MIN_DAYS = 21
 BASELINE_K_SIGMA = 1.0
 BASELINE_Z_EXTREME = 2.0
@@ -81,6 +85,47 @@ def trailing_ma7(values: list[float | None]) -> list[float | None]:
     return result
 
 
+def trailing_band_point(
+    values: list[float | None],
+    index: int,
+    *,
+    window: int,
+    min_days: int,
+    k_sigma: float = BASELINE_K_SIGMA,
+    z_extreme: float = BASELINE_Z_EXTREME,
+) -> TrailingBandPoint:
+    """Robust trailing baseline for a single series ``index``.
+
+    Same policy as :func:`trailing_robust_band` for one point: the band is built from
+    present values in the half-open trailing window ``[index - window, index)`` (current
+    value excluded). Returns an empty point when the window holds fewer than ``min_days``
+    present values, and a collapsed band (``low == high``) with null z for a zero-spread
+    window. Exposed so callers that need a single night (selected-day insights) avoid
+    recomputing the band for the whole series.
+    """
+    prior = [v for v in values[max(0, index - window):index] if v is not None]
+    if len(prior) < min_days:
+        return TrailingBandPoint(None, None, None, None, False)
+    median, scale = robust_center_scale(prior)
+    if scale <= 1e-9:
+        # Degenerate window: all priors are identical — no spread to judge "unusual".
+        # Emit a collapsed band (low == high) and null z so callers can render the
+        # insufficient-spread state rather than a bogus score.
+        med = round(median, 1)
+        return TrailingBandPoint(med, med, med, None, False)
+    low = round(median - k_sigma * scale, 1)
+    high = round(median + k_sigma * scale, 1)
+    current = values[index]
+    if current is None:
+        return TrailingBandPoint(low, high, round(median, 1), None, False)
+    # Round z once and derive the extreme flag from that SAME displayed value. Comparing
+    # the raw z would let a value in [2.000, 2.005) round to "2.00" yet still be flagged
+    # extreme — rendering "+2.00 SD · extreme night" where the shown number does not exceed
+    # the |z| > 2 threshold the marker implies.
+    z = round((current - median) / scale, 2)
+    return TrailingBandPoint(low, high, round(median, 1), z, abs(z) > z_extreme)
+
+
 def trailing_robust_band(
     values: list[float | None],
     *,
@@ -96,31 +141,12 @@ def trailing_robust_band(
     recovery core's prior-only convention). Indices whose trailing window holds
     fewer than ``min_days`` present values yield an empty ``TrailingBandPoint``.
     """
-    out: list[TrailingBandPoint] = []
-    for i in range(len(values)):
-        prior = [v for v in values[max(0, i - window):i] if v is not None]
-        if len(prior) < min_days:
-            out.append(TrailingBandPoint(None, None, None, None, False))
-            continue
-        median, scale = robust_center_scale(prior)
-        if scale <= 1e-9:
-            # Degenerate window: all priors are identical — no spread to judge
-            # "unusual". Emit collapsed band (low == high) and null z so callers
-            # can render the insufficient-spread state rather than a bogus score.
-            med = round(median, 1)
-            out.append(TrailingBandPoint(med, med, med, None, False))
-            continue
-        low = round(median - k_sigma * scale, 1)
-        high = round(median + k_sigma * scale, 1)
-        current = values[i]
-        if current is None:
-            out.append(TrailingBandPoint(low, high, round(median, 1), None, False))
-            continue
-        z = (current - median) / scale
-        out.append(
-            TrailingBandPoint(low, high, round(median, 1), round(z, 2), abs(z) > z_extreme)
+    return [
+        trailing_band_point(
+            values, i, window=window, min_days=min_days, k_sigma=k_sigma, z_extreme=z_extreme
         )
-    return out
+        for i in range(len(values))
+    ]
 
 
 def trailing_sd(

@@ -111,7 +111,9 @@ user's actual question.
 **State**
 
 - **Summary strip:** the latest night's HRV in ms (no status word) and its signed difference vs the
-  recent baseline. Recovery state appears only as backend insight text below, not as a headline pill.
+  recent baseline, shown in neutral text — no good/bad color verdict, since a single night is noise
+  and the delta (tonight vs trailing-7d) is a different question than Garmin's multi-day status.
+  Recovery state appears only as backend insight text below, not as a headline pill or a delta color.
 - **Nightly trend chart (hero):** a bold 7-day moving-average line over a **moving "typical range"
   ribbon** computed from a **trailing, user-selectable baseline window** (30 / 60 / 90 days, default
   60; robust median ± 1σ via MAD × 1.4826, current night excluded). The ribbon drifts with the
@@ -164,14 +166,22 @@ trailing. See `FINDINGS.md` (Open Questions #12–#13).
 
 Most of the tab is presentation, but the baseline engine is real:
 
-- A single backend primitive, `trailing_robust_band` (`domain/primitives/trends.py`), computes the
-  per-night band + robust z from the prior N present nights (current night excluded). Both the
-  `/analysis` (trend series) and `/insights` (selected-day) endpoints take a `baseline` window param
-  and feed off the same primitive, so the chart and the panel always agree for a given night + window.
-- Degenerate (zero-spread) windows emit no z / no extreme flag rather than a garbage value; the
-  `/analysis` cache is keyed per window so switching the knob never serves a stale window.
-- Day-of-week coloring reads `HrvPatternWindow.overall_avg` (a sample-weighted mean from the backend),
-  keeping the frontend display-only.
+- A single backend primitive (`trailing_band_point` / `trailing_robust_band` in
+  `domain/primitives/trends.py`) computes the per-night band + robust z from the prior N present
+  nights (current night excluded). Both the `/analysis` (trend series) and `/insights` (selected-day)
+  endpoints feed off the same primitive over the same reading series, so the chart and the panel
+  always agree for a given night + window. The selected-day path computes just its one index rather
+  than the whole series.
+- **Gaps are shown as gaps.** The nightly trend is densified to a complete daily calendar; any night
+  with no HRV reading — an absent day or a present row with a null reading — becomes an explicit
+  all-null point, so the MA line and the ribbon break across gaps (`spanGaps: false`) instead of
+  bridging a straight segment over data that was never observed. Missing nights are skipped in the
+  MA/band, never interpolated.
+- Degenerate (zero-spread) windows emit no z / no extreme flag rather than a garbage value. The
+  baseline-dependent nightly trend is cached per window; the baseline-independent weekday patterns are
+  cached once and reused across windows, so switching the knob never serves a stale window.
+- Day-of-week coloring reads `HrvPatternWindow.overall_avg` (a sample-weighted mean) and its
+  `total_sample_count`, both from the backend — keeping the frontend display-only.
 
 ---
 

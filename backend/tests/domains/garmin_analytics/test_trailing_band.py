@@ -84,6 +84,34 @@ def test_far_outlier_is_flagged_extreme():
     assert band[22].z is not None and band[22].z > 2.0
 
 
+def test_is_extreme_uses_the_displayed_rounded_z_just_above_threshold():
+    """A raw z in [2.000, 2.005) rounds to a displayed 2.00, which is NOT > 2.0, so the
+    night must not be flagged extreme — the flag and the shown number must agree."""
+    from app.utils.numeric import robust_center_scale
+
+    priors = [40.0] * 7 + [50.0] * 7 + [60.0] * 7  # 21 priors, non-zero spread
+    median, scale = robust_center_scale(priors)
+    # Place the current night so the raw z sits just above the threshold but rounds down.
+    current = median + 2.002 * scale
+    values = cast(list[float | None], priors + [current])
+    point = trends.trailing_robust_band(values, window=30, min_days=21)[21]
+    assert point.z == 2.0  # displayed value rounds to exactly the threshold
+    assert point.is_extreme is False  # 2.00 is not > 2.0 -> not extreme
+
+
+def test_is_extreme_when_rounded_z_clears_threshold():
+    """The companion boundary: a raw z that rounds to 2.01 does exceed 2.0 and is flagged."""
+    from app.utils.numeric import robust_center_scale
+
+    priors = [40.0] * 7 + [50.0] * 7 + [60.0] * 7
+    median, scale = robust_center_scale(priors)
+    current = median + 2.010 * scale
+    values = cast(list[float | None], priors + [current])
+    point = trends.trailing_robust_band(values, window=30, min_days=21)[21]
+    assert point.z is not None and point.z > 2.0
+    assert point.is_extreme is True
+
+
 def test_missing_current_value_keeps_band_but_no_z():
     values: list[float | None] = [40.0 + i for i in range(22)] + [None]  # type: ignore[assignment]
     band = trends.trailing_robust_band(values, window=30, min_days=21)
@@ -170,6 +198,20 @@ def test_degenerate_window_zero_spread_yields_null_z():
     assert point.band_low == point.band_high == 60.0
 
 
+def test_single_point_matches_full_band_at_index():
+    """trailing_band_point(values, i) must equal trailing_robust_band(values)[i] for every i,
+    so the single-index fast path used by selected-day insights preserves the numbers across
+    the empty (i < min_days), boundary, and computed cases."""
+    values: list[float | None] = cast(
+        list[float | None], [40.0 + (i % 7) for i in range(40)]
+    )
+    full = trends.trailing_robust_band(values, window=30, min_days=21)
+    for i in (0, 20, 21, 25, 39):
+        assert (
+            trends.trailing_band_point(values, i, window=30, min_days=21) == full[i]
+        )
+
+
 def test_pattern_window_overall_avg_is_sample_weighted_mean(tmp_db):
     """HrvPatternWindow.overall_avg must equal the true grand mean of nightly values,
     not a mean-of-weekday-means (which would be biased when weekdays are uneven)."""
@@ -188,3 +230,125 @@ def test_pattern_window_overall_avg_is_sample_weighted_mean(tmp_db):
     window = resp.pattern_windows["All"]
     expected_avg = round(sum(nightly_vals) / len(nightly_vals), 1)
     assert window.overall_avg == expected_avg
+
+
+def test_pattern_window_total_sample_count_is_backend_owned(tmp_db):
+    """total_sample_count must equal the sum of the weekday buckets and count only
+    present nightly values, so the frontend can render it without any aggregation."""
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 1)
+    present = 10
+    for i in range(present):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0 + i))
+    # Two nights with no nightly HRV must not be counted.
+    for i in range(present, present + 2):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=None))
+
+    repo = SqliteBiometricRepository()
+    window = load_hrv_analysis(repo, baseline=30).pattern_windows["All"]
+    assert window.total_sample_count == present
+    assert window.total_sample_count == sum(b.sample_count for b in window.day_of_week)
+
+
+def test_nightly_trend_breaks_at_gaps(tmp_db):
+    """The trend must densify to a full daily calendar and emit all-null gap points for any
+    night without an HRV reading — both entirely-absent days (no row) and present rows with a
+    null reading — so the chart breaks instead of bridging."""
+    from datetime import date, timedelta
+
+    start = date(2026, 2, 1)
+    # Insert Feb 1..10 but SKIP Feb 5 entirely (absent day) and give Feb 8 a null reading.
+    for i in range(10):
+        d = start + timedelta(days=i)
+        if d == date(2026, 2, 5):
+            continue  # entirely absent — no row at all
+        nightly = None if d == date(2026, 2, 8) else 50.0 + i
+        _insert_metric(_make_daily_metric(date=d.isoformat(), nightly_avg=nightly))
+
+    repo = SqliteBiometricRepository()
+    trend = load_hrv_analysis(repo, baseline=30).nightly_trend
+    by_date = {p.date: p for p in trend}
+
+    # Densified to the full inclusive calendar span (Feb 1..10 = 10 points), contiguous.
+    assert len(trend) == 10
+    assert [p.date for p in trend] == [
+        (start + timedelta(days=i)).isoformat() for i in range(10)
+    ]
+
+    # Both gap kinds are all-null break points.
+    for gap in ("2026-02-05", "2026-02-08"):
+        assert by_date[gap].nightly_avg is None
+        assert by_date[gap].ma7 is None
+        assert by_date[gap].band_low is None and by_date[gap].band_high is None
+        assert by_date[gap].z is None and by_date[gap].is_extreme is False
+
+    # A real night still carries its reading and MA (band is null here — too few priors).
+    assert by_date["2026-02-10"].nightly_avg is not None
+    assert by_date["2026-02-10"].ma7 is not None
+
+
+def test_nightly_trend_band_matches_selected_day_panel(tmp_db):
+    """Densifying the trend must not break the guarantee that the chart band and the panel
+    agree for a given night + window: a real night's trend z/is_extreme equals the
+    selected-day panel's."""
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.application.metric_insights import get_hrv_insights
+
+    start = date(2026, 3, 1)
+    for i in range(30):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0 + (i % 6)))
+
+    repo = SqliteBiometricRepository()
+    target = (start + timedelta(days=28)).isoformat()  # 28 priors >= min_days
+    trend_point = {p.date: p for p in load_hrv_analysis(repo, baseline=30).nightly_trend}[target]
+    panel = get_hrv_insights(repo, target, baseline=30).baseline
+
+    assert panel is not None
+    assert trend_point.z == panel.selected_z
+    assert trend_point.is_extreme == panel.selected_is_extreme
+
+
+def test_pattern_windows_are_identical_across_baseline_windows(tmp_db):
+    """Weekday pattern windows do not depend on the baseline knob, so /analysis returns the
+    same pattern data for every baseline (it is computed and cached once, not per window)."""
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 1)
+    for i in range(40):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0 + (i % 5)))
+
+    repo = SqliteBiometricRepository()
+    a30 = load_hrv_analysis(repo, baseline=30)
+    a90 = load_hrv_analysis(repo, baseline=90)
+    assert a30.pattern_windows == a90.pattern_windows
+    # The per-window nightly trend still differs (band depends on the window); the
+    # collision regression is covered by test_hrv_analysis_cache_does_not_collide_across_baselines.
+
+
+def test_hrv_pattern_cache_refreshes_after_invalidation(tmp_db):
+    """The shared pattern cache must participate in generation invalidation: a re-ingest
+    (cache.invalidate) refreshes it instead of serving the pre-ingest patterns."""
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 1)
+    for i in range(25):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0))
+
+    repo = SqliteBiometricRepository()
+    first_total = load_hrv_analysis(repo, baseline=30).pattern_windows["All"].total_sample_count
+
+    # Simulate a re-ingest: more nights land, then the cache generation is bumped.
+    for i in range(25, 30):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=50.0))
+    cache.invalidate()
+
+    second_total = load_hrv_analysis(repo, baseline=30).pattern_windows["All"].total_sample_count
+    assert second_total == first_total + 5

@@ -5,6 +5,7 @@ keeps the original `app.domains.garmin_analytics.contracts` import path stable.
 """
 
 from .analysis import (
+    BASELINE_WINDOW_DEFAULT,
     BaselineWindow,
     BodyBatteryAnalysisResponse,
     BodyBatteryTrendPoint,
@@ -100,6 +101,7 @@ from .raw import (
 )
 
 __all__ = [
+    "BASELINE_WINDOW_DEFAULT",
     "BaselineWindow",
     "BodyBatteryAnalysisResponse",
     "BodyBatteryDailyPoint",

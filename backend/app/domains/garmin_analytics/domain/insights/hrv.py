@@ -18,7 +18,7 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
     BASELINE_MIN_DAYS,
     BASELINE_WINDOW_DEFAULT,
     prior_7d_avg,
-    trailing_robust_band,
+    trailing_band_point,
 )
 from app.domains.garmin_health.contracts import (
     DailyMetric,
@@ -30,8 +30,6 @@ from app.domains.garmin_health.domain.daily_metrics import (
     normalize_hrv_status,
 )
 from app.utils.numeric import optional_float
-
-_BAD_HRV_STATUSES = {"Low", "Unbalanced"}
 
 
 def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRecovery:
@@ -65,6 +63,10 @@ def _compute_quality(hrv_values: list[HrvValue]) -> HrvDataQuality:
 
 
 def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStreak:
+    """Count consecutive days ending on the selected day that share its HRV status.
+
+    Internal input to ``low_status_streak_rule`` only — not serialized on the response.
+    """
     current_status = normalize_hrv_status(metrics[selected_index].hrv.status)
     streak_days = 1
     for i in range(selected_index - 1, -1, -1):
@@ -73,22 +75,7 @@ def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStrea
         else:
             break
 
-    window_start = max(0, selected_index - 13)
-    window = metrics[window_start:selected_index + 1]
-    worst = 0
-    run = 0
-    for metric in window:
-        if normalize_hrv_status(metric.hrv.status) in _BAD_HRV_STATUSES:
-            run += 1
-            worst = max(worst, run)
-        else:
-            run = 0
-
-    return HrvStreak(
-        current_status=current_status,
-        streak_days=streak_days,
-        worst_recent_streak=worst,
-    )
+    return HrvStreak(current_status=current_status, streak_days=streak_days)
 
 
 def _compute_baseline(
@@ -99,8 +86,11 @@ def _compute_baseline(
 ) -> HrvBaseline | None:
     """Selected-day comparison against its trailing robust baseline."""
     nightly = [m.hrv.nightly_avg for m in metrics]
-    band = trailing_robust_band(nightly, window=window, min_days=BASELINE_MIN_DAYS)
-    point = band[selected_index]
+    # Only the selected index is needed — compute that single point instead of the band
+    # for the whole series (the /insights endpoint is not cached).
+    point = trailing_band_point(
+        nightly, selected_index, window=window, min_days=BASELINE_MIN_DAYS
+    )
     if point.median is None:
         return None
     delta = (
@@ -165,6 +155,5 @@ def compute_hrv_insights(
         recovery=recovery,
         quality=quality,
         baseline=baseline,
-        streak=streak,
         insights=insights,
     )

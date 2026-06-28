@@ -2969,7 +2969,6 @@ export interface components {
             recovery: components["schemas"]["HrvRecovery"];
             quality: components["schemas"]["HrvDataQuality"];
             baseline: components["schemas"]["HrvBaseline"] | null;
-            streak: components["schemas"]["HrvStreak"] | null;
             /**
              * Insights
              * @default []
@@ -2981,9 +2980,10 @@ export interface components {
          * @description Pre-computed day-of-week HRV pattern for a time window.
          *
          *     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
-         *     in the window (true grand mean, not a mean-of-weekday-means). Provided so
-         *     the frontend can use a backend-computed reference for relative bar colouring
-         *     without doing any statistical computation itself.
+         *     in the window (true grand mean, not a mean-of-weekday-means). ``total_sample_count``
+         *     is the number of nights represented across the weekday buckets (the sum of their
+         *     ``sample_count`` values). Both are provided so the frontend can show a
+         *     backend-authoritative reference and total without doing any aggregation itself.
          */
         HrvPatternWindow: {
             /**
@@ -2993,6 +2993,11 @@ export interface components {
             day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
             /** Overall Avg */
             overall_avg: number | null;
+            /**
+             * Total Sample Count
+             * @default 0
+             */
+            total_sample_count: number;
         };
         /**
          * HrvRecovery
@@ -3019,24 +3024,6 @@ export interface components {
             hrv_values: components["schemas"]["HrvValue"][];
             /** Hrv Summaries */
             hrv_summaries: components["schemas"]["HrvSummary"][];
-        };
-        /**
-         * HrvStreak
-         * @description Current and recent HRV status streak information.
-         */
-        HrvStreak: {
-            /** Current Status */
-            current_status: string | null;
-            /**
-             * Streak Days
-             * @default 0
-             */
-            streak_days: number;
-            /**
-             * Worst Recent Streak
-             * @default 0
-             */
-            worst_recent_streak: number;
         };
         /**
          * HrvSummary

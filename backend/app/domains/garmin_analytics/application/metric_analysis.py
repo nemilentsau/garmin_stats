@@ -6,6 +6,7 @@ chart series, distributions, and boxplots are computed in `domain.analysis`.
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
+    BASELINE_WINDOW_DEFAULT,
     BodyBatteryAnalysisResponse,
     HeartRateAnalysisResponse,
     HRDistributionResponse,
@@ -20,7 +21,10 @@ from app.domains.garmin_analytics.domain.analysis.heart_rate import (
     compute_heart_rate_analysis,
     compute_hr_distribution,
 )
-from app.domains.garmin_analytics.domain.analysis.hrv import compute_hrv_analysis
+from app.domains.garmin_analytics.domain.analysis.hrv import (
+    compute_nightly_hrv_trend,
+    compute_pattern_windows,
+)
 from app.domains.garmin_analytics.domain.analysis.sleep import compute_sleep_analysis
 from app.domains.garmin_analytics.domain.analysis.stress import compute_stress_analysis
 from app.infra import cache
@@ -81,14 +85,24 @@ def load_hr_distribution(
     )
 
 
-def load_hrv_analysis(repo: BiometricReadRepository, baseline: int = 60) -> HrvAnalysisResponse:
+def load_hrv_analysis(
+    repo: BiometricReadRepository, baseline: int = BASELINE_WINDOW_DEFAULT
+) -> HrvAnalysisResponse:
     """Load cached HRV trend and weekday-pattern analysis.
 
-    The cache key includes the baseline window so that requests with different
-    windows cache independently.  Generation-based invalidation in ``cache.cached``
-    still applies to all per-window keys, so re-ingest correctly invalidates them.
+    The nightly trend's band depends on the baseline window, so it is cached per window.
+    The weekday pattern windows are baseline-independent, so they are cached once under a
+    single key and reused across windows — avoiding the triple compute and storage the old
+    combined per-window key incurred. Generation-based invalidation in ``cache.cached`` still
+    refreshes both on re-ingest, and ``load_daily_metrics`` is itself cached, so the two
+    cache-miss paths never re-read the mart.
     """
-    return cache.cached(
-        f"{cache.HRV_ANALYSIS}:{baseline}",
-        lambda: compute_hrv_analysis(repo.load_daily_metrics(), window=baseline),
+    trend = cache.cached(
+        f"{cache.HRV_TREND}:{baseline}",
+        lambda: compute_nightly_hrv_trend(repo.load_daily_metrics(), window=baseline),
     )
+    patterns = cache.cached(
+        cache.HRV_PATTERNS,
+        lambda: compute_pattern_windows(repo.load_daily_metrics()),
+    )
+    return HrvAnalysisResponse(nightly_trend=trend, pattern_windows=patterns)

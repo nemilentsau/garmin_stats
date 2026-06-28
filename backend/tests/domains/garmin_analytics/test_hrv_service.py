@@ -371,59 +371,11 @@ class TestStdev:
 
 
 class TestStreak:
-    def test_three_consecutive_same_status_days(self):
-        for d in ["2026-01-13", "2026-01-14", "2026-01-15"]:
-            _insert_metric(_make_daily_metric(
-                date=d, nightly_avg=40.0, weekly_avg=55.0,
-                hrv_status="low", sleep_score=70, resting_hr=50,
-            ))
-            _insert_hrv_day(d, [
-                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
-            ])
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.streak is not None
-        assert result.streak.current_status == "Low"
-        assert result.streak.streak_days == 3
-
-    def test_single_day_streak_is_one(self):
-        _insert_metric(_make_daily_metric(
-            date="2026-01-14",
-            nightly_avg=60.0, weekly_avg=60.0,
-            hrv_status="balanced", sleep_score=85, resting_hr=46,
-        ))
-        _insert_metric(_make_daily_metric(
-            date="2026-01-15",
-            nightly_avg=40.0, weekly_avg=55.0,
-            hrv_status="low", sleep_score=70, resting_hr=50,
-        ))
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=40.0),
-        ])
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.streak is not None
-        assert result.streak.streak_days == 1
-
-    def test_worst_recent_streak_finds_longest_bad_run(self):
-        # Balanced, then 4 low, then 1 balanced, then 2 low (selected)
-        dates = [f"2026-01-{d:02d}" for d in range(8, 16)]
-        statuses = ["balanced", "low", "low", "low", "low", "balanced", "low", "low"]
-        for d, s in zip(dates, statuses, strict=True):
-            _insert_metric(_make_daily_metric(
-                date=d,
-                nightly_avg=40.0 if s == "low" else 60.0,
-                weekly_avg=55.0,
-                hrv_status=s, sleep_score=70, resting_hr=50,
-            ))
-            _insert_hrv_day(d, [
-                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=40.0),
-            ])
-
-        result = load_hrv_insights("2026-01-15")
-        assert result.streak is not None
-        assert result.streak.worst_recent_streak == 4
-
+    # The streak count is an internal input to the low-streak insight rule (not serialized),
+    # so coverage lives on the observable insight: it fires at >= 3 consecutive low days,
+    # stays silent below the threshold, and ignores non-low statuses. These three cases
+    # exercise the streak counting (accumulate + break) and the status gate through the
+    # only consumer that exists.
     def test_low_streak_ge_3_fires_warning_insight(self):
         for d in ["2026-01-13", "2026-01-14", "2026-01-15"]:
             _insert_metric(_make_daily_metric(
