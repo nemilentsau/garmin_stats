@@ -27,6 +27,25 @@ display that reacts to one night will mostly react to noise. The useful signal l
 
 ---
 
+## Trend vs Today — never conflate
+
+The tab shows two distinct signals that must never be merged:
+
+- **Trend / direction** — the 7-day moving average, the typical-range ribbon, and the
+  history strip (colored by the averaged trend: where the MA sits vs the typical-range
+  band). Built from averages; a single night barely moves it.
+- **Today** — tonight's actual value and its delta vs the recent baseline; and, for a
+  selected past night, that night's own z. A single, un-smoothed reading.
+
+Rules:
+1. Tonight's recovery verdict is decided by the nightly-vs-recent-baseline delta **only**.
+2. Garmin's own HRV status is a separate, labelled signal (its own chip) — never folded
+   into the verdict and never the strip color.
+3. The history strip is colored by the averaged trend, never by a single night's status
+   (a single night flips ~63% of consecutive nights — that is noise, not signal).
+
+---
+
 ## What we found
 
 ### 1. The recovery "status" pill was displaying coin-flips
@@ -111,9 +130,11 @@ user's actual question.
 **State**
 
 - **Summary strip:** the latest night's HRV in ms (no status word) and its signed difference vs the
-  recent baseline, shown in neutral text — no good/bad color verdict, since a single night is noise
-  and the delta (tonight vs trailing-7d) is a different question than Garmin's multi-day status.
-  Recovery state appears only as backend insight text below, not as a headline pill or a delta color.
+  recent baseline — the **recovery verdict, delta-only** (tonight vs trailing-7d). Garmin's own HRV
+  status appears beside it as a **separate, labelled chip**, never folded into that verdict. No
+  good/bad color on the delta: a single night is noise, and the strip color is owned by the averaged
+  trend, not this reading. Recovery state appears only as backend insight text below, not as a
+  headline pill or a delta color.
 - **Nightly trend chart (hero):** a bold 7-day moving-average line over a **moving "typical range"
   ribbon** computed from a **trailing, user-selectable baseline window** (30 / 60 / 90 days, default
   60; robust median ± 1σ via MAD × 1.4826, current night excluded). The ribbon drifts with the
@@ -126,8 +147,11 @@ user's actual question.
   tab. It is visually distinct from the separate display-range picker (labelled **Baseline** vs
   **Show**).
 - **History timeline + selected-night detail:** a labelled timeline (visible dates, month markers,
-  keyboard nav); selecting a night shows how it ranks as a **trailing-window z** ("±X SD vs your
-  N-day baseline") rather than an all-history percentile, plus that night's insights.
+  keyboard nav) **colored by the averaged trend** — where the 7-day MA sits vs the typical-range
+  band (`trend_state`) — not by any single night's own status, so the strip reflects sustained
+  direction rather than a flickering nightly verdict. Selecting a night shows how it ranks as a
+  **trailing-window z** ("±X SD vs your N-day baseline") rather than an all-history percentile,
+  plus that night's insights.
 
 **Structure**
 
