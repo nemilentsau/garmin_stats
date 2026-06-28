@@ -295,27 +295,36 @@
 		return status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : null;
 	}
 
+	// ── History strip colors: by the AVERAGED TREND (ma7 vs typical-range band), not
+	// per-night status — a single night is noise. trend_state comes from the backend. ──
+	const TREND_STATE_COLORS: Record<string, string> = {
+		below: COLORS.heartRate,          // red — trend below the typical range
+		within: COLORS.heartRateResting,  // green — within the typical range
+		above: COLORS.respiration         // teal — above the typical range
+	};
+	const TREND_STATE_LABELS: Record<string, string> = {
+		below: 'Below typical',
+		within: 'Within typical',
+		above: 'Above typical'
+	};
+
 	let dayStatusMap = $derived.by(() => {
 		const map = new Map<string, string>();
-		if (!agg) return map;
-		for (const d of agg.daily) {
-			const key = statusKey(d.hrv.status);
-			map.set(d.date, (key && HRV_STATUS_COLORS[key]) || UNKNOWN_STATUS_COLOR);
+		for (const p of analysis?.nightly_trend ?? []) {
+			map.set(p.date, (p.trend_state && TREND_STATE_COLORS[p.trend_state]) || UNKNOWN_STATUS_COLOR);
 		}
 		return map;
 	});
 
-	// Legend entries derived from the statuses actually present, in palette order — so every
-	// colored cell has a key, none drift from the cells, and absent statuses aren't shown.
+	// Legend entries derived from the trend states actually present, in palette order.
 	let statusLegend = $derived.by(() => {
 		const present = new Set<string>();
-		for (const d of agg?.daily ?? []) {
-			const key = statusKey(d.hrv.status);
-			if (key && key in HRV_STATUS_COLORS) present.add(key);
+		for (const p of analysis?.nightly_trend ?? []) {
+			if (p.trend_state) present.add(p.trend_state);
 		}
-		return Object.keys(HRV_STATUS_COLORS)
-			.filter((label) => present.has(label))
-			.map((label) => ({ label, color: HRV_STATUS_COLORS[label] }));
+		return Object.keys(TREND_STATE_COLORS)
+			.filter((s) => present.has(s))
+			.map((s) => ({ label: TREND_STATE_LABELS[s], color: TREND_STATE_COLORS[s] }));
 	});
 
 	// ── Navigation ──

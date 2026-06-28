@@ -88,6 +88,15 @@ test('hrv surfaces Garmin status as its own labelled chip, separate from the ver
 	assert.match(page, /statusKey\((historicalDayStats|latestDayStats)\?\.status\)/);
 });
 
+test('hrv history strip is colored by the averaged trend, not per-night status', () => {
+	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
+	// Strip colors come from the trend_state of the nightly trend (averages), not Garmin per-night status.
+	assert.match(page, /TREND_STATE_COLORS/);
+	assert.match(page, /nightly_trend[\s\S]*?trend_state/);
+	// The day cell color is driven by dayStatusMap built from trend_state.
+	assert.match(page, /dayStatusMap\.get\(day\) \?\? UNKNOWN_STATUS_COLOR/);
+});
+
 test('hrv history strip keeps nights selectable instead of compressing all days', () => {
 	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
 
