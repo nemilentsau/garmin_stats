@@ -42,11 +42,8 @@ def compute_nightly_hrv_trend(
     ]
 
 
-def compute_pattern_window(
-    metrics: list[DailyMetric],
-    selected_nightly: float | None,
-) -> HrvPatternWindow:
-    """Distribution + day-of-week stats for a given slice of metrics.
+def compute_pattern_window(metrics: list[DailyMetric]) -> HrvPatternWindow:
+    """Day-of-week stats for a given slice of metrics.
 
     ``overall_avg`` is the sample-weighted grand mean (not a mean-of-means) so
     the frontend can colour day-of-week bars relative to a backend-authoritative
@@ -56,22 +53,16 @@ def compute_pattern_window(
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
     return HrvPatternWindow(
-        distribution=hrv_patterns.compute_hrv_distribution(
-            nightly_vals, selected_nightly,
-        ),
         day_of_week=hrv_patterns.compute_day_of_week(metrics),
         overall_avg=safe_avg(nightly_vals),
     )
 
 
-def compute_pattern_windows(
-    metrics: list[DailyMetric],
-    selected_nightly: float | None,
-) -> dict[str, HrvPatternWindow]:
+def compute_pattern_windows(metrics: list[DailyMetric]) -> dict[str, HrvPatternWindow]:
     """Pre-compute pattern stats for each time window."""
     return compute_windows(
         metrics,
-        lambda subset: compute_pattern_window(subset, selected_nightly),
+        compute_pattern_window,
     )
 
 
@@ -80,10 +71,7 @@ def compute_hrv_analysis(
     window: int = BASELINE_WINDOW_DEFAULT,
 ) -> HrvAnalysisResponse:
     """Compute HRV analysis read model from daily metrics."""
-    selected_nightly: float | None = None
-    if metrics and metrics[-1].hrv.nightly_avg is not None:
-        selected_nightly = metrics[-1].hrv.nightly_avg
     return HrvAnalysisResponse(
         nightly_trend=compute_nightly_hrv_trend(metrics, window=window),
-        pattern_windows=compute_pattern_windows(metrics, selected_nightly),
+        pattern_windows=compute_pattern_windows(metrics),
     )

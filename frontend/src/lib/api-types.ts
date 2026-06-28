@@ -2947,38 +2947,6 @@ export interface components {
             sample_count: number;
         };
         /**
-         * HrvDistribution
-         * @description Nightly HRV distribution and selected-day percentile.
-         */
-        HrvDistribution: {
-            /**
-             * Bins
-             * @default []
-             */
-            bins: components["schemas"]["HrvDistributionBin"][];
-            /**
-             * Total Days
-             * @default 0
-             */
-            total_days: number;
-            /** Selected Value */
-            selected_value: number | null;
-            /** Selected Percentile */
-            selected_percentile: number | null;
-        };
-        /**
-         * HrvDistributionBin
-         * @description One histogram bin for nightly HRV values.
-         */
-        HrvDistributionBin: {
-            /** Bin Start */
-            bin_start: number;
-            /** Bin End */
-            bin_end: number;
-            /** Count */
-            count: number;
-        };
-        /**
          * HrvInsight
          * @description One selected-day HRV insight message.
          */
@@ -3010,7 +2978,7 @@ export interface components {
         };
         /**
          * HrvPatternWindow
-         * @description Pre-computed distribution + day-of-week for a time window.
+         * @description Pre-computed day-of-week HRV pattern for a time window.
          *
          *     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
          *     in the window (true grand mean, not a mean-of-weekday-means). Provided so
@@ -3018,7 +2986,6 @@ export interface components {
          *     without doing any statistical computation itself.
          */
         HrvPatternWindow: {
-            distribution: components["schemas"]["HrvDistribution"] | null;
             /**
              * Day Of Week
              * @default []

@@ -16,6 +16,7 @@
 ## Visual Verification (non-negotiable)
 - **All UX/frontend changes MUST be visually examined** using browser MCP tools (screenshot, read_page) before considering work complete.
 - Take screenshots of every page/component modified and verify the result looks correct and is usable.
+- This is a desktop web app today, not a mobile app. Default visual verification is the normal desktop browser viewport; do not run mobile breakpoints, touch-target audits, or mobile screenshots unless the task explicitly targets responsive/mobile behavior.
 - Never ship frontend changes based solely on code review — always confirm visually in the running app.
 
 ## Key Constraints
@@ -76,7 +77,7 @@ Six skills support this project. Each owns specific code layers:
 **Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
 - Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces. Includes the **"Cards Are a Last Resort" forcing rule** — apply it before any card/grid layout; the per-metric detail tabs are exempt.
-- Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools
+- Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools at the desktop web viewport unless mobile/responsive behavior is explicitly in scope
 
 ### `testing` — test discipline
 **Owns:** test files in `backend/tests/`, test patterns and conventions

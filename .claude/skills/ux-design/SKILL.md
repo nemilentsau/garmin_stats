@@ -20,7 +20,7 @@ This project is a dense Garmin health, assistant, Today, and routine-management 
 - Use stable dimensions for boards, charts, tiles, icon buttons, counters, and toolbars so state changes do not shift layout.
 - Use the existing app typography and tokens unless there is a clear product reason to change them. Numeric data must use tabular lining figures.
 - Color encodes metric identity, state, or action. Avoid decorative gradients, orbs, bokeh, and purple-blue default palettes.
-- Text must fit at mobile and desktop widths. Compact panels need compact headings, not hero-scale type.
+- Text must fit in the supported desktop web viewport. Mobile/responsive layout is out of current product scope unless the user explicitly asks for it.
 
 ## Cards Are a Last Resort (forcing rule)
 
@@ -49,4 +49,4 @@ After frontend changes:
 cd frontend && npm run check
 ```
 
-Run the app and visually inspect every modified page/component with browser MCP screenshots. Confirm text fit, chart readability, empty/loading/error states, and mobile/desktop usability.
+Run the app and visually inspect every modified page/component with browser MCP screenshots at the normal desktop web viewport. Confirm text fit, chart readability, empty/loading/error states, and desktop usability. Do not treat mobile/touch behavior as a blocker unless mobile/responsive behavior is explicitly in scope.

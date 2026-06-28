@@ -90,23 +90,6 @@ class HeartRateAnalysisResponse(DefaultsRequired):
     pattern_windows: dict[str, HRPatternWindow] = {}
 
 
-class HrvDistributionBin(DefaultsRequired):
-    """One histogram bin for nightly HRV values."""
-
-    bin_start: float
-    bin_end: float
-    count: int
-
-
-class HrvDistribution(DefaultsRequired):
-    """Nightly HRV distribution and selected-day percentile."""
-
-    bins: list[HrvDistributionBin] = []
-    total_days: int = 0
-    selected_value: float | None = None
-    selected_percentile: float | None = None
-
-
 class HrvDayOfWeekBucket(DefaultsRequired):
     """Average nightly HRV for one weekday."""
 
@@ -129,7 +112,7 @@ class NightlyHrvTrendPoint(DefaultsRequired):
 
 
 class HrvPatternWindow(DefaultsRequired):
-    """Pre-computed distribution + day-of-week for a time window.
+    """Pre-computed day-of-week HRV pattern for a time window.
 
     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
     in the window (true grand mean, not a mean-of-weekday-means). Provided so
@@ -137,7 +120,6 @@ class HrvPatternWindow(DefaultsRequired):
     without doing any statistical computation itself.
     """
 
-    distribution: HrvDistribution | None = None
     day_of_week: list[HrvDayOfWeekBucket] = []
     overall_avg: float | None = None
 

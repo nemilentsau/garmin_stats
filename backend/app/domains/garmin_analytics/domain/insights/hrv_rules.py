@@ -106,10 +106,10 @@ def baseline_rule(ctx: InsightContext) -> HrvInsight | None:
         return None
     return HrvInsight(
         level="caution",
-        title=f"7-day baseline is trending below {b.window_days}-day average",
+        title=f"7-day baseline is trending below {b.window_days}-day baseline",
         detail=(
             f"Recent 7-day baseline is {b.delta_7d_vs_baseline:+.1f} ms versus the "
-            f"{b.window_days}-day average of {b.baseline:.1f} ms."
+            f"{b.window_days}-day baseline of {b.baseline:.1f} ms."
         ),
     )
 

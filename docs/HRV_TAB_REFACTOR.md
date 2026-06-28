@@ -110,9 +110,8 @@ user's actual question.
 
 **State**
 
-- **Summary strip:** the latest night's HRV in ms (no status word), its signed difference vs the
-  recent baseline, the recovery state, and a coverage note when the night's data is thin. Garmin's
-  own status, if shown, stays a separate chip.
+- **Summary strip:** the latest night's HRV in ms (no status word) and its signed difference vs the
+  recent baseline. Recovery state appears only as backend insight text below, not as a headline pill.
 - **Nightly trend chart (hero):** a bold 7-day moving-average line over a **moving "typical range"
   ribbon** computed from a **trailing, user-selectable baseline window** (30 / 60 / 90 days, default
   60; robust median ± 1σ via MAD × 1.4826, current night excluded). The ribbon drifts with the

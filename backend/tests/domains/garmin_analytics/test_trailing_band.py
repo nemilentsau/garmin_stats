@@ -154,6 +154,7 @@ def test_hrv_analysis_drops_boxplots_and_threads_window(tmp_db):
     assert isinstance(resp.pattern_windows, dict)
     # Retired field must not be present
     assert not hasattr(resp, "weekly_boxplots")
+    assert all(not hasattr(window, "distribution") for window in resp.pattern_windows.values())
     assert resp.nightly_trend[-1].band_low is not None
 
 

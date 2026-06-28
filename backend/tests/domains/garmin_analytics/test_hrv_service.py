@@ -256,7 +256,7 @@ class TestHrvInsights:
         assert insights.baseline.delta_7d_vs_baseline is not None
         assert insights.baseline.delta_7d_vs_baseline < -5
         titles = {item.title for item in insights.insights}
-        assert "7-day baseline is trending below 60-day average" in titles
+        assert "7-day baseline is trending below 60-day baseline" in titles
 
     def test_baseline_rule_silent_at_minus_5_boundary(self):
         from datetime import date, timedelta
@@ -272,7 +272,7 @@ class TestHrvInsights:
         assert insights.baseline is not None
         assert insights.baseline.delta_7d_vs_baseline == -5.0
         titles = {item.title for item in insights.insights}
-        assert "7-day baseline is trending below 60-day average" not in titles
+        assert "7-day baseline is trending below 60-day baseline" not in titles
 
 
 class TestRecoveryStatusRule:
@@ -474,71 +474,6 @@ class TestStreak:
         titles = {item.title for item in result.insights}
         assert "Extended low HRV streak" not in titles
 
-
-
-class TestHrvDistribution:
-    def test_returns_none_when_fewer_than_7_days(self):
-        result = hrv_patterns.compute_hrv_distribution(
-            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0],
-            50.0,
-        )
-
-        assert result is None
-
-    def test_returns_distribution_with_exactly_7_days(self):
-        result = hrv_patterns.compute_hrv_distribution(
-            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0],
-            52.0,
-        )
-
-        assert result is not None
-        assert result.total_days == 7
-
-    def test_5ms_bin_width_verified(self):
-        result = hrv_patterns.compute_hrv_distribution(
-            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0],
-            52.0,
-        )
-
-        assert result is not None
-        for b in result.bins:
-            assert b.bin_end - b.bin_start == 5.0
-
-    def test_selected_percentile_highest_value_is_100(self):
-        result = hrv_patterns.compute_hrv_distribution(
-            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 60.0],
-            60.0,
-        )
-
-        assert result is not None
-        assert result.selected_percentile == 100.0
-
-    def test_none_nightly_avg_values_excluded(self):
-        present_values = [
-            v for v in [40.0, 42.0, None, 46.0, None, None, 48.0, 50.0]
-            if v is not None
-        ]
-        result = hrv_patterns.compute_hrv_distribution(present_values, 50.0)
-
-        assert result is None
-
-    def test_boundary_value_placed_in_correct_bin(self):
-        result = hrv_patterns.compute_hrv_distribution(
-            [30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0],
-            60.0,
-        )
-
-        assert result is not None
-        bin_45 = next(
-            (b for b in result.bins if b.bin_start == 45.0), None,
-        )
-        assert bin_45 is not None
-        assert bin_45.count == 1
-        bin_40 = next(
-            (b for b in result.bins if b.bin_start == 40.0), None,
-        )
-        assert bin_40 is not None
-        assert bin_40.count == 1
 
 
 class TestTrajectory:

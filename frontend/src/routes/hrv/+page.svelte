@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { replaceState } from '$app/navigation';
 	import {
@@ -47,6 +47,8 @@
 	let historyOpen = $state(false);
 	let dayHover: { date: string; x: number; y: number } | null = $state(null);
 	let historicalInsights: HrvInsights | null = $state(null);
+	let dayStripContainer: HTMLDivElement | null = $state(null);
+	let timelineHasAutoScrolled = false;
 	let dateRequestId = 0;
 	let baselineRequestId = 0;
 	// Monotonic guard for fetchData itself: out-of-order completions (e.g. rapid
@@ -107,12 +109,22 @@
 		if (options.clearDetailError ?? true) {
 			detailError = null;
 		}
+		void scrollTimelineToLatestOnce();
+	}
+
+	async function scrollTimelineToLatestOnce() {
+		if (timelineHasAutoScrolled) return;
+		await tick();
+		if (!dayStripContainer) return;
+		dayStripContainer.scrollLeft = dayStripContainer.scrollWidth;
+		timelineHasAutoScrolled = true;
 	}
 
 	async function fetchData() {
 		const seq = ++fetchSeq;
-		const snapshot = await loadHrvSnapshot(baselineWindow);
-		if (seq !== fetchSeq) return;
+		const requestedBaseline = baselineWindow;
+		const snapshot = await loadHrvSnapshot(requestedBaseline);
+		if (seq !== fetchSeq || requestedBaseline !== baselineWindow) return;
 		applyHrvSnapshot(snapshot, { clearDetailError: selectedDate === '' });
 	}
 
@@ -160,6 +172,7 @@
 		const selectedForBaseline = selectedDate;
 		baselineWindow = w;
 		setBaselineUrl(w);
+		++fetchSeq;
 		const requestId = ++baselineRequestId;
 		baselineLoading = true;
 		try {
@@ -523,12 +536,6 @@
 				</span>
 			{/if}
 		</div>
-		<div class="stat-item">
-			<span class="stat-label">Recovery</span>
-			<span class="recovery-pill" style="background: {recoveryColor(latestRecovery?.status)}20; color: {recoveryColor(latestRecovery?.status)}; border-color: {recoveryColor(latestRecovery?.status)}40;">
-				{latestRecovery?.status ? latestRecovery.status.replace('_', ' ').toUpperCase() : '-'}
-			</span>
-		</div>
 	</div>
 
 	<!-- Insight line — latest night -->
@@ -589,7 +596,7 @@
 			</button>
 			<button class="nav-arrow" disabled={!canNext} onclick={() => navigateDay(1)}>→</button>
 		</div>
-		<div class="day-strip-container">
+		<div class="day-strip-container" bind:this={dayStripContainer}>
 			<div
 				class="day-strip"
 				role="toolbar"
@@ -613,7 +620,7 @@
 			</div>
 			<div class="month-axis" aria-hidden="true">
 				{#each monthSegments as seg}
-					<span class="month-tick" style="flex: {seg.count};">{seg.label}</span>
+					<span class="month-tick" style="--days: {seg.count};">{seg.label}</span>
 				{/each}
 			</div>
 			<div class="day-strip-legend">
@@ -780,7 +787,7 @@
 	/* ── Stat Bar ── */
 	.stat-bar {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: minmax(0, 1fr);
 		gap: 1px;
 		background: rgba(255,255,255,0.06);
 		border-radius: 10px;
@@ -817,18 +824,6 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		margin-top: 2px;
-	}
-
-	/* Recovery pill */
-	.recovery-pill {
-		font-family: 'DM Mono', monospace;
-		font-size: 16px;
-		font-weight: 600;
-		letter-spacing: 2px;
-		padding: 4px 14px;
-		border-radius: 20px;
-		border: 1px solid;
-		margin-top: 4px;
 	}
 
 	/* ── Insight line ── */
@@ -911,20 +906,29 @@
 
 	.day-strip-container {
 		flex: 1;
-		overflow: hidden;
+		overflow-x: auto;
+		overflow-y: visible;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255,255,255,0.18) transparent;
 	}
 	.day-strip {
 		display: flex;
-		gap: 0;
+		gap: 2px;
 		padding: 2px 0;
+		width: max-content;
 	}
-	.day-strip::-webkit-scrollbar { display: none; }
+	.day-strip-container::-webkit-scrollbar { height: 6px; }
+	.day-strip-container::-webkit-scrollbar-thumb {
+		background: rgba(255,255,255,0.18);
+		border-radius: 999px;
+	}
+	.day-strip-container::-webkit-scrollbar-track { background: transparent; }
 
 	.day-cell {
-		flex: 1;
-		min-width: 0;
+		flex: 0 0 8px;
+		min-width: 8px;
 		height: 28px;
-		border-radius: 0;
+		border-radius: 2px;
 		border: none;
 		cursor: pointer;
 		transition: all 0.12s;
@@ -1179,8 +1183,10 @@
 		display: flex;
 		gap: 0;
 		margin-top: 4px;
+		width: max-content;
 	}
 	.month-tick {
+		flex: 0 0 calc(var(--days) * 10px);
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
@@ -1301,7 +1307,7 @@
 
 	/* ── Responsive ── */
 	@media (max-width: 768px) {
-		.stat-bar { grid-template-columns: repeat(2, 1fr); }
+		.stat-bar { grid-template-columns: minmax(0, 1fr); }
 		.day-nav { flex-direction: column; align-items: stretch; }
 		.two-col-row { flex-direction: column; }
 	}
