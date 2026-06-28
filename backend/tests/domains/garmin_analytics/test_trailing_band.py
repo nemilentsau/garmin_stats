@@ -331,6 +331,32 @@ def test_pattern_windows_are_identical_across_baseline_windows(tmp_db):
     # collision regression is covered by test_hrv_analysis_cache_does_not_collide_across_baselines.
 
 
+def test_nightly_trend_state_classifies_ma_against_band(tmp_db):
+    """trend_state colors the historical strip by the averaged trend: it classifies the
+    7-day MA against the trailing typical-range band (below / within / above), and is None
+    for warmup/gap points."""
+    from datetime import date, timedelta
+
+    start = date(2026, 4, 1)
+    # 30 nights so later points have a real band; mostly ~60 ms, then a sustained drop.
+    for i in range(25):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=60.0 + (i % 4)))
+    for i in range(25, 35):
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=35.0))  # sustained low
+
+    repo = SqliteBiometricRepository()
+    trend = {p.date: p for p in load_hrv_analysis(repo, baseline=30).nightly_trend}
+
+    # Warmup: first point has no band -> no trend_state.
+    assert trend[start.isoformat()].trend_state is None
+    # After a sustained drop, the MA sits below the trailing band.
+    assert trend[(start + timedelta(days=34)).isoformat()].trend_state == "below"
+    # Every classified value is one of the allowed states.
+    assert {p.trend_state for p in trend.values()} <= {None, "below", "within", "above"}
+
+
 def test_hrv_pattern_cache_refreshes_after_invalidation(tmp_db):
     """The shared pattern cache must participate in generation invalidation: a re-ingest
     (cache.invalidate) refreshes it instead of serving the pre-ingest patterns."""

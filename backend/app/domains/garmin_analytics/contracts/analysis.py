@@ -115,6 +115,7 @@ class NightlyHrvTrendPoint(DefaultsRequired):
     band_high: float | None = None
     z: float | None = None
     is_extreme: bool = False
+    trend_state: str | None = None  # "below" | "within" | "above" of the typical-range band
 
 
 class HrvPatternWindow(DefaultsRequired):

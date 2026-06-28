@@ -21,6 +21,23 @@ from app.domains.garmin_health.contracts import (
 from app.utils.numeric import safe_avg
 
 
+def _trend_state(
+    ma7: float | None, band_low: float | None, band_high: float | None
+) -> str | None:
+    """Where the 7-day MA sits relative to the trailing typical-range band.
+
+    The historical strip colors by this (the averaged trend), not by a single night's
+    status — a single night is noise. None during warmup/gaps (no band or no MA).
+    """
+    if ma7 is None or band_low is None or band_high is None:
+        return None
+    if ma7 < band_low:
+        return "below"
+    if ma7 > band_high:
+        return "above"
+    return "within"
+
+
 def _daily_calendar(start_iso: str, end_iso: str) -> list[str]:
     """Inclusive list of ISO dates from ``start_iso`` to ``end_iso``, one per calendar day."""
     start = date_type.fromisoformat(start_iso)
@@ -63,6 +80,7 @@ def compute_nightly_hrv_trend(
                 band_high=band[i].band_high,
                 z=band[i].z,
                 is_extreme=band[i].is_extreme,
+                trend_state=_trend_state(ma7_values[i], band[i].band_low, band[i].band_high),
             )
 
     # Fill entirely-absent calendar days (no row) with gap points too, so device-off

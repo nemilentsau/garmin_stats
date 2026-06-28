@@ -3208,6 +3208,8 @@ export interface components {
              * @default false
              */
             is_extreme: boolean;
+            /** Trend State */
+            trend_state: string | null;
         };
         /**
          * Note
