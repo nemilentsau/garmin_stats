@@ -80,6 +80,14 @@ test('hrv headline does not render the retired recovery status pill', () => {
 	assert.doesNotMatch(page, /<span class="stat-label">Recovery<\/span>/);
 });
 
+test('hrv surfaces Garmin status as its own labelled chip, separate from the verdict', () => {
+	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
+	assert.match(page, /class="garmin-chip"/);
+	assert.match(page, /Garmin:/);
+	// The chip reads the raw Garmin per-day status, not the recovery verdict.
+	assert.match(page, /statusKey\((historicalDayStats|latestDayStats)\?\.status\)/);
+});
+
 test('hrv history strip keeps nights selectable instead of compressing all days', () => {
 	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
 

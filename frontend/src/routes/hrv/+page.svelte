@@ -552,6 +552,16 @@
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
 
+{#snippet garminChip(status: string | null | undefined)}
+	{@const key = statusKey(status)}
+	{#if key}
+		<span class="garmin-chip" title="Garmin's own multi-day HRV status — a separate signal from tonight's recovery">
+			<i class="garmin-dot" style="background: {HRV_STATUS_COLORS[key] ?? UNKNOWN_STATUS_COLOR};"></i>
+			Garmin: {key}
+		</span>
+	{/if}
+{/snippet}
+
 {#if !agg && error}
 	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
 		<p class="text-[#E85D4A]">Error: {error}</p>
@@ -588,6 +598,8 @@
 			{/if}
 		</div>
 	</div>
+
+	{@render garminChip(statusKey(latestDayStats?.status))}
 
 	<!-- Insight line — latest night -->
 	{#if latestInsights && latestInsights.insights.length > 0}
@@ -695,6 +707,7 @@
 			<div class="history-detail-header">
 				<div class="history-detail-title">
 					<span class="history-date">{selectedDate}</span>
+					{@render garminChip(statusKey(historicalDayStats?.status))}
 					{#if historicalDayStats?.nightly_avg != null && latestDayStats?.nightly_avg != null}
 						<span class="history-comparison">
 							Nightly: <strong>{fmt(historicalDayStats.nightly_avg)}</strong> ms
@@ -1358,6 +1371,24 @@
 		pointer-events: none;
 		white-space: nowrap;
 		z-index: 100;
+	}
+
+	/* ── Garmin status chip ── */
+	.garmin-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		color: #8a9baa;
+	}
+	.garmin-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		display: inline-block;
 	}
 
 	/* ── Responsive ── */
