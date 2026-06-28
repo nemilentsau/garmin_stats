@@ -599,8 +599,9 @@
 			</span>
 			<span class="stat-unit">ms</span>
 			{#if latestRecovery?.delta_nightly_from_baseline != null}
-				<!-- Neutral, non-verdict color: the delta is a single-night vs trailing-7d number;
-				     recovery state (which folds in Garmin's multi-day status) lives in the insight line below. -->
+				<!-- Neutral, non-verdict color: the delta is a single-night vs trailing-7d number
+				     (a "today" signal). Recovery state lives in the insight line below; Garmin's
+				     multi-day status is its own separate chip — neither is folded in here. -->
 				<span class="stat-delta">
 					{fmtSigned(latestRecovery.delta_nightly_from_baseline)} vs {fmt(latestRecovery.baseline_nightly_7d)} avg
 				</span>

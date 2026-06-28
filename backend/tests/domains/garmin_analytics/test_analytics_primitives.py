@@ -121,7 +121,7 @@ def test_trailing_sd_window_excludes_old_values():
     assert out[-1] == round(float(np.std([1.0, 2.0, 3.0], ddof=1)), 3)
 
 
-def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
+def test_hrv_recovery_classifier_delta_only_thresholds():
     hrv_analysis = import_module("app.domains.garmin_analytics.domain.analysis.hrv")
     assert not hasattr(hrv_analysis, "classify_hrv_recovery")
 
