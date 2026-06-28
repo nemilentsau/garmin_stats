@@ -1,14 +1,15 @@
 <script lang="ts">
-	const WINDOWS = [30, 60, 90] as const;
+	import { HRV_BASELINE_WINDOWS, type HrvBaselineWindow } from '$lib/hrv-baseline';
+
 	let {
 		value,
 		onchange,
 		disabled = false
-	}: { value: number; onchange: (w: number) => void; disabled?: boolean } = $props();
+	}: { value: HrvBaselineWindow; onchange: (w: HrvBaselineWindow) => void; disabled?: boolean } = $props();
 </script>
 
 <div class="range-picker">
-	{#each WINDOWS as w}
+	{#each HRV_BASELINE_WINDOWS as w}
 		<button
 			class="range-btn"
 			class:active={value === w}

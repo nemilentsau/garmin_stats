@@ -5,9 +5,9 @@ from importlib import import_module
 
 import numpy as np
 
-from app.domains.garmin_analytics.domain.analysis import hrv
 from app.domains.garmin_analytics.domain.primitives import trends
 from app.domains.garmin_analytics.domain.primitives.trends import trailing_sd
+from app.domains.garmin_health.domain.daily_metrics.hrv import classify_hrv_recovery
 from app.utils import numeric
 
 
@@ -122,14 +122,15 @@ def test_trailing_sd_window_excludes_old_values():
 
 
 def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
-    assert hasattr(hrv, "classify_hrv_recovery")
+    hrv_analysis = import_module("app.domains.garmin_analytics.domain.analysis.hrv")
+    assert not hasattr(hrv_analysis, "classify_hrv_recovery")
 
-    assert hrv.classify_hrv_recovery(delta=None, status="Balanced") is None
-    assert hrv.classify_hrv_recovery(delta=-10, status="Balanced") == "suppressed"
-    assert hrv.classify_hrv_recovery(delta=-9.9, status="Low") == "suppressed"
-    assert hrv.classify_hrv_recovery(delta=-5, status="Balanced") == "below_baseline"
-    assert hrv.classify_hrv_recovery(delta=8, status="Balanced") == "elevated"
-    assert hrv.classify_hrv_recovery(delta=0, status="Balanced") == "stable"
+    assert classify_hrv_recovery(delta=None, status="Balanced") is None
+    assert classify_hrv_recovery(delta=-10, status="Balanced") == "suppressed"
+    assert classify_hrv_recovery(delta=-9.9, status="Low") == "suppressed"
+    assert classify_hrv_recovery(delta=-5, status="Balanced") == "below_baseline"
+    assert classify_hrv_recovery(delta=8, status="Balanced") == "elevated"
+    assert classify_hrv_recovery(delta=0, status="Balanced") == "stable"
 
 
 def test_nightly_trend_populates_trailing_band_after_warmup():

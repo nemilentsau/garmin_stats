@@ -16,15 +16,7 @@ from app.domains.garmin_analytics.domain.primitives.windows import compute_windo
 from app.domains.garmin_health.contracts import (
     DailyMetric,
 )
-from app.domains.garmin_health.domain.daily_metrics.hrv import (
-    classify_hrv_recovery as _classify_hrv_recovery,
-)
 from app.utils.numeric import safe_avg
-
-
-def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | None:
-    """Compatibility export for shared HRV recovery status classification."""
-    return _classify_hrv_recovery(delta=delta, status=status)
 
 
 def compute_nightly_hrv_trend(

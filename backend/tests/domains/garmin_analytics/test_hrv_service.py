@@ -10,6 +10,7 @@ from app.domains.garmin_analytics.adapters import (
 from app.domains.garmin_analytics.application.metric_insights import (
     get_hrv_insights as _get_hrv_insights,
 )
+from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -221,6 +222,24 @@ class TestHrvInsights:
 
         with pytest.raises(LookupError, match="Day 2026-01-16 not found"):
             load_hrv_insights("2026-01-16")
+
+    def test_selected_day_insights_omit_pattern_surfaces(self):
+        _insert_metric(_make_daily_metric(
+            date="2026-01-15",
+            nightly_avg=60.0,
+            weekly_avg=60.0,
+            hrv_status="balanced",
+            sleep_score=85,
+            resting_hr=46,
+        ))
+        _insert_hrv_day("2026-01-15", [
+            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=60.0),
+        ])
+
+        result = load_hrv_insights("2026-01-15")
+
+        assert not hasattr(result, "distribution")
+        assert not hasattr(result, "day_of_week")
 
     def test_baseline_rule_fires_when_7d_below_baseline(self):
         from datetime import date, timedelta
@@ -458,67 +477,65 @@ class TestStreak:
 
 
 class TestHrvDistribution:
-    def _insert_days(self, nightly_values: list[float | None]) -> None:
-        """Insert len(nightly_values) days, last day is selected."""
-        for i, nightly in enumerate(nightly_values):
-            d = f"2026-01-{i + 1:02d}"
-            _insert_metric(_make_daily_metric(
-                date=d, nightly_avg=nightly, weekly_avg=50.0,
-                hrv_status="balanced", sleep_score=80, resting_hr=46,
-            ))
-            _insert_hrv_day(d, [
-                HrvValue(date=d, timestamp=f"{d}T00:00:00", value=50.0),
-            ])
-
     def test_returns_none_when_fewer_than_7_days(self):
-        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0])
+        result = hrv_patterns.compute_hrv_distribution(
+            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0],
+            50.0,
+        )
 
-        result = load_hrv_insights("2026-01-06")
-        assert result.distribution is None
+        assert result is None
 
     def test_returns_distribution_with_exactly_7_days(self):
-        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0])
+        result = hrv_patterns.compute_hrv_distribution(
+            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0],
+            52.0,
+        )
 
-        result = load_hrv_insights("2026-01-07")
-        assert result.distribution is not None
-        assert result.distribution.total_days == 7
+        assert result is not None
+        assert result.total_days == 7
 
     def test_5ms_bin_width_verified(self):
-        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0])
+        result = hrv_patterns.compute_hrv_distribution(
+            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 52.0],
+            52.0,
+        )
 
-        result = load_hrv_insights("2026-01-07")
-        assert result.distribution is not None
-        for b in result.distribution.bins:
+        assert result is not None
+        for b in result.bins:
             assert b.bin_end - b.bin_start == 5.0
 
     def test_selected_percentile_highest_value_is_100(self):
-        # Last value (selected) is highest
-        self._insert_days([40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 60.0])
+        result = hrv_patterns.compute_hrv_distribution(
+            [40.0, 42.0, 44.0, 46.0, 48.0, 50.0, 60.0],
+            60.0,
+        )
 
-        result = load_hrv_insights("2026-01-07")
-        assert result.distribution is not None
-        assert result.distribution.selected_percentile == 100.0
+        assert result is not None
+        assert result.selected_percentile == 100.0
 
     def test_none_nightly_avg_values_excluded(self):
-        # 5 valid + 3 None = 8 total, only 5 non-null → below threshold
-        self._insert_days([40.0, 42.0, None, 46.0, None, None, 48.0, 50.0])
+        present_values = [
+            v for v in [40.0, 42.0, None, 46.0, None, None, 48.0, 50.0]
+            if v is not None
+        ]
+        result = hrv_patterns.compute_hrv_distribution(present_values, 50.0)
 
-        result = load_hrv_insights("2026-01-08")
-        assert result.distribution is None
+        assert result is None
 
     def test_boundary_value_placed_in_correct_bin(self):
-        # 45.0 should go in bin [45, 50), not [40, 45)
-        self._insert_days([30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0])
+        result = hrv_patterns.compute_hrv_distribution(
+            [30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0],
+            60.0,
+        )
 
-        result = load_hrv_insights("2026-01-07")
-        assert result.distribution is not None
+        assert result is not None
         bin_45 = next(
-            (b for b in result.distribution.bins if b.bin_start == 45.0), None,
+            (b for b in result.bins if b.bin_start == 45.0), None,
         )
         assert bin_45 is not None
         assert bin_45.count == 1
         bin_40 = next(
-            (b for b in result.distribution.bins if b.bin_start == 40.0), None,
+            (b for b in result.bins if b.bin_start == 40.0), None,
         )
         assert bin_40 is not None
         assert bin_40.count == 1
@@ -552,77 +569,60 @@ class TestTrajectory:
 
 class TestDayOfWeek:
     def test_returns_7_buckets_sorted_mon_to_sun(self):
-        # Single day is enough to verify structure
-        _insert_metric(_make_daily_metric(
+        metrics = [_make_daily_metric(
             date="2026-01-15", nightly_avg=50.0, weekly_avg=50.0,
             hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-15", [
-            HrvValue(date="2026-01-15", timestamp="2026-01-15T00:00:00", value=50.0),
-        ])
+        )]
 
-        result = load_hrv_insights("2026-01-15")
-        assert len(result.day_of_week) == 7
+        result = hrv_patterns.compute_day_of_week(metrics)
+
+        assert len(result) == 7
         expected = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        assert [b.day for b in result.day_of_week] == expected
-        assert [b.day_index for b in result.day_of_week] == list(range(7))
+        assert [b.day for b in result] == expected
+        assert [b.day_index for b in result] == list(range(7))
 
     def test_averages_grouped_by_weekday(self):
-        # 2026-01-05 = Monday, 2026-01-12 = Monday
-        _insert_metric(_make_daily_metric(
+        metrics = [
+            _make_daily_metric(
             date="2026-01-05", nightly_avg=40.0, weekly_avg=50.0,
             hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_metric(_make_daily_metric(
-            date="2026-01-12", nightly_avg=60.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-05", [
-            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=40.0),
-        ])
-        _insert_hrv_day("2026-01-12", [
-            HrvValue(date="2026-01-12", timestamp="2026-01-12T00:00:00", value=60.0),
-        ])
+            ),
+            _make_daily_metric(
+                date="2026-01-12", nightly_avg=60.0, weekly_avg=50.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ),
+        ]
 
-        result = load_hrv_insights("2026-01-12")
-        monday = result.day_of_week[0]
+        result = hrv_patterns.compute_day_of_week(metrics)
+        monday = result[0]
         assert monday.day == "Mon"
         assert monday.avg_nightly == 50.0
         assert monday.sample_count == 2
 
     def test_days_with_no_data_have_none_avg(self):
-        # Only insert a Monday (2026-01-05)
-        _insert_metric(_make_daily_metric(
+        metrics = [_make_daily_metric(
             date="2026-01-05", nightly_avg=50.0, weekly_avg=50.0,
             hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-05", [
-            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=50.0),
-        ])
+        )]
 
-        result = load_hrv_insights("2026-01-05")
-        tuesday = result.day_of_week[1]
+        result = hrv_patterns.compute_day_of_week(metrics)
+        tuesday = result[1]
         assert tuesday.avg_nightly is None
         assert tuesday.sample_count == 0
 
     def test_none_nightly_avg_excluded(self):
-        # 2026-01-05 = Monday with None nightly_avg, 2026-01-12 = Monday with 50.0
-        _insert_metric(_make_daily_metric(
-            date="2026-01-05", nightly_avg=None, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_metric(_make_daily_metric(
-            date="2026-01-12", nightly_avg=50.0, weekly_avg=50.0,
-            hrv_status="balanced", sleep_score=80, resting_hr=46,
-        ))
-        _insert_hrv_day("2026-01-05", [
-            HrvValue(date="2026-01-05", timestamp="2026-01-05T00:00:00", value=40.0),
-        ])
-        _insert_hrv_day("2026-01-12", [
-            HrvValue(date="2026-01-12", timestamp="2026-01-12T00:00:00", value=50.0),
-        ])
+        metrics = [
+            _make_daily_metric(
+                date="2026-01-05", nightly_avg=None, weekly_avg=50.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ),
+            _make_daily_metric(
+                date="2026-01-12", nightly_avg=50.0, weekly_avg=50.0,
+                hrv_status="balanced", sleep_score=80, resting_hr=46,
+            ),
+        ]
 
-        result = load_hrv_insights("2026-01-12")
-        monday = result.day_of_week[0]
+        result = hrv_patterns.compute_day_of_week(metrics)
+        monday = result[0]
         assert monday.avg_nightly == 50.0
         assert monday.sample_count == 1

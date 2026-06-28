@@ -7,7 +7,6 @@ from app.domains.garmin_analytics.contracts import (
     HrvRecovery,
     HrvStreak,
 )
-from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_analytics.domain.insights.hrv_rules import (
     InsightContext,
     build_hrv_insights,
@@ -146,17 +145,10 @@ def compute_hrv_insights(
     day_values = [value for row in day_rows for value in row.hrv_values]
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
-    nightly_vals = [
-        m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
-    ]
     streak = _compute_streak(metrics, selected_index)
     baseline = _compute_baseline(
         metrics, selected_index, recovery.baseline_nightly_7d, window,
     )
-    distribution = hrv_patterns.compute_hrv_distribution(
-        nightly_vals, selected_metric.hrv.nightly_avg,
-    )
-    day_of_week = hrv_patterns.compute_day_of_week(metrics)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
     insights = build_hrv_insights(InsightContext(
         selected=selected_metric,
@@ -174,7 +166,5 @@ def compute_hrv_insights(
         quality=quality,
         baseline=baseline,
         streak=streak,
-        distribution=distribution,
-        day_of_week=day_of_week,
         insights=insights,
     )

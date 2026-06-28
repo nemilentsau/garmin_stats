@@ -10,6 +10,11 @@
 		type HrvAnalysis
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
+	import {
+		DEFAULT_HRV_BASELINE_WINDOW,
+		coerceHrvBaselineWindow,
+		type HrvBaselineWindow
+	} from '$lib/hrv-baseline';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import { fmt, fmtSigned } from '$lib/format';
@@ -49,34 +54,66 @@
 	let fetchSeq = 0;
 
 	// ── Baseline window ──
-	const ALLOWED_WINDOWS = [30, 60, 90];
-	function readBaselineFromUrl(): number {
-		const raw = Number(new URL(window.location.href).searchParams.get('baseline'));
-		return ALLOWED_WINDOWS.includes(raw) ? raw : 60;
+	function readBaselineFromUrl(): HrvBaselineWindow {
+		return coerceHrvBaselineWindow(new URL(window.location.href).searchParams.get('baseline'));
 	}
-	let baselineWindow = $state(60);
+	let baselineWindow = $state<HrvBaselineWindow>(DEFAULT_HRV_BASELINE_WINDOW);
+
+	type HrvSnapshot = {
+		agg: HrvDaily;
+		analysis: HrvAnalysis;
+		dashOverview: DashboardOverview;
+		latestInsights: HrvInsights | null;
+		historicalInsights: HrvInsights | null;
+	};
 
 	// ── Data fetching ──
-	async function fetchData() {
-		const seq = ++fetchSeq;
+	async function loadHrvSnapshot(
+		window: HrvBaselineWindow,
+		historicalDate = ''
+	): Promise<HrvSnapshot> {
 		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
 			api.getHrvDaily(),
-			api.getHrvAnalysis(baselineWindow),
+			api.getHrvAnalysis(window),
 			api.getDashboardOverview()
 		]);
-		if (seq !== fetchSeq) return;
-		agg = nextAgg;
-		analysis = nextAnalysis;
-		dashOverview = nextOverview;
+		const latest = nextAgg.days[nextAgg.days.length - 1] ?? '';
+		const [nextLatestInsights, nextHistoricalInsights] = await Promise.all([
+			latest ? api.getHrvInsights(latest, window) : Promise.resolve(null),
+			historicalDate ? api.getHrvInsights(historicalDate, window) : Promise.resolve(null)
+		]);
+		return {
+			agg: nextAgg,
+			analysis: nextAnalysis,
+			dashOverview: nextOverview,
+			latestInsights: nextLatestInsights,
+			historicalInsights: nextHistoricalInsights
+		};
+	}
 
-		if (nextAgg.days.length > 0) {
-			const latest = nextAgg.days[nextAgg.days.length - 1];
-			const nextInsights = await api.getHrvInsights(latest, baselineWindow);
-			if (seq !== fetchSeq) return;
-			latestInsights = nextInsights;
+	function applyHrvSnapshot(
+		snapshot: HrvSnapshot,
+		options: { applyHistorical?: boolean; clearDetailError?: boolean } = {}
+	) {
+		agg = snapshot.agg;
+		analysis = snapshot.analysis;
+		dashOverview = snapshot.dashOverview;
+		latestInsights = snapshot.latestInsights;
+		if (options.applyHistorical) {
+			historicalInsights = snapshot.historicalInsights;
 		}
 		// A successful load supersedes any prior top-level error.
 		error = null;
+		if (options.clearDetailError ?? true) {
+			detailError = null;
+		}
+	}
+
+	async function fetchData() {
+		const seq = ++fetchSeq;
+		const snapshot = await loadHrvSnapshot(baselineWindow);
+		if (seq !== fetchSeq) return;
+		applyHrvSnapshot(snapshot, { clearDetailError: selectedDate === '' });
 	}
 
 	onMount(() => {
@@ -112,26 +149,26 @@
 		}
 	}
 
-	function setBaselineUrl(w: number) {
+	function setBaselineUrl(w: HrvBaselineWindow) {
 		const url = new URL(window.location.href);
 		url.searchParams.set('baseline', String(w));
 		replaceState(url, {});
 	}
 
-	async function onBaselineChange(w: number) {
+	async function onBaselineChange(w: HrvBaselineWindow) {
 		const prev = baselineWindow;
+		const selectedForBaseline = selectedDate;
 		baselineWindow = w;
 		setBaselineUrl(w);
 		const requestId = ++baselineRequestId;
 		baselineLoading = true;
 		try {
-			await fetchData();
+			const snapshot = await loadHrvSnapshot(w, selectedForBaseline);
 			if (requestId !== baselineRequestId) return;
-			if (selectedDate) {
-				const nextInsights = await api.getHrvInsights(selectedDate, baselineWindow);
-				if (requestId !== baselineRequestId) return;
-				historicalInsights = nextInsights;
-			}
+			applyHrvSnapshot(snapshot, {
+				applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate,
+				clearDetailError: selectedForBaseline === '' || selectedForBaseline === selectedDate
+			});
 		} catch (e: unknown) {
 			if (requestId !== baselineRequestId) return;
 			// Roll back to the last good window (state + URL) and surface a non-blocking

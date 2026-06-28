@@ -6,11 +6,6 @@ from app.domains.garmin_health.contracts import (
     DailyHrvStats,
 )
 
-from .analysis import (
-    HrvDayOfWeekBucket,
-    HrvDistribution,
-)
-
 
 class HeartRateRecovery(DefaultsRequired):
     """Selected-day resting-HR recovery comparison."""
@@ -111,6 +106,4 @@ class HrvInsightsResponse(DefaultsRequired):
     quality: HrvDataQuality
     baseline: HrvBaseline | None = None
     streak: HrvStreak | None = None
-    distribution: HrvDistribution | None = None
-    day_of_week: list[HrvDayOfWeekBucket] = []
     insights: list[HrvInsight] = []

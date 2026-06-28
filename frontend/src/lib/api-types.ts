@@ -3002,12 +3002,6 @@ export interface components {
             quality: components["schemas"]["HrvDataQuality"];
             baseline: components["schemas"]["HrvBaseline"] | null;
             streak: components["schemas"]["HrvStreak"] | null;
-            distribution: components["schemas"]["HrvDistribution"] | null;
-            /**
-             * Day Of Week
-             * @default []
-             */
-            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
             /**
              * Insights
              * @default []
