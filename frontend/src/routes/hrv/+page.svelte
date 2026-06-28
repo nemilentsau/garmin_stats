@@ -297,10 +297,12 @@
 
 	// ── History strip colors: by the AVERAGED TREND (ma7 vs typical-range band), not
 	// per-night status — a single night is noise. trend_state comes from the backend. ──
+	// Three clearly-distinct hues for the low→normal→high trend (amber / green / blue) —
+	// graded by meaning and easy to tell apart at the small day-cell size.
 	const TREND_STATE_COLORS: Record<string, string> = {
-		below: COLORS.heartRate,          // red — trend below the typical range
+		below: COLORS.stress,             // amber — trend below the typical range
 		within: COLORS.heartRateResting,  // green — within the typical range
-		above: COLORS.respiration         // teal — above the typical range
+		above: COLORS.spo2                // blue — trend above the typical range
 	};
 	const TREND_STATE_LABELS: Record<string, string> = {
 		below: 'Below typical',
@@ -316,15 +318,23 @@
 		return map;
 	});
 
-	// Legend entries derived from the trend states actually present, in palette order.
+	// Legend entries derived from the trend states actually present, in palette order. A gray
+	// "Building baseline" entry is appended when any day lacks a trend (the warmup weeks before
+	// a typical-range band exists), so gray reads as a labelled state rather than a mystery.
 	let statusLegend = $derived.by(() => {
 		const present = new Set<string>();
+		let hasUnclassified = false;
 		for (const p of analysis?.nightly_trend ?? []) {
 			if (p.trend_state) present.add(p.trend_state);
+			else hasUnclassified = true;
 		}
-		return Object.keys(TREND_STATE_COLORS)
+		const entries = Object.keys(TREND_STATE_COLORS)
 			.filter((s) => present.has(s))
 			.map((s) => ({ label: TREND_STATE_LABELS[s], color: TREND_STATE_COLORS[s] }));
+		if (hasUnclassified) {
+			entries.push({ label: 'Building baseline', color: UNKNOWN_STATUS_COLOR });
+		}
+		return entries;
 	});
 
 	// ── Navigation ──
@@ -1024,6 +1034,11 @@
 		display: flex;
 		gap: 12px;
 		margin-top: 4px;
+		/* Pinned to the left of the horizontally-scrolling strip so the key stays visible
+		   no matter how far the timeline is scrolled. */
+		position: sticky;
+		left: 0;
+		width: fit-content;
 	}
 	.day-strip-legend span {
 		font-size: 10px;

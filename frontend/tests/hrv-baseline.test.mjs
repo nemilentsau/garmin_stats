@@ -95,6 +95,10 @@ test('hrv history strip is colored by the averaged trend, not per-night status',
 	assert.match(page, /nightly_trend[\s\S]*?trend_state/);
 	// The day cell color is driven by dayStatusMap built from trend_state.
 	assert.match(page, /dayStatusMap\.get\(day\) \?\? UNKNOWN_STATUS_COLOR/);
+	// Gray (warmup / no trend) is a labelled legend entry, not a mystery.
+	assert.match(page, /Building baseline/);
+	// The strip legend stays visible while the timeline scrolls horizontally.
+	assert.match(page, /\.day-strip-legend\s*\{[\s\S]*position:\s*sticky;[\s\S]*left:\s*0;/);
 });
 
 test('hrv history strip keeps nights selectable instead of compressing all days', () => {

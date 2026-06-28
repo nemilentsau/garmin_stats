@@ -69,8 +69,16 @@ def compute_nightly_hrv_trend(
     points_by_date: dict[str, NightlyHrvTrendPoint] = {}
     for i, m in enumerate(metrics):
         if nightly_values[i] is None:
-            # Night with no HRV reading: an all-null gap point so every series breaks here.
-            points_by_date[m.date] = NightlyHrvTrendPoint(date=m.date)
+            # Night with no HRV reading: the chart fields stay null so the MA line and ribbon
+            # break here (a missing night is never bridged). The history strip, however, is a
+            # trend heatmap — it still colors by the surrounding 7-day trend so a single
+            # missing night doesn't punch a gray hole in it. So carry trend_state (computed
+            # from the trailing MA/band, which are defined past warmup) on the otherwise-null
+            # gap point.
+            points_by_date[m.date] = NightlyHrvTrendPoint(
+                date=m.date,
+                trend_state=_trend_state(ma7_values[i], band[i].band_low, band[i].band_high),
+            )
         else:
             points_by_date[m.date] = NightlyHrvTrendPoint(
                 date=m.date,

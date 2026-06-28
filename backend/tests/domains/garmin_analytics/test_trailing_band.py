@@ -357,6 +357,28 @@ def test_nightly_trend_state_classifies_ma_against_band(tmp_db):
     assert {p.trend_state for p in trend.values()} <= {None, "below", "within", "above"}
 
 
+def test_no_reading_night_keeps_trend_state_but_breaks_chart(tmp_db):
+    """A no-reading night past warmup carries a trend_state so the history strip stays a
+    continuous trend heatmap (no gray hole), while its chart fields stay null so the MA line
+    and ribbon still break at the missing night."""
+    from datetime import date, timedelta
+
+    start = date(2026, 5, 1)
+    for i in range(25):  # 25 readings -> past the 21-night band floor
+        d = (start + timedelta(days=i)).isoformat()
+        _insert_metric(_make_daily_metric(date=d, nightly_avg=55.0 + (i % 4)))
+    gap = (start + timedelta(days=25)).isoformat()
+    _insert_metric(_make_daily_metric(date=gap, nightly_avg=None))  # row present, no HRV reading
+
+    repo = SqliteBiometricRepository()
+    pt = {p.date: p for p in load_hrv_analysis(repo, baseline=30).nightly_trend}[gap]
+    # Chart fields stay null -> the line and ribbon break at the missing night.
+    assert pt.nightly_avg is None and pt.ma7 is None
+    assert pt.band_low is None and pt.band_high is None
+    # ...but the strip still has a trend classification for it (not a gray hole).
+    assert pt.trend_state in {"below", "within", "above"}
+
+
 def test_hrv_pattern_cache_refreshes_after_invalidation(tmp_db):
     """The shared pattern cache must participate in generation invalidation: a re-ingest
     (cache.invalidate) refreshes it instead of serving the pre-ingest patterns."""
