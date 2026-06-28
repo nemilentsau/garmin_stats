@@ -48,7 +48,7 @@ def _compute_recovery(metrics: list[DailyMetric], selected_index: int) -> HrvRec
         baseline_nightly_7d=baseline,
         delta_nightly_from_baseline=delta,
         acute_gap_vs_weekly=acute_gap,
-        status=classify_hrv_recovery(delta=delta, status=selected.status),
+        status=classify_hrv_recovery(delta=delta),
     )
 
 

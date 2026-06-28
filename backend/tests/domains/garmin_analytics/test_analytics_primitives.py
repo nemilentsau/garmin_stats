@@ -125,12 +125,13 @@ def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
     hrv_analysis = import_module("app.domains.garmin_analytics.domain.analysis.hrv")
     assert not hasattr(hrv_analysis, "classify_hrv_recovery")
 
-    assert classify_hrv_recovery(delta=None, status="Balanced") is None
-    assert classify_hrv_recovery(delta=-10, status="Balanced") == "suppressed"
-    assert classify_hrv_recovery(delta=-9.9, status="Low") == "suppressed"
-    assert classify_hrv_recovery(delta=-5, status="Balanced") == "below_baseline"
-    assert classify_hrv_recovery(delta=8, status="Balanced") == "elevated"
-    assert classify_hrv_recovery(delta=0, status="Balanced") == "stable"
+    assert classify_hrv_recovery(delta=None) is None
+    assert classify_hrv_recovery(delta=-10) == "suppressed"
+    assert classify_hrv_recovery(delta=-9.9) == "below_baseline"  # no Garmin-status OR
+    assert classify_hrv_recovery(delta=-5) == "below_baseline"
+    assert classify_hrv_recovery(delta=8) == "elevated"
+    assert classify_hrv_recovery(delta=0) == "stable"
+    assert classify_hrv_recovery(delta=2.0) == "stable"  # positive delta is never "suppressed"
 
 
 def test_nightly_trend_populates_trailing_band_after_warmup():

@@ -34,11 +34,16 @@ def is_unfavorable_hrv_status(raw: str | None) -> bool:
     return normalize_hrv_status(raw) in UNFAVORABLE_HRV_STATUSES
 
 
-def classify_hrv_recovery(*, delta: float | None, status: str | None) -> str | None:
-    """Classify HRV recovery from nightly delta and Garmin status."""
+def classify_hrv_recovery(*, delta: float | None) -> str | None:
+    """Classify HRV recovery from the nightly-vs-recent-baseline delta alone.
+
+    Tonight's verdict is a "today" signal — it reflects tonight versus the recent
+    baseline only. Garmin's multi-day status is a separate trend signal and is
+    deliberately NOT folded in here (see docs/HRV_TAB_REFACTOR.md, "Trend vs Today").
+    """
     if delta is None:
         return None
-    if delta <= -10 or is_unfavorable_hrv_status(status):
+    if delta <= -10:
         return "suppressed"
     if delta <= -5:
         return "below_baseline"
