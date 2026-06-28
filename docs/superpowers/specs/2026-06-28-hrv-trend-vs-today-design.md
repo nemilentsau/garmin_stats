@@ -177,3 +177,19 @@ shipped" / "Under the hood" sections are updated to match.
 - The historical strip is a smooth, trend-faithful direction band.
 - Garmin status is visible, labelled, and independent.
 - The principle is documented so this does not get re-litigated.
+
+---
+
+## Post-review refinements (2026-06-28, after visual feedback)
+
+The strip design above shipped, then three visual corrections were made (commit `3577163`) — this
+section supersedes the earlier color/gray details:
+
+- **Trend colors:** `below` → amber (`COLORS.stress`), `within` → green (`COLORS.heartRateResting`),
+  `above` → blue (`COLORS.spo2`). (The original red/green/teal made green and teal nearly
+  indistinguishable.)
+- **No-reading nights are trend-colored, not gray.** The strip is a trend heatmap, so a single
+  missing night takes the surrounding 7-day trend's color (`trend_state` is carried on the otherwise
+  all-null gap point). The chart's line/ribbon still break at the missing night. Gray is therefore
+  limited to the warm-up weeks (no band yet) and is surfaced as a **"Building baseline"** legend entry.
+- **Legend is sticky** (pinned left) so it stays visible while the strip scrolls horizontally.

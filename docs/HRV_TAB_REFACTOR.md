@@ -148,10 +148,13 @@ user's actual question.
   **Show**).
 - **History timeline + selected-night detail:** a labelled timeline (visible dates, month markers,
   keyboard nav) **colored by the averaged trend** — where the 7-day MA sits vs the typical-range
-  band (`trend_state`) — not by any single night's own status, so the strip reflects sustained
-  direction rather than a flickering nightly verdict. Selecting a night shows how it ranks as a
-  **trailing-window z** ("±X SD vs your N-day baseline") rather than an all-history percentile,
-  plus that night's insights.
+  band (`trend_state`): **below typical** (amber), **within** (green), **above** (blue) — not by any
+  single night's own status, so the strip reflects sustained direction rather than a flickering
+  nightly verdict. Because it is a trend heatmap, a single no-reading night takes the surrounding
+  trend's color (the strip stays continuous; only the chart's line/ribbon break at the missing
+  night). The early weeks before a typical-range band exists are shown gray and labelled
+  **"Building baseline"**. Selecting a night shows how it ranks as a **trailing-window z**
+  ("±X SD vs your N-day baseline") rather than an all-history percentile, plus that night's insights.
 
 **Structure**
 

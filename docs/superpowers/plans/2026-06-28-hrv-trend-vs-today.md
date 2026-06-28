@@ -488,3 +488,17 @@ git commit -m "docs(hrv): document the trend-vs-today principle"
 - **Spec coverage:** verdict delta-only (Task 1) ✓; Garmin status as separate chip (Task 5) ✓; strip by averaged trend / `trend_state` (Tasks 3-4) ✓; obsolete bandaid removed (Task 2) ✓; docs (Task 6) ✓; `stable_recovery_rule` kept (no task — intentional, matches the decided spec) ✓; out-of-scope items (chart/headline/B2/nightly) have no task ✓.
 - **Placeholder scan:** none — every code step has complete code.
 - **Type consistency:** `trend_state: str | None` ("below"/"within"/"above"/None) is defined in Task 3 and consumed identically in Task 4; `classify_hrv_recovery(*, delta)` defined in Task 1 and called in Task 1 Step 4; `statusKey`/`HRV_STATUS_COLORS`/`UNKNOWN_STATUS_COLOR` are preserved in Task 4 and reused in Task 5.
+
+---
+
+## Post-review refinements (2026-06-28)
+
+After visual review, Task 4's strip received three corrections (commit `3577163`) — the code blocks
+above show the as-planned version; the shipped version differs as follows:
+
+- Trend colors changed to amber / green / blue (`below` `COLORS.stress`, `within`
+  `COLORS.heartRateResting`, `above` `COLORS.spo2`) — green/teal were indistinguishable.
+- A no-reading night is colored by the surrounding trend (its `trend_state` is carried on the
+  all-null gap point in `compute_nightly_hrv_trend`) so the strip stays continuous; the chart still
+  breaks. Gray is limited to warm-up and labelled "Building baseline" in the legend.
+- The `.day-strip-legend` is `position: sticky; left: 0` so it stays visible during horizontal scroll.
