@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garmin Health — Findings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-topic="general">
+
+<nav class="topnav">
+  <span class="topnav-title">Garmin Health — Findings</span>
+  <div class="topnav-links">
+    <a href="general.html">General</a>
+    <a href="recovery.html">Recovery Score</a>
+    <a href="hrv.html">HRV</a>
+  </div>
+</nav>
+
+<main class="wrap page">
+
+  <header class="hero">
+    <div class="eyebrow">Data-analysis trust record</div>
+    <h1>What a year of wrist data<br>actually tells us.</h1>
+    <p class="sub">A curated read-out of the analysis behind the recovery score and the HRV
+    surfaces — what replicated, what we discarded, and why each shipped decision is defensible.</p>
+
+    <div class="meta-strip">
+      <div><b>Subject</b> &nbsp;n-of-1</div>
+      <div><b>Device</b> &nbsp;Garmin Epix Gen 2 Pro</div>
+      <div><b>Window</b> &nbsp;2025-06-01 → 2026-06</div>
+      <div><b>Nights analyzed</b> &nbsp;357–378 <span class="faint">(by snapshot)</span></div>
+      <div><b>Runs distilled</b> &nbsp;26</div>
+    </div>
+  </header>
+
+  <section>
+    <div class="topic-grid">
+
+      <a class="topic-card" data-tc="general" href="general.html">
+        <span class="tnum">01 — GENERAL</span>
+        <h2>What the dataset taught us</h2>
+        <p>Coverage and its structural gaps, the single axis the metrics collapse onto, and the
+        regimes the year moved through.</p>
+        <ul>
+          <li>One dominant recovery↔stress axis (~74% of variance)</li>
+          <li>Deep-sleep, SpO₂, skin-temp, REM are <em>not</em> recovery signals</li>
+          <li>A 5-week low-recovery regime, then a Jan–Mar plateau</li>
+        </ul>
+        <span class="go">Open General →</span>
+      </a>
+
+      <a class="topic-card" data-tc="recovery" href="recovery.html">
+        <span class="tnum">02 — RECOVERY SCORE</span>
+        <h2>Building a trustworthy score</h2>
+        <p>The end-to-end engineering story: from a correlated axis to a normalized, weighted,
+        smoothed, and pre-registered-validated composite.</p>
+        <ul>
+          <li>Expanding robust-z — trailing windows absorb regimes</li>
+          <li>Weighting is immaterial (equal ≈ deflated ≈ PC1)</li>
+          <li>Passed three pre-registered validation tests</li>
+        </ul>
+        <span class="go">Open Recovery Score →</span>
+      </a>
+
+      <a class="topic-card" data-tc="hrv" href="hrv.html">
+        <span class="tnum">03 — HRV</span>
+        <h2>Reading HRV honestly</h2>
+        <p>Why nightly HRV is a trend to read, not a state to threshold — and how that reshaped
+        every HRV surface in the product.</p>
+        <ul>
+          <li>Not bimodal — one continuous, regime-modulated signal</li>
+          <li>Volatile night-to-night — read the trend, not a night</li>
+          <li>A ~10 ms day-of-week rhythm that replicates</li>
+        </ul>
+        <span class="go">Open HRV →</span>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="section-intro">
+    <h2>How to read this</h2>
+    <p>Every claim carries a confidence tier. The tier governs how far a finding is allowed to
+    travel — from a one-off curiosity to an asserted decision the product is built on.</p>
+  </section>
+
+  <ul class="takeaways" style="margin-top:20px">
+    <li><span class="badge badge-confident inline" style="margin-right:4px">confident</span>
+      <span><b>Asserted takeaway.</b> Clears every quality gate with no standing interpretive
+      ceiling, and survived an adversarial self-review. These drive score, axis, flag, and copy
+      decisions.</span></li>
+    <li><span class="badge badge-provisional inline" style="margin-right:4px">provisional</span>
+      <span><b>Attributed observation.</b> Multiple methods converge or a pre-registered test
+      passed, but a real ceiling remains (a confound, a shared derivation, a single in-sample
+      event). Carried with its caveats.</span></li>
+    <li><span class="badge badge-tentative inline" style="margin-right:4px">tentative</span>
+      <span><b>Exploratory only.</b> A single look, often from a many-comparison sweep. Seeds a
+      question; never asserted.</span></li>
+  </ul>
+
+  <div class="note" style="margin-top:26px">
+    <div class="ico">!</div>
+    <div>
+      <h4>Scope &amp; honesty</h4>
+      <p>This is a single person, single device, ~one year. Findings are <b>descriptive</b>, not
+      medical advice, and do not claim to generalize. Every number is recomputed from a pinned
+      data snapshot and visually spot-checked; the durable machine-readable record lives in
+      <code>FINDINGS.md</code>.</p>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Generated from 26 analyst finding-runs and <code>FINDINGS.md</code>. Personal health data —
+    local-only, not committed. &nbsp;·&nbsp; Plots are the original analysis figures; collapsible
+    “Evidence &amp; stats” blocks carry the full statistics behind each claim.
+  </footer>
+
+</main>
+</body>
+</html>

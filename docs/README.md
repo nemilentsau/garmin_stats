@@ -46,6 +46,11 @@ not kept as a parallel source of truth (git history retains them).
   structured the way it is, the failure modes it guards against, and how the `finding-analyst`
   skill enforces the discipline. (The promoted evidence itself lives in the local-only
   `FINDINGS.md`.)
+- [findings/index.html](findings/index.html) — the **human-facing HTML presentation** of the
+  analysis behind the recovery score and HRV surfaces. A landing hub linking General / Recovery
+  Score / HRV pages, each pairing the original finding-run plots with narrative takeaways and
+  collapsible statistics. Generated from the analyst finding-runs and the local-only `FINDINGS.md`
+  (which remains the machine-readable record for future discovery work).
 
 ## Data & Bundle Examples
 

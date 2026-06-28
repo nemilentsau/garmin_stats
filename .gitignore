@@ -14,8 +14,6 @@ traces.db
 # Curated findings reports (incl. archived/preliminary): personal health data — local-only going forward
 # (NOTE: prior versions of FINDINGS.md remain in git history / on the public remote)
 FINDINGS*.md
-# Human-facing HTML findings presentation: personal health data — local-only
-docs/findings/
 # Analyst friction log: keep local-only
 docs/superpowers/plans/2026-05-21-finding-analyst-friction.md
 
