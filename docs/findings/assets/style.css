@@ -47,7 +47,8 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
-  --maxw: 880px;
+  --maxw: 1180px;
+  --readw: 74ch;
   --radius: 10px;
 }
 
@@ -315,12 +316,12 @@ table.data tr:hover td { background: var(--bg-panel); }
 /* ----------------------------------------------------------------- "what we shipped" pill list */
 .takeaways { list-style: none; margin: 18px 0; padding: 0; display: grid; gap: 10px; }
 .takeaways li {
-  display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
   background: var(--bg-panel); border: 1px solid var(--border-soft);
-  border-radius: 8px; padding: 13px 16px; font-size: 14px; color: var(--text-muted);
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  padding: 13px 16px; font-size: 14px; color: var(--text-muted);
 }
-.takeaways li::before { content: "→"; color: var(--accent); font-weight: 700; }
 .takeaways li b { color: var(--text); font-weight: 600; }
+.takeaways li .badge.inline { margin-right: 7px; }
 
 /* ----------------------------------------------------------------- footer */
 .foot {
@@ -420,3 +421,41 @@ body[data-topic="method"] { --accent: #2bb6a8; --accent-dim: #143b38; }
 }
 .gp-produced b { color: var(--text); font-weight: 600; }
 .gp-produced a { font-weight: 600; }
+
+/* ---- keep reading text in a comfortable column as the page widens for figures ---- */
+.hero .sub, .section-intro p, .finding > p, .finding > .lede,
+.prose, .prose p, .gallery-panel .gp-what, .lead-note { max-width: var(--readw); }
+.evidence-body { max-width: 86ch; }
+
+/* ---- real-artifact "document" card (shows actual run files) ---- */
+.artifact { background: var(--bg-code); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 14px 0; }
+.artifact-name {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-faint);
+  padding: 10px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.artifact-name b { color: var(--accent); font-weight: 600; }
+.artifact-name .tag { margin-left: auto; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.artifact-body { padding: 15px 18px; font-size: 13.5px; color: var(--text-muted); }
+.artifact-body .kv { margin: 0; grid-template-columns: 132px 1fr; gap: 9px 16px; }
+.artifact-body .kv dt { color: var(--text-faint); font-family: var(--font-mono); font-size: 11.5px; padding-top: 1px; }
+.artifact-body .kv dd { color: var(--text); }
+.artifact-body .kv dd b { color: var(--text); }
+.artifact-body .kv .v { color: var(--accent); font-weight: 600; }
+@media (max-width: 620px) { .artifact-body .kv { grid-template-columns: 1fr; gap: 2px 0; } .artifact-body .kv dt { margin-top: 8px; } }
+
+/* ---- worked-example numbered steps ---- */
+.step-head { display: flex; align-items: center; gap: 13px; margin: 34px 0 8px; scroll-margin-top: 84px; }
+.step-head:first-of-type { margin-top: 14px; }
+.stepnum {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent-dim); color: var(--accent); font-weight: 700; font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.step-head h3 { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+.step-body { padding-left: 43px; }
+.step-body > p { max-width: var(--readw); }
+@media (max-width: 620px) { .step-body { padding-left: 0; } }
+.arrow-down { color: var(--accent); text-align: center; font-size: 18px; margin: 6px 0 2px 43px; opacity: .6; }
+@media (max-width: 620px) { .arrow-down { margin-left: 0; } }
