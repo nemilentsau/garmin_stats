@@ -49,6 +49,15 @@ class RunSegment(StrictDefaultsRequired):
     prescription: str
 
 
+class RunCustomField(StrictDefaultsRequired):
+    """A custom per-run data field to collect after a run (e.g. weather confounders)."""
+
+    key: str
+    label: str
+    field_type: Literal["number", "text"] = "number"
+    unit: str | None = None
+
+
 class RunningWorkoutPayload(StrictDefaultsRequired):
     """Typed prescription for a running workout card."""
 
@@ -60,6 +69,7 @@ class RunningWorkoutPayload(StrictDefaultsRequired):
     calibration_quality: bool = False
     instructions: str | None = None
     segments: list[RunSegment] = []
+    post_run_fields: list[RunCustomField] = []
 
 
 class StrengthExercise(StrictDefaultsRequired):
@@ -150,6 +160,7 @@ class RunningActual(StrictDefaultsRequired):
     calibration_quality: bool = False
     rpe: int | None = None
     notes: str | None = None
+    post_run: dict[str, float | str | None] = {}  # keyed by RunCustomField.key → logged value
 
 
 class StrengthSetLog(StrictDefaultsRequired):

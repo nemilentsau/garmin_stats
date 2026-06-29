@@ -45,6 +45,78 @@
             "detail": "Walk until breathing is calm before logging notes.",
             "prescription": "3-5 min"
           }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
+          }
         ]
       }
     },
@@ -90,6 +162,78 @@
             "detail": "Finish no harder than the middle of the run.",
             "prescription": "5-10 min"
           }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
+          }
         ]
       }
     },
@@ -134,6 +278,78 @@
             "kind": "cooldown",
             "detail": "Easy jog home. Calves should not feel cooked.",
             "prescription": "5-10 min"
+          }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
           }
         ]
       }
@@ -194,6 +410,78 @@
             "detail": "Light snap from the hips and ankles, not max power.",
             "prescription": "2 x 20m"
           }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
+          }
         ]
       }
     },
@@ -238,6 +526,78 @@
             "kind": "cooldown",
             "detail": "Return to conversational running.",
             "prescription": "10-20 min"
+          }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
           }
         ]
       }
@@ -284,6 +644,78 @@
             "detail": "Back off before stopping.",
             "prescription": "5 min"
           }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
+          }
         ]
       }
     },
@@ -328,6 +760,78 @@
             "kind": "cooldown",
             "detail": "Maintain form without pressing pace.",
             "prescription": "10 min"
+          }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
           }
         ]
       }
@@ -471,6 +975,78 @@
             "kind": "cooldown",
             "detail": "Easy jog/walk until breathing is normal. No extra mileage chase.",
             "prescription": "10-15 min"
+          }
+        ],
+        "post_run_fields": [
+          {
+            "key": "temperature_f",
+            "label": "Temperature (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "humidity_percent",
+            "label": "Humidity (%)",
+            "field_type": "number",
+            "unit": "%"
+          },
+          {
+            "key": "dew_point_f",
+            "label": "Dew point (F)",
+            "field_type": "number",
+            "unit": "F"
+          },
+          {
+            "key": "wind_mph",
+            "label": "Wind (mph)",
+            "field_type": "number",
+            "unit": "mph"
+          },
+          {
+            "key": "sun_exposure",
+            "label": "Sun exposure",
+            "field_type": "text"
+          },
+          {
+            "key": "surface",
+            "label": "Surface",
+            "field_type": "text"
+          },
+          {
+            "key": "elevation_gain_ft",
+            "label": "Elevation gain (ft)",
+            "field_type": "number",
+            "unit": "ft"
+          },
+          {
+            "key": "route_profile",
+            "label": "Route/elevation profile",
+            "field_type": "text"
+          },
+          {
+            "key": "shoe_model",
+            "label": "Shoe model",
+            "field_type": "text"
+          },
+          {
+            "key": "fueling_hydration",
+            "label": "Fueling/hydration notes",
+            "field_type": "text"
+          },
+          {
+            "key": "sleep_quality",
+            "label": "Sleep quality",
+            "field_type": "text"
+          },
+          {
+            "key": "soreness_or_pain",
+            "label": "Soreness or pain signals",
+            "field_type": "text"
+          },
+          {
+            "key": "hr_source_quality",
+            "label": "HR source quality",
+            "field_type": "text"
           }
         ]
       }

@@ -4112,6 +4112,42 @@ export interface components {
             assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
         /**
+         * RunCustomField
+         * @description A custom per-run data field to collect after a run (e.g. weather confounders).
+         */
+        "RunCustomField-Input": {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Field Type
+             * @default number
+             * @enum {string}
+             */
+            field_type: "number" | "text";
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * RunCustomField
+         * @description A custom per-run data field to collect after a run (e.g. weather confounders).
+         */
+        "RunCustomField-Output": {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Field Type
+             * @default number
+             * @enum {string}
+             */
+            field_type: "number" | "text";
+            /** Unit */
+            unit: string | null;
+        };
+        /**
          * RunSegment
          * @description One segment of a running workout; prescription is a range string.
          */
@@ -4176,6 +4212,13 @@ export interface components {
             rpe?: number | null;
             /** Notes */
             notes?: string | null;
+            /**
+             * Post Run
+             * @default {}
+             */
+            post_run: {
+                [key: string]: number | string | null;
+            };
         };
         /**
          * RunningActual
@@ -4204,6 +4247,13 @@ export interface components {
             rpe: number | null;
             /** Notes */
             notes: string | null;
+            /**
+             * Post Run
+             * @default {}
+             */
+            post_run: {
+                [key: string]: number | string | null;
+            };
         };
         /**
          * RunningWorkoutPayload
@@ -4235,6 +4285,11 @@ export interface components {
              * @default []
              */
             segments: components["schemas"]["RunSegment-Input"][];
+            /**
+             * Post Run Fields
+             * @default []
+             */
+            post_run_fields: components["schemas"]["RunCustomField-Input"][];
         };
         /**
          * RunningWorkoutPayload
@@ -4266,6 +4321,11 @@ export interface components {
              * @default []
              */
             segments: components["schemas"]["RunSegment-Output"][];
+            /**
+             * Post Run Fields
+             * @default []
+             */
+            post_run_fields: components["schemas"]["RunCustomField-Output"][];
         };
         /**
          * ScheduleDay

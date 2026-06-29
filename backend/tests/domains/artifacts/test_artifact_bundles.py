@@ -803,21 +803,16 @@ class TestArtifactBundles:
             assert isinstance(card.payload, ChecklistPayload)
             assert card.payload.domain == "running"
 
-    @pytest.mark.skip(reason="running bundle not yet re-authored to card_type schema")
     def test_four_week_running_bundle_collects_run_confounders_after_each_run(self):
         bundle = _load_four_week_running_bundle()
 
-        run_assignments = [
-            assignment
-            for assignment in bundle.routine_specs[0].assignments
-            if assignment.card_template_id
-            not in {
-                "running-calibration-hr-strap-setup",
-                "running-calibration-weekly-review",
-            }
+        running_cards = [
+            c
+            for c in bundle.card_templates
+            if isinstance(c.payload, RunningWorkoutPayload)
         ]
 
-        assert len(run_assignments) == 28
+        assert len(running_cards) == 8
         expected_field_keys = {
             "temperature_f",
             "humidity_percent",
@@ -833,12 +828,18 @@ class TestArtifactBundles:
             "soreness_or_pain",
             "hr_source_quality",
         }
-        for assignment in run_assignments:
-            post_run_fields = cast(
-                list[dict[str, object]],
-                assignment.prescription_override_json.get("post_run_fields", []),
-            )
-            assert {field["key"] for field in post_run_fields} == expected_field_keys
+        for card in running_cards:
+            assert isinstance(card.payload, RunningWorkoutPayload)
+            prf = card.payload.post_run_fields
+            assert {f.key for f in prf} == expected_field_keys
+        # spot-check typed fields on a known card
+        temp_field = next(
+            f
+            for f in running_cards[0].payload.post_run_fields  # type: ignore[union-attr]
+            if f.key == "temperature_f"
+        )
+        assert temp_field.field_type == "number"
+        assert temp_field.unit == "F"
 
     def test_four_week_running_support_bundle_previews_with_supported_slots_and_cards(self):
         bundle = _load_four_week_running_support_bundle()
