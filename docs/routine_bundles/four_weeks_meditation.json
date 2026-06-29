@@ -318,7 +318,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 1. Identify whether focused attention or open monitoring was more useful for interrupting rumination."
           }
         },
@@ -395,7 +394,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 2. Compare argument-loop stickiness against Week 1."
           }
         },
@@ -472,7 +470,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 3. Decide whether raw-anchor focused attention or open monitoring is producing more useful transfer."
           }
         },
@@ -549,7 +546,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 10,
             "instructions": "Full routine review. Identify which practice should become the core meditation routine for the next block."
           }
         }

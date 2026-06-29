@@ -662,7 +662,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 1. Identify whether resonance, extended exhale, box, or CO2 felt most useful."
           }
         },
@@ -739,7 +738,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 2. Decide whether 5/5/5/5 and 4/6/6 added useful signal or just difficulty."
           }
         },
@@ -816,7 +814,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 3. Identify whether harder patterns are actually useful or merely satisfying."
           }
         },
@@ -893,7 +890,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 10,
             "instructions": "Full routine review. Decide which breathwork patterns deserve to stay in the next block."
           }
         }
