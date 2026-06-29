@@ -1,13 +1,12 @@
 {
   "id": "four-week-running-support-calibration",
   "name": "Four-Week Running Support Calibration",
-  "schema_version": 1,
+  "schema_version": 2,
   "description": "Runner-specific core, lower-leg, hip, hamstring, and mobility support layer designed to sit around the Four-Week Running Calibration bundle. The goal is clean calibration data, durability, and trunk/pelvis control without adding bodybuilding-style leg fatigue.\n\nCompanion to: four-week-running-calibration-patched. Relationship: support_layer. Window: 2026-06-29 to 2026-07-26. Rules: Running remains the priority session. Support work must not compromise easy-run feel or calibration-quality HR data. If soreness changes the next morning's run mechanics, cut support volume before cutting running. No high-volume Nordics, no hard lunges, no abdominal circus work during this calibration block. On optional LTHR-test week, drop hamstring/adductor work if the test is completed.\n\nIntent: running-centric durability, not hypertrophy. Weekly support budget: 20-45 minutes total most weeks. Default intensity: RPE 4-6; clean form and no grinding. Highest-cost block: Hamstring/adductor/hinge support. Lowest-cost block: Mobility reset. Quality gate: No tendon pain above mild background noise No meaningful DOMS from previous support session Easy run still feels easy by talk test Running mechanics feel normal Skip or reduce if: Calves, Achilles, hamstrings, adductors, or knees feel irritated Morning run felt unusually heavy Chest-strap calibration run was invalid due to spikes/dropouts and you need a clean rerun You are within 24 hours before or after the optional LTHR test",
   "card_templates": [
     {
       "id": "running-support-calibration-micro-primer",
       "name": "Micro-Primer for Strides",
-      "renderer": "exercise_block",
       "slot_default": "morning",
       "summary": "Five-to-seven-minute mechanics primer before stride or drill days.",
       "tags": [
@@ -18,45 +17,49 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 6,
+        "rir_guidance": null,
         "instructions": "Duration target: 6 min. Use before stride/drill runs only. This is a neural/mechanical primer, not a warm-up workout. Everything should feel springy and easy. Afterward, rate: Springiness; Calf/Achilles comfort.",
         "exercises": [
           {
             "id": "mp1",
             "label": "Ankle rocks",
             "detail": "Drive the knee over the toes while the heel stays down. Find ankle range without forcing it.",
-            "reps": "10 each side"
+            "set_scheme": "10 each side"
           },
           {
             "id": "mp2",
             "label": "Leg swings",
             "detail": "Stay tall and let the hip move freely without twisting the trunk.",
-            "reps": "10 front-back + 10 side-side each leg"
+            "set_scheme": "10 front-back + 10 side-side each leg"
           },
           {
             "id": "mp3",
             "label": "A-march or A-skip",
             "detail": "Tall posture, dorsiflexed foot, knee drive straight ahead. Crisp, not aggressive.",
-            "reps": "2x15-20m"
+            "set_scheme": "2x15-20m"
           },
           {
             "id": "mp4",
             "label": "Pogos",
             "detail": "Short ground contact, quiet upper body, stop if Achilles or calves feel sharp.",
-            "reps": "2x15-20s"
+            "set_scheme": "2x15-20s"
           },
           {
             "id": "mp5",
             "label": "Relaxed build-ups",
             "detail": "Smooth acceleration only. These are not the actual strides.",
-            "reps": "2x10-15s"
+            "set_scheme": "2x10-15s"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-core-a",
       "name": "Core A — Anti-Rotation",
-      "renderer": "exercise_block",
       "slot_default": "evening",
       "summary": "Anti-rotation, contralateral control, and trunk stiffness for running.",
       "tags": [
@@ -67,39 +70,43 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 15,
+        "rir_guidance": null,
         "instructions": "Duration target: 15 min. This is the main runner-core session. Keep ribs down, pelvis quiet, and breathing controlled. The goal is resisting unwanted motion, not chasing ab burn. Afterward, rate: Trunk control; Expected next-day leg freshness.",
         "exercises": [
           {
             "id": "ca1",
             "label": "Pallof press",
             "detail": "Press out, hold 2s, return slowly. Hips and ribs stay square.",
-            "reps": "2-3x8 each side"
+            "set_scheme": "2-3x8 each side"
           },
           {
             "id": "ca2",
             "label": "Dead bug",
             "detail": "Low back stays pressed down. Move opposite arm and leg without rib flare.",
-            "reps": "2x8-10 each side"
+            "set_scheme": "2x8-10 each side"
           },
           {
             "id": "ca3",
             "label": "Suitcase carry",
             "detail": "Walk tall and resist side bend. The weight should challenge posture, not grip survival.",
-            "reps": "2x20-30m each side"
+            "set_scheme": "2x20-30m each side"
           },
           {
             "id": "ca4",
             "label": "Plank shoulder taps",
             "detail": "Feet wider if needed. Tap slowly without hip sway.",
-            "reps": "2x8-12 each side"
+            "set_scheme": "2x8-12 each side"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-core-b",
       "name": "Core B — Lateral Chain",
-      "renderer": "exercise_block",
       "slot_default": "evening",
       "summary": "Side-plank, adductor, and hip-stability work for pelvis control.",
       "tags": [
@@ -110,39 +117,43 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 12,
+        "rir_guidance": null,
         "instructions": "Duration target: 12 min. This is pelvis-control work. It should feel stable and precise. Use regressions before you let the pelvis collapse. Afterward, rate: Adductor comfort; Pelvis control.",
         "exercises": [
           {
             "id": "cb1",
             "label": "Side plank",
             "detail": "Straight line from shoulder to ankle. Do not rotate open or sag.",
-            "reps": "2x20-40s each side"
+            "set_scheme": "2x20-40s each side"
           },
           {
             "id": "cb2",
             "label": "Copenhagen plank regression",
             "detail": "Use bent knee on bench or short lever. Adductor work should be controlled, not crampy.",
-            "reps": "2x10-25s each side"
+            "set_scheme": "2x10-25s each side"
           },
           {
             "id": "cb3",
             "label": "Single-leg glute bridge",
             "detail": "Drive through heel, full hip extension, no pelvis twist.",
-            "reps": "2x8-12 each side"
+            "set_scheme": "2x8-12 each side"
           },
           {
             "id": "cb4",
             "label": "Bird dog or bear plank hold",
             "detail": "Choose bird dog if tired; bear plank if fresh. Keep pelvis quiet.",
-            "reps": "2 sets"
+            "set_scheme": "2 sets"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-lower-leg",
       "name": "Lower-Leg Support",
-      "renderer": "exercise_block",
       "slot_default": "midday",
       "summary": "Calf, soleus, tibialis, and foot-intrinsic durability for daily running.",
       "tags": [
@@ -155,39 +166,43 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 14,
+        "rir_guidance": null,
         "instructions": "Duration target: 14 min. This is high-value support for daily running. Use full range and slow tempo. Stop short of calf pump that changes tomorrow's run. Afterward, rate: Achilles status after block; Foot control.",
         "exercises": [
           {
             "id": "ll1",
             "label": "Straight-leg calf raise",
             "detail": "Full range. Pause at top and bottom. Add load only if bodyweight feels too easy and Achilles feels normal.",
-            "reps": "2-3x8-10"
+            "set_scheme": "2-3x8-10"
           },
           {
             "id": "ll2",
             "label": "Bent-knee soleus raise",
             "detail": "Knees bent, controlled tempo. This is runner-relevant; do not bounce.",
-            "reps": "2-3x10-15"
+            "set_scheme": "2-3x10-15"
           },
           {
             "id": "ll3",
             "label": "Tibialis raise",
             "detail": "Lift toes toward shins without rushing. Quality over burn.",
-            "reps": "2x15-25"
+            "set_scheme": "2x15-25"
           },
           {
             "id": "ll4",
             "label": "Short foot + single-leg balance",
             "detail": "Create arch tension without curling toes. Eyes open unless balance is easy.",
-            "reps": "2x30s each side"
+            "set_scheme": "2x30s each side"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-hamstring-adductor",
       "name": "Hamstring / Adductor / Hinge Support",
-      "renderer": "exercise_block",
       "slot_default": "midday",
       "summary": "Low-dose hinge, hamstring, adductor, and knee-drive resilience.",
       "tags": [
@@ -199,39 +214,43 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 14,
+        "rir_guidance": null,
         "instructions": "Duration target: 14 min. This is the highest-cost support block. It is capped at one exposure per week, and zero during LTHR-test week if the test is done. The goal is resilience, not soreness. Afterward, rate: Hamstring soreness risk; Adductor soreness risk.",
         "exercises": [
           {
             "id": "ha1",
             "label": "Single-leg RDL",
             "detail": "Light dumbbells or bodyweight. Hips square, soft knee, slow hinge. Balance is part of the exercise.",
-            "reps": "2x6-8 each side"
+            "set_scheme": "2x6-8 each side"
           },
           {
             "id": "ha2",
             "label": "Hamstring slider curl or easy Nordic regression",
             "detail": "Choose sliders unless you already tolerate Nordics well. Slow eccentric, hands assist as needed.",
-            "reps": "2x3-6"
+            "set_scheme": "2x3-6"
           },
           {
             "id": "ha3",
             "label": "Adductor squeeze",
             "detail": "Ball, yoga block, or Copenhagen-lite squeeze. Controlled 2s squeeze, no cramping.",
-            "reps": "2x8-10"
+            "set_scheme": "2x8-10"
           },
           {
             "id": "ha4",
             "label": "Banded knee drives",
             "detail": "Fast but clean knee drive. Stay tall and avoid leaning back.",
-            "reps": "2x8-10 each side"
+            "set_scheme": "2x8-10 each side"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-mobility-reset",
       "name": "Mobility Reset",
-      "renderer": "exercise_block",
       "slot_default": "evening",
       "summary": "Low-cost mobility and tissue check for recovery days.",
       "tags": [
@@ -242,45 +261,49 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "strength_session",
+        "session_focus": null,
+        "duration_minutes": 8,
+        "rir_guidance": null,
         "instructions": "Duration target: 8 min. Use this on recovery/review days or when support work would be too much. This should make tomorrow feel better, not impress anyone. Afterward, rate: Recovery state; Tendon noise.",
         "exercises": [
           {
             "id": "mr1",
             "label": "90/90 breathing",
             "detail": "Feet on wall or bench. Exhale fully and let ribs come down.",
-            "reps": "5 slow breaths"
+            "set_scheme": "5 slow breaths"
           },
           {
             "id": "mr2",
             "label": "Hip flexor rock-back or couch stretch",
             "detail": "Gentle. Do not crank lumbar extension.",
-            "reps": "45s each side"
+            "set_scheme": "45s each side"
           },
           {
             "id": "mr3",
             "label": "Calf wall mobilization",
             "detail": "Knee tracks over toes with heel down.",
-            "reps": "10 each side"
+            "set_scheme": "10 each side"
           },
           {
             "id": "mr4",
             "label": "Adductor rock-back",
             "detail": "Move slowly and stop before pinching.",
-            "reps": "8 each side"
+            "set_scheme": "8 each side"
           },
           {
             "id": "mr5",
             "label": "Easy nasal walk or shakeout",
             "detail": "Only if it helps you downshift.",
-            "reps": "3-5 min optional"
+            "set_scheme": "3-5 min optional"
           }
-        ]
+        ],
+        "rating_prompts": []
       }
     },
     {
       "id": "running-support-calibration-weekly-review",
       "name": "Support Weekly Review",
-      "renderer": "checklist_block",
       "slot_default": "evening",
       "summary": "Weekly review of whether support work helped or contaminated running calibration.",
       "tags": [
@@ -291,6 +314,7 @@
         "running-support-calibration"
       ],
       "payload": {
+        "card_type": "checklist",
         "instructions": "The review question is brutally simple: did support work make running smoother, unchanged, or worse?",
         "items": [
           {
@@ -313,7 +337,8 @@
             "label": "Did support work contaminate HR/RPE calibration data?",
             "detail": null
           }
-        ]
+        ],
+        "domain": "running"
       }
     }
   ],
@@ -340,10 +365,7 @@
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
-            "title": "Micro-primer before first stride day",
-            "instructions": "Use only if the running bundle has strides today. Keep it crisp and non-fatiguing.",
-            "run_context": "easy + strides",
-            "adjustment": "Skip pogos if calves or Achilles feel reactive."
+            "instructions": "Use only if the running bundle has strides today. Keep it crisp and non-fatiguing."
           }
         },
         {
@@ -353,35 +375,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core A — first anti-rotation exposure",
             "instructions": "Easy baseline dose. This should not affect tomorrow's easy-only calibration run.",
             "exercises": [
               {
                 "id": "ca1",
                 "label": "Pallof press",
-                "reps": "2x8 each side",
-                "detail": "Light load, 2s hold."
+                "detail": "Light load, 2s hold.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca2",
                 "label": "Dead bug",
-                "reps": "2x8 each side",
-                "detail": "Low back glued down."
+                "detail": "Low back glued down.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca3",
                 "label": "Suitcase carry",
-                "reps": "2x20m each side",
-                "detail": "Moderate load, tall posture."
+                "detail": "Moderate load, tall posture.",
+                "set_scheme": "2x20m each side"
               },
               {
                 "id": "ca4",
                 "label": "Plank shoulder taps",
-                "reps": "2x8 each side",
-                "detail": "Wide feet; no hip sway."
+                "detail": "Wide feet; no hip sway.",
+                "set_scheme": "2x8 each side"
               }
-            ],
-            "run_context": "recovery/easy"
+            ]
           }
         },
         {
@@ -391,35 +411,33 @@
           "slot": "midday",
           "position": 10,
           "prescription_override_json": {
-            "title": "Lower-leg support — light baseline",
             "instructions": "Do this after the easy-only calibration run, not before. Keep calf work controlled and stop before a pump.",
             "exercises": [
               {
                 "id": "ll1",
                 "label": "Straight-leg calf raise",
-                "reps": "2x8",
-                "detail": "Bodyweight or light load, full range."
+                "detail": "Bodyweight or light load, full range.",
+                "set_scheme": "2x8"
               },
               {
                 "id": "ll2",
                 "label": "Bent-knee soleus raise",
-                "reps": "2x10",
-                "detail": "Slow tempo, no bouncing."
+                "detail": "Slow tempo, no bouncing.",
+                "set_scheme": "2x10"
               },
               {
                 "id": "ll3",
                 "label": "Tibialis raise",
-                "reps": "2x15",
-                "detail": "Strict reps."
+                "detail": "Strict reps.",
+                "set_scheme": "2x15"
               },
               {
                 "id": "ll4",
                 "label": "Short foot + single-leg balance",
-                "reps": "2x25s each side",
-                "detail": "Eyes open, arch active."
+                "detail": "Eyes open, arch active.",
+                "set_scheme": "2x25s each side"
               }
-            ],
-            "run_context": "easy-only calibration"
+            ]
           }
         },
         {
@@ -429,35 +447,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core B — lateral-chain baseline",
             "instructions": "Short pelvis-control dose. Regress Copenhagen immediately if adductors cramp.",
             "exercises": [
               {
                 "id": "cb1",
                 "label": "Side plank",
-                "reps": "2x20s each side",
-                "detail": "Straight line, no twist."
+                "detail": "Straight line, no twist.",
+                "set_scheme": "2x20s each side"
               },
               {
                 "id": "cb2",
                 "label": "Copenhagen plank regression",
-                "reps": "2x10s each side",
-                "detail": "Bent-knee or short lever."
+                "detail": "Bent-knee or short lever.",
+                "set_scheme": "2x10s each side"
               },
               {
                 "id": "cb3",
                 "label": "Single-leg glute bridge",
-                "reps": "2x8 each side",
-                "detail": "No pelvis rotation."
+                "detail": "No pelvis rotation.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "cb4",
                 "label": "Bird dog",
-                "reps": "2x6 each side",
-                "detail": "Slow contralateral reach."
+                "detail": "Slow contralateral reach.",
+                "set_scheme": "2x6 each side"
               }
-            ],
-            "run_context": "easy + drills"
+            ]
           }
         },
         {
@@ -467,9 +483,7 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Recovery mobility + Week 1 support review",
-            "instructions": "Mobility only. Do not add strength work today.",
-            "run_context": "recovery + running review"
+            "instructions": "Mobility only. Do not add strength work today."
           }
         },
         {
@@ -479,9 +493,7 @@
           "slot": "evening",
           "position": 20,
           "prescription_override_json": {
-            "title": "Week 1 support review",
-            "instructions": "Decide whether any support work contaminated the calibration baseline.",
-            "week": 1
+            "instructions": "Decide whether any support work contaminated the calibration baseline."
           }
         },
         {
@@ -491,35 +503,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core A — normal dose",
             "instructions": "Progress only by control, not load. This should still feel like support, not a workout.",
             "exercises": [
               {
                 "id": "ca1",
                 "label": "Pallof press",
-                "reps": "3x8 each side",
-                "detail": "Same load unless Day 3 was trivial."
+                "detail": "Same load unless Day 3 was trivial.",
+                "set_scheme": "3x8 each side"
               },
               {
                 "id": "ca2",
                 "label": "Dead bug",
-                "reps": "2x10 each side",
-                "detail": "3s out / 3s back."
+                "detail": "3s out / 3s back.",
+                "set_scheme": "2x10 each side"
               },
               {
                 "id": "ca3",
                 "label": "Suitcase carry",
-                "reps": "2x25m each side",
-                "detail": "Slightly heavier only if posture stays clean."
+                "detail": "Slightly heavier only if posture stays clean.",
+                "set_scheme": "2x25m each side"
               },
               {
                 "id": "ca4",
                 "label": "Plank shoulder taps",
-                "reps": "2x10 each side",
-                "detail": "Reduce stance width only if stable."
+                "detail": "Reduce stance width only if stable.",
+                "set_scheme": "2x10 each side"
               }
-            ],
-            "run_context": "easy"
+            ]
           }
         },
         {
@@ -529,9 +539,7 @@
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
-            "title": "Micro-primer before strides",
-            "instructions": "Use this before the stride run. Keep pogos elastic, not fatiguing.",
-            "run_context": "easy + strides"
+            "instructions": "Use this before the stride run. Keep pogos elastic, not fatiguing."
           }
         },
         {
@@ -541,35 +549,33 @@
           "slot": "midday",
           "position": 20,
           "prescription_override_json": {
-            "title": "Lower-leg support — normal dose",
             "instructions": "Do after the run, separated by several hours if possible.",
             "exercises": [
               {
                 "id": "ll1",
                 "label": "Straight-leg calf raise",
-                "reps": "3x8",
-                "detail": "Add light dumbbells only if Achilles feels perfect."
+                "detail": "Add light dumbbells only if Achilles feels perfect.",
+                "set_scheme": "3x8"
               },
               {
                 "id": "ll2",
                 "label": "Bent-knee soleus raise",
-                "reps": "3x10",
-                "detail": "Slow, controlled tempo."
+                "detail": "Slow, controlled tempo.",
+                "set_scheme": "3x10"
               },
               {
                 "id": "ll3",
                 "label": "Tibialis raise",
-                "reps": "2x20",
-                "detail": "Strict reps."
+                "detail": "Strict reps.",
+                "set_scheme": "2x20"
               },
               {
                 "id": "ll4",
                 "label": "Short foot + single-leg balance",
-                "reps": "2x30s each side",
-                "detail": "Eyes open; no wobble chase."
+                "detail": "Eyes open; no wobble chase.",
+                "set_scheme": "2x30s each side"
               }
-            ],
-            "run_context": "easy + strides"
+            ]
           }
         },
         {
@@ -579,36 +585,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core B — optional after steady-aerobic check",
             "instructions": "Do this only if the steady-aerobic run felt controlled. If the run created fatigue, skip.",
             "exercises": [
               {
                 "id": "cb1",
                 "label": "Side plank",
-                "reps": "2x25-30s each side",
-                "detail": "Clean line."
+                "detail": "Clean line.",
+                "set_scheme": "2x25-30s each side"
               },
               {
                 "id": "cb2",
                 "label": "Copenhagen plank regression",
-                "reps": "2x12-15s each side",
-                "detail": "Stay conservative."
+                "detail": "Stay conservative.",
+                "set_scheme": "2x12-15s each side"
               },
               {
                 "id": "cb3",
                 "label": "Single-leg glute bridge",
-                "reps": "2x10 each side",
-                "detail": "Controlled reps."
+                "detail": "Controlled reps.",
+                "set_scheme": "2x10 each side"
               },
               {
                 "id": "cb4",
                 "label": "Bird dog or bear plank hold",
-                "reps": "2 sets",
-                "detail": "Bird dog if tired; bear plank if fresh."
+                "detail": "Bird dog if tired; bear plank if fresh.",
+                "set_scheme": "2 sets"
               }
-            ],
-            "run_context": "first steady-aerobic exposure",
-            "optional": true
+            ]
           }
         },
         {
@@ -618,36 +621,33 @@
           "slot": "midday",
           "position": 10,
           "prescription_override_json": {
-            "title": "Hamstring/adductor support — first exposure",
             "instructions": "Highest-cost block. Keep it deliberately underwhelming.",
             "exercises": [
               {
                 "id": "ha1",
                 "label": "Single-leg RDL",
-                "reps": "2x6 each side",
-                "detail": "Bodyweight or very light dumbbells."
+                "detail": "Bodyweight or very light dumbbells.",
+                "set_scheme": "2x6 each side"
               },
               {
                 "id": "ha2",
                 "label": "Hamstring slider curl",
-                "reps": "2x4-5",
-                "detail": "Use sliders over Nordics for first exposure."
+                "detail": "Use sliders over Nordics for first exposure.",
+                "set_scheme": "2x4-5"
               },
               {
                 "id": "ha3",
                 "label": "Adductor squeeze",
-                "reps": "2x8",
-                "detail": "2s squeeze, no cramp."
+                "detail": "2s squeeze, no cramp.",
+                "set_scheme": "2x8"
               },
               {
                 "id": "ha4",
                 "label": "Banded knee drives",
-                "reps": "2x8 each side",
-                "detail": "Fast and clean."
+                "detail": "Fast and clean.",
+                "set_scheme": "2x8 each side"
               }
-            ],
-            "run_context": "easy + drills",
-            "soreness_rule": "If hamstrings/adductors are sore the next morning, cut this block in half next exposure."
+            ]
           }
         },
         {
@@ -657,9 +657,7 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Recovery mobility + Week 2 support review",
-            "instructions": "Mobility only. Use the review to decide whether hamstring/adductor work stays.",
-            "run_context": "recovery + review"
+            "instructions": "Mobility only. Use the review to decide whether hamstring/adductor work stays."
           }
         },
         {
@@ -669,9 +667,7 @@
           "slot": "evening",
           "position": 20,
           "prescription_override_json": {
-            "title": "Week 2 support review",
-            "instructions": "Main decision: did the first hamstring/adductor block help, do nothing, or create bad soreness?",
-            "week": 2
+            "instructions": "Main decision: did the first hamstring/adductor block help, do nothing, or create bad soreness?"
           }
         },
         {
@@ -681,35 +677,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core A — pre-test week dose",
             "instructions": "Keep the session normal but not progressive. Do not chase load this week.",
             "exercises": [
               {
                 "id": "ca1",
                 "label": "Pallof press",
-                "reps": "2x8 each side",
-                "detail": "Slightly reduced from Week 2."
+                "detail": "Slightly reduced from Week 2.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca2",
                 "label": "Dead bug",
-                "reps": "2x8 each side",
-                "detail": "Slow control."
+                "detail": "Slow control.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca3",
                 "label": "Suitcase carry",
-                "reps": "2x20m each side",
-                "detail": "Moderate load only."
+                "detail": "Moderate load only.",
+                "set_scheme": "2x20m each side"
               },
               {
                 "id": "ca4",
                 "label": "Plank shoulder taps",
-                "reps": "2x8 each side",
-                "detail": "No hip sway."
+                "detail": "No hip sway.",
+                "set_scheme": "2x8 each side"
               }
-            ],
-            "run_context": "easy"
+            ]
           }
         },
         {
@@ -719,10 +713,7 @@
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
-            "title": "Micro-primer before strides",
-            "instructions": "Keep this especially light because the optional LTHR test is coming.",
-            "run_context": "easy + strides",
-            "adjustment": "Skip pogos if calves are not fresh."
+            "instructions": "Keep this especially light because the optional LTHR test is coming."
           }
         },
         {
@@ -732,35 +723,33 @@
           "slot": "midday",
           "position": 20,
           "prescription_override_json": {
-            "title": "Lower-leg support — reduced pre-test dose",
             "instructions": "Reduced volume to avoid calf/Achilles noise before LTHR test.",
             "exercises": [
               {
                 "id": "ll1",
                 "label": "Straight-leg calf raise",
-                "reps": "2x8",
-                "detail": "No load increase."
+                "detail": "No load increase.",
+                "set_scheme": "2x8"
               },
               {
                 "id": "ll2",
                 "label": "Bent-knee soleus raise",
-                "reps": "2x10",
-                "detail": "Controlled, no pump."
+                "detail": "Controlled, no pump.",
+                "set_scheme": "2x10"
               },
               {
                 "id": "ll3",
                 "label": "Tibialis raise",
-                "reps": "2x15",
-                "detail": "Maintenance dose."
+                "detail": "Maintenance dose.",
+                "set_scheme": "2x15"
               },
               {
                 "id": "ll4",
                 "label": "Short foot + single-leg balance",
-                "reps": "2x25s each side",
-                "detail": "Easy balance only."
+                "detail": "Easy balance only.",
+                "set_scheme": "2x25s each side"
               }
-            ],
-            "run_context": "easy + strides"
+            ]
           }
         },
         {
@@ -770,13 +759,7 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Post-LTHR-test mobility only",
-            "instructions": "If you completed the diagnostic LTHR test, do mobility only. No core, no calf work, no hamstrings.",
-            "run_context": "optional LTHR test",
-            "conditional_adjustment": {
-              "if_lthr_test_completed": "Mobility reset only.",
-              "if_lthr_test_skipped": "Still keep this light; you can do Core B on Day 21."
-            }
+            "instructions": "If you completed the diagnostic LTHR test, do mobility only. No core, no calf work, no hamstrings."
           }
         },
         {
@@ -786,9 +769,7 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Post-test recovery reset",
-            "instructions": "Use this instead of drills/support if legs feel flat after the LTHR test.",
-            "run_context": "post-test easy"
+            "instructions": "Use this instead of drills/support if legs feel flat after the LTHR test."
           }
         },
         {
@@ -798,36 +779,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core B — light or skipped",
             "instructions": "Do this only if you feel fresh. If the LTHR test left fatigue, skip and review only.",
             "exercises": [
               {
                 "id": "cb1",
                 "label": "Side plank",
-                "reps": "2x20s each side",
-                "detail": "Light dose."
+                "detail": "Light dose.",
+                "set_scheme": "2x20s each side"
               },
               {
                 "id": "cb2",
                 "label": "Copenhagen plank regression",
-                "reps": "1-2x10s each side",
-                "detail": "Skip if adductors feel off."
+                "detail": "Skip if adductors feel off.",
+                "set_scheme": "1-2x10s each side"
               },
               {
                 "id": "cb3",
                 "label": "Single-leg glute bridge",
-                "reps": "2x8 each side",
-                "detail": "Easy activation."
+                "detail": "Easy activation.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "cb4",
                 "label": "Bird dog",
-                "reps": "2x6 each side",
-                "detail": "Controlled only."
+                "detail": "Controlled only.",
+                "set_scheme": "2x6 each side"
               }
-            ],
-            "optional": true,
-            "run_context": "recovery + review"
+            ]
           }
         },
         {
@@ -837,9 +815,7 @@
           "slot": "evening",
           "position": 20,
           "prescription_override_json": {
-            "title": "Week 3 support review",
-            "instructions": "Main decision: if the LTHR test was completed, did support work stay out of the way?",
-            "week": 3
+            "instructions": "Main decision: if the LTHR test was completed, did support work stay out of the way?"
           }
         },
         {
@@ -849,35 +825,33 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Core A — deload dose",
             "instructions": "Half-volume anti-rotation. Week 4 is for absorption and review.",
             "exercises": [
               {
                 "id": "ca1",
                 "label": "Pallof press",
-                "reps": "2x8 each side",
-                "detail": "Light-moderate."
+                "detail": "Light-moderate.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca2",
                 "label": "Dead bug",
-                "reps": "2x8 each side",
-                "detail": "Strict."
+                "detail": "Strict.",
+                "set_scheme": "2x8 each side"
               },
               {
                 "id": "ca3",
                 "label": "Suitcase carry",
-                "reps": "1-2x20m each side",
-                "detail": "Skip if tired."
+                "detail": "Skip if tired.",
+                "set_scheme": "1-2x20m each side"
               },
               {
                 "id": "ca4",
                 "label": "Plank shoulder taps",
-                "reps": "1-2x8 each side",
-                "detail": "Easy control."
+                "detail": "Easy control.",
+                "set_scheme": "1-2x8 each side"
               }
-            ],
-            "run_context": "deload easy"
+            ]
           }
         },
         {
@@ -887,9 +861,7 @@
           "slot": "morning",
           "position": 10,
           "prescription_override_json": {
-            "title": "Micro-primer before light strides",
-            "instructions": "Lightest primer of the block.",
-            "run_context": "easy + light strides"
+            "instructions": "Lightest primer of the block."
           }
         },
         {
@@ -899,35 +871,33 @@
           "slot": "midday",
           "position": 20,
           "prescription_override_json": {
-            "title": "Lower-leg support — deload dose",
             "instructions": "Reduced volume. Do not chase progression.",
             "exercises": [
               {
                 "id": "ll1",
                 "label": "Straight-leg calf raise",
-                "reps": "2x8",
-                "detail": "Comfortable load."
+                "detail": "Comfortable load.",
+                "set_scheme": "2x8"
               },
               {
                 "id": "ll2",
                 "label": "Bent-knee soleus raise",
-                "reps": "2x10",
-                "detail": "Comfortable load."
+                "detail": "Comfortable load.",
+                "set_scheme": "2x10"
               },
               {
                 "id": "ll3",
                 "label": "Tibialis raise",
-                "reps": "1-2x15",
-                "detail": "Maintenance."
+                "detail": "Maintenance.",
+                "set_scheme": "1-2x15"
               },
               {
                 "id": "ll4",
                 "label": "Short foot + single-leg balance",
-                "reps": "2x25s each side",
-                "detail": "Clean balance."
+                "detail": "Clean balance.",
+                "set_scheme": "2x25s each side"
               }
-            ],
-            "run_context": "easy + light strides"
+            ]
           }
         },
         {
@@ -937,37 +907,33 @@
           "slot": "midday",
           "position": 10,
           "prescription_override_json": {
-            "title": "Hamstring/adductor support — half dose",
             "instructions": "Only do this if Week 2's version caused no bad soreness. Otherwise replace with Mobility Reset.",
             "exercises": [
               {
                 "id": "ha1",
                 "label": "Single-leg RDL",
-                "reps": "2x6 each side",
-                "detail": "Light only."
+                "detail": "Light only.",
+                "set_scheme": "2x6 each side"
               },
               {
                 "id": "ha2",
                 "label": "Hamstring slider curl",
-                "reps": "1-2x4",
-                "detail": "Skip if hamstrings are not fresh."
+                "detail": "Skip if hamstrings are not fresh.",
+                "set_scheme": "1-2x4"
               },
               {
                 "id": "ha3",
                 "label": "Adductor squeeze",
-                "reps": "2x8",
-                "detail": "Controlled."
+                "detail": "Controlled.",
+                "set_scheme": "2x8"
               },
               {
                 "id": "ha4",
                 "label": "Banded knee drives",
-                "reps": "2x8 each side",
-                "detail": "Crisp and easy."
+                "detail": "Crisp and easy.",
+                "set_scheme": "2x8 each side"
               }
-            ],
-            "optional": true,
-            "fallback": "running-support-calibration-mobility-reset",
-            "run_context": "easy + drills"
+            ]
           }
         },
         {
@@ -977,9 +943,7 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "title": "Final mobility reset",
-            "instructions": "Finish the block with mobility, not fatigue.",
-            "run_context": "final recovery"
+            "instructions": "Finish the block with mobility, not fatigue."
           }
         },
         {
@@ -989,16 +953,7 @@
           "slot": "evening",
           "position": 20,
           "prescription_override_json": {
-            "title": "Week 4 final support review",
-            "instructions": "Decide what survives into the next actual running block.",
-            "week": 4,
-            "final_decision_prompts": [
-              "Keep Core A weekly?",
-              "Keep Core B weekly or every other week?",
-              "Lower-leg support once or twice weekly?",
-              "Did hamstring/adductor work earn a weekly slot?",
-              "Any support exercise that clearly made running worse?"
-            ]
+            "instructions": "Decide what survives into the next actual running block."
           }
         }
       ]

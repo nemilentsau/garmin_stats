@@ -19,6 +19,7 @@ from app.domains.routines.adapters import (
 from app.domains.routines.contracts import (
     CardOverride,
     ChecklistPayload,
+    RunningWorkoutPayload,
     StrengthSessionPayload,
     TimerActual,
     TodayCardLogUpdateRequest,
@@ -762,7 +763,6 @@ class TestArtifactBundles:
             t.payload_json.card_type == "breath_timer" for t in breathwork_timer_cards
         )
 
-    @pytest.mark.skip(reason="running bundle not yet re-authored to card_type schema")
     def test_four_week_running_bundle_previews_with_owned_supported_cards(self):
         bundle = _load_four_week_running_bundle()
 
@@ -773,7 +773,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 10
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 33
-        # card.payload.card_type checks replace old card.renderer assertions after re-author
         assert all(
             card.id.startswith("running-calibration-") for card in bundle.card_templates
         )
@@ -781,6 +780,28 @@ class TestArtifactBundles:
         assert slots.count("morning") == 29
         assert slots.count("evening") == 4
         assert set(slots) == {"morning", "evening"}
+        running_workout_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "running_workout"
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(running_workout_cards) == 8
+        assert len(checklist_cards) == 2
+        strides_card = next(
+            c for c in running_workout_cards if c.id == "running-calibration-easy-strides"
+        )
+        assert isinstance(strides_card.payload, RunningWorkoutPayload)
+        assert strides_card.payload.workout_type == "easy_plus_strides"
+        assert strides_card.payload.calibration_quality is True
+        lthr_card = next(
+            c for c in running_workout_cards if c.id == "running-calibration-lthr-test"
+        )
+        assert isinstance(lthr_card.payload, RunningWorkoutPayload)
+        assert lthr_card.payload.workout_type == "diagnostic_lthr_test"
+        for card in checklist_cards:
+            assert isinstance(card.payload, ChecklistPayload)
+            assert card.payload.domain == "running"
 
     @pytest.mark.skip(reason="running bundle not yet re-authored to card_type schema")
     def test_four_week_running_bundle_collects_run_confounders_after_each_run(self):
@@ -819,7 +840,6 @@ class TestArtifactBundles:
             )
             assert {field["key"] for field in post_run_fields} == expected_field_keys
 
-    @pytest.mark.skip(reason="running support bundle not yet re-authored to card_type schema")
     def test_four_week_running_support_bundle_previews_with_supported_slots_and_cards(self):
         bundle = _load_four_week_running_support_bundle()
 
@@ -830,7 +850,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 7
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 26
-        # card.payload.card_type checks replace old card.renderer assertions after re-author
         assert all(
             card.id.startswith("running-support-calibration-")
             for card in bundle.card_templates
@@ -840,10 +859,17 @@ class TestArtifactBundles:
         assert slots.count("midday") == 6
         assert slots.count("evening") == 16
         assert set(slots) == {"morning", "midday", "evening"}
+        strength_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "strength_session"
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(strength_cards) == 6
+        assert len(checklist_cards) == 1
+        assert isinstance(checklist_cards[0].payload, ChecklistPayload)
+        assert checklist_cards[0].payload.domain == "running"
 
-    @pytest.mark.skip(
-        reason="running meditation transfer bundle not yet re-authored to card_type schema"
-    )
     def test_four_week_running_meditation_transfer_bundle_previews_with_supported_slots_and_cards(
         self,
     ):
@@ -856,7 +882,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 10
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 32
-        # card.payload.card_type checks replace old card.renderer assertions after re-author
         assert all(
             card.id.startswith("running-meditation-transfer-")
             for card in bundle.card_templates
@@ -866,6 +891,13 @@ class TestArtifactBundles:
         assert slots.count("midday") == 1
         assert slots.count("evening") == 4
         assert set(slots) == {"morning", "midday", "evening"}
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(checklist_cards) == 10
+        for c in checklist_cards:
+            assert isinstance(c.payload, ChecklistPayload)
+            assert c.payload.domain == "running"
 
     def test_four_week_strength_running_bundle_previews_with_supported_slots_and_cards(
         self,
