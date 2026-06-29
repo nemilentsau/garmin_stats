@@ -26,7 +26,6 @@ CardType = Literal[
     "meditation_timer",
     "checklist",
 ]
-RendererFamily = CardType  # Alias for card rendering type (same as CardType)
 RunSegmentKind = Literal["warmup", "main", "strides", "cooldown", "intervals"]
 BreathPhaseKind = Literal["inhale", "hold_full", "exhale", "hold_empty"]
 
@@ -229,12 +228,11 @@ class CardTemplate(DefaultsRequired):
 
     id: str
     name: str
-    renderer: RendererFamily
     slot_default: SlotName
     status: EntityStatus = "active"
     summary: str | None = None
     tags: list[str] = []
-    payload_json: dict[str, object] = {}
+    payload_json: CardPayload
     source_artifact_id: str | None = None
 
 
@@ -315,7 +313,7 @@ class CardLog(DefaultsRequired):
     card_template_id: str
     assignment_id: str | None = None
     status: CardLogStatus = "pending"
-    actual_json: dict[str, object] = {}
+    actual_json: CardActual | None = None
     notes: str | None = None
 
 
@@ -338,7 +336,7 @@ class TodayCardLogUpdateRequest(StrictDefaultsRequired):
     card_template_id: str
     assignment_id: str | None = None
     status: CardLogStatus = "completed"
-    actual_json: dict[str, object] = {}
+    actual_json: CardActual | None = None
     notes: str | None = None
 
 
@@ -367,17 +365,16 @@ class ScheduleOccurrence(DefaultsRequired):
     assignment_id: str | None = None
     card_template_id: str
     name: str
-    renderer: RendererFamily
     summary: str | None = None
     tags: list[str] = []
-    payload_json: dict[str, object] = {}
+    payload_json: CardPayload
 
 
 class TodayCard(ScheduleOccurrence):
     """Resolved Today-board card occurrence with log state attached."""
 
     status: CardLogStatus = "pending"
-    actual_json: dict[str, object] = {}
+    actual_json: CardActual | None = None
     notes: str | None = None
 
 

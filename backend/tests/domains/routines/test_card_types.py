@@ -12,9 +12,11 @@ from pydantic import TypeAdapter, ValidationError
 from app.domains.routines.contracts import (
     CardActual,
     CardPayload,
+    CardTemplate,
     ChecklistActual,
     ChecklistPayload,
     RunningWorkoutPayload,
+    ScheduleOccurrence,
     StrengthActual,
     StrengthSessionPayload,
 )
@@ -110,3 +112,35 @@ def test_checklist_actual_round_trips():
     )
     assert isinstance(actual, ChecklistActual)
     assert actual.answers[0].text == "Resonance"
+
+
+def test_card_template_payload_is_typed_union():
+    card = CardTemplate.model_validate(
+        {
+            "id": "c1",
+            "name": "Breathwork Weekly Review",
+            "slot_default": "evening",
+            "payload_json": {
+                "card_type": "checklist",
+                "items": [{"id": "q1", "label": "What worked?"}],
+            },
+        }
+    )
+    assert card.payload_json.card_type == "checklist"
+    assert not hasattr(card, "renderer")
+
+
+def test_schedule_occurrence_has_no_renderer():
+    occ = ScheduleOccurrence.model_validate(
+        {
+            "occurrence_key": "k",
+            "date": "2026-06-29",
+            "slot": "evening",
+            "source_kind": "scheduled",
+            "card_template_id": "c1",
+            "name": "x",
+            "payload_json": {"card_type": "checklist"},
+        }
+    )
+    assert occ.payload_json.card_type == "checklist"
+    assert not hasattr(occ, "renderer")
