@@ -1721,6 +1721,73 @@ export interface components {
             ma7_min: number | null;
         };
         /**
+         * BreathPhase
+         * @description One timed phase of a breathing pattern.
+         */
+        BreathPhase: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "inhale" | "hold_full" | "exhale" | "hold_empty";
+            /** Seconds */
+            seconds: number;
+        };
+        /**
+         * BreathTimerPayload
+         * @description Typed prescription for a breathwork timer card.
+         */
+        "BreathTimerPayload-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "breath_timer";
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Pattern Label */
+            pattern_label: string;
+            /**
+             * Phases
+             * @default []
+             */
+            phases: components["schemas"]["BreathPhase"][];
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Input"][];
+        };
+        /**
+         * BreathTimerPayload
+         * @description Typed prescription for a breathwork timer card.
+         */
+        "BreathTimerPayload-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "breath_timer";
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Pattern Label */
+            pattern_label: string;
+            /**
+             * Phases
+             * @default []
+             */
+            phases: components["schemas"]["BreathPhase"][];
+            /** Instructions */
+            instructions: string | null;
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Output"][];
+        };
+        /**
          * CardLog
          * @description User completion log for one dated card occurrence.
          */
@@ -1741,13 +1808,8 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "completed" | "partial" | "skipped";
-            /**
-             * Actual Json
-             * @default {}
-             */
-            actual_json: {
-                [key: string]: unknown;
-            };
+            /** Actual Json */
+            actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
         };
@@ -1789,11 +1851,6 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Renderer
-             * @enum {string}
-             */
-            renderer: "timer_session" | "checklist_block" | "exercise_block";
-            /**
              * Slot Default
              * @enum {string}
              */
@@ -1811,13 +1868,8 @@ export interface components {
              * @default []
              */
             tags: string[];
-            /**
-             * Payload Json
-             * @default {}
-             */
-            payload_json: {
-                [key: string]: unknown;
-            };
+            /** Payload Json */
+            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
             /** Source Artifact Id */
             source_artifact_id: string | null;
         };
@@ -1831,11 +1883,6 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Renderer
-             * @enum {string}
-             */
-            renderer: "timer_session" | "checklist_block" | "exercise_block";
-            /**
              * Slot Default
              * @enum {string}
              */
@@ -1847,13 +1894,8 @@ export interface components {
              * @default []
              */
             tags: string[];
-            /**
-             * Payload
-             * @default {}
-             */
-            payload: {
-                [key: string]: unknown;
-            };
+            /** Payload */
+            payload: components["schemas"]["RunningWorkoutPayload-Input"] | components["schemas"]["StrengthSessionPayload-Input"] | components["schemas"]["BreathTimerPayload-Input"] | components["schemas"]["MeditationTimerPayload-Input"] | components["schemas"]["ChecklistPayload-Input"];
         };
         /**
          * CardTemplatesResponse
@@ -1870,6 +1912,132 @@ export interface components {
              * @default []
              */
             cards: components["schemas"]["CardTemplate"][];
+        };
+        /**
+         * ChecklistActual
+         * @description Logged answers for a checklist card.
+         */
+        "ChecklistActual-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "checklist";
+            /**
+             * Answers
+             * @default []
+             */
+            answers: components["schemas"]["ChecklistAnswer-Input"][];
+        };
+        /**
+         * ChecklistActual
+         * @description Logged answers for a checklist card.
+         */
+        "ChecklistActual-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "checklist";
+            /**
+             * Answers
+             * @default []
+             */
+            answers: components["schemas"]["ChecklistAnswer-Output"][];
+        };
+        /**
+         * ChecklistAnswer
+         * @description One answered checklist item.
+         */
+        "ChecklistAnswer-Input": {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Checked
+             * @default false
+             */
+            checked: boolean;
+            /** Text */
+            text?: string | null;
+        };
+        /**
+         * ChecklistAnswer
+         * @description One answered checklist item.
+         */
+        "ChecklistAnswer-Output": {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Checked
+             * @default false
+             */
+            checked: boolean;
+            /** Text */
+            text: string | null;
+        };
+        /**
+         * ChecklistItem
+         * @description One checklist item inside a checklist card payload.
+         */
+        "ChecklistItem-Input": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Detail */
+            detail?: string | null;
+        };
+        /**
+         * ChecklistItem
+         * @description One checklist item inside a checklist card payload.
+         */
+        "ChecklistItem-Output": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string | null;
+        };
+        /**
+         * ChecklistPayload
+         * @description Typed prescription for a checklist card (reviews, setup, skip days).
+         */
+        "ChecklistPayload-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "checklist";
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ChecklistItem-Input"][];
+            /** Domain */
+            domain?: string | null;
+        };
+        /**
+         * ChecklistPayload
+         * @description Typed prescription for a checklist card (reviews, setup, skip days).
+         */
+        "ChecklistPayload-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "checklist";
+            /** Instructions */
+            instructions: string | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ChecklistItem-Output"][];
+            /** Domain */
+            domain: string | null;
         };
         /**
          * CircadianHRPoint
@@ -3080,6 +3248,46 @@ export interface components {
             days_on_disk: number;
         };
         /**
+         * LoggedStrengthExercise
+         * @description One logged exercise; extras carry a free-text label and is_extra=True.
+         */
+        "LoggedStrengthExercise-Input": {
+            /** Exercise Id */
+            exercise_id?: string | null;
+            /** Label */
+            label?: string | null;
+            /**
+             * Is Extra
+             * @default false
+             */
+            is_extra: boolean;
+            /**
+             * Sets
+             * @default []
+             */
+            sets: components["schemas"]["StrengthSetLog-Input"][];
+        };
+        /**
+         * LoggedStrengthExercise
+         * @description One logged exercise; extras carry a free-text label and is_extra=True.
+         */
+        "LoggedStrengthExercise-Output": {
+            /** Exercise Id */
+            exercise_id: string | null;
+            /** Label */
+            label: string | null;
+            /**
+             * Is Extra
+             * @default false
+             */
+            is_extra: boolean;
+            /**
+             * Sets
+             * @default []
+             */
+            sets: components["schemas"]["StrengthSetLog-Output"][];
+        };
+        /**
          * MeaningfulChange
          * @description Sustained (Δ7) and acute (Δ1) change of the score against the R2 thresholds.
          */
@@ -3105,6 +3313,54 @@ export interface components {
              * @default false
              */
             is_acute: boolean;
+        };
+        /**
+         * MeditationTimerPayload
+         * @description Typed prescription for a meditation timer card.
+         */
+        "MeditationTimerPayload-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "meditation_timer";
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Technique */
+            technique: string;
+            /** Anchor */
+            anchor?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Input"][];
+        };
+        /**
+         * MeditationTimerPayload
+         * @description Typed prescription for a meditation timer card.
+         */
+        "MeditationTimerPayload-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "meditation_timer";
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Technique */
+            technique: string;
+            /** Anchor */
+            anchor: string | null;
+            /** Instructions */
+            instructions: string | null;
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Output"][];
         };
         /** MetricAnalysis */
         MetricAnalysis: {
@@ -3565,6 +3821,46 @@ export interface components {
             programs: components["schemas"]["Program"][];
         };
         /**
+         * RatingPrompt
+         * @description One post-session rating prompt shared by workout card payloads.
+         */
+        "RatingPrompt-Input": {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Scale Min
+             * @default 1
+             */
+            scale_min: number;
+            /**
+             * Scale Max
+             * @default 5
+             */
+            scale_max: number;
+        };
+        /**
+         * RatingPrompt
+         * @description One post-session rating prompt shared by workout card payloads.
+         */
+        "RatingPrompt-Output": {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Scale Min
+             * @default 1
+             */
+            scale_min: number;
+            /**
+             * Scale Max
+             * @default 5
+             */
+            scale_max: number;
+        };
+        /**
          * RecoveryScorePoint
          * @description One day of the recovery trajectory: raw score, seeded MA7, dispersion band, and baseline.
          */
@@ -3816,6 +4112,162 @@ export interface components {
             assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
         /**
+         * RunSegment
+         * @description One segment of a running workout; prescription is a range string.
+         */
+        "RunSegment-Input": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "warmup" | "main" | "strides" | "cooldown" | "intervals";
+            /** Detail */
+            detail?: string | null;
+            /** Prescription */
+            prescription: string;
+        };
+        /**
+         * RunSegment
+         * @description One segment of a running workout; prescription is a range string.
+         */
+        "RunSegment-Output": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "warmup" | "main" | "strides" | "cooldown" | "intervals";
+            /** Detail */
+            detail: string | null;
+            /** Prescription */
+            prescription: string;
+        };
+        /**
+         * RunningActual
+         * @description Logged actuals for a completed running workout.
+         */
+        "RunningActual-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "running_workout";
+            /** Distance Km */
+            distance_km?: number | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Avg Hr */
+            avg_hr?: number | null;
+            /** Hr Drift Pct */
+            hr_drift_pct?: number | null;
+            /**
+             * Calibration Quality
+             * @default false
+             */
+            calibration_quality: boolean;
+            /** Rpe */
+            rpe?: number | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /**
+         * RunningActual
+         * @description Logged actuals for a completed running workout.
+         */
+        "RunningActual-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "running_workout";
+            /** Distance Km */
+            distance_km: number | null;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Avg Hr */
+            avg_hr: number | null;
+            /** Hr Drift Pct */
+            hr_drift_pct: number | null;
+            /**
+             * Calibration Quality
+             * @default false
+             */
+            calibration_quality: boolean;
+            /** Rpe */
+            rpe: number | null;
+            /** Notes */
+            notes: string | null;
+        };
+        /**
+         * RunningWorkoutPayload
+         * @description Typed prescription for a running workout card.
+         */
+        "RunningWorkoutPayload-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "running_workout";
+            /** Workout Type */
+            workout_type: string;
+            /** Rpe */
+            rpe?: string | null;
+            /** Talk Test */
+            talk_test?: string | null;
+            /** Hr Guidance */
+            hr_guidance?: string | null;
+            /**
+             * Calibration Quality
+             * @default false
+             */
+            calibration_quality: boolean;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Segments
+             * @default []
+             */
+            segments: components["schemas"]["RunSegment-Input"][];
+        };
+        /**
+         * RunningWorkoutPayload
+         * @description Typed prescription for a running workout card.
+         */
+        "RunningWorkoutPayload-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "running_workout";
+            /** Workout Type */
+            workout_type: string;
+            /** Rpe */
+            rpe: string | null;
+            /** Talk Test */
+            talk_test: string | null;
+            /** Hr Guidance */
+            hr_guidance: string | null;
+            /**
+             * Calibration Quality
+             * @default false
+             */
+            calibration_quality: boolean;
+            /** Instructions */
+            instructions: string | null;
+            /**
+             * Segments
+             * @default []
+             */
+            segments: components["schemas"]["RunSegment-Output"][];
+        };
+        /**
          * ScheduleDay
          * @description Resolved routine occurrences for one calendar day.
          */
@@ -3871,11 +4323,6 @@ export interface components {
             card_template_id: string;
             /** Name */
             name: string;
-            /**
-             * Renderer
-             * @enum {string}
-             */
-            renderer: "timer_session" | "checklist_block" | "exercise_block";
             /** Summary */
             summary: string | null;
             /**
@@ -3883,13 +4330,8 @@ export interface components {
              * @default []
              */
             tags: string[];
-            /**
-             * Payload Json
-             * @default {}
-             */
-            payload_json: {
-                [key: string]: unknown;
-            };
+            /** Payload Json */
+            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
         };
         /**
          * ScheduleWindow
@@ -4130,6 +4572,166 @@ export interface components {
             value: number | null;
         };
         /**
+         * StrengthActual
+         * @description Logged actuals for a strength session, including off-script extras.
+         */
+        "StrengthActual-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "strength_session";
+            /**
+             * Exercises
+             * @default []
+             */
+            exercises: components["schemas"]["LoggedStrengthExercise-Input"][];
+            /**
+             * Ratings
+             * @default {}
+             */
+            ratings: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * StrengthActual
+         * @description Logged actuals for a strength session, including off-script extras.
+         */
+        "StrengthActual-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "strength_session";
+            /**
+             * Exercises
+             * @default []
+             */
+            exercises: components["schemas"]["LoggedStrengthExercise-Output"][];
+            /**
+             * Ratings
+             * @default {}
+             */
+            ratings: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * StrengthExercise
+         * @description One prescribed strength exercise; set_scheme is a range string.
+         */
+        "StrengthExercise-Input": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Detail */
+            detail?: string | null;
+            /** Set Scheme */
+            set_scheme: string;
+        };
+        /**
+         * StrengthExercise
+         * @description One prescribed strength exercise; set_scheme is a range string.
+         */
+        "StrengthExercise-Output": {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string | null;
+            /** Set Scheme */
+            set_scheme: string;
+        };
+        /**
+         * StrengthSessionPayload
+         * @description Typed prescription for a strength session card.
+         */
+        "StrengthSessionPayload-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "strength_session";
+            /** Session Focus */
+            session_focus?: string | null;
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /** Rir Guidance */
+            rir_guidance?: string | null;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Exercises
+             * @default []
+             */
+            exercises: components["schemas"]["StrengthExercise-Input"][];
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Input"][];
+        };
+        /**
+         * StrengthSessionPayload
+         * @description Typed prescription for a strength session card.
+         */
+        "StrengthSessionPayload-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "strength_session";
+            /** Session Focus */
+            session_focus: string | null;
+            /** Duration Minutes */
+            duration_minutes: number | null;
+            /** Rir Guidance */
+            rir_guidance: string | null;
+            /** Instructions */
+            instructions: string | null;
+            /**
+             * Exercises
+             * @default []
+             */
+            exercises: components["schemas"]["StrengthExercise-Output"][];
+            /**
+             * Rating Prompts
+             * @default []
+             */
+            rating_prompts: components["schemas"]["RatingPrompt-Output"][];
+        };
+        /**
+         * StrengthSetLog
+         * @description One logged set of a strength exercise.
+         */
+        "StrengthSetLog-Input": {
+            /** Set Index */
+            set_index: number;
+            /** Weight */
+            weight?: number | null;
+            /** Reps */
+            reps?: number | null;
+            /** Rir */
+            rir?: number | null;
+        };
+        /**
+         * StrengthSetLog
+         * @description One logged set of a strength exercise.
+         */
+        "StrengthSetLog-Output": {
+            /** Set Index */
+            set_index: number;
+            /** Weight */
+            weight: number | null;
+            /** Reps */
+            reps: number | null;
+            /** Rir */
+            rir: number | null;
+        };
+        /**
          * StressAnalysisResponse
          * @description Stress chart and distribution analysis response.
          */
@@ -4302,6 +4904,46 @@ export interface components {
             threshold_high: number | null;
         };
         /**
+         * TimerActual
+         * @description Logged ratings for a breath or meditation timer session.
+         */
+        "TimerActual-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "breath_timer" | "meditation_timer";
+            /**
+             * Ratings
+             * @default {}
+             */
+            ratings: {
+                [key: string]: number;
+            };
+            /** Completed Cycles */
+            completed_cycles?: number | null;
+        };
+        /**
+         * TimerActual
+         * @description Logged ratings for a breath or meditation timer session.
+         */
+        "TimerActual-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            card_type: "breath_timer" | "meditation_timer";
+            /**
+             * Ratings
+             * @default {}
+             */
+            ratings: {
+                [key: string]: number;
+            };
+            /** Completed Cycles */
+            completed_cycles: number | null;
+        };
+        /**
          * TodayCard
          * @description Resolved Today-board card occurrence with log state attached.
          */
@@ -4339,11 +4981,6 @@ export interface components {
             card_template_id: string;
             /** Name */
             name: string;
-            /**
-             * Renderer
-             * @enum {string}
-             */
-            renderer: "timer_session" | "checklist_block" | "exercise_block";
             /** Summary */
             summary: string | null;
             /**
@@ -4351,26 +4988,16 @@ export interface components {
              * @default []
              */
             tags: string[];
-            /**
-             * Payload Json
-             * @default {}
-             */
-            payload_json: {
-                [key: string]: unknown;
-            };
+            /** Payload Json */
+            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
             /**
              * Status
              * @default pending
              * @enum {string}
              */
             status: "pending" | "completed" | "partial" | "skipped";
-            /**
-             * Actual Json
-             * @default {}
-             */
-            actual_json: {
-                [key: string]: unknown;
-            };
+            /** Actual Json */
+            actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
         };
@@ -4389,13 +5016,8 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "completed" | "partial" | "skipped";
-            /**
-             * Actual Json
-             * @default {}
-             */
-            actual_json: {
-                [key: string]: unknown;
-            };
+            /** Actual Json */
+            actual_json?: (components["schemas"]["RunningActual-Input"] | components["schemas"]["StrengthActual-Input"] | components["schemas"]["TimerActual-Input"] | components["schemas"]["ChecklistActual-Input"]) | null;
             /** Notes */
             notes?: string | null;
         };
