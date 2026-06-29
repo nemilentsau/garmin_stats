@@ -7,7 +7,9 @@ artifact specs are owned by the artifacts domain.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
+
+from pydantic import Field
 
 from app.contracts.base import (
     AutoTotalResponse,
@@ -16,8 +18,126 @@ from app.contracts.base import (
     StrictDefaultsRequired,
 )
 
-RendererFamily = Literal["timer_session", "checklist_block", "exercise_block"]
 SlotName = Literal["morning", "midday", "evening", "anytime"]
+CardType = Literal[
+    "running_workout",
+    "strength_session",
+    "breath_timer",
+    "meditation_timer",
+    "checklist",
+]
+RunSegmentKind = Literal["warmup", "main", "strides", "cooldown", "intervals"]
+BreathPhaseKind = Literal["inhale", "hold_full", "exhale", "hold_empty"]
+
+
+class RatingPrompt(StrictDefaultsRequired):
+    """One post-session rating prompt shared by workout card payloads."""
+
+    key: str
+    label: str
+    scale_min: int = 1
+    scale_max: int = 5
+
+
+class RunSegment(StrictDefaultsRequired):
+    """One segment of a running workout; prescription is a range string."""
+
+    id: str
+    label: str
+    kind: RunSegmentKind
+    detail: str | None = None
+    prescription: str
+
+
+class RunningWorkoutPayload(StrictDefaultsRequired):
+    """Typed prescription for a running workout card."""
+
+    card_type: Literal["running_workout"] = "running_workout"
+    workout_type: str
+    rpe: str | None = None
+    talk_test: str | None = None
+    hr_guidance: str | None = None
+    calibration_quality: bool = False
+    instructions: str | None = None
+    segments: list[RunSegment] = []
+
+
+class StrengthExercise(StrictDefaultsRequired):
+    """One prescribed strength exercise; set_scheme is a range string."""
+
+    id: str
+    label: str
+    detail: str | None = None
+    set_scheme: str
+
+
+class StrengthSessionPayload(StrictDefaultsRequired):
+    """Typed prescription for a strength session card."""
+
+    card_type: Literal["strength_session"] = "strength_session"
+    session_focus: str | None = None
+    duration_minutes: int | None = None
+    rir_guidance: str | None = None
+    instructions: str | None = None
+    exercises: list[StrengthExercise] = []
+    rating_prompts: list[RatingPrompt] = []
+
+
+class BreathPhase(StrictDefaultsRequired):
+    """One timed phase of a breathing pattern."""
+
+    kind: BreathPhaseKind
+    seconds: int
+
+
+class BreathTimerPayload(StrictDefaultsRequired):
+    """Typed prescription for a breathwork timer card."""
+
+    card_type: Literal["breath_timer"] = "breath_timer"
+    duration_minutes: int
+    pattern_label: str
+    phases: list[BreathPhase] = []
+    instructions: str | None = None
+    rating_prompts: list[RatingPrompt] = []
+
+
+class MeditationTimerPayload(StrictDefaultsRequired):
+    """Typed prescription for a meditation timer card."""
+
+    card_type: Literal["meditation_timer"] = "meditation_timer"
+    duration_minutes: int
+    technique: str
+    anchor: str | None = None
+    instructions: str | None = None
+    rating_prompts: list[RatingPrompt] = []
+
+
+class ChecklistItem(StrictDefaultsRequired):
+    """One checklist item inside a checklist card payload."""
+
+    id: str
+    label: str
+    detail: str | None = None
+
+
+class ChecklistPayload(StrictDefaultsRequired):
+    """Typed prescription for a checklist card (reviews, setup, skip days)."""
+
+    card_type: Literal["checklist"] = "checklist"
+    instructions: str | None = None
+    items: list[ChecklistItem] = []
+    domain: str | None = None
+
+
+CardPayload = Annotated[
+    RunningWorkoutPayload
+    | StrengthSessionPayload
+    | BreathTimerPayload
+    | MeditationTimerPayload
+    | ChecklistPayload,
+    Field(discriminator="card_type"),
+]
+
 WeekdayName = Literal[
     "monday",
     "tuesday",
