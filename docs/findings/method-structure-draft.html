@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Method Structure Draft - Garmin Findings</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1b212a;
+    --line: #2a313c;
+    --soft: #20262e;
+    --text: #e6edf3;
+    --muted: #9aa7b4;
+    --faint: #6b7682;
+    --accent: #2bb6a8;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d6a118;
+    --red: #ff7b72;
+    --purple: #bc8cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.58;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  code {
+    font-family: var(--mono);
+    font-size: .9em;
+    color: #c9d4e0;
+    background: var(--panel2);
+    border: 1px solid var(--soft);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+  }
+  .top {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 34px;
+  }
+  .kicker {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    max-width: 880px;
+    font-size: 42px;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+  }
+  .subtitle {
+    max-width: 880px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+  .rail {
+    position: sticky;
+    top: 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .rail h2 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+  .rail p {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .rail a {
+    display: block;
+    padding: 8px 0;
+    color: var(--muted);
+    border-top: 1px solid var(--soft);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .rail a:hover { color: var(--text); }
+  section {
+    margin-bottom: 38px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--soft);
+  }
+  h2 {
+    margin: 0 0 10px;
+    font-size: 27px;
+    line-height: 1.18;
+  }
+  h3 {
+    margin: 0 0 7px;
+    font-size: 18px;
+  }
+  p { color: var(--muted); }
+  .lead {
+    color: var(--text);
+    max-width: 88ch;
+    font-size: 17px;
+  }
+  .note {
+    background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 18px 0;
+  }
+  .note p { margin: 0; }
+  .grid {
+    display: grid;
+    gap: 14px;
+  }
+  .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .card p, .card ul { margin-bottom: 0; }
+  .tag {
+    display: inline-flex;
+    margin-bottom: 10px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .skill {
+    border-top: 3px solid var(--skill-color, var(--accent));
+  }
+  .skill.garmin { --skill-color: var(--blue); }
+  .skill.analysis { --skill-color: var(--green); }
+  .skill.finding { --skill-color: var(--accent); }
+  .skill.dashboard { --skill-color: var(--yellow); }
+  .skill.ux { --skill-color: var(--purple); }
+  .skill.testing { --skill-color: var(--red); }
+  .outline {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .outline-step {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .num {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: var(--accent);
+    background: #143b38;
+    font-family: var(--mono);
+    font-weight: 800;
+  }
+  .outline-step p { margin: 4px 0 0; }
+  .nested {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: #10161d;
+    border: 1px solid var(--soft);
+    border-radius: 8px;
+  }
+  .nested-title {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--soft);
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    color: var(--faint);
+    font-size: 12px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  td { color: var(--muted); }
+  td:first-child { color: var(--text); font-weight: 650; }
+  tr:last-child td { border-bottom: 0; }
+  .wire {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 18px;
+    background: #10161d;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .wire-row {
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--soft);
+    border-radius: 8px;
+  }
+  .wire-row strong { color: var(--text); }
+  .wire-row span { color: var(--muted); }
+  .wire-sub {
+    margin: 10px 0 0 22px;
+    display: grid;
+    gap: 8px;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .rail { position: static; }
+    .grid.two, .grid.three { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="top">
+    <div class="kicker">Draft scaffold, not final presentation</div>
+    <h1>Garmin analysis method page hierarchy</h1>
+    <p class="subtitle">A simple structure document for explaining the project skill setup, where
+    <code>finding-analyst</code> is one high-level skill, and templates/recipes are internal artifacts
+    of that skill.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="rail" aria-label="Draft outline">
+      <h2>Reader path</h2>
+      <p>Problem first, system second, skill peers third, drill-downs fourth, one run last.</p>
+      <a href="#goal">1. What we are trying to achieve</a>
+      <a href="#principles">2. Hierarchy rules</a>
+      <a href="#page-map">3. Page map</a>
+      <a href="#skills">4. High-level skills as peers</a>
+      <a href="#finding-analyst">5. finding-analyst drill-down</a>
+      <a href="#run">6. One real run</a>
+      <a href="#wireframe">7. Scaffold wireframe</a>
+    </aside>
+
+    <div>
+      <section id="goal">
+        <h2>1. What we are trying to achieve</h2>
+        <p class="lead">The method page must explain how this project prevents AI-assisted Garmin
+        analysis from becoming confident storytelling. The cold reader should leave understanding
+        the system of skills, the role of each skill, and how a finding earns its way into
+        <code>FINDINGS.md</code> or the HTML findings pages.</p>
+
+        <div class="note">
+          <p><strong>Core thesis:</strong> this is not a showcase of templates, recipes, charts, or
+          one impressive run. It is an explanation of a skill-governed analysis system.</p>
+        </div>
+
+        <div class="grid two">
+          <div class="card">
+            <span class="tag">Reader need</span>
+            <h3>Understand why the system exists</h3>
+            <p>Wearable data is noisy, missing, autocorrelated, device-derived, and easy to
+            overinterpret. The danger is not calculation failure. The danger is clean, confident,
+            unsupported claims.</p>
+          </div>
+          <div class="card">
+            <span class="tag">Presentation need</span>
+            <h3>Keep findings standalone</h3>
+            <p>The findings pages should still carry their own value. The method page explains
+            provenance and guardrails; it should not bury findings inside implementation detail.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="principles">
+        <h2>2. Hierarchy rules</h2>
+        <div class="outline">
+          <div class="outline-step">
+            <div class="num">01</div>
+            <div>
+              <h3>Start with the failure mode</h3>
+              <p>Before naming skills, explain why unguarded assistant analysis fails on wearable
+              data.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">02</div>
+            <div>
+              <h3>Present high-level skills as peers</h3>
+              <p><code>garmin-data</code>, <code>data-analysis</code>, <code>finding-analyst</code>,
+              <code>analytical-dashboard</code>, <code>ux-design</code>, and <code>testing</code>
+              are the same conceptual level.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">03</div>
+            <div>
+              <h3>Drill down after the peer layer</h3>
+              <p>Each skill can have its own subtab. A reader should never see templates or recipes
+              before knowing they are inside the <code>finding-analyst</code> skill.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">04</div>
+            <div>
+              <h3>Put templates and recipes under finding-analyst</h3>
+              <p>Templates answer what every analyst run must record. Recipes answer which analysis
+              method a run used. Both are instruments of <code>finding-analyst</code>.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">05</div>
+            <div>
+              <h3>End with one real run</h3>
+              <p>The stress to HRV example should demonstrate the hierarchy in motion, not introduce
+              the hierarchy for the first time.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-map">
+        <h2>3. Page map</h2>
+        <p class="lead">The page should be organized around reader questions, not around artifacts we
+        happen to have.</p>
+
+        <table>
+          <thead>
+            <tr><th>Order</th><th>Section</th><th>Reader question answered</th><th>What belongs here</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Why this needed a system</td>
+              <td>Why not just ask an assistant to analyze the data?</td>
+              <td>Failure modes: noisy data, missingness, autocorrelation, shared-source metrics,
+              multiple comparisons, presentation overconfidence.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>The skill system</td>
+              <td>What is the overall setup?</td>
+              <td>All high-level skills shown as peers, grouped by failure type.</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Skill drill-downs</td>
+              <td>What does each skill own?</td>
+              <td>One subtab per skill: owns, prevents, pipeline position, artifacts/checks.</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>finding-analyst internals</td>
+              <td>How does a question become a reviewed finding?</td>
+              <td>Run types, gates, confidence tiers, templates, recipes, promotion policy.</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>One real run</td>
+              <td>How does the whole system operate end to end?</td>
+              <td>Stress to HRV run mapped to the skills and artifacts used at each step.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="skills">
+        <h2>4. High-level skills as peers</h2>
+        <p class="lead">This is the core correction. <code>finding-analyst</code> is not a section
+        above the other skills. It is one skill in the high-level system.</p>
+
+        <div class="grid three">
+          <div class="card skill garmin">
+            <span class="tag">garmin-data</span>
+            <h3>Raw data correctness</h3>
+            <p>Prevents parse, unit, Garmin field, FIT-file, and local timestamp errors.</p>
+          </div>
+          <div class="card skill analysis">
+            <span class="tag">data-analysis</span>
+            <h3>Statistical and chart discipline</h3>
+            <p>Prevents mean-only summaries, hidden missingness, bad chart choices, and uninspected
+            visuals.</p>
+          </div>
+          <div class="card skill finding">
+            <span class="tag">finding-analyst</span>
+            <h3>Evidence discipline</h3>
+            <p>Prevents vague questions, goalpost moving, fluke promotion, and chat-only findings.</p>
+          </div>
+          <div class="card skill dashboard">
+            <span class="tag">analytical-dashboard</span>
+            <h3>Truth-preserving display</h3>
+            <p>Prevents chart and dashboard presentation from overstating certainty.</p>
+          </div>
+          <div class="card skill ux">
+            <span class="tag">ux-design</span>
+            <h3>Interface comprehension</h3>
+            <p>Prevents layouts, wording, colors, and interaction patterns from obscuring the
+            analytical question.</p>
+          </div>
+          <div class="card skill testing">
+            <span class="tag">testing</span>
+            <h3>Regression protection</h3>
+            <p>Prevents code changes from silently breaking parser, backend, workflow, or UI
+            behavior.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="finding-analyst">
+        <h2>5. finding-analyst drill-down</h2>
+        <p class="lead">Only after the peer skill layer should the page drill into
+        <code>finding-analyst</code>. This skill owns the investigation workflow. Templates and
+        recipes belong here.</p>
+
+        <div class="wire">
+          <div class="wire-row">
+            <strong>finding-analyst / Overview</strong><br>
+            <span>What this skill owns: question-led runs, exploratory runs, scout runs, confidence
+            tiers, review gates, promotion policy.</span>
+          </div>
+          <div class="wire-row">
+            <strong>finding-analyst / Run contracts</strong><br>
+            <span>Question-led, exploratory, and scout runs each have different obligations before
+            data is opened.</span>
+          </div>
+          <div class="wire-row">
+            <strong>finding-analyst / Templates</strong><br>
+            <span>Templates answer: what must every run record so it can be audited?</span>
+            <div class="wire-sub">
+              <div class="wire-row"><strong>01-question.md</strong> <span>- scope, question,
+              reported-number check, prediction or recipe declaration.</span></div>
+              <div class="wire-row"><strong>02-data-profile.md</strong> <span>- frozen source,
+              coverage, missingness, null/zero policy.</span></div>
+              <div class="wire-row"><strong>05-findings.md</strong> <span>- claim, evidence, method,
+              caveats, confidence, promotion recommendation.</span></div>
+              <div class="wire-row"><strong>06-review.md</strong> <span>- gates; can downgrade but
+              not upgrade confidence.</span></div>
+              <div class="wire-row"><strong>07-findings-update.md</strong> <span>- exact proposed
+              permanent-record patch.</span></div>
+            </div>
+          </div>
+          <div class="wire-row">
+            <strong>finding-analyst / Recipes</strong><br>
+            <span>Recipes answer: what method did this run use, and what trap does that method guard
+            against?</span>
+          </div>
+          <div class="wire-row">
+            <strong>finding-analyst / Promotion</strong><br>
+            <span>Confidence controls where the output can go: run folder, attributed observation, or
+            asserted finding.</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="run">
+        <h2>6. One real run</h2>
+        <p class="lead">The run example should come after the system has been introduced. Its job is
+        to prove the hierarchy, not to carry the hierarchy.</p>
+
+        <div class="outline">
+          <div class="outline-step">
+            <div class="num">01</div>
+            <div>
+              <h3>Question fixed before data</h3>
+              <p><code>finding-analyst</code> uses <code>01-question.md</code> to lock the stress to
+              HRV question, date window, prediction, and decision rule.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">02</div>
+            <div>
+              <h3>Garmin data made analyzable</h3>
+              <p><code>garmin-data</code> and backend ingestion protect units, timestamps, parser
+              semantics, and persisted daily metrics.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">03</div>
+            <div>
+              <h3>Snapshot and coverage checked</h3>
+              <p><code>finding-analyst</code> uses <code>02-data-profile.md</code>; analysis does not
+              proceed as if missingness is invisible.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">04</div>
+            <div>
+              <h3>Recipes applied</h3>
+              <p>Lagged correlation, partial control, and missing-data pairing are declared as
+              recipes inside the analyst run.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">05</div>
+            <div>
+              <h3>Chart and evidence reviewed</h3>
+              <p><code>data-analysis</code>, <code>analytical-dashboard</code>, and
+              <code>ux-design</code> protect interpretation and presentation.</p>
+            </div>
+          </div>
+          <div class="outline-step">
+            <div class="num">06</div>
+            <div>
+              <h3>Finding promoted with caveat</h3>
+              <p><code>06-review.md</code> and <code>07-findings-update.md</code> determine whether
+              the claim can leave the run folder and how it must be caveated.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="wireframe">
+        <h2>7. Scaffold wireframe</h2>
+        <p class="lead">This is a proposed page skeleton. It is deliberately plain so the hierarchy
+        can be reviewed before visual design.</p>
+
+        <div class="wire">
+          <div class="wire-row"><strong>Header:</strong> <span>Method behind Garmin findings. Short
+          statement of failure mode and system purpose.</span></div>
+          <div class="wire-row"><strong>Section 1 - Why this needs a system:</strong>
+          <span>Noise, missingness, autocorrelation, multiple comparisons, assistant
+          overconfidence.</span></div>
+          <div class="wire-row"><strong>Section 2 - Skill system overview:</strong>
+          <span>Six high-level skills as peer tabs/cards, grouped by failure type.</span></div>
+          <div class="wire-row"><strong>Section 3 - Skill drill-downs:</strong>
+          <span>One subtab per skill. <code>finding-analyst</code> is one of these subtabs.</span>
+            <div class="wire-sub">
+              <div class="wire-row"><strong>garmin-data</strong> <span>- raw data and timestamp
+              correctness.</span></div>
+              <div class="wire-row"><strong>data-analysis</strong> <span>- statistics and chart
+              discipline.</span></div>
+              <div class="wire-row"><strong>finding-analyst</strong> <span>- investigation workflow.
+              Nested subtabs: overview, run types, templates, recipes, review, promotion.</span></div>
+              <div class="wire-row"><strong>analytical-dashboard</strong> <span>- truth-preserving
+              dashboard presentation.</span></div>
+              <div class="wire-row"><strong>ux-design</strong> <span>- visual hierarchy and
+              usability.</span></div>
+              <div class="wire-row"><strong>testing</strong> <span>- regression protection.</span></div>
+            </div>
+          </div>
+          <div class="wire-row"><strong>Section 4 - One real run:</strong>
+          <span>Stress to HRV run mapped step by step to the skill system and analyst artifacts.</span></div>
+          <div class="wire-row"><strong>Section 5 - Promotion rule:</strong>
+          <span>What gets into <code>FINDINGS.md</code>, HTML findings, or product decisions.</span></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

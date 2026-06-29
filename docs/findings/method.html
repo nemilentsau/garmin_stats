@@ -3,11 +3,539 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How we did it — Garmin Health Findings</title>
+<title>How we did it - Garmin Health Findings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<style>
+  body[data-topic="method"] .wrap.method-wrap {
+    max-width: min(1360px, calc(100vw - 64px));
+  }
+  .method-grid {
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 34px;
+    align-items: start;
+  }
+  .method-rail {
+    position: sticky;
+    top: 76px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .method-rail h2 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+  .method-rail p {
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .method-rail a {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 9px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .method-rail a:hover {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .method-rail span {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .method-content {
+    min-width: 0;
+  }
+  .method-section {
+    margin: 0 0 62px;
+    scroll-margin-top: 84px;
+  }
+  .method-section > .section-intro {
+    margin-top: 0;
+  }
+  .principle-grid,
+  .skill-grid,
+  .failure-grid,
+  .artifact-grid {
+    display: grid;
+    gap: 14px;
+  }
+  .principle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .skill-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .failure-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .artifact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .method-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    min-width: 0;
+  }
+  .method-card h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    line-height: 1.22;
+  }
+  .method-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .skill-card {
+    --skill: var(--accent);
+    border-top: 3px solid var(--skill);
+  }
+  .skill-card.garmin { --skill: #58a6ff; }
+  .skill-card.analysis { --skill: #3fb950; }
+  .skill-card.finding { --skill: #2bb6a8; }
+  .skill-card.dashboard { --skill: #d6a118; }
+  .skill-card.ux { --skill: #bc8cff; }
+  .skill-card.testing { --skill: #ff7b72; }
+  .card-kicker {
+    display: inline-flex;
+    margin-bottom: 10px;
+    color: var(--skill, var(--accent));
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .skill-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 18px 0 18px;
+  }
+  .skill-tab {
+    cursor: pointer;
+    font: inherit;
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .skill-tab:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--accent) 34%, var(--border-soft));
+  }
+  .skill-tab.active {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 13%, var(--bg-panel));
+    border-color: color-mix(in srgb, var(--accent) 54%, var(--border-soft));
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .skill-panel[hidden] {
+    display: none;
+  }
+  .skill-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .skill-panel h3 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .skill-panel > p {
+    max-width: 82ch;
+    margin: 0 0 18px;
+    color: var(--text-muted);
+  }
+  .skill-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 18px 0;
+  }
+  .skill-fact {
+    background: var(--bg-code);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 12px 13px;
+  }
+  .skill-fact b {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .skill-fact span {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .skill-body {
+    display: grid;
+    gap: 24px;
+    margin-top: 22px;
+  }
+  .skill-subsection {
+    min-width: 0;
+  }
+  .skill-subsection h4 {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  .skill-subsection > p {
+    max-width: 88ch;
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .reference-grid {
+    display: grid;
+    gap: 10px;
+  }
+  .reference-row {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 16px;
+    padding: 13px 14px;
+    background: var(--bg-code);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+  }
+  .reference-row b {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .reference-row span {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .method-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--bg-code);
+  }
+  .method-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .method-table th,
+  .method-table td {
+    padding: 10px 11px;
+    border-bottom: 1px solid var(--border-soft);
+    text-align: left;
+    vertical-align: top;
+  }
+  .method-table th {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .method-table td {
+    color: var(--text-muted);
+  }
+  .method-table tr:last-child td {
+    border-bottom: 0;
+  }
+  .method-table code,
+  .reference-row code,
+  .template-detail code {
+    white-space: nowrap;
+  }
+  .template-list {
+    display: grid;
+    gap: 10px;
+  }
+  .template-detail {
+    background: var(--bg-code);
+    border: 1px solid var(--border-soft);
+    border-left: 4px solid var(--template, var(--accent));
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .template-detail.question { --template: #58a6ff; }
+  .template-detail.profile { --template: #d6a118; }
+  .template-detail.findings { --template: #3fb950; }
+  .template-detail.review { --template: #ff7b72; }
+  .template-detail.update { --template: #bc8cff; }
+  .template-detail summary {
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 14px;
+    padding: 13px 14px;
+    color: var(--text);
+    font-weight: 700;
+  }
+  .template-detail summary::-webkit-details-marker {
+    display: none;
+  }
+  .template-detail summary span {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .template-detail .template-content {
+    padding: 0 14px 14px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .template-content ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+  }
+  .template-content li {
+    margin: 4px 0;
+  }
+  .gate-grid,
+  .promotion-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .gate-card,
+  .promotion-card {
+    background: var(--bg-code);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 13px;
+  }
+  .gate-card b,
+  .promotion-card b {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .gate-card span,
+  .promotion-card span {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .analyst-box {
+    margin-top: 18px;
+    background: color-mix(in srgb, var(--accent-dim) 42%, var(--bg-code));
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .analyst-box h4 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 16px;
+  }
+  .analyst-box p {
+    margin: 0 0 14px;
+    color: var(--text-muted);
+  }
+  .analyst-stack {
+    display: grid;
+    gap: 9px;
+  }
+  .analyst-item {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  .analyst-item:first-child {
+    border-top: 0;
+  }
+  .analyst-item b {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+  .analyst-item span {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .run-map {
+    display: grid;
+    gap: 12px;
+  }
+  .run-step {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) minmax(180px, .45fr);
+    gap: 14px;
+    align-items: start;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .run-num {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: var(--accent);
+    background: var(--accent-dim);
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .run-step h3 {
+    margin: 0 0 5px;
+    font-size: 17px;
+  }
+  .run-step p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13.5px;
+  }
+  .run-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .run-tags code {
+    font-size: 11.5px;
+  }
+  .run-case {
+    display: grid;
+    gap: 24px;
+  }
+  .case-file {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--provisional);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .case-file h3 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    line-height: 1.25;
+  }
+  .case-file p {
+    max-width: 88ch;
+    margin: 0;
+    color: var(--text-muted);
+  }
+  .case-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .case-meta div {
+    min-width: 0;
+    background: var(--bg-code);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 11px 12px;
+  }
+  .case-meta b {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .case-meta span {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .case-section h3 {
+    margin: 0 0 10px;
+    color: var(--text);
+    font-size: 18px;
+  }
+  .case-section > p {
+    max-width: 88ch;
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .case-callout {
+    background: color-mix(in srgb, var(--provisional) 10%, var(--bg-panel));
+    border: 1px solid color-mix(in srgb, var(--provisional) 38%, var(--border));
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .case-callout b {
+    color: var(--text);
+  }
+  .case-callout p {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .method-footer-note {
+    margin-top: 28px;
+  }
+  @media (max-width: 980px) {
+    body[data-topic="method"] .wrap.method-wrap {
+      max-width: var(--maxw);
+    }
+    .method-grid,
+    .principle-grid,
+    .skill-grid,
+    .failure-grid,
+    .artifact-grid,
+    .skill-facts,
+    .case-meta,
+    .run-step {
+      grid-template-columns: 1fr;
+    }
+    .method-rail {
+      position: static;
+    }
+    .reference-row,
+    .template-detail summary,
+    .analyst-item {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+    .gate-grid,
+    .promotion-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 </head>
 <body data-topic="method">
 
@@ -15,473 +543,777 @@
   <a class="topnav-back" href="index.html">← Findings</a>
   <span class="topnav-title">How we did it</span>
   <div class="topnav-links">
-    <a href="#what">Setup</a>
-    <a href="#skills">The skills</a>
-    <a href="#rules">The rulebook</a>
-    <a href="#worked">One real run</a>
-    <a href="#gallery">Recipes</a>
+    <a href="#why">Why a system</a>
+    <a href="#skills">Skill system</a>
+    <a href="#drilldown">Skill drill-downs</a>
+    <a href="#run">One run</a>
   </div>
 </nav>
 
-<main class="wrap page">
-
+<main class="wrap page method-wrap">
   <header class="hero">
-    <div class="eyebrow">The method</div>
-    <h1>How these findings<br>were actually made.</h1>
-    <p class="sub">The findings pages show <em>what</em> the data revealed. This is the <em>how</em>.
-    The fastest way to explain it is to follow <strong>one real investigation from start to
-    finish</strong> — so most of this page does exactly that. No prior familiarity with the tools
-    assumed.</p>
+    <div class="eyebrow">Provenance</div>
+    <h1>The skill-governed method behind the Garmin findings.</h1>
+    <p class="sub">The findings pages explain what the data says. This page explains the analysis
+    operating system: why guardrails were needed, which high-level skills exist, what each skill
+    protects, and how one run moves from question to reviewed finding.</p>
   </header>
 
-  <!-- ============================== SETUP ============================== -->
-  <div class="section-intro" id="what">
-    <h2>The setup, in two minutes</h2>
-    <hr class="rule">
-  </div>
+  <div class="method-grid">
+    <aside class="method-rail" aria-label="Method page outline">
+      <h2>Reader path</h2>
+      <p>Problem first, skill system second, skill drill-downs third, one concrete run last.</p>
+      <a href="#why"><span>01</span>Why this needed a system</a>
+      <a href="#skills"><span>02</span>High-level skills as peers</a>
+      <a href="#drilldown"><span>03</span>What each skill owns</a>
+      <a href="#finding-analyst"><span>04</span>finding-analyst internals</a>
+      <a href="#run"><span>05</span>One real run</a>
+    </aside>
 
-  <article class="finding" style="border-top:0;padding-top:8px">
-    <p class="lede">The analysis was done with an <span class="lead-strong">AI coding agent</span> —
-    software you talk to in plain language that can also act: read the project’s files, write and run
-    small programs, and draw charts. The catch is that, left to improvise, it is
-    <span class="lead-strong">inconsistent</span> — it might analyze the same data two ways on two
-    days, or present a lucky fluke as a result. With personal health data, where it’s easy to “find”
-    patterns that aren’t real, that’s the whole danger.</p>
-
-    <div class="note">
-      <div class="ico">?</div>
-      <div>
-        <h4>The one word to know: a “skill”</h4>
-        <p>A <b>skill</b> is a written rulebook we hand the agent — durable, project-specific
-        instructions it must follow for a kind of task. Not code that runs; guidance it reads and
-        obeys every time. Skills are what turn an improvising assistant into a disciplined one.</p>
-      </div>
-    </div>
-  </article>
-
-  <!-- ============================== THE SKILLS ============================== -->
-  <div class="section-intro" id="skills">
-    <h2>The six skills we wrote — and the one that did this</h2>
-    <hr class="rule">
-  </div>
-
-  <article class="finding" style="border-top:0;padding-top:8px">
-    <p class="lede">Different layers of the project need different expertise, so we wrote six skills.
-    Five support the work; one — <code>finding-analyst</code> — <em>is</em> the work this page is
-    about, so the rest of the page just shows it running on one real investigation.</p>
-
-    <table class="data">
-      <thead><tr><th>Skill</th><th>What it owns</th></tr></thead>
-      <tbody>
-        <tr><td class="lead">garmin-data</td><td>Reading the watch’s raw files — the exact field names, units, and device quirks.</td></tr>
-        <tr><td class="lead">data-analysis</td><td>Computing statistics and building charts correctly; the display layer never invents a number.</td></tr>
-        <tr><td class="lead">analytical-dashboard</td><td>Information hierarchy and chart choice — comprehension over decoration.</td></tr>
-        <tr><td class="lead">ux-design</td><td>Visual style, spacing, type, and color — the look of these very pages.</td></tr>
-        <tr><td class="lead">testing</td><td>Disciplined tests: cover the cases that matter, skip the redundant ones.</td></tr>
-        <tr><td class="lead" style="color:var(--accent)">finding-analyst</td><td><b>The investigation rulebook every finding here came from.</b> Run types, a confidence ladder, fixed quality gates, fill-in templates, and a catalog of vetted techniques. ↓ shown below.</td></tr>
-      </tbody>
-    </table>
-  </article>
-
-  <!-- ============================== THE RULEBOOK ============================== -->
-  <div class="section-intro" id="rules">
-    <h2>Inside <code style="font-size:0.8em">finding-analyst</code></h2>
-    <p>Four concrete pieces. Every investigation (a “run”) declares which kind it is, fills the same
-    template files, claims a confidence level, and must clear the same gates.</p>
-    <hr class="rule">
-  </div>
-
-  <article class="finding" style="border-top:0;padding-top:8px">
-
-    <h3 class="prose" style="font-size:17px;margin:6px 0 10px">1 · Three kinds of run — each must declare its plan up front</h3>
-    <table class="data">
-      <thead><tr><th>Run type</th><th>What it must commit to <em>before</em> touching data</th><th>Can it become a durable claim?</th></tr></thead>
-      <tbody>
-        <tr><td class="lead">question-led</td><td>The question. If it’s a true test: a written <b>prediction + pass/fail rule</b> first.</td><td>Yes, if it reaches “confident”.</td></tr>
-        <tr><td class="lead">exploratory</td><td>Which techniques (recipes) it will apply.</td><td>Yes, if it reaches “confident”.</td></tr>
-        <tr><td class="lead">scout</td><td>A set of techniques, how broadly to sweep, and how to rank hits.</td><td>No — it only feeds the question backlog.</td></tr>
-      </tbody>
-    </table>
-
-    <h3 class="prose" style="font-size:17px;margin:30px 0 10px">2 · The template files every run fills in</h3>
-    <p class="prose">“Templates” are fill-in-the-blanks documents copied into each run’s own dated
-    folder, so every investigation is built — and can be re-read — the same way. They force the
-    steps easiest to skip:</p>
-    <div class="anatomy">
-      <div class="step"><div class="fname">01-question.md</div><div class="fdesc">The question, dates, metrics — and, for a true test, the prediction and pass/fail rule written <b>before any data is opened</b>.</div></div>
-      <div class="step"><div class="fname">02-data-profile.md</div><div class="fdesc">Is the data even fit? Days present, what’s missing and where, how nulls and impossible values are handled.</div></div>
-      <div class="step"><div class="fname">03-analysis.py</div><div class="fdesc">The actual program — reads a <b>frozen copy</b> of the data and applies the declared recipes.</div></div>
-      <div class="step"><div class="fname">04-plots/</div><div class="fdesc">The charts, each labeled with units, dates, smoothing. <em>These are the images on the findings pages.</em></div></div>
-      <div class="step"><div class="fname">05-findings.md</div><div class="fdesc">What we now believe: effect size, evidence, technique, the “so what”, caveats, and a confidence label.</div></div>
-      <div class="step"><div class="fname">06-review.md</div><div class="fdesc">An adversarial self-check against the gates. It may only <b>lower</b> a confidence label, never raise it.</div></div>
-      <div class="step"><div class="fname">07-findings-update.md</div><div class="fdesc">The exact line proposed for the permanent record — only if the finding earned it.</div></div>
-    </div>
-
-    <h3 class="prose" style="font-size:17px;margin:30px 0 10px">3 · The confidence ladder — it controls how far a finding travels</h3>
-    <ul class="takeaways">
-      <li><span class="badge badge-tentative inline">tentative</span> One technique, no replication — or a lone hit from a wide scan. <b>Stays in the run folder</b>, never asserted.</li>
-      <li><span class="badge badge-provisional inline">provisional</span> Several techniques agree, or a pre-registered test passed its decisive rule — but a real ceiling remains. <b>Promoted as an attributed observation, caveats attached.</b></li>
-      <li><span class="badge badge-confident inline">confident</span> Provisional-grade with no remaining doubt, left standing by the review. <b>Promoted as an asserted takeaway</b> that can drive product decisions.</li>
-    </ul>
-
-    <h3 class="prose" style="font-size:17px;margin:30px 0 10px">4 · The six gates a finding must clear</h3>
-    <table class="data">
-      <tbody>
-        <tr><td class="lead">Question</td><td>Concrete, dated, metrics fixed — and the prediction written before the data was opened?</td></tr>
-        <tr><td class="lead">Data</td><td>Source pinned to a frozen copy; missing days measured; nulls and impossible values handled?</td></tr>
-        <tr><td class="lead">Statistical</td><td>Effect size before any p-value; spread and sample size shown; how many comparisons were made?</td></tr>
-        <tr><td class="lead">Visual</td><td>Every chart actually looked at; gaps not bridged into fake trends; a few values spot-checked by hand?</td></tr>
-        <tr><td class="lead">Interpretation</td><td>A clear “so what”; confounders named; descriptive, never medical advice?</td></tr>
-        <tr><td class="lead">Findings</td><td>Confidence matches the evidence; date, sample size, and caveats recorded?</td></tr>
-      </tbody>
-    </table>
-  </article>
-
-  <!-- ============================== WORKED EXAMPLE ============================== -->
-  <div class="section-intro" id="worked">
-    <h2>One real run, end to end</h2>
-    <p>All of the above on a single real investigation: <code>2026-05-26-stress-hrv-lag</code> —
-    “does a stressful day predict a worse HRV the next night?” Here are its actual files.</p>
-    <hr class="rule">
-  </div>
-
-  <article class="finding" style="border-top:0;padding-top:8px">
-
-    <div class="step-head"><span class="stepnum">1</span><h3>The question — and the goalposts, fixed before any data</h3></div>
-    <div class="step-body">
-      <p>A true hypothesis test, so the prediction and the exact pass/fail rule were written
-      <em>first</em>. This is the literal content of the run’s first file:</p>
-      <div class="artifact">
-        <div class="artifact-name"><b>01-question.md</b> &nbsp;·&nbsp; run 2026-05-26-stress-hrv-lag <span class="tag">written before any data</span></div>
-        <div class="artifact-body">
-          <dl class="kv">
-            <dt>run type</dt><dd>question-led · hypothesis-test</dd>
-            <dt>question</dt><dd>Does an acutely high-stress day predict suppressed nightly HRV over the next 1–3 nights — <b>beyond</b> the well-known same-night relationship?</dd>
-            <dt>prediction</dt><dd>Higher stress on day D → <b>lower</b> HRV on nights D+1…D+3, strongest at +1, fading by +3.</dd>
-            <dt>decisive rule</dt><dd>The headline counts <b>only if</b> the next-night link survives holding the next day’s own stress constant — the partial correlation must reach <span class="v">|r| ≥ 0.10</span> with its 95% range excluding 0. Otherwise the verdict is “just the same-night echo.”</dd>
-            <dt>locked scope</dt><dd>Exactly <span class="v">3</span> lags: +1, +2, +3. <b>No adding lags or metric pairs after seeing the data.</b></dd>
-            <dt>recipes</dt><dd>“Does A predict later B?” + “Rule out a common cause” + missing-data pairing</dd>
-          </dl>
+    <div class="method-content">
+      <section class="method-section" id="why">
+        <div class="section-intro">
+          <h2>Why this needed a system</h2>
+          <p>The problem was never whether an assistant could compute charts. The problem was whether
+          it could avoid producing a clean, confident, wrong health story.</p>
+          <hr class="rule">
         </div>
-      </div>
-      <p class="faint">Why this file exists: the definition of success is nailed down before a single
-      number is seen, so the goalposts can’t move once results are in.</p>
-    </div>
 
-    <div class="arrow-down">↓</div>
+        <p class="lede">Wearable data is noisy, missing in structural ways, autocorrelated, and often
+        device-derived from overlapping raw signals. Garmin stress and HRV, for example, can look
+        like two independent signals while still sharing heart-rate-derived origins. A fast assistant
+        can easily overfit that material unless the analysis process makes failure modes explicit.</p>
 
-    <div class="step-head"><span class="stepnum">2</span><h3>Check the data is fit, then run the declared techniques</h3></div>
-    <div class="step-body">
-      <p>On a <b>frozen 357-day copy</b> of the data, the run first confirmed the data could answer
-      the question — stress complete (0% missing), HRV ~3.6% missing — and paired days only when
-      they were <em>truly consecutive</em> (verified on a real gap at Nov 17→18, never bridged).
-      Then it applied exactly the techniques it had declared, no more.</p>
-    </div>
-
-    <div class="arrow-down">↓</div>
-
-    <div class="step-head"><span class="stepnum">3</span><h3>The chart it produced</h3></div>
-    <div class="step-body">
-      <figure class="plot framed">
-        <img src="assets/hrv-stress-lag.png" alt="Stress-to-HRV correlation by day lag">
-        <figcaption><b>The output.</b> Stress → HRV by delay: strong same-night (−0.67), still real
-        the next night (−0.49), gone within a few days. <em>This exact chart appears on the HRV
-        findings page.</em></figcaption>
-      </figure>
-    </div>
-
-    <div class="arrow-down">↓</div>
-
-    <div class="step-head"><span class="stepnum">4</span><h3>What it found — and the confidence it claimed</h3></div>
-    <div class="step-body">
-      <div class="artifact">
-        <div class="artifact-name"><b>05-findings.md</b> &nbsp;·&nbsp; same run <span class="tag">after the analysis</span></div>
-        <div class="artifact-body">
-          <dl class="kv">
-            <dt>claim</dt><dd>Next-night link <span class="v">−0.490</span> (95% CI [−0.572, −0.401], n=342); it <b>survives</b> the control at <span class="v">−0.344</span> — not just the same-night echo.</dd>
-            <dt>decision rule</dt><dd><b>Confirmed</b> — both the primary and the decisive rule were met, with the predicted sign and decay.</dd>
-            <dt>confidence</dt><dd><span class="badge badge-provisional inline">provisional</span> — deliberately held back from “confident” (see next step).</dd>
-            <dt>key caveat</dt><dd>The watch derives <b>both</b> stress and HRV from the same heart-rate signal — so this may be one autonomic state measured twice, not stress acting on HRV.</dd>
-          </dl>
+        <div class="principle-grid">
+          <div class="method-card">
+            <span class="card-kicker">Failure mode</span>
+            <h3>Good-looking charts can be bad evidence</h3>
+            <p>Gaps can become fake trends, wide scans can surface chance hits, and summary averages
+            can hide distribution shape.</p>
+          </div>
+          <div class="method-card">
+            <span class="card-kicker">System response</span>
+            <h3>Different risks need different rulebooks</h3>
+            <p>The project uses multiple skills because parser correctness, statistical discipline,
+            evidence discipline, presentation, and tests are different jobs.</p>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="arrow-down">↓</div>
-
-    <div class="step-head"><span class="stepnum">5</span><h3>The adversarial review — which can only make the claim weaker</h3></div>
-    <div class="step-body">
-      <div class="artifact">
-        <div class="artifact-name"><b>06-review.md</b> &nbsp;·&nbsp; the self-check against the six gates</div>
-        <div class="artifact-body artifact-quote">
-          All six gates passed — yet the confidence <b>stayed</b> provisional, not upgraded. The
-          review is allowed to <b>lower</b> a claim, never raise it, and the shared-signal confound
-          is a genuine ceiling, so “provisional” stands. (The review even flagged a contradiction in
-          its own rulebook rather than smoothing it over — honesty over polish.)
+        <div class="note">
+          <div class="ico">!</div>
+          <div>
+            <h4>The page hierarchy</h4>
+            <p>Start with the failure mode. Then show the high-level skills as peers. Only then drill
+            into <code>finding-analyst</code>, where templates and recipes belong.</p>
+          </div>
         </div>
-      </div>
-      <p class="faint">A check that could only ever <em>confirm</em> what you hoped is not a check —
-      so this one is built to push the other way.</p>
+      </section>
+
+      <section class="method-section" id="skills">
+        <div class="section-intro">
+          <h2>The high-level skill system</h2>
+          <p>These six skills sit at the same conceptual level. Each protects one category of mistake
+          that could invalidate the analysis or distort how it is read.</p>
+          <hr class="rule">
+        </div>
+
+        <div class="skill-grid" aria-label="High-level project skills">
+          <article class="method-card skill-card garmin">
+            <span class="card-kicker">garmin-data</span>
+            <h3>Raw Garmin correctness</h3>
+            <p>Protects FIT parsing, field names, units, SDK quirks, and UTC-to-local timestamp
+            handling.</p>
+          </article>
+          <article class="method-card skill-card analysis">
+            <span class="card-kicker">data-analysis</span>
+            <h3>Statistical discipline</h3>
+            <p>Protects missingness handling, spread, effect sizes, chart choice, and visual
+            inspection.</p>
+          </article>
+          <article class="method-card skill-card finding">
+            <span class="card-kicker">finding-analyst</span>
+            <h3>Evidence discipline</h3>
+            <p>Protects questions, run contracts, templates, recipes, confidence tiers, and
+            promotion rules.</p>
+          </article>
+          <article class="method-card skill-card dashboard">
+            <span class="card-kicker">analytical-dashboard</span>
+            <h3>Truth-preserving display</h3>
+            <p>Protects information hierarchy, chart selection, density, and number formatting.</p>
+          </article>
+          <article class="method-card skill-card ux">
+            <span class="card-kicker">ux-design</span>
+            <h3>Interface comprehension</h3>
+            <p>Protects spacing, wording, interaction patterns, and visual emphasis from implying
+            false certainty.</p>
+          </article>
+          <article class="method-card skill-card testing">
+            <span class="card-kicker">testing</span>
+            <h3>Regression protection</h3>
+            <p>Protects parser, backend, workflow, and frontend behavior when code changes.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="method-section" id="drilldown">
+        <div class="section-intro">
+          <h2>Skill drill-downs</h2>
+          <p>Each subtab explains one skill. <code>finding-analyst</code> is one peer skill here; its
+          templates and recipes are nested inside that skill, not presented as top-level method
+          concepts.</p>
+          <hr class="rule">
+        </div>
+
+        <div class="skill-tabs" role="tablist" aria-label="Skill details">
+          <button class="skill-tab active" type="button" data-skill-tab="garmin">garmin-data</button>
+          <button class="skill-tab" type="button" data-skill-tab="analysis">data-analysis</button>
+          <button class="skill-tab" type="button" data-skill-tab="finding">finding-analyst</button>
+          <button class="skill-tab" type="button" data-skill-tab="dashboard">analytical-dashboard</button>
+          <button class="skill-tab" type="button" data-skill-tab="ux">ux-design</button>
+          <button class="skill-tab" type="button" data-skill-tab="testing">testing</button>
+        </div>
+
+        <article class="skill-panel" data-skill-panel="garmin">
+          <h3><code>garmin-data</code></h3>
+          <p>This skill owns the raw Garmin boundary. It tells the analyst which FIT files exist,
+          which message schemas are trusted, which fields are already parsed, and which timestamp
+          or filtering rules must be obeyed before any daily metric can be trusted.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Touching FIT parsing, adding a Garmin metric, debugging nulls, or checking SDK drift.</span></div>
+            <div class="skill-fact"><b>Owns</b><span><code>fit_parser/</code>, schema references, parser facade, field names, scale factors.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Wrong message fields, wrong units, UTC/local mistakes, and invalid readings.</span></div>
+            <div class="skill-fact"><b>Output</b><span>Clean health contracts and daily metrics safe enough for analysis.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>What a cold reader needs to know</h4>
+              <div class="reference-grid">
+                <div class="reference-row">
+                  <b>Source shape</b>
+                  <span>Garmin archives arrive as <code>data/garmin_health_stats/YYYY-MM-DD.zip</code>,
+                  extract into dated folders, and contain multiple FIT files per day.</span>
+                </div>
+                <div class="reference-row">
+                  <b>Parsed files</b>
+                  <span><code>WELLNESS</code>, <code>SLEEP_DATA</code>, <code>HRV_STATUS</code>,
+                  and <code>SKIN_TEMP</code> are parsed. <code>METRICS</code>,
+                  <code>SLEEP_DISRUPTIONS</code>, and rare <code>NAP</code> files are acknowledged
+                  but not fully parsed.</span>
+                </div>
+                <div class="reference-row">
+                  <b>Timestamp rule</b>
+                  <span>FIT timestamps are shifted to local time through
+                  <code>_shift_timestamps()</code>. New timestamp fields are not display-safe until
+                  they go through that path.</span>
+                </div>
+                <div class="reference-row">
+                  <b>Schema discipline</b>
+                  <span>Known message types live in <code>references/*.json</code>. The analyst trusts
+                  those first, runs verification when data drifts, and discovers fields only when a
+                  metric is missing from the schemas.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Rules that directly affect findings</h4>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Metric area</th><th>Rule</th><th>Why it matters for analysis</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Heart rate</td><td>Monitoring HR has no usable full timestamp; group by parent day.</td><td>A time-of-day claim from the wrong timestamp would be false.</td></tr>
+                    <tr><td>Wellness</td><td>Read all 5-7 WELLNESS files for the day.</td><td>A partial day can fake lower stress, HR, SpO2, or respiration.</td></tr>
+                    <tr><td>HRV</td><td>HRV values use Garmin scaling and zero means no reading.</td><td>Wrong scale or zero handling changes effect sizes.</td></tr>
+                    <tr><td>Stress</td><td>Use <code>stress_level_time</code>; discard negative stress values.</td><td>Invalid "unknown/calculating" samples cannot be treated as physiology.</td></tr>
+                    <tr><td>Respiration and SpO2</td><td>Discard negative respiration codes and zero SpO2 readings.</td><td>Device status codes are not biological readings.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="skill-panel" data-skill-panel="analysis" hidden>
+          <h3><code>data-analysis</code></h3>
+          <p>This skill owns statistical and chart discipline after Garmin data is parsed. It is the
+          reason a finding must report spread, missingness, sample size, visual inspection, and
+          effect size instead of only a clean average or a compelling chart.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Computing aggregates, building charts, inspecting metric behavior, or evaluating a claim.</span></div>
+            <div class="skill-fact"><b>Owns</b><span>Daily/period stats, distribution checks, chart choice, spot checks, traces.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Mean-only claims, hidden missingness, misleading axes, and uninspected plots.</span></div>
+            <div class="skill-fact"><b>Output</b><span>Evidence that a reviewer can audit without trusting a screenshot.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>Two layers it governs</h4>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Layer</th><th>What it controls</th><th>Reader-visible consequence</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Aggregation</td><td>Mean, median, q1, q3, min, max, null handling, period summaries from raw readings.</td><td>Findings show the distribution, not just one center value.</td></tr>
+                    <tr><td>Presentation</td><td>Chart type, axis integrity, IQR bands, smoothing disclosure, gap handling, spot checks.</td><td>Charts answer a question and do not imply unobserved trends.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Required analysis habits</h4>
+              <div class="reference-grid">
+                <div class="reference-row"><b>Never mean alone</b><span>Every reported center needs sample size and spread; skewed metrics prefer median and IQR.</span></div>
+                <div class="reference-row"><b>Missingness is data</b><span>Null rates and gap clustering are recorded because sensor dropout is often not random.</span></div>
+                <div class="reference-row"><b>Use libraries</b><span>Use <code>numpy</code> and <code>scipy</code> for statistics; do not hand-roll percentiles or correlations.</span></div>
+                <div class="reference-row"><b>Plot before trusting</b><span>Generate and inspect evidence images. A plot must have title, units, date range, and smoothing window if any.</span></div>
+                <div class="reference-row"><b>Spot-check values</b><span>Validate at least 2-3 plotted values against source data before the chart becomes evidence.</span></div>
+                <div class="reference-row"><b>Ask "so what?"</b><span>If a chart does not support a decision or interpretation, redesign it or remove it.</span></div>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Trace artifacts when analysis changes product behavior</h4>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Artifact</th><th>Purpose</th><th>Why it exists</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td><code>01-discovery-notes.md</code></td><td>Field names, types, ranges, filter rules.</td><td>Separates discovery from interpretation.</td></tr>
+                    <tr><td><code>02-eda-*.png</code></td><td>Distributions, time series, range checks.</td><td>Shows shape before summary.</td></tr>
+                    <tr><td><code>03-eda-analysis.md</code></td><td>Written distribution, quality, and design decisions.</td><td>Explains why a chart/stat was selected.</td></tr>
+                    <tr><td><code>04-dashboard-inspection.md</code></td><td>Five-second check, pattern recognition, "so what" result.</td><td>Records visual QA instead of assuming the chart is fine.</td></tr>
+                    <tr><td><code>05-pipeline-retrospective.md</code></td><td>Skill-use review and improvement notes.</td><td>Feeds hard-won lessons back into the system.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="skill-panel" data-skill-panel="finding" hidden id="finding-analyst">
+          <h3><code>finding-analyst</code></h3>
+          <p>This skill owns the investigation workflow. It does not parse Garmin files and it does
+          not replace statistical discipline. It defines how a question becomes a durable run folder,
+          how templates create the evidence trail, how recipes name the methods, and when a local
+          run is allowed to affect <code>FINDINGS.md</code>.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Investigating a Garmin question, scout signal, anomaly, lag, or proposed finding.</span></div>
+            <div class="skill-fact"><b>Owns</b><span>Run types, run folders, templates, recipes, confidence, gates, promotion.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Goalpost moving, fluke promotion, unverifiable chat-only claims.</span></div>
+            <div class="skill-fact"><b>Output</b><span>A reviewed finding or a documented no-signal run.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>Run types</h4>
+              <p>The run type decides how much ceremony is required and whether promotion is even
+              allowed.</p>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Run type</th><th>Commitment before data</th><th>Can promote?</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Question-led</td><td>Concrete question, date window, metrics. Hypothesis tests add prediction, decision rule, and fixed comparisons.</td><td>Yes, if evidence earns the tier.</td></tr>
+                    <tr><td>Manual exploratory</td><td>Declare which recipes will be applied to the slice before interpreting results.</td><td>Yes, if evidence earns the tier.</td></tr>
+                    <tr><td>Scout pass</td><td>Declare recipe set, breadth, and ranking rule for a broad search.</td><td>No. It feeds the backlog only.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Run folder contract</h4>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Artifact</th><th>Required when</th><th>What it records</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td><code>01-question.md</code></td><td>Every run</td><td>Run type, mode, question, date window, metrics, exclusions, reported-number check, recipe declaration or pre-registration.</td></tr>
+                    <tr><td><code>02-data-profile.md</code></td><td>Extended runs</td><td>Snapshot source, row count, date boundaries, coverage, missingness, filters, parser caveats.</td></tr>
+                    <tr><td><code>03-analysis.py</code></td><td>Every run</td><td>Executable analysis with a header declaring the snapshot data source.</td></tr>
+                    <tr><td><code>04-plots/</code></td><td>Every run with plots</td><td>Evidence images with titles, units, ranges, smoothing windows, and content-based filenames.</td></tr>
+                    <tr><td><code>05-findings.md</code></td><td>Every run</td><td>Claim, evidence, method, interpretation, caveats, confidence, and promotion recommendation. No-signal runs say so explicitly.</td></tr>
+                    <tr><td><code>06-review.md</code></td><td>Extended runs</td><td>Gate-by-gate review. Confidence can only be confirmed or downgraded.</td></tr>
+                    <tr><td><code>07-findings-update.md</code></td><td>Extended promotion proposals</td><td>The exact proposed <code>FINDINGS.md</code> patch, question transitions, retractions, or snapshot corrections.</td></tr>
+                    <tr><td><code>08-snapshot/</code></td><td>Extended runs</td><td>Gitignored frozen mart snapshot used for the analysis.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Templates: what every run must record</h4>
+              <p>Templates are not methods. They are audit forms copied into a run folder so a
+              reviewer can see what was asked, what data was used, what evidence exists, and what
+              promotion is proposed.</p>
+              <div class="template-list">
+                <details class="template-detail question" open>
+                  <summary><code>01-question.md</code><span>Locks the question before results can move it.</span></summary>
+                  <div class="template-content">
+                    <ul>
+                      <li>Records run type, question-led mode, one concrete question, date window, metrics, context sources, and exclusions.</li>
+                      <li>For quoted numbers, requires a reported-number check against the snapshot before analysis.</li>
+                      <li>For surface/display questions, flags whether API or frontend tracing is needed.</li>
+                      <li>For hypothesis tests, stores prediction, decision rule, and pre-registered comparisons.</li>
+                      <li>For exploratory/scout runs, declares recipes, breadth, ranking rule, and mid-run recipe additions.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                <details class="template-detail profile">
+                  <summary><code>02-data-profile.md</code><span>Proves the data slice is known before the claim is read.</span></summary>
+                  <div class="template-content">
+                    <ul>
+                      <li>Records data source, snapshot timestamp, snapshot file, row count, and date boundaries.</li>
+                      <li>Requires per-metric present days, missing days, missing percent, and gap clustering.</li>
+                      <li>Captures null-vs-zero handling, impossible/capped values, sensor/parser caveats, and filters.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                <details class="template-detail findings">
+                  <summary><code>05-findings.md</code><span>Separates claim, evidence, method, interpretation, caveats, and confidence.</span></summary>
+                  <div class="template-content">
+                    <ul>
+                      <li>Each finding must state the claim in one sentence.</li>
+                      <li>Evidence must include effect size, spread, sample size, and chart references.</li>
+                      <li>Method names recipes from <code>RECIPES.md</code>, not ad hoc phrasing.</li>
+                      <li>Caveats must include alternatives, confounders, missingness, and multiple-comparison posture.</li>
+                      <li>Confidence is set here: tentative, provisional, or confident.</li>
+                      <li>No-signal runs record what was tested and why it did not clear noise.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                <details class="template-detail review">
+                  <summary><code>06-review.md</code><span>Forces downgrade-only review before promotion.</span></summary>
+                  <div class="template-content">
+                    <ul>
+                      <li>Walks six gates: question, data, statistical, visual, interpretation, findings.</li>
+                      <li>Records a verdict for each plot: supports, weakens, or complicates.</li>
+                      <li>Records confidence changes as <code>was -> now</code> with the reason.</li>
+                      <li>Review can downgrade confidence; it cannot upgrade it.</li>
+                    </ul>
+                  </div>
+                </details>
+
+                <details class="template-detail update">
+                  <summary><code>07-findings-update.md</code><span>Makes the permanent record patch mechanical.</span></summary>
+                  <div class="template-content">
+                    <ul>
+                      <li>Contains the exact proposed <code>FINDINGS.md</code> addition or diff.</li>
+                      <li>Moves resolved, parked, or invalidated questions with back-references.</li>
+                      <li>Retracts invalidated takeaways with a dated note rather than deleting history.</li>
+                      <li>Records snapshot-section corrections when numbers drift after a snapshot bump.</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Recipes: methods and the traps they guard against</h4>
+              <p>Recipes are named analytical techniques. Declaring a recipe tells the reviewer what
+              method was used and what failure mode should be checked.</p>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>Recipe</th><th>Status</th><th>Question shape</th><th>Trap it guards against</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Anomaly window</td><td>validated</td><td>Which windows deviate across metrics?</td><td>Outlier-heavy means and correlated metrics inflating a "simultaneous" event.</td></tr>
+                    <tr><td>Pairwise correlation sweep</td><td>validated</td><td>Which metric pairs co-move?</td><td>Obvious within-cluster correlations swamping truly under-documented pairs.</td></tr>
+                    <tr><td>Change-point</td><td>validated</td><td>When did a metric baseline shift?</td><td>Missingness or one outlier day masquerading as a regime change.</td></tr>
+                    <tr><td>Lagged correlation</td><td>validated</td><td>Does A on day D predict B on day D+k?</td><td>Calendar gaps, autocorrelation, and multi-lag false positives.</td></tr>
+                    <tr><td>Partial-correlation control</td><td>validated</td><td>Does A-B survive an obvious control C?</td><td>Shared derivation or common-cause structure being mistaken for an independent signal.</td></tr>
+                    <tr><td>Period comparison</td><td>validated</td><td>What separates two windows by effect size?</td><td>Circularly choosing windows by the outcome and then testing them as if independent.</td></tr>
+                    <tr><td>Missingness pattern</td><td>validated</td><td>When does a metric drop out?</td><td>Treating structured sensor dropout as random absence.</td></tr>
+                    <tr><td>Distribution shape</td><td>validated</td><td>Is a metric skewed, bimodal, or regime-mixed?</td><td>Calling a pooled regime mixture an intrinsic distribution shape.</td></tr>
+                    <tr><td>Loading-stability comparison</td><td>validated</td><td>Is a multi-metric axis stable across windows?</td><td>Range restriction or missing overlap being read as structural change.</td></tr>
+                    <tr><td>Normalization window sweep</td><td>validated</td><td>Which baseline should normalize a score?</td><td>Choosing a baseline by hindsight without coverage and sensitivity checks.</td></tr>
+                    <tr><td>Day-type clustering</td><td>validated</td><td>Are there real recovery-day archetypes?</td><td>Clustering a one-dimensional continuum and naming the bins as states.</td></tr>
+                    <tr><td>Trigger search</td><td>candidate</td><td>Within a bad window, what moved first?</td><td>Overreading threshold-sensitive first-deviation dates.</td></tr>
+                    <tr><td>Single-point context</td><td>candidate</td><td>Is one sharp move anomalous?</td><td>Promoting a single non-replicable point without coverage context.</td></tr>
+                    <tr><td>Rule/threshold bake-off</td><td>candidate</td><td>Which classifier or threshold display is least bad?</td><td>Comparing bucket cuts while ignoring flicker from discretization itself.</td></tr>
+                    <tr><td>Weekday / cyclic seasonality bootstrap</td><td>candidate</td><td>Does a calendar-cycle pattern survive de-trending?</td><td>Autocorrelation manufacturing a weekday effect under iid tests.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Quality gates</h4>
+              <div class="gate-grid">
+                <div class="gate-card"><b>Question</b><span>Concrete question, date range, metrics, type, and pre-registration when needed.</span></div>
+                <div class="gate-card"><b>Data</b><span>Snapshot pinned, coverage measured, nulls/zeros/impossibles and filters documented.</span></div>
+                <div class="gate-card"><b>Statistical</b><span>Sample size and spread, effect size before p-values, baseline and comparison count stated.</span></div>
+                <div class="gate-card"><b>Visual</b><span>Every evidence plot inspected, units/ranges sane, gaps not bridged, values spot-checked.</span></div>
+                <div class="gate-card"><b>Interpretation</b><span>Clear "so what", alternatives named, exploratory labeled, no medical advice.</span></div>
+                <div class="gate-card"><b>Findings</b><span>Confidence tier and promotion target match the evidence and caveats.</span></div>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Confidence and promotion</h4>
+              <div class="promotion-grid">
+                <div class="promotion-card"><b>tentative</b><span>Single recipe, no replication, or many-comparison hit. Stays in the run folder.</span></div>
+                <div class="promotion-card"><b>provisional</b><span>Multiple recipes converge or a pre-registered rule passes, but a real ceiling remains. Promotes only as an attributed observation with caveat.</span></div>
+                <div class="promotion-card"><b>confident</b><span>Provisional-grade evidence clears every quality gate and survives review. Promotes as an analytical takeaway.</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="skill-panel" data-skill-panel="dashboard" hidden>
+          <h3><code>analytical-dashboard</code></h3>
+          <p>This skill owns truth-preserving presentation. It decides how evidence should be shown
+          once the analysis exists: chart type, density, hierarchy, labels, units, and the visual
+          anti-patterns that can make a weak claim look strong.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Choosing charts, arranging findings, formatting numbers, or judging dashboard density.</span></div>
+            <div class="skill-fact"><b>Owns</b><span>Information hierarchy, chart selection, axis integrity, data density, formatting.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Decorative charts, misleading scale, false hierarchy, and unreadable density.</span></div>
+            <div class="skill-fact"><b>Output</b><span>A presentation where the visual strength matches the evidence strength.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>Rules used on findings pages</h4>
+              <div class="reference-grid">
+                <div class="reference-row"><b>Question -> chart</b><span>Trend uses line chart, distribution uses histogram/box plot, relationship uses scatter, comparison uses bar or aligned table.</span></div>
+                <div class="reference-row"><b>No visual exaggeration</b><span>Bar axes start at zero; line axes may narrow but must disclose the baseline and avoid flattening meaningful variation.</span></div>
+                <div class="reference-row"><b>Direct labels</b><span>Prefer labels, units, and titles near the data over legends that force eye-jumping.</span></div>
+                <div class="reference-row"><b>No anti-patterns</b><span>No pie charts, 3D, rainbow scales, dual-axis manipulation, or vanity metrics.</span></div>
+                <div class="reference-row"><b>Health conventions</b><span>Sleep, HRV, stress, SpO2, respiration, and temperature each carry conventional units and visual expectations.</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="skill-panel" data-skill-panel="ux" hidden>
+          <h3><code>ux-design</code></h3>
+          <p>This skill owns interface comprehension. It keeps the method page from becoming a
+          decorative artifact dump, and it keeps dashboard UI from implying certainty, priority, or
+          computation ownership that the evidence does not support.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Changing page layout, spacing, typography, controls, visual polish, or dashboard surfaces.</span></div>
+            <div class="skill-fact"><b>Owns</b><span>Readable desktop layout, interaction controls, copy hierarchy, visual emphasis.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Marketing layout, card clutter, text squeeze, and UI that hides the analytical question.</span></div>
+            <div class="skill-fact"><b>Output</b><span>A screen that can be scanned by a cold reader without misreading the claim.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>Project-specific UX rules</h4>
+              <div class="reference-grid">
+                <div class="reference-row"><b>Operational clarity</b><span>This is a dense Garmin health app, not a landing page. Use compact headings, restrained color, and predictable controls.</span></div>
+                <div class="reference-row"><b>Display-only frontend</b><span>The UI must not compute statistics, smoothing, exposure logic, or derived values. It shows backend/API results.</span></div>
+                <div class="reference-row"><b>Cards last</b><span>Use cards for independent entities. If items need comparison, use tables or aligned rows so the reader can scan across them.</span></div>
+                <div class="reference-row"><b>Stable dimensions</b><span>Toolbars, tabs, charts, and counters should not shift when content changes.</span></div>
+                <div class="reference-row"><b>Desktop validation</b><span>Frontend changes require <code>npm run check</code> and browser screenshots at the normal desktop viewport.</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="skill-panel" data-skill-panel="testing" hidden>
+          <h3><code>testing</code></h3>
+          <p>This skill owns regression protection. It tells the project when tests are needed, what
+          classes of behavior must be covered, and which tests are false comfort because they only
+          assert implementation details.</p>
+
+          <div class="skill-facts">
+            <div class="skill-fact"><b>Use when</b><span>Writing or reviewing tests, especially parser, ingest, watcher, startup, or backend behavior.</span></div>
+            <div class="skill-fact"><b>Owns</b><span>Branch coverage, boundary cases, failure modes, equivalence classes.</span></div>
+            <div class="skill-fact"><b>Prevents</b><span>Happy-path-only coverage, duplicate examples, brittle mock/prompt assertions.</span></div>
+            <div class="skill-fact"><b>Output</b><span>Tests that would actually catch the regression the change can introduce.</span></div>
+          </div>
+
+          <div class="skill-body">
+            <div class="skill-subsection">
+              <h4>Decision framework</h4>
+              <div class="reference-grid">
+                <div class="reference-row"><b>Branches</b><span>Every <code>if</code>, <code>elif</code>, <code>else</code>, and early return creates a required behavior case.</span></div>
+                <div class="reference-row"><b>Boundaries</b><span>Every comparison such as <code>&gt;=</code>, <code>&lt;=</code>, <code>&gt;</code>, or <code>&lt;</code> earns tests at and around the limit.</span></div>
+                <div class="reference-row"><b>Failure modes</b><span>Error paths matter as much as the successful path.</span></div>
+                <div class="reference-row"><b>Equivalence classes</b><span>One test per branch and boundary class; delete duplicate examples that cover the same behavior.</span></div>
+                <div class="reference-row"><b>Do not test</b><span>LLM output text, prompt strings, or that a mock was called. Test outcomes, side effects, and errors.</span></div>
+              </div>
+            </div>
+
+            <div class="skill-subsection">
+              <h4>Filesystem/startup behavior must prove no-op safety</h4>
+              <div class="method-table-wrap">
+                <table class="method-table">
+                  <thead>
+                    <tr><th>State</th><th>Required proof</th><th>Reason</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Missing output</td><td>Work runs when extracted files or derived state do not exist.</td><td>Fresh installs must build state.</td></tr>
+                    <tr><td>Already in sync</td><td>A second run with unchanged inputs does no work.</td><td>Startup/watchers must be idempotent.</td></tr>
+                    <tr><td>Stale output</td><td>Changed source input refreshes or replaces derived output.</td><td>Data drift must not leave stale state.</td></tr>
+                    <tr><td>Error path</td><td>Invalid archives or missing dirs do not corrupt state.</td><td>Failure must be contained.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="method-section" id="run">
+        <div class="section-intro">
+          <h2>One real run: stress to HRV</h2>
+          <p>This example is a <code>finding-analyst</code> case file. It shows what the analyst run
+          actually recorded, which recipes it declared, which gates reviewed the claim, and why the
+          result was promoted as provisional rather than confident.</p>
+          <hr class="rule">
+        </div>
+
+        <div class="run-case" aria-label="Stress to HRV finding-analyst run walkthrough">
+          <div class="case-file">
+            <h3><code>2026-05-26-stress-hrv-lag</code></h3>
+            <p>The run asked whether an acutely high-stress day predicts suppressed nightly HRV over
+            the next 1-3 nights, beyond the known same-night stress-HRV relationship. The answer was
+            yes for lag +1, with a fast decay by lag +2/+3, but the claim stayed predictive and
+            provisional because Garmin stress and Garmin HRV share HRV-derived measurement inputs.</p>
+
+            <div class="case-meta" aria-label="Run metadata">
+              <div><b>Before data</b><span>Only one predictor/outcome pair was allowed: stress on day D -> HRV on later nights.</span></div>
+              <div><b>Allowed lags</b><span>Only D+1, D+2, and D+3 could be tested; lag 0 was reference context, not a discovery.</span></div>
+              <div><b>Snapshot</b><span>357 days, 2025-06-01 to 2026-05-26, frozen at 2026-05-26T20:00Z.</span></div>
+              <div><b>Metrics</b><span><code>stress_avg(D)</code> predictor; <code>hrv_nightly_avg(D+k)</code> outcome.</span></div>
+              <div><b>Success rule</b><span>D+1 had to clear r &lt;= -0.20, then survive same-night stress control.</span></div>
+              <div><b>Final tier</b><span><span class="badge badge-provisional inline">provisional</span> predictive, not causal.</span></div>
+            </div>
+          </div>
+
+          <div class="case-section">
+            <h3>What <code>01-question.md</code> locked before analysis</h3>
+            <div class="method-table-wrap">
+              <table class="method-table">
+                <thead>
+                  <tr><th>Contract field</th><th>What was written</th><th>Why it mattered</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Question</td>
+                    <td>Does stress on day D predict lower HRV on D+1, D+2, or D+3 beyond same-night coupling?</td>
+                    <td>The run cannot drift into a broad stress/HRV story after seeing results.</td>
+                  </tr>
+                  <tr>
+                    <td>Prediction</td>
+                    <td>Inverse association, strongest at lag +1, decaying by lag +3.</td>
+                    <td>The expected shape is known before the plot exists.</td>
+                  </tr>
+                  <tr>
+                    <td>Primary rule</td>
+                    <td>Forward signal only if lag +1 Spearman r &lt;= -0.20 with n &gt;= 100.</td>
+                    <td>A visible negative chart is not enough; it must clear a numeric threshold.</td>
+                  </tr>
+                  <tr>
+                    <td>Decisive rule</td>
+                    <td>Partial Spearman of stress(D) vs HRV(D+1), controlling stress(D+1), must keep |r| &gt;= 0.10 with CI excluding 0.</td>
+                    <td>This distinguishes a forward predictor from same-night stress-HRV coupling plus autocorrelation.</td>
+                  </tr>
+                  <tr>
+                    <td>Comparison count</td>
+                    <td>Exactly three forward lags: +1, +2, +3. Lag 0 is reference only.</td>
+                    <td>The many-comparison posture is explicit; weak lag +2/+3 results cannot be promoted later.</td>
+                  </tr>
+                  <tr>
+                    <td>Exclusions</td>
+                    <td>No causal mechanism claim, no other metric pairs, no raw FIT re-parsing, no manual logs.</td>
+                    <td>The finding stays scoped to one predictive mart-level relationship.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="case-section">
+            <h3>What the template files forced this run to make explicit</h3>
+            <p>The file names are not the explanation. The useful content is the specific decision
+            each file forced before the result could be promoted.</p>
+            <div class="method-table-wrap">
+              <table class="method-table">
+                <thead>
+                  <tr><th>File</th><th>Specific commitment in this run</th><th>Wrong move it prevented</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>01-question.md</code></td>
+                    <td>Before looking at results, the run committed to one pair: <code>stress_avg(D)</code> predicting <code>hrv_nightly_avg(D+1..D+3)</code>. No other metric pairs, no extra lags, no causal mechanism claim, and no manual logs were allowed.</td>
+                    <td>Turning a single lag result into a broad stress/HRV story after seeing the chart.</td>
+                  </tr>
+                  <tr>
+                    <td><code>01-question.md</code></td>
+                    <td>The run wrote the pass/fail rule up front: lag +1 had to reach Spearman r &lt;= -0.20 with n &gt;= 100, then the stricter partial check had to keep |r| &gt;= 0.10 with a CI excluding 0.</td>
+                    <td>Calling any negative-looking lag curve a result without a pre-written threshold.</td>
+                  </tr>
+                  <tr>
+                    <td><code>02-data-profile.md</code></td>
+                    <td>The run froze 357 daily rows and recorded the missingness that affects this question: stress had no missing days; HRV had 13 missing days, including a Nov 5-20 cluster.</td>
+                    <td>Letting the reader assume the lag test used a complete daily series.</td>
+                  </tr>
+                  <tr>
+                    <td><code>02-data-profile.md</code></td>
+                    <td>The run recorded the exact sample sizes after pairing real calendar dates: lag 0 n=344, lag +1 n=342, lag +2 n=340, lag +3 n=338. Missing HRV nights were dropped, not bridged.</td>
+                    <td>Creating fake lag pairs by jumping across missing nights.</td>
+                  </tr>
+                  <tr>
+                    <td><code>03-analysis.py</code></td>
+                    <td>The script paired stress(D) with HRV(D+k) only when both exact calendar dates existed and both values were present. Example from the profile: 2025-11-17 stress was not paired to a later available HRV value when 2025-11-18 HRV was null.</td>
+                    <td>A "lag +1" result that secretly spans more than one day.</td>
+                  </tr>
+                  <tr>
+                    <td><code>03-analysis.py</code></td>
+                    <td>The script used rank correlation because stress and HRV are bounded/skewed, then used 7-day moving-block bootstrap because stress(D) and stress(D+1) correlated +0.379.</td>
+                    <td>Overstating certainty by treating serially related days as independent observations.</td>
+                  </tr>
+                  <tr>
+                    <td><code>05-findings.md</code></td>
+                    <td>The finding had to state the actual result: lag +1 r=-0.490, partial given same-night stress r=-0.344, lag +2/+3 not claimed, and median next-night HRV 64 ms after low-stress days vs 43 ms after high-stress days.</td>
+                    <td>Promoting the headline without the limits and non-results attached.</td>
+                  </tr>
+                  <tr>
+                    <td><code>06-review.md</code></td>
+                    <td>The review passed the gates but still refused to call the result confident because Garmin derives both daytime stress and nightly HRV partly from heart-rate variability.</td>
+                    <td>Confusing a passed statistical test with proof of an independent causal channel.</td>
+                  </tr>
+                  <tr>
+                    <td><code>07-findings-update.md</code></td>
+                    <td>The proposed permanent record had to carry the caveat and add an open question about whether the lag is physiological carry-over or shared Garmin derivation.</td>
+                    <td>Leaving the caveat behind when the result moved into <code>FINDINGS.md</code>.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="case-section">
+            <h3>Recipes used, and what each guarded against</h3>
+            <div class="method-table-wrap">
+              <table class="method-table">
+                <thead>
+                  <tr><th>Recipe</th><th>How it appeared in the run</th><th>Trap it guarded against</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Lagged correlation</td>
+                    <td>Spearman correlations for lags 0, +1, +2, +3 with effect size, CI, n, and p-value last.</td>
+                    <td>Reading a same-night association as a next-night predictor.</td>
+                  </tr>
+                  <tr>
+                    <td>Missingness pattern</td>
+                    <td>HRV nulls were dropped, never bridged; day D paired with D+k only when both calendar dates existed exactly k days apart.</td>
+                    <td>A fake "lag +1" pair spanning a data gap.</td>
+                  </tr>
+                  <tr>
+                    <td>Partial-correlation control</td>
+                    <td>Decisive rule controlled stress(D+1); robustness also controlled HRV(D), leaving r about -0.34.</td>
+                    <td>A lag effect that is only same-night stress coupling or HRV persistence.</td>
+                  </tr>
+                  <tr>
+                    <td>Moving-block bootstrap</td>
+                    <td>Block length 7, 5000 resamples, because stress autocorrelation was +0.379 and HRV autocorrelation was +0.150.</td>
+                    <td>Overstated precision from pretending daily observations are independent.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="case-section">
+            <h3>What the run found</h3>
+            <div class="method-table-wrap">
+              <table class="method-table">
+                <thead>
+                  <tr><th>Evidence item</th><th>Recorded result</th><th>Role in the finding</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Lag 0 reference</td><td>Same-night Spearman stress vs HRV = -0.673; same-night Pearson = -0.664 vs prior -0.670.</td><td>Confirmed the known same-night relationship was stable.</td></tr>
+                  <tr><td>Lag +1 primary</td><td>Spearman stress(D) vs HRV(D+1) = -0.490, 95% CI [-0.572, -0.401], n=342.</td><td>Cleared the pre-registered raw threshold.</td></tr>
+                  <tr><td>Lag +1 decisive partial</td><td>Partial given stress(D+1) = -0.344, CI [-0.431, -0.252].</td><td>Confirmed the headline predictor was not just same-night coupling.</td></tr>
+                  <tr><td>HRV persistence robustness</td><td>Partial also controlling HRV(D) = -0.341, CI [-0.445, -0.226].</td><td>Showed the result was not merely HRV(D) echoing into HRV(D+1).</td></tr>
+                  <tr><td>Lag +2/+3</td><td>About -0.15; did not reliably clear the -0.20 threshold.</td><td>Prevented overclaiming a multi-night effect.</td></tr>
+                  <tr><td>Magnitude view</td><td>Median next-night HRV: 64 ms after low-stress days vs 43 ms after high-stress days.</td><td>Made the practical size legible, but stayed descriptive rather than decisive.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="case-section">
+            <h3>Review gates and promotion decision</h3>
+            <div class="method-table-wrap">
+              <table class="method-table">
+                <thead>
+                  <tr><th>Gate</th><th>What the review checked</th><th>Verdict</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Question</td><td>Pair, lags, date range, metrics, thresholds, and N=3 comparisons were pre-registered.</td><td>Pass.</td></tr>
+                  <tr><td>Data</td><td>Snapshot pinned; coverage measured; HRV gaps dropped; contiguous pairing verified on a Nov 17 -> Nov 18 null case.</td><td>Pass.</td></tr>
+                  <tr><td>Statistical</td><td>Effect sizes before p-values; Spearman for skewed/bounded metrics; block bootstrap; only lag +1 claimed.</td><td>Pass.</td></tr>
+                  <tr><td>Visual</td><td>All four plots inspected; units, ranges, n, and gaps checked; three values spot-checked against the snapshot.</td><td>Pass, with one cosmetic title clipping blemish.</td></tr>
+                  <tr><td>Interpretation</td><td>So-what stated; no causal claim; stress autocorrelation, shared derivation, and missing behavioral controls named.</td><td>Pass.</td></tr>
+                  <tr><td>Findings</td><td>Promotion text included snapshot date, range, n, caveats, and a new open question.</td><td>Promote as provisional observation and takeaway.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="case-callout">
+            <b>Why the finding did not become confident</b>
+            <p>The registered test passed, the decisive partial survived, and every review gate
+            cleared. Confidence still stayed <b>provisional</b> because Garmin derives both daytime
+            stress and nightly HRV partly from heart-rate variability. The result is useful for
+            forecasting, but it is not evidence that stress and HRV are two independent causal
+            channels.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <a href="index.html">← Back to all findings</a> &nbsp;·&nbsp;
+        The investigation runs themselves stay local-only; this page explains the method hierarchy and
+        representative artifacts.
+      </footer>
     </div>
-
-    <div class="arrow-down">↓</div>
-
-    <div class="step-head"><span class="stepnum">6</span><h3>Promotion — the tier decides how far it travels</h3></div>
-    <div class="step-body">
-      <p>Because it landed at <b>provisional</b> (not confident), it entered the permanent record as
-      an <b>attributed observation with its caveats</b> — this exact line:</p>
-      <div class="artifact"><div class="artifact-body artifact-quote">“A high-stress day is a usable leading indicator that the next night’s HRV will read low… Use it for expectation-setting, not diagnosis… <em>Provisional and predictive only</em> — stress and HRV share an HRV-based derivation, so this is not an established independent causal channel.”</div></div>
-      <p>A <b>confident</b> finding would have become an asserted takeaway; a <b>tentative</b> one
-      would have stayed in the folder, unpublished. That is the whole machine: a question with fixed
-      goalposts, named techniques, a labeled chart, and a review that can only make the claim
-      weaker. <span class="lead-strong">Every chart in the findings came down this same path.</span></p>
-    </div>
-  </article>
-
-  <!-- ============================== RECIPES ============================== -->
-  <div class="section-intro" id="recipes">
-    <h2>The technique catalog</h2>
-    <p>That run reached for three techniques. Each is a written <b>recipe</b> — what it asks, and the
-    specific trap it’s built to avoid. Pick one to see it in plain terms with a real chart it
-    produced. <span class="faint">(green = battle-tested in a trusted run; grey = written and sound,
-    not yet relied on.)</span></p>
-    <hr class="rule">
   </div>
-
-  <article class="finding" style="border-top:0;padding-top:8px">
-    <div class="gallery" id="gallery">
-      <div class="gallery-tabs" role="tablist">
-        <div class="gallery-tablabel">Describe the data</div>
-        <button class="gallery-tab active" data-target="r-missing"><span class="dot validated"></span>Missing-data pattern</button>
-        <button class="gallery-tab" data-target="r-dist"><span class="dot validated"></span>Distribution shape</button>
-        <div class="gallery-tablabel">Find relationships</div>
-        <button class="gallery-tab" data-target="r-corr"><span class="dot validated"></span>Correlation sweep</button>
-        <button class="gallery-tab" data-target="r-lag"><span class="dot validated"></span>Does A predict later B?</button>
-        <button class="gallery-tab" data-target="r-partial"><span class="dot validated"></span>Rule out a common cause</button>
-        <div class="gallery-tablabel">Find events in time</div>
-        <button class="gallery-tab" data-target="r-anomaly"><span class="dot validated"></span>Unusual-stretch scan</button>
-        <button class="gallery-tab" data-target="r-changepoint"><span class="dot validated"></span>When did normal shift?</button>
-        <button class="gallery-tab" data-target="r-period"><span class="dot validated"></span>Best vs worst stretch</button>
-        <button class="gallery-tab" data-target="r-single"><span class="dot candidate"></span>Is one day an outlier?</button>
-        <div class="gallery-tablabel">Structure of the whole</div>
-        <button class="gallery-tab" data-target="r-loading"><span class="dot validated"></span>Is the structure stable?</button>
-        <button class="gallery-tab" data-target="r-norm"><span class="dot validated"></span>What counts as “normal”?</button>
-        <button class="gallery-tab" data-target="r-cluster"><span class="dot validated"></span>Types, or a spectrum?</button>
-        <div class="gallery-tablabel">Design a display rule</div>
-        <button class="gallery-tab" data-target="r-bakeoff"><span class="dot candidate"></span>Pick the best label rule</button>
-        <button class="gallery-tab" data-target="r-weekday"><span class="dot candidate"></span>Real weekly rhythm?</button>
-      </div>
-
-      <div class="gallery-panels">
-
-        <section class="gallery-panel active" id="r-missing">
-          <div class="gp-head"><h3>Missing-data pattern</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">When did a sensor stop recording — and do the gaps line up with anything that would change how we read the data?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Which days are missing for each metric, and are the gaps random or clustered?”</dd>
-            <dt>The trap it avoids</dt><dd>Treating a <b>gap</b> (no reading) as if it were a real low value, or mistaking an early device-setup gap for a health event.</dd>
-            <dt>First proven in</dt><dd>the full-dataset baseline run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/coverage-missingness.png" alt="Per-metric missing-day timeline"><figcaption><b>Demo.</b> Each red tick is a missing day; SpO₂’s two solid blocks are device-setup gaps, not health events.</figcaption></figure>
-          <p class="gp-produced">→ Produced the coverage finding on <a href="general.html#coverage">General</a>: the autonomic core is complete, SpO₂ has two structural gaps.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-dist">
-          <div class="gp-head"><h3>Distribution shape</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Does a metric cluster around one typical value, or two? Is it lopsided?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Is this one hump or two — a single state, or a switch between two?”</dd>
-            <dt>The trap it avoids</dt><dd>A “two-humps” call is checked <b>three independent ways</b> (a shape number, a model comparison, the naked eye) and re-checked inside a single calm period — since two apparent humps are usually just two seasons blended together.</dd>
-            <dt>First proven in</dt><dd>the HRV bimodality run (2026-05-27).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/hrv-modality.png" alt="HRV distribution shown three ways, each one broad peak"><figcaption><b>Demo.</b> Three views of nightly HRV — each a single broad peak, no genuine second hump.</figcaption></figure>
-          <p class="gp-produced">→ Produced the headline HRV finding on <a href="hrv.html#bimodal">HRV</a>: it is one continuous signal, not two modes.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-corr">
-          <div class="gp-head"><h3>Correlation sweep</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Across all the metrics at once, which ones move together?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“For every possible pair of metrics, how strongly do they rise and fall together?”</dd>
-            <dt>The trap it avoids</dt><dd>It uses a measure a few outliers can’t distort and treats every hit from such a broad scan as a <b>lead to check</b>, never a conclusion.</dd>
-            <dt>First proven in</dt><dd>the full-dataset baseline run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/axis-corr-heatmap.png" alt="Correlation heatmap with the recovery block bracketed"><figcaption><b>Demo.</b> Every pair, color-coded; the tightly-linked “recovery block” separates cleanly from the near-zero off-axis metrics.</figcaption></figure>
-          <p class="gp-produced">→ Produced the central result on <a href="general.html#axis">General</a>: almost everything collapses onto one recovery↔stress axis.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-lag">
-          <div class="gp-head"><h3>Does A predict later B?</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Does today’s value of one metric predict tomorrow’s — or next week’s — value of another?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Does metric A on a given day relate to metric B one, two, … days later?”</dd>
-            <dt>The trap it avoids</dt><dd>Days are paired only when truly the right number of days apart (never bridging a gap), and because today echoes yesterday, the confidence range uses a method built for <b>streaky</b> data.</dd>
-            <dt>Used by</dt><dd>the worked example above (2026-05-26-stress-hrv-lag).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/hrv-stress-lag.png" alt="Stress-to-HRV correlation by day lag"><figcaption><b>Demo.</b> The stress→HRV link by delay: strong same-night, still real the next night, gone within a few days.</figcaption></figure>
-          <p class="gp-produced">→ Produced the lead-indicator finding on <a href="hrv.html#stress-lead">HRV</a>: a hard day predicts a low HRV the next night.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-partial">
-          <div class="gp-head"><h3>Rule out a common cause</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Does A still relate to B once we hold a likely shared cause constant?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Is this a direct link — or are both metrics driven by a third thing?”</dd>
-            <dt>The trap it avoids</dt><dd>Holding a third factor constant removes only its <b>simple</b> influence; if two metrics share a raw source, a surviving link may still be that shared origin — so it says so rather than claiming independence.</dd>
-            <dt>First proven in</dt><dd>the SpO₂ incremental-value run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/spo2-incremental-value.png" alt="SpO2 partial-correlation forest plot near zero"><figcaption><b>Demo.</b> Once today’s recovery is accounted for, overnight SpO₂ adds nothing — both estimates straddle zero.</figcaption></figure>
-          <p class="gp-produced">→ Produced the “not a recovery signal” finding on <a href="general.html#offaxis">General</a>: overnight SpO₂ is a health flag, not a recovery input.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-anomaly">
-          <div class="gp-head"><h3>Unusual-stretch scan</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Were there stretches of days when many metrics were unusual at the same time?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Scanning the whole year, which windows show simultaneous deviation across several metrics?”</dd>
-            <dt>The trap it avoids</dt><dd>“Unusual” is measured against your <b>personal</b> normal, and the rule is <b>rank, then look</b>: every flagged window is overlaid on the full timeline before it’s believed.</dd>
-            <dt>First proven in</dt><dd>the full-dataset baseline run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/year-temporal-overview.png" alt="Year overview with deviation map"><figcaption><b>Demo.</b> The year scanned for unusual stretches — a sharp November peak, a calm winter trough, a smaller spring bump.</figcaption></figure>
-          <p class="gp-produced">→ Produced the regime map on <a href="general.html#regimes">General</a> and pinpointed the November low-recovery crash.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-changepoint">
-          <div class="gp-head"><h3>When did “normal” shift?</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">When exactly did a metric’s baseline level change — and when did it return?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Where are the edges of a regime — its start, and the day it truly ended?”</dd>
-            <dt>The trap it avoids</dt><dd>“Returned to normal” is defined strictly as <b>after the last bad day</b>, so a brief mid-slump rebound can’t be mistaken for the end.</dd>
-            <dt>First proven in</dt><dd>the November regime-extent run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/recovery-nov-regime.png" alt="Composite recovery score across the November regime"><figcaption><b>Demo.</b> The recovery score across autumn — below its normal band for five weeks, not the two it first appeared.</figcaption></figure>
-          <p class="gp-produced">→ Produced the regime-extent finding on <a href="recovery.html#event">Recovery</a>: the November crash is a five-week event.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-period">
-          <div class="gp-head"><h3>Best vs worst stretch</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">What separates the best stretch of the year from the worst, and by how much?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Put two periods side by side — how big is the difference on each metric?”</dd>
-            <dt>The trap it avoids</dt><dd>Picking the windows <em>by</em> an outcome and then “testing” on the same data is circular — so the run declares up front how the windows were chosen.</dd>
-            <dt>First proven in</dt><dd>the full-dataset baseline run (2026-05-26).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/recovery-regime-segments.png" alt="Per-metric heatmap across regime segments"><figcaption><b>Demo.</b> Every recovery metric across the crash’s phases — stress worst first, resting heart rate slowest to recover.</figcaption></figure>
-          <p class="gp-produced">→ Produced the “why one composite” evidence on <a href="recovery.html#event">Recovery</a>: the metrics are all suppressed together.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-single">
-          <div class="gp-head"><h3>Is one day an outlier?</h3><span class="badge badge-candidate">candidate</span></div>
-          <p class="gp-what">Is a single dramatic day-over-day move genuinely unusual — and what moved with it?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“How rare is this one-night change, and did other metrics move the same night?”</dd>
-            <dt>The trap it avoids</dt><dd>A single day <b>can’t replicate</b>, so it’s the weakest evidence; coverage is checked first, since a nightly number can jump from a short night, not the body.</dd>
-            <dt>Status</dt><dd>candidate — sound, not yet leaned on by a trusted run.</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/hrv-feb-drop-context.png" alt="HRV single-night drop and rebound"><figcaption><b>Demo.</b> A single night’s HRV halved then bounced back within two — judged against the spread of all night-to-night changes.</figcaption></figure>
-          <p class="gp-produced">→ Produced the February case study on <a href="hrv.html#volatile">HRV</a>: a single night can crash and rebound — read the trend, not the night.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-loading">
-          <div class="gp-head"><h3>Is the structure stable?</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Do the relationships between metrics stay the same in good periods and bad ones?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Is the underlying pattern linking the metrics the same in a crash as in a calm month?”</dd>
-            <dt>The trap it avoids</dt><dd>It pre-commits that a mere <b>weakening</b> of links (not a reshaping) does not count as instability.</dd>
-            <dt>First proven in</dt><dd>the axis loading-stability run (2026-06-11).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/axis-loadings-by-regime.png" alt="Per-metric loadings nearly identical across regimes"><figcaption><b>Demo.</b> The metrics’ contributions to the main pattern are near-identical across three very different periods.</figcaption></figure>
-          <p class="gp-produced">→ Produced the “same axis everywhere” finding on <a href="general.html#regimes">General</a>: one fixed scoring is justified.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-norm">
-          <div class="gp-head"><h3>What counts as “normal”?</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Should “normal for you” be your whole history, or a rolling recent window?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Which definition of a personal baseline correctly flags a known-bad month?”</dd>
-            <dt>The trap it avoids</dt><dd>It judges candidates on a scorecard fixed <em>in advance</em>, and includes a deliberately “cheating” hindsight baseline — if even that fails a test, the test is measuring the wrong thing.</dd>
-            <dt>First proven in</dt><dd>the normalization-baseline run (2026-06-11).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/norm-candidate-timelines.png" alt="Five baseline candidates compared over the year"><figcaption><b>Demo.</b> Rolling baselines absorb the very slump they should flag; the whole-history baseline holds it down.</figcaption></figure>
-          <p class="gp-produced">→ Produced the most counter-intuitive choice on <a href="recovery.html#normalize">Recovery</a>: use an expanding personal baseline, never a trailing window.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-cluster">
-          <div class="gp-head"><h3>Types, or a spectrum?</h3><span class="badge badge-validated">validated</span></div>
-          <p class="gp-what">Do days fall into a few distinct “types”, or form one smooth spectrum?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Are there real recovery-day archetypes, or just degrees along a single scale?”</dd>
-            <dt>The trap it avoids</dt><dd>Grouping software <b>always</b> returns groups — so extra tests are run that can tell a genuine type from an arbitrary slice of a spectrum. Here they found a spectrum.</dd>
-            <dt>First proven in</dt><dd>the recovery day-states run (2026-06-11).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/recovery-continuum-pca.png" alt="One elongated cloud of days, not separate clusters"><figcaption><b>Demo.</b> The days form one elongated cloud with a smooth gradient — not separated blobs.</figcaption></figure>
-          <p class="gp-produced">→ Produced the “no archetypes” finding on <a href="recovery.html#continuum">Recovery</a>: recovery is a continuum, not discrete states.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-bakeoff">
-          <div class="gp-head"><h3>Pick the best label rule</h3><span class="badge badge-candidate">candidate</span></div>
-          <p class="gp-what">A label shown in the app looks unreliable — which replacement rule is best?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“Lined up on one fair scorecard, which candidate rule is most sensitive and least jumpy?”</dd>
-            <dt>The trap it avoids</dt><dd>The current rule is run <b>exactly as shipped</b> as the baseline, every candidate is scored identically, and a “no-label-at-all” option is always included — because often the labeling itself, not where the line is drawn, is the problem.</dd>
-            <dt>Status</dt><dd>candidate — already used once (2026-06-18), kept provisional until more runs rely on it.</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/hrv-cue-flicker.png" alt="Four candidate labelling rules over time; categorical ones flicker"><figcaption><b>Demo.</b> Every same-night category flickers night to night; only dropping the category or smoothing it is stable.</figcaption></figure>
-          <p class="gp-produced">→ Produced the cue redesign on <a href="hrv.html#cue">HRV</a>: show a continuous signal, drop the status word.</p>
-        </section>
-
-        <section class="gallery-panel" id="r-weekday">
-          <div class="gp-head"><h3>Real weekly rhythm?</h3><span class="badge badge-candidate">candidate</span></div>
-          <p class="gp-what">Is an apparent day-of-week pattern real, or just noise?</p>
-          <dl class="gp-meta">
-            <dt>It asks</dt><dd>“After removing slow seasonal drift, is there a genuine weekday effect?”</dd>
-            <dt>The trap it avoids</dt><dd>Streaky data manufactures fake cycles, so significance uses a method that respects that streakiness, and it names the calendar label rather than guessing the cause.</dd>
-            <dt>Status</dt><dd>candidate — the careful version of an earlier, weaker analysis it replaced (2026-06-18).</dd>
-          </dl>
-          <figure class="plot framed"><img src="assets/hrv-dow-residual-ci.png" alt="Weekday HRV residuals with confidence intervals"><figcaption><b>Demo.</b> Each weekday’s effect with an honest confidence range — Saturday genuinely low, Tuesday high.</figcaption></figure>
-          <p class="gp-produced">→ Produced the weekly-rhythm finding on <a href="hrv.html#dow">HRV</a>: a real ~10 ms day-of-week swing.</p>
-        </section>
-
-      </div>
-    </div>
-
-    <div class="note" style="margin-top:30px">
-      <div class="ico">✦</div>
-      <div>
-        <h4>That’s the whole method</h4>
-        <p>Skills give the agent durable rules; <code>finding-analyst</code>’s templates force every
-        run through the same honest steps; recipes supply vetted techniques with their traps
-        attached; and the confidence ladder decides what gets asserted. See it in the results on
-        <a href="general.html">General</a>, <a href="recovery.html">Recovery Score</a>, and
-        <a href="hrv.html">HRV</a>.</p>
-      </div>
-    </div>
-  </article>
-
-  <footer class="foot">
-    <a href="index.html">← Back to all findings</a> &nbsp;·&nbsp;
-    The investigation runs themselves (raw personal data) stay local-only; this page describes the
-    method and shows representative excerpts, not the private records.
-  </footer>
-
 </main>
 
 <script>
   (function () {
-    var tabs = document.querySelectorAll('.gallery-tab');
-    var panels = document.querySelectorAll('.gallery-panel');
-    function activate(id, tab) {
-      panels.forEach(function (p) { p.classList.toggle('active', p.id === id); });
-      tabs.forEach(function (t) { t.classList.remove('active'); });
-      tab.classList.add('active');
+    var tabs = document.querySelectorAll('[data-skill-tab]');
+    var panels = document.querySelectorAll('[data-skill-panel]');
+
+    function activateSkill(id) {
+      panels.forEach(function (panel) {
+        panel.hidden = panel.getAttribute('data-skill-panel') !== id;
+      });
+      tabs.forEach(function (tab) {
+        var active = tab.getAttribute('data-skill-tab') === id;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
     }
+
     tabs.forEach(function (tab) {
       tab.addEventListener('click', function () {
-        activate(tab.getAttribute('data-target'), tab);
-        if (window.matchMedia('(max-width: 859px)').matches) {
-          document.getElementById(tab.getAttribute('data-target'))
-                  .scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        activateSkill(tab.getAttribute('data-skill-tab'));
       });
     });
   })();

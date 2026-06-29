@@ -17,16 +17,18 @@
     <a href="general.html">General</a>
     <a href="recovery.html">Recovery Score</a>
     <a href="hrv.html">HRV</a>
+    <a href="method.html">Method</a>
   </div>
 </nav>
 
 <main class="wrap page">
 
   <header class="hero">
-    <div class="eyebrow">Data-analysis trust record</div>
+    <div class="eyebrow">Findings</div>
     <h1>What a year of wrist data<br>actually tells us.</h1>
-    <p class="sub">A curated read-out of the analysis behind the recovery score and the HRV
-    surfaces — what replicated, what we discarded, and why each shipped decision is defensible.</p>
+    <p class="sub">A standalone read-out of the Garmin analysis: what replicated, what failed to
+    earn trust, and which conclusions are strong enough to shape the recovery score and HRV
+    surfaces.</p>
 
     <div class="meta-strip">
       <div><b>Subject</b> &nbsp;n-of-1</div>
@@ -36,6 +38,30 @@
       <div><b>Runs distilled</b> &nbsp;26</div>
     </div>
   </header>
+
+  <section class="section-intro" style="margin-top:18px">
+    <h2>What these findings say</h2>
+    <p>The strongest claims are not isolated facts. They form a compact story about what this
+    dataset can and cannot support.</p>
+  </section>
+
+  <ul class="takeaways index-summary" style="margin-top:20px">
+    <li><span><b>The useful structure is a recovery/stress axis.</b> HRV, resting heart rate,
+      stress, and body battery move together strongly enough to justify a composite recovery view;
+      SpO2, skin temperature, REM, and deep sleep mostly act as separate flags or weak context.</span></li>
+    <li><span><b>The recovery score is a tested product decision.</b> Baseline choice, weighting,
+      smoothing, missing-data rules, and validation checks were compared against the year rather
+      than chosen by intuition.</span></li>
+    <li><span><b>HRV is readable as trajectory, not status.</b> The signal is continuous,
+      volatile night to night, regime-sensitive, and weekly patterned; categorical same-night labels
+      overstate what one night can tell you.</span></li>
+  </ul>
+
+  <section class="section-intro">
+    <h2>Read by topic</h2>
+    <p>Each page below stands on its own. Use the method page only if you want to inspect how the
+    claims were produced and promoted.</p>
+  </section>
 
   <section>
     <div class="topic-grid">
@@ -82,17 +108,6 @@
     </div>
   </section>
 
-  <a class="method-banner" href="method.html">
-    <div>
-      <div class="mb-kicker">The method</div>
-      <h2>How these findings were made</h2>
-      <p>New to AI agents and analysis discipline? Start here — what skills are, why the analysis
-      uses templates and a catalog of vetted techniques, and a demo of the chart each technique
-      produced. Written for a cold reader, no jargon.</p>
-    </div>
-    <span class="mb-go">See how we did it →</span>
-  </a>
-
   <section class="section-intro">
     <h2>How to read this</h2>
     <p>Every claim carries a confidence tier. The tier governs how far a finding is allowed to
@@ -112,6 +127,17 @@
       <span><b>Exploratory only.</b> A single look, often from a many-comparison sweep. Seeds a
       question; never asserted.</span></li>
   </ul>
+
+  <a class="method-banner method-banner-quiet" href="method.html">
+    <div>
+      <div class="mb-kicker">Audit trail</div>
+      <h2>How these findings were made</h2>
+      <p>Every claim came from a dated analyst run with a frozen data snapshot, declared methods,
+      plots, confidence tier, and review. The method page explains why the skill setup, templates,
+      and recipes exist.</p>
+    </div>
+    <span class="mb-go">Inspect method →</span>
+  </a>
 
   <div class="note" style="margin-top:26px">
     <div class="ico">!</div>
