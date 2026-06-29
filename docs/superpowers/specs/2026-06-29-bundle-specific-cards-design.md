@@ -296,3 +296,29 @@ Each phase keeps backend + bundles + frontend green together.
 - **Override payloads** — `prescription_override_json` on assignments is still a generic dict;
   confirm whether overrides need to be typed too, or remain free-form tweaks (lean: free-form
   for now, out of scope).
+
+## Implementation Deltas
+
+Recorded at build completion (2026-06-29). These are deviations from the design above that were
+decided or discovered during implementation:
+
+**(a) `RunCustomField` + `post_run_fields` + `RunningActual.post_run`** — added to the running
+card to capture per-run confounders (weather, terrain, etc.) that the design did not include.
+`RunningWorkoutPayload.post_run_fields: list[RunCustomField]` defines the fields to collect;
+`RunningActual.post_run: dict[str, float | str | None]` stores the logged values keyed by
+`RunCustomField.key`. This was a user decision made during the running-card implementation.
+
+**(b) Override merge is defensive** — `prescription_override_json` keys are validated against
+the target card type's payload model at merge time. Invalid keys (keys not present on that
+payload type) fall back silently to the base payload value; `card_type` is always stripped from
+overrides before merging (it cannot be changed via override).
+
+**(c) Empty `actual_json: {}` coerces to `None`** — a `model_validator(mode="before")` on
+`CardLog`, `TodayCard`, and `TodayCardLogUpdateRequest` normalises `actual_json: {}` (no
+`card_type`) to `None`, so legacy rows and clients that send an empty body degrade gracefully
+rather than raising a `ValidationError`.
+
+**(d) Override open question resolved** — `prescription_override_json` stays as a free-form
+`dict[str, object]` in the data model, but is validated against the target payload at merge time
+(keys not on the payload are silently ignored). This is the "free-form with runtime validation"
+middle path: no separate typed override model, but invalid overrides never surface as bad data.
