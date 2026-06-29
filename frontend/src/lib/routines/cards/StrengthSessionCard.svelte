@@ -12,27 +12,21 @@
 	 *
 	 * No statistical computation here — volume, totals, etc. are backend concerns.
 	 */
+	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
+	import {
+		buildInitialExercises,
+		buildInitialRatings,
+		serializeExercises,
+		type LoggedStrengthExercise,
+		type StrengthSetLog
+	} from './strength-helpers.js';
 
 	type StrengthPayload = Extract<
 		ScheduleOccurrence['payload_json'],
 		{ card_type: 'strength_session' }
 	>;
 	type FullActual = TodayCard['actual_json'];
-
-	type StrengthSetLog = {
-		set_index: number;
-		weight: number | null;
-		reps: number | null;
-		rir: number | null;
-	};
-
-	type LoggedStrengthExercise = {
-		exercise_id: string | null;
-		label: string | null;
-		is_extra: boolean;
-		sets: StrengthSetLog[];
-	};
 
 	export type StrengthActual = {
 		card_type: 'strength_session';
@@ -54,47 +48,23 @@
 	const prescribed = $derived(payload.exercises ?? []);
 	const prompts = $derived(payload.rating_prompts ?? []);
 
-	const existingActual = $derived(
+	// ── One-time synchronous init — never re-runs when actual_json changes ────
+	// The component is freshly mounted each time a detail panel opens ({#if isExpanded}),
+	// so reading card.actual_json once at construction is correct and sufficient.
+	// Using untrack prevents the surrounding reactive context from tracking actual_json.
+	const initialActual = untrack(() =>
 		card.actual_json?.card_type === 'strength_session' ? card.actual_json : null
 	);
+	const initialPrescribed = untrack(() => card.payload_json.exercises ?? []);
+	const initialPrompts = untrack(() => card.payload_json.rating_prompts ?? []);
 
 	// ── Mutable log state ─────────────────────────────────────────────────────
-	let exercises = $state<LoggedStrengthExercise[]>([]);
-	let ratings = $state<Record<string, number | null>>({});
-
-	/**
-	 * Seed log state from the persisted actual (if present) or from prescribed exercises.
-	 * Runs once on mount (component is freshly mounted each time a detail panel opens).
-	 */
-	$effect(() => {
-		if (existingActual) {
-			exercises = existingActual.exercises.map((ex) => ({
-				exercise_id: ex.exercise_id,
-				label: ex.label,
-				is_extra: ex.is_extra,
-				sets: ex.sets.map((s) => ({
-					set_index: s.set_index,
-					weight: s.weight,
-					reps: s.reps,
-					rir: s.rir
-				}))
-			}));
-			for (const p of prompts) {
-				ratings[p.key] = existingActual.ratings?.[p.key] ?? null;
-			}
-		} else {
-			// Pre-seed one empty set per prescribed exercise.
-			exercises = prescribed.map((ex) => ({
-				exercise_id: ex.id,
-				label: ex.label,
-				is_extra: false,
-				sets: [{ set_index: 0, weight: null, reps: null, rir: null }]
-			}));
-			for (const p of prompts) {
-				ratings[p.key] = null;
-			}
-		}
-	});
+	let exercises = $state<LoggedStrengthExercise[]>(
+		buildInitialExercises(initialPrescribed, initialActual)
+	);
+	let ratings = $state<Record<string, number | null>>(
+		buildInitialRatings(initialPrompts, initialActual)
+	);
 
 	// ── Set / exercise helpers ─────────────────────────────────────────────────
 
@@ -136,16 +106,11 @@
 	function emit() {
 		const cleanRatings: Record<string, number> = {};
 		for (const [k, v] of Object.entries(ratings)) {
-			if (typeof v === 'number') cleanRatings[k] = v;
+			if (typeof v === 'number' && Number.isFinite(v)) cleanRatings[k] = v;
 		}
 		onActual?.({
 			card_type: 'strength_session',
-			exercises: exercises.map((ex) => ({
-				exercise_id: ex.exercise_id,
-				label: ex.label,
-				is_extra: ex.is_extra,
-				sets: ex.sets
-			})),
+			exercises: serializeExercises(exercises),
 			ratings: cleanRatings
 		});
 	}
