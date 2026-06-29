@@ -26,6 +26,7 @@ CardType = Literal[
     "meditation_timer",
     "checklist",
 ]
+RendererFamily = CardType  # Alias for card rendering type (same as CardType)
 RunSegmentKind = Literal["warmup", "main", "strides", "cooldown", "intervals"]
 BreathPhaseKind = Literal["inhale", "hold_full", "exhale", "hold_empty"]
 
@@ -135,6 +136,77 @@ CardPayload = Annotated[
     | BreathTimerPayload
     | MeditationTimerPayload
     | ChecklistPayload,
+    Field(discriminator="card_type"),
+]
+
+
+class RunningActual(StrictDefaultsRequired):
+    """Logged actuals for a completed running workout."""
+
+    card_type: Literal["running_workout"] = "running_workout"
+    distance_km: float | None = None
+    duration_min: float | None = None
+    avg_hr: int | None = None
+    hr_drift_pct: float | None = None
+    calibration_quality: bool = False
+    rpe: int | None = None
+    notes: str | None = None
+
+
+class StrengthSetLog(StrictDefaultsRequired):
+    """One logged set of a strength exercise."""
+
+    set_index: int
+    weight: float | None = None
+    reps: int | None = None
+    rir: int | None = None
+
+
+class LoggedStrengthExercise(StrictDefaultsRequired):
+    """One logged exercise; extras carry a free-text label and is_extra=True."""
+
+    exercise_id: str | None = None
+    label: str | None = None
+    is_extra: bool = False
+    sets: list[StrengthSetLog] = []
+
+
+class StrengthActual(StrictDefaultsRequired):
+    """Logged actuals for a strength session, including off-script extras."""
+
+    card_type: Literal["strength_session"] = "strength_session"
+    exercises: list[LoggedStrengthExercise] = []
+    ratings: dict[str, int] = {}
+
+
+class TimerActual(StrictDefaultsRequired):
+    """Logged ratings for a breath or meditation timer session."""
+
+    card_type: Literal["breath_timer", "meditation_timer"]
+    ratings: dict[str, int] = {}
+    completed_cycles: int | None = None
+
+
+class ChecklistAnswer(StrictDefaultsRequired):
+    """One answered checklist item."""
+
+    item_id: str
+    checked: bool = False
+    text: str | None = None
+
+
+class ChecklistActual(StrictDefaultsRequired):
+    """Logged answers for a checklist card."""
+
+    card_type: Literal["checklist"] = "checklist"
+    answers: list[ChecklistAnswer] = []
+
+
+CardActual = Annotated[
+    RunningActual
+    | StrengthActual
+    | TimerActual
+    | ChecklistActual,
     Field(discriminator="card_type"),
 ]
 

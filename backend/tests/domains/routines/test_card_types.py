@@ -10,9 +10,12 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.domains.routines.contracts import (
+    CardActual,
     CardPayload,
+    ChecklistActual,
     ChecklistPayload,
     RunningWorkoutPayload,
+    StrengthActual,
     StrengthSessionPayload,
 )
 
@@ -67,3 +70,43 @@ def test_strength_payload_carries_set_scheme_and_ratings():
 def test_unknown_card_type_is_rejected():
     with pytest.raises(ValidationError):
         PAYLOAD_ADAPTER.validate_python({"card_type": "nope"})
+
+
+ACTUAL_ADAPTER = TypeAdapter(CardActual)
+
+
+def test_strength_actual_marks_extra_work():
+    actual = ACTUAL_ADAPTER.validate_python(
+        {
+            "card_type": "strength_session",
+            "exercises": [
+                {
+                    "exercise_id": "pa1",
+                    "is_extra": False,
+                    "sets": [{"set_index": 1, "weight": 60.0, "reps": 8, "rir": 2}],
+                },
+                {
+                    "exercise_id": None,
+                    "label": "Face pulls (felt good)",
+                    "is_extra": True,
+                    "sets": [{"set_index": 1, "weight": 20.0, "reps": 15}],
+                },
+            ],
+            "ratings": {"shoulder_comfort": 4},
+        }
+    )
+    assert isinstance(actual, StrengthActual)
+    extras = [e for e in actual.exercises if e.is_extra]
+    assert extras[0].label == "Face pulls (felt good)"
+    assert extras[0].exercise_id is None
+
+
+def test_checklist_actual_round_trips():
+    actual = ACTUAL_ADAPTER.validate_python(
+        {
+            "card_type": "checklist",
+            "answers": [{"item_id": "q1", "checked": True, "text": "Resonance"}],
+        }
+    )
+    assert isinstance(actual, ChecklistActual)
+    assert actual.answers[0].text == "Resonance"
