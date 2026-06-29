@@ -17,8 +17,10 @@ from app.domains.routines.adapters import (
     load_routine_schedules,
 )
 from app.domains.routines.contracts import (
+    BreathTimerPayload,
     CardOverride,
     ChecklistPayload,
+    MeditationTimerPayload,
     RunningWorkoutPayload,
     StrengthSessionPayload,
     TimerActual,
@@ -649,15 +651,33 @@ class TestArtifactBundles:
         assert preview.valid is False
         assert "already belongs to routine draft-routine" in preview.issues[0].message
 
-    @pytest.mark.skip(
-        reason="two_week_meditation_bundle.json not yet re-authored to card_type schema"
-    )
     def test_imported_meditation_bundle_activates_and_resolves_expected_occurrences(self):
         bundle = _load_meditation_bundle()
         preview = preview_artifact_bundle(bundle)
 
         assert preview.valid is True
         assert len(preview.deltas) == 7
+
+        # Verify payload card_types
+        breath_cards = [c for c in bundle.card_templates if c.payload.card_type == "breath_timer"]
+        meditation_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "meditation_timer"
+        ]
+        assert len(breath_cards) == 4
+        assert len(meditation_cards) == 2
+        # Spot-check: resonance card has correct phases
+        resonance = next(
+            c for c in bundle.card_templates if c.id == "meditation-resonance-breathing"
+        )
+        assert isinstance(resonance.payload, BreathTimerPayload)
+        assert resonance.payload.pattern_label == "5s in / 5s out"
+        assert len(resonance.payload.phases) == 2
+        assert resonance.payload.phases[0].kind == "inhale"
+        # Spot-check: focused attention has correct technique and anchor
+        focused = next(c for c in bundle.card_templates if c.id == "meditation-focused-attention")
+        assert isinstance(focused.payload, MeditationTimerPayload)
+        assert focused.payload.technique == "focused_attention"
+        assert focused.payload.anchor == "exhale count"
 
         imported = import_artifact_bundle(bundle)
         routine_artifact_ids = [
@@ -957,7 +977,6 @@ class TestArtifactBundles:
         assert slots.count("evening") == 5
         assert set(slots) == {"midday", "evening"}
 
-    @pytest.mark.skip(reason="two_week_core_bundle.json not yet re-authored to card_type schema")
     def test_core_bundle_runs_preview_import_activation_schedule_and_today_workflow(self):
         bundle = _load_core_bundle()
 
@@ -1008,8 +1027,16 @@ class TestArtifactBundles:
             "Supporting Block 1",
             "Supporting Block 2",
         ]
-        # exercise_list checks restore after two_week_core_bundle is re-authored to card_type
-        # assert _exercise_list(...)[0]["reps"] == "2x8 each side"
+        # Verify all card templates are strength_session
+        for card in bundle.card_templates:
+            assert isinstance(card.payload, StrengthSessionPayload), (
+                f"{card.id} is not strength_session"
+            )
+        # Spot-check: core-day-a template exercise set_scheme
+        core_a = next(c for c in bundle.card_templates if c.id == "core-day-a")
+        assert isinstance(core_a.payload, StrengthSessionPayload)
+        assert core_a.payload.exercises[0].id == "a1"
+        assert core_a.payload.exercises[0].set_scheme == "2x8 each side"
 
         today = get_today("2026-03-27")
         all_cards = [card for slot in today.slots for card in slot.cards]
