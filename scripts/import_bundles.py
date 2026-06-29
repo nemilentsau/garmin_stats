@@ -9,6 +9,8 @@ Usage:
     cd backend && uv run python ../scripts/import_bundles.py
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
@@ -40,6 +42,8 @@ def main() -> int:
         return 0
 
     exit_code = 0
+    artifact_repo = SqliteArtifactRepository()
+    routines_repo = SqliteRoutineRepository()
 
     for bundle_path in bundle_files:
         label = bundle_path.name
@@ -58,6 +62,7 @@ def main() -> int:
             continue
 
         # --- validate against ArtifactBundleSpec (requires card_type schema) ---
+        # This is expected for unconverted bundles (schema_version 1); do NOT fail.
         try:
             bundle = ArtifactBundleSpec.model_validate(raw)
         except ValidationError as exc:
@@ -66,9 +71,10 @@ def main() -> int:
             continue
 
         # --- preview (checks slot assignments and duplicates) ---
-        artifact_repo = SqliteArtifactRepository()
-        routines_repo = SqliteRoutineRepository()
-
+        # Exit code distinction:
+        #   - preview() raises ValidationError (DB record mismatch) → fail (exit 1)
+        #   - preview.valid is False (slot/assignment collision) → fail (exit 1)
+        #   - import() raises ValidationError → fail (exit 1)
         try:
             preview = preview_artifact_bundle(artifact_repo, routines_repo, bundle)
         except ValidationError as exc:
@@ -77,11 +83,13 @@ def main() -> int:
                 f"SKIP {label}: preview failed (existing DB record has old schema) "
                 f"— {'; '.join(issues[:3])}"
             )
+            exit_code = 1
             continue
 
         if not preview.valid:
             blocking = [i.message for i in preview.issues if i.blocking]
             print(f"SKIP {label}: preview has blocking issues — {'; '.join(blocking[:3])}")
+            exit_code = 1
             continue
 
         # --- import ---
@@ -93,6 +101,7 @@ def main() -> int:
                 f"SKIP {label}: import failed (existing DB record has old schema) "
                 f"— {'; '.join(issues[:3])}"
             )
+            exit_code = 1
             continue
         print(f"OK   {label}: imported {result.total_imported}")
 
