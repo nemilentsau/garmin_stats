@@ -263,7 +263,7 @@ class _FakeReadStore:
                 card_template_id="meditation-card",
                 assignment_id="assignment-1",
                 status="completed",
-                actual_json={},
+                actual_json=None,
             ),
             CardLog(
                 id="card-log-2",
@@ -272,7 +272,7 @@ class _FakeReadStore:
                 card_template_id="meditation-card",
                 assignment_id="assignment-2",
                 status="partial",
-                actual_json={},
+                actual_json=None,
             ),
         ]
         notes = [
@@ -403,7 +403,7 @@ class _FakeReadStore:
                 card_template_id="meditation-card",
                 assignment_id=f"assignment-{day}",
                 status="completed" if day % 2 else "partial",
-                actual_json={},
+                actual_json=None,
             )
             for day in range(4, 12)
         ]
@@ -415,7 +415,7 @@ class _FakeReadStore:
                 card_template_id="mobility-card",
                 assignment_id="unrelated-assignment",
                 status="skipped",
-                actual_json={},
+                actual_json=None,
             )
         )
         notes = [

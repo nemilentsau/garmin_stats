@@ -1,13 +1,12 @@
 {
   "id": "breathwork-routine-4w",
   "name": "Breathwork Routine",
-  "schema_version": 1,
+  "schema_version": 2,
   "description": "Deterministic four-week breathwork routine starting 2026-06-29. Use structured breathing for autonomic regulation, breath control, and recovery support without mixing it analytically with meditation skill training.",
   "card_templates": [
     {
       "id": "breathwork-resonance-5-5",
       "name": "Resonance Breathing — 5/5",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Steady 5-second inhale and 5-second exhale for calm physiological regulation.",
       "tags": [
@@ -16,8 +15,13 @@
         "recovery"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 10,
-        "pattern": "5s in / 5s out",
+        "pattern_label": "5s in / 5s out",
+        "phases": [
+          {"kind": "inhale", "seconds": 5},
+          {"kind": "exhale", "seconds": 5}
+        ],
         "instructions": "Find a smooth 5s/5s rhythm. Keep the breath relaxed rather than deep. Nasal breathing preferred if comfortable. Success condition: The rhythm feels smooth, repeatable, and calming without air hunger or strain. Failure modes: breathing too deeply, forcing the inhale, turning the session into performance breathing.",
         "rating_prompts": [
           {
@@ -68,7 +72,6 @@
     {
       "id": "breathwork-extended-exhale-4-7",
       "name": "Extended Exhale — 4/7",
-      "renderer": "timer_session",
       "slot_default": "evening",
       "summary": "Long-exhale breathwork for evening downshift and recovery.",
       "tags": [
@@ -77,8 +80,13 @@
         "recovery"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 7s out",
+        "pattern_label": "4s in / 7s out",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "exhale", "seconds": 7}
+        ],
         "instructions": "Keep the exhale smooth and complete without forcing the last second. Let the inhale arrive naturally. Success condition: The session leaves you calmer without feeling depleted or over-controlled. Failure modes: emptying the lungs aggressively, exhale strain, air hunger caused by over-controlling the breath.",
         "rating_prompts": [
           {
@@ -129,7 +137,6 @@
     {
       "id": "breathwork-extended-exhale-4-8",
       "name": "Extended Exhale — 4/8",
-      "renderer": "timer_session",
       "slot_default": "evening",
       "summary": "Slightly progressed long-exhale pattern for stronger downshift.",
       "tags": [
@@ -139,8 +146,13 @@
         "progression"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 8s out",
+        "pattern_label": "4s in / 8s out",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "exhale", "seconds": 8}
+        ],
         "instructions": "Use only if 4/7 is smooth. The final two seconds of the exhale should stay relaxed, not squeezed. Success condition: The longer exhale feels quieter, not harder. Fallback: Return to 4/7 if the 8-second exhale causes tension or gasping.",
         "rating_prompts": [
           {
@@ -191,7 +203,6 @@
     {
       "id": "breathwork-box-4-4-4-4",
       "name": "Box Breathing — 4/4/4/4",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Balanced breathing for composure and controlled transitions.",
       "tags": [
@@ -200,8 +211,15 @@
         "composure"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 5,
-        "pattern": "4s in / 4s hold / 4s out / 4s hold",
+        "pattern_label": "4s in / 4s hold / 4s out / 4s hold",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "hold_full", "seconds": 4},
+          {"kind": "exhale", "seconds": 4},
+          {"kind": "hold_empty", "seconds": 4}
+        ],
         "instructions": "Move cleanly through each transition. Holds should be calm, with no gasping after either hold. Success condition: The square feels controlled and boring. Failure modes: bracing during holds, overfilling the lungs, rushing the inhale after the post-exhale hold.",
         "rating_prompts": [
           {
@@ -252,7 +270,6 @@
     {
       "id": "breathwork-box-5-5-5-5",
       "name": "Box Breathing — 5/5/5/5",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Progressed box breathing for composure under a slower rhythm.",
       "tags": [
@@ -262,8 +279,15 @@
         "progression"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 5,
-        "pattern": "5s in / 5s hold / 5s out / 5s hold",
+        "pattern_label": "5s in / 5s hold / 5s out / 5s hold",
+        "phases": [
+          {"kind": "inhale", "seconds": 5},
+          {"kind": "hold_full", "seconds": 5},
+          {"kind": "exhale", "seconds": 5},
+          {"kind": "hold_empty", "seconds": 5}
+        ],
         "instructions": "Use this as a controlled composure challenge, not as a max-effort breath-hold drill. Success condition: The slower square remains smooth and non-dramatic. Fallback: Return to 4/4/4/4 if the 5-second holds create strain, gasping, or tension.",
         "rating_prompts": [
           {
@@ -314,7 +338,6 @@
     {
       "id": "breathwork-co2-4-6-4",
       "name": "CO2 Tolerance — 4/6/4",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Post-exhale hold practice for mild air-hunger comfort and breath control.",
       "tags": [
@@ -323,8 +346,14 @@
         "breath_control"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 6s out / 4s post-exhale hold",
+        "pattern_label": "4s in / 6s out / 4s post-exhale hold",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "exhale", "seconds": 6},
+          {"kind": "hold_empty", "seconds": 4}
+        ],
         "instructions": "Keep the post-exhale hold calm. The hold should create at most mild air hunger. Success condition: You remain relaxed at low lung volume and inhale without urgency. Failure modes: turning the hold into a contest, squeezing all air out before the hold, gasping after the hold.",
         "rating_prompts": [
           {
@@ -375,7 +404,6 @@
     {
       "id": "breathwork-co2-4-6-6",
       "name": "CO2 Tolerance — 4/6/6",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Progressed post-exhale hold practice for stronger but still controlled air-hunger exposure.",
       "tags": [
@@ -385,8 +413,14 @@
         "progression"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 6s out / 6s post-exhale hold",
+        "pattern_label": "4s in / 6s out / 6s post-exhale hold",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "exhale", "seconds": 6},
+          {"kind": "hold_empty", "seconds": 6}
+        ],
         "instructions": "Use only if 4/6/4 is trivial. Stay relaxed during the final two seconds of the hold. Success condition: Mild urge to inhale appears without panic, bracing, or forced recovery breathing. Fallback: Return to 4/6/4 if breathing becomes dramatic.",
         "rating_prompts": [
           {
@@ -437,7 +471,6 @@
     {
       "id": "breathwork-co2-4-8-6",
       "name": "CO2 Tolerance — 4/8/6",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Long-exhale CO2 progression for calm low-lung-volume control.",
       "tags": [
@@ -447,8 +480,14 @@
         "progression"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 8s out / 6s post-exhale hold",
+        "pattern_label": "4s in / 8s out / 6s post-exhale hold",
+        "phases": [
+          {"kind": "inhale", "seconds": 4},
+          {"kind": "exhale", "seconds": 8},
+          {"kind": "hold_empty", "seconds": 6}
+        ],
         "instructions": "Use sparingly. The long exhale should stay smooth; do not empty the lungs aggressively before the hold. Success condition: Air hunger is present but manageable, and the next inhale is controlled. Fallback: Use 4/6/6 or 4/6/4 if the session creates strain.",
         "rating_prompts": [
           {
@@ -499,7 +538,6 @@
     {
       "id": "breathwork-weekly-review",
       "name": "Breathwork Weekly Review",
-      "renderer": "checklist_block",
       "slot_default": "evening",
       "summary": "Brief review of which breathwork patterns actually supported calm, recovery, and readiness.",
       "tags": [
@@ -507,6 +545,8 @@
         "review"
       ],
       "payload": {
+        "card_type": "checklist",
+        "domain": "breathwork",
         "instructions": "Review the week without optimizing prematurely. Identify which pattern produced the most reliable downshift and whether harder patterns added value.",
         "items": [
           {

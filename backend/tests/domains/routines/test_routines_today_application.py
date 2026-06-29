@@ -56,7 +56,7 @@ def test_get_card_log_range_excludes_pending_entries():
             card_template_id="card-pending",
             assignment_id="assignment-pending",
             status="pending",
-            actual_json={},
+            actual_json=None,
             notes=None,
         )
     )
@@ -68,7 +68,7 @@ def test_get_card_log_range_excludes_pending_entries():
             card_template_id="card-completed",
             assignment_id="assignment-completed",
             status="completed",
-            actual_json={"actual_minutes": 10},
+            actual_json=None,
             notes="Done",
         )
     )
@@ -86,7 +86,7 @@ def test_upsert_today_card_log_validates_occurrence_identity():
         card_template_id="wrong-card",
         assignment_id=None,
         status="completed",
-        actual_json={},
+        actual_json=None,
         notes=None,
     )
 
@@ -123,7 +123,7 @@ def test_upsert_today_card_log_rejects_assignment_mismatch():
                 card_template_id=scheduled_card.card_template_id,
                 assignment_id="wrong-assignment",
                 status="completed",
-                actual_json={},
+                actual_json=None,
                 notes=None,
             ),
         )
@@ -169,7 +169,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )
@@ -186,7 +186,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=second_card.card_template_id,
             assignment_id=second_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )
@@ -203,7 +203,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="skipped",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )
