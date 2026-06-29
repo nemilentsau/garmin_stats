@@ -18,6 +18,8 @@ from app.domains.routines.adapters import (
 )
 from app.domains.routines.contracts import (
     CardOverride,
+    ChecklistPayload,
+    StrengthSessionPayload,
     TimerActual,
     TodayCardLogUpdateRequest,
 )
@@ -865,7 +867,6 @@ class TestArtifactBundles:
         assert slots.count("evening") == 4
         assert set(slots) == {"morning", "midday", "evening"}
 
-    @pytest.mark.skip(reason="strength-running bundle not yet re-authored to card_type schema")
     def test_four_week_strength_running_bundle_previews_with_supported_slots_and_cards(
         self,
     ):
@@ -878,11 +879,46 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 8
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 28
-        # card.payload.card_type checks replace old card.renderer assertions after re-author
+        # All card IDs use the expected prefix
         assert all(
             card.id.startswith("strength-running-calibration-")
             for card in bundle.card_templates
         )
+        # 6 workout cards are strength_session; 2 review/skip cards are checklist
+        strength_cards = [
+            c for c in bundle.card_templates if isinstance(c.payload, StrengthSessionPayload)
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if isinstance(c.payload, ChecklistPayload)
+        ]
+        assert len(strength_cards) == 6
+        assert len(checklist_cards) == 2
+        # Each strength card has exercises (no fake post_session_ratings row) and rating_prompts
+        for card in strength_cards:
+            assert isinstance(card.payload, StrengthSessionPayload)
+            exercise_ids = [ex.id for ex in card.payload.exercises]
+            assert "post_session_ratings" not in exercise_ids
+            assert len(card.payload.rating_prompts) >= 2
+        # Push A specifics: session_focus, duration_minutes, rir_guidance, set_scheme
+        push_a = next(c for c in strength_cards if c.id == "strength-running-calibration-push-a")
+        assert isinstance(push_a.payload, StrengthSessionPayload)
+        assert push_a.payload.session_focus == "Chest + Side Delts"
+        assert push_a.payload.duration_minutes == 45
+        assert push_a.payload.rir_guidance is not None
+        pa1 = next(ex for ex in push_a.payload.exercises if ex.id == "pa1")
+        assert pa1.set_scheme == "3x5-8"
+        # Lower A specifics
+        lower_a = next(c for c in strength_cards if c.id == "strength-running-calibration-lower-a")
+        assert isinstance(lower_a.payload, StrengthSessionPayload)
+        assert lower_a.payload.session_focus == "Runner Force Production"
+        assert lower_a.payload.duration_minutes == 30
+        la1 = next(ex for ex in lower_a.payload.exercises if ex.id == "la1")
+        assert la1.set_scheme == "2-3x3-5"
+        # Checklist cards have domain == "strength"
+        for card in checklist_cards:
+            assert isinstance(card.payload, ChecklistPayload)
+            assert card.payload.domain == "strength"
+        # Slot distribution
         slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
         assert slots.count("midday") == 23
         assert slots.count("evening") == 5
