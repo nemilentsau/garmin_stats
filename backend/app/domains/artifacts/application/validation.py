@@ -12,13 +12,14 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from app.domains.artifacts.contracts import (
     AssistantArtifact,
     CapabilityRequestSpec,
+    CardTemplateSpec,
     RoutineSpec,
 )
 from app.domains.artifacts.dependencies import ArtifactRepository
 from app.domains.routines.contracts import CardPayload
 from app.domains.routines.dependencies import RoutineRepository
 
-_PAYLOAD_ADAPTER: TypeAdapter[CardPayload] = TypeAdapter(CardPayload)
+_SPEC_ADAPTER: TypeAdapter[CardTemplateSpec] = TypeAdapter(CardTemplateSpec)
 
 
 def format_validation_errors(exc: ValidationError) -> list[str]:
@@ -55,9 +56,10 @@ def card_spec_artifact_by_card_id(
 def validate_card_template_payload(
     payload: object,
 ) -> tuple[list[str], CardPayload | None]:
-    """Validate a raw card payload dict against the card_type union."""
+    """Validate a full CardTemplateSpec dict; return errors and the typed inner payload."""
     try:
-        return [], _PAYLOAD_ADAPTER.validate_python(payload)
+        spec = _SPEC_ADAPTER.validate_python(payload)
+        return [], spec.payload
     except ValidationError as exc:
         return format_validation_errors(exc), None
 
