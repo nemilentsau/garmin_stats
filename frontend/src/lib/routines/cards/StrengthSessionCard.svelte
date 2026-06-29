@@ -232,7 +232,7 @@
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={set.weight}
+								bind:value={exercises[exIdx].sets[setIdx].weight}
 								placeholder="—"
 								min={0}
 								step={0.5}
@@ -242,7 +242,7 @@
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={set.reps}
+								bind:value={exercises[exIdx].sets[setIdx].reps}
 								placeholder="—"
 								min={0}
 								onchange={emit}
@@ -251,7 +251,7 @@
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={set.rir}
+								bind:value={exercises[exIdx].sets[setIdx].rir}
 								placeholder="—"
 								min={0}
 								max={10}
