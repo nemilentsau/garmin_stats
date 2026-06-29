@@ -103,6 +103,10 @@ class HrvDayOfWeekBucket(DefaultsRequired):
     day_index: int       # 0=Mon, 6=Sun
     avg_nightly: float | None = None
     sample_count: int = 0
+    # Where this weekday's average sits vs the window grand mean: "below" | "within" | "above"
+    # (None when there is no average or no reference). Backend-computed so the frontend colours
+    # the bar without any in-browser classification.
+    state: str | None = None
 
 
 class NightlyHrvTrendPoint(DefaultsRequired):

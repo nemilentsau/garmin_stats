@@ -2945,6 +2945,8 @@ export interface components {
              * @default 0
              */
             sample_count: number;
+            /** State */
+            state: string | null;
         };
         /**
          * HrvInsight

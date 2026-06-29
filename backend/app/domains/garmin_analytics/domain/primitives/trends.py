@@ -123,23 +123,28 @@ def trailing_band_point(
     if len(prior) < min_days:
         return TrailingBandPoint(None, None, None, None, False)
     median, scale = robust_center_scale(prior)
-    if scale <= 1e-9:
-        # Degenerate window: all priors are identical — no spread to judge "unusual".
-        # Emit a collapsed band (low == high) and null z so callers can render the
-        # insufficient-spread state rather than a bogus score.
-        med = round(median, 1)
-        return TrailingBandPoint(med, med, med, None, False)
+    med = round(median, 1)
     low = round(median - k_sigma * scale, 1)
     high = round(median + k_sigma * scale, 1)
+    if scale <= 1e-9 or low >= high:
+        # Degenerate window: either all priors are identical (zero spread), or the spread is too
+        # small to survive rounding to the displayed 1-decimal band (low == high). Either way
+        # there is no spread distinguishable at display resolution, so emit a collapsed band
+        # (low == high) with null z and no extreme flag. This keeps the chart's extreme marker and
+        # the strip's trend_state consistent: _trend_state reads band_low >= band_high as "within"
+        # (not below/above), so deriving z/is_extreme from the un-rounded scale here would
+        # otherwise flag an "extreme night" dot on a band the strip calls "within" — a
+        # contradiction the rounding gap could produce for a tiny-but-nonzero scale.
+        return TrailingBandPoint(med, med, med, None, False)
     current = values[index]
     if current is None:
-        return TrailingBandPoint(low, high, round(median, 1), None, False)
+        return TrailingBandPoint(low, high, med, None, False)
     # Round z once and derive the extreme flag from that SAME displayed value. Comparing
     # the raw z would let a value in [2.000, 2.005) round to "2.00" yet still be flagged
     # extreme — rendering "+2.00 SD · extreme night" where the shown number does not exceed
     # the |z| > 2 threshold the marker implies.
     z = round((current - median) / scale, 2)
-    return TrailingBandPoint(low, high, round(median, 1), z, abs(z) > z_extreme)
+    return TrailingBandPoint(low, high, med, z, abs(z) > z_extreme)
 
 
 def trailing_robust_band(

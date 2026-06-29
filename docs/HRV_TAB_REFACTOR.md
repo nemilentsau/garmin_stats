@@ -160,8 +160,10 @@ user's actual question.
 
 - **Day-of-week:** kept as a small secondary panel of weekday averages, computed over its own longer
   span (labelled, e.g. "last 3 months") — deliberately *not* the knob window, since a weekday needs
-  many samples to be stable. Bars are colored against a backend-supplied sample-weighted reference
-  mean (the frontend does no statistics of its own).
+  many samples to be stable. Each bar's shade comes from a **backend-computed state** (below /
+  within / above the window's sample-weighted grand mean, by a ±5 ms band); the frontend maps that
+  state to a shade and does no statistics of its own — the same display-only rule the history strip's
+  `trend_state` enforces.
 - **What moves with HRV:** the old 6-plot correlation scatter grid replaced by one compact
   co-movement summary, labelled association — not cause.
 
@@ -207,8 +209,10 @@ Most of the tab is presentation, but the baseline engine is real:
 - Degenerate (zero-spread) windows emit no z / no extreme flag rather than a garbage value. The
   baseline-dependent nightly trend is cached per window; the baseline-independent weekday patterns are
   cached once and reused across windows, so switching the knob never serves a stale window.
-- Day-of-week coloring reads `HrvPatternWindow.overall_avg` (a sample-weighted mean) and its
-  `total_sample_count`, both from the backend — keeping the frontend display-only.
+- Day-of-week coloring reads a backend-computed per-weekday `state` (below/within/above the
+  `HrvPatternWindow.overall_avg` sample-weighted mean, by a ±5 ms band); `overall_avg` and
+  `total_sample_count` are also backend-supplied — so the frontend renders the bars and the total
+  without any in-browser classification or aggregation.
 
 ---
 

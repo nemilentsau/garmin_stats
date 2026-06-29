@@ -15,91 +15,46 @@ test('hrv baseline windows have one frontend source of truth', () => {
 	assert.doesNotMatch(picker, /const WINDOWS/);
 });
 
-test('hrv async paths stage snapshots and guard against stale completions', () => {
+test('hrv window and detail loads use orthogonal tokens so neither cancels the other', () => {
 	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
 
-	// Staging pattern: load into an immutable snapshot, then commit it atomically. Never
-	// commit by assigning agg straight from a freshly-fetched value next to an insights
-	// call — that would write partial state before the snapshot is staged.
+	// Window/chart loads and the night-detail panel are ORTHOGONAL concerns carrying DISJOINT
+	// request tokens, so a night click can't cancel an in-flight baseline switch (the reverting-
+	// window bug) and a switch can't cancel a night fetch. (The stale-completion decision itself —
+	// whether a finished load should apply its night — is unit-tested behaviourally in
+	// lib-helpers.test.mjs via historicalApplyOptions; here we assert the page wires the tokens.)
 	assert.match(page, /async function loadHrvSnapshot/);
 	assert.match(page, /function applyHrvSnapshot/);
-	assert.doesNotMatch(page, /agg = nextAgg;[\s\S]{0,300}api\.getHrvInsights/);
+	assert.match(page, /async function onBaselineChange[\s\S]*?\+\+windowReq/);
+	assert.match(page, /async function fetchData[\s\S]*?\+\+windowReq/);
+	assert.match(page, /async function onDateChange[\s\S]*?\+\+detailReq/);
+	// A baseline switch guards on windowReq; a night fetch guards on detailReq — different tokens.
+	assert.match(page, /async function onBaselineChange[\s\S]*?if \(myReq !== windowReq\) return;/);
+	assert.match(page, /async function onDateChange[\s\S]*?if \(myReq !== detailReq\) return;/);
 
-	// One monotonic request token shared by every async path; the three independent
-	// counters that used to race (date / baseline / fetch) are gone.
-	assert.match(page, /let reqId = 0;/);
-	assert.doesNotMatch(page, /baselineRequestId|dateRequestId|fetchSeq/);
+	// The committed window moves only inside applyHrvSnapshot (atomically with the chart data),
+	// never eagerly in onBaselineChange, so a superseded switch leaves every surface coherent.
+	assert.match(page, /function applyHrvSnapshot[\s\S]*?baselineWindow = snapshot\.baseline;/);
+	assert.doesNotMatch(page, /async function onBaselineChange[\s\S]*?baselineWindow = w;/);
+	// The picker highlight is optimistic and does not move the committed window; baselineLoading is
+	// DERIVED from it (one source of truth) so the spinner can't stick.
+	assert.match(page, /value=\{pendingBaseline \?\? baselineWindow\}/);
+	assert.match(page, /\$derived\(pendingBaseline !== null\)/);
 
-	// Each async path captures the token on entry and guards before committing, so a stale
-	// completion (date-vs-date, baseline-vs-date, SSE-vs-anything) cannot overwrite fresher
-	// state.
-	assert.match(
-		page,
-		/async function fetchData[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
-	);
-	assert.match(
-		page,
-		/async function onBaselineChange[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
-	);
-	assert.match(
-		page,
-		/async function onDateChange[\s\S]*?const myReq = \+\+reqId;[\s\S]*?if \(myReq !== reqId\) return;/,
-	);
-
-	// Baseline switch loads with the selected night and commits historical only while that
-	// night is still selected, so the chart and the panel agree for a night + window. The
-	// "is the captured night still selected?" predicate is shared by both async paths via
-	// historicalApplyOptions, so the SSE refresh and the baseline switch can't drift.
-	assert.match(page, /loadHrvSnapshot\(w, selectedForBaseline, reuse\)/);
-	assert.match(
-		page,
-		/function historicalApplyOptions[\s\S]*?applyHistorical: captured !== '' && captured === selectedDate/,
-	);
-	assert.match(page, /applyHrvSnapshot\(snapshot, historicalApplyOptions\(selectedForBaseline\)\)/);
+	// The stale-completion predicate and the error-message idiom are SHARED helpers (tested in
+	// lib-helpers.test.mjs), not inlined / copy-pasted per handler.
+	assert.match(page, /\$lib\/hrv-async/);
+	assert.match(page, /historicalApplyOptions\(/);
+	assert.match(page, /\$lib\/errors/);
+	assert.match(page, /errorMessage\(/);
 
 	// Baseline switch reuses the window-independent daily aggregate + overview instead of
 	// re-fetching them; only the window-dependent analysis + insights are fetched.
-	assert.match(
-		page,
-		/reuse = agg && dashOverview \? \{ agg, dashOverview \} : undefined/,
-	);
-	assert.match(page, /reuse\s*\?\s*\[reuse\.agg, reuse\.dashOverview\]/);
+	assert.match(page, /reuse = agg && dashOverview \? \{ agg, dashOverview \} : undefined/);
 
-	// SSE refresh refetches the open night so the panel z-score can't go stale while the
-	// chart's bands move underneath it.
-	assert.match(
-		page,
-		/async function fetchData[\s\S]*?const historicalDate = selectedDate;[\s\S]*?loadHrvSnapshot\(requestedBaseline, historicalDate\)/,
-	);
-
-	// The rendered window commits atomically with the chart data inside applyHrvSnapshot —
-	// never eagerly in onBaselineChange — so the picker, legend, URL, chart band and panel z
-	// can't disagree on the window when a switch is superseded (C4).
-	assert.match(page, /function applyHrvSnapshot[\s\S]*?baselineWindow = snapshot\.baseline;/);
-	assert.doesNotMatch(
-		page,
-		/async function onBaselineChange[\s\S]*?baselineWindow = w;/,
-	);
-	// The picker highlight is optimistic (pendingBaseline) and does not move the committed window.
-	assert.match(page, /pendingBaseline = w;/);
-	assert.match(page, /value=\{pendingBaseline \?\? baselineWindow\}/);
-
-	// The optimistic highlight (pendingBaseline) is owned by the latest baseline switch and cleared
-	// in finally even when superseded by a night click / SSE refresh; baselineLoading is DERIVED
-	// from it (one source of truth), so the spinner can never stick (C3).
-	assert.match(page, /let baselineLoading = \$derived\(pendingBaseline !== null\)/);
-	assert.match(
-		page,
-		/async function onBaselineChange[\s\S]*?baselineReq = myReq;[\s\S]*?finally \{[\s\S]*?if \(baselineReq === myReq\) \{[\s\S]*?pendingBaseline = null;/,
-	);
-
-	// The selected-night sub-fetch is isolated inside loadHrvSnapshot: a failure is captured as
-	// historicalError and surfaced via detailError instead of rejecting the whole snapshot, so a
-	// failed night fetch on an SSE refresh can't blank the chart/headline (C5).
-	assert.match(
-		page,
-		/getHrvInsights\(historicalDate, window\)[\s\S]*?\.catch\(/,
-	);
+	// The selected-night sub-fetch is isolated inside loadHrvSnapshot: a failure is surfaced via
+	// detailError instead of rejecting the whole snapshot, so a failed night fetch can't blank the
+	// chart/headline.
 	assert.match(page, /detailError = snapshot\.historicalError;/);
 });
 
@@ -120,11 +75,12 @@ test('hrv surfaces Garmin status as its own labelled chip, separate from the ver
 
 test('hrv history strip is colored by the averaged trend, not per-night status', () => {
 	const page = readFileSync(join('src/routes', 'hrv', '+page.svelte'), 'utf8');
-	// Strip colors come from the trend_state of the nightly trend (averages), not Garmin per-night status.
-	assert.match(page, /TREND_STATE_COLORS/);
+	// Strip colors come from the trend_state of the nightly trend (averages), not Garmin per-night
+	// status. Color + label share one source map (TREND_STATES) so they can't drift apart.
+	assert.match(page, /TREND_STATES/);
 	assert.match(page, /nightly_trend[\s\S]*?trend_state/);
-	// The day cell color is driven by dayStatusMap built from trend_state.
-	assert.match(page, /dayStatusMap\.get\(day\) \?\? UNKNOWN_STATUS_COLOR/);
+	// The day cell color is driven by the strip's date→color map built from trend_state.
+	assert.match(page, /strip\.map\.get\(day\) \?\? UNKNOWN_STATUS_COLOR/);
 	// Gray (warmup / no trend) is a labelled legend entry, not a mystery.
 	assert.match(page, /Building baseline/);
 	// The strip legend stays visible while the timeline scrolls horizontally.
@@ -139,8 +95,9 @@ test('hrv history strip keeps nights selectable instead of compressing all days'
 	assert.match(page, /dayStripContainer\.scrollLeft = dayStripContainer\.scrollWidth;/);
 	assert.match(page, /\.day-strip-container\s*\{[\s\S]*overflow-x:\s*auto;/);
 	// The cell stride lives in one place (--day-cell-w / --day-strip-gap on .day-nav); the cells
-	// and the month axis both derive from it, so they can't fall out of alignment.
-	assert.match(page, /\.day-nav\s*\{[\s\S]*--day-cell-w:\s*8px;/);
+	// and the month axis both derive from it via var(), so they can't fall out of alignment.
+	// (The exact px value isn't pinned — only that the single source var exists and is reused.)
+	assert.match(page, /\.day-nav\s*\{[\s\S]*--day-cell-w:/);
 	assert.match(page, /\.day-cell\s*\{[\s\S]*min-width:\s*var\(--day-cell-w\);/);
 	assert.match(page, /class="month-tick" style="--days: \{seg\.count\};"/);
 	assert.match(

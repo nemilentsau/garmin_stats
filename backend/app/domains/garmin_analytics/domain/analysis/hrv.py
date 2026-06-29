@@ -18,6 +18,29 @@ from app.domains.garmin_health.contracts import (
 from app.utils.numeric import safe_avg
 from app.utils.timeutil import date_range
 
+# A weekday average this many ms off the window's grand mean colours its bar (caution/elevated);
+# inside the band it reads neutral. Owned here, not in the frontend, so the bar-colour policy is
+# backend-authoritative (the frontend maps the state to a colour and computes nothing).
+DAY_OF_WEEK_DELTA_MS = 5.0
+
+
+def _day_of_week_state(
+    avg_nightly: float | None, overall_avg: float | None
+) -> str | None:
+    """Classify a weekday's average against the window grand mean (below / within / above).
+
+    None when either input is missing (no nights for the weekday, or no grand mean), so the bar
+    renders neutral. Mirrors the strip's ``trend_state`` vocabulary; see ``DAY_OF_WEEK_DELTA_MS``.
+    """
+    if avg_nightly is None or overall_avg is None:
+        return None
+    diff = avg_nightly - overall_avg
+    if diff > DAY_OF_WEEK_DELTA_MS:
+        return "above"
+    if diff < -DAY_OF_WEEK_DELTA_MS:
+        return "below"
+    return "within"
+
 
 def _trend_state(
     ma7: float | None, band_low: float | None, band_high: float | None
@@ -114,9 +137,15 @@ def compute_pattern_window(metrics: list[DailyMetric]) -> HrvPatternWindow:
         m.hrv.nightly_avg for m in metrics if m.hrv.nightly_avg is not None
     ]
     day_of_week = hrv_patterns.compute_day_of_week(metrics)
+    overall_avg = safe_avg(nightly_vals)
+    # Classify each weekday vs the grand mean on the backend so the frontend colours bars from a
+    # backend-authoritative `state` and does no statistics of its own (matches the strip's
+    # trend_state; see docs/HRV_TAB_REFACTOR.md "Trend vs Today").
+    for bucket in day_of_week:
+        bucket.state = _day_of_week_state(bucket.avg_nightly, overall_avg)
     return HrvPatternWindow(
         day_of_week=day_of_week,
-        overall_avg=safe_avg(nightly_vals),
+        overall_avg=overall_avg,
         # Sum the buckets (not len(nightly_vals)) so the total always equals what the
         # chart actually plots, and the frontend never has to aggregate.
         total_sample_count=sum(b.sample_count for b in day_of_week),

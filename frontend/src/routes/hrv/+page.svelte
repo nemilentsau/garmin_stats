@@ -19,18 +19,25 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import { fmt, fmtSigned } from '$lib/format';
+	import { errorMessage } from '$lib/errors';
+	import { historicalApplyOptions } from '$lib/hrv-async';
 	import { fmtFullDate, parseIsoDate } from '$lib/date';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
 	import BaselineWindowPicker from '$lib/components/BaselineWindowPicker.svelte';
-	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
+	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
 	import { tightScale } from '$lib/chart-scale';
 
 	// ── State ──
 	let agg: HrvDaily | null = $state(null);
 	let analysis: HrvAnalysis | null = $state(null);
+	// Day-of-week pattern windows are baseline-independent — the backend returns identical data for
+	// every window. Holding them in their own state (updated only when the content actually changes)
+	// lets a baseline switch replace the nightly trend without handing the weekday chart a new object
+	// reference, so toggling 30/60/90 never rebuilds and re-animates a chart whose data didn't move.
+	let patternWindows = $state<HrvAnalysis['pattern_windows'] | null>(null);
 	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -45,24 +52,28 @@
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HrvInsights | null = $state(null);
 
-	// Historical day (Tier 2 — selected via strip)
+	// Historical day (Tier 2 — selected via strip). The detail panel is open exactly when a night
+	// is selected, so `historyOpen` is derived, not a second flag kept in lockstep with selectedDate.
 	let selectedDate = $state('');
-	let historyOpen = $state(false);
+	let historyOpen = $derived(selectedDate !== '');
 	let dayHover: { date: string; x: number; y: number } | null = $state(null);
 	let historicalInsights: HrvInsights | null = $state(null);
 	let dayStripContainer: HTMLDivElement | null = $state(null);
 	let timelineHasAutoScrolled = false;
-	// Single monotonic request token shared by every async data path (initial/SSE load,
-	// night-detail fetch, baseline switch). Each path captures `++reqId` on entry and
-	// discards its result if a newer request started meanwhile, so the latest user intent
-	// always wins and a stale completion can never overwrite fresher state — whether the
-	// staleness is date-vs-date, baseline-vs-date, or SSE-vs-anything.
-	let reqId = 0;
-	// Token of the most recent baseline switch. The spinner and the optimistic picker highlight
-	// are owned by exactly one switch at a time: a switch only clears them in its `finally` if it
-	// is still the latest baseline switch (`baselineReq === myReq`). This survives being
-	// superseded by a night click or SSE refresh (which bump `reqId` but not `baselineReq`) — so
-	// the spinner can never stick — while a newer baseline switch keeps them for itself.
+	// Two independent request tokens for two ORTHOGONAL concerns, so neither cancels the other:
+	//   • windowReq — the chart/window snapshot (analysis, headline, committed baseline window).
+	//     Bumped by the initial/SSE load (fetchData) and a baseline-window switch (onBaselineChange).
+	//   • detailReq — the selected-night detail panel. Bumped by night selection (onDateChange).
+	// A night click must not cancel an in-flight baseline switch (or vice-versa): they write
+	// disjoint state, so they carry disjoint tokens. The snapshot path still applies the open
+	// night's refresh only when that night is still selected (historicalApplyOptions), so a window
+	// load can never clobber a fresher night selection even though they run concurrently.
+	let windowReq = 0;
+	let detailReq = 0;
+	// Token (a windowReq value) of the most recent baseline switch. The spinner and optimistic
+	// picker highlight are owned by exactly one switch at a time: a switch clears them in its
+	// `finally` only if it is still the latest (`baselineReq === myReq`), so a superseding SSE
+	// refresh can't leave the spinner stuck while a newer switch keeps them for itself.
 	let baselineReq = 0;
 	// Optimistic window for the picker highlight ONLY, set the moment a switch starts so the
 	// clicked button lights up immediately. The committed window (`baselineWindow`) still moves
@@ -150,6 +161,13 @@
 	) {
 		agg = snapshot.agg;
 		analysis = snapshot.analysis;
+		// Refresh the baseline-independent weekday windows only when their content changed (e.g. an
+		// SSE re-ingest), so a mere baseline switch leaves the reference — and the weekday chart —
+		// untouched. The dict is tiny (3 windows × 7 weekdays), so the equality check is cheap.
+		const nextPatterns = snapshot.analysis.pattern_windows;
+		if (!patternWindows || JSON.stringify(nextPatterns) !== JSON.stringify(patternWindows)) {
+			patternWindows = nextPatterns;
+		}
 		dashOverview = snapshot.dashOverview;
 		latestInsights = snapshot.latestInsights;
 		// The rendered window commits HERE, atomically with the chart data it describes — never
@@ -179,22 +197,11 @@
 		timelineHasAutoScrolled = true;
 	}
 
-	// The snapshot's selected-night sub-fetch is keyed to the date captured when the load STARTED.
-	// Apply it to the panel only if that night is still the selected one (the user didn't move to
-	// another night meanwhile), and clear a stale detail error when nothing is open or the open
-	// night matches. Shared by the SSE/initial path and the baseline switch so the two can't drift.
-	function historicalApplyOptions(captured: string) {
-		return {
-			applyHistorical: captured !== '' && captured === selectedDate,
-			clearDetailError: captured === '' || captured === selectedDate
-		};
-	}
-
 	async function fetchData() {
-		const myReq = ++reqId;
+		const myReq = ++windowReq;
 		// An in-flight baseline switch is newer user intent than this background/SSE refresh, so
-		// adopt its target window: the switch itself is discarded by the shared token, so without
-		// this a `data_updated` event landing mid-switch would silently drop the user's click and
+		// adopt its target window: this refresh bumps windowReq and so supersedes the switch, and
+		// without adoption a `data_updated` event landing mid-switch would drop the user's click and
 		// snap the picker back to the old window. Adopting commits the selection on this refresh.
 		const adoptedBaseline = pendingBaseline;
 		const requestedBaseline = adoptedBaseline ?? baselineWindow;
@@ -203,8 +210,8 @@
 		// the chart and the panel must agree for a given night + window.
 		const historicalDate = selectedDate;
 		const snapshot = await loadHrvSnapshot(requestedBaseline, historicalDate);
-		if (myReq !== reqId) return;
-		applyHrvSnapshot(snapshot, historicalApplyOptions(historicalDate));
+		if (myReq !== windowReq) return;
+		applyHrvSnapshot(snapshot, historicalApplyOptions(historicalDate, selectedDate));
 		// If this refresh adopted a pending switch's window, persist it so the URL matches the
 		// now-committed window (the superseded switch never reaches its own setBaselineUrl).
 		if (adoptedBaseline !== null) setBaselineUrl(adoptedBaseline);
@@ -221,28 +228,30 @@
 
 	async function onDateChange(date: string) {
 		if (date === '') {
-			// Bump the shared token so any night fetch still in flight is discarded
+			// Bump the detail token so any night fetch still in flight is discarded
 			// rather than repopulating the panel after it closes.
-			++reqId;
+			++detailReq;
 			selectedDate = '';
-			historyOpen = false;
 			historicalInsights = null;
 			detailError = null;
 			return;
 		}
 		selectedDate = date;
-		historyOpen = true;
 		historicalInsights = null;
 		detailError = null;
-		const myReq = ++reqId;
+		const myReq = ++detailReq;
+		// Fetch at the window currently in effect — or the one a baseline switch is mid-flight to
+		// (pendingBaseline) — so a night opened during a switch lands on the same window the chart
+		// commits to, keeping this panel's z and the chart band in agreement for the night.
+		const baseline = pendingBaseline ?? baselineWindow;
 		try {
-			const nextInsights = await api.getHrvInsights(date, baselineWindow);
-			if (myReq !== reqId) return;
+			const nextInsights = await api.getHrvInsights(date, baseline);
+			if (myReq !== detailReq) return;
 			historicalInsights = nextInsights;
 			detailError = null;
 		} catch (e: unknown) {
-			if (myReq !== reqId) return;
-			detailError = e instanceof Error ? e.message : String(e);
+			if (myReq !== detailReq) return;
+			detailError = errorMessage(e);
 		}
 	}
 
@@ -254,7 +263,7 @@
 
 	async function onBaselineChange(w: HrvBaselineWindow) {
 		const selectedForBaseline = selectedDate;
-		const myReq = ++reqId;
+		const myReq = ++windowReq;
 		baselineReq = myReq;
 		// Optimistic highlight only — the window itself does NOT move until the data applies.
 		// pendingBaseline also drives the derived baselineLoading (spinner + disabled picker).
@@ -265,18 +274,18 @@
 			// aggregate and dashboard overview instead of re-fetching them.
 			const reuse = agg && dashOverview ? { agg, dashOverview } : undefined;
 			const snapshot = await loadHrvSnapshot(w, selectedForBaseline, reuse);
-			if (myReq !== reqId) return;
-			// Commit window + chart + URL together. If this switch was superseded (by a night
-			// click or SSE refresh) we never reach here, so the window/URL stay on the rendered
-			// window — chart band and panel z can't split across windows.
-			applyHrvSnapshot(snapshot, historicalApplyOptions(selectedForBaseline));
+			if (myReq !== windowReq) return;
+			// Commit window + chart + URL together. A night click does NOT bump windowReq, so it can
+			// never supersede this switch (the bug where inspecting a night reverted the window); a
+			// newer window load (another switch / SSE refresh) does, and then we never reach here, so
+			// the window/URL stay on the rendered window — chart band and panel z can't split.
+			applyHrvSnapshot(snapshot, historicalApplyOptions(selectedForBaseline, selectedDate));
 			setBaselineUrl(w);
 		} catch (e: unknown) {
-			if (myReq !== reqId) return;
+			if (myReq !== windowReq) return;
 			// The window was never moved, so there is nothing to roll back — just surface a
 			// non-blocking error; the dashboard keeps showing the window still on screen.
-			const msg = e instanceof Error ? e.message : String(e);
-			baselineError = `Couldn't load the ${w}-day baseline — still showing ${baselineWindow}-day. ${msg}`;
+			baselineError = `Couldn't load the ${w}-day baseline — still showing ${baselineWindow}-day. ${errorMessage(e)}`;
 		} finally {
 			// Clear the optimistic highlight (which also clears the derived spinner) only if we are
 			// still the latest baseline switch. A newer switch (baselineReq moved) owns it now;
@@ -352,44 +361,36 @@
 
 	// ── History strip colors: by the AVERAGED TREND (ma7 vs typical-range band), not
 	// per-night status — a single night is noise. trend_state comes from the backend. ──
-	// Three clearly-distinct hues for the low→normal→high trend (amber / green / blue) —
-	// graded by meaning and easy to tell apart at the small day-cell size.
-	const TREND_STATE_COLORS: Record<string, string> = {
-		below: COLORS.stress,             // amber — trend below the typical range
-		within: COLORS.heartRateResting,  // green — within the typical range
-		above: COLORS.spo2                // blue — trend above the typical range
-	};
-	const TREND_STATE_LABELS: Record<string, string> = {
-		below: 'Below typical',
-		within: 'Within typical',
-		above: 'Above typical'
+	// One map is the single source of truth for BOTH the color and the label of each trend
+	// state, so the strip cell and the legend can never disagree on (or drift apart in) the set
+	// of states. Three clearly-distinct hues for the low→normal→high trend (amber / green / blue).
+	const TREND_STATES: Record<string, { color: string; label: string }> = {
+		below: { color: COLORS.stress, label: 'Below typical' },             // amber
+		within: { color: COLORS.heartRateResting, label: 'Within typical' }, // green
+		above: { color: COLORS.spo2, label: 'Above typical' }                // blue
 	};
 
-	let dayStatusMap = $derived.by(() => {
+	// One pass over the densified trend builds BOTH the date→color map and the legend (these used
+	// to walk the series twice). The legend lists the trend states actually present, in palette
+	// order, plus a gray "Building baseline" entry when any day lacks a trend (the warmup weeks
+	// before a typical-range band exists) so gray reads as a labelled state, not a mystery.
+	let strip = $derived.by(() => {
 		const map = new Map<string, string>();
-		for (const p of analysis?.nightly_trend ?? []) {
-			map.set(p.date, (p.trend_state && TREND_STATE_COLORS[p.trend_state]) || UNKNOWN_STATUS_COLOR);
-		}
-		return map;
-	});
-
-	// Legend entries derived from the trend states actually present, in palette order. A gray
-	// "Building baseline" entry is appended when any day lacks a trend (the warmup weeks before
-	// a typical-range band exists), so gray reads as a labelled state rather than a mystery.
-	let statusLegend = $derived.by(() => {
 		const present = new Set<string>();
 		let hasUnclassified = false;
 		for (const p of analysis?.nightly_trend ?? []) {
-			if (p.trend_state) present.add(p.trend_state);
+			const state = p.trend_state;
+			map.set(p.date, (state && TREND_STATES[state]?.color) || UNKNOWN_STATUS_COLOR);
+			if (state) present.add(state);
 			else hasUnclassified = true;
 		}
-		const entries = Object.keys(TREND_STATE_COLORS)
+		const legend = Object.keys(TREND_STATES)
 			.filter((s) => present.has(s))
-			.map((s) => ({ label: TREND_STATE_LABELS[s], color: TREND_STATE_COLORS[s] }));
+			.map((s) => ({ label: TREND_STATES[s].label, color: TREND_STATES[s].color }));
 		if (hasUnclassified) {
-			entries.push({ label: 'Building baseline', color: UNKNOWN_STATUS_COLOR });
+			legend.push({ label: 'Building baseline', color: UNKNOWN_STATUS_COLOR });
 		}
-		return entries;
+		return { map, legend };
 	});
 
 	// ── Navigation ──
@@ -430,8 +431,9 @@
 	// ── Trend chart: Nightly HRV with 7-day MA ──
 	let nightlyTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.nightly_trend.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const t = cutoff ? analysis.nightly_trend.filter((p) => p.date >= cutoff) : analysis.nightly_trend;
+		// Shared range filter (same cutoff + `date >= cutoff` as every other metric tab), so a
+		// future change to range semantics flows here too instead of skipping the HRV chart.
+		const t = filterByRange(analysis.nightly_trend, trendRange);
 		const labels = t.map((p) => p.date);
 		// Map each plotted series once and reuse it for both the dataset and the y-scale, so the
 		// scale inputs can't drift from what's drawn and we don't pass over the series twice.
@@ -532,9 +534,11 @@
 	});
 
 	// ── Pattern window (3M floor: 1M→3M, others pass through) ──
+	// Reads the separately-held, baseline-independent `patternWindows` (not `analysis`) so a
+	// baseline switch doesn't hand this — and the weekday chart below — a new object reference.
 	let patternWindow = $derived.by(() => {
 		const key = PERIOD_KEY_MAP[trendRange];
-		return analysis?.pattern_windows?.[key] ?? null;
+		return patternWindows?.[key] ?? null;
 	});
 
 	// Human label for the actual pattern window the card summarises. Because 1M floors
@@ -554,11 +558,17 @@
 	// ── Day of Week chart ──
 	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
+	// Bar opacity per backend-computed weekday state — the frontend maps a backend value to a
+	// shade and does NO value-vs-reference classification of its own (that ±5 ms policy lives in
+	// the backend; see docs/HRV_TAB_REFACTOR.md "Trend vs Today"). Missing state → neutral.
+	const DAY_OF_WEEK_STATE_ALPHA: Record<string, string> = {
+		above: 'cc', // brightest — weekday runs above the grand mean
+		within: '77',
+		below: '33' // dimmest — runs below
+	};
+
 	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (dayOfWeek.length === 0) return null;
-		// Backend-supplied grand mean (true sample-weighted reference); the frontend does
-		// no statistical computation here. Null → neutral colouring for every bar.
-		const overallAvg = patternWindow?.overall_avg ?? null;
 		return {
 			type: 'bar',
 			data: {
@@ -567,12 +577,9 @@
 					{
 						label: 'Avg Nightly HRV',
 						data: dayOfWeek.map((b) => b.avg_nightly),
-						backgroundColor: dayOfWeek.map((b) => {
-							if (b.avg_nightly == null || overallAvg == null) return withAlpha(COLORS.hrv, '55');
-							if (b.avg_nightly - overallAvg > 5) return withAlpha(COLORS.hrv, 'cc');
-							if (b.avg_nightly - overallAvg < -5) return withAlpha(COLORS.hrv, '33');
-							return withAlpha(COLORS.hrv, '77');
-						}),
+						backgroundColor: dayOfWeek.map((b) =>
+							withAlpha(COLORS.hrv, (b.state && DAY_OF_WEEK_STATE_ALPHA[b.state]) || '55')
+						),
 						borderRadius: 3
 					}
 				]
@@ -743,7 +750,7 @@
 					<button
 						class="day-cell"
 						class:selected={day === selectedDate}
-						style="background: {dayStatusMap.get(day) ?? UNKNOWN_STATUS_COLOR};"
+						style="background: {strip.map.get(day) ?? UNKNOWN_STATUS_COLOR};"
 						aria-label={day}
 						onmouseenter={(e) => showDayHover(e, day)}
 						onclick={() => onDateChange(day === selectedDate ? '' : day)}
@@ -756,7 +763,7 @@
 				{/each}
 			</div>
 			<div class="day-strip-legend">
-				{#each statusLegend as { label, color }}
+				{#each strip.legend as { label, color }}
 					<span><i class="legend-dot" style="background:{color};"></i>{label}</span>
 				{/each}
 			</div>
@@ -767,8 +774,8 @@
 		<div class="day-tooltip" style="left: {dayHover.x}px; top: {dayHover.y}px;">{dayHover.date}</div>
 	{/if}
 
-	<!-- Expandable night detail -->
-	{#if historyOpen && selectedDate}
+	<!-- Expandable night detail (open exactly when a night is selected) -->
+	{#if historyOpen}
 		<div class="history-detail" transition:slide={{ duration: 300 }}>
 			<div class="history-detail-header">
 				<div class="history-detail-title">
@@ -795,7 +802,10 @@
 				<div class="history-section">
 					<h3 class="history-section-title">Where this night ranks</h3>
 					<p class="percentile-readout">
-						<strong>{fmtSigned(historicalInsights.baseline.selected_z)} SD</strong>
+						<!-- 2 decimals to match the backend: z is authored at 2dp and the "extreme night"
+						     flag is derived from that same value (|z| > 2.0), so showing 1dp could render
+						     "+2.0 SD · extreme night" where the number doesn't exceed the threshold. -->
+						<strong>{fmtSigned(historicalInsights.baseline.selected_z, 2)} SD</strong>
 						vs your {historicalInsights.baseline.window_days}-day baseline
 						{#if historicalInsights.baseline.selected_is_extreme}
 							· <span style="color: {COLORS.heartRate};">extreme night</span>

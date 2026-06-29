@@ -9,16 +9,9 @@ import app.infra.sqlite as sqlite
 from app.domains.garmin_analytics.adapters import SqliteBiometricRepository
 from app.domains.garmin_analytics.application.metric_analysis import load_hrv_analysis
 from app.domains.garmin_analytics.domain.primitives import trends
-from app.domains.garmin_health.contracts import (
-    DailyBodyBatteryStats,
-    DailyHeartRateStats,
-    DailyHrvStats,
-    DailyMetric,
-    DailyMetricStats,
-    DailySkinTempStats,
-    DailySleepStats,
-)
 from app.infra import cache
+from tests._analytics_helpers import insert_metric as _insert_metric
+from tests._analytics_helpers import make_daily_metric as _make_daily_metric
 
 
 @pytest.fixture()
@@ -29,29 +22,6 @@ def tmp_db(tmp_path, monkeypatch):
     cache.invalidate()
     storage_schema.init_storage()
     yield
-
-
-def _make_daily_metric(date: str, nightly_avg: float | None) -> DailyMetric:
-    return DailyMetric(
-        date=date,
-        heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, median=72.0, resting=46),
-        stress=DailyMetricStats(avg=25.0),
-        body_battery=DailyBodyBatteryStats(avg=60.0),
-        spo2=DailyMetricStats(avg=96.0),
-        respiration=DailyMetricStats(avg=14.0),
-        hrv=DailyHrvStats(nightly_avg=nightly_avg, weekly_avg=50.0, status="balanced"),
-        sleep=DailySleepStats(score=80),
-        skin_temp=DailySkinTempStats(deviation=0.1),
-    )
-
-
-def _insert_metric(metric: DailyMetric) -> None:
-    with sqlite.connect() as con:
-        con.execute(
-            "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-            (metric.date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
-        )
-        con.commit()
 
 
 def test_insufficient_prior_nights_yields_empty_point():
@@ -447,6 +417,109 @@ def test_no_reading_night_keeps_trend_state_but_breaks_chart(tmp_db):
     assert pt.band_low is None and pt.band_high is None
     # ...but the strip still has a trend classification for it (not a gray hole).
     assert pt.trend_state in {"below", "within", "above"}
+
+
+def test_band_collapsed_by_rounding_yields_null_z_not_extreme():
+    """A tiny-but-nonzero spread can round the displayed 1-decimal band to a single point
+    (band_low == band_high). The night must then be treated as insufficient-spread — null z,
+    not extreme — so the chart's extreme marker can't contradict the strip's 'within' (C7).
+
+    Before the rounding guard, z/is_extreme were derived from the un-rounded scale, so this same
+    night rendered an 'extreme' dot on a band the strip (_trend_state) called 'within'."""
+    # 22 priors with MAD ~0.015 -> scale ~0.022; median 60.015 rounds the band to 60.0 / 60.0.
+    priors = [60.00] * 11 + [60.03] * 11
+    values = cast(list[float | None], priors + [65.0])  # current far off the (tiny) scale
+    point = trends.trailing_band_point(values, 22, window=30, min_days=21)
+    assert point.band_low == point.band_high  # band collapsed under rounding
+    assert point.z is None
+    assert point.is_extreme is False
+
+
+def test_selected_day_panel_is_order_independent():
+    """The selected-day baseline z must not depend on caller ordering: the trailing window reads
+    prior nights positionally, so compute_hrv_insights sorts defensively just like the trend. A
+    reversed metrics list yields the same selected_z / selected_is_extreme, and that value agrees
+    with the chart band for the same night + window."""
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.domain.analysis.hrv import compute_nightly_hrv_trend
+    from app.domains.garmin_analytics.domain.insights.hrv import compute_hrv_insights
+
+    start = date(2026, 3, 1)
+    metrics = [
+        _make_daily_metric((start + timedelta(days=i)).isoformat(), 50.0 + (i % 6))
+        for i in range(30)
+    ]
+    target = (start + timedelta(days=28)).isoformat()  # 28 priors >= min_days
+
+    forward = compute_hrv_insights(metrics, target, [], window=30).baseline
+    reversed_panel = compute_hrv_insights(list(reversed(metrics)), target, [], window=30).baseline
+
+    assert forward is not None and reversed_panel is not None
+    assert forward.selected_z == reversed_panel.selected_z
+    assert forward.selected_is_extreme == reversed_panel.selected_is_extreme
+    # ...and it still matches the chart band the analysis path computes for that night.
+    trend_point = {p.date: p for p in compute_nightly_hrv_trend(metrics, window=30)}[target]
+    assert trend_point.z == forward.selected_z
+
+
+def test_day_of_week_state_classifies_against_grand_mean():
+    """Bar-colouring policy is backend-owned: a weekday classifies below/within/above the window
+    grand mean by a ±5 ms band (strict at the edges), and missing inputs are neutral (None)."""
+    from app.domains.garmin_analytics.domain.analysis.hrv import _day_of_week_state
+
+    assert _day_of_week_state(70.0, 60.0) == "above"   # +10 ms
+    assert _day_of_week_state(65.0, 60.0) == "within"  # +5 exactly -> not above (strict >)
+    assert _day_of_week_state(65.1, 60.0) == "above"   # just past +5
+    assert _day_of_week_state(55.0, 60.0) == "within"  # -5 exactly -> not below
+    assert _day_of_week_state(54.9, 60.0) == "below"   # just past -5
+    assert _day_of_week_state(None, 60.0) is None
+    assert _day_of_week_state(70.0, None) is None
+
+
+def test_day_of_week_buckets_carry_backend_state(tmp_db):
+    """Each weekday bucket carries a backend-computed `state`, so the frontend colours the bar
+    from a backend value instead of computing the value-vs-reference classification itself."""
+    from datetime import date, timedelta
+
+    start = date(2026, 1, 5)  # a Monday
+    # Mondays high, the rest near the mean, so the grand mean is ~60 and Monday reads 'above'.
+    for i in range(28):
+        d = start + timedelta(days=i)
+        nightly = 90.0 if d.weekday() == 0 else 55.0
+        _insert_metric(_make_daily_metric(d.isoformat(), nightly))
+
+    repo = SqliteBiometricRepository()
+    window = load_hrv_analysis(repo, baseline=30).pattern_windows["All"]
+    states = {b.day: b.state for b in window.day_of_week}
+    assert states["Mon"] == "above"
+    assert set(states.values()) <= {None, "below", "within", "above"}
+
+
+def test_load_hrv_analysis_reads_the_mart_once_per_request(tmp_db):
+    """Trend and weekday patterns must come from ONE metrics snapshot so a re-ingest landing
+    between two reads can't mix generations: load_hrv_analysis reads daily_metrics once and feeds
+    both cache-miss computes the same list (reading inside each lambda would read it twice)."""
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
+
+    metrics = [
+        _make_daily_metric((date(2026, 1, 1) + timedelta(days=i)).isoformat(), 50.0 + i)
+        for i in range(25)
+    ]
+
+    class _CountingRepo:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def load_daily_metrics(self, *, last_n: int | None = None):
+            self.calls += 1
+            return metrics
+
+    repo = _CountingRepo()
+    load_hrv_analysis(cast(BiometricReadRepository, repo), baseline=30)
+    assert repo.calls == 1
 
 
 def test_hrv_pattern_cache_refreshes_after_invalidation(tmp_db):

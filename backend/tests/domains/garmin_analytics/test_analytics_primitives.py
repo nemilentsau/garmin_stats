@@ -138,32 +138,14 @@ def test_nightly_trend_populates_trailing_band_after_warmup():
     from datetime import date, timedelta
 
     from app.domains.garmin_analytics.domain.analysis import hrv as hrv_analysis
-    from app.domains.garmin_health.contracts import (
-        DailyBodyBatteryStats,
-        DailyHeartRateStats,
-        DailyHrvStats,
-        DailyMetric,
-        DailyMetricStats,
-        DailySkinTempStats,
-        DailySleepStats,
-    )
-
-    def metric(d: str, nightly: float) -> DailyMetric:
-        return DailyMetric(
-            date=d,
-            heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, median=72.0, resting=48),
-            stress=DailyMetricStats(avg=25.0),
-            body_battery=DailyBodyBatteryStats(avg=60.0),
-            spo2=DailyMetricStats(avg=96.0),
-            respiration=DailyMetricStats(avg=14.0),
-            hrv=DailyHrvStats(nightly_avg=nightly, weekly_avg=nightly, status="balanced"),
-            sleep=DailySleepStats(score=85),
-            skin_temp=DailySkinTempStats(deviation=0.1),
-        )
+    from tests._analytics_helpers import make_daily_metric
 
     start = date(2026, 1, 1)
-    metrics = [metric((start + timedelta(days=i)).isoformat(), 50.0 + (i % 5)) for i in range(25)]
-    metrics.append(metric((start + timedelta(days=25)).isoformat(), 200.0))  # extreme night
+    metrics = [
+        make_daily_metric((start + timedelta(days=i)).isoformat(), 50.0 + (i % 5))
+        for i in range(25)
+    ]
+    metrics.append(make_daily_metric((start + timedelta(days=25)).isoformat(), 200.0))  # extreme
 
     trend = hrv_analysis.compute_nightly_hrv_trend(metrics, window=30)
 

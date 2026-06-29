@@ -12,18 +12,13 @@ from app.domains.garmin_analytics.application.metric_insights import (
 )
 from app.domains.garmin_analytics.domain.analysis import hrv_patterns
 from app.domains.garmin_health.contracts import (
-    DailyBodyBatteryStats,
-    DailyHeartRateStats,
-    DailyHrvStats,
-    DailyMetric,
-    DailyMetricStats,
-    DailySkinTempStats,
-    DailySleepStats,
     DayHrv,
     HrvSummary,
     HrvValue,
 )
 from app.infra import cache
+from tests._analytics_helpers import insert_metric as _insert_metric
+from tests._analytics_helpers import make_daily_metric as _make_daily_metric
 
 
 def load_hrv_insights(date: str | None = None):
@@ -37,36 +32,6 @@ def tmp_db(tmp_path, monkeypatch):
     cache.invalidate()
     storage_schema.init_storage()
     yield
-
-
-def _make_daily_metric(
-    date: str,
-    nightly_avg: float | None,
-    weekly_avg: float | None,
-    hrv_status: str | None,
-    sleep_score: int | None,
-    resting_hr: int | None,
-) -> DailyMetric:
-    return DailyMetric(
-        date=date,
-        heart_rate=DailyHeartRateStats(avg=70.0, min=55, max=120, median=72.0, resting=resting_hr),
-        stress=DailyMetricStats(avg=25.0),
-        body_battery=DailyBodyBatteryStats(avg=60.0),
-        spo2=DailyMetricStats(avg=96.0),
-        respiration=DailyMetricStats(avg=14.0),
-        hrv=DailyHrvStats(nightly_avg=nightly_avg, weekly_avg=weekly_avg, status=hrv_status),
-        sleep=DailySleepStats(score=sleep_score),
-        skin_temp=DailySkinTempStats(deviation=0.1),
-    )
-
-
-def _insert_metric(metric: DailyMetric) -> None:
-    with sqlite.connect() as con:
-        con.execute(
-            "INSERT INTO daily_metrics (date, data, updated_at) VALUES (?, ?, ?)",
-            (metric.date, metric.model_dump_json(), "2026-01-15T00:00:00Z"),
-        )
-        con.commit()
 
 
 def _insert_hrv_day(

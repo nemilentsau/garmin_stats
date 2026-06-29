@@ -94,15 +94,22 @@ def load_hrv_analysis(
     The weekday pattern windows are baseline-independent, so they are cached once under a
     single key and reused across windows — avoiding the triple compute and storage the old
     combined per-window key incurred. Generation-based invalidation in ``cache.cached`` still
-    refreshes both on re-ingest, and ``load_daily_metrics`` is itself cached, so the two
-    cache-miss paths never re-read the mart.
+    refreshes both on re-ingest.
+
+    The mart is read ONCE here and fed to both cache-miss computes, so the per-window trend and
+    the shared weekday patterns in a single response always come from one metrics snapshot. The
+    two computes are cached under separate keys; reading the mart inside each lambda instead would
+    let a re-ingest (``cache.invalidate``) land between them and return a response that mixes two
+    ingest generations (trend from before, patterns from after). ``load_daily_metrics`` is itself
+    cached, so this single eager read is one dict lookup on the hot path.
     """
+    metrics = repo.load_daily_metrics()
     trend = cache.cached(
         f"{cache.HRV_TREND}:{baseline}",
-        lambda: compute_nightly_hrv_trend(repo.load_daily_metrics(), window=baseline),
+        lambda: compute_nightly_hrv_trend(metrics, window=baseline),
     )
     patterns = cache.cached(
         cache.HRV_PATTERNS,
-        lambda: compute_pattern_windows(repo.load_daily_metrics()),
+        lambda: compute_pattern_windows(metrics),
     )
     return HrvAnalysisResponse(nightly_trend=trend, pattern_windows=patterns)

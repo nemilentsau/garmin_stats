@@ -129,6 +129,12 @@ def compute_hrv_insights(
     window: int = BASELINE_WINDOW_DEFAULT,
 ) -> HrvInsightsResponse:
     """Compute selected-day HRV insights from daily metrics and raw rows."""
+    # The trailing baseline (and the prior-7d/streak walks) read each night's PRIOR nights
+    # positionally, so they require chronological order. compute_nightly_hrv_trend sorts for the
+    # same reason; sort here too so the selected-day z/extreme flag agrees with the chart band for
+    # any caller ordering (the documented "chart and panel always agree" invariant), not only when
+    # the repo happens to return rows date-ascending.
+    metrics = sorted(metrics, key=lambda m: m.date)
     selected_index = next(
         (i for i, metric in enumerate(metrics) if metric.date == selected_date),
         None,
