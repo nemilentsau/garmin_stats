@@ -83,6 +83,18 @@
 		emit();
 	}
 
+	// Write a numeric set field by index. Using an explicit guarded handler
+	// (instead of `bind:value` on a deep index path) keeps the write on the
+	// tracked `$state` proxy and avoids Svelte 5's deep-bind setter throwing
+	// "Cannot set properties of undefined" during each-block reconciliation.
+	function setSetField(exIdx: number, setIdx: number, field: 'weight' | 'reps' | 'rir', raw: string) {
+		const set = exercises[exIdx]?.sets[setIdx];
+		if (!set) return;
+		const num = raw === '' ? null : Number(raw);
+		set[field] = num !== null && Number.isFinite(num) ? num : null;
+		emit();
+	}
+
 	function addExtra() {
 		exercises = [
 			...exercises,
@@ -232,31 +244,28 @@
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={exercises[exIdx].sets[setIdx].weight}
+								value={set.weight ?? ''}
+								oninput={(e) => setSetField(exIdx, setIdx, 'weight', e.currentTarget.value)}
 								placeholder="—"
 								min={0}
 								step={0.5}
-								onchange={emit}
-								onblur={emit}
 							/>
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={exercises[exIdx].sets[setIdx].reps}
+								value={set.reps ?? ''}
+								oninput={(e) => setSetField(exIdx, setIdx, 'reps', e.currentTarget.value)}
 								placeholder="—"
 								min={0}
-								onchange={emit}
-								onblur={emit}
 							/>
 							<input
 								type="number"
 								class="col-num set-input"
-								bind:value={exercises[exIdx].sets[setIdx].rir}
+								value={set.rir ?? ''}
+								oninput={(e) => setSetField(exIdx, setIdx, 'rir', e.currentTarget.value)}
 								placeholder="—"
 								min={0}
 								max={10}
-								onchange={emit}
-								onblur={emit}
 							/>
 							<button
 								class="col-action remove-set-btn"
