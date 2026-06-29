@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { HRV_BASELINE_WINDOWS, type HrvBaselineWindow } from '$lib/hrv-baseline';
+	import SegmentedPicker from './SegmentedPicker.svelte';
 
 	let {
 		value,
@@ -8,49 +9,10 @@
 	}: { value: HrvBaselineWindow; onchange: (w: HrvBaselineWindow) => void; disabled?: boolean } = $props();
 </script>
 
-<div class="range-picker">
-	{#each HRV_BASELINE_WINDOWS as w}
-		<button
-			class="range-btn"
-			class:active={value === w}
-			disabled={disabled}
-			onclick={() => onchange(w)}>{w}d</button
-		>
-	{/each}
-</div>
-
-<style>
-	.range-picker {
-		display: flex;
-		gap: 4px;
-	}
-	.range-btn {
-		padding: 3px 10px;
-		font-size: 11px;
-		font-family: 'DM Mono', monospace;
-		font-weight: 400;
-		color: #6b7d8e;
-		background: transparent;
-		border: 1px solid rgba(255,255,255,0.1);
-		border-radius: 4px;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-	.range-btn:hover {
-		color: #c8d6e0;
-		border-color: rgba(255,255,255,0.2);
-	}
-	.range-btn.active {
-		color: #c8d6e0;
-		background: rgba(255,255,255,0.08);
-		border-color: rgba(255,255,255,0.2);
-	}
-	.range-btn:disabled {
-		opacity: 0.4;
-		cursor: default;
-	}
-	.range-btn:disabled:hover {
-		color: #6b7d8e;
-		border-color: rgba(255,255,255,0.1);
-	}
-</style>
+<SegmentedPicker
+	options={HRV_BASELINE_WINDOWS}
+	{value}
+	{onchange}
+	{disabled}
+	label={(w) => `${w}d`}
+/>

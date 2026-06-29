@@ -308,6 +308,33 @@ def test_nightly_trend_breaks_at_gaps(tmp_db):
     assert by_date["2026-02-10"].ma7 is not None
 
 
+def test_nightly_trend_is_order_independent():
+    """The trend must not depend on the caller's ordering. The trailing MA/band primitives read
+    each night's prior nights positionally and the densification spans metrics[0]..metrics[-1], so
+    a newest-first input would otherwise compute a backwards window or an empty range. Ascending
+    and descending inputs must yield the identical series."""
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.domain.analysis.hrv import compute_nightly_hrv_trend
+
+    start = date(2026, 3, 1)
+    ascending = [
+        _make_daily_metric(
+            date=(start + timedelta(days=i)).isoformat(), nightly_avg=50.0 + (i % 5)
+        )
+        for i in range(40)
+    ]
+
+    forward = compute_nightly_hrv_trend(ascending, window=30)
+    reversed_out = compute_nightly_hrv_trend(list(reversed(ascending)), window=30)
+
+    # Order in must not change order out — same calendar, same per-night band/MA/trend_state.
+    assert [p.date for p in forward] == [p.date for p in reversed_out]
+    assert forward == reversed_out
+    # Guard against a degenerate "both empty" pass: the series is actually populated.
+    assert any(p.ma7 is not None for p in forward)
+
+
 def test_nightly_trend_band_matches_selected_day_panel(tmp_db):
     """Densifying the trend must not break the guarantee that the chart band and the panel
     agree for a given night + window: a real night's trend z/is_extreme equals the

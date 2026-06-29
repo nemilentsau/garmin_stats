@@ -33,7 +33,6 @@
 	let analysis: HrvAnalysis | null = $state(null);
 	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
-	let baselineLoading = $state(false);
 	let error: string | null = $state(null);
 	// Non-blocking errors scoped to a failed secondary fetch, kept separate from `error`
 	// so one failed sub-request never blanks the already-loaded dashboard. `detailError`
@@ -69,6 +68,10 @@
 	// clicked button lights up immediately. The committed window (`baselineWindow`) still moves
 	// only when the chart data applies, so this never feeds the legend, URL, or any fetch.
 	let pendingBaseline = $state<HrvBaselineWindow | null>(null);
+	// A baseline switch is in flight exactly while it holds the optimistic highlight, so the
+	// spinner/disabled state is simply derived from pendingBaseline — one source of truth, no
+	// second flag to keep in lockstep.
+	let baselineLoading = $derived(pendingBaseline !== null);
 
 	// ── Baseline window ──
 	function readBaselineFromUrl(): HrvBaselineWindow {
@@ -112,10 +115,13 @@
 		// headline). Capture any error and let applyHrvSnapshot surface it in the night panel
 		// via detailError, exactly as the click path (onDateChange) does. The latest-night
 		// insights stay a hard dependency — they drive the always-visible headline.
+		// When the open night IS the latest night (the common default focus), reuse the latest
+		// insights request instead of firing a second byte-identical GET — same date, same window.
+		const historicalReq =
+			historicalDate === latest ? latestP : api.getHrvInsights(historicalDate, window);
 		const historicalP: Promise<{ insights: HrvInsights | null; error: string | null }> =
 			historicalDate
-				? api
-						.getHrvInsights(historicalDate, window)
+				? historicalReq
 						.then((insights) => ({ insights, error: null }))
 						.catch((e: unknown) => ({
 							insights: null,
@@ -173,19 +179,35 @@
 		timelineHasAutoScrolled = true;
 	}
 
+	// The snapshot's selected-night sub-fetch is keyed to the date captured when the load STARTED.
+	// Apply it to the panel only if that night is still the selected one (the user didn't move to
+	// another night meanwhile), and clear a stale detail error when nothing is open or the open
+	// night matches. Shared by the SSE/initial path and the baseline switch so the two can't drift.
+	function historicalApplyOptions(captured: string) {
+		return {
+			applyHistorical: captured !== '' && captured === selectedDate,
+			clearDetailError: captured === '' || captured === selectedDate
+		};
+	}
+
 	async function fetchData() {
 		const myReq = ++reqId;
-		const requestedBaseline = baselineWindow;
+		// An in-flight baseline switch is newer user intent than this background/SSE refresh, so
+		// adopt its target window: the switch itself is discarded by the shared token, so without
+		// this a `data_updated` event landing mid-switch would silently drop the user's click and
+		// snap the picker back to the old window. Adopting commits the selection on this refresh.
+		const adoptedBaseline = pendingBaseline;
+		const requestedBaseline = adoptedBaseline ?? baselineWindow;
 		// Refresh the open night's detail alongside the chart: an SSE-triggered reload must
 		// not move the chart's bands/markers while leaving the panel's z-score stale, since
 		// the chart and the panel must agree for a given night + window.
 		const historicalDate = selectedDate;
 		const snapshot = await loadHrvSnapshot(requestedBaseline, historicalDate);
 		if (myReq !== reqId) return;
-		applyHrvSnapshot(snapshot, {
-			applyHistorical: historicalDate !== '' && historicalDate === selectedDate,
-			clearDetailError: historicalDate === '' || historicalDate === selectedDate
-		});
+		applyHrvSnapshot(snapshot, historicalApplyOptions(historicalDate));
+		// If this refresh adopted a pending switch's window, persist it so the URL matches the
+		// now-committed window (the superseded switch never reaches its own setBaselineUrl).
+		if (adoptedBaseline !== null) setBaselineUrl(adoptedBaseline);
 	}
 
 	onMount(() => {
@@ -235,8 +257,8 @@
 		const myReq = ++reqId;
 		baselineReq = myReq;
 		// Optimistic highlight only — the window itself does NOT move until the data applies.
+		// pendingBaseline also drives the derived baselineLoading (spinner + disabled picker).
 		pendingBaseline = w;
-		baselineLoading = true;
 		baselineError = null;
 		try {
 			// The baseline knob only changes window-dependent data — reuse the loaded daily
@@ -247,10 +269,7 @@
 			// Commit window + chart + URL together. If this switch was superseded (by a night
 			// click or SSE refresh) we never reach here, so the window/URL stay on the rendered
 			// window — chart band and panel z can't split across windows.
-			applyHrvSnapshot(snapshot, {
-				applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate,
-				clearDetailError: selectedForBaseline === '' || selectedForBaseline === selectedDate
-			});
+			applyHrvSnapshot(snapshot, historicalApplyOptions(selectedForBaseline));
 			setBaselineUrl(w);
 		} catch (e: unknown) {
 			if (myReq !== reqId) return;
@@ -259,24 +278,20 @@
 			const msg = e instanceof Error ? e.message : String(e);
 			baselineError = `Couldn't load the ${w}-day baseline — still showing ${baselineWindow}-day. ${msg}`;
 		} finally {
-			// Clear the spinner + optimistic highlight only if we are still the latest baseline
-			// switch. A newer switch (baselineReq moved) owns them now; otherwise clear them
-			// whether we won, errored, or were superseded — so the spinner never sticks and the
-			// picker falls back to the window actually on screen.
+			// Clear the optimistic highlight (which also clears the derived spinner) only if we are
+			// still the latest baseline switch. A newer switch (baselineReq moved) owns it now;
+			// otherwise clear it whether we won, errored, or were superseded — so the spinner never
+			// sticks and the picker falls back to the window actually on screen.
 			if (baselineReq === myReq) {
-				baselineLoading = false;
 				pendingBaseline = null;
 			}
 		}
 	}
 
 	function closeHistory() {
-		// Cancel any in-flight night fetch so it can't repopulate after close.
-		++reqId;
-		selectedDate = '';
-		historyOpen = false;
-		historicalInsights = null;
-		detailError = null;
+		// Identical to selecting "no night" — delegate so the close/reset semantics live in one
+		// place (onDateChange's empty-date branch cancels any in-flight night fetch too).
+		void onDateChange('');
 	}
 
 	function onTimelineKeydown(e: KeyboardEvent) {
@@ -397,8 +412,10 @@
 	let trendRange: TrendRange = $state('3M');
 
 	// ── Trend chart helpers ──
+	// Only the tooltip is reused: the trend chart hides Chart.js's built-in legend
+	// (`legend: { display: false }` below) in favor of the hand-rolled HTML legend under the
+	// chart, so a legend style object here would never render.
 	const darkPlugins = {
-		legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
 		tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
 	};
 
@@ -584,14 +601,6 @@
 			}
 		};
 	});
-
-	// ── Helper functions ──
-	/** Signed 2-decimal format for correlation r-values (display only). */
-	function fmtRValue(n: number | null | undefined): string {
-		if (n == null) return '-';
-		const r = n.toFixed(2);
-		return n > 0 ? `+${r}` : r;
-	}
 
 	// ── Correlations (from dashboard overview) ──
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
@@ -846,7 +855,7 @@
 						<div class="comove-track">
 							<div class="comove-fill" style="width: {Math.abs(corr.r_value ?? 0) * 100}%; background: {(corr.r_value ?? 0) >= 0 ? COLORS.hrv : COLORS.heartRate};"></div>
 						</div>
-						<span class="comove-r">{fmtRValue(corr.r_value)}</span>
+						<span class="comove-r">{fmtSigned(corr.r_value, 2)}</span>
 						<span class="comove-n">{corr.sample_count}n</span>
 					</div>
 				{/each}
@@ -987,6 +996,10 @@
 
 	/* ── Day strip ── */
 	.day-nav {
+		/* One source for the day-cell stride: the timeline cells and the month axis below it must
+		   advance by the same width + gap, or the month labels drift off the cells they mark. */
+		--day-cell-w: 8px;
+		--day-strip-gap: 2px;
 		display: flex;
 		align-items: center;
 		gap: 14px;
@@ -1038,7 +1051,7 @@
 	}
 	.day-strip {
 		display: flex;
-		gap: 2px;
+		gap: var(--day-strip-gap);
 		padding: 2px 0;
 		width: max-content;
 	}
@@ -1050,8 +1063,8 @@
 	.day-strip-container::-webkit-scrollbar-track { background: transparent; }
 
 	.day-cell {
-		flex: 0 0 8px;
-		min-width: 8px;
+		flex: 0 0 var(--day-cell-w);
+		min-width: var(--day-cell-w);
 		height: 28px;
 		border-radius: 2px;
 		border: none;
@@ -1316,7 +1329,9 @@
 		width: max-content;
 	}
 	.month-tick {
-		flex: 0 0 calc(var(--days) * 10px);
+		/* Stride per day = cell width + inter-cell gap, derived from the same vars the strip uses
+		   so the month axis always stays aligned with the day cells above it. */
+		flex: 0 0 calc(var(--days) * (var(--day-cell-w) + var(--day-strip-gap)));
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;

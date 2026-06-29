@@ -4,10 +4,10 @@ export function fmt(n: number | null | undefined): string {
 	return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
 }
 
-/** Format a number with explicit sign (+/-). */
-export function fmtSigned(n: number | null | undefined): string {
+/** Format a number with explicit sign (+/-), to `digits` decimal places (default 1). */
+export function fmtSigned(n: number | null | undefined, digits = 1): string {
 	if (n == null) return '-';
-	const rounded = n.toFixed(1);
+	const rounded = n.toFixed(digits);
 	return n > 0 ? `+${rounded}` : rounded;
 }
 

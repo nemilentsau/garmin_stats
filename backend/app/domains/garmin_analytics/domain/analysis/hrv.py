@@ -59,6 +59,11 @@ def compute_nightly_hrv_trend(
     """
     if not metrics:
         return []
+    # The trailing MA/band primitives below read each night's *prior* N nights positionally, so
+    # they require chronological order — as does the date_range() densification at the end, which
+    # would return [] for a newest-first input. Sort defensively so the trend is correct (and
+    # never silently empty) regardless of how a caller ordered the metrics.
+    metrics = sorted(metrics, key=lambda m: m.date)
     nightly_values: list[float | None] = [m.hrv.nightly_avg for m in metrics]
     ma7_values = trailing_ma7(nightly_values)
     band = trailing_robust_band(nightly_values, window=window, min_days=BASELINE_MIN_DAYS)

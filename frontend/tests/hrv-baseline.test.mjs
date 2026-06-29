@@ -47,12 +47,15 @@ test('hrv async paths stage snapshots and guard against stale completions', () =
 	);
 
 	// Baseline switch loads with the selected night and commits historical only while that
-	// night is still selected, so the chart and the panel agree for a night + window.
+	// night is still selected, so the chart and the panel agree for a night + window. The
+	// "is the captured night still selected?" predicate is shared by both async paths via
+	// historicalApplyOptions, so the SSE refresh and the baseline switch can't drift.
 	assert.match(page, /loadHrvSnapshot\(w, selectedForBaseline, reuse\)/);
 	assert.match(
 		page,
-		/applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate/,
+		/function historicalApplyOptions[\s\S]*?applyHistorical: captured !== '' && captured === selectedDate/,
 	);
+	assert.match(page, /applyHrvSnapshot\(snapshot, historicalApplyOptions\(selectedForBaseline\)\)/);
 
 	// Baseline switch reuses the window-independent daily aggregate + overview instead of
 	// re-fetching them; only the window-dependent analysis + insights are fetched.
@@ -81,12 +84,13 @@ test('hrv async paths stage snapshots and guard against stale completions', () =
 	assert.match(page, /pendingBaseline = w;/);
 	assert.match(page, /value=\{pendingBaseline \?\? baselineWindow\}/);
 
-	// The spinner + optimistic highlight are owned by the latest baseline switch and cleared in
-	// finally even when superseded by a night click / SSE refresh, so baselineLoading can never
-	// stick (C3).
+	// The optimistic highlight (pendingBaseline) is owned by the latest baseline switch and cleared
+	// in finally even when superseded by a night click / SSE refresh; baselineLoading is DERIVED
+	// from it (one source of truth), so the spinner can never stick (C3).
+	assert.match(page, /let baselineLoading = \$derived\(pendingBaseline !== null\)/);
 	assert.match(
 		page,
-		/async function onBaselineChange[\s\S]*?baselineReq = myReq;[\s\S]*?finally \{[\s\S]*?if \(baselineReq === myReq\) \{[\s\S]*?baselineLoading = false;/,
+		/async function onBaselineChange[\s\S]*?baselineReq = myReq;[\s\S]*?finally \{[\s\S]*?if \(baselineReq === myReq\) \{[\s\S]*?pendingBaseline = null;/,
 	);
 
 	// The selected-night sub-fetch is isolated inside loadHrvSnapshot: a failure is captured as
@@ -134,7 +138,13 @@ test('hrv history strip keeps nights selectable instead of compressing all days'
 	assert.match(page, /function scrollTimelineToLatestOnce/);
 	assert.match(page, /dayStripContainer\.scrollLeft = dayStripContainer\.scrollWidth;/);
 	assert.match(page, /\.day-strip-container\s*\{[\s\S]*overflow-x:\s*auto;/);
-	assert.match(page, /\.day-cell\s*\{[\s\S]*min-width:\s*8px;/);
+	// The cell stride lives in one place (--day-cell-w / --day-strip-gap on .day-nav); the cells
+	// and the month axis both derive from it, so they can't fall out of alignment.
+	assert.match(page, /\.day-nav\s*\{[\s\S]*--day-cell-w:\s*8px;/);
+	assert.match(page, /\.day-cell\s*\{[\s\S]*min-width:\s*var\(--day-cell-w\);/);
 	assert.match(page, /class="month-tick" style="--days: \{seg\.count\};"/);
-	assert.match(page, /\.month-tick\s*\{[\s\S]*flex:\s*0 0 calc\(var\(--days\) \* 10px\);/);
+	assert.match(
+		page,
+		/\.month-tick\s*\{[\s\S]*flex:\s*0 0 calc\(var\(--days\) \* \(var\(--day-cell-w\) \+ var\(--day-strip-gap\)\)\);/,
+	);
 });
