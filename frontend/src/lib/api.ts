@@ -95,6 +95,7 @@ export type RoutineSchedulesResponse = Schemas['RoutineSchedulesResponse'];
 export type ScheduleDay = Schemas['ScheduleDay'];
 export type ScheduleOccurrence = Schemas['ScheduleOccurrence'];
 export type ScheduleWindow = Schemas['ScheduleWindow'];
+export type TodayCard = Schemas['TodayCard'];
 export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
 export type TodayResponse = Schemas['TodayResponse'];
 export type Program = Schemas['Program'];
