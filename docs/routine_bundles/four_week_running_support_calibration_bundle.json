@@ -1,0 +1,1007 @@
+{
+  "id": "four-week-running-support-calibration",
+  "name": "Four-Week Running Support Calibration",
+  "schema_version": 1,
+  "description": "Runner-specific core, lower-leg, hip, hamstring, and mobility support layer designed to sit around the Four-Week Running Calibration bundle. The goal is clean calibration data, durability, and trunk/pelvis control without adding bodybuilding-style leg fatigue.\n\nCompanion to: four-week-running-calibration-patched. Relationship: support_layer. Window: 2026-06-29 to 2026-07-26. Rules: Running remains the priority session. Support work must not compromise easy-run feel or calibration-quality HR data. If soreness changes the next morning's run mechanics, cut support volume before cutting running. No high-volume Nordics, no hard lunges, no abdominal circus work during this calibration block. On optional LTHR-test week, drop hamstring/adductor work if the test is completed.\n\nIntent: running-centric durability, not hypertrophy. Weekly support budget: 20-45 minutes total most weeks. Default intensity: RPE 4-6; clean form and no grinding. Highest-cost block: Hamstring/adductor/hinge support. Lowest-cost block: Mobility reset. Quality gate: No tendon pain above mild background noise No meaningful DOMS from previous support session Easy run still feels easy by talk test Running mechanics feel normal Skip or reduce if: Calves, Achilles, hamstrings, adductors, or knees feel irritated Morning run felt unusually heavy Chest-strap calibration run was invalid due to spikes/dropouts and you need a clean rerun You are within 24 hours before or after the optional LTHR test",
+  "card_templates": [
+    {
+      "id": "running-support-calibration-micro-primer",
+      "name": "Micro-Primer for Strides",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Five-to-seven-minute mechanics primer before stride or drill days.",
+      "tags": [
+        "running",
+        "primer",
+        "strides",
+        "mechanics",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 6 min. Use before stride/drill runs only. This is a neural/mechanical primer, not a warm-up workout. Everything should feel springy and easy. Afterward, rate: Springiness; Calf/Achilles comfort.",
+        "exercises": [
+          {
+            "id": "mp1",
+            "label": "Ankle rocks",
+            "detail": "Drive the knee over the toes while the heel stays down. Find ankle range without forcing it.",
+            "reps": "10 each side"
+          },
+          {
+            "id": "mp2",
+            "label": "Leg swings",
+            "detail": "Stay tall and let the hip move freely without twisting the trunk.",
+            "reps": "10 front-back + 10 side-side each leg"
+          },
+          {
+            "id": "mp3",
+            "label": "A-march or A-skip",
+            "detail": "Tall posture, dorsiflexed foot, knee drive straight ahead. Crisp, not aggressive.",
+            "reps": "2x15-20m"
+          },
+          {
+            "id": "mp4",
+            "label": "Pogos",
+            "detail": "Short ground contact, quiet upper body, stop if Achilles or calves feel sharp.",
+            "reps": "2x15-20s"
+          },
+          {
+            "id": "mp5",
+            "label": "Relaxed build-ups",
+            "detail": "Smooth acceleration only. These are not the actual strides.",
+            "reps": "2x10-15s"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-core-a",
+      "name": "Core A — Anti-Rotation",
+      "renderer": "exercise_block",
+      "slot_default": "evening",
+      "summary": "Anti-rotation, contralateral control, and trunk stiffness for running.",
+      "tags": [
+        "core",
+        "anti-rotation",
+        "running",
+        "pelvis-control",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 15 min. This is the main runner-core session. Keep ribs down, pelvis quiet, and breathing controlled. The goal is resisting unwanted motion, not chasing ab burn. Afterward, rate: Trunk control; Expected next-day leg freshness.",
+        "exercises": [
+          {
+            "id": "ca1",
+            "label": "Pallof press",
+            "detail": "Press out, hold 2s, return slowly. Hips and ribs stay square.",
+            "reps": "2-3x8 each side"
+          },
+          {
+            "id": "ca2",
+            "label": "Dead bug",
+            "detail": "Low back stays pressed down. Move opposite arm and leg without rib flare.",
+            "reps": "2x8-10 each side"
+          },
+          {
+            "id": "ca3",
+            "label": "Suitcase carry",
+            "detail": "Walk tall and resist side bend. The weight should challenge posture, not grip survival.",
+            "reps": "2x20-30m each side"
+          },
+          {
+            "id": "ca4",
+            "label": "Plank shoulder taps",
+            "detail": "Feet wider if needed. Tap slowly without hip sway.",
+            "reps": "2x8-12 each side"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-core-b",
+      "name": "Core B — Lateral Chain",
+      "renderer": "exercise_block",
+      "slot_default": "evening",
+      "summary": "Side-plank, adductor, and hip-stability work for pelvis control.",
+      "tags": [
+        "core",
+        "lateral-chain",
+        "adductors",
+        "hip-stability",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 12 min. This is pelvis-control work. It should feel stable and precise. Use regressions before you let the pelvis collapse. Afterward, rate: Adductor comfort; Pelvis control.",
+        "exercises": [
+          {
+            "id": "cb1",
+            "label": "Side plank",
+            "detail": "Straight line from shoulder to ankle. Do not rotate open or sag.",
+            "reps": "2x20-40s each side"
+          },
+          {
+            "id": "cb2",
+            "label": "Copenhagen plank regression",
+            "detail": "Use bent knee on bench or short lever. Adductor work should be controlled, not crampy.",
+            "reps": "2x10-25s each side"
+          },
+          {
+            "id": "cb3",
+            "label": "Single-leg glute bridge",
+            "detail": "Drive through heel, full hip extension, no pelvis twist.",
+            "reps": "2x8-12 each side"
+          },
+          {
+            "id": "cb4",
+            "label": "Bird dog or bear plank hold",
+            "detail": "Choose bird dog if tired; bear plank if fresh. Keep pelvis quiet.",
+            "reps": "2 sets"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-lower-leg",
+      "name": "Lower-Leg Support",
+      "renderer": "exercise_block",
+      "slot_default": "midday",
+      "summary": "Calf, soleus, tibialis, and foot-intrinsic durability for daily running.",
+      "tags": [
+        "running",
+        "lower-leg",
+        "calf",
+        "soleus",
+        "tibialis",
+        "foot-strength",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 14 min. This is high-value support for daily running. Use full range and slow tempo. Stop short of calf pump that changes tomorrow's run. Afterward, rate: Achilles status after block; Foot control.",
+        "exercises": [
+          {
+            "id": "ll1",
+            "label": "Straight-leg calf raise",
+            "detail": "Full range. Pause at top and bottom. Add load only if bodyweight feels too easy and Achilles feels normal.",
+            "reps": "2-3x8-10"
+          },
+          {
+            "id": "ll2",
+            "label": "Bent-knee soleus raise",
+            "detail": "Knees bent, controlled tempo. This is runner-relevant; do not bounce.",
+            "reps": "2-3x10-15"
+          },
+          {
+            "id": "ll3",
+            "label": "Tibialis raise",
+            "detail": "Lift toes toward shins without rushing. Quality over burn.",
+            "reps": "2x15-25"
+          },
+          {
+            "id": "ll4",
+            "label": "Short foot + single-leg balance",
+            "detail": "Create arch tension without curling toes. Eyes open unless balance is easy.",
+            "reps": "2x30s each side"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-hamstring-adductor",
+      "name": "Hamstring / Adductor / Hinge Support",
+      "renderer": "exercise_block",
+      "slot_default": "midday",
+      "summary": "Low-dose hinge, hamstring, adductor, and knee-drive resilience.",
+      "tags": [
+        "running",
+        "hamstrings",
+        "adductors",
+        "single-leg",
+        "hinge",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 14 min. This is the highest-cost support block. It is capped at one exposure per week, and zero during LTHR-test week if the test is done. The goal is resilience, not soreness. Afterward, rate: Hamstring soreness risk; Adductor soreness risk.",
+        "exercises": [
+          {
+            "id": "ha1",
+            "label": "Single-leg RDL",
+            "detail": "Light dumbbells or bodyweight. Hips square, soft knee, slow hinge. Balance is part of the exercise.",
+            "reps": "2x6-8 each side"
+          },
+          {
+            "id": "ha2",
+            "label": "Hamstring slider curl or easy Nordic regression",
+            "detail": "Choose sliders unless you already tolerate Nordics well. Slow eccentric, hands assist as needed.",
+            "reps": "2x3-6"
+          },
+          {
+            "id": "ha3",
+            "label": "Adductor squeeze",
+            "detail": "Ball, yoga block, or Copenhagen-lite squeeze. Controlled 2s squeeze, no cramping.",
+            "reps": "2x8-10"
+          },
+          {
+            "id": "ha4",
+            "label": "Banded knee drives",
+            "detail": "Fast but clean knee drive. Stay tall and avoid leaning back.",
+            "reps": "2x8-10 each side"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-mobility-reset",
+      "name": "Mobility Reset",
+      "renderer": "exercise_block",
+      "slot_default": "evening",
+      "summary": "Low-cost mobility and tissue check for recovery days.",
+      "tags": [
+        "mobility",
+        "recovery",
+        "running",
+        "calibration",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "Duration target: 8 min. Use this on recovery/review days or when support work would be too much. This should make tomorrow feel better, not impress anyone. Afterward, rate: Recovery state; Tendon noise.",
+        "exercises": [
+          {
+            "id": "mr1",
+            "label": "90/90 breathing",
+            "detail": "Feet on wall or bench. Exhale fully and let ribs come down.",
+            "reps": "5 slow breaths"
+          },
+          {
+            "id": "mr2",
+            "label": "Hip flexor rock-back or couch stretch",
+            "detail": "Gentle. Do not crank lumbar extension.",
+            "reps": "45s each side"
+          },
+          {
+            "id": "mr3",
+            "label": "Calf wall mobilization",
+            "detail": "Knee tracks over toes with heel down.",
+            "reps": "10 each side"
+          },
+          {
+            "id": "mr4",
+            "label": "Adductor rock-back",
+            "detail": "Move slowly and stop before pinching.",
+            "reps": "8 each side"
+          },
+          {
+            "id": "mr5",
+            "label": "Easy nasal walk or shakeout",
+            "detail": "Only if it helps you downshift.",
+            "reps": "3-5 min optional"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-support-calibration-weekly-review",
+      "name": "Support Weekly Review",
+      "renderer": "checklist_block",
+      "slot_default": "evening",
+      "summary": "Weekly review of whether support work helped or contaminated running calibration.",
+      "tags": [
+        "review",
+        "running",
+        "support",
+        "calibration",
+        "running-support-calibration"
+      ],
+      "payload": {
+        "instructions": "The review question is brutally simple: did support work make running smoother, unchanged, or worse?",
+        "items": [
+          {
+            "id": "support_helped",
+            "label": "Which support session made running feel better?",
+            "detail": null
+          },
+          {
+            "id": "support_hurt",
+            "label": "Which support session caused soreness, tendon noise, or weird mechanics?",
+            "detail": null
+          },
+          {
+            "id": "next_week_adjustment",
+            "label": "Next week: keep, cut, or move any support block?",
+            "detail": null
+          },
+          {
+            "id": "calibration_contamination",
+            "label": "Did support work contaminate HR/RPE calibration data?",
+            "detail": null
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "four-week-running-support-calibration-routine",
+      "name": "Four-Week Running Support Calibration",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-26",
+      "status": "active",
+      "tags": [
+        "running",
+        "support",
+        "core",
+        "durability",
+        "calibration"
+      ],
+      "notes": "Companion support layer for the patched four-week running calibration bundle. Week 1 is intentionally light. Week 3 removes hamstring/adductor work if the optional LTHR test is completed.\n\nCompanion to: four-week-running-calibration-patched. Relationship: support_layer. Window: 2026-06-29 to 2026-07-26. Rules: Running remains the priority session. Support work must not compromise easy-run feel or calibration-quality HR data. If soreness changes the next morning's run mechanics, cut support volume before cutting running. No high-volume Nordics, no hard lunges, no abdominal circus work during this calibration block. On optional LTHR-test week, drop hamstring/adductor work if the test is completed.\n\nIntent: running-centric durability, not hypertrophy. Weekly support budget: 20-45 minutes total most weeks. Default intensity: RPE 4-6; clean form and no grinding. Highest-cost block: Hamstring/adductor/hinge support. Lowest-cost block: Mobility reset. Quality gate: No tendon pain above mild background noise No meaningful DOMS from previous support session Easy run still feels easy by talk test Running mechanics feel normal Skip or reduce if: Calves, Achilles, hamstrings, adductors, or knees feel irritated Morning run felt unusually heavy Chest-strap calibration run was invalid due to spikes/dropouts and you need a clean rerun You are within 24 hours before or after the optional LTHR test",
+      "assignments": [
+        {
+          "id": "four-week-running-support-calibration:day02:support-micro-primer:10",
+          "card_template_id": "running-support-calibration-micro-primer",
+          "day": 2,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Micro-primer before first stride day",
+            "instructions": "Use only if the running bundle has strides today. Keep it crisp and non-fatiguing.",
+            "run_context": "easy + strides",
+            "adjustment": "Skip pogos if calves or Achilles feel reactive."
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day03:support-core-a:10",
+          "card_template_id": "running-support-calibration-core-a",
+          "day": 3,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core A — first anti-rotation exposure",
+            "instructions": "Easy baseline dose. This should not affect tomorrow's easy-only calibration run.",
+            "exercises": [
+              {
+                "id": "ca1",
+                "label": "Pallof press",
+                "reps": "2x8 each side",
+                "detail": "Light load, 2s hold."
+              },
+              {
+                "id": "ca2",
+                "label": "Dead bug",
+                "reps": "2x8 each side",
+                "detail": "Low back glued down."
+              },
+              {
+                "id": "ca3",
+                "label": "Suitcase carry",
+                "reps": "2x20m each side",
+                "detail": "Moderate load, tall posture."
+              },
+              {
+                "id": "ca4",
+                "label": "Plank shoulder taps",
+                "reps": "2x8 each side",
+                "detail": "Wide feet; no hip sway."
+              }
+            ],
+            "run_context": "recovery/easy"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day04:support-lower-leg:10",
+          "card_template_id": "running-support-calibration-lower-leg",
+          "day": 4,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Lower-leg support — light baseline",
+            "instructions": "Do this after the easy-only calibration run, not before. Keep calf work controlled and stop before a pump.",
+            "exercises": [
+              {
+                "id": "ll1",
+                "label": "Straight-leg calf raise",
+                "reps": "2x8",
+                "detail": "Bodyweight or light load, full range."
+              },
+              {
+                "id": "ll2",
+                "label": "Bent-knee soleus raise",
+                "reps": "2x10",
+                "detail": "Slow tempo, no bouncing."
+              },
+              {
+                "id": "ll3",
+                "label": "Tibialis raise",
+                "reps": "2x15",
+                "detail": "Strict reps."
+              },
+              {
+                "id": "ll4",
+                "label": "Short foot + single-leg balance",
+                "reps": "2x25s each side",
+                "detail": "Eyes open, arch active."
+              }
+            ],
+            "run_context": "easy-only calibration"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day05:support-core-b:10",
+          "card_template_id": "running-support-calibration-core-b",
+          "day": 5,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core B — lateral-chain baseline",
+            "instructions": "Short pelvis-control dose. Regress Copenhagen immediately if adductors cramp.",
+            "exercises": [
+              {
+                "id": "cb1",
+                "label": "Side plank",
+                "reps": "2x20s each side",
+                "detail": "Straight line, no twist."
+              },
+              {
+                "id": "cb2",
+                "label": "Copenhagen plank regression",
+                "reps": "2x10s each side",
+                "detail": "Bent-knee or short lever."
+              },
+              {
+                "id": "cb3",
+                "label": "Single-leg glute bridge",
+                "reps": "2x8 each side",
+                "detail": "No pelvis rotation."
+              },
+              {
+                "id": "cb4",
+                "label": "Bird dog",
+                "reps": "2x6 each side",
+                "detail": "Slow contralateral reach."
+              }
+            ],
+            "run_context": "easy + drills"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day07:support-mobility-reset:10",
+          "card_template_id": "running-support-calibration-mobility-reset",
+          "day": 7,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery mobility + Week 1 support review",
+            "instructions": "Mobility only. Do not add strength work today.",
+            "run_context": "recovery + running review"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day07:support-weekly-review:20",
+          "card_template_id": "running-support-calibration-weekly-review",
+          "day": 7,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Week 1 support review",
+            "instructions": "Decide whether any support work contaminated the calibration baseline.",
+            "week": 1
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day08:support-core-a:10",
+          "card_template_id": "running-support-calibration-core-a",
+          "day": 8,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core A — normal dose",
+            "instructions": "Progress only by control, not load. This should still feel like support, not a workout.",
+            "exercises": [
+              {
+                "id": "ca1",
+                "label": "Pallof press",
+                "reps": "3x8 each side",
+                "detail": "Same load unless Day 3 was trivial."
+              },
+              {
+                "id": "ca2",
+                "label": "Dead bug",
+                "reps": "2x10 each side",
+                "detail": "3s out / 3s back."
+              },
+              {
+                "id": "ca3",
+                "label": "Suitcase carry",
+                "reps": "2x25m each side",
+                "detail": "Slightly heavier only if posture stays clean."
+              },
+              {
+                "id": "ca4",
+                "label": "Plank shoulder taps",
+                "reps": "2x10 each side",
+                "detail": "Reduce stance width only if stable."
+              }
+            ],
+            "run_context": "easy"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day09:support-micro-primer:10",
+          "card_template_id": "running-support-calibration-micro-primer",
+          "day": 9,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Micro-primer before strides",
+            "instructions": "Use this before the stride run. Keep pogos elastic, not fatiguing.",
+            "run_context": "easy + strides"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day09:support-lower-leg:20",
+          "card_template_id": "running-support-calibration-lower-leg",
+          "day": 9,
+          "slot": "midday",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Lower-leg support — normal dose",
+            "instructions": "Do after the run, separated by several hours if possible.",
+            "exercises": [
+              {
+                "id": "ll1",
+                "label": "Straight-leg calf raise",
+                "reps": "3x8",
+                "detail": "Add light dumbbells only if Achilles feels perfect."
+              },
+              {
+                "id": "ll2",
+                "label": "Bent-knee soleus raise",
+                "reps": "3x10",
+                "detail": "Slow, controlled tempo."
+              },
+              {
+                "id": "ll3",
+                "label": "Tibialis raise",
+                "reps": "2x20",
+                "detail": "Strict reps."
+              },
+              {
+                "id": "ll4",
+                "label": "Short foot + single-leg balance",
+                "reps": "2x30s each side",
+                "detail": "Eyes open; no wobble chase."
+              }
+            ],
+            "run_context": "easy + strides"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day11:support-core-b:10",
+          "card_template_id": "running-support-calibration-core-b",
+          "day": 11,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core B — optional after steady-aerobic check",
+            "instructions": "Do this only if the steady-aerobic run felt controlled. If the run created fatigue, skip.",
+            "exercises": [
+              {
+                "id": "cb1",
+                "label": "Side plank",
+                "reps": "2x25-30s each side",
+                "detail": "Clean line."
+              },
+              {
+                "id": "cb2",
+                "label": "Copenhagen plank regression",
+                "reps": "2x12-15s each side",
+                "detail": "Stay conservative."
+              },
+              {
+                "id": "cb3",
+                "label": "Single-leg glute bridge",
+                "reps": "2x10 each side",
+                "detail": "Controlled reps."
+              },
+              {
+                "id": "cb4",
+                "label": "Bird dog or bear plank hold",
+                "reps": "2 sets",
+                "detail": "Bird dog if tired; bear plank if fresh."
+              }
+            ],
+            "run_context": "first steady-aerobic exposure",
+            "optional": true
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day12:support-hamstring-adductor:10",
+          "card_template_id": "running-support-calibration-hamstring-adductor",
+          "day": 12,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Hamstring/adductor support — first exposure",
+            "instructions": "Highest-cost block. Keep it deliberately underwhelming.",
+            "exercises": [
+              {
+                "id": "ha1",
+                "label": "Single-leg RDL",
+                "reps": "2x6 each side",
+                "detail": "Bodyweight or very light dumbbells."
+              },
+              {
+                "id": "ha2",
+                "label": "Hamstring slider curl",
+                "reps": "2x4-5",
+                "detail": "Use sliders over Nordics for first exposure."
+              },
+              {
+                "id": "ha3",
+                "label": "Adductor squeeze",
+                "reps": "2x8",
+                "detail": "2s squeeze, no cramp."
+              },
+              {
+                "id": "ha4",
+                "label": "Banded knee drives",
+                "reps": "2x8 each side",
+                "detail": "Fast and clean."
+              }
+            ],
+            "run_context": "easy + drills",
+            "soreness_rule": "If hamstrings/adductors are sore the next morning, cut this block in half next exposure."
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day14:support-mobility-reset:10",
+          "card_template_id": "running-support-calibration-mobility-reset",
+          "day": 14,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery mobility + Week 2 support review",
+            "instructions": "Mobility only. Use the review to decide whether hamstring/adductor work stays.",
+            "run_context": "recovery + review"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day14:support-weekly-review:20",
+          "card_template_id": "running-support-calibration-weekly-review",
+          "day": 14,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Week 2 support review",
+            "instructions": "Main decision: did the first hamstring/adductor block help, do nothing, or create bad soreness?",
+            "week": 2
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day15:support-core-a:10",
+          "card_template_id": "running-support-calibration-core-a",
+          "day": 15,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core A — pre-test week dose",
+            "instructions": "Keep the session normal but not progressive. Do not chase load this week.",
+            "exercises": [
+              {
+                "id": "ca1",
+                "label": "Pallof press",
+                "reps": "2x8 each side",
+                "detail": "Slightly reduced from Week 2."
+              },
+              {
+                "id": "ca2",
+                "label": "Dead bug",
+                "reps": "2x8 each side",
+                "detail": "Slow control."
+              },
+              {
+                "id": "ca3",
+                "label": "Suitcase carry",
+                "reps": "2x20m each side",
+                "detail": "Moderate load only."
+              },
+              {
+                "id": "ca4",
+                "label": "Plank shoulder taps",
+                "reps": "2x8 each side",
+                "detail": "No hip sway."
+              }
+            ],
+            "run_context": "easy"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day16:support-micro-primer:10",
+          "card_template_id": "running-support-calibration-micro-primer",
+          "day": 16,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Micro-primer before strides",
+            "instructions": "Keep this especially light because the optional LTHR test is coming.",
+            "run_context": "easy + strides",
+            "adjustment": "Skip pogos if calves are not fresh."
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day16:support-lower-leg:20",
+          "card_template_id": "running-support-calibration-lower-leg",
+          "day": 16,
+          "slot": "midday",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Lower-leg support — reduced pre-test dose",
+            "instructions": "Reduced volume to avoid calf/Achilles noise before LTHR test.",
+            "exercises": [
+              {
+                "id": "ll1",
+                "label": "Straight-leg calf raise",
+                "reps": "2x8",
+                "detail": "No load increase."
+              },
+              {
+                "id": "ll2",
+                "label": "Bent-knee soleus raise",
+                "reps": "2x10",
+                "detail": "Controlled, no pump."
+              },
+              {
+                "id": "ll3",
+                "label": "Tibialis raise",
+                "reps": "2x15",
+                "detail": "Maintenance dose."
+              },
+              {
+                "id": "ll4",
+                "label": "Short foot + single-leg balance",
+                "reps": "2x25s each side",
+                "detail": "Easy balance only."
+              }
+            ],
+            "run_context": "easy + strides"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day18:support-mobility-reset:10",
+          "card_template_id": "running-support-calibration-mobility-reset",
+          "day": 18,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Post-LTHR-test mobility only",
+            "instructions": "If you completed the diagnostic LTHR test, do mobility only. No core, no calf work, no hamstrings.",
+            "run_context": "optional LTHR test",
+            "conditional_adjustment": {
+              "if_lthr_test_completed": "Mobility reset only.",
+              "if_lthr_test_skipped": "Still keep this light; you can do Core B on Day 21."
+            }
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day19:support-mobility-reset:10",
+          "card_template_id": "running-support-calibration-mobility-reset",
+          "day": 19,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Post-test recovery reset",
+            "instructions": "Use this instead of drills/support if legs feel flat after the LTHR test.",
+            "run_context": "post-test easy"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day21:support-core-b:10",
+          "card_template_id": "running-support-calibration-core-b",
+          "day": 21,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core B — light or skipped",
+            "instructions": "Do this only if you feel fresh. If the LTHR test left fatigue, skip and review only.",
+            "exercises": [
+              {
+                "id": "cb1",
+                "label": "Side plank",
+                "reps": "2x20s each side",
+                "detail": "Light dose."
+              },
+              {
+                "id": "cb2",
+                "label": "Copenhagen plank regression",
+                "reps": "1-2x10s each side",
+                "detail": "Skip if adductors feel off."
+              },
+              {
+                "id": "cb3",
+                "label": "Single-leg glute bridge",
+                "reps": "2x8 each side",
+                "detail": "Easy activation."
+              },
+              {
+                "id": "cb4",
+                "label": "Bird dog",
+                "reps": "2x6 each side",
+                "detail": "Controlled only."
+              }
+            ],
+            "optional": true,
+            "run_context": "recovery + review"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day21:support-weekly-review:20",
+          "card_template_id": "running-support-calibration-weekly-review",
+          "day": 21,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Week 3 support review",
+            "instructions": "Main decision: if the LTHR test was completed, did support work stay out of the way?",
+            "week": 3
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day22:support-core-a:10",
+          "card_template_id": "running-support-calibration-core-a",
+          "day": 22,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Core A — deload dose",
+            "instructions": "Half-volume anti-rotation. Week 4 is for absorption and review.",
+            "exercises": [
+              {
+                "id": "ca1",
+                "label": "Pallof press",
+                "reps": "2x8 each side",
+                "detail": "Light-moderate."
+              },
+              {
+                "id": "ca2",
+                "label": "Dead bug",
+                "reps": "2x8 each side",
+                "detail": "Strict."
+              },
+              {
+                "id": "ca3",
+                "label": "Suitcase carry",
+                "reps": "1-2x20m each side",
+                "detail": "Skip if tired."
+              },
+              {
+                "id": "ca4",
+                "label": "Plank shoulder taps",
+                "reps": "1-2x8 each side",
+                "detail": "Easy control."
+              }
+            ],
+            "run_context": "deload easy"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day23:support-micro-primer:10",
+          "card_template_id": "running-support-calibration-micro-primer",
+          "day": 23,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Micro-primer before light strides",
+            "instructions": "Lightest primer of the block.",
+            "run_context": "easy + light strides"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day23:support-lower-leg:20",
+          "card_template_id": "running-support-calibration-lower-leg",
+          "day": 23,
+          "slot": "midday",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Lower-leg support — deload dose",
+            "instructions": "Reduced volume. Do not chase progression.",
+            "exercises": [
+              {
+                "id": "ll1",
+                "label": "Straight-leg calf raise",
+                "reps": "2x8",
+                "detail": "Comfortable load."
+              },
+              {
+                "id": "ll2",
+                "label": "Bent-knee soleus raise",
+                "reps": "2x10",
+                "detail": "Comfortable load."
+              },
+              {
+                "id": "ll3",
+                "label": "Tibialis raise",
+                "reps": "1-2x15",
+                "detail": "Maintenance."
+              },
+              {
+                "id": "ll4",
+                "label": "Short foot + single-leg balance",
+                "reps": "2x25s each side",
+                "detail": "Clean balance."
+              }
+            ],
+            "run_context": "easy + light strides"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day26:support-hamstring-adductor:10",
+          "card_template_id": "running-support-calibration-hamstring-adductor",
+          "day": 26,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Hamstring/adductor support — half dose",
+            "instructions": "Only do this if Week 2's version caused no bad soreness. Otherwise replace with Mobility Reset.",
+            "exercises": [
+              {
+                "id": "ha1",
+                "label": "Single-leg RDL",
+                "reps": "2x6 each side",
+                "detail": "Light only."
+              },
+              {
+                "id": "ha2",
+                "label": "Hamstring slider curl",
+                "reps": "1-2x4",
+                "detail": "Skip if hamstrings are not fresh."
+              },
+              {
+                "id": "ha3",
+                "label": "Adductor squeeze",
+                "reps": "2x8",
+                "detail": "Controlled."
+              },
+              {
+                "id": "ha4",
+                "label": "Banded knee drives",
+                "reps": "2x8 each side",
+                "detail": "Crisp and easy."
+              }
+            ],
+            "optional": true,
+            "fallback": "running-support-calibration-mobility-reset",
+            "run_context": "easy + drills"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day28:support-mobility-reset:10",
+          "card_template_id": "running-support-calibration-mobility-reset",
+          "day": 28,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Final mobility reset",
+            "instructions": "Finish the block with mobility, not fatigue.",
+            "run_context": "final recovery"
+          }
+        },
+        {
+          "id": "four-week-running-support-calibration:day28:support-weekly-review:20",
+          "card_template_id": "running-support-calibration-weekly-review",
+          "day": 28,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "title": "Week 4 final support review",
+            "instructions": "Decide what survives into the next actual running block.",
+            "week": 4,
+            "final_decision_prompts": [
+              "Keep Core A weekly?",
+              "Keep Core B weekly or every other week?",
+              "Lower-leg support once or twice weekly?",
+              "Did hamstring/adductor work earn a weekly slot?",
+              "Any support exercise that clearly made running worse?"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
