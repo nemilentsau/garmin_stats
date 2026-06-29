@@ -9,6 +9,7 @@
 	 * Animation is explicitly omitted: meditation cards have no phase sequence to drive.
 	 * No statistical computation happens here.
 	 */
+	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 
 	type MeditationPayload = Extract<
@@ -35,19 +36,20 @@
 	const payload = $derived(card.payload_json);
 	const prompts = $derived(payload.rating_prompts ?? []);
 
-	const existingActual = $derived(
+	// ── One-time synchronous init — never re-runs when actual_json changes ────
+	// The component is freshly mounted each time a detail panel opens ({#if isExpanded}),
+	// so reading card.actual_json once at construction via untrack is correct and sufficient.
+	// A reactive $effect would re-seed ratings on every debounced persist, wiping
+	// in-progress input (e.g. a second rating typed within the debounce window).
+	const initialActual = untrack(() =>
 		card.actual_json?.card_type === 'meditation_timer' ? card.actual_json : null
 	);
+	const initialPrompts = untrack(() => card.payload_json.rating_prompts ?? []);
 
 	// ── Ratings state ─────────────────────────────────────────────────────────
-	let ratings = $state<Record<string, number | null>>({});
-
-	// Seed from persisted actual whenever the card identity changes.
-	$effect(() => {
-		for (const p of prompts) {
-			ratings[p.key] = existingActual?.ratings?.[p.key] ?? null;
-		}
-	});
+	let ratings = $state<Record<string, number | null>>(
+		Object.fromEntries(initialPrompts.map((p) => [p.key, initialActual?.ratings?.[p.key] ?? null]))
+	);
 
 	function emit() {
 		const clean: Record<string, number> = {};

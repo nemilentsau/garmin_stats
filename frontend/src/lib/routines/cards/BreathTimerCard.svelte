@@ -10,6 +10,7 @@
 	 * Animation is purely presentational: CSS transform transitions driven by a Svelte
 	 * setInterval tick. No statistical computation happens here.
 	 */
+	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 
 	type BreathPayload = Extract<ScheduleOccurrence['payload_json'], { card_type: 'breath_timer' }>;
@@ -34,21 +35,21 @@
 	const phases = $derived(payload.phases ?? []);
 	const prompts = $derived(payload.rating_prompts ?? []);
 
-	const existingActual = $derived(
+	// ── One-time synchronous init — never re-runs when actual_json changes ────
+	// The component is freshly mounted each time a detail panel opens ({#if isExpanded}),
+	// so reading card.actual_json once at construction via untrack is correct and sufficient.
+	// A reactive $effect would re-seed ratings/completedCycles on every debounced persist,
+	// wiping in-progress input (e.g. a second rating typed within the debounce window).
+	const initialActual = untrack(() =>
 		card.actual_json?.card_type === 'breath_timer' ? card.actual_json : null
 	);
+	const initialPrompts = untrack(() => card.payload_json.rating_prompts ?? []);
 
 	// ── Ratings state ─────────────────────────────────────────────────────────
-	let ratings = $state<Record<string, number | null>>({});
-	let completedCycles = $state<number | null>(null);
-
-	// Seed from persisted actual whenever the card identity changes.
-	$effect(() => {
-		for (const p of prompts) {
-			ratings[p.key] = existingActual?.ratings?.[p.key] ?? null;
-		}
-		completedCycles = existingActual?.completed_cycles ?? null;
-	});
+	let ratings = $state<Record<string, number | null>>(
+		Object.fromEntries(initialPrompts.map((p) => [p.key, initialActual?.ratings?.[p.key] ?? null]))
+	);
+	let completedCycles = $state<number | null>(initialActual?.completed_cycles ?? null);
 
 	function emit() {
 		const clean: Record<string, number> = {};

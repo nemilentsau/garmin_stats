@@ -6,9 +6,12 @@
 	 * log mode: checkbox per item with optional free-text answer; emits ChecklistActual on every
 	 * change so the parent (Today board) can stash + debounce-persist it.
 	 *
-	 * The component is always freshly mounted when a card's detail panel opens, so $effect-based
-	 * initialisation is safe: it fires once on mount and again if the card prop ever changes.
+	 * The component is always freshly mounted when a card's detail panel opens ({#if isExpanded}),
+	 * so reading card.actual_json once at construction via untrack is correct and sufficient.
+	 * A reactive $effect would re-seed checkedMap/textMap on every debounced persist, wiping
+	 * in-progress user input that hasn't been saved yet.
 	 */
+	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 
 	type ChecklistPayload = Extract<ScheduleOccurrence['payload_json'], { card_type: 'checklist' }>;
@@ -30,22 +33,28 @@
 
 	const items = $derived(card.payload_json.items ?? []);
 
-	// Narrow to ChecklistActual if the existing log is for this card type.
-	const existingActual = $derived(
+	// ── One-time synchronous init — never re-runs when actual_json changes ────
+	const initialActual = untrack(() =>
 		card.actual_json?.card_type === 'checklist' ? card.actual_json : null
 	);
+	const initialItems = untrack(() => card.payload_json.items ?? []);
 
-	let checkedMap = $state<Record<string, boolean>>({});
-	let textMap = $state<Record<string, string>>({});
-
-	// Seed mutable state from persisted actual each time the card identity changes.
-	$effect(() => {
-		for (const item of items) {
-			const answer = existingActual?.answers.find((a: { item_id: string }) => a.item_id === item.id);
-			checkedMap[item.id] = answer?.checked ?? false;
-			textMap[item.id] = answer?.text ?? '';
-		}
-	});
+	let checkedMap = $state<Record<string, boolean>>(
+		Object.fromEntries(
+			initialItems.map((item) => {
+				const answer = initialActual?.answers.find((a: { item_id: string }) => a.item_id === item.id);
+				return [item.id, answer?.checked ?? false];
+			})
+		)
+	);
+	let textMap = $state<Record<string, string>>(
+		Object.fromEntries(
+			initialItems.map((item) => {
+				const answer = initialActual?.answers.find((a: { item_id: string }) => a.item_id === item.id);
+				return [item.id, answer?.text ?? ''];
+			})
+		)
+	);
 
 	function emit() {
 		onActual?.({
