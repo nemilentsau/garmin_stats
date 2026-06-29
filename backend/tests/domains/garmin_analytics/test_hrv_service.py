@@ -274,6 +274,33 @@ class TestHrvInsights:
         titles = {item.title for item in insights.insights}
         assert "7-day baseline is trending below 60-day baseline" not in titles
 
+    def test_footnote_7d_delta_includes_tonight_not_prior_7(self):
+        """The hero footnote's delta_7d_vs_baseline must be the inclusive trailing-7
+        average (the same quantity the chart line plots) minus the baseline median, NOT
+        the exclusive prior-7-night average. With a tail where tonight differs from the
+        six nights before it, the inclusive and exclusive averages diverge, so this pins
+        the footnote to the chart line and guards against the dual-"7-day average" bug."""
+        from datetime import date, timedelta
+        start = date(2026, 1, 1)
+        for i in range(22):
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 70.0, 70.0, "balanced", 85, 46))
+        for i in range(22, 29):  # six prior nights + tonight's slot, all 60 for now
+            d = (start + timedelta(days=i)).isoformat()
+            _insert_metric(_make_daily_metric(d, 60.0, 60.0, "balanced", 85, 46))
+        # Tonight drops to 40: inclusive ma7 = mean(60×6, 40) ≈ 57.1; exclusive prior-7 = 60.0.
+        tonight = (start + timedelta(days=29)).isoformat()
+        _insert_metric(_make_daily_metric(tonight, 40.0, 40.0, "balanced", 85, 46))
+
+        insights = load_hrv_insights()
+        assert insights.baseline is not None
+        baseline_med = insights.baseline.baseline
+        assert baseline_med is not None
+        inclusive = round((60.0 * 6 + 40.0) / 7 - baseline_med, 1)
+        exclusive = round(60.0 - baseline_med, 1)
+        assert insights.baseline.delta_7d_vs_baseline == inclusive
+        assert insights.baseline.delta_7d_vs_baseline != exclusive
+
 
 class TestRecoveryStatusRule:
     def test_suppressed_status_with_negative_delta_keeps_delta_sentence(self):

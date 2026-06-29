@@ -1,8 +1,5 @@
 """HRV analysis calculations for Garmin analytics."""
 
-from datetime import date as date_type
-from datetime import timedelta
-
 from app.domains.garmin_analytics.contracts import (
     HrvPatternWindow,
     NightlyHrvTrendPoint,
@@ -19,6 +16,7 @@ from app.domains.garmin_health.contracts import (
     DailyMetric,
 )
 from app.utils.numeric import safe_avg
+from app.utils.timeutil import date_range
 
 
 def _trend_state(
@@ -31,18 +29,17 @@ def _trend_state(
     """
     if ma7 is None or band_low is None or band_high is None:
         return None
+    # A degenerate trailing window (zero spread) collapses the band to a point
+    # (band_low == band_high, per trailing_band_point). With no spread there is nothing to be
+    # "below" or "above", so the trend is "within" — never a garbage extreme from ma7 differing
+    # in the sub-rounding digits.
+    if band_low >= band_high:
+        return "within"
     if ma7 < band_low:
         return "below"
     if ma7 > band_high:
         return "above"
     return "within"
-
-
-def _daily_calendar(start_iso: str, end_iso: str) -> list[str]:
-    """Inclusive list of ISO dates from ``start_iso`` to ``end_iso``, one per calendar day."""
-    start = date_type.fromisoformat(start_iso)
-    end = date_type.fromisoformat(end_iso)
-    return [(start + timedelta(days=n)).isoformat() for n in range((end - start).days + 1)]
 
 
 def compute_nightly_hrv_trend(
@@ -68,6 +65,9 @@ def compute_nightly_hrv_trend(
 
     points_by_date: dict[str, NightlyHrvTrendPoint] = {}
     for i, m in enumerate(metrics):
+        # The strip's trend color is the same whether or not the night has a reading, so
+        # compute it once — the gap and present branches must never classify it differently.
+        trend_state = _trend_state(ma7_values[i], band[i].band_low, band[i].band_high)
         if nightly_values[i] is None:
             # Night with no HRV reading: the chart fields stay null so the MA line and ribbon
             # break here (a missing night is never bridged). The history strip, however, is a
@@ -75,10 +75,7 @@ def compute_nightly_hrv_trend(
             # missing night doesn't punch a gray hole in it. So carry trend_state (computed
             # from the trailing MA/band, which are defined past warmup) on the otherwise-null
             # gap point.
-            points_by_date[m.date] = NightlyHrvTrendPoint(
-                date=m.date,
-                trend_state=_trend_state(ma7_values[i], band[i].band_low, band[i].band_high),
-            )
+            points_by_date[m.date] = NightlyHrvTrendPoint(date=m.date, trend_state=trend_state)
         else:
             points_by_date[m.date] = NightlyHrvTrendPoint(
                 date=m.date,
@@ -88,14 +85,14 @@ def compute_nightly_hrv_trend(
                 band_high=band[i].band_high,
                 z=band[i].z,
                 is_extreme=band[i].is_extreme,
-                trend_state=_trend_state(ma7_values[i], band[i].band_low, band[i].band_high),
+                trend_state=trend_state,
             )
 
     # Fill entirely-absent calendar days (no row) with gap points too, so device-off
     # stretches break the line rather than being bridged by the time axis.
     return [
         points_by_date.get(d, NightlyHrvTrendPoint(date=d))
-        for d in _daily_calendar(metrics[0].date, metrics[-1].date)
+        for d in date_range(metrics[0].date, metrics[-1].date)
     ]
 
 

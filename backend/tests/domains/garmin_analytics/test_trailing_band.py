@@ -212,6 +212,24 @@ def test_single_point_matches_full_band_at_index():
         )
 
 
+def test_single_point_ma7_matches_full_series_at_index():
+    """trailing_ma7_point(values, i) must equal trailing_ma7(values)[i] for every i, so the
+    single-index footnote and the whole-series chart line share one inclusive-7 formula.
+    Covers the partial left edge (i < 6), a steady-state index, and a None-skipping window."""
+    values: list[float | None] = cast(
+        list[float | None], [50.0, None, 52.0, 48.0, None, 55.0, 51.0, 49.0, 53.0, 47.0]
+    )
+    series = trends.trailing_ma7(values)
+    for i in (0, 1, 4, 6, 9):
+        assert trends.trailing_ma7_point(values, i) == series[i]
+
+
+def test_ma7_point_is_none_when_window_all_missing():
+    """A window with no present value yields None, not a zero or an error."""
+    values: list[float | None] = cast(list[float | None], [None, None, None])
+    assert trends.trailing_ma7_point(values, 2) is None
+
+
 def test_pattern_window_overall_avg_is_sample_weighted_mean(tmp_db):
     """HrvPatternWindow.overall_avg must equal the true grand mean of nightly values,
     not a mean-of-weekday-means (which would be biased when weekdays are uneven)."""
@@ -355,6 +373,31 @@ def test_nightly_trend_state_classifies_ma_against_band(tmp_db):
     assert trend[(start + timedelta(days=34)).isoformat()].trend_state == "below"
     # Every classified value is one of the allowed states.
     assert {p.trend_state for p in trend.values()} <= {None, "below", "within", "above"}
+
+
+def test_trend_state_degenerate_band_is_within_not_extreme():
+    """A zero-spread trailing window collapses the band to a point (band_low == band_high).
+    With no spread there is nothing to be below/above, so the 7-day MA classifies as 'within'
+    even when it differs from the collapsed value in the sub-rounding digits (C6)."""
+    from app.domains.garmin_analytics.domain.analysis.hrv import _trend_state
+
+    assert _trend_state(60.04, 60.0, 60.0) == "within"
+    assert _trend_state(59.96, 60.0, 60.0) == "within"
+    assert _trend_state(60.0, 60.0, 60.0) == "within"
+
+
+def test_trend_state_edges_are_within_and_missing_inputs_are_none():
+    """Strict band edges classify as 'within'; just outside is below/above; any missing input
+    (warmup/gap: no MA or no band) is None."""
+    from app.domains.garmin_analytics.domain.analysis.hrv import _trend_state
+
+    assert _trend_state(50.0, 48.0, 52.0) == "within"
+    assert _trend_state(48.0, 48.0, 52.0) == "within"  # exactly band_low
+    assert _trend_state(52.0, 48.0, 52.0) == "within"  # exactly band_high
+    assert _trend_state(47.9, 48.0, 52.0) == "below"
+    assert _trend_state(52.1, 48.0, 52.0) == "above"
+    assert _trend_state(None, 48.0, 52.0) is None
+    assert _trend_state(50.0, None, None) is None
 
 
 def test_no_reading_night_keeps_trend_state_but_breaks_chart(tmp_db):

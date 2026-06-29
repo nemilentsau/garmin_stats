@@ -69,8 +69,34 @@ test('hrv async paths stage snapshots and guard against stale completions', () =
 		/async function fetchData[\s\S]*?const historicalDate = selectedDate;[\s\S]*?loadHrvSnapshot\(requestedBaseline, historicalDate\)/,
 	);
 
-	// A failed baseline switch rolls back to the window actually on screen.
-	assert.match(page, /baselineWindow = lastAppliedBaseline;/);
+	// The rendered window commits atomically with the chart data inside applyHrvSnapshot —
+	// never eagerly in onBaselineChange — so the picker, legend, URL, chart band and panel z
+	// can't disagree on the window when a switch is superseded (C4).
+	assert.match(page, /function applyHrvSnapshot[\s\S]*?baselineWindow = snapshot\.baseline;/);
+	assert.doesNotMatch(
+		page,
+		/async function onBaselineChange[\s\S]*?baselineWindow = w;/,
+	);
+	// The picker highlight is optimistic (pendingBaseline) and does not move the committed window.
+	assert.match(page, /pendingBaseline = w;/);
+	assert.match(page, /value=\{pendingBaseline \?\? baselineWindow\}/);
+
+	// The spinner + optimistic highlight are owned by the latest baseline switch and cleared in
+	// finally even when superseded by a night click / SSE refresh, so baselineLoading can never
+	// stick (C3).
+	assert.match(
+		page,
+		/async function onBaselineChange[\s\S]*?baselineReq = myReq;[\s\S]*?finally \{[\s\S]*?if \(baselineReq === myReq\) \{[\s\S]*?baselineLoading = false;/,
+	);
+
+	// The selected-night sub-fetch is isolated inside loadHrvSnapshot: a failure is captured as
+	// historicalError and surfaced via detailError instead of rejecting the whole snapshot, so a
+	// failed night fetch on an SSE refresh can't blank the chart/headline (C5).
+	assert.match(
+		page,
+		/getHrvInsights\(historicalDate, window\)[\s\S]*?\.catch\(/,
+	);
+	assert.match(page, /detailError = snapshot\.historicalError;/);
 });
 
 test('hrv headline does not render the retired recovery status pill', () => {
@@ -85,7 +111,7 @@ test('hrv surfaces Garmin status as its own labelled chip, separate from the ver
 	assert.match(page, /class="garmin-chip"/);
 	assert.match(page, /Garmin:/);
 	// The chip reads the raw Garmin per-day status, not the recovery verdict.
-	assert.match(page, /statusKey\((historicalDayStats|latestDayStats)\?\.status\)/);
+	assert.match(page, /garminChip\((historicalDayStats|latestDayStats)\?\.status\)/);
 });
 
 test('hrv history strip is colored by the averaged trend, not per-night status', () => {

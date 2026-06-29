@@ -109,7 +109,7 @@ Forbidden in `app/utils/`:
 Adding a helper here is a deliberate promotion, not a default landing spot. When in doubt, keep it domain-local — promotion is cheap to do later, demotion is not.
 
 Current contents:
-- `app/utils/timeutil.py` — UTC clock helpers.
+- `app/utils/timeutil.py` — UTC clock helpers and the shared inclusive ISO date-range generator (`date_range`), used by `garmin_analytics` trend densification and `experiments` window math.
 - `app/utils/numeric.py` — null-tolerant scalar summary, histogram, and percentile helpers used by `garmin_health` daily-metric calculators and `garmin_analytics` dashboard / insights / analysis modules.
 
 ### Infrastructure

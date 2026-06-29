@@ -15,6 +15,7 @@
 		coerceHrvBaselineWindow,
 		type HrvBaselineWindow
 	} from '$lib/hrv-baseline';
+	import { garminStatusKey } from '$lib/hrv-status';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import { fmt, fmtSigned } from '$lib/format';
@@ -58,10 +59,16 @@
 	// always wins and a stale completion can never overwrite fresher state — whether the
 	// staleness is date-vs-date, baseline-vs-date, or SSE-vs-anything.
 	let reqId = 0;
-	// Window of the currently-rendered snapshot. Used to roll the picker back correctly
-	// when a baseline switch fails: it must revert to what is actually on screen, not to
-	// whatever transient value preceded a superseded switch.
-	let lastAppliedBaseline: HrvBaselineWindow = DEFAULT_HRV_BASELINE_WINDOW;
+	// Token of the most recent baseline switch. The spinner and the optimistic picker highlight
+	// are owned by exactly one switch at a time: a switch only clears them in its `finally` if it
+	// is still the latest baseline switch (`baselineReq === myReq`). This survives being
+	// superseded by a night click or SSE refresh (which bump `reqId` but not `baselineReq`) — so
+	// the spinner can never stick — while a newer baseline switch keeps them for itself.
+	let baselineReq = 0;
+	// Optimistic window for the picker highlight ONLY, set the moment a switch starts so the
+	// clicked button lights up immediately. The committed window (`baselineWindow`) still moves
+	// only when the chart data applies, so this never feeds the legend, URL, or any fetch.
+	let pendingBaseline = $state<HrvBaselineWindow | null>(null);
 
 	// ── Baseline window ──
 	function readBaselineFromUrl(): HrvBaselineWindow {
@@ -75,6 +82,9 @@
 		dashOverview: DashboardOverview;
 		latestInsights: HrvInsights | null;
 		historicalInsights: HrvInsights | null;
+		// Error from the isolated selected-night sub-fetch (null on success). Carried on the
+		// snapshot instead of thrown so a failed night fetch can't abort the chart/headline.
+		historicalError: string | null;
 		baseline: HrvBaselineWindow;
 	};
 
@@ -93,18 +103,37 @@
 		const [nextAgg, nextOverview] = reuse
 			? [reuse.agg, reuse.dashOverview]
 			: await Promise.all([api.getHrvDaily(), api.getDashboardOverview()]);
-		const nextAnalysis = await analysisP;
 		const latest = nextAgg.days[nextAgg.days.length - 1] ?? '';
-		const [nextLatestInsights, nextHistoricalInsights] = await Promise.all([
-			latest ? api.getHrvInsights(latest, window) : Promise.resolve(null),
-			historicalDate ? api.getHrvInsights(historicalDate, window) : Promise.resolve(null)
+		// The insights depend only on the (now-known) agg + window, NOT on the analysis, so fetch
+		// them in parallel with analysisP — a baseline switch is then one round trip, not two.
+		const latestP = latest ? api.getHrvInsights(latest, window) : Promise.resolve(null);
+		// The selected-night insights are a secondary, ISOLATED sub-fetch: its failure must not
+		// reject the snapshot (which on an SSE refresh would blank the already-loaded chart +
+		// headline). Capture any error and let applyHrvSnapshot surface it in the night panel
+		// via detailError, exactly as the click path (onDateChange) does. The latest-night
+		// insights stay a hard dependency — they drive the always-visible headline.
+		const historicalP: Promise<{ insights: HrvInsights | null; error: string | null }> =
+			historicalDate
+				? api
+						.getHrvInsights(historicalDate, window)
+						.then((insights) => ({ insights, error: null }))
+						.catch((e: unknown) => ({
+							insights: null,
+							error: e instanceof Error ? e.message : String(e)
+						}))
+				: Promise.resolve({ insights: null, error: null });
+		const [nextAnalysis, nextLatestInsights, historical] = await Promise.all([
+			analysisP,
+			latestP,
+			historicalP
 		]);
 		return {
 			agg: nextAgg,
 			analysis: nextAnalysis,
 			dashOverview: nextOverview,
 			latestInsights: nextLatestInsights,
-			historicalInsights: nextHistoricalInsights,
+			historicalInsights: historical.insights,
+			historicalError: historical.error,
 			baseline: window
 		};
 	}
@@ -117,16 +146,22 @@
 		analysis = snapshot.analysis;
 		dashOverview = snapshot.dashOverview;
 		latestInsights = snapshot.latestInsights;
+		// The rendered window commits HERE, atomically with the chart data it describes — never
+		// eagerly in onBaselineChange. That keeps the picker, legend, URL, chart band and panel
+		// z from ever disagreeing on the window: a superseded baseline switch simply never
+		// applies, leaving every surface on the previously-rendered window.
+		baselineWindow = snapshot.baseline;
 		if (options.applyHistorical) {
+			// Selected-night sub-fetch is isolated: on failure the panel shows detailError (and
+			// blanks, never showing a wrong-window z), without aborting this chart/headline apply.
 			historicalInsights = snapshot.historicalInsights;
+			detailError = snapshot.historicalError;
+		} else if (options.clearDetailError ?? true) {
+			detailError = null;
 		}
-		lastAppliedBaseline = snapshot.baseline;
 		// A successful load supersedes any prior top-level and baseline errors.
 		error = null;
 		baselineError = null;
-		if (options.clearDetailError ?? true) {
-			detailError = null;
-		}
 		void scrollTimelineToLatestOnce();
 	}
 
@@ -197,9 +232,10 @@
 
 	async function onBaselineChange(w: HrvBaselineWindow) {
 		const selectedForBaseline = selectedDate;
-		baselineWindow = w;
-		setBaselineUrl(w);
 		const myReq = ++reqId;
+		baselineReq = myReq;
+		// Optimistic highlight only — the window itself does NOT move until the data applies.
+		pendingBaseline = w;
 		baselineLoading = true;
 		baselineError = null;
 		try {
@@ -208,21 +244,29 @@
 			const reuse = agg && dashOverview ? { agg, dashOverview } : undefined;
 			const snapshot = await loadHrvSnapshot(w, selectedForBaseline, reuse);
 			if (myReq !== reqId) return;
+			// Commit window + chart + URL together. If this switch was superseded (by a night
+			// click or SSE refresh) we never reach here, so the window/URL stay on the rendered
+			// window — chart band and panel z can't split across windows.
 			applyHrvSnapshot(snapshot, {
 				applyHistorical: selectedForBaseline !== '' && selectedForBaseline === selectedDate,
 				clearDetailError: selectedForBaseline === '' || selectedForBaseline === selectedDate
 			});
+			setBaselineUrl(w);
 		} catch (e: unknown) {
 			if (myReq !== reqId) return;
-			// Roll back to the window currently on screen — not the pre-switch value, which
-			// may itself be an unapplied window from a superseded switch — and surface a
-			// non-blocking error so the dashboard keeps showing the rendered window's data.
+			// The window was never moved, so there is nothing to roll back — just surface a
+			// non-blocking error; the dashboard keeps showing the window still on screen.
 			const msg = e instanceof Error ? e.message : String(e);
-			baselineWindow = lastAppliedBaseline;
-			setBaselineUrl(lastAppliedBaseline);
-			baselineError = `Couldn't load the ${w}-day baseline — still showing ${lastAppliedBaseline}-day. ${msg}`;
+			baselineError = `Couldn't load the ${w}-day baseline — still showing ${baselineWindow}-day. ${msg}`;
 		} finally {
-			if (myReq === reqId) baselineLoading = false;
+			// Clear the spinner + optimistic highlight only if we are still the latest baseline
+			// switch. A newer switch (baselineReq moved) owns them now; otherwise clear them
+			// whether we won, errored, or were superseded — so the spinner never sticks and the
+			// picker falls back to the window actually on screen.
+			if (baselineReq === myReq) {
+				baselineLoading = false;
+				pendingBaseline = null;
+			}
 		}
 	}
 
@@ -290,10 +334,6 @@
 		High: COLORS.respiration           // above normal — teal
 	};
 	const UNKNOWN_STATUS_COLOR = '#3a4a5a';
-
-	function statusKey(status: string | null | undefined): string | null {
-		return status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : null;
-	}
 
 	// ── History strip colors: by the AVERAGED TREND (ma7 vs typical-range band), not
 	// per-night status — a single night is noise. trend_state comes from the backend. ──
@@ -376,23 +416,28 @@
 		const cutoff = trendCutoff(trendRange);
 		const t = cutoff ? analysis.nightly_trend.filter((p) => p.date >= cutoff) : analysis.nightly_trend;
 		const labels = t.map((p) => p.date);
+		// Map each plotted series once and reuse it for both the dataset and the y-scale, so the
+		// scale inputs can't drift from what's drawn and we don't pass over the series twice.
+		const ma7 = t.map((p) => p.ma7);
+		const bandLow = t.map((p) => p.band_low);
+		const bandHigh = t.map((p) => p.band_high);
 		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
 			{
 				label: 'Band Low',
-				data: t.map((p) => p.band_low),
+				data: bandLow,
 				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
 				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false, fill: false
 			},
 			{
 				label: 'Band High',
-				data: t.map((p) => p.band_high),
+				data: bandHigh,
 				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
 				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false,
 				fill: '-1', backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
 			},
 			{
 				label: '7-Day MA',
-				data: t.map((p) => p.ma7),
+				data: ma7,
 				// spanGaps:false so the trend breaks at no-reading nights (the backend emits null
 				// points for them) instead of bridging a straight segment over missing data.
 				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: false
@@ -408,15 +453,7 @@
 			}
 		];
 
-		const yScale = tightScale(
-			[
-				...t.map((p) => p.ma7),
-				...t.map((p) => p.band_low),
-				...t.map((p) => p.band_high)
-			],
-			2,
-			5
-		);
+		const yScale = tightScale([...ma7, ...bandLow, ...bandHigh], 2, 5);
 
 		return {
 			type: 'line',
@@ -572,7 +609,7 @@
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
 
 {#snippet garminChip(status: string | null | undefined)}
-	{@const key = statusKey(status)}
+	{@const key = garminStatusKey(status)}
 	{#if key}
 		<span class="garmin-chip" title="Garmin's own multi-day HRV status — a separate signal from tonight's recovery">
 			<i class="garmin-dot" style="background: {HRV_STATUS_COLORS[key] ?? UNKNOWN_STATUS_COLOR};"></i>
@@ -619,7 +656,7 @@
 		</div>
 	</div>
 
-	{@render garminChip(statusKey(latestDayStats?.status))}
+	{@render garminChip(latestDayStats?.status)}
 
 	<!-- Insight line — latest night -->
 	{#if latestInsights && latestInsights.insights.length > 0}
@@ -640,7 +677,7 @@
 				<div class="hero-controls">
 					<div class="control-group">
 						<span class="control-label">Baseline</span>
-						<BaselineWindowPicker value={baselineWindow} onchange={onBaselineChange} disabled={baselineLoading} />
+						<BaselineWindowPicker value={pendingBaseline ?? baselineWindow} onchange={onBaselineChange} disabled={baselineLoading} />
 					</div>
 					<span class="control-sep" aria-hidden="true"></span>
 					<div class="control-group">
@@ -727,7 +764,7 @@
 			<div class="history-detail-header">
 				<div class="history-detail-title">
 					<span class="history-date">{selectedDate}</span>
-					{@render garminChip(statusKey(historicalDayStats?.status))}
+					{@render garminChip(historicalDayStats?.status)}
 					{#if historicalDayStats?.nightly_avg != null && latestDayStats?.nightly_avg != null}
 						<span class="history-comparison">
 							Nightly: <strong>{fmt(historicalDayStats.nightly_avg)}</strong> ms

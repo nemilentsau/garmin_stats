@@ -75,14 +75,30 @@ def prior_7d_avg(
     return safe_avg(previous)
 
 
+def trailing_ma7_point(values: list[float | None], index: int) -> float | None:
+    """Trailing 7-day moving average at a single ``index``, inclusive of that point.
+
+    Averages the present values in the inclusive window ``[index - 6, index]`` (current
+    value included), skipping ``None``; returns ``None`` when the window holds no present
+    value. This is the single definition of the HRV "7-day average": the chart line
+    (:func:`trailing_ma7`) maps it across the series, and the selected-day footnote
+    compares this same point against the long baseline — so the line and the footnote
+    can never label two different quantities as "7-day average". Distinct from
+    :func:`prior_7d_avg`, which excludes the current night for the "tonight vs recent"
+    recovery delta.
+    """
+    window = [v for v in values[max(0, index - 6) : index + 1] if v is not None]
+    return safe_avg(window)
+
+
 def trailing_ma7(values: list[float | None]) -> list[float | None]:
-    """Compute 7-day trailing moving average, skipping None values."""
-    result: list[float | None] = []
-    for i in range(len(values)):
-        window_start = max(0, i - 6)
-        window = [v for v in values[window_start : i + 1] if v is not None]
-        result.append(safe_avg(window))
-    return result
+    """7-day trailing moving average across the series, inclusive of each point.
+
+    Series form of :func:`trailing_ma7_point` — see it for the window and ``None``-skipping
+    policy. Defined as a map over the single-point helper so the chart line and any
+    single-index caller share one formula.
+    """
+    return [trailing_ma7_point(values, i) for i in range(len(values))]
 
 
 def trailing_band_point(

@@ -1,9 +1,10 @@
-"""Shared HRV weekday pattern primitives for analysis and selected-day insights.
+"""HRV weekday pattern primitives for the analysis read model.
 
-This module owns the reusable weekday helper that feeds the chart analysis read
-model and selected-day context. It deliberately stays below either caller, so
-analysis and insight modules can share the same policy without importing each
-other.
+This module owns the weekday helper that feeds the chart analysis read model
+(``compute_pattern_window`` / ``compute_day_of_week``). Selected-day insights dropped
+day-of-week, so the analysis layer is now its only consumer; the helper stays in this
+standalone module so the per-window pattern policy lives in one focused place rather than
+inline in the larger analysis composer.
 """
 
 from datetime import date as date_type

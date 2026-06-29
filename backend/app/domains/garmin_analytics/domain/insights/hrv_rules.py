@@ -16,15 +16,20 @@ from app.domains.garmin_analytics.contracts import (
     HrvStreak,
 )
 from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.garmin_health.domain.daily_metrics import is_balanced_hrv_status
+from app.domains.garmin_health.domain.daily_metrics import (
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+)
 
-_BAD_HRV_STATUSES = frozenset({"Low", "Unbalanced"})
 _LOW_RECOVERY_STATUSES = frozenset({"suppressed", "below_baseline"})
 
-_RECOVERY_STATUS_MESSAGES: dict[str, tuple[str, str, str]] = {
-    "suppressed": ("warning", "HRV appears suppressed", "Nightly HRV is below expected levels."),
-    "below_baseline": ("caution", "HRV is below baseline", "Nightly HRV is mildly below baseline."),
-    "elevated": ("good", "HRV is above baseline", "Nightly HRV is above baseline."),
+# (level, title) per recovery status. The detail line is always the delta sentence — the
+# verdict is delta-only, so a keyed status never carries a null delta (classify_hrv_recovery
+# returns None for a null delta, which maps to no message at all).
+_RECOVERY_STATUS_MESSAGES: dict[str, tuple[str, str]] = {
+    "suppressed": ("warning", "HRV appears suppressed"),
+    "below_baseline": ("caution", "HRV is below baseline"),
+    "elevated": ("good", "HRV is above baseline"),
 }
 
 
@@ -46,15 +51,12 @@ def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
     message = _RECOVERY_STATUS_MESSAGES.get(status)
     if message is None:
         return None
-    level, title, fallback_detail = message
-    delta = ctx.recovery.delta_nightly_from_baseline
-    # The verdict is delta-only, so a below-type status always has a negative delta —
-    # the old status-vs-delta contradiction can no longer arise.
-    detail = (
-        f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
-        if delta is not None
-        else fallback_detail
-    )
+    level, title = message
+    # A keyed status implies a non-null delta (see _RECOVERY_STATUS_MESSAGES), and the verdict
+    # is delta-only, so a below-type status always has a negative delta — the old
+    # status-vs-delta contradiction can no longer arise.
+    delta = ctx.recovery.delta_nightly_from_baseline or 0.0
+    detail = f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
     return HrvInsight(level=level, title=title, detail=detail)
 
 
@@ -76,7 +78,7 @@ def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
     """Warn on three or more consecutive days of low/unbalanced HRV status."""
     if (
         ctx.streak is None
-        or ctx.streak.current_status not in _BAD_HRV_STATUSES
+        or not is_unfavorable_hrv_status(ctx.streak.current_status)
         or ctx.streak.streak_days < 3
     ):
         return None

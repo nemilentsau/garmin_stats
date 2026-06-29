@@ -19,6 +19,7 @@ from app.domains.garmin_analytics.domain.primitives.trends import (
     BASELINE_WINDOW_DEFAULT,
     prior_7d_avg,
     trailing_band_point,
+    trailing_ma7_point,
 )
 from app.domains.garmin_health.contracts import (
     DailyMetric,
@@ -81,10 +82,15 @@ def _compute_streak(metrics: list[DailyMetric], selected_index: int) -> HrvStrea
 def _compute_baseline(
     metrics: list[DailyMetric],
     selected_index: int,
-    baseline_7d: float | None,
     window: int,
 ) -> HrvBaseline | None:
-    """Selected-day comparison against its trailing robust baseline."""
+    """Selected-day comparison against its trailing robust baseline.
+
+    ``delta_7d_vs_baseline`` is the inclusive trailing-7 average (the same quantity the
+    chart line plots, via :func:`trailing_ma7`) minus the robust baseline median, so the
+    hero card's footnote can never disagree with its line. This is deliberately distinct
+    from the recovery delta, which compares tonight against the *prior* 7 nights.
+    """
     nightly = [m.hrv.nightly_avg for m in metrics]
     # Only the selected index is needed — compute that single point instead of the band
     # for the whole series (the /insights endpoint is not cached).
@@ -93,9 +99,8 @@ def _compute_baseline(
     )
     if point.median is None:
         return None
-    delta = (
-        round(baseline_7d - point.median, 1) if baseline_7d is not None else None
-    )
+    ma7 = trailing_ma7_point(nightly, selected_index)
+    delta = round(ma7 - point.median, 1) if ma7 is not None else None
     return HrvBaseline(
         baseline=point.median,
         delta_7d_vs_baseline=delta,
@@ -136,9 +141,7 @@ def compute_hrv_insights(
     recovery = _compute_recovery(metrics, selected_index)
     quality = _compute_quality(day_values)
     streak = _compute_streak(metrics, selected_index)
-    baseline = _compute_baseline(
-        metrics, selected_index, recovery.baseline_nightly_7d, window,
-    )
+    baseline = _compute_baseline(metrics, selected_index, window)
     resting_delta = _resting_delta_vs_recent(metrics, selected_index)
     insights = build_hrv_insights(InsightContext(
         selected=selected_metric,
