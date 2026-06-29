@@ -2,12 +2,12 @@
 	/**
 	 * CardBody — dispatches to the card-type-specific component for a single occurrence.
 	 *
-	 * Currently wired:
+	 * All five card types are now wired to dedicated components:
 	 *   checklist        → ChecklistCard        (Phase 2)
 	 *   breath_timer     → BreathTimerCard       (Phase 3)
 	 *   meditation_timer → MeditationTimerCard   (Phase 3)
 	 *   strength_session → StrengthSessionCard   (Phase 4)
-	 *   all other types  → TEMPORARY inline fallback, replaced in Phase 5
+	 *   running_workout  → RunningWorkoutCard     (Phase 5)
 	 *
 	 * Props:
 	 *   card   — ScheduleOccurrence or TodayCard shape (both have payload_json; TodayCard adds
@@ -21,6 +21,7 @@
 	import BreathTimerCard from './BreathTimerCard.svelte';
 	import MeditationTimerCard from './MeditationTimerCard.svelte';
 	import StrengthSessionCard from './StrengthSessionCard.svelte';
+	import RunningWorkoutCard from './RunningWorkoutCard.svelte';
 
 	type CardPayload = ScheduleOccurrence['payload_json'];
 	type CardActual = NonNullable<TodayCard['actual_json']>;
@@ -81,20 +82,14 @@
 		{mode}
 		{onActual}
 	/>
-{:else}
-	<!-- TEMPORARY fallback — dedicated component replaces this block in Phase 5.
-	     Remaining type: running_workout. -->
-
-	{#if card.payload_json.instructions}
-		<p class="detail-copy">{card.payload_json.instructions}</p>
-	{/if}
+{:else if card.payload_json.card_type === 'running_workout'}
+	<!--
+		RunningWorkoutCard is fully implemented (Phase 5).
+		payload_json is narrowed to RunningWorkoutPayload by the type guard above.
+	-->
+	<RunningWorkoutCard
+		card={{ payload_json: card.payload_json, actual_json: card.actual_json }}
+		{mode}
+		{onActual}
+	/>
 {/if}
-
-<style>
-	.detail-copy {
-		margin: 0;
-		color: #a7bac6;
-		font-size: 13px;
-		line-height: 1.5;
-	}
-</style>
