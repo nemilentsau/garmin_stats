@@ -1,7 +1,8 @@
 """Discriminated-union card payload/actual contracts.
 
-Covers one valid payload per card_type, discriminator dispatch, and rejection
-of an unknown card_type. Log round-trips live in test_card_logs below.
+Covers one valid payload per card_type, discriminator dispatch, rejection of an
+unknown card_type, and coercion of empty/missing actual_json to None on CardLog,
+TodayCard, and TodayCardLogUpdateRequest.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.domains.routines.contracts import (
     CardActual,
+    CardLog,
     CardPayload,
     CardTemplate,
     ChecklistActual,
@@ -19,6 +21,8 @@ from app.domains.routines.contracts import (
     ScheduleOccurrence,
     StrengthActual,
     StrengthSessionPayload,
+    TodayCard,
+    TodayCardLogUpdateRequest,
 )
 
 PAYLOAD_ADAPTER = TypeAdapter(CardPayload)
@@ -144,3 +148,85 @@ def test_schedule_occurrence_has_no_renderer():
     )
     assert occ.payload_json.card_type == "checklist"
     assert not hasattr(occ, "renderer")
+
+
+# ---------------------------------------------------------------------------
+# Bug 1: empty / missing card_type in actual_json must coerce to None
+# ---------------------------------------------------------------------------
+
+_CARD_LOG_BASE = {
+    "id": "log-1",
+    "date": "2026-06-29",
+    "occurrence_key": "scheduled:a:2026-06-29",
+    "card_template_id": "c1",
+}
+
+_TODAY_CARD_BASE = {
+    "occurrence_key": "scheduled:a:2026-06-29",
+    "date": "2026-06-29",
+    "slot": "morning",
+    "source_kind": "scheduled",
+    "card_template_id": "c1",
+    "name": "My Card",
+    "payload_json": {"card_type": "checklist"},
+}
+
+
+class TestEmptyActualJsonCoercedToNone:
+    def test_card_log_empty_dict_actual_json_coerces_to_none(self):
+        """Legacy rows with actual_json={} must load without 500."""
+        log = CardLog.model_validate({**_CARD_LOG_BASE, "actual_json": {}})
+        assert log.actual_json is None
+
+    def test_card_log_valid_typed_actual_is_preserved(self):
+        """A properly typed actual_json is NOT coerced away."""
+        log = CardLog.model_validate(
+            {
+                **_CARD_LOG_BASE,
+                "actual_json": {"card_type": "checklist", "answers": []},
+            }
+        )
+        assert log.actual_json is not None
+        assert log.actual_json.card_type == "checklist"
+
+    def test_card_log_none_actual_json_stays_none(self):
+        """Explicit None stays None."""
+        log = CardLog.model_validate({**_CARD_LOG_BASE, "actual_json": None})
+        assert log.actual_json is None
+
+    def test_today_card_empty_dict_actual_json_coerces_to_none(self):
+        """TodayCard with actual_json={} must not 500 on the Today-board load path."""
+        card = TodayCard.model_validate({**_TODAY_CARD_BASE, "actual_json": {}})
+        assert card.actual_json is None
+
+    def test_today_card_valid_typed_actual_is_preserved(self):
+        card = TodayCard.model_validate(
+            {
+                **_TODAY_CARD_BASE,
+                "actual_json": {"card_type": "checklist", "answers": []},
+            }
+        )
+        assert card.actual_json is not None
+        assert isinstance(card.actual_json, ChecklistActual)
+
+    def test_today_card_log_update_request_empty_dict_coerces_to_none(self):
+        """TodayCardLogUpdateRequest with actual_json={} from a client must not 500."""
+        req = TodayCardLogUpdateRequest.model_validate(
+            {
+                "card_template_id": "c1",
+                "status": "completed",
+                "actual_json": {},
+            }
+        )
+        assert req.actual_json is None
+
+    def test_today_card_log_update_request_valid_typed_actual_is_preserved(self):
+        req = TodayCardLogUpdateRequest.model_validate(
+            {
+                "card_template_id": "c1",
+                "status": "completed",
+                "actual_json": {"card_type": "checklist", "answers": []},
+            }
+        )
+        assert req.actual_json is not None
+        assert req.actual_json.card_type == "checklist"

@@ -7,9 +7,9 @@ artifact specs are owned by the artifacts domain.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.contracts.base import (
     AutoTotalResponse,
@@ -315,6 +315,22 @@ class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
     assignments: list[RoutineAssignment] = []
 
 
+def _coerce_empty_actual_json(data: Any) -> Any:
+    """Coerce an empty or card_type-less actual_json dict to None.
+
+    Legacy rows (and any client-sent body) may carry ``actual_json: {}`` — an
+    empty dict with no ``card_type`` discriminator.  Pydantic cannot dispatch the
+    discriminated union without a truthy ``card_type`` and raises
+    ``ValidationError`` → 500.  We normalise those to ``None`` so existing data
+    loads cleanly and card logging degrades gracefully rather than crashing.
+    """
+    if isinstance(data, dict):
+        actual = data.get("actual_json")
+        if isinstance(actual, dict) and not actual.get("card_type"):
+            data = {**data, "actual_json": None}
+    return data
+
+
 class CardLog(DefaultsRequired):
     """User completion log for one dated card occurrence."""
 
@@ -326,6 +342,11 @@ class CardLog(DefaultsRequired):
     status: CardLogStatus = "pending"
     actual_json: CardActual | None = None
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_actual_json(cls, data: Any) -> Any:
+        return _coerce_empty_actual_json(data)
 
 
 class CardOverride(DefaultsRequired):
@@ -349,6 +370,11 @@ class TodayCardLogUpdateRequest(StrictDefaultsRequired):
     status: CardLogStatus = "completed"
     actual_json: CardActual | None = None
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_actual_json(cls, data: Any) -> Any:
+        return _coerce_empty_actual_json(data)
 
 
 class TodayStats(DefaultsRequired):
@@ -387,6 +413,11 @@ class TodayCard(ScheduleOccurrence):
     status: CardLogStatus = "pending"
     actual_json: CardActual | None = None
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_actual_json(cls, data: Any) -> Any:
+        return _coerce_empty_actual_json(data)
 
 
 class TodaySlot(DefaultsRequired):
