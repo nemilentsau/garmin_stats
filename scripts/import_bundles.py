@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from app.bootstrap.schema import init_storage
 from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.artifacts.application.bundles import (
-    import_artifact_bundle,
+    import_and_activate_artifact_bundle,
     preview_artifact_bundle,
 )
 from app.domains.artifacts.contracts import ArtifactBundleSpec
@@ -92,9 +92,11 @@ def main() -> int:
             exit_code = 1
             continue
 
-        # --- import ---
+        # --- import + activate (compile routines into dated assignments) ---
         try:
-            result = import_artifact_bundle(artifact_repo, routines_repo, bundle)
+            result = import_and_activate_artifact_bundle(
+                artifact_repo, routines_repo, bundle
+            )
         except ValidationError as exc:
             issues = [e["msg"] for e in exc.errors()]
             print(
