@@ -24,11 +24,24 @@ export function domainOf(payload: CardPayload): Domain | null {
 }
 
 export const DOMAIN_THEME: Record<Domain, { accent: string; icon: string }> = {
-	running: { accent: COLORS.respiration, icon: '🏃' },
-	strength: { accent: COLORS.stress, icon: '🏋' },
+	running: { accent: COLORS.heartRate, icon: '🏃' },
+	strength: { accent: COLORS.skinTemp, icon: '🏋' },
 	breathwork: { accent: COLORS.spo2, icon: '🫁' },
 	meditation: { accent: COLORS.hrv, icon: '🧘' }
 };
+
+/**
+ * Returns the full domain theme (accent color, shadow, icon) for a card payload.
+ * Falls back to a neutral accent for checklist cards with no domain.
+ */
+export function domainThemeOf(payload: CardPayload): { accent: string; shadow: string; icon: string } {
+	const domain = domainOf(payload);
+	if (domain) {
+		const t = DOMAIN_THEME[domain];
+		return { accent: t.accent, shadow: withAlpha(t.accent, '30'), icon: t.icon };
+	}
+	return { accent: DARK_MUTED_TEXT, shadow: withAlpha(DARK_MUTED_TEXT, '30'), icon: '' };
+}
 
 export const SLOT_ORDER: readonly SlotName[] = ['morning', 'midday', 'evening', 'anytime'];
 

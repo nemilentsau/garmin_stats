@@ -3,7 +3,7 @@
 
 	import { api, type TodayCardLogUpdate, type TodayResponse } from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
-	import { cardBrief, slotAccent } from '$lib/routines/card-payloads';
+	import { cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
 	import CardBody from '$lib/routines/cards/CardBody.svelte';
 	import { errorMessage } from '$lib/utils';
 
@@ -337,12 +337,14 @@
 						{@const isDone = status === 'completed'}
 						{@const isSkipped = status === 'skipped'}
 						{@const isPartial = status === 'partial'}
+						{@const dt = domainThemeOf(card.payload_json)}
 						<div
 							class="activity-row"
 							class:done={isDone}
 							class:skipped={isSkipped}
 							class:partial={isPartial}
 							class:expanded={isExpanded}
+							style={`--dr-color: ${dt.accent}`}
 						>
 							<div class="row-main">
 								<!-- Checkbox -->
@@ -384,6 +386,11 @@
 										</svg>
 									{/if}
 								</button>
+
+								<!-- Domain icon -->
+								{#if dt.icon}
+									<span class="domain-icon">{dt.icon}</span>
+								{/if}
 
 								<!-- Name + summary -->
 								<div class="row-content">
@@ -763,6 +770,7 @@
 		border-radius: 10px;
 		background: rgba(255, 255, 255, 0.025);
 		border: 1px solid rgba(255, 255, 255, 0.05);
+		border-left: 3px solid var(--dr-color, #5e7282);
 		transition:
 			background 0.15s,
 			opacity 0.2s;
@@ -796,6 +804,7 @@
 		opacity: 1;
 		background: rgba(255, 255, 255, 0.04);
 		border-color: rgba(255, 255, 255, 0.1);
+		border-left-color: var(--dr-color, #5e7282);
 	}
 
 	.row-main {
@@ -903,6 +912,13 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
 		color: #8fa3b0;
+	}
+
+	.domain-icon {
+		flex-shrink: 0;
+		font-size: 14px;
+		line-height: 1;
+		opacity: 0.8;
 	}
 
 	.row-actions {

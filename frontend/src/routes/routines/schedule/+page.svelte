@@ -11,7 +11,7 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
-	import { SLOT_LABELS, SLOT_ORDER, cardBrief, slotAccent } from '$lib/routines/card-payloads';
+	import { SLOT_LABELS, SLOT_ORDER, cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
 	import CardBody from '$lib/routines/cards/CardBody.svelte';
 	import { errorMessage } from '$lib/utils';
 
@@ -384,9 +384,10 @@
 								{/if}
 								{#each group.occurrences as occ}
 									{@const accent = slotAccent(occ.slot)}
+									{@const dt = domainThemeOf(occ.payload_json)}
 									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
 									{@const status = occStatus(occ)}
-									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
+									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${dt.accent}; --tc-shadow: ${dt.shadow}`}>
 										<button type="button" class="timeline-card-main" onclick={() => (expandedOccurrenceKey = isExpanded ? null : occ.occurrence_key)}>
 											{#if status === 'completed'}
 												<span class="status-check done-check">
@@ -400,6 +401,9 @@
 												<span class="status-check partial-check">
 													<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
 												</span>
+											{/if}
+											{#if dt.icon}
+												<span class="domain-icon">{dt.icon}</span>
 											{/if}
 											<div class="card-content">
 												<span class="card-name">{occ.name}</span>
@@ -903,6 +907,13 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		color: #6b8292;
+	}
+
+	.domain-icon {
+		flex-shrink: 0;
+		font-size: 14px;
+		line-height: 1;
+		opacity: 0.8;
 	}
 
 	.card-badges {
