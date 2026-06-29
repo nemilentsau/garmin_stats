@@ -8,13 +8,18 @@ from __future__ import annotations
 
 from datetime import date as date_cls
 
+from pydantic import TypeAdapter
+
 from app.domains.routines.contracts import (
     CardOverride,
+    CardPayload,
     CardTemplate,
     RoutineAssignment,
     RoutineSchedule,
     ScheduleOccurrence,
 )
+
+_PAYLOAD_ADAPTER: TypeAdapter[CardPayload] = TypeAdapter(CardPayload)
 
 SLOT_ORDER = ("morning", "midday", "evening", "anytime")
 _SLOT_INDEX = {slot: index for index, slot in enumerate(SLOT_ORDER)}
@@ -38,12 +43,12 @@ def override_occurrence_key(override: CardOverride, date: str) -> str:
 def merge_schedule_payload(
     card: CardTemplate,
     assignment: RoutineAssignment | None,
-) -> dict[str, object]:
+) -> CardPayload:
     """Merge card payload defaults with assignment-level prescription overrides."""
     payload = dict(card.payload_json)
     if assignment is not None and assignment.prescription_override_json:
         payload.update(assignment.prescription_override_json)
-    return payload
+    return _PAYLOAD_ADAPTER.validate_python(payload)
 
 
 def routine_is_active_on_date(routine: RoutineSchedule, day: date_cls) -> bool:

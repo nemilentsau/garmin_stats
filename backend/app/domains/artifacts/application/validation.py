@@ -1,31 +1,25 @@
 """Payload validation helpers for assistant-authored artifacts.
 
 Validation keeps assistant payloads strict before they can be staged or bundled:
-card templates must use a supported renderer payload, and routine specs must
+card templates must conform to the ``CardPayload`` union, and routine specs must
 reference known live or staged card templates.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from app.domains.artifacts.contracts import (
     AssistantArtifact,
     CapabilityRequestSpec,
-    CardTemplateSpec,
-    ChecklistBlockPayloadSpec,
-    ExerciseBlockPayloadSpec,
     RoutineSpec,
-    TimerSessionPayloadSpec,
 )
 from app.domains.artifacts.dependencies import ArtifactRepository
+from app.domains.routines.contracts import CardPayload
 from app.domains.routines.dependencies import RoutineRepository
 
-PAYLOAD_MODELS = {
-    "timer_session": TimerSessionPayloadSpec,
-    "checklist_block": ChecklistBlockPayloadSpec,
-    "exercise_block": ExerciseBlockPayloadSpec,
-}
+_PAYLOAD_ADAPTER: TypeAdapter[CardPayload] = TypeAdapter(CardPayload)
+
 
 def format_validation_errors(exc: ValidationError) -> list[str]:
     """Flatten Pydantic errors into artifact validation messages."""
@@ -59,22 +53,13 @@ def card_spec_artifact_by_card_id(
 
 
 def validate_card_template_payload(
-    payload_json: dict[str, object],
-) -> tuple[list[str], str | None]:
-    """Validate a card-template artifact and return errors plus renderer."""
-    requested_renderer = payload_json.get("renderer")
-    if not isinstance(requested_renderer, str):
-        return ["renderer: Field required"], None
-
-    if requested_renderer not in PAYLOAD_MODELS:
-        return [f"renderer: Unsupported renderer family '{requested_renderer}'"], requested_renderer
-
-    spec, errors = _try_validate(CardTemplateSpec, payload_json)
-    if spec is None:
-        return errors, requested_renderer
-
-    _, payload_errors = _try_validate(PAYLOAD_MODELS[spec.renderer], spec.payload)
-    return payload_errors, requested_renderer
+    payload: object,
+) -> tuple[list[str], CardPayload | None]:
+    """Validate a raw card payload dict against the card_type union."""
+    try:
+        return [], _PAYLOAD_ADAPTER.validate_python(payload)
+    except ValidationError as exc:
+        return format_validation_errors(exc), None
 
 
 def validate_routine_spec_payload(

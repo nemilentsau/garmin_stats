@@ -1,60 +1,26 @@
 """Artifact staging use cases.
 
 Staging accepts assistant-authored payloads, validates them against the artifact
-schema family, and records unsupported renderer requests as capability-request
-artifacts for later product decisions.
+schema family, and persists the result. Card templates are validated against the
+``CardPayload`` union; invalid payloads are recorded with their error list.
 """
 
 from __future__ import annotations
-
-from uuid import uuid4
 
 from app.domains.artifacts.contracts import (
     AssistantArtifact,
     AssistantArtifactCreateRequest,
     AssistantArtifactsResponse,
-    CapabilityRequestSpec,
 )
 from app.domains.artifacts.dependencies import ArtifactRepository
 from app.domains.routines.dependencies import RoutineRepository
 from app.utils.timeutil import now_iso
 
 from .validation import (
-    PAYLOAD_MODELS,
     validate_capability_request_payload,
     validate_card_template_payload,
     validate_routine_spec_payload,
 )
-
-
-def _system_capability_request(
-    repo: ArtifactRepository,
-    *,
-    requested_renderer: str,
-    source_artifact: AssistantArtifactCreateRequest,
-) -> AssistantArtifact:
-    now = now_iso()
-    artifact = AssistantArtifact(
-        id=f"capreq-{uuid4().hex}",
-        kind="capability_request",
-        schema_version=1,
-        status="draft",
-        source_thread_id=source_artifact.source_thread_id,
-        source_snapshot_id=source_artifact.source_snapshot_id,
-        payload_json=CapabilityRequestSpec(
-            requested_renderer=requested_renderer,
-            reason=(
-                f"Assistant draft '{source_artifact.id}' requested unsupported renderer "
-                f"'{requested_renderer}'"
-            ),
-            source_artifact_id=source_artifact.id,
-            payload_example_json=source_artifact.payload_json,
-        ).model_dump(),
-        created_at=now,
-        updated_at=now,
-    )
-    repo.save_assistant_artifact(artifact)
-    return artifact
 
 
 def create_assistant_artifact(
@@ -65,10 +31,9 @@ def create_assistant_artifact(
     """Validate and persist one assistant-authored artifact draft."""
     now = now_iso()
     errors: list[str] = []
-    requested_renderer: str | None = None
 
     if request.kind == "card_template":
-        errors, requested_renderer = validate_card_template_payload(request.payload_json)
+        errors, _ = validate_card_template_payload(request.payload_json)
     elif request.kind == "routine_spec":
         errors = validate_routine_spec_payload(repo, routines_repo, request.payload_json)
     else:
@@ -88,18 +53,6 @@ def create_assistant_artifact(
         updated_at=now,
     )
     repo.save_assistant_artifact(artifact)
-
-    if (
-        request.kind == "card_template"
-        and requested_renderer
-        and requested_renderer not in PAYLOAD_MODELS
-    ):
-        _system_capability_request(
-            repo,
-            requested_renderer=requested_renderer,
-            source_artifact=request,
-        )
-
     return artifact
 
 

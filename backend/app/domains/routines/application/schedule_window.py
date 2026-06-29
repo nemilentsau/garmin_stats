@@ -14,6 +14,7 @@ from typing import cast, get_args
 from app.domains.routines.contracts import (
     CardOverride,
     CardOverrideAction,
+    CardPayload,
     CardTemplate,
     RoutineAssignment,
     RoutineSchedule,
@@ -51,7 +52,7 @@ def _schedule_occurrence_from_template(
     assignment_id: str | None = None,
     schedule_override_action: CardOverrideAction | None = None,
     target_occurrence_key: str | None = None,
-    payload_json: dict[str, object] | None = None,
+    payload_json: CardPayload | None = None,
 ) -> ScheduleOccurrence:
     """Build a schedule occurrence from a card template plus source metadata."""
     return ScheduleOccurrence(
@@ -67,10 +68,9 @@ def _schedule_occurrence_from_template(
         assignment_id=assignment_id,
         card_template_id=card.id,
         name=card.name,
-        renderer=card.renderer,
         summary=card.summary,
         tags=card.tags,
-        payload_json=payload_json if payload_json is not None else dict(card.payload_json),
+        payload_json=payload_json if payload_json is not None else card.payload_json,
     )
 
 
@@ -165,7 +165,7 @@ def _apply_overrides(
             assignment_id=(
                 target_occurrence.assignment_id if target_occurrence is not None else None
             ),
-            payload_json=dict(template.payload_json),
+            payload_json=template.payload_json,
         )
         if override.action == "replace" and override.target_occurrence_key is not None:
             updated.pop(override.target_occurrence_key, None)

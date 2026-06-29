@@ -35,7 +35,6 @@ def _compile_card_template_artifact(
     card = CardTemplate(
         id=spec.id,
         name=spec.name,
-        renderer=spec.renderer,
         slot_default=spec.slot_default,
         summary=spec.summary,
         tags=spec.tags,

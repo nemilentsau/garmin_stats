@@ -1,8 +1,8 @@
 """Pydantic contracts owned by the artifacts domain.
 
-These models describe staged assistant output, supported card payload families,
+These models describe staged assistant output, typed card payload specs,
 bundle preview/import responses, and capability requests for unsupported
-renderers. Live routine/card contracts remain owned by the routines domain.
+card types. Live routine/card contracts remain owned by the routines domain.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from app.contracts.base import (
     StrictDefaultsRequired,
 )
 from app.domains.routines.contracts import (
-    RendererFamily,
+    CardPayload,
     RoutineActivationAssignment,
     SlotName,
 )
@@ -27,74 +27,15 @@ ArtifactBundleItemKind = Literal["card_template", "routine_spec"]
 ArtifactBundleDeltaAction = Literal["create", "update"]
 
 
-class TimerSegmentSpec(StrictDefaultsRequired):
-    """One timed segment inside a timer-session card payload."""
-
-    label: str
-    duration_seconds: int
-
-
-class RatingPromptSpec(StrictDefaultsRequired):
-    """One rating prompt collected after a timer-session card."""
-
-    key: str
-    label: str
-    scale_min: int | None = None
-    scale_max: int | None = None
-
-
-class ChecklistItemSpec(StrictDefaultsRequired):
-    """One checklist item inside a checklist-block card payload."""
-
-    id: str
-    label: str
-    detail: str | None = None
-
-
-class ExerciseItemSpec(StrictDefaultsRequired):
-    """One exercise item inside an exercise-block card payload."""
-
-    id: str
-    label: str
-    detail: str | None = None
-    reps: str | None = None
-    duration_seconds: int | None = None
-
-
-class TimerSessionPayloadSpec(StrictDefaultsRequired):
-    """Supported payload shape for timer-session cards."""
-
-    duration_minutes: int | None = None
-    pattern: str | None = None
-    instructions: str | None = None
-    segments: list[TimerSegmentSpec] = []
-    rating_prompts: list[RatingPromptSpec] = []
-
-
-class ChecklistBlockPayloadSpec(StrictDefaultsRequired):
-    """Supported payload shape for checklist-block cards."""
-
-    instructions: str | None = None
-    items: list[ChecklistItemSpec] = []
-
-
-class ExerciseBlockPayloadSpec(StrictDefaultsRequired):
-    """Supported payload shape for exercise-block cards."""
-
-    instructions: str | None = None
-    exercises: list[ExerciseItemSpec] = []
-
-
 class CardTemplateSpec(StrictDefaultsRequired):
     """Assistant-authored card template draft before activation."""
 
     id: str
     name: str
-    renderer: RendererFamily
     slot_default: SlotName
     summary: str | None = None
     tags: list[str] = []
-    payload: dict[str, object] = {}
+    payload: CardPayload
 
 
 class RoutineSpec(StrictDefaultsRequired):
@@ -111,9 +52,9 @@ class RoutineSpec(StrictDefaultsRequired):
 
 
 class CapabilityRequestSpec(StrictDefaultsRequired):
-    """Record of an unsupported renderer or artifact capability request."""
+    """Record of an unsupported card type or artifact capability request."""
 
-    requested_renderer: str
+    requested_card_type: str
     reason: str
     source_artifact_id: str | None = None
     payload_example_json: dict[str, object] = {}
