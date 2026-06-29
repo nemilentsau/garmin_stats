@@ -1,0 +1,1735 @@
+{
+  "id": "four-week-running-meditation-transfer",
+  "name": "Four-Week Running Meditation Transfer",
+  "schema_version": 1,
+  "description": "Standalone 4-week running meditation overlay aligned to the Four-Week Running Calibration — Patched routine. It does not alter mileage, intensity, HR calibration, strides, drills, steady checks, long runs, or diagnostic testing. Its purpose is to transfer seated meditation skills into running by reducing adversarial rumination and improving sensory presence during easy, recovery, and long runs.\n\nSource running bundle: Four-Week Running Calibration — Patched (four-week-running-calibration-patched), routine four-week-running-calibration-patched-routine, 2026-06-29 to 2026-07-26, relationship overlay_only_no_running_load_changes.\n\nPrimary goal: Notice adversarial rumination earlier during runs and disengage without completing the imaginary argument.\n\nSuccess condition: Argument loops may still appear, but they are noticed earlier, completed less often, shorter in duration, and lower in emotional charge.\n\nDefault anchors: foot strike, breath rhythm, arm swing, visual field, ambient sound, whole-body running sensation.\n\nDefault labels: arguing, rehearsing, planning, remembering, judging, thinking, body, sound, effort.\n\nMetric specs: argument_loop_count: Argument-loop count; longest_loop_duration: Longest loop duration; detection_speed (1-5): Detection speed; disengagement_success (1-5): Disengagement success; emotional_charge (1-5): Emotional charge; present_moment_fraction: Present-moment fraction; post_run_clarity (1-5): Post-run mental clarity; practice_interference (0-5): Practice interference with running execution.\n\nAnalysis notes: Treat Day 1 as a non-intervention baseline mental drift audit. Treat Day 22 as a within-run split test between natural mind and deliberate noting. Use long-run overlays on Days 6, 13, 20, and 27 to assess transfer under longer duration. Do not compare diagnostic-day mental metrics against easy-day metrics. If practice_interference is high on any run, reduce the next overlay duration rather than forcing the protocol.",
+  "card_templates": [
+    {
+      "id": "running-meditation-transfer-pre-run-intention",
+      "name": "Pre-Run Intention",
+      "renderer": "checklist_block",
+      "slot_default": "morning",
+      "summary": "Brief intention that primes one running anchor and one rumination-interruption rule.",
+      "tags": [
+        "running",
+        "meditation",
+        "intention",
+        "transfer"
+      ],
+      "payload": {
+        "instructions": "1-minute setup. Before starting the run, choose one anchor. If adversarial rumination appears, label it once and return to the anchor.",
+        "items": [
+          {
+            "id": "choose_anchor",
+            "label": "Choose anchor",
+            "detail": "Foot strike, breath rhythm, arm swing, visual field, or ambient sound."
+          },
+          {
+            "id": "choose_label",
+            "label": "Choose priority label",
+            "detail": "Default label: arguing."
+          },
+          {
+            "id": "rule",
+            "label": "Set rule",
+            "detail": "Do not finish imaginary arguments during the run."
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-baseline-drift-audit",
+      "name": "Baseline Mental Drift Audit",
+      "renderer": "checklist_block",
+      "slot_default": "midday",
+      "summary": "Non-intervention baseline: observe how much rumination appears during a normal easy run.",
+      "tags": [
+        "running",
+        "meditation",
+        "baseline",
+        "rumination"
+      ],
+      "payload": {
+        "instructions": "2-minute review. Do not try to control thoughts during the run. Afterward, log how much adversarial rumination happened and how sticky it felt.",
+        "items": [
+          {
+            "id": "log_01",
+            "label": "Argument-loop count",
+            "detail": "0 / 1-2 / 3-5 / 6+"
+          },
+          {
+            "id": "log_02",
+            "label": "Longest argument-loop duration",
+            "detail": "none / <30s / 30s-2min / 2-5min / 5min+"
+          },
+          {
+            "id": "log_03",
+            "label": "Detection speed",
+            "detail": "1-5"
+          },
+          {
+            "id": "log_04",
+            "label": "Disengagement success",
+            "detail": "1-5"
+          },
+          {
+            "id": "log_05",
+            "label": "Emotional charge",
+            "detail": "1-5"
+          },
+          {
+            "id": "log_06",
+            "label": "Present-moment fraction",
+            "detail": "<25% / 25-50% / 50-75% / 75%+"
+          },
+          {
+            "id": "log_07",
+            "label": "Post-run mental clarity",
+            "detail": "1-5"
+          },
+          {
+            "id": "log_08",
+            "label": "Primary trigger, if obvious",
+            "detail": null
+          },
+          {
+            "id": "log_09",
+            "label": "Most useful anchor or label",
+            "detail": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-anchor-noting-block",
+      "name": "Anchor + Noting Block",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Time-boxed running meditation block using one sensory anchor and light labels for sticky thought loops.",
+      "tags": [
+        "running",
+        "meditation",
+        "noting",
+        "rumination"
+      ],
+      "payload": {
+        "instructions": "During the assigned block, rest attention on the chosen anchor. When an argument loop appears, label it once and return. Do not finish the argument. Success condition: Notice the loop before completing it.",
+        "exercises": [
+          {
+            "id": "choose_anchor",
+            "label": "Choose one anchor",
+            "detail": "foot strike, breath rhythm, arm swing, visual field, ambient sound"
+          },
+          {
+            "id": "label_loop",
+            "label": "Label captured loops once",
+            "detail": "Priority label: arguing."
+          },
+          {
+            "id": "return_to_anchor",
+            "label": "Return to sensory running",
+            "detail": "Do not finish the imaginary argument."
+          },
+          {
+            "id": "watch_failure_modes",
+            "label": "Watch failure modes",
+            "detail": "winning the imaginary debate before returning; analyzing why the thought appeared; turning the run into a forced concentration exercise"
+          },
+          {
+            "id": "post_run_log",
+            "label": "Post-run log",
+            "detail": "Argument-loop count: 0 / 1-2 / 3-5 / 6+; Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+; Detection speed: 1-5; Disengagement success: 1-5; Emotional charge: 1-5; Present-moment fraction: <25% / 25-50% / 50-75% / 75%+; Post-run mental clarity: 1-5; Primary trigger, if obvious; Most useful anchor or label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-open-awareness-run",
+      "name": "Open Awareness Run Block",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Open-field awareness during easy or recovery running with body contact as fallback.",
+      "tags": [
+        "running",
+        "meditation",
+        "open_awareness",
+        "recovery"
+      ],
+      "payload": {
+        "instructions": "Let sounds, body sensations, breath, and thoughts come and go. Use labels only when attention gets captured. Return to the moving body. Success condition: Experience remains broad; sticky thought episodes dissolve without being completed.",
+        "exercises": [
+          {
+            "id": "open_field_awareness",
+            "label": "Open field awareness",
+            "detail": "Let sounds, body sensations, breath, and thoughts come and go."
+          },
+          {
+            "id": "label_when_captured",
+            "label": "Label only when captured",
+            "detail": "Use labels only when attention gets sticky."
+          },
+          {
+            "id": "fallback_anchor",
+            "label": "Fallback anchor",
+            "detail": "whole-body running sensation"
+          },
+          {
+            "id": "post_run_log",
+            "label": "Post-run log",
+            "detail": "Argument-loop count: 0 / 1-2 / 3-5 / 6+; Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+; Detection speed: 1-5; Disengagement success: 1-5; Emotional charge: 1-5; Present-moment fraction: <25% / 25-50% / 50-75% / 75%+; Post-run mental clarity: 1-5; Primary trigger, if obvious; Most useful anchor or label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-long-run-three-phase",
+      "name": "Long Run Three-Phase Awareness",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Structured long-run overlay: settle, rumination noting block, and late-run fatigue awareness.",
+      "tags": [
+        "running",
+        "meditation",
+        "long_run",
+        "transfer"
+      ],
+      "payload": {
+        "instructions": "Use the listed running-meditation cues during the assigned run. Success condition: Longer run creates more mental space, but argument loops are noticed and released earlier.",
+        "exercises": [
+          {
+            "id": "settle",
+            "label": "Settle",
+            "detail": "First 20 min: breath/cadence only. Do not force meditation."
+          },
+          {
+            "id": "noting",
+            "label": "Transfer block",
+            "detail": "Middle block: label argument loops and return to sensory running."
+          },
+          {
+            "id": "fatigue_awareness",
+            "label": "Fatigue awareness",
+            "detail": "Final 10-20 min: notice effort, boredom, drift, or desire to push without story-building."
+          },
+          {
+            "id": "post_run_log",
+            "label": "Post-run log",
+            "detail": "Argument-loop count: 0 / 1-2 / 3-5 / 6+; Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+; Detection speed: 1-5; Disengagement success: 1-5; Emotional charge: 1-5; Present-moment fraction: <25% / 25-50% / 50-75% / 75%+; Post-run mental clarity: 1-5; Primary trigger, if obvious; Most useful anchor or label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-mechanics-cue",
+      "name": "Mechanics Cue Only",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Minimal cueing for stride and drill days; no scored rumination experiment during fast or technical work.",
+      "tags": [
+        "running",
+        "meditation",
+        "strides",
+        "drills",
+        "mechanics"
+      ],
+      "payload": {
+        "instructions": "During strides or drills, use only simple mechanics cues. Do not score open monitoring during fast or technical segments. Success condition: Fast or technical work stays clean and relaxed without adding cognitive load.",
+        "exercises": [
+          {
+            "id": "cue_1_tall",
+            "label": "Cue: tall",
+            "detail": null
+          },
+          {
+            "id": "cue_2_relaxed",
+            "label": "Cue: relaxed",
+            "detail": null
+          },
+          {
+            "id": "cue_3_quick",
+            "label": "Cue: quick",
+            "detail": null
+          },
+          {
+            "id": "cue_4_smooth",
+            "label": "Cue: smooth",
+            "detail": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-effort-sensation-anchor",
+      "name": "Effort-Sensation Anchor",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Steady/progression-day overlay that uses breath, posture, and effort pressure rather than elaborate thought noting.",
+      "tags": [
+        "running",
+        "meditation",
+        "steady",
+        "effort_awareness"
+      ],
+      "payload": {
+        "instructions": "During steady or progression segments, keep attention on controlled effort. Label only obvious argument loops; otherwise prioritize execution. Success condition: Effort remains controlled and non-dramatic.",
+        "exercises": [
+          {
+            "id": "anchor_1_breathing_pressure",
+            "label": "Anchor: breathing pressure",
+            "detail": null
+          },
+          {
+            "id": "anchor_2_posture",
+            "label": "Anchor: posture",
+            "detail": null
+          },
+          {
+            "id": "anchor_3_cadence",
+            "label": "Anchor: cadence",
+            "detail": null
+          },
+          {
+            "id": "anchor_4_relaxed_shoulders",
+            "label": "Anchor: relaxed shoulders",
+            "detail": null
+          },
+          {
+            "id": "anchor_5_controlled_sentences",
+            "label": "Anchor: controlled sentences",
+            "detail": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-diagnostic-execution-only",
+      "name": "Diagnostic Day Execution Only",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "No meditation experiment during the LTHR diagnostic; use execution cues only.",
+      "tags": [
+        "running",
+        "meditation",
+        "diagnostic",
+        "lthr"
+      ],
+      "payload": {
+        "instructions": "Use execution cues only. Do not run a meditation-transfer experiment during the diagnostic test portion. Success condition: The diagnostic remains clean and controlled, or is skipped when readiness is not good.",
+        "exercises": [
+          {
+            "id": "cue_1_controlled",
+            "label": "Cue: controlled",
+            "detail": null
+          },
+          {
+            "id": "cue_2_even",
+            "label": "Cue: even",
+            "detail": null
+          },
+          {
+            "id": "cue_3_do_not_race",
+            "label": "Cue: do not race",
+            "detail": null
+          },
+          {
+            "id": "cue_4_abort_if_signal_or_readiness_is_poor",
+            "label": "Cue: abort if signal or readiness is poor",
+            "detail": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-split-test-natural-vs-noting",
+      "name": "Natural Mind vs Noting Split Test",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Within-run comparison: natural mind first, anchor + noting second.",
+      "tags": [
+        "running",
+        "meditation",
+        "split_test",
+        "rumination"
+      ],
+      "payload": {
+        "instructions": "Compare how much argument rumination happens naturally versus during deliberate noting. Keep pace and effort unchanged.",
+        "exercises": [
+          {
+            "id": "natural_mind",
+            "label": "Natural mind",
+            "detail": "Let the mind behave normally. Do not intentionally intervene."
+          },
+          {
+            "id": "anchor_noting",
+            "label": "Anchor + noting",
+            "detail": "Use the chosen anchor; label argument loops and return."
+          },
+          {
+            "id": "post_run_log",
+            "label": "Post-run log",
+            "detail": "Argument-loop count: 0 / 1-2 / 3-5 / 6+; Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+; Detection speed: 1-5; Disengagement success: 1-5; Emotional charge: 1-5; Present-moment fraction: <25% / 25-50% / 50-75% / 75%+; Post-run mental clarity: 1-5; Primary trigger, if obvious; Most useful anchor or label; Natural-mind phase loop count; Noting phase loop count"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-meditation-transfer-weekly-review",
+      "name": "Weekly Running Meditation Review",
+      "renderer": "checklist_block",
+      "slot_default": "evening",
+      "summary": "Weekly review of rumination frequency, loop stickiness, disengagement, and useful anchors.",
+      "tags": [
+        "running",
+        "meditation",
+        "review",
+        "rumination"
+      ],
+      "payload": {
+        "instructions": "5-minute review. Review mental-practice signal separately from running fitness. Identify what reduced argument-loop stickiness.",
+        "items": [
+          {
+            "id": "review_01",
+            "label": "Which run type triggered the most argument loops?",
+            "detail": null
+          },
+          {
+            "id": "review_02",
+            "label": "Which anchor was most reliable?",
+            "detail": null
+          },
+          {
+            "id": "review_03",
+            "label": "Was the label \"arguing\" early enough, or did you label too late?",
+            "detail": null
+          },
+          {
+            "id": "review_04",
+            "label": "Did loops become shorter or less emotionally charged?",
+            "detail": null
+          },
+          {
+            "id": "review_05",
+            "label": "Did the practice interfere with running execution?",
+            "detail": null
+          },
+          {
+            "id": "review_06",
+            "label": "One adjustment for next week",
+            "detail": null
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "four-week-running-meditation-transfer-routine",
+      "name": "Four-Week Running Meditation Transfer",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-26",
+      "status": "active",
+      "tags": [
+        "running",
+        "meditation",
+        "rumination",
+        "transfer",
+        "calibration-overlay"
+      ],
+      "notes": "Overlay routine aligned to the running calibration plan. It does not change mileage or intensity. It adds mental-practice instructions and metrics for adversarial rumination during runs. Depends on running routine four-week-running-calibration-patched-routine; this bundle is an overlay and does not change the running plan. Design rules: Do not alter prescribed running distance, duration, RPE, workout type, or calibration instructions. Use scored running meditation mainly on easy, recovery, and long runs. Do not score meditation during strides, drills, or the LTHR diagnostic portion; use simple execution cues instead. Separate running-meditation metrics from running performance and HR calibration metrics. The goal is not blank mind. The goal is earlier detection and non-completion of adversarial thought loops.",
+      "assignments": [
+        {
+          "id": "four-week-running-meditation-transfer:day01:overlay",
+          "card_template_id": "running-meditation-transfer-baseline-drift-audit",
+          "day": 1,
+          "slot": "midday",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Baseline mental drift audit",
+            "instructions": "Do not intervene during the run. Afterward, log how much argument-rumination happened naturally.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-06-29",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-aerobic",
+              "source_title": "Calibration baseline easy run",
+              "distance_miles": 6,
+              "duration_target": "50-55 min",
+              "rpe_target": "RPE 2-3",
+              "week": 1,
+              "day_of_week": "Monday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day02:overlay",
+          "card_template_id": "running-meditation-transfer-mechanics-cue",
+          "day": 2,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Stride-day mechanics cue",
+            "instructions": "During the easy portion, use 5 minutes of foot-strike anchoring. During strides, use only tall / relaxed / quick.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-06-30",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-strides",
+              "source_title": "Easy run + relaxed strides",
+              "distance_miles": 7,
+              "duration_target": "55-60 min",
+              "rpe_target": "RPE 2-3 + 6x20s fast relaxed",
+              "week": 1,
+              "day_of_week": "Tuesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day03:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 3,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "10-minute anchor + noting block",
+            "instructions": "Run easy. For 10 minutes, use foot strike or breath as anchor; label argument loops and return.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-01",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery shuffle",
+              "distance_miles": 6,
+              "duration_target": "48-52 min",
+              "rpe_target": "RPE 1-2",
+              "week": 1,
+              "day_of_week": "Wednesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day04:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 4,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "15-minute arguing → return block",
+            "instructions": "For 15 minutes, label adversarial thought as arguing and return to sensory running.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-02",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-aerobic",
+              "source_title": "Easy-only strap calibration run",
+              "distance_miles": 7,
+              "duration_target": "55-60 min",
+              "rpe_target": "RPE 2-3",
+              "week": 1,
+              "day_of_week": "Thursday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day05:overlay",
+          "card_template_id": "running-meditation-transfer-mechanics-cue",
+          "day": 5,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Drill-day mechanics cue",
+            "instructions": "Use relaxed sensory presence during the easy run. During drills, use only crisp mechanics cues.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-03",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-drills",
+              "source_title": "Easy + form drills",
+              "distance_miles": 6,
+              "duration_target": "48-55 min",
+              "rpe_target": "RPE 2-3",
+              "week": 1,
+              "day_of_week": "Friday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day06:overlay",
+          "card_template_id": "running-meditation-transfer-long-run-three-phase",
+          "day": 6,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Long-run three-phase awareness",
+            "instructions": "First 20 minutes settle; middle 20 minutes noting; final 10-20 minutes fatigue awareness without story-building.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-04",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-long-easy",
+              "source_title": "Long easy run",
+              "distance_miles": 9,
+              "duration_target": "75-80 min",
+              "rpe_target": "RPE 2-3",
+              "week": 1,
+              "day_of_week": "Saturday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day07:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 7,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Recovery open-awareness run",
+            "instructions": "Use 10 minutes of soft open awareness. Let thoughts pass; label only sticky argument loops.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-05",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery + weekly note",
+              "distance_miles": 5.5,
+              "duration_target": "44-50 min",
+              "rpe_target": "RPE 1-2",
+              "week": 1,
+              "day_of_week": "Sunday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:week1:review",
+          "card_template_id": "running-meditation-transfer-weekly-review",
+          "day": 7,
+          "slot": "evening",
+          "position": 40,
+          "prescription_override_json": {
+            "title": "Week 1 running meditation review",
+            "instructions": "Review mental-practice signal separately from running performance and HR calibration.",
+            "week": 1,
+            "review_fields": [
+              "Most common rumination trigger",
+              "Most reliable anchor",
+              "Average argument-loop count category",
+              "Average emotional charge",
+              "Average disengagement success",
+              "Whether practice interfered with running execution",
+              "One adjustment for next week"
+            ],
+            "source_date": "2026-07-05"
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day08:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 8,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute anchor + noting block",
+            "instructions": "Use a 20-minute scored block. Keep effort and pace unchanged.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-06",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-aerobic",
+              "source_title": "Easy aerobic",
+              "distance_miles": 6.5,
+              "duration_target": "52-58 min",
+              "rpe_target": "RPE 2-3",
+              "week": 2,
+              "day_of_week": "Monday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day09:overlay",
+          "card_template_id": "running-meditation-transfer-mechanics-cue",
+          "day": 9,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Stride-day pre-stride anchor",
+            "instructions": "Use 10 minutes of foot-strike anchor before strides. Do not score meditation during strides.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-07",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-strides",
+              "source_title": "Easy + strides",
+              "distance_miles": 7,
+              "duration_target": "55-62 min",
+              "rpe_target": "RPE 2-3 + 6x20s",
+              "week": 2,
+              "day_of_week": "Tuesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day10:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 10,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute open-awareness recovery run",
+            "instructions": "Use broad awareness during recovery running. Body sensation is fallback anchor.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-08",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery run",
+              "distance_miles": 6,
+              "duration_target": "48-53 min",
+              "rpe_target": "RPE 1-2",
+              "week": 2,
+              "day_of_week": "Wednesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day11:overlay",
+          "card_template_id": "running-meditation-transfer-effort-sensation-anchor",
+          "day": 11,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Progression-day effort anchor",
+            "instructions": "During easy portion, use anchor + noting. During steady finish, use breath/posture/effort as anchor.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-09",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-aerobic-progression",
+              "source_title": "Easy-to-steady progression",
+              "distance_miles": 7.5,
+              "duration_target": "60-65 min",
+              "rpe_target": "RPE 2-4",
+              "week": 2,
+              "day_of_week": "Thursday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day12:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 12,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "10-minute visual-field anchor",
+            "instructions": "Use visual field as anchor during the easy portion. During drills, use mechanics cues only.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-10",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-drills",
+              "source_title": "Easy + drills",
+              "distance_miles": 6,
+              "duration_target": "48-55 min",
+              "rpe_target": "RPE 2-3",
+              "week": 2,
+              "day_of_week": "Friday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day13:overlay",
+          "card_template_id": "running-meditation-transfer-long-run-three-phase",
+          "day": 13,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Long-run 2x20 awareness blocks",
+            "instructions": "Use two 20-minute blocks: one middle-run noting block and one late-run fatigue-awareness block.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-11",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-long-easy",
+              "source_title": "Long easy",
+              "distance_miles": 9.5,
+              "duration_target": "80-86 min",
+              "rpe_target": "RPE 2-3",
+              "week": 2,
+              "day_of_week": "Saturday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day14:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 14,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Recovery awareness + review prep",
+            "instructions": "Use 10 minutes soft open awareness, then log weekly rumination patterns after the run.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-12",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery + weekly note",
+              "distance_miles": 5.5,
+              "duration_target": "44-50 min",
+              "rpe_target": "RPE 1-2",
+              "week": 2,
+              "day_of_week": "Sunday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:week2:review",
+          "card_template_id": "running-meditation-transfer-weekly-review",
+          "day": 14,
+          "slot": "evening",
+          "position": 40,
+          "prescription_override_json": {
+            "title": "Week 2 running meditation review",
+            "instructions": "Review mental-practice signal separately from running performance and HR calibration.",
+            "week": 2,
+            "review_fields": [
+              "Most common rumination trigger",
+              "Most reliable anchor",
+              "Average argument-loop count category",
+              "Average emotional charge",
+              "Average disengagement success",
+              "Whether practice interfered with running execution",
+              "One adjustment for next week"
+            ],
+            "source_date": "2026-07-12"
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day15:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 15,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute argument-loop noting",
+            "instructions": "Use 20 minutes focused on early detection of arguing and non-completion.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-13",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-aerobic",
+              "source_title": "Easy aerobic",
+              "distance_miles": 6.5,
+              "duration_target": "52-58 min",
+              "rpe_target": "RPE 2-3",
+              "week": 3,
+              "day_of_week": "Monday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day16:overlay",
+          "card_template_id": "running-meditation-transfer-mechanics-cue",
+          "day": 16,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Stride-day anchor only",
+            "instructions": "Use 10 minutes pre-stride anchor. Strides remain mechanics-only.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-14",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-strides",
+              "source_title": "Easy + slightly denser strides",
+              "distance_miles": 7.5,
+              "duration_target": "58-65 min",
+              "rpe_target": "RPE 2-3 + 8x15-20s",
+              "week": 3,
+              "day_of_week": "Tuesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day17:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 17,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute recovery open awareness",
+            "instructions": "Use broad open awareness. Label only sticky loops and return to whole-body running.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-15",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery run",
+              "distance_miles": 6,
+              "duration_target": "48-53 min",
+              "rpe_target": "RPE 1-2",
+              "week": 3,
+              "day_of_week": "Wednesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day18:overlay",
+          "card_template_id": "running-meditation-transfer-diagnostic-execution-only",
+          "day": 18,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "LTHR diagnostic execution only",
+            "instructions": "No meditation experiment during the diagnostic. Use controlled / even / do not race cues only.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-16",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-lthr-test",
+              "source_title": "Optional LTHR calibration test",
+              "distance_miles": 8,
+              "duration_target": "60-75 min depending on warmup/cooldown",
+              "rpe_target": "Diagnostic hard-controlled only if ready",
+              "week": 3,
+              "day_of_week": "Thursday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day19:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 19,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Conditional post-test anchor block",
+            "instructions": "If LTHR test was completed, use 10 minutes soft anchor only. If skipped, use 20 minutes anchor + noting.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-17",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-drills",
+              "source_title": "Post-test easy + optional drills",
+              "distance_miles": 6,
+              "duration_target": "48-55 min",
+              "rpe_target": "RPE 2-3",
+              "week": 3,
+              "day_of_week": "Friday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day20:overlay",
+          "card_template_id": "running-meditation-transfer-long-run-three-phase",
+          "day": 20,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "30-minute long-run transfer block",
+            "instructions": "Use one continuous 30-minute transfer block in the middle of the long run.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-18",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-long-easy",
+              "source_title": "Long easy",
+              "distance_miles": 10,
+              "duration_target": "84-92 min",
+              "rpe_target": "RPE 2-3",
+              "week": 3,
+              "day_of_week": "Saturday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day21:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 21,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Recovery awareness + review prep",
+            "instructions": "Use 10 minutes recovery awareness. Keep it gentle after the highest-load week.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-19",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery + weekly note",
+              "distance_miles": 5,
+              "duration_target": "40-46 min",
+              "rpe_target": "RPE 1-2",
+              "week": 3,
+              "day_of_week": "Sunday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:week3:review",
+          "card_template_id": "running-meditation-transfer-weekly-review",
+          "day": 21,
+          "slot": "evening",
+          "position": 40,
+          "prescription_override_json": {
+            "title": "Week 3 running meditation review",
+            "instructions": "Review mental-practice signal separately from running performance and HR calibration.",
+            "week": 3,
+            "review_fields": [
+              "Most common rumination trigger",
+              "Most reliable anchor",
+              "Average argument-loop count category",
+              "Average emotional charge",
+              "Average disengagement success",
+              "Whether practice interfered with running execution",
+              "One adjustment for next week"
+            ],
+            "source_date": "2026-07-19"
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day22:overlay",
+          "card_template_id": "running-meditation-transfer-split-test-natural-vs-noting",
+          "day": 22,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Natural mind vs noting split test",
+            "instructions": "First 15 minutes natural mind; next 20 minutes anchor + noting. Compare loop count and stickiness.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-20",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-aerobic",
+              "source_title": "Deload easy",
+              "distance_miles": 6,
+              "duration_target": "48-54 min",
+              "rpe_target": "RPE 2-3",
+              "week": 4,
+              "day_of_week": "Monday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day23:overlay",
+          "card_template_id": "running-meditation-transfer-mechanics-cue",
+          "day": 23,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Light-stride mechanics cue",
+            "instructions": "Use 10 minutes anchor before strides. Reduced stride dose remains mechanics-only.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-21",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-strides",
+              "source_title": "Easy + light strides",
+              "distance_miles": 6,
+              "duration_target": "48-55 min",
+              "rpe_target": "RPE 2-3 + 4-6x20s",
+              "week": 4,
+              "day_of_week": "Tuesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day24:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 24,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute open monitoring run",
+            "instructions": "Use 20 minutes open monitoring during recovery running. Body contact is fallback.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-22",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Recovery run",
+              "distance_miles": 5,
+              "duration_target": "40-46 min",
+              "rpe_target": "RPE 1-2",
+              "week": 4,
+              "day_of_week": "Wednesday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day25:overlay",
+          "card_template_id": "running-meditation-transfer-effort-sensation-anchor",
+          "day": 25,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Short steady check effort anchor",
+            "instructions": "Use noting during easy portions. During steady block, use breathing/posture/controlled-effort anchor only.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-23",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-steady-aerobic",
+              "source_title": "Short steady check",
+              "distance_miles": 6.5,
+              "duration_target": "52-58 min",
+              "rpe_target": "RPE 3-4",
+              "week": 4,
+              "day_of_week": "Thursday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day26:overlay",
+          "card_template_id": "running-meditation-transfer-anchor-noting-block",
+          "day": 26,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "20-minute relaxed visual-field anchor",
+            "instructions": "Use visual field or ambient sound as anchor for 20 minutes. Keep effort easy.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-24",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-easy-drills",
+              "source_title": "Easy + light drills",
+              "distance_miles": 5.5,
+              "duration_target": "44-50 min",
+              "rpe_target": "RPE 2-3",
+              "week": 4,
+              "day_of_week": "Friday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day27:overlay",
+          "card_template_id": "running-meditation-transfer-long-run-three-phase",
+          "day": 27,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Final 30-minute transfer assessment",
+            "instructions": "Use final 30-minute transfer assessment. Track loop count, detection speed, and emotional charge.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-25",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-long-easy",
+              "source_title": "Reduced long run",
+              "distance_miles": 8.5,
+              "duration_target": "72-78 min",
+              "rpe_target": "RPE 2-3",
+              "week": 4,
+              "day_of_week": "Saturday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:day28:overlay",
+          "card_template_id": "running-meditation-transfer-open-awareness-run",
+          "day": 28,
+          "slot": "morning",
+          "position": 30,
+          "prescription_override_json": {
+            "title": "Final recovery awareness",
+            "instructions": "Use easy awareness and keep the run soft. Prepare final 4-week review after.",
+            "primary_anchor_options": [
+              "foot strike",
+              "breath rhythm",
+              "arm swing",
+              "visual field",
+              "ambient sound",
+              "whole-body running sensation"
+            ],
+            "priority_label": "arguing",
+            "post_run_log": [
+              "Argument-loop count: 0 / 1-2 / 3-5 / 6+",
+              "Longest argument-loop duration: none / <30s / 30s-2min / 2-5min / 5min+",
+              "Detection speed: 1-5",
+              "Disengagement success: 1-5",
+              "Emotional charge: 1-5",
+              "Present-moment fraction: <25% / 25-50% / 50-75% / 75%+",
+              "Post-run mental clarity: 1-5",
+              "Primary trigger, if obvious",
+              "Most useful anchor or label"
+            ],
+            "do_not_change_running_plan": true,
+            "source_date": "2026-07-26",
+            "linked_running_assignment": {
+              "source_routine_id": "four-week-running-calibration-patched-routine",
+              "source_card_template_id": "running-calibration-recovery",
+              "source_title": "Final recovery + calibration review",
+              "distance_miles": 5,
+              "duration_target": "40-46 min",
+              "rpe_target": "RPE 1-2",
+              "week": 4,
+              "day_of_week": "Sunday"
+            }
+          }
+        },
+        {
+          "id": "four-week-running-meditation-transfer:week4:review",
+          "card_template_id": "running-meditation-transfer-weekly-review",
+          "day": 28,
+          "slot": "evening",
+          "position": 40,
+          "prescription_override_json": {
+            "title": "Week 4 running meditation review",
+            "instructions": "Review mental-practice signal separately from running performance and HR calibration.",
+            "week": 4,
+            "review_fields": [
+              "Most common rumination trigger",
+              "Most reliable anchor",
+              "Average argument-loop count category",
+              "Average emotional charge",
+              "Average disengagement success",
+              "Whether practice interfered with running execution",
+              "One adjustment for next week"
+            ],
+            "source_date": "2026-07-26"
+          }
+        }
+      ]
+    }
+  ]
+}

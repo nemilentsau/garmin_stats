@@ -15,12 +15,12 @@ not kept as a parallel source of truth (git history retains them).
   roadmap: what is shippable now, what can be added from existing data, and what is deferred until
   new ingestion exists.
 
-## Current Work
+## Detail Tabs
 
-- [superpowers/plans/2026-06-12-frontend-metric-pages-dry.md](superpowers/plans/2026-06-12-frontend-metric-pages-dry.md)
-  — active frontend refactor plan for the metric detail pages. The current sequence is central
-  dashboard first slate complete, then generic metric dashboards DRY-up and visual improvement,
-  with only small central-dashboard access/status additions while that work is underway.
+- [HRV_TAB_REFACTOR.md](HRV_TAB_REFACTOR.md) — the HRV detail tab: what the redesign investigation
+  found (why the old widgets misled), what shipped (trailing baseline-window knob, moving ribbon,
+  extreme-night markers, trailing-z night readout), and the deliberate baseline divergence from the
+  recovery score.
 
 ## Specs & Domain Direction
 
@@ -46,10 +46,21 @@ not kept as a parallel source of truth (git history retains them).
   structured the way it is, the failure modes it guards against, and how the `finding-analyst`
   skill enforces the discipline. (The promoted evidence itself lives in the local-only
   `FINDINGS.md`.)
+- [findings/index.html](findings/index.html) — the **human-facing HTML presentation** of the
+  analysis behind the recovery score and HRV surfaces. A landing hub linking General / Recovery
+  Score / HRV pages, each pairing the original finding-run plots with narrative takeaways and
+  collapsible statistics. Generated from the analyst finding-runs and the local-only `FINDINGS.md`
+  (which remains the machine-readable record for future discovery work).
 
 ## Data & Bundle Examples
 
 - [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
+- [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
+- [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
+- [routine_bundles/four_week_running_calibration_bundle_patched.json](routine_bundles/four_week_running_calibration_bundle_patched.json)
+- [routine_bundles/four_week_running_meditation_transfer_bundle.json](routine_bundles/four_week_running_meditation_transfer_bundle.json)
+- [routine_bundles/four_week_running_support_calibration_bundle.json](routine_bundles/four_week_running_support_calibration_bundle.json)
+- [routine_bundles/four_week_strength_running_calibration_bundle.json](routine_bundles/four_week_strength_running_calibration_bundle.json)
 - [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
 

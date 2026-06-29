@@ -180,5 +180,11 @@ debugging or one-off flows, but that is not the canonical path.
 
 ## Checked-In Examples
 
+- [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
+- [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
+- [routine_bundles/four_week_running_calibration_bundle_patched.json](routine_bundles/four_week_running_calibration_bundle_patched.json)
+- [routine_bundles/four_week_running_meditation_transfer_bundle.json](routine_bundles/four_week_running_meditation_transfer_bundle.json)
+- [routine_bundles/four_week_running_support_calibration_bundle.json](routine_bundles/four_week_running_support_calibration_bundle.json)
+- [routine_bundles/four_week_strength_running_calibration_bundle.json](routine_bundles/four_week_strength_running_calibration_bundle.json)
 - [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)

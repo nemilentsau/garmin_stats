@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>General — Garmin Health Findings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-topic="general">
+
+<nav class="topnav">
+  <a class="topnav-back" href="index.html">← Findings</a>
+  <span class="topnav-title">General</span>
+  <div class="topnav-links">
+    <a href="#coverage">Coverage</a>
+    <a href="#axis">The one axis</a>
+    <a href="#offaxis">Off the axis</a>
+    <a href="#regimes">Regimes</a>
+    <a href="#flags">Health flags</a>
+  </div>
+</nav>
+
+<main class="wrap page">
+
+  <header class="hero">
+    <div class="eyebrow">01 — General</div>
+    <h1>What the dataset taught us.</h1>
+    <p class="sub">Before any score, two structural facts shaped everything downstream: the wrist
+    metrics are <em>not</em> independent dashboards — they collapse onto a single recovery↔stress
+    axis — and a few metrics that look like recovery signals aren’t. Here is the ground the rest
+    is built on.</p>
+  </header>
+
+  <!-- ============================== COVERAGE ============================== -->
+  <article class="finding" id="coverage">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">The autonomic core is complete; SpO₂ has two structural gaps.</h2>
+    </div>
+    <p class="lede">Across the year, the five autonomic signals — resting HR, average HR, stress,
+    body battery, respiration — have <span class="lead-strong">0% missing days</span>, so their
+    baseline is unconditional. SpO₂ is missing ~19% of days, but not at random: two structural
+    blocks. Those gaps must read as <em>“unknown,”</em> never as health events.</p>
+
+    <figure class="plot framed">
+      <img src="assets/coverage-missingness.png" alt="Per-metric missing-day timeline across the year">
+      <figcaption><b>Per-metric coverage timeline.</b> Each red tick = a missing day. The five
+      autonomic rows are blank (complete); SpO₂ shows two solid blocks; HRV / sleep / skin-temp
+      are lightly scattered. 357 days, 2025-06 → 2026-05.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · multi-baseline + flag-thresholds</span></summary>
+      <div class="evidence-body">
+        <table class="data">
+          <thead><tr><th>Metric</th><th class="n">Missing %</th><th>Gap pattern</th></tr></thead>
+          <tbody>
+            <tr><td class="lead">Resting HR / HR avg / stress / body battery / respiration</td><td class="n">0%</td><td>none — unconditional baseline</td></tr>
+            <tr><td class="lead">Sleep score · Skin-temp dev</td><td class="n">2.8%</td><td>scattered, slight Nov cluster</td></tr>
+            <tr><td class="lead">HRV nightly</td><td class="n">3.6%</td><td>Nov cluster + singles</td></tr>
+            <tr><td class="lead">Sleep deep / REM sub-scores</td><td class="n">7.8%</td><td>scattered, heavier early + Nov</td></tr>
+            <tr><td class="lead">SpO₂ avg / min</td><td class="n">19.0%</td><td>two structural blocks</td></tr>
+          </tbody>
+        </table>
+        <p>The SpO₂ blocks are the <b>device-setup era</b> (2025-06-01 → ~07-12) and a
+        <b>mid-series block</b> (~2025-12-12 → 2026-01-06) — together they are the entire 19%.
+        The 0-BPM wrist-contact artifact is filtered upstream by the parser and never reaches the
+        analysis mart, so remaining nulls are true nulls.</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== THE ONE AXIS ============================== -->
+  <div class="section-intro" id="axis">
+    <h2>One signal, measured seven ways</h2>
+    <p>The single most consequential structural finding: the recovery metrics co-move so tightly
+    that they are better understood as one underlying state than as seven independent readouts.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Almost everything collapses onto one recovery↔stress axis.</h2>
+    </div>
+    <p class="lede">A single principal component explains <span class="lead-strong">~74–75%</span>
+    of the variance across the seven recovery inputs, and the pairwise correlations form one tight
+    block. Stress, HR avg, resting HR and respiration load on the stress pole; HRV, body battery
+    and sleep on the recovery pole. This is <em>why a single composite score is defensible</em> —
+    and why combining the correlated inputs buys reliability rather than double-counting.</p>
+
+    <figure class="plot framed">
+      <img src="assets/axis-corr-heatmap.png" alt="Spearman correlation heatmap, recovery block bracketed apart from off-axis metrics">
+      <figcaption><b>Pairwise Spearman correlations, regrouped.</b> The recovery block (top-left,
+      bracketed) is one coherent, tightly-coupled axis (|r| up to 0.85); the four off-axis metrics
+      tie to it near zero. 373 days.</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/axis-within7-scree.png" alt="Scree plot of the seven recovery inputs, PC1 at 75%">
+      <figcaption><b>The seven recovery inputs are essentially one axis.</b> PC1 alone explains
+      <b>75.3%</b> of variance (mean inter-item r 0.71); every later component is a long tail.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · axis-dimensionality + multi-baseline</span></summary>
+      <div class="evidence-body">
+        <p><b>The axis, by strength of coupling (|r| ≥ 0.5, Spearman):</b></p>
+        <dl class="kv">
+          <dt>HR avg ↔ Stress</dt><dd class="num">+0.84</dd>
+          <dt>Respiration ↔ HRV</dt><dd class="num">−0.84</dd>
+          <dt>Body Battery ↔ HRV</dt><dd class="num">+0.82</dd>
+          <dt>Body Battery ↔ Sleep</dt><dd class="num">+0.80</dd>
+          <dt>Stress ↔ Body Battery</dt><dd class="num">−0.80</dd>
+          <dt>Resting HR ↔ HRV</dt><dd class="num">−0.76</dd>
+        </dl>
+        <p><b>Dimensionality &amp; reliability.</b> Within the seven inputs: PC1 75.3%, PC2 9.0%,
+        mean inter-item r 0.71 (n=360). Cronbach α = 0.94 and split-half composite reliability 0.94
+        — both above the best single item (~0.90). Combining correlated signals raises reliability;
+        it is not redundant double-counting.</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== OFF THE AXIS ============================== -->
+  <div class="section-intro" id="offaxis">
+    <h2>What is <em>not</em> a recovery signal</h2>
+    <p>Equally important is what we ruled <em>out</em>. Three metrics that intuitively feel like
+    recovery — deep sleep, overnight SpO₂, REM — carry no recovery-trend information and were
+    deliberately kept out of the score.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">The dataset holds three axes — but only one is a recovery trend.</h2>
+    </div>
+    <p class="lede">Widen from the seven recovery inputs to all eleven metrics and ~3 statistical
+    axes appear: recovery (~50%), then a separate <em>oxygen</em> axis and a
+    <em>thermoregulation / sleep-architecture</em> axis. The off-axis metrics aren’t noise — they
+    are their own weaker signals, which is exactly why they must not be folded into recovery.</p>
+
+    <figure class="plot framed">
+      <img src="assets/dataset-three-axes-scree.png" alt="Full-dataset scree plot showing three components above the Kaiser cutoff">
+      <figcaption><b>The full dataset has three axes, not one.</b> PC1 (recovery) ~50%, then two
+      more components clear the eigenvalue-&gt;1 cutoff (oxygen; thermo / sleep-architecture). Only
+      the first is a smooth recovery trend. 280 complete-case days.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · axis-dimensionality</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Full-set components</dt><dd>PC1 <span class="num">50%</span>, PC2 <span class="num">10%</span>, PC3 <span class="num">10%</span> → 3 Kaiser axes (eigenvalue &gt; 1), n=280</dd>
+          <dt>Deep-sleep coupling</dt><dd>|r| ≤ <span class="num">0.15</span> with everything (−0.01 vs sleep score)</dd>
+          <dt>SpO₂ min coupling</dt><dd>|r| ≤ <span class="num">0.09</span> with the axis</dd>
+          <dt>Skin-temp coupling</dt><dd>peaks at <span class="num">−0.36</span> (vs sleep), else near-zero</dd>
+          <dt>REM</dt><dd>79% independent of sleep score, but its independent part vs the autonomic composite is r <span class="num">−0.03</span> — sleep-architecture detail, no recovery information</dd>
+        </dl>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Deep-sleep score behaves like noise.</h2>
+    </div>
+    <p class="lede">It has essentially no day-to-day persistence and it <em>ignored</em> the
+    November crash — staying ~90 while overall sleep fell to ~41. Benchmarked against signals we
+    know are real, it carries no usable recovery trend.</p>
+
+    <figure class="plot framed">
+      <img src="assets/deepsleep-autocorrelation.png" alt="Autocorrelation by lag for five metrics; deep sleep near zero">
+      <figcaption><b>Day-to-day persistence (autocorrelation), lags 1–7.</b> Deep-sleep sits flat
+      at ~+0.04 (its lag-1 CI touches zero) while resting HR persists at +0.58 — deep-sleep looks
+      like noise next to a known-real signal. 357 days.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · sleep-deep-signal-or-noise</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Lag-1 autocorrelation</dt><dd><span class="num">+0.044</span>, CI [−0.057, +0.149] (spans 0); flat across lags 1–7</dd>
+          <dt>vs resting HR / HRV</dt><dd><span class="num">+0.58</span> / +0.15</dd>
+          <dt>Ceiling censoring</dt><dd><span class="num">29%</span> of nights pinned at the 100 cap</dd>
+          <dt>Through the Nov regime</dt><dd>deep median <span class="num">90.5</span> while overall sleep crashed to <span class="num">41.5</span></dd>
+        </dl>
+        <div class="caveat"><b>Scope.</b> Low autocorrelation can’t fully separate measurement
+        noise from genuine volatility — the confident verdict is “not usable for trends,” not
+        “proven noise.”</div>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Overnight SpO₂ is a health flag, not a recovery signal.</h2>
+    </div>
+    <p class="lede">A pre-registered test asked whether SpO₂ predicts <em>next-day</em> recovery
+    once today’s recovery is known. It doesn’t — both partial correlations straddle zero and fall
+    short of the confirm bar. SpO₂ stays as a point-in-time low-oxygen flag, never a recovery input.</p>
+
+    <figure class="plot framed">
+      <img src="assets/spo2-incremental-value.png" alt="Flat SpO2-vs-recovery scatter and a forest plot of partial correlations near zero">
+      <figcaption><b>SpO₂ adds no recovery information.</b> Left: near-flat same-day SpO₂-min vs
+      recovery (r −0.02). Right: both partial-correlation CIs straddle zero and miss the
+      pre-registered confirm threshold (±0.15) — labeled redundant. n=287.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · spo2-incremental-value</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Partial Spearman, SpO₂(D) vs recovery(D+1) | recovery(D)</dt><dd></dd>
+          <dt>· spo2_min</dt><dd><span class="num">−0.066</span>, CI [−0.214, +0.095]</dd>
+          <dt>· spo2_avg</dt><dd><span class="num">+0.140</span>, CI [−0.014, +0.263]</dd>
+          <dt>Confirm bar</dt><dd>|r| ≥ 0.15 with CI excluding 0 — neither reaches it (n=287)</dd>
+        </dl>
+        <div class="caveat"><b>Caveat.</b> spo2_avg’s upper CI (+0.26) does not fully exclude a
+        weak effect; the confident claim is the rejection of a <em>usable</em> recovery signal.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== REGIMES ============================== -->
+  <div class="section-intro" id="regimes">
+    <h2>How the year moved</h2>
+    <p>The recovery axis is not stationary — it moved through distinct regimes. But the axis’s
+    <em>structure</em> stayed fixed even as its <em>values</em> swung, which matters a great deal
+    for how the score is normalized.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">The year moved through three regimes.</h2>
+    </div>
+    <p class="lede">A severe multi-system low-recovery crash (November 2025), a strong recovery
+    plateau (January–March 2026), and a milder late-April softening. November is the only
+    <em>severe, sustained</em> episode in the dataset — which is why much of the recovery work that
+    follows is honestly n-of-1.</p>
+
+    <figure class="plot framed">
+      <img src="assets/year-temporal-overview.png" alt="Year overview: per-metric z-scores and a 14-day aggregate deviation map">
+      <figcaption><b>One year, three regimes</b> — read the bottom 14-day aggregate-deviation
+      curve: a sharp November peak, a Jan–Mar trough (best recovery), and a smaller late-April
+      bump. 357 days.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · multi-baseline-recharacterization</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>November monthly medians (worst in sample)</dt><dd>RHR <span class="num">57</span>, stress <span class="num">46.9</span>, body battery <span class="num">11.6</span>, HRV <span class="num">41</span>, sleep <span class="num">37.5</span></dd>
+          <dt>Worst fortnight</dt><dd>Nov 5–18, composite robust-z <span class="num">−1.33</span></dd>
+          <dt>Best fortnight</dt><dd>Feb 19 – Mar 4, composite robust-z <span class="num">+0.81</span></dd>
+        </dl>
+        <div class="caveat"><b>Provisional.</b> Regime boundaries are sensitive to composite
+        weighting and 7-day smoothing; the December tail in particular is soft. The crash itself is
+        unambiguous.</div>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">It is the same axis in every regime.</h2>
+    </div>
+    <p class="lede">Between the November crash, the Jan–Mar plateau, and the rest of the year, what
+    changes is the metric <em>values</em>, not the axis <em>structure</em>. The principal-component
+    loadings are near-identical everywhere — so <span class="lead-strong">one static weight set is
+    legitimate</span> and regime-aware scoring is not warranted.</p>
+
+    <figure class="plot framed">
+      <img src="assets/axis-loadings-by-regime.png" alt="PC1 loadings per metric, near-identical across three regimes">
+      <figcaption><b>PC1 loadings by regime.</b> Per-metric loadings are visually identical across
+      the Nov crash, the Jan–Mar plateau, and the rest of the year (Tucker congruence 0.993–0.999).
+      373 days.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · multi-axis-loading-stability</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>PC1 Tucker congruence</dt><dd><span class="num">0.993–0.999</span> across all regime/quarter windows (bootstrap CI floors ≥ 0.980)</dd>
+          <dt>Pole signs</dt><dd>identical in every window</dd>
+          <dt>PC1 variance share</dt><dd><span class="num">70–79%</span> per window</dd>
+        </dl>
+        <div class="caveat"><b>Provisional secondary.</b> Two couplings <em>attenuate</em> (without
+        reordering) in the Sep–Nov crash quarter: respiration↔body-battery −0.52 vs −0.82..−0.87,
+        and HRV↔sleep +0.46 vs +0.78. Structure holds; coupling strength softens in the crash.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== FLAGS ============================== -->
+  <div class="section-intro" id="flags">
+    <h2>Health flags</h2>
+    <p>Separate from recovery, two off-axis signals earn their own flags — and the way they must be
+    calibrated is itself a finding.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Two health flags — and they must be personal, not textbook.</h2>
+    </div>
+    <p class="lede">A low-oxygen flag and a thermoregulation flag, each calibrated to this person’s
+    own distribution. Absolute clinical cutoffs are useless here — an absolute SpO₂-min &lt; 88%
+    rule would fire on <span class="lead-strong">98.7%</span> of this user’s nights.</p>
+
+    <figure class="plot framed">
+      <img src="assets/health-flags-timeline.png" alt="Three-panel timeline of SpO2 avg, SpO2 min, and skin-temp deviation with personal flag thresholds">
+      <figcaption><b>Personally-calibrated health flags.</b> spo2_avg with its ~90.5% flag line
+      catches the real Apr 21–27 low-oxygen episode as a block (red); skin-temp deviation flags
+      outside ±~0.9 °C; grey marks structural-missing days. 373 days.</figcaption>
+    </figure>
+
+    <pre class="snippet"><span class="c"># Personally-calibrated, descriptive flags (no diagnosis)</span>
+low_oxygen   = spo2_avg &lt; <span class="v">personal_median − 2.5·MAD</span>   <span class="c"># ≈ 90.5%  · 3.6% of nights</span>
+thermoreg    = skin_temp_dev <span class="v">outside [−0.91, +0.83] °C</span>   <span class="c"># 4.4% of days</span>
+missing_spo2 = <span class="v">"unknown"</span>  <span class="c"># a third state — never "clear"</span></pre>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · spo2-skintemp-flag-thresholds</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Low-oxygen flag</dt><dd>spo2_avg &lt; ~90.5% (median − 2.5·MAD) — 3.6% of covered nights; catches all 7 days of the Apr 21–27 episode</dd>
+          <dt>spo2_avg beats spo2_min</dt><dd>min is integer-coarse, catches only 2/7 episode days; demoted to nadir detail</dd>
+          <dt>Thermoregulation flag</dt><dd>skin-temp deviation outside [−0.91, +0.83] °C — 4.4% of days; independent of oxygen (did <em>not</em> fire in April)</dd>
+          <dt>Why personal</dt><dd>absolute spo2_min &lt; 88% fires on <span class="num">98.7%</span> of this user’s nights</dd>
+        </dl>
+      </div>
+    </details>
+  </article>
+
+  <footer class="foot">
+    <a href="index.html">← Back to all findings</a> &nbsp;·&nbsp; Continue:
+    <a href="recovery.html">Recovery Score →</a> &nbsp; <a href="hrv.html">HRV →</a><br>
+    Numbers recomputed from pinned snapshots (357 d on 2025-05 runs, 373 d on June runs); full
+    method and caveats in the per-finding evidence blocks and <code>FINDINGS.md</code>.
+  </footer>
+
+</main>
+</body>
+</html>

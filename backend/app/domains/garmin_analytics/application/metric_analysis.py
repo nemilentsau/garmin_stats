@@ -6,6 +6,7 @@ chart series, distributions, and boxplots are computed in `domain.analysis`.
 
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
+    BASELINE_WINDOW_DEFAULT,
     BodyBatteryAnalysisResponse,
     HeartRateAnalysisResponse,
     HRDistributionResponse,
@@ -20,7 +21,10 @@ from app.domains.garmin_analytics.domain.analysis.heart_rate import (
     compute_heart_rate_analysis,
     compute_hr_distribution,
 )
-from app.domains.garmin_analytics.domain.analysis.hrv import compute_hrv_analysis
+from app.domains.garmin_analytics.domain.analysis.hrv import (
+    compute_nightly_hrv_trend,
+    compute_pattern_windows,
+)
 from app.domains.garmin_analytics.domain.analysis.sleep import compute_sleep_analysis
 from app.domains.garmin_analytics.domain.analysis.stress import compute_stress_analysis
 from app.infra import cache
@@ -81,9 +85,31 @@ def load_hr_distribution(
     )
 
 
-def load_hrv_analysis(repo: BiometricReadRepository) -> HrvAnalysisResponse:
-    """Load cached HRV trend, pattern, and distribution analysis."""
-    return cache.cached(
-        cache.HRV_ANALYSIS,
-        lambda: compute_hrv_analysis(repo.load_daily_metrics()),
+def load_hrv_analysis(
+    repo: BiometricReadRepository, baseline: int = BASELINE_WINDOW_DEFAULT
+) -> HrvAnalysisResponse:
+    """Load cached HRV trend and weekday-pattern analysis.
+
+    The nightly trend's band depends on the baseline window, so it is cached per window.
+    The weekday pattern windows are baseline-independent, so they are cached once under a
+    single key and reused across windows — avoiding the triple compute and storage the old
+    combined per-window key incurred. Generation-based invalidation in ``cache.cached`` still
+    refreshes both on re-ingest.
+
+    The mart is read ONCE here and fed to both cache-miss computes, so the per-window trend and
+    the shared weekday patterns in a single response always come from one metrics snapshot. The
+    two computes are cached under separate keys; reading the mart inside each lambda instead would
+    let a re-ingest (``cache.invalidate``) land between them and return a response that mixes two
+    ingest generations (trend from before, patterns from after). ``load_daily_metrics`` is itself
+    cached, so this single eager read is one dict lookup on the hot path.
+    """
+    metrics = repo.load_daily_metrics()
+    trend = cache.cached(
+        f"{cache.HRV_TREND}:{baseline}",
+        lambda: compute_nightly_hrv_trend(metrics, window=baseline),
     )
+    patterns = cache.cached(
+        cache.HRV_PATTERNS,
+        lambda: compute_pattern_windows(metrics),
+    )
+    return HrvAnalysisResponse(nightly_trend=trend, pattern_windows=patterns)

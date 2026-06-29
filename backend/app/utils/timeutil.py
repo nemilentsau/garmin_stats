@@ -1,6 +1,22 @@
 """Shared timestamp utilities."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from datetime import date as date_type
+
+
+def date_range(start: str, end: str) -> list[str]:
+    """Return all ISO date strings from ``start`` to ``end`` inclusive.
+
+    The one inclusive local-date range generator, shared by analytics trend densification and
+    experiment window math. Local dates only — the parser already shifts Garmin timestamps to
+    local time, so callers pass plain ISO dates.
+    """
+    start_day = date_type.fromisoformat(start)
+    end_day = date_type.fromisoformat(end)
+    return [
+        (start_day + timedelta(days=n)).isoformat()
+        for n in range((end_day - start_day).days + 1)
+    ]
 
 
 def now_iso() -> str:

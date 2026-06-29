@@ -71,8 +71,9 @@
       },
       "status": {
         "type": "enum",
-        "values": ["low", "balanced", "high"],
-        "description": "HRV status classification based on baselines"
+        "values": ["balanced", "unbalanced", "low", "none"],
+        "values_note": "Observed values across this dataset's 390 nights (2026-06-28 scan): balanced=326, unbalanced=51, low=12, none=1. Classifies the 7-day rolling average against the personal baseline range; for this user it is monotonically low-side (balanced > unbalanced > low), and 'high' never occurs. The SDK profile may define additional values (e.g. 'high'); the normalizer handles them but they are absent here.",
+        "description": "HRV status classification of the 7-day average vs the personal baseline range"
       }
     },
     "fields_undocumented": ["7 (int, sample=34)", "8 (int, sample=41242)"]

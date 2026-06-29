@@ -42,6 +42,36 @@ _ARTIFACT_REPO = SqliteArtifactRepository()
 def load_assistant_artifacts(*, kind: str | None = None, status: str | None = None):
     return _ARTIFACT_REPO.list_assistant_artifacts(kind=kind, status=status)
 _MEDITATION_BUNDLE_PATH = REPO_ROOT / "docs" / "routine_bundles" / "two_week_meditation_bundle.json"
+_FOUR_WEEK_MEDITATION_BUNDLE_PATH = (
+    REPO_ROOT / "docs" / "routine_bundles" / "four_weeks_meditation.json"
+)
+_FOUR_WEEK_BREATHWORK_BUNDLE_PATH = (
+    REPO_ROOT / "docs" / "routine_bundles" / "four_weeks_breathwork.json"
+)
+_FOUR_WEEK_RUNNING_BUNDLE_PATH = (
+    REPO_ROOT
+    / "docs"
+    / "routine_bundles"
+    / "four_week_running_calibration_bundle_patched.json"
+)
+_FOUR_WEEK_RUNNING_SUPPORT_BUNDLE_PATH = (
+    REPO_ROOT
+    / "docs"
+    / "routine_bundles"
+    / "four_week_running_support_calibration_bundle.json"
+)
+_FOUR_WEEK_RUNNING_MEDITATION_TRANSFER_BUNDLE_PATH = (
+    REPO_ROOT
+    / "docs"
+    / "routine_bundles"
+    / "four_week_running_meditation_transfer_bundle.json"
+)
+_FOUR_WEEK_STRENGTH_RUNNING_BUNDLE_PATH = (
+    REPO_ROOT
+    / "docs"
+    / "routine_bundles"
+    / "four_week_strength_running_calibration_bundle.json"
+)
 
 
 def _card_request(
@@ -128,6 +158,44 @@ def _bundle_spec(
 def _load_meditation_bundle() -> ArtifactBundleSpec:
     return ArtifactBundleSpec.model_validate(
         json.loads(_MEDITATION_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _load_four_week_meditation_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_FOUR_WEEK_MEDITATION_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _load_four_week_breathwork_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_FOUR_WEEK_BREATHWORK_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _load_four_week_running_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_FOUR_WEEK_RUNNING_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _load_four_week_running_support_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_FOUR_WEEK_RUNNING_SUPPORT_BUNDLE_PATH.read_text(encoding="utf-8"))
+    )
+
+
+def _load_four_week_running_meditation_transfer_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(
+            _FOUR_WEEK_RUNNING_MEDITATION_TRANSFER_BUNDLE_PATH.read_text(encoding="utf-8")
+        )
+    )
+
+
+def _load_four_week_strength_running_bundle() -> ArtifactBundleSpec:
+    return ArtifactBundleSpec.model_validate(
+        json.loads(_FOUR_WEEK_STRENGTH_RUNNING_BUNDLE_PATH.read_text(encoding="utf-8"))
     )
 
 
@@ -600,6 +668,174 @@ class TestArtifactBundles:
 
         assert [card.name for card in all_cards] == ["Resonance Breathing", "Extended Exhale"]
         assert [card.payload_json["duration_minutes"] for card in all_cards] == [8, 6]
+
+    def test_four_week_meditation_bundle_previews_as_valid_artifact_bundle(self):
+        bundle = _load_four_week_meditation_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 4
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 28
+        assert [assignment.slot for assignment in bundle.routine_specs[0].assignments].count(
+            "midday"
+        ) == 24
+        assert [assignment.slot for assignment in bundle.routine_specs[0].assignments].count(
+            "evening"
+        ) == 4
+        assert {
+            assignment.slot for assignment in bundle.routine_specs[0].assignments
+        } == {"midday", "evening"}
+
+    def test_four_week_breathwork_bundle_previews_with_ambiguous_slots_mapped_earlier(self):
+        bundle = _load_four_week_breathwork_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 9
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 28
+        slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
+        assert slots.count("morning") == 16
+        assert slots.count("evening") == 12
+        assert set(slots) == {"morning", "evening"}
+
+    def test_four_week_running_bundle_previews_with_owned_supported_cards(self):
+        bundle = _load_four_week_running_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 10
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 33
+        assert {card.renderer for card in bundle.card_templates} == {
+            "checklist_block",
+            "exercise_block",
+        }
+        assert all(
+            card.id.startswith("running-calibration-") for card in bundle.card_templates
+        )
+        slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
+        assert slots.count("morning") == 29
+        assert slots.count("evening") == 4
+        assert set(slots) == {"morning", "evening"}
+
+    def test_four_week_running_bundle_collects_run_confounders_after_each_run(self):
+        bundle = _load_four_week_running_bundle()
+
+        run_assignments = [
+            assignment
+            for assignment in bundle.routine_specs[0].assignments
+            if assignment.card_template_id
+            not in {
+                "running-calibration-hr-strap-setup",
+                "running-calibration-weekly-review",
+            }
+        ]
+
+        assert len(run_assignments) == 28
+        expected_field_keys = {
+            "temperature_f",
+            "humidity_percent",
+            "dew_point_f",
+            "wind_mph",
+            "sun_exposure",
+            "surface",
+            "elevation_gain_ft",
+            "route_profile",
+            "shoe_model",
+            "fueling_hydration",
+            "sleep_quality",
+            "soreness_or_pain",
+            "hr_source_quality",
+        }
+        for assignment in run_assignments:
+            post_run_fields = cast(
+                list[dict[str, object]],
+                assignment.prescription_override_json.get("post_run_fields", []),
+            )
+            assert {field["key"] for field in post_run_fields} == expected_field_keys
+
+    def test_four_week_running_support_bundle_previews_with_supported_slots_and_cards(self):
+        bundle = _load_four_week_running_support_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 7
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 26
+        assert {card.renderer for card in bundle.card_templates} == {
+            "checklist_block",
+            "exercise_block",
+        }
+        assert all(
+            card.id.startswith("running-support-calibration-")
+            for card in bundle.card_templates
+        )
+        slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
+        assert slots.count("morning") == 4
+        assert slots.count("midday") == 6
+        assert slots.count("evening") == 16
+        assert set(slots) == {"morning", "midday", "evening"}
+
+    def test_four_week_running_meditation_transfer_bundle_previews_with_supported_slots_and_cards(
+        self,
+    ):
+        bundle = _load_four_week_running_meditation_transfer_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 10
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 32
+        assert {card.renderer for card in bundle.card_templates} == {
+            "checklist_block",
+            "exercise_block",
+        }
+        assert all(
+            card.id.startswith("running-meditation-transfer-")
+            for card in bundle.card_templates
+        )
+        slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
+        assert slots.count("morning") == 27
+        assert slots.count("midday") == 1
+        assert slots.count("evening") == 4
+        assert set(slots) == {"morning", "midday", "evening"}
+
+    def test_four_week_strength_running_bundle_previews_with_supported_slots_and_cards(
+        self,
+    ):
+        bundle = _load_four_week_strength_running_bundle()
+
+        preview = preview_artifact_bundle(bundle)
+
+        assert preview.valid is True
+        assert len(preview.issues) == 0
+        assert len(bundle.card_templates) == 8
+        assert len(bundle.routine_specs) == 1
+        assert len(bundle.routine_specs[0].assignments) == 28
+        assert {card.renderer for card in bundle.card_templates} == {
+            "checklist_block",
+            "exercise_block",
+        }
+        assert all(
+            card.id.startswith("strength-running-calibration-")
+            for card in bundle.card_templates
+        )
+        slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
+        assert slots.count("midday") == 23
+        assert slots.count("evening") == 5
+        assert set(slots) == {"midday", "evening"}
 
     def test_core_bundle_runs_preview_import_activation_schedule_and_today_workflow(self):
         bundle = _load_core_bundle()

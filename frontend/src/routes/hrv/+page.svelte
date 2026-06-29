@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { replaceState } from '$app/navigation';
 	import {
 		api,
 		type HrvDaily,
@@ -9,54 +10,215 @@
 		type HrvAnalysis
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
+	import {
+		DEFAULT_HRV_BASELINE_WINDOW,
+		coerceHrvBaselineWindow,
+		type HrvBaselineWindow
+	} from '$lib/hrv-baseline';
+	import { garminStatusKey } from '$lib/hrv-status';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
-	import ScatterChart from '$lib/components/ScatterChart.svelte';
-	import MetricDefinition from '$lib/components/MetricDefinition.svelte';
-	import { fmt, fmtSigned, fmtTimeWindow } from '$lib/format';
+	import { fmt, fmtSigned } from '$lib/format';
+	import { errorMessage } from '$lib/errors';
+	import { historicalApplyOptions } from '$lib/hrv-async';
+	import { fmtFullDate, parseIsoDate } from '$lib/date';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
-	import { localDateIso } from '$lib/date';
-	import { type TrendRange, trendCutoff, PERIOD_KEY_MAP } from '$lib/trend-range';
+	import BaselineWindowPicker from '$lib/components/BaselineWindowPicker.svelte';
+	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
+	import { tightScale } from '$lib/chart-scale';
 
 	// ── State ──
 	let agg: HrvDaily | null = $state(null);
 	let analysis: HrvAnalysis | null = $state(null);
+	// Day-of-week pattern windows are baseline-independent — the backend returns identical data for
+	// every window. Holding them in their own state (updated only when the content actually changes)
+	// lets a baseline switch replace the nightly trend without handing the weekday chart a new object
+	// reference, so toggling 30/60/90 never rebuilds and re-animates a chart whose data didn't move.
+	let patternWindows = $state<HrvAnalysis['pattern_windows'] | null>(null);
 	let dashOverview: DashboardOverview | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	// Non-blocking errors scoped to a failed secondary fetch, kept separate from `error`
+	// so one failed sub-request never blanks the already-loaded dashboard. `detailError`
+	// covers the selected-night fetch (rendered in the night-detail panel); `baselineError`
+	// covers a baseline-window switch (rendered by the trend hero, which is always visible
+	// when data is loaded, so the failure is surfaced even with no night open).
+	let detailError = $state<string | null>(null);
+	let baselineError = $state<string | null>(null);
 
 	// Latest day (Tier 1 — always the most recent)
 	let latestInsights: HrvInsights | null = $state(null);
 
-	// Historical day (Tier 2 — selected via strip)
+	// Historical day (Tier 2 — selected via strip). The detail panel is open exactly when a night
+	// is selected, so `historyOpen` is derived, not a second flag kept in lockstep with selectedDate.
 	let selectedDate = $state('');
-	let historyOpen = $state(false);
+	let historyOpen = $derived(selectedDate !== '');
+	let dayHover: { date: string; x: number; y: number } | null = $state(null);
 	let historicalInsights: HrvInsights | null = $state(null);
-	let dateRequestId = 0;
+	let dayStripContainer: HTMLDivElement | null = $state(null);
+	let timelineHasAutoScrolled = false;
+	// Two independent request tokens for two ORTHOGONAL concerns, so neither cancels the other:
+	//   • windowReq — the chart/window snapshot (analysis, headline, committed baseline window).
+	//     Bumped by the initial/SSE load (fetchData) and a baseline-window switch (onBaselineChange).
+	//   • detailReq — the selected-night detail panel. Bumped by night selection (onDateChange).
+	// A night click must not cancel an in-flight baseline switch (or vice-versa): they write
+	// disjoint state, so they carry disjoint tokens. The snapshot path still applies the open
+	// night's refresh only when that night is still selected (historicalApplyOptions), so a window
+	// load can never clobber a fresher night selection even though they run concurrently.
+	let windowReq = 0;
+	let detailReq = 0;
+	// Token (a windowReq value) of the most recent baseline switch. The spinner and optimistic
+	// picker highlight are owned by exactly one switch at a time: a switch clears them in its
+	// `finally` only if it is still the latest (`baselineReq === myReq`), so a superseding SSE
+	// refresh can't leave the spinner stuck while a newer switch keeps them for itself.
+	let baselineReq = 0;
+	// Optimistic window for the picker highlight ONLY, set the moment a switch starts so the
+	// clicked button lights up immediately. The committed window (`baselineWindow`) still moves
+	// only when the chart data applies, so this never feeds the legend, URL, or any fetch.
+	let pendingBaseline = $state<HrvBaselineWindow | null>(null);
+	// A baseline switch is in flight exactly while it holds the optimistic highlight, so the
+	// spinner/disabled state is simply derived from pendingBaseline — one source of truth, no
+	// second flag to keep in lockstep.
+	let baselineLoading = $derived(pendingBaseline !== null);
+
+	// ── Baseline window ──
+	function readBaselineFromUrl(): HrvBaselineWindow {
+		return coerceHrvBaselineWindow(new URL(window.location.href).searchParams.get('baseline'));
+	}
+	let baselineWindow = $state<HrvBaselineWindow>(DEFAULT_HRV_BASELINE_WINDOW);
+
+	type HrvSnapshot = {
+		agg: HrvDaily;
+		analysis: HrvAnalysis;
+		dashOverview: DashboardOverview;
+		latestInsights: HrvInsights | null;
+		historicalInsights: HrvInsights | null;
+		// Error from the isolated selected-night sub-fetch (null on success). Carried on the
+		// snapshot instead of thrown so a failed night fetch can't abort the chart/headline.
+		historicalError: string | null;
+		baseline: HrvBaselineWindow;
+	};
 
 	// ── Data fetching ──
-	async function fetchData() {
-		const [nextAgg, nextAnalysis, nextOverview] = await Promise.all([
-			api.getHrvDaily(),
-			api.getHrvAnalysis(),
-			api.getDashboardOverview()
+	async function loadHrvSnapshot(
+		window: HrvBaselineWindow,
+		historicalDate = '',
+		// getHrvDaily and getDashboardOverview don't vary with the baseline window. On a
+		// baseline switch the caller passes the already-loaded copies via `reuse` so we fetch
+		// only the window-dependent analysis + insights instead of re-downloading them.
+		reuse?: { agg: HrvDaily; dashOverview: DashboardOverview }
+	): Promise<HrvSnapshot> {
+		// Kick off the window-dependent analysis immediately so it overlaps the (skippable)
+		// window-independent fetches on a full load.
+		const analysisP = api.getHrvAnalysis(window);
+		const [nextAgg, nextOverview] = reuse
+			? [reuse.agg, reuse.dashOverview]
+			: await Promise.all([api.getHrvDaily(), api.getDashboardOverview()]);
+		const latest = nextAgg.days[nextAgg.days.length - 1] ?? '';
+		// The insights depend only on the (now-known) agg + window, NOT on the analysis, so fetch
+		// them in parallel with analysisP — a baseline switch is then one round trip, not two.
+		const latestP = latest ? api.getHrvInsights(latest, window) : Promise.resolve(null);
+		// The selected-night insights are a secondary, ISOLATED sub-fetch: its failure must not
+		// reject the snapshot (which on an SSE refresh would blank the already-loaded chart +
+		// headline). Capture any error and let applyHrvSnapshot surface it in the night panel
+		// via detailError, exactly as the click path (onDateChange) does. The latest-night
+		// insights stay a hard dependency — they drive the always-visible headline.
+		// When the open night IS the latest night (the common default focus), reuse the latest
+		// insights request instead of firing a second byte-identical GET — same date, same window.
+		const historicalReq =
+			historicalDate === latest ? latestP : api.getHrvInsights(historicalDate, window);
+		const historicalP: Promise<{ insights: HrvInsights | null; error: string | null }> =
+			historicalDate
+				? historicalReq
+						.then((insights) => ({ insights, error: null }))
+						.catch((e: unknown) => ({
+							insights: null,
+							error: e instanceof Error ? e.message : String(e)
+						}))
+				: Promise.resolve({ insights: null, error: null });
+		const [nextAnalysis, nextLatestInsights, historical] = await Promise.all([
+			analysisP,
+			latestP,
+			historicalP
 		]);
-		agg = nextAgg;
-		analysis = nextAnalysis;
-		dashOverview = nextOverview;
+		return {
+			agg: nextAgg,
+			analysis: nextAnalysis,
+			dashOverview: nextOverview,
+			latestInsights: nextLatestInsights,
+			historicalInsights: historical.insights,
+			historicalError: historical.error,
+			baseline: window
+		};
+	}
 
-		// Always fetch latest day data for Tier 1
-		if (nextAgg.days.length > 0) {
-			const latest = nextAgg.days[nextAgg.days.length - 1];
-			const ins = await api.getHrvInsights(latest);
-			latestInsights = ins;
+	function applyHrvSnapshot(
+		snapshot: HrvSnapshot,
+		options: { applyHistorical?: boolean; clearDetailError?: boolean } = {}
+	) {
+		agg = snapshot.agg;
+		analysis = snapshot.analysis;
+		// Refresh the baseline-independent weekday windows only when their content changed (e.g. an
+		// SSE re-ingest), so a mere baseline switch leaves the reference — and the weekday chart —
+		// untouched. The dict is tiny (3 windows × 7 weekdays), so the equality check is cheap.
+		const nextPatterns = snapshot.analysis.pattern_windows;
+		if (!patternWindows || JSON.stringify(nextPatterns) !== JSON.stringify(patternWindows)) {
+			patternWindows = nextPatterns;
 		}
+		dashOverview = snapshot.dashOverview;
+		latestInsights = snapshot.latestInsights;
+		// The rendered window commits HERE, atomically with the chart data it describes — never
+		// eagerly in onBaselineChange. That keeps the picker, legend, URL, chart band and panel
+		// z from ever disagreeing on the window: a superseded baseline switch simply never
+		// applies, leaving every surface on the previously-rendered window.
+		baselineWindow = snapshot.baseline;
+		if (options.applyHistorical) {
+			// Selected-night sub-fetch is isolated: on failure the panel shows detailError (and
+			// blanks, never showing a wrong-window z), without aborting this chart/headline apply.
+			historicalInsights = snapshot.historicalInsights;
+			detailError = snapshot.historicalError;
+		} else if (options.clearDetailError ?? true) {
+			detailError = null;
+		}
+		// A successful load supersedes any prior top-level and baseline errors.
+		error = null;
+		baselineError = null;
+		void scrollTimelineToLatestOnce();
+	}
+
+	async function scrollTimelineToLatestOnce() {
+		if (timelineHasAutoScrolled) return;
+		await tick();
+		if (!dayStripContainer) return;
+		dayStripContainer.scrollLeft = dayStripContainer.scrollWidth;
+		timelineHasAutoScrolled = true;
+	}
+
+	async function fetchData() {
+		const myReq = ++windowReq;
+		// An in-flight baseline switch is newer user intent than this background/SSE refresh, so
+		// adopt its target window: this refresh bumps windowReq and so supersedes the switch, and
+		// without adoption a `data_updated` event landing mid-switch would drop the user's click and
+		// snap the picker back to the old window. Adopting commits the selection on this refresh.
+		const adoptedBaseline = pendingBaseline;
+		const requestedBaseline = adoptedBaseline ?? baselineWindow;
+		// Refresh the open night's detail alongside the chart: an SSE-triggered reload must
+		// not move the chart's bands/markers while leaving the panel's z-score stale, since
+		// the chart and the panel must agree for a given night + window.
+		const historicalDate = selectedDate;
+		const snapshot = await loadHrvSnapshot(requestedBaseline, historicalDate);
+		if (myReq !== windowReq) return;
+		applyHrvSnapshot(snapshot, historicalApplyOptions(historicalDate, selectedDate));
+		// If this refresh adopted a pending switch's window, persist it so the URL matches the
+		// now-committed window (the superseded switch never reaches its own setBaselineUrl).
+		if (adoptedBaseline !== null) setBaselineUrl(adoptedBaseline);
 	}
 
 	onMount(() => {
+		baselineWindow = readBaselineFromUrl();
 		return startRealtimePage({
 			fetchData,
 			setError: (message) => { error = message; },
@@ -66,29 +228,99 @@
 
 	async function onDateChange(date: string) {
 		if (date === '') {
+			// Bump the detail token so any night fetch still in flight is discarded
+			// rather than repopulating the panel after it closes.
+			++detailReq;
 			selectedDate = '';
-			historyOpen = false;
 			historicalInsights = null;
+			detailError = null;
 			return;
 		}
 		selectedDate = date;
-		historyOpen = true;
 		historicalInsights = null;
-		const requestId = ++dateRequestId;
+		detailError = null;
+		const myReq = ++detailReq;
+		// Fetch at the window currently in effect — or the one a baseline switch is mid-flight to
+		// (pendingBaseline) — so a night opened during a switch lands on the same window the chart
+		// commits to, keeping this panel's z and the chart band in agreement for the night.
+		const baseline = pendingBaseline ?? baselineWindow;
 		try {
-			const nextInsights = await api.getHrvInsights(date);
-			if (requestId !== dateRequestId) return;
+			const nextInsights = await api.getHrvInsights(date, baseline);
+			if (myReq !== detailReq) return;
 			historicalInsights = nextInsights;
+			detailError = null;
 		} catch (e: unknown) {
-			if (requestId !== dateRequestId) return;
-			error = e instanceof Error ? e.message : String(e);
+			if (myReq !== detailReq) return;
+			detailError = errorMessage(e);
+		}
+	}
+
+	function setBaselineUrl(w: HrvBaselineWindow) {
+		const url = new URL(window.location.href);
+		url.searchParams.set('baseline', String(w));
+		replaceState(url, {});
+	}
+
+	async function onBaselineChange(w: HrvBaselineWindow) {
+		const selectedForBaseline = selectedDate;
+		const myReq = ++windowReq;
+		baselineReq = myReq;
+		// Optimistic highlight only — the window itself does NOT move until the data applies.
+		// pendingBaseline also drives the derived baselineLoading (spinner + disabled picker).
+		pendingBaseline = w;
+		baselineError = null;
+		try {
+			// The baseline knob only changes window-dependent data — reuse the loaded daily
+			// aggregate and dashboard overview instead of re-fetching them.
+			const reuse = agg && dashOverview ? { agg, dashOverview } : undefined;
+			const snapshot = await loadHrvSnapshot(w, selectedForBaseline, reuse);
+			if (myReq !== windowReq) return;
+			// Commit window + chart + URL together. A night click does NOT bump windowReq, so it can
+			// never supersede this switch (the bug where inspecting a night reverted the window); a
+			// newer window load (another switch / SSE refresh) does, and then we never reach here, so
+			// the window/URL stay on the rendered window — chart band and panel z can't split.
+			applyHrvSnapshot(snapshot, historicalApplyOptions(selectedForBaseline, selectedDate));
+			setBaselineUrl(w);
+		} catch (e: unknown) {
+			if (myReq !== windowReq) return;
+			// The window was never moved, so there is nothing to roll back — just surface a
+			// non-blocking error; the dashboard keeps showing the window still on screen.
+			baselineError = `Couldn't load the ${w}-day baseline — still showing ${baselineWindow}-day. ${errorMessage(e)}`;
+		} finally {
+			// Clear the optimistic highlight (which also clears the derived spinner) only if we are
+			// still the latest baseline switch. A newer switch (baselineReq moved) owns it now;
+			// otherwise clear it whether we won, errored, or were superseded — so the spinner never
+			// sticks and the picker falls back to the window actually on screen.
+			if (baselineReq === myReq) {
+				pendingBaseline = null;
+			}
 		}
 	}
 
 	function closeHistory() {
-		selectedDate = '';
-		historyOpen = false;
-		historicalInsights = null;
+		// Identical to selecting "no night" — delegate so the close/reset semantics live in one
+		// place (onDateChange's empty-date branch cancels any in-flight night fetch too).
+		void onDateChange('');
+	}
+
+	function onTimelineKeydown(e: KeyboardEvent) {
+		if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			navigateDay(1);
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			navigateDay(-1);
+		}
+	}
+
+	function showDayHover(e: MouseEvent, day: string) {
+		dayHover = { date: day, x: e.clientX, y: e.clientY };
+	}
+	function moveDayHover(e: MouseEvent) {
+		if (dayHover) dayHover = { ...dayHover, x: e.clientX, y: e.clientY };
+	}
+	function hideDayHover() {
+		dayHover = null;
 	}
 
 	// ── Computed: Latest day ──
@@ -98,26 +330,67 @@
 	});
 	let latestDayStats = $derived.by(() => latestInsights?.day_stats ?? null);
 	let latestRecovery = $derived.by(() => latestInsights?.recovery ?? null);
-	let latestStreak = $derived.by(() => latestInsights?.streak ?? null);
-	let latestQuality = $derived.by(() => latestInsights?.quality ?? null);
+	let monthSegments = $derived.by(() => {
+		const days = agg?.days ?? [];
+		const segs: { month: string; label: string; count: number }[] = [];
+		for (const d of days) {
+			const month = d.slice(0, 7);
+			const last = segs[segs.length - 1];
+			if (last && last.month === month) {
+				last.count += 1;
+			} else {
+				const dt = new Date(d + 'T00:00:00');
+				let label = dt.toLocaleString('en-US', { month: 'short' });
+				if (month.slice(5) === '01') label += ` '${month.slice(2, 4)}`;
+				segs.push({ month, label, count: 1 });
+			}
+		}
+		return segs;
+	});
 
 	// ── Computed: History strip colors ──
+	// Single source for HRV status colors, following the app's good→caution→warning
+	// convention (see insightLevelColor) so a palette change flows from one place.
 	const HRV_STATUS_COLORS: Record<string, string> = {
-		'Balanced': '#4CAF82',
-		'Low': '#E85D4A',
-		'Unbalanced': '#D4944C',
-		'High': '#5BB5A6'
+		Balanced: COLORS.heartRateResting, // good — green
+		Unbalanced: COLORS.stress,         // caution — amber
+		Low: COLORS.heartRate,             // warning — red
+		High: COLORS.respiration           // above normal — teal
+	};
+	const UNKNOWN_STATUS_COLOR = '#3a4a5a';
+
+	// ── History strip colors: by the AVERAGED TREND (ma7 vs typical-range band), not
+	// per-night status — a single night is noise. trend_state comes from the backend. ──
+	// One map is the single source of truth for BOTH the color and the label of each trend
+	// state, so the strip cell and the legend can never disagree on (or drift apart in) the set
+	// of states. Three clearly-distinct hues for the low→normal→high trend (amber / green / blue).
+	const TREND_STATES: Record<string, { color: string; label: string }> = {
+		below: { color: COLORS.stress, label: 'Below typical' },             // amber
+		within: { color: COLORS.heartRateResting, label: 'Within typical' }, // green
+		above: { color: COLORS.spo2, label: 'Above typical' }                // blue
 	};
 
-	let dayStatusMap = $derived.by(() => {
+	// One pass over the densified trend builds BOTH the date→color map and the legend (these used
+	// to walk the series twice). The legend lists the trend states actually present, in palette
+	// order, plus a gray "Building baseline" entry when any day lacks a trend (the warmup weeks
+	// before a typical-range band exists) so gray reads as a labelled state, not a mystery.
+	let strip = $derived.by(() => {
 		const map = new Map<string, string>();
-		if (!agg) return map;
-		for (const d of agg.daily) {
-			const status = d.hrv.status;
-			const key = status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : null;
-			map.set(d.date, key ? (HRV_STATUS_COLORS[key] ?? '#3a4a5a') : '#3a4a5a');
+		const present = new Set<string>();
+		let hasUnclassified = false;
+		for (const p of analysis?.nightly_trend ?? []) {
+			const state = p.trend_state;
+			map.set(p.date, (state && TREND_STATES[state]?.color) || UNKNOWN_STATUS_COLOR);
+			if (state) present.add(state);
+			else hasUnclassified = true;
 		}
-		return map;
+		const legend = Object.keys(TREND_STATES)
+			.filter((s) => present.has(s))
+			.map((s) => ({ label: TREND_STATES[s].label, color: TREND_STATES[s].color }));
+		if (hasUnclassified) {
+			legend.push({ label: 'Building baseline', color: UNKNOWN_STATUS_COLOR });
+		}
+		return { map, legend };
 	});
 
 	// ── Navigation ──
@@ -135,93 +408,15 @@
 
 	// ── Computed: Historical day ──
 	let historicalDayStats = $derived.by(() => historicalInsights?.day_stats ?? null);
-	let historicalRecovery = $derived.by(() => historicalInsights?.recovery ?? null);
-	let historicalTrajectory = $derived.by(() => historicalInsights?.trajectory ?? null);
-	let historicalStatusMix = $derived.by(() => historicalInsights?.status_mix ?? []);
-
-	// ── Latest overnight intraday chart ──
-	type HrvIntradaySegment = NonNullable<HrvInsights['intraday_segments']>[number];
-
-	function makeIntradayConfig(
-		segment: HrvIntradaySegment | null,
-		color: string
-	): ChartConfiguration<'line'> | null {
-		if (!segment || segment.values.length === 0) return null;
-		const points = segment.values.filter((value) => Boolean(value.timestamp));
-		if (points.length === 0) return null;
-		return {
-			type: 'line',
-			data: {
-				labels: points.map((value) => value.timestamp),
-				datasets: [
-					{
-						label: segment.label,
-						data: points.map((value) => value.value),
-						borderColor: color,
-						borderWidth: 1.5,
-						pointRadius: 1,
-						tension: 0.2
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
-				},
-				scales: {
-					x: {
-						type: 'time',
-						time: {
-							unit: 'hour',
-							displayFormats: { hour: 'HH:mm' },
-							parser: (v: unknown) => {
-								// Parse as UTC to avoid browser DST reinterpretation
-								const [y, mo, d, h, mi, s] = String(v).match(/\d+/g)!.map(Number);
-								return Date.UTC(y, mo - 1, d, h, mi, s);
-							}
-						},
-						ticks: {
-							font: { size: 10 },
-							...DARK_TICK,
-							callback: (val: string | number) => {
-								const dt = new Date(Number(val));
-								return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
-							}
-						},
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	}
-
-	let latestIntradaySegment = $derived.by(
-		() => latestInsights?.intraday_segments.find((s) => s.key === 'all') ?? null
-	);
-	let latestIntradayConfig = $derived.by(() => makeIntradayConfig(latestIntradaySegment, COLORS.hrv));
-
-	let historicalIntradaySegment = $derived.by(
-		() => historicalInsights?.intraday_segments.find((s) => s.key === 'all') ?? null
-	);
-	let historicalIntradayConfig = $derived.by(() => makeIntradayConfig(historicalIntradaySegment, COLORS.hrv));
 
 	// ── Trend time-window ──
 	let trendRange: TrendRange = $state('3M');
 
 	// ── Trend chart helpers ──
+	// Only the tooltip is reused: the trend chart hides Chart.js's built-in legend
+	// (`legend: { display: false }` below) in favor of the hand-rolled HTML legend under the
+	// chart, so a legend style object here would never render.
 	const darkPlugins = {
-		legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
 		tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
 	};
 
@@ -233,124 +428,51 @@
 		void onDateChange(label);
 	}
 
-	// ── ISO week helpers (for boxplot labels) ──
-	function isoWeekToMonday(isoWeek: string): Date | null {
-		const m = isoWeek.match(/^(\d{4})-W(\d{2})$/);
-		if (!m) return null;
-		const year = parseInt(m[1]), week = parseInt(m[2]);
-		const jan4 = new Date(year, 0, 4);
-		const dow = (jan4.getDay() + 6) % 7;
-		const weekStart = new Date(jan4);
-		weekStart.setDate(jan4.getDate() - dow + (week - 1) * 7);
-		return weekStart;
-	}
-
-	function fmtWeekLabel(isoWeek: string): string {
-		const d = isoWeekToMonday(isoWeek);
-		if (!d) return isoWeek;
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-	}
-
 	// ── Trend chart: Nightly HRV with 7-day MA ──
 	let nightlyTrendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.nightly_trend.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const t = cutoff ? analysis.nightly_trend.filter((p) => p.date >= cutoff) : analysis.nightly_trend;
-		const lowBand = latestInsights?.trend_band.nightly_typical_low ?? null;
-		const highBand = latestInsights?.trend_band.nightly_typical_high ?? null;
-		const baseline30d = latestInsights?.long_baseline?.baseline_30d ?? null;
-		const baselineBands = latestInsights?.baseline_bands ?? null;
-
+		// Shared range filter (same cutoff + `date >= cutoff` as every other metric tab), so a
+		// future change to range semantics flows here too instead of skipping the HRV chart.
+		const t = filterByRange(analysis.nightly_trend, trendRange);
 		const labels = t.map((p) => p.date);
-		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [];
-
-		// Typical low/high band
-		if (lowBand != null && highBand != null) {
-			datasets.push(
-				{
-					label: 'Typical Low',
-					data: labels.map(() => lowBand),
-					borderColor: withAlpha(COLORS.hrvWeekly, '40'),
-					borderWidth: 1,
-					borderDash: [3, 3],
-					pointRadius: 0,
-					tension: 0,
-					fill: false
-				},
-				{
-					label: 'Typical High',
-					data: labels.map(() => highBand),
-					borderColor: withAlpha(COLORS.hrvWeekly, '40'),
-					borderWidth: 1,
-					borderDash: [3, 3],
-					pointRadius: 0,
-					tension: 0,
-					fill: '-1',
-					backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
-				}
-			);
-		}
-
-		// 30-day baseline reference
-		if (baseline30d != null) {
-			datasets.push({
-				label: '30-Day Baseline',
-				data: labels.map(() => baseline30d),
-				borderColor: COLORS.baseline,
-				borderWidth: 1.5,
-				borderDash: [8, 4],
-				pointRadius: 0,
-				tension: 0,
-				fill: false
-			});
-		}
-
-		// Raw nightly (light) + 7-day MA (bold)
-		datasets.push(
+		// Map each plotted series once and reuse it for both the dataset and the y-scale, so the
+		// scale inputs can't drift from what's drawn and we don't pass over the series twice.
+		const ma7 = t.map((p) => p.ma7);
+		const bandLow = t.map((p) => p.band_low);
+		const bandHigh = t.map((p) => p.band_high);
+		const datasets: ChartConfiguration<'line'>['data']['datasets'] = [
 			{
-				label: 'Nightly HRV',
-				data: t.map((p) => p.nightly_avg),
-				borderColor: withAlpha(COLORS.hrv, '50'),
-				borderWidth: 1,
-				pointRadius: 2,
-				pointBackgroundColor: withAlpha(COLORS.hrv, '50'),
-				tension: 0.3,
-				spanGaps: true
+				label: 'Band Low',
+				data: bandLow,
+				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false, fill: false
+			},
+			{
+				label: 'Band High',
+				data: bandHigh,
+				borderColor: withAlpha(COLORS.hrvWeekly, '30'),
+				borderWidth: 1, pointRadius: 0, tension: 0.3, spanGaps: false,
+				fill: '-1', backgroundColor: withAlpha(COLORS.hrvWeekly, '14')
 			},
 			{
 				label: '7-Day MA',
-				data: t.map((p) => p.ma7),
-				borderColor: COLORS.hrv,
-				borderWidth: 2.5,
-				pointRadius: 0,
-				tension: 0.3,
-				spanGaps: true
+				data: ma7,
+				// spanGaps:false so the trend breaks at no-reading nights (the backend emits null
+				// points for them) instead of bridging a straight segment over missing data.
+				borderColor: COLORS.hrv, borderWidth: 2.5, pointRadius: 0, tension: 0.3, spanGaps: false
+			},
+			{
+				label: 'Extreme night',
+				data: t.map((p) => (p.is_extreme ? (p.z != null && p.z < 0 ? p.band_low : p.band_high) : null)),
+				borderColor: 'transparent',
+				backgroundColor: COLORS.heartRate,
+				pointRadius: t.map((p) => (p.is_extreme ? 4 : 0)),
+				pointHoverRadius: 5,
+				showLine: false, spanGaps: false
 			}
-		);
+		];
 
-		// Zone annotations
-		const annotationPlugin = baselineBands
-			? {
-					annotations: {
-						lowZone: {
-							type: 'box' as const,
-							yMin: 0,
-							yMax: baselineBands.baseline_low_upper ?? undefined,
-							backgroundColor: withAlpha(COLORS.heartRate, '0F'),
-							borderWidth: 0,
-							adjustScaleRange: false
-						},
-						balancedZone: {
-							type: 'box' as const,
-							yMin: baselineBands.baseline_balanced_lower ?? undefined,
-							yMax: baselineBands.baseline_balanced_upper ?? undefined,
-							backgroundColor: withAlpha(COLORS.heartRateResting, '0F'),
-							borderWidth: 0,
-							adjustScaleRange: false
-						}
-					}
-				}
-			: undefined;
+		const yScale = tightScale([...ma7, ...bandLow, ...bandHigh], 2, 5);
 
 		return {
 			type: 'line',
@@ -362,131 +484,49 @@
 				onClick: (_event: unknown, elements: { index: number }[], chart: { data: { labels?: unknown[] } }) => handleTrendClick(_event, elements, chart),
 				plugins: {
 					...darkPlugins,
-					annotation: annotationPlugin
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	});
-
-	// ── Boxplot chart: Weekly HRV spread ──
-	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
-		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
-		const cutoff = trendCutoff(trendRange);
-		const boxes = cutoff
-			? analysis.weekly_boxplots.filter((b) => {
-					const mon = isoWeekToMonday(b.iso_week);
-					return mon ? localDateIso(mon) >= cutoff : true;
-				})
-			: analysis.weekly_boxplots;
-		const labels = boxes.map((b) => fmtWeekLabel(b.iso_week));
-
-		return {
-			type: 'line',
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Min',
-						data: boxes.map((b) => b.min_ms),
-						borderColor: withAlpha('#c8d6e0', '30'),
-						borderWidth: 1,
-						borderDash: [4, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q1',
-						data: boxes.map((b) => b.q1_ms),
-						borderColor: withAlpha('#c8d6e0', '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Median',
-						data: boxes.map((b) => b.median_ms),
-						borderColor: '#c8d6e0',
-						borderWidth: 2.5,
-						pointRadius: 3,
-						pointBackgroundColor: '#c8d6e0',
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q3',
-						data: boxes.map((b) => b.q3_ms),
-						borderColor: withAlpha('#c8d6e0', '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-2',
-						backgroundColor: withAlpha('#c8d6e0', '12')
-					},
-					{
-						label: 'Max',
-						data: boxes.map((b) => b.max_ms),
-						borderColor: withAlpha('#c8d6e0', '30'),
-						borderWidth: 1,
-						borderDash: [4, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
 					legend: { display: false },
 					tooltip: {
 						...darkPlugins.tooltip,
 						callbacks: {
-							title: (items: { dataIndex: number }[]) => {
-								const box = boxes[items[0]?.dataIndex ?? 0];
-								const mon = isoWeekToMonday(box.iso_week);
-								if (!mon) return box.iso_week;
-								const sun = new Date(mon);
-								sun.setDate(mon.getDate() + 6);
-								const f = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-								return `${f(mon)} – ${f(sun)}`;
+							title: (items) => {
+								const idx = items[0]?.dataIndex;
+								const raw = idx != null ? t[idx]?.date : null;
+								return raw ? fmtFullDate(parseIsoDate(raw)) : '';
 							},
-							afterBody: (items: { dataIndex: number }[]) => {
-								const n = boxes[items[0]?.dataIndex ?? 0]?.day_count ?? 0;
-								return [`${n} day${n !== 1 ? 's' : ''} of data`];
+							label: (ctx) => {
+								if (ctx.dataset.label === 'Extreme night') {
+									const p = t[ctx.dataIndex];
+									if (!p?.is_extreme || p.nightly_avg == null) return undefined;
+									return `Extreme night: ${p.nightly_avg} ms`;
+								}
+								return `${ctx.dataset.label}: ${ctx.formattedValue}`;
 							}
 						}
 					}
 				},
 				scales: {
 					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
+						type: 'time',
+						time: {
+							unit: 'month',
+							displayFormats: { month: "MMM ''yy" },
+							parser: (v: unknown) => {
+								// Parse the local YYYY-MM-DD label in local time (matching the
+								// adapter's local formatting) so tooltips never show the prior day
+								// in negative-offset timezones. Mirrors parseIsoDate in $lib/date.
+								const [yy, mo, dd] = String(v).split('-').map(Number);
+								return new Date(yy, mo - 1, dd).getTime();
+							}
+						},
+						ticks: { maxRotation: 0, autoSkipPadding: 20, font: { size: 10 }, ...DARK_TICK },
+						grid: DARK_GRID, border: DARK_BORDER
 					},
 					y: {
 						beginAtZero: false,
+						min: yScale?.min, max: yScale?.max,
+						afterBuildTicks: yScale ? (axis) => { axis.ticks = yScale.ticks.map((value) => ({ value })); } : undefined,
 						title: { display: true, text: 'ms', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
+						ticks: DARK_TICK, grid: DARK_GRID_Y, border: DARK_BORDER
 					}
 				}
 			}
@@ -494,67 +534,41 @@
 	});
 
 	// ── Pattern window (3M floor: 1M→3M, others pass through) ──
+	// Reads the separately-held, baseline-independent `patternWindows` (not `analysis`) so a
+	// baseline switch doesn't hand this — and the weekday chart below — a new object reference.
 	let patternWindow = $derived.by(() => {
 		const key = PERIOD_KEY_MAP[trendRange];
-		return analysis?.pattern_windows?.[key] ?? null;
+		return patternWindows?.[key] ?? null;
 	});
 
-	// ── Distribution chart ──
-	let distribution = $derived.by(() => patternWindow?.distribution ?? null);
-
-	let distributionConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
-		if (!distribution || distribution.bins.length === 0) return null;
-		const selectedValue = distribution.selected_value;
-		return {
-			type: 'bar',
-			data: {
-				labels: distribution.bins.map((b) => `${b.bin_start}–${b.bin_end}`),
-				datasets: [
-					{
-						label: 'Nights',
-						data: distribution.bins.map((b) => b.count),
-						backgroundColor: distribution.bins.map((b) =>
-							selectedValue != null && selectedValue >= b.bin_start && selectedValue < b.bin_end
-								? withAlpha(COLORS.hrv, 'cc')
-								: withAlpha(COLORS.hrv, '55')
-						),
-						borderRadius: 2
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.hrv, '60'))
-				},
-				scales: {
-					x: {
-						title: { display: true, text: 'HRV (ms)', ...DARK_TICK },
-						ticks: { ...DARK_TICK, font: { size: 10 } },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						title: { display: true, text: 'Nights', ...DARK_TICK },
-						ticks: { ...DARK_TICK, stepSize: 1 },
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+	// Human label for the actual pattern window the card summarises. Because 1M floors
+	// to the 3M window, the trend (≈30 days) and this card can span different ranges, so
+	// we state the real span explicitly.
+	let patternWindowLabel = $derived.by(() => {
+		switch (PERIOD_KEY_MAP[trendRange]) {
+			case '6M':
+				return 'last 6 months';
+			case 'All':
+				return 'all time';
+			default:
+				return 'last 3 months';
+		}
 	});
 
 	// ── Day of Week chart ──
 	let dayOfWeek = $derived.by(() => patternWindow?.day_of_week ?? []);
 
+	// Bar opacity per backend-computed weekday state — the frontend maps a backend value to a
+	// shade and does NO value-vs-reference classification of its own (that ±5 ms policy lives in
+	// the backend; see docs/HRV_TAB_REFACTOR.md "Trend vs Today"). Missing state → neutral.
+	const DAY_OF_WEEK_STATE_ALPHA: Record<string, string> = {
+		above: 'cc', // brightest — weekday runs above the grand mean
+		within: '77',
+		below: '33' // dimmest — runs below
+	};
+
 	let dayOfWeekConfig = $derived.by<ChartConfiguration<'bar'> | null>(() => {
 		if (dayOfWeek.length === 0) return null;
-		const validAvgs = dayOfWeek.filter((b) => b.avg_nightly != null).map((b) => b.avg_nightly!);
-		const overallAvg = validAvgs.length > 0 ? validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length : null;
 		return {
 			type: 'bar',
 			data: {
@@ -563,12 +577,9 @@
 					{
 						label: 'Avg Nightly HRV',
 						data: dayOfWeek.map((b) => b.avg_nightly),
-						backgroundColor: dayOfWeek.map((b) => {
-							if (b.avg_nightly == null || overallAvg == null) return withAlpha(COLORS.hrv, '55');
-							if (b.avg_nightly - overallAvg > 5) return withAlpha(COLORS.hrv, 'cc');
-							if (b.avg_nightly - overallAvg < -5) return withAlpha(COLORS.hrv, '33');
-							return withAlpha(COLORS.hrv, '77');
-						}),
+						backgroundColor: dayOfWeek.map((b) =>
+							withAlpha(COLORS.hrv, (b.state && DAY_OF_WEEK_STATE_ALPHA[b.state]) || '55')
+						),
 						borderRadius: 3
 					}
 				]
@@ -598,108 +609,43 @@
 		};
 	});
 
-	// ── Helper functions ──
-	function recoveryColor(status: string | null | undefined): string {
-		if (status === 'suppressed' || status === 'below_baseline') return '#E85D4A';
-		if (status === 'elevated' || status === 'stable') return '#4CAF82';
-		return '#6b7d8e';
-	}
-
-	function streakColor(status: string | null | undefined): string {
-		if (status === 'Low' || status === 'Unbalanced') return '#E85D4A';
-		if (status === 'Balanced' || status === 'High') return '#4CAF82';
-		return '#6b7d8e';
-	}
-
-	function trajectoryArrow(direction: string | null | undefined): string {
-		if (direction === 'rising') return '↑';
-		if (direction === 'falling') return '↓';
-		return '→';
-	}
-
-	function trajectoryColor(direction: string | null | undefined): string {
-		if (direction === 'rising') return '#4CAF82';
-		if (direction === 'falling') return '#E85D4A';
-		return '#8a9baa';
-	}
-
 	// ── Correlations (from dashboard overview) ──
 	type CorrelationItem = NonNullable<DashboardOverview['correlations']>[number];
 
-	function makeScatterConfig(corr: CorrelationItem): ChartConfiguration<'scatter'> {
-		return {
-			type: 'scatter',
-			data: {
-				datasets: [
-					{
-						label: corr.label,
-						data: corr.points.map((p) => ({ x: p.hrv_nightly, y: p.other_value })),
-						backgroundColor: withAlpha(COLORS.hrv, '88'),
-						borderColor: withAlpha(COLORS.hrv, 'cc'),
-						borderWidth: 1,
-						pointRadius: 3,
-						pointHoverRadius: 5
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						...chartTooltip(withAlpha(COLORS.hrv, '60')),
-						callbacks: {
-							label: (ctx) => {
-								const raw = ctx.raw as { x: number; y: number };
-								return `HRV ${raw.x} ms · ${corr.label} ${raw.y}`;
-							}
-						}
-					}
-				},
-				scales: {
-					x: {
-						title: {
-							display: true,
-							text: 'HRV (ms)',
-							...DARK_TICK,
-							font: { family: 'DM Mono', size: 10 }
-						},
-						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						title: {
-							display: true,
-							text: corr.label,
-							...DARK_TICK,
-							font: { family: 'DM Mono', size: 10 }
-						},
-						ticks: { ...DARK_TICK, font: { family: 'DM Mono', size: 9 } },
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
-	}
+	let coMovements = $derived.by(() => {
+		const items = dashOverview?.correlations ?? [];
+		return items
+			.filter((c) => c.r_value != null)
+			.slice()
+			.sort((x, y) => Math.abs(y.r_value!) - Math.abs(x.r_value!));
+	});
+
 </script>
 
 <svelte:head><title>HRV - Garmin Stats</title></svelte:head>
 
-{#if error}
+{#snippet garminChip(status: string | null | undefined)}
+	{@const key = garminStatusKey(status)}
+	{#if key}
+		<span class="garmin-chip" title="Garmin's own multi-day HRV status — a separate signal from tonight's recovery">
+			<i class="garmin-dot" style="background: {HRV_STATUS_COLORS[key] ?? UNKNOWN_STATUS_COLOR};"></i>
+			Garmin: {key}
+		</span>
+	{/if}
+{/snippet}
+
+{#if !agg && error}
 	<div class="bg-[rgba(232,93,74,0.08)] border border-[rgba(232,93,74,0.3)] rounded-lg p-4">
 		<p class="text-[#E85D4A]">Error: {error}</p>
 	</div>
-{:else if loading}
+{:else if !agg && loading}
 	<div class="flex items-center justify-center h-64">
 		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 1: TODAY                                        -->
+	<!-- TIER 1: TONIGHT — headline + hero trend              -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header">
@@ -707,7 +653,7 @@
 		<span class="section-date">{latestDate}</span>
 	</div>
 
-	<!-- Stat bar — always latest day -->
+	<!-- Headline — latest night -->
 	<div class="stat-bar">
 		<div class="stat-item">
 			<span class="stat-label">Nightly HRV</span>
@@ -716,45 +662,19 @@
 			</span>
 			<span class="stat-unit">ms</span>
 			{#if latestRecovery?.delta_nightly_from_baseline != null}
-				<span class="stat-delta" style="color: {recoveryColor(latestRecovery?.status)};">
+				<!-- Neutral, non-verdict color: the delta is a single-night vs trailing-7d number
+				     (a "today" signal). Recovery state lives in the insight line below; Garmin's
+				     multi-day status is its own separate chip — neither is folded in here. -->
+				<span class="stat-delta">
 					{fmtSigned(latestRecovery.delta_nightly_from_baseline)} vs {fmt(latestRecovery.baseline_nightly_7d)} avg
 				</span>
 			{/if}
 		</div>
-		<div class="stat-item">
-			<span class="stat-label">Recovery</span>
-			<span class="recovery-pill" style="background: {recoveryColor(latestRecovery?.status)}20; color: {recoveryColor(latestRecovery?.status)}; border-color: {recoveryColor(latestRecovery?.status)}40;">
-				{latestRecovery?.status ? latestRecovery.status.replace('_', ' ').toUpperCase() : '-'}
-			</span>
-		</div>
-		<div class="stat-item">
-			<span class="stat-label">Weekly Avg</span>
-			<span class="stat-value" style="color: {COLORS.hrvWeekly};">
-				{fmt(latestDayStats?.weekly_avg)}
-			</span>
-			<span class="stat-unit">ms</span>
-			{#if latestDayStats?.status}
-				<span class="stat-delta" style="color: {streakColor(latestDayStats.status)};">
-					{latestDayStats.status}
-				</span>
-			{/if}
-		</div>
-		<div class="stat-item">
-			<span class="stat-label">Streak</span>
-			{#if latestStreak}
-				<span class="stat-value" style="color: {streakColor(latestStreak.current_status)};">
-					{latestStreak.streak_days}d
-				</span>
-				<span class="stat-delta" style="color: {streakColor(latestStreak.current_status)};">
-					{latestStreak.current_status ?? '-'}
-				</span>
-			{:else}
-				<span class="stat-value" style="color: #6b7d8e;">-</span>
-			{/if}
-		</div>
 	</div>
 
-	<!-- Insight line — latest day -->
+	{@render garminChip(latestDayStats?.status)}
+
+	<!-- Insight line — latest night -->
 	{#if latestInsights && latestInsights.insights.length > 0}
 		{@const topInsight = latestInsights.insights[0]}
 		<div class="insight-line">
@@ -765,29 +685,48 @@
 		</div>
 	{/if}
 
-	<!-- Overnight intraday chart — latest day -->
-	{#if latestIntradayConfig}
-		<div class="card">
-			<h2 class="card-title">Overnight HRV — {latestDate}</h2>
-			<LineChart config={latestIntradayConfig} height={260} />
-			<p class="card-footnote">
-				{latestIntradaySegment?.sample_count ?? 0} readings
-				{#if latestQuality}· {fmtTimeWindow(latestQuality.coverage_start, latestQuality.coverage_end)}{/if}
-				{#if latestIntradaySegment?.avg != null} · avg {fmt(latestIntradaySegment.avg)} ms{/if}
-			</p>
+	<!-- Hero: nightly HRV trend (the multi-day signal) -->
+	{#if nightlyTrendConfig}
+		<div class="card hero-card" class:baseline-updating={baselineLoading}>
+			<div class="hero-header">
+				<h2 class="card-title">Nightly HRV trend <span class="info-hint" data-tip="Bold line = 7-day moving average. Shaded ribbon = your typical range over the chosen baseline window. Dots = nights outside that range. Click the line to open a night.">ⓘ</span></h2>
+				<div class="hero-controls">
+					<div class="control-group">
+						<span class="control-label">Baseline</span>
+						<BaselineWindowPicker value={pendingBaseline ?? baselineWindow} onchange={onBaselineChange} disabled={baselineLoading} />
+					</div>
+					<span class="control-sep" aria-hidden="true"></span>
+					<div class="control-group">
+						<span class="control-label">Show</span>
+						<TrendRangePicker bind:value={trendRange} />
+					</div>
+				</div>
+			</div>
+			{#if baselineError}
+				<div class="detail-error">{baselineError}</div>
+			{/if}
+			<LineChart config={nightlyTrendConfig} height={300} />
+			<div class="chart-legend">
+				<span class="lg"><i class="lg-line" style="background: {COLORS.hrv};"></i>7-day average</span>
+				<span class="lg"><i class="lg-band" style="background: {withAlpha(COLORS.hrvWeekly, '22')}; border-color: {withAlpha(COLORS.hrvWeekly, '55')};"></i>typical range ({baselineWindow}d)</span>
+				<span class="lg"><i class="lg-dot" style="background: {COLORS.heartRate};"></i>extreme night</span>
+			</div>
+			{#if latestInsights?.baseline?.delta_7d_vs_baseline != null}
+				<p class="card-footnote">7-day average is {fmtSigned(latestInsights.baseline.delta_7d_vs_baseline)} ms vs your {latestInsights.baseline.window_days}-day baseline.</p>
+			{/if}
 		</div>
 	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 2: HISTORY STRIP + EXPANDABLE DETAIL            -->
+	<!-- TIER 2: HISTORY TIMELINE + DETAIL                     -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header tier2-header">
 		<span class="section-label">History</span>
-		<span class="section-sublabel">Click a night to explore</span>
+		<span class="section-sublabel">Click a night to explore · ← → to step</span>
 	</div>
 
-	<!-- Day selector strip -->
+	<!-- Labelled timeline -->
 	<div class="day-nav">
 		<div class="day-nav-controls">
 			<button class="nav-arrow" disabled={!canPrev} onclick={() => navigateDay(-1)}>←</button>
@@ -796,32 +735,52 @@
 			</button>
 			<button class="nav-arrow" disabled={!canNext} onclick={() => navigateDay(1)}>→</button>
 		</div>
-		<div class="day-strip-container">
-			<div class="day-strip">
+		<div class="day-strip-container" bind:this={dayStripContainer}>
+			<div
+				class="day-strip"
+				role="toolbar"
+				aria-orientation="horizontal"
+				aria-label="HRV nightly timeline — left and right arrow keys step between nights"
+				tabindex="0"
+				onkeydown={onTimelineKeydown}
+				onmousemove={moveDayHover}
+				onmouseleave={hideDayHover}
+			>
 				{#each agg.days as day}
 					<button
 						class="day-cell"
 						class:selected={day === selectedDate}
-						style="background: {dayStatusMap.get(day) ?? '#3a4a5a'};"
-						title={day}
+						style="background: {strip.map.get(day) ?? UNKNOWN_STATUS_COLOR};"
+						aria-label={day}
+						onmouseenter={(e) => showDayHover(e, day)}
 						onclick={() => onDateChange(day === selectedDate ? '' : day)}
 					></button>
 				{/each}
 			</div>
+			<div class="month-axis" aria-hidden="true">
+				{#each monthSegments as seg}
+					<span class="month-tick" style="--days: {seg.count};">{seg.label}</span>
+				{/each}
+			</div>
 			<div class="day-strip-legend">
-				<span><i class="legend-dot" style="background:#4CAF82;"></i>Balanced</span>
-				<span><i class="legend-dot" style="background:#D4944C;"></i>Unbalanced</span>
-				<span><i class="legend-dot" style="background:#E85D4A;"></i>Low</span>
+				{#each strip.legend as { label, color }}
+					<span><i class="legend-dot" style="background:{color};"></i>{label}</span>
+				{/each}
 			</div>
 		</div>
 	</div>
 
-	<!-- Expandable day detail panel -->
-	{#if historyOpen && selectedDate}
+	{#if dayHover}
+		<div class="day-tooltip" style="left: {dayHover.x}px; top: {dayHover.y}px;">{dayHover.date}</div>
+	{/if}
+
+	<!-- Expandable night detail (open exactly when a night is selected) -->
+	{#if historyOpen}
 		<div class="history-detail" transition:slide={{ duration: 300 }}>
 			<div class="history-detail-header">
 				<div class="history-detail-title">
 					<span class="history-date">{selectedDate}</span>
+					{@render garminChip(historicalDayStats?.status)}
 					{#if historicalDayStats?.nightly_avg != null && latestDayStats?.nightly_avg != null}
 						<span class="history-comparison">
 							Nightly: <strong>{fmt(historicalDayStats.nightly_avg)}</strong> ms
@@ -832,61 +791,26 @@
 				<button class="close-btn" onclick={closeHistory} title="Close">✕</button>
 			</div>
 
-			{#if historicalIntradayConfig}
-				<div class="history-section">
-					<h3 class="history-section-title">Overnight HRV</h3>
-					<LineChart config={historicalIntradayConfig} height={220} />
-					<p class="card-footnote">
-						{historicalIntradaySegment?.sample_count ?? 0} readings
-						{#if historicalIntradaySegment?.avg != null} · avg {fmt(historicalIntradaySegment.avg)} ms{/if}
-						{#if historicalIntradaySegment?.stdev != null} · stdev {historicalIntradaySegment.stdev} ms{/if}
-					</p>
-				</div>
+			{#if detailError}
+				<div class="detail-error">Couldn't load this night: {detailError}</div>
 			{:else if !historicalInsights}
-				<div class="text-sm text-[#5e7282] py-4">Loading overnight data...</div>
+				<div class="text-sm text-[#5e7282] py-4">Loading night data...</div>
 			{/if}
 
-			<!-- Trajectory mini-bar -->
-			{#if historicalTrajectory}
-				{@const tVals = [historicalTrajectory.early_avg, historicalTrajectory.mid_avg, historicalTrajectory.late_avg]}
-				{@const tMax = Math.max(...tVals.filter((v): v is number => v != null))}
+			<!-- Where this night ranks (trailing-window z-score) -->
+			{#if historicalInsights?.baseline?.selected_z != null}
 				<div class="history-section">
-					<h3 class="history-section-title">Overnight Trajectory</h3>
-					<div class="trajectory-bar">
-						{#each [{ label: 'Early', val: tVals[0] }, { label: 'Mid', val: tVals[1] }, { label: 'Late', val: tVals[2] }] as segment}
-							<div class="trajectory-segment">
-								<div class="trajectory-fill" style="height: {segment.val != null && tMax > 0 ? (segment.val / tMax) * 100 : 0}%; background: {withAlpha(COLORS.hrv, '60')};"></div>
-								<span class="trajectory-val">{fmt(segment.val)}</span>
-								<span class="trajectory-label">{segment.label}</span>
-							</div>
-						{/each}
-						<span class="trajectory-direction" style="color: {trajectoryColor(historicalTrajectory.direction)};">
-							{trajectoryArrow(historicalTrajectory.direction)} {historicalTrajectory.direction ?? 'flat'}
-						</span>
-					</div>
-				</div>
-			{/if}
-
-			<!-- Status mix (14d context) -->
-			{#if historicalStatusMix.length > 0}
-				<div class="history-section">
-					<h3 class="history-section-title">Status Mix (14 days)</h3>
-					<div class="flex h-5 rounded overflow-hidden mb-1">
-						{#each historicalStatusMix as bucket}
-							<div
-								class="flex items-center justify-center text-[9px] font-medium text-white/90"
-								style="width:{bucket.pct}%; background-color:{bucket.label === 'Balanced' ? '#4CAF82' : bucket.label === 'Low' ? '#E85D4A' : bucket.label === 'Unbalanced' ? '#D4944C' : '#8a9baa'};"
-								title="{bucket.label}: {bucket.count} days ({bucket.pct}%)"
-							>
-								{#if bucket.pct >= 12}{bucket.pct}%{/if}
-							</div>
-						{/each}
-					</div>
-					<div class="flex gap-3 flex-wrap">
-						{#each historicalStatusMix as bucket}
-							<span class="text-[10px] text-[#6b7d8e]">{bucket.label}: {bucket.count}d</span>
-						{/each}
-					</div>
+					<h3 class="history-section-title">Where this night ranks</h3>
+					<p class="percentile-readout">
+						<!-- 2 decimals to match the backend: z is authored at 2dp and the "extreme night"
+						     flag is derived from that same value (|z| > 2.0), so showing 1dp could render
+						     "+2.0 SD · extreme night" where the number doesn't exceed the threshold. -->
+						<strong>{fmtSigned(historicalInsights.baseline.selected_z, 2)} SD</strong>
+						vs your {historicalInsights.baseline.window_days}-day baseline
+						{#if historicalInsights.baseline.selected_is_extreme}
+							· <span style="color: {COLORS.heartRate};">extreme night</span>
+						{/if}
+					</p>
 				</div>
 			{/if}
 
@@ -909,105 +833,45 @@
 	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
-	<!-- TIER 3: TRENDS                                       -->
+	<!-- TIER 3: PATTERNS                                      -->
 	<!-- ════════════════════════════════════════════════════ -->
 
 	<div class="section-header tier3-header">
-		<span class="section-label">Trends</span>
-		<TrendRangePicker bind:value={trendRange} />
+		<span class="section-label">Patterns</span>
 	</div>
 
-	<!-- Nightly HRV Trend + Weekly Boxplot — side by side -->
+	<!-- Day of week -->
 	<div class="two-col-row">
-		{#if nightlyTrendConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">Nightly HRV — Click to Explore <span class="info-hint" data-tip="Click any point to explore that night. Thick line = 7-day moving average. Shaded band = your typical range.">ⓘ</span></h2>
-				<LineChart config={nightlyTrendConfig} height={260} />
-			</div>
-		{/if}
-
-		{#if boxplotConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">Nightly HRV — Weekly Spread <span class="info-hint" data-tip="How much your nightly HRV varies each week. Narrow band = consistent. Wide band = variable.">ⓘ</span></h2>
-				<LineChart config={boxplotConfig} height={260} />
-				<p class="card-footnote">Shaded band = middle 50% of nights · dashes = extremes · bold line = median</p>
-			</div>
-		{/if}
-	</div>
-
-	<!-- Distribution + Day of Week — side by side -->
-	<div class="section-subheader">
-		<span class="section-sublabel">Patterns</span>
-	</div>
-
-	<div class="two-col-row">
-		{#if distributionConfig}
-			<div class="card two-col-item">
-				<h2 class="card-title">HRV Distribution <span class="info-hint" data-tip="Where your nightly HRV typically falls. Highlighted bin = selected night.">ⓘ</span></h2>
-				<BarChart config={distributionConfig} height={220} />
-				{#if distribution}
-					<p class="card-footnote">
-						{distribution.total_days} nights{#if distribution.selected_percentile != null} · selected night at {distribution.selected_percentile}th percentile{/if}
-					</p>
-				{/if}
-			</div>
-		{/if}
-
 		{#if dayOfWeekConfig}
 			<div class="card two-col-item">
-				<h2 class="card-title">HRV by Day of Week <span class="info-hint" data-tip="Average nightly HRV by weekday. Higher bars = better recovery on those nights.">ⓘ</span></h2>
-				<BarChart config={dayOfWeekConfig} height={220} />
-				<p class="card-footnote">{dayOfWeek.reduce((sum, b) => sum + b.sample_count, 0)} total nights</p>
+				<h2 class="card-title">By day of week <span class="info-hint" data-tip="Average nightly HRV by weekday. A weekly rhythm describes long-run averages, not any single night.">ⓘ</span></h2>
+				<BarChart config={dayOfWeekConfig} height={240} />
+				<p class="card-footnote">{patternWindow?.total_sample_count ?? 0} total nights ({patternWindowLabel}) · weekday averages, not single-night predictions</p>
 			</div>
 		{/if}
 	</div>
 
-	<!-- Cross-Domain Correlations -->
-	{#if dashOverview && dashOverview.correlations.length > 0}
+	<!-- What moves with HRV (co-movement, not cause) -->
+	{#if coMovements.length > 0}
 		<div class="section-subheader">
-			<span class="section-sublabel">Cross-Domain Correlations</span>
+			<span class="section-sublabel">What moves with HRV</span>
 		</div>
-		<div class="two-col-row">
-			{#each dashOverview.correlations as corr}
-				<div class="card two-col-item">
-					<div class="corr-header">
-						<h2 class="card-title">HRV vs {corr.label}</h2>
-						{#if corr.r_value != null}
-							<span class="corr-r" style="color:{COLORS.hrv}">r = {corr.r_value}</span>
-						{/if}
+		<div class="card">
+			<p class="comove-caption">These recovery metrics co-move with nightly HRV — shown as correlation strength and direction. Association, not cause.</p>
+			<div class="comove-list">
+				{#each coMovements as corr}
+					<div class="comove-row">
+						<span class="comove-label">{corr.label}</span>
+						<div class="comove-track">
+							<div class="comove-fill" style="width: {Math.abs(corr.r_value ?? 0) * 100}%; background: {(corr.r_value ?? 0) >= 0 ? COLORS.hrv : COLORS.heartRate};"></div>
+						</div>
+						<span class="comove-r">{fmtSigned(corr.r_value, 2)}</span>
+						<span class="comove-n">{corr.sample_count}n</span>
 					</div>
-					<ScatterChart config={makeScatterConfig(corr)} height={220} />
-					<p class="card-footnote">{corr.sample_count} nights</p>
-				</div>
-			{/each}
+				{/each}
+			</div>
 		</div>
 	{/if}
-
-	<!-- Reading Guide -->
-	<MetricDefinition title="How to Read This Dashboard">
-		<div class="reading-guide">
-			<div class="guide-section">
-				<strong class="guide-heading">Tonight (top)</strong>
-				<p>Your overnight snapshot. Nightly HRV is measured during sleep — it's the most reliable window into autonomic function. The recovery pill shows whether you're above or below your 7-day baseline.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">History strip</strong>
-				<p>Green = Balanced · Orange = Unbalanced · Red = Low. Each block is one night. Click any block to drill into that night's data, trajectory, and recovery insights.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">Trend charts — the bold line is the signal</strong>
-				<p>Raw nightly values are noisy. The thick 7-day moving average reveals the real trend — watch it for multi-week drift up or down. Click any point to explore that night.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">Weekly spread — consistency is the goal</strong>
-				<p>A narrow, stable band means your HRV baseline is consistent. A widening band or dropping median may signal accumulated stress, poor sleep, or overtraining.</p>
-			</div>
-			<div class="guide-section">
-				<strong class="guide-heading">What affects HRV</strong>
-				<p>Poor sleep, alcohol, illness, overtraining, and stress lower HRV. Good sleep, fitness, relaxation, and recovery raise it. Trends matter more than any single night.</p>
-			</div>
-		</div>
-	</MetricDefinition>
 {/if}
 
 <style>
@@ -1066,7 +930,7 @@
 	/* ── Stat Bar ── */
 	.stat-bar {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: minmax(0, 1fr);
 		gap: 1px;
 		background: rgba(255,255,255,0.06);
 		border-radius: 10px;
@@ -1103,18 +967,7 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		margin-top: 2px;
-	}
-
-	/* Recovery pill */
-	.recovery-pill {
-		font-family: 'DM Mono', monospace;
-		font-size: 16px;
-		font-weight: 600;
-		letter-spacing: 2px;
-		padding: 4px 14px;
-		border-radius: 20px;
-		border: 1px solid;
-		margin-top: 4px;
+		color: #6b7d8e;
 	}
 
 	/* ── Insight line ── */
@@ -1153,6 +1006,10 @@
 
 	/* ── Day strip ── */
 	.day-nav {
+		/* One source for the day-cell stride: the timeline cells and the month axis below it must
+		   advance by the same width + gap, or the month labels drift off the cells they mark. */
+		--day-cell-w: 8px;
+		--day-strip-gap: 2px;
 		display: flex;
 		align-items: center;
 		gap: 14px;
@@ -1197,26 +1054,33 @@
 
 	.day-strip-container {
 		flex: 1;
-		overflow: hidden;
+		overflow-x: auto;
+		overflow-y: visible;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(255,255,255,0.18) transparent;
 	}
 	.day-strip {
 		display: flex;
-		gap: 2px;
-		overflow-x: auto;
-		scrollbar-width: none;
+		gap: var(--day-strip-gap);
 		padding: 2px 0;
+		width: max-content;
 	}
-	.day-strip::-webkit-scrollbar { display: none; }
+	.day-strip-container::-webkit-scrollbar { height: 6px; }
+	.day-strip-container::-webkit-scrollbar-thumb {
+		background: rgba(255,255,255,0.18);
+		border-radius: 999px;
+	}
+	.day-strip-container::-webkit-scrollbar-track { background: transparent; }
 
 	.day-cell {
-		width: 8px;
-		min-width: 8px;
-		height: 22px;
+		flex: 0 0 var(--day-cell-w);
+		min-width: var(--day-cell-w);
+		height: 28px;
 		border-radius: 2px;
 		border: none;
 		cursor: pointer;
 		transition: all 0.12s;
-		opacity: 0.7;
+		opacity: 0.9;
 	}
 	.day-cell:hover { opacity: 1; transform: scaleY(1.3); }
 	.day-cell.selected {
@@ -1230,6 +1094,11 @@
 		display: flex;
 		gap: 12px;
 		margin-top: 4px;
+		/* Pinned to the left of the horizontally-scrolling strip so the key stays visible
+		   no matter how far the timeline is scrolled. */
+		position: sticky;
+		left: 0;
+		width: fit-content;
 	}
 	.day-strip-legend span {
 		font-size: 10px;
@@ -1318,47 +1187,15 @@
 		margin-bottom: 10px;
 	}
 
-	/* ── Trajectory mini-bar ── */
-	.trajectory-bar {
-		display: flex;
-		align-items: flex-end;
-		gap: 12px;
-		height: 80px;
-		padding: 4px 0;
-	}
-	.trajectory-segment {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		flex: 1;
-		height: 100%;
-		justify-content: flex-end;
-	}
-	.trajectory-fill {
-		width: 100%;
-		max-width: 40px;
-		border-radius: 3px 3px 0 0;
-		transition: height 0.3s;
-	}
-	.trajectory-val {
-		font-family: 'DM Mono', monospace;
+	/* ── Scoped (non-blocking) detail error ── */
+	.detail-error {
 		font-size: 12px;
-		color: #c8d6e0;
-		font-weight: 500;
-	}
-	.trajectory-label {
-		font-size: 10px;
-		color: #5e7282;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-	.trajectory-direction {
-		font-family: 'DM Mono', monospace;
-		font-size: 13px;
-		font-weight: 600;
-		align-self: center;
-		white-space: nowrap;
+		color: #E85D4A;
+		background: rgba(232,93,74,0.08);
+		border: 1px solid rgba(232,93,74,0.25);
+		border-radius: 6px;
+		padding: 8px 12px;
+		margin: 4px 0 4px;
 	}
 
 	/* ── Cards ── */
@@ -1420,25 +1257,6 @@
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 
-	/* ── Dashboard reading guide ── */
-	.reading-guide {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		padding-top: 4px;
-	}
-	.guide-section {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-	.guide-heading {
-		color: #c8d6e0;
-		font-size: 12px;
-		font-weight: 600;
-		letter-spacing: 0.3px;
-	}
-
 	/* ── Insights list ── */
 	.insights-list {
 		display: flex;
@@ -1469,22 +1287,200 @@
 		margin-top: 2px;
 	}
 
-	/* ── Correlation header ── */
-	.corr-header {
+	/* ── Hero trend: in-flight baseline refresh ── */
+	.hero-card.baseline-updating {
+		opacity: 0.6;
+		transition: opacity 0.15s;
+	}
+	.hero-card {
+		transition: opacity 0.15s;
+	}
+
+	/* ── Hero trend header ── */
+	.hero-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 10px;
+		gap: 12px;
+		margin-bottom: 8px;
 	}
-	.corr-r {
+	.hero-header .card-title { margin-bottom: 0; }
+	.hero-controls {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		flex-wrap: wrap;
+	}
+	.control-group {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.control-label {
 		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		color: #5e7282;
+		white-space: nowrap;
+	}
+	.control-sep {
+		width: 1px;
+		height: 16px;
+		background: rgba(255,255,255,0.1);
+		flex-shrink: 0;
+	}
+
+	/* ── Month axis under timeline ── */
+	.month-axis {
+		display: flex;
+		gap: 0;
+		margin-top: 4px;
+		width: max-content;
+	}
+	.month-tick {
+		/* Stride per day = cell width + inter-cell gap, derived from the same vars the strip uses
+		   so the month axis always stays aligned with the day cells above it. */
+		flex: 0 0 calc(var(--days) * (var(--day-cell-w) + var(--day-strip-gap)));
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		font-family: 'DM Mono', monospace;
+		font-size: 9px;
+		color: #5e7282;
+		border-left: 1px solid rgba(255,255,255,0.06);
+		padding-left: 2px;
+	}
+
+	/* ── Selected-night percentile ── */
+	.percentile-readout {
 		font-size: 13px;
-		font-weight: 500;
+		color: #c8d6e0;
+	}
+	.percentile-readout strong {
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ── Co-movement summary ── */
+	.comove-caption {
+		font-size: 12px;
+		color: #6b7d8e;
+		margin-bottom: 12px;
+	}
+	.comove-list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.comove-row {
+		display: grid;
+		grid-template-columns: 132px 1fr 56px 40px;
+		align-items: center;
+		gap: 10px;
+	}
+	.comove-label {
+		font-size: 12px;
+		color: #c8d6e0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.comove-track {
+		height: 10px;
+		background: rgba(255,255,255,0.04);
+		border-radius: 5px;
+		overflow: hidden;
+	}
+	.comove-fill {
+		height: 100%;
+		border-radius: 5px;
+	}
+	.comove-r {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		color: #d9e5ec;
+		text-align: right;
+	}
+	.comove-n {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+		color: #5e7282;
+		text-align: right;
+	}
+
+	/* ── Plain chart legend (footnote) ── */
+	.chart-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		margin-top: 10px;
+		padding-left: 4px;
+	}
+	.lg {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11px;
+		color: #8a9baa;
+	}
+	.lg-line {
+		width: 16px;
+		height: 3px;
+		border-radius: 2px;
+	}
+	.lg-band {
+		width: 16px;
+		height: 11px;
+		border-radius: 2px;
+		border: 1px dashed;
+	}
+	.lg-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		display: inline-block;
+	}
+
+	/* ── Instant timeline tooltip ── */
+	.day-tooltip {
+		position: fixed;
+		transform: translate(-50%, -150%);
+		background: #1a2530;
+		border: 1px solid rgba(255,255,255,0.1);
+		color: #d9e5ec;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		padding: 3px 7px;
+		border-radius: 4px;
+		pointer-events: none;
+		white-space: nowrap;
+		z-index: 100;
+	}
+
+	/* ── Garmin status chip ── */
+	.garmin-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		color: #8a9baa;
+	}
+	.garmin-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		display: inline-block;
 	}
 
 	/* ── Responsive ── */
 	@media (max-width: 768px) {
-		.stat-bar { grid-template-columns: repeat(2, 1fr); }
+		.stat-bar { grid-template-columns: minmax(0, 1fr); }
 		.day-nav { flex-direction: column; align-items: stretch; }
 		.two-col-row { flex-direction: column; }
 	}

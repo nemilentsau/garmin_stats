@@ -20,6 +20,8 @@ from app.domains.garmin_analytics.application.dashboard import (
 )
 from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
 from app.domains.garmin_analytics.contracts import (
+    BASELINE_WINDOW_DEFAULT,
+    BaselineWindow,
     BodyBatteryAnalysisResponse,
     BodyBatteryDailyResponse,
     BodyBatteryRawResponse,
@@ -55,6 +57,14 @@ def get_biometrics_repo() -> BiometricReadRepository:
 
 
 BiometricsRepo = Annotated[BiometricReadRepository, Depends(get_biometrics_repo)]
+_HrvBaseline = Annotated[
+    BaselineWindow,
+    Query(description="Trailing baseline window (days)"),
+]
+# Single source of truth for the HTTP default — derived from the contract default so changing
+# BASELINE_WINDOW_DEFAULT changes the served default too (a module-level singleton, not a call
+# in the argument default, which ruff B008 forbids).
+_HRV_BASELINE_DEFAULT = BaselineWindow(BASELINE_WINDOW_DEFAULT)
 
 
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -109,9 +119,12 @@ def get_hrv_raw(
 
 
 @hrv_router.get("/analysis", response_model=HrvAnalysisResponse)
-def get_hrv_analysis(repo: BiometricsRepo):
-    """Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots)."""
-    return metric_analysis_uc.load_hrv_analysis(repo)
+def get_hrv_analysis(
+    repo: BiometricsRepo,
+    baseline: _HrvBaseline = _HRV_BASELINE_DEFAULT,
+):
+    """Return pre-computed HRV analysis (nightly trend with 7d MA + trailing band)."""
+    return metric_analysis_uc.load_hrv_analysis(repo, baseline=int(baseline))
 
 
 @hrv_router.get("/daily", response_model=HrvDailyResponse)
@@ -124,9 +137,10 @@ def get_hrv_daily(repo: BiometricsRepo):
 def get_hrv_insights(
     repo: BiometricsRepo,
     date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
+    baseline: _HrvBaseline = _HRV_BASELINE_DEFAULT,
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    return metric_insights_uc.get_hrv_insights(repo, date)
+    return metric_insights_uc.get_hrv_insights(repo, date, baseline=int(baseline))
 
 
 @skin_temp_router.get("/raw", response_model=SkinTempResponse)

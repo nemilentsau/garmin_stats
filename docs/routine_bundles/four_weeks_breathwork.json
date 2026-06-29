@@ -1,0 +1,863 @@
+{
+  "id": "breathwork-routine-4w",
+  "name": "Breathwork Routine",
+  "schema_version": 1,
+  "description": "Deterministic four-week breathwork routine starting 2026-06-29. Use structured breathing for autonomic regulation, breath control, and recovery support without mixing it analytically with meditation skill training.",
+  "card_templates": [
+    {
+      "id": "breathwork-resonance-5-5",
+      "name": "Resonance Breathing — 5/5",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Steady 5-second inhale and 5-second exhale for calm physiological regulation.",
+      "tags": [
+        "breathwork",
+        "resonance",
+        "recovery"
+      ],
+      "payload": {
+        "duration_minutes": 10,
+        "pattern": "5s in / 5s out",
+        "instructions": "Find a smooth 5s/5s rhythm. Keep the breath relaxed rather than deep. Nasal breathing preferred if comfortable. Success condition: The rhythm feels smooth, repeatable, and calming without air hunger or strain. Failure modes: breathing too deeply, forcing the inhale, turning the session into performance breathing.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-extended-exhale-4-7",
+      "name": "Extended Exhale — 4/7",
+      "renderer": "timer_session",
+      "slot_default": "evening",
+      "summary": "Long-exhale breathwork for evening downshift and recovery.",
+      "tags": [
+        "breathwork",
+        "extended_exhale",
+        "recovery"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 7s out",
+        "instructions": "Keep the exhale smooth and complete without forcing the last second. Let the inhale arrive naturally. Success condition: The session leaves you calmer without feeling depleted or over-controlled. Failure modes: emptying the lungs aggressively, exhale strain, air hunger caused by over-controlling the breath.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-extended-exhale-4-8",
+      "name": "Extended Exhale — 4/8",
+      "renderer": "timer_session",
+      "slot_default": "evening",
+      "summary": "Slightly progressed long-exhale pattern for stronger downshift.",
+      "tags": [
+        "breathwork",
+        "extended_exhale",
+        "recovery",
+        "progression"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 8s out",
+        "instructions": "Use only if 4/7 is smooth. The final two seconds of the exhale should stay relaxed, not squeezed. Success condition: The longer exhale feels quieter, not harder. Fallback: Return to 4/7 if the 8-second exhale causes tension or gasping.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-box-4-4-4-4",
+      "name": "Box Breathing — 4/4/4/4",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Balanced breathing for composure and controlled transitions.",
+      "tags": [
+        "breathwork",
+        "box_breathing",
+        "composure"
+      ],
+      "payload": {
+        "duration_minutes": 5,
+        "pattern": "4s in / 4s hold / 4s out / 4s hold",
+        "instructions": "Move cleanly through each transition. Holds should be calm, with no gasping after either hold. Success condition: The square feels controlled and boring. Failure modes: bracing during holds, overfilling the lungs, rushing the inhale after the post-exhale hold.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-box-5-5-5-5",
+      "name": "Box Breathing — 5/5/5/5",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Progressed box breathing for composure under a slower rhythm.",
+      "tags": [
+        "breathwork",
+        "box_breathing",
+        "composure",
+        "progression"
+      ],
+      "payload": {
+        "duration_minutes": 5,
+        "pattern": "5s in / 5s hold / 5s out / 5s hold",
+        "instructions": "Use this as a controlled composure challenge, not as a max-effort breath-hold drill. Success condition: The slower square remains smooth and non-dramatic. Fallback: Return to 4/4/4/4 if the 5-second holds create strain, gasping, or tension.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-co2-4-6-4",
+      "name": "CO2 Tolerance — 4/6/4",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Post-exhale hold practice for mild air-hunger comfort and breath control.",
+      "tags": [
+        "breathwork",
+        "co2_tolerance",
+        "breath_control"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 6s out / 4s post-exhale hold",
+        "instructions": "Keep the post-exhale hold calm. The hold should create at most mild air hunger. Success condition: You remain relaxed at low lung volume and inhale without urgency. Failure modes: turning the hold into a contest, squeezing all air out before the hold, gasping after the hold.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-co2-4-6-6",
+      "name": "CO2 Tolerance — 4/6/6",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Progressed post-exhale hold practice for stronger but still controlled air-hunger exposure.",
+      "tags": [
+        "breathwork",
+        "co2_tolerance",
+        "breath_control",
+        "progression"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 6s out / 6s post-exhale hold",
+        "instructions": "Use only if 4/6/4 is trivial. Stay relaxed during the final two seconds of the hold. Success condition: Mild urge to inhale appears without panic, bracing, or forced recovery breathing. Fallback: Return to 4/6/4 if breathing becomes dramatic.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-co2-4-8-6",
+      "name": "CO2 Tolerance — 4/8/6",
+      "renderer": "timer_session",
+      "slot_default": "morning",
+      "summary": "Long-exhale CO2 progression for calm low-lung-volume control.",
+      "tags": [
+        "breathwork",
+        "co2_tolerance",
+        "extended_exhale",
+        "progression"
+      ],
+      "payload": {
+        "duration_minutes": 8,
+        "pattern": "4s in / 8s out / 6s post-exhale hold",
+        "instructions": "Use sparingly. The long exhale should stay smooth; do not empty the lungs aggressively before the hold. Success condition: Air hunger is present but manageable, and the next inhale is controlled. Fallback: Use 4/6/6 or 4/6/4 if the session creates strain.",
+        "rating_prompts": [
+          {
+            "key": "breath_smoothness",
+            "label": "Breath smoothness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "perceived_downshift",
+            "label": "Perceived downshift",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "relaxation_depth",
+            "label": "Relaxation depth",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "strain",
+            "label": "Strain",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "air_hunger_comfort",
+            "label": "Air-hunger comfort",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "recovery_usefulness",
+            "label": "Recovery usefulness",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "breathwork-weekly-review",
+      "name": "Breathwork Weekly Review",
+      "renderer": "checklist_block",
+      "slot_default": "evening",
+      "summary": "Brief review of which breathwork patterns actually supported calm, recovery, and readiness.",
+      "tags": [
+        "breathwork",
+        "review"
+      ],
+      "payload": {
+        "instructions": "Review the week without optimizing prematurely. Identify which pattern produced the most reliable downshift and whether harder patterns added value.",
+        "items": [
+          {
+            "id": "review-prompt-1",
+            "label": "Which breathing pattern produced the clearest downshift?"
+          },
+          {
+            "id": "review-prompt-2",
+            "label": "Did any pattern create strain, agitation, or sleep disruption?"
+          },
+          {
+            "id": "review-prompt-3",
+            "label": "Did harder breathing add value beyond standard resonance or extended exhale?"
+          },
+          {
+            "id": "review-prompt-4",
+            "label": "Which pattern felt most useful after hard training?"
+          },
+          {
+            "id": "review-prompt-5",
+            "label": "What should remain unchanged next week?"
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "breathwork-routine-4w-routine",
+      "name": "Breathwork Routine",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-26",
+      "status": "active",
+      "tags": [
+        "breathwork",
+        "resonance",
+        "extended_exhale",
+        "box_breathing",
+        "co2_tolerance"
+      ],
+      "notes": "Purpose: Use structured breathing for autonomic regulation, breath control, and recovery support without mixing it analytically with meditation skill training.\n\nGoals: physiological_downshift: Practice breathing patterns that reliably reduce perceived activation and support calm recovery. recovery_support: Use low-strain breathwork after hard training or stressful days to support readiness for subsequent training. breath_control: Progress breath control without turning breathwork into max-effort breath-hold training. pattern_comparison: Keep practice types distinct enough that later experiments can compare resonance, extended exhale, box breathing, and CO2 tolerance.\n\nMeasurement hooks: pre_session_window: Optional quiet baseline before the session. post_session_window: Optional quiet window after the session to measure acute change. next_morning_window: Optional next-morning recovery/readiness comparison. training_context: Log whether the day included hard training, long run, easy run, rest, poor sleep, high stress, caffeine, or alcohol.\n\nProgression: breathing_is_not_the_bottleneck: Do not progress breathwork merely because the current pattern is easy. calm_before_intensity: Only progress a pattern if it remains smooth, calm, and non-strained. harder_patterns_are_sparse: Use 5/5/5/5 box breathing and progressed CO2 work sparingly, not daily. recovery_days_are_not_tests: After hard training, prioritize extended exhale or resonance breathing over challenging CO2 work. separate_from_meditation: Do not combine breathwork ratings with meditation-skill ratings when analyzing effects.\n\nCompletion criteria: minimum_adherence: Complete at least 20 of 28 assigned days. resonance_exposure: Complete at least 6 resonance breathing sessions. extended_exhale_exposure: Complete at least 6 extended-exhale sessions. harder_breathwork_exposure: Complete at least 2 box progression or CO2 progression sessions, but do not force completion if strain is high. review_completion: Complete at least 3 of 4 weekly reviews.\n\nAfter four weeks: resonance_breathing_produces_reliable_downshift: Keep resonance breathing as the standard comparison and recovery-priming pattern. extended_exhale_improves_evening_recovery: Keep extended exhale as the default evening or post-hard-training breathwork. box_5_5_5_5_adds_no_value_over_4_4_4_4: Stop progressing box breathing and keep the simpler version only as a short composure tool. co2_progressions_create_strain_or_activation: Drop CO2 progression and keep only the easy 4/6/4 pattern occasionally. harder_breathwork_feels_satisfying_but_does_not_help_recovery: Treat harder breathwork as optional skill work, not a recovery intervention.",
+      "assignments": [
+        {
+          "id": "breathwork-routine-4w:day1-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 1,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Establish the baseline breathwork pattern. Keep it smooth and non-deep."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day2-evening-extended-exhale-4-7",
+          "card_template_id": "breathwork-extended-exhale-4-7",
+          "day": 2,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Use this as a downshift session. Avoid forcing the final second of the exhale."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day3-morning-box-4-4-4-4",
+          "card_template_id": "breathwork-box-4-4-4-4",
+          "day": 3,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Use box breathing as a composure drill. It should feel controlled, not difficult."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day4-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 4,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Repeat resonance breathing to build a clean comparison condition."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day5-evening-extended-exhale-4-7",
+          "card_template_id": "breathwork-extended-exhale-4-7",
+          "day": 5,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Use this after training or work stress. Rate perceived downshift carefully."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day6-morning-co2-4-6-4",
+          "card_template_id": "breathwork-co2-4-6-4",
+          "day": 6,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "First CO2 session of this block. Mild air hunger only. No performance mindset."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day7-evening-weekly-review",
+          "card_template_id": "breathwork-weekly-review",
+          "day": 7,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 1. Identify whether resonance, extended exhale, box, or CO2 felt most useful."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day8-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 8,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Increase duration slightly. Same rhythm, no added intensity."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day9-evening-extended-exhale-4-7",
+          "card_template_id": "breathwork-extended-exhale-4-7",
+          "day": 9,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Longer recovery session. Keep the exhale quiet and smooth."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day10-morning-box-5-5-5-5",
+          "card_template_id": "breathwork-box-5-5-5-5",
+          "day": 10,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "First 5/5/5/5 exposure. Treat it as a composure test, not a breath-hold contest."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day11-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 11,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Return to the standard pattern after the harder box session."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day12-evening-extended-exhale-4-8",
+          "card_template_id": "breathwork-extended-exhale-4-8",
+          "day": 12,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "First 4/8 extended-exhale exposure. Use 4/7 if 4/8 creates strain."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day13-morning-co2-4-6-6",
+          "card_template_id": "breathwork-co2-4-6-6",
+          "day": 13,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Progress CO2 only if 4/6/4 was genuinely easy and calm. Otherwise use 4/6/4."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day14-evening-weekly-review",
+          "card_template_id": "breathwork-weekly-review",
+          "day": 14,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 2. Decide whether 5/5/5/5 and 4/6/6 added useful signal or just difficulty."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day15-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 15,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Stable resonance session. This remains the cleanest breathwork comparison pattern."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day16-evening-extended-exhale-4-8",
+          "card_template_id": "breathwork-extended-exhale-4-8",
+          "day": 16,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Use this as the main recovery-oriented breathwork pattern this week."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day17-morning-box-5-5-5-5",
+          "card_template_id": "breathwork-box-5-5-5-5",
+          "day": 17,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 6,
+            "instructions": "Second 5/5/5/5 exposure. Add only one minute. Keep transitions smooth."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day18-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 18,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Return to easy regulation. Do not chase difficulty."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day19-morning-co2-4-8-6",
+          "card_template_id": "breathwork-co2-4-8-6",
+          "day": 19,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Use only if 4/6/6 was smooth. Otherwise repeat 4/6/6 or 4/6/4."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day20-evening-extended-exhale-4-8",
+          "card_template_id": "breathwork-extended-exhale-4-8",
+          "day": 20,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Recovery-biased session. Rate strain and downshift honestly."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day21-evening-weekly-review",
+          "card_template_id": "breathwork-weekly-review",
+          "day": 21,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 3. Identify whether harder patterns are actually useful or merely satisfying."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day22-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 22,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Final-week resonance comparison session."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day23-evening-extended-exhale-4-8",
+          "card_template_id": "breathwork-extended-exhale-4-8",
+          "day": 23,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Use as a recovery and downshift session."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day24-morning-box-5-5-5-5",
+          "card_template_id": "breathwork-box-5-5-5-5",
+          "day": 24,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 6,
+            "instructions": "Final box-breathing comparison. If 5/5/5/5 is not clearly better than 4/4/4/4, do not keep progressing it."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day25-morning-resonance-5-5",
+          "card_template_id": "breathwork-resonance-5-5",
+          "day": 25,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Easy regulation. This should feel boring and repeatable."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day26-morning-co2-4-8-6",
+          "card_template_id": "breathwork-co2-4-8-6",
+          "day": 26,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 8,
+            "instructions": "Final CO2 comparison. Use the hardest version that remains calm and non-strained."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day27-evening-extended-exhale-4-8",
+          "card_template_id": "breathwork-extended-exhale-4-8",
+          "day": 27,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Final extended-exhale comparison session."
+          }
+        },
+        {
+          "id": "breathwork-routine-4w:day28-evening-weekly-review",
+          "card_template_id": "breathwork-weekly-review",
+          "day": 28,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Full routine review. Decide which breathwork patterns deserve to stay in the next block."
+          }
+        }
+      ]
+    }
+  ]
+}

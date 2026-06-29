@@ -5,9 +5,9 @@ from importlib import import_module
 
 import numpy as np
 
-from app.domains.garmin_analytics.domain.analysis import hrv
 from app.domains.garmin_analytics.domain.primitives import trends
 from app.domains.garmin_analytics.domain.primitives.trends import trailing_sd
+from app.domains.garmin_health.domain.daily_metrics.hrv import classify_hrv_recovery
 from app.utils import numeric
 
 
@@ -121,12 +121,34 @@ def test_trailing_sd_window_excludes_old_values():
     assert out[-1] == round(float(np.std([1.0, 2.0, 3.0], ddof=1)), 3)
 
 
-def test_hrv_recovery_classifier_owns_shared_thresholds_and_status_policy():
-    assert hasattr(hrv, "classify_hrv_recovery")
+def test_hrv_recovery_classifier_delta_only_thresholds():
+    hrv_analysis = import_module("app.domains.garmin_analytics.domain.analysis.hrv")
+    assert not hasattr(hrv_analysis, "classify_hrv_recovery")
 
-    assert hrv.classify_hrv_recovery(delta=None, status="Balanced") is None
-    assert hrv.classify_hrv_recovery(delta=-10, status="Balanced") == "suppressed"
-    assert hrv.classify_hrv_recovery(delta=-9.9, status="Low") == "suppressed"
-    assert hrv.classify_hrv_recovery(delta=-5, status="Balanced") == "below_baseline"
-    assert hrv.classify_hrv_recovery(delta=8, status="Balanced") == "elevated"
-    assert hrv.classify_hrv_recovery(delta=0, status="Balanced") == "stable"
+    assert classify_hrv_recovery(delta=None) is None
+    assert classify_hrv_recovery(delta=-10) == "suppressed"
+    assert classify_hrv_recovery(delta=-9.9) == "below_baseline"  # no Garmin-status OR
+    assert classify_hrv_recovery(delta=-5) == "below_baseline"
+    assert classify_hrv_recovery(delta=8) == "elevated"
+    assert classify_hrv_recovery(delta=0) == "stable"
+    assert classify_hrv_recovery(delta=2.0) == "stable"  # positive delta is never "suppressed"
+
+
+def test_nightly_trend_populates_trailing_band_after_warmup():
+    from datetime import date, timedelta
+
+    from app.domains.garmin_analytics.domain.analysis import hrv as hrv_analysis
+    from tests._analytics_helpers import make_daily_metric
+
+    start = date(2026, 1, 1)
+    metrics = [
+        make_daily_metric((start + timedelta(days=i)).isoformat(), 50.0 + (i % 5))
+        for i in range(25)
+    ]
+    metrics.append(make_daily_metric((start + timedelta(days=25)).isoformat(), 200.0))  # extreme
+
+    trend = hrv_analysis.compute_nightly_hrv_trend(metrics, window=30)
+
+    assert trend[0].band_low is None  # warmup: fewer than 21 prior nights
+    assert trend[22].band_low is not None and trend[22].band_high is not None
+    assert trend[25].is_extreme is True

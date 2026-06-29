@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HRV — Garmin Health Findings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-topic="hrv">
+
+<nav class="topnav">
+  <a class="topnav-back" href="index.html">← Findings</a>
+  <span class="topnav-title">HRV</span>
+  <div class="topnav-links">
+    <a href="#bimodal">Continuous</a>
+    <a href="#volatile">Volatility</a>
+    <a href="#stress-lead">Stress lead</a>
+    <a href="#dow">Weekly rhythm</a>
+    <a href="#cue">Recovery cue</a>
+  </div>
+</nav>
+
+<main class="wrap page">
+
+  <header class="hero">
+    <div class="eyebrow">03 — HRV</div>
+    <h1>Reading HRV honestly.</h1>
+    <p class="sub">Nightly HRV is the loudest recovery signal on the wrist and the easiest to
+    over-read. The through-line of every finding here: it is a <em>trend to read</em>, not a
+    <em>state to threshold</em> — and that principle reshaped every HRV surface in the product.</p>
+  </header>
+
+  <!-- ============================== CONTINUOUS ============================== -->
+  <div class="section-intro" id="bimodal">
+    <h2>A continuous signal, not a switch</h2>
+    <p>The foundational HRV finding, and the one the rest inherit.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Nightly HRV is one continuous signal, not two modes.</h2>
+    </div>
+    <p class="lede">An earlier look thought the distribution was two-humped — a “good night / bad
+    night” switch. It isn’t. It’s a single broad, recovery-modulated spread. Low nights are genuine
+    system-wide low-recovery nights, but they <em>interleave</em> with high nights night to night;
+    they are not a separate mode you flip into.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-modality.png" alt="Three histogram+KDE panels, each a single broad peak">
+      <figcaption><b>One broad peak, not two modes.</b> Bimodality coefficient 0.44 (&lt; 0.555),
+      and it stays unimodal after regime-detrending (0.39) and within the Jan–Mar plateau. The
+      two dashed Gaussians fit a low <em>shoulder</em>, not a separated mode. n=344.</figcaption>
+    </figure>
+
+    <p>So the right way to consume HRV is its <span class="lead-strong">level and trend</span> —
+    never a hard threshold that sorts each night into a category.</p>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-bimodality</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Bimodality coefficient</dt><dd>pooled <span class="num">0.44</span>, detrended <span class="num">0.39</span> (threshold 0.555)</dd>
+          <dt>Model selection</dt><dd>1-vs-2-component BIC a near-tie; detrended residuals favor one component</dd>
+          <dt>Low- vs high-HRV nights</dt><dd>non-HRV recovery composite median <span class="num">−0.86</span> vs <span class="num">+0.38</span> — low HRV really is system-wide low recovery</dd>
+          <dt>Interleaving</dt><dd>mode run-length 2.37 ≈ shuffled 2.35 — nights alternate, they don’t block</dd>
+          <dt>Regime modulation</dt><dd>low-night frequency Nov–Dec ~<span class="num">57%</span> vs Jan ~<span class="num">11%</span></dd>
+        </dl>
+        <p><b>So what.</b> The “two states” reading was an over-interpretation of a broad
+        distribution. HRV is a continuous gradient modulated by recovery state at the monthly scale.
+        Read the trend; don’t threshold it into modes — the principle the recovery cue and the
+        recovery score both inherit.</p>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">A single HRV percentile is meaningless without its window.</h2>
+    </div>
+    <p class="lede">Because the whole distribution slides between regimes, the same nightly HRV
+    ranks at wildly different percentiles depending on the reference window. That’s why the HRV tab
+    never shows a bare percentile — it always names the baseline window.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-regime-overlays.png" alt="Three overlaid HRV distributions for low regime, plateau, and full history">
+      <figcaption><b>Why HRV ever looked two-humped.</b> The Nov–Dec low regime (median 41 ms) and
+      the Jan–Mar plateau (median 62 ms) are the <em>same</em> distribution shifted; the pooled
+      history (median 53) is their broad blend. A 50 ms night sits high in November, low in the
+      plateau. n=365.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-distribution-scope</span></summary>
+      <div class="evidence-body">
+        <p>The same night, ranked against three windows (full / last-90 / local regime):</p>
+        <dl class="kv">
+          <dt>Nov low · 41 ms</dt><dd>p26 / p21 / <span class="num">p55</span></dd>
+          <dt>Plateau · 62 ms</dt><dd>p75 / p84 / <span class="num">p54</span></dd>
+          <dt>Acute dip · 42 ms</dt><dd>p28 / p32 / <span class="num">p17</span></dd>
+        </dl>
+        <p>Shape: median 53, IQR 41–63 ms, skew +0.01, Sarle BC 0.439 (n=365) — one unimodal,
+        roughly symmetric distribution, reproducing the not-bimodal result.</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== VOLATILE ============================== -->
+  <div class="section-intro" id="volatile">
+    <h2>Volatile night to night</h2>
+    <p>If HRV is a continuous, noisy signal, then no single night should be trusted on its own —
+    and the way it’s displayed has to respect that.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">A single night can halve — then rebound in two.</h2>
+    </div>
+    <p class="lede">On 2026-02-26 raw nightly HRV fell <span class="lead-strong">84 → 42 ms</span>,
+    then V-rebounded to 57 and 67. It was a real, multi-system event — six recovery metrics all hit
+    their worst that night, so it wasn’t a sensor glitch — but it was <em>transient</em>. Read the
+    trend, not any one night.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-feb-drop-context.png" alt="HRV line dropping to 42 then rebounding to 57 and 67">
+      <figcaption><b>The dip is transient.</b> Raw nightly HRV plunged 84 → 42 ms then rebounded to
+      57 / 67 against the ~61 ms baseline (Feb 9 – Mar 9 2026). The −42 ms drop is the 4th-largest
+      of 334 consecutive-night deltas (z = −2.31).</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-feb-comovement.png" alt="Six small-multiple panels all hitting extremes on the same night">
+      <figcaption><b>Real, not a glitch.</b> The same night, six recovery metrics each hit their
+      worst-recovery extreme (HRV ↓, resting HR ↑, respiration ↑, stress ↑, body battery ↓,
+      skin-temp ↑) — six independent sensors converging.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-feb25-26-drop</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>The drop</dt><dd>Δ = <span class="num">−42 ms</span>, z = <span class="num">−2.31</span> vs 334 deltas (SD 18.2); 4th-largest one-night drop</dd>
+          <dt>Same-night co-movement</dt><dd>RHR 42→49 bpm · body battery 57→25 · skin-temp −0.3→+0.3 °C · stress 24.5→30.9</dd>
+          <dt>Rebound</dt><dd>Feb 27 = <span class="num">57</span>, Feb 28 = <span class="num">67</span> — transient, not a baseline shift</dd>
+        </dl>
+        <div class="caveat"><b>Caveats.</b> Cause inferred (no behavioral logs; sleep duration
+        absent from the mart); co-metrics are mutually correlated, so they corroborate rather than
+        independently confirm. This user’s HRV is generally volatile (comparable dips Feb 14/17,
+        Mar 6) — the magnitude is notable, the kind of event is not rare.</div>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">A smoothed-only chart can hide a real crash.</h2>
+    </div>
+    <p class="lede">When the dashboard plotted only the 7-day moving average, that 42 ms crash
+    rendered as a soft <span class="lead-strong">63</span> (= mean of 84 and 42 at the truncated
+    left edge). The persisted data was always correct — but the display erased the event. The fix:
+    show raw nightly values, and seed the moving-average edge.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-raw-vs-ma7.png" alt="Raw nightly HRV cloud around a 7-day moving average, Feb-26 crash marked below the line">
+      <figcaption><b>Read raw, not just the smoothed line.</b> Nightly HRV is a volatile cloud
+      (~20–87 ms) around its 7-day average; the MA hides true crashes — Feb-26’s raw 42 ms shows as
+      63. Full history with the IQR band and regime shading. n=365.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-feb25-26-drop + hrv-tab-audit</span></summary>
+      <div class="evidence-body">
+        <p>The arithmetic of the display bug, from the API series:</p>
+        <pre class="snippet">02-25:  raw 84,  ma7 84
+02-26:  raw <span class="v">42</span>,  ma7 <span class="v">63</span>   <span class="c"># = mean(84, 42) at the truncated edge</span>
+02-27:  raw 57,  ma7 61</pre>
+        <p>Presentation-layer only — the stored value (42) is correct. Resolved by showing raw
+        nightly values alongside the average and by seeding the MA left edge (<code>_MA_SEED_DAYS</code>).</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== STRESS LEAD ============================== -->
+  <div class="section-intro" id="stress-lead">
+    <h2>Stress leads HRV</h2>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">A hard day predicts a low HRV the next night.</h2>
+    </div>
+    <p class="lede">Daytime stress doesn’t just track the same night’s HRV — it <em>leads</em> the
+    following night’s, and the lead survives controlling for the next day’s own stress. So a low
+    HRV the morning after a hard day is largely <em>anticipated</em>, not new information. The
+    effect is gone within 2–3 nights.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-stress-lag.png" alt="Spearman correlation of stress to HRV by lag, decaying from same-night to noise">
+      <figcaption><b>Stress → HRV by lag (Spearman r ± 95% CI).</b> −0.67 same-night, −0.49 the next
+      night, decaying to noise by +2/+3 — only lag +1 clears the bar. Median next-night HRV is
+      64 ms after a calm day vs 43 ms after a stressful one. n=342.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · stress-hrv-lag</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Lag +1</dt><dd>Spearman <span class="num">−0.490</span>, CI [−0.572, −0.401], n=342</dd>
+          <dt>Survives control</dt><dd>partial (given next-day stress) <span class="num">−0.344</span>; unchanged at −0.341 controlling HRV(D) too — a lead, not a persistence echo</dd>
+          <dt>Decay</dt><dd>lag +2 / +3 ≈ <span class="num">−0.15</span>, not reliably distinguishable from 0</dd>
+          <dt>Magnitude</dt><dd>median next-night HRV <span class="num">64</span> ms (calm day) vs <span class="num">43</span> ms (stressful day)</dd>
+        </dl>
+        <div class="caveat"><b>Shared-derivation ceiling.</b> Garmin derives both stress and nightly
+        HRV from heart-rate variability, so this may partly be one autonomic state measured twice.
+        Predictive and provisional — not an established independent causal channel.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== WEEKLY RHYTHM ============================== -->
+  <div class="section-intro" id="dow">
+    <h2>A weekly rhythm</h2>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">A real ~10 ms weekly rhythm rides on top — lowest on Saturday.</h2>
+    </div>
+    <p class="lede">Underneath the noise there is a genuine day-of-week pattern: weekday residual
+    means swing about <span class="lead-strong">10 ms peak-to-trough</span>, the pattern
+    <em>survives</em> regime de-trending (it even strengthens), and it <em>replicates</em> across
+    split halves with Saturday lowest in both. It is a group-level rhythm, not a per-night
+    predictor.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-dow-residual-ci.png" alt="Detrended weekday HRV residual means with bootstrap confidence intervals">
+      <figcaption><b>Detrended weekday residual means ± bootstrap 95% CI (ms).</b> Sat (−5.5) and
+      Thu (−3.5) sit clearly below baseline, Tue (+4.5) above; ~10 ms peak-to-trough, ε² 0.076.
+      n≈378.</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-dow-swing-vs-noise.png" alt="The ~10 ms weekday swing against a wide single-night noise band">
+      <figcaption><b>But noise dwarfs it.</b> The ~10 ms weekday swing sits inside a ±14 ms
+      single-night SD band — a population rhythm, not a one-night forecast.</figcaption>
+    </figure>
+
+    <p>Useful as context (“my Saturdays read low”), not as a prediction for any single night.</p>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-dow-display</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Residual means (ms)</dt><dd>Mon +3.5, Tue +4.5, Wed 0.0, Thu −3.5, Fri −1.0, Sat −5.5, Sun +2.1</dd>
+          <dt>Effect size</dt><dd>Kruskal-Wallis ε² <span class="num">0.076</span> [0.035, 0.168] — medium; strengthens after de-trending</dd>
+          <dt>Bootstrap CIs clear of 0</dt><dd>Sat [−8.9, −2.1], Thu [−6.9, −0.2], Tue [+1.9, +7.1]</dd>
+          <dt>Autocorr-preserving null</dt><dd>peak-to-trough p=<span class="num">0.033</span>; ε² p=0.024</dd>
+          <dt>Split-half replication</dt><dd>weekday-shape Spearman <span class="num">0.61</span>; Saturday lowest in both halves</dd>
+        </dl>
+        <div class="caveat"><b>Caveats.</b> ~6% of variance; a single night’s delta SD (~18 ms) is
+        ≈0.56× the whole swing. Under wake-date labeling, “Sat” HRV ≈ Friday-night sleep — name the
+        weekday label, not the behavioral night. n-of-1, single year/device.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== RECOVERY CUE ============================== -->
+  <div class="section-intro" id="cue">
+    <h2>Cueing recovery from HRV</h2>
+    <p>Everything above converges on one product question: how should a daily HRV “recovery” cue be
+    shown? A pre-registered bake-off settled it.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">No same-night category can be both stable and sensitive.</h2>
+    </div>
+    <p class="lede">With a nightly delta this noisy (SD ~13 ms), <em>any</em> fixed or personal
+    category boundary gets crossed ~2 of every 3 nights — the label flickers. The resolution:
+    drop the status word. The headline is a continuous signed delta plus a personal
+    <code>delta_z</code>; the trend cue is a sustained 7-day-vs-30-day drift with an acute override.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-cue-flicker.png" alt="Four candidate cue timelines; categorical ones flicker, continuous and drift are stable">
+      <figcaption><b>Categorical labels flicker regardless of where you cut.</b> Fixed-ms+Garmin
+      (C0) flips 63% of consecutive nights, personal z-bands (C2) 70%; only dropping the category
+      (C1) or smoothing to a 7d-vs-30d drift (C3, 12%) is stable. All catch the acute dips. n=378.</figcaption>
+    </figure>
+
+    <pre class="snippet"><span class="c"># Shipped recovery cue (replaces the fixed −10 / −5 / +8 ms 4-state pill)</span>
+headline  = signed <span class="v">delta</span> from baseline + personal <span class="v">delta_z</span>   <span class="c"># no status word</span>
+trend cue = sustained <span class="v">7d-vs-30d drift</span>  +  acute override at <span class="v">z ≤ −1.5</span>
+garmin    = <span class="v">separate chip</span>   <span class="c"># shown, never OR-ed into "suppressed"</span></pre>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-recovery-cue-bakeoff</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Night-to-night flip rate</dt><dd>C0 fixed+Garmin <span class="num">63%</span> · C2 personal-z <span class="num">70%</span> · C3 drift <span class="num">12%</span> · C1 continuous — no category</dd>
+          <dt>Calm-night false headline</dt><dd>C0 17% · C1 <span class="num">0%</span> · C3 18% (acceptable — “declining” is an explicit sustained statement)</dd>
+          <dt>Acute-dip recall</dt><dd><span class="num">100%</span> for all four candidates (incl. 2026-02-26) — sensitivity was never the problem; stability was</dd>
+        </dl>
+        <div class="caveat"><b>Provisional.</b> Selects a display/rule <em>shape</em>, not a
+        validated classifier; personal delta-SD (13.4 ms) will drift, so the z-cutoffs are
+        illustrative. n-of-1.</div>
+      </div>
+    </details>
+  </article>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-provisional">provisional</span>
+      <h2 class="takeaway">Garmin’s own status belongs on its own chip — never OR-ed in.</h2>
+    </div>
+    <p class="lede">Garmin’s built-in HRV status disagrees with the nightly delta often enough that
+    folding it into “suppressed” corrupts the signal: a third of suppressed nights were
+    Garmin-only, several with HRV well <em>above</em> baseline. So it’s surfaced as a separate
+    chip, not merged.</p>
+
+    <figure class="plot framed">
+      <img src="assets/hrv-garmin-conflict.png" alt="Scatter of nightly delta showing Garmin-only suppressions with HRV above baseline">
+      <figcaption><b>Why it’s never OR-ed.</b> 43 of 132 “suppressed” nights are Garmin-only —
+      several with HRV +10…+27 ms <em>above</em> baseline. OR-ing Garmin status in would label
+      good nights as suppressed.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · hrv-recovery-cue-bakeoff</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Garmin-only suppressions</dt><dd><span class="num">43</span> of 132 (<span class="num">33%</span>) of “suppressed” nights are driven by Garmin status alone</dd>
+          <dt>Contradiction</dt><dd>several at nightly delta <span class="num">+10…+27 ms</span> — HRV above baseline, yet Garmin says suppressed</dd>
+        </dl>
+        <p><b>Decision.</b> Garmin status is informative context, but on a different basis than the
+        nightly-vs-baseline delta. Show both; never collapse them into one verdict.</p>
+      </div>
+    </details>
+  </article>
+
+  <footer class="foot">
+    <a href="index.html">← Back to all findings</a> &nbsp;·&nbsp; Continue:
+    <a href="general.html">General →</a> &nbsp; <a href="recovery.html">Recovery Score →</a><br>
+    Snapshots 2025-05 (357 d) to 2026-06-16 (≈378 d) as noted per finding. n-of-1, single device;
+    full method and caveats in the evidence blocks and <code>FINDINGS.md</code>.
+  </footer>
+
+</main>
+</body>
+</html>

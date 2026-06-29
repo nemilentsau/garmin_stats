@@ -7,11 +7,21 @@ from typing import Protocol
 
 import numpy as np
 
+# Re-exported so existing `from ...primitives.trends import BASELINE_WINDOW_DEFAULT`
+# importers keep working; the constant is defined once in the contracts layer.
+from app.domains.garmin_analytics.contracts.analysis import (
+    BASELINE_WINDOW_DEFAULT as BASELINE_WINDOW_DEFAULT,
+)
 from app.domains.garmin_health.contracts import DailyMetric
 from app.utils.numeric import (
+    robust_center_scale,
     safe_avg,
     safe_percentile,
 )
+
+BASELINE_MIN_DAYS = 21
+BASELINE_K_SIGMA = 1.0
+BASELINE_Z_EXTREME = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +35,22 @@ class WeeklyFiveNumberSummary:
     q3: float | None
     max: float
     count: int
+
+
+@dataclass(frozen=True, slots=True)
+class TrailingBandPoint:
+    """Trailing robust baseline at one series index.
+
+    Fields are all ``None`` (and ``is_extreme`` False) when the trailing window
+    holds fewer than the minimum present values, so callers can render an
+    explicit insufficient-data state instead of a misleading band.
+    """
+
+    band_low: float | None
+    band_high: float | None
+    median: float | None
+    z: float | None
+    is_extreme: bool
 
 
 class _HasDate(Protocol):
@@ -49,14 +75,99 @@ def prior_7d_avg(
     return safe_avg(previous)
 
 
+def trailing_ma7_point(values: list[float | None], index: int) -> float | None:
+    """Trailing 7-day moving average at a single ``index``, inclusive of that point.
+
+    Averages the present values in the inclusive window ``[index - 6, index]`` (current
+    value included), skipping ``None``; returns ``None`` when the window holds no present
+    value. This is the single definition of the HRV "7-day average": the chart line
+    (:func:`trailing_ma7`) maps it across the series, and the selected-day footnote
+    compares this same point against the long baseline — so the line and the footnote
+    can never label two different quantities as "7-day average". Distinct from
+    :func:`prior_7d_avg`, which excludes the current night for the "tonight vs recent"
+    recovery delta.
+    """
+    window = [v for v in values[max(0, index - 6) : index + 1] if v is not None]
+    return safe_avg(window)
+
+
 def trailing_ma7(values: list[float | None]) -> list[float | None]:
-    """Compute 7-day trailing moving average, skipping None values."""
-    result: list[float | None] = []
-    for i in range(len(values)):
-        window_start = max(0, i - 6)
-        window = [v for v in values[window_start : i + 1] if v is not None]
-        result.append(safe_avg(window))
-    return result
+    """7-day trailing moving average across the series, inclusive of each point.
+
+    Series form of :func:`trailing_ma7_point` — see it for the window and ``None``-skipping
+    policy. Defined as a map over the single-point helper so the chart line and any
+    single-index caller share one formula.
+    """
+    return [trailing_ma7_point(values, i) for i in range(len(values))]
+
+
+def trailing_band_point(
+    values: list[float | None],
+    index: int,
+    *,
+    window: int,
+    min_days: int,
+    k_sigma: float = BASELINE_K_SIGMA,
+    z_extreme: float = BASELINE_Z_EXTREME,
+) -> TrailingBandPoint:
+    """Robust trailing baseline for a single series ``index``.
+
+    Same policy as :func:`trailing_robust_band` for one point: the band is built from
+    present values in the half-open trailing window ``[index - window, index)`` (current
+    value excluded). Returns an empty point when the window holds fewer than ``min_days``
+    present values, and a collapsed band (``low == high``) with null z for a zero-spread
+    window. Exposed so callers that need a single night (selected-day insights) avoid
+    recomputing the band for the whole series.
+    """
+    prior = [v for v in values[max(0, index - window):index] if v is not None]
+    if len(prior) < min_days:
+        return TrailingBandPoint(None, None, None, None, False)
+    median, scale = robust_center_scale(prior)
+    med = round(median, 1)
+    low = round(median - k_sigma * scale, 1)
+    high = round(median + k_sigma * scale, 1)
+    if scale <= 1e-9 or low >= high:
+        # Degenerate window: either all priors are identical (zero spread), or the spread is too
+        # small to survive rounding to the displayed 1-decimal band (low == high). Either way
+        # there is no spread distinguishable at display resolution, so emit a collapsed band
+        # (low == high) with null z and no extreme flag. This keeps the chart's extreme marker and
+        # the strip's trend_state consistent: _trend_state reads band_low >= band_high as "within"
+        # (not below/above), so deriving z/is_extreme from the un-rounded scale here would
+        # otherwise flag an "extreme night" dot on a band the strip calls "within" — a
+        # contradiction the rounding gap could produce for a tiny-but-nonzero scale.
+        return TrailingBandPoint(med, med, med, None, False)
+    current = values[index]
+    if current is None:
+        return TrailingBandPoint(low, high, med, None, False)
+    # Round z once and derive the extreme flag from that SAME displayed value. Comparing
+    # the raw z would let a value in [2.000, 2.005) round to "2.00" yet still be flagged
+    # extreme — rendering "+2.00 SD · extreme night" where the shown number does not exceed
+    # the |z| > 2 threshold the marker implies.
+    z = round((current - median) / scale, 2)
+    return TrailingBandPoint(low, high, med, z, abs(z) > z_extreme)
+
+
+def trailing_robust_band(
+    values: list[float | None],
+    *,
+    window: int,
+    min_days: int,
+    k_sigma: float = BASELINE_K_SIGMA,
+    z_extreme: float = BASELINE_Z_EXTREME,
+) -> list[TrailingBandPoint]:
+    """Per-index robust normal range from the trailing ``window`` present values.
+
+    For each index the band is built from present values in the half-open
+    trailing window ``[i - window, i)`` (current value excluded, matching the
+    recovery core's prior-only convention). Indices whose trailing window holds
+    fewer than ``min_days`` present values yield an empty ``TrailingBandPoint``.
+    """
+    return [
+        trailing_band_point(
+            values, i, window=window, min_days=min_days, k_sigma=k_sigma, z_extreme=z_extreme
+        )
+        for i in range(len(values))
+    ]
 
 
 def trailing_sd(

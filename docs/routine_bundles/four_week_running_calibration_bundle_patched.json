@@ -1,0 +1,4521 @@
+{
+  "id": "four-week-running-calibration-patched",
+  "name": "Four-Week Running Calibration — Patched",
+  "schema_version": 1,
+  "description": "Four-week daily running calibration bundle starting 2026-06-29. Patched to require Garmin chest-strap HR for calibration-quality data, remove Week 1 steady work, and add one optional diagnostic LTHR calibration test in Week 3. Weekly targets: Week 1: 46.5 mi, strap validation and easy-only baseline, 1 stride day, no steady/threshold, 1 long easy run; Week 2: 48.0 mi, small extension with first controlled aerobic check, 1 stride day, 1 easy-to-steady progression if strap data is clean, 1 long run; Week 3: 49.0 mi, highest calibration load plus optional diagnostic LTHR test, 1 stride day, 1 optional LTHR test or fallback steady audit, 1 long run; Week 4: 42.5 mi, deload, zone review, and next-block decision, reduced stride dose, short steady check only if fresh, reduced long run",
+  "card_templates": [
+    {
+      "id": "running-calibration-recovery",
+      "name": "Recovery Run",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Very easy run used to restore legs while preserving the daily running habit.",
+      "tags": [
+        "running",
+        "recovery",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: recovery. RPE: 1-2. Talk test: Full conversation; effort should feel almost too easy. HR guidance: During calibration, do not chase Garmin zones. Record them after. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Settle in",
+            "detail": "Start slower than instinct. Let breathing and cadence normalize.",
+            "reps": "10 min"
+          },
+          {
+            "id": "main",
+            "label": "Recovery mileage",
+            "detail": "Keep the run soft, relaxed, and deliberately unambitious.",
+            "reps": "30-40 min"
+          },
+          {
+            "id": "cooldown",
+            "label": "Walk reset",
+            "detail": "Walk until breathing is calm before logging notes.",
+            "reps": "3-5 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-easy-aerobic",
+      "name": "Easy Aerobic Run",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Default Zone-2-by-feel run for aerobic base and calibration.",
+      "tags": [
+        "running",
+        "easy",
+        "aerobic",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: easy. RPE: 2-3. Talk test: Full sentences. You should not need mental toughness. HR guidance: Use RPE and talk test first. Garmin zones are audit data until calibrated. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Easy start",
+            "detail": "First mile slower than average pace. Do not correct upward.",
+            "reps": "10-15 min"
+          },
+          {
+            "id": "main",
+            "label": "Aerobic cruise",
+            "detail": "Hold relaxed breathing and posture. Pace is secondary.",
+            "reps": "30-45 min"
+          },
+          {
+            "id": "cooldown",
+            "label": "Easy finish",
+            "detail": "Finish no harder than the middle of the run.",
+            "reps": "5-10 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-easy-strides",
+      "name": "Easy Run + Strides",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Easy aerobic run with relaxed fast strides for mechanics, cadence, and leg pop.",
+      "tags": [
+        "running",
+        "easy",
+        "strides",
+        "neuromuscular",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: easy_plus_strides. RPE: 2-3 aerobic; strides fast but relaxed. Talk test: Easy during the run; strides are too short to judge by talk test. HR guidance: Ignore HR during strides. Use full recovery and judge form. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Easy running",
+            "detail": "Run easy first. Do not let anticipation of strides raise the pace.",
+            "reps": "35-50 min"
+          },
+          {
+            "id": "strides",
+            "label": "Strides",
+            "detail": "Fast-relaxed, tall posture, quick feet. Walk/jog 60-90s between.",
+            "reps": "4-8 x 15-20s"
+          },
+          {
+            "id": "cooldown",
+            "label": "Cooldown jog",
+            "detail": "Easy jog home. Calves should not feel cooked.",
+            "reps": "5-10 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-easy-drills",
+      "name": "Easy Run + Form Drills",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Easy aerobic run followed by short mechanics drills for posture and coordination.",
+      "tags": [
+        "running",
+        "easy",
+        "drills",
+        "mechanics",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: easy_plus_drills. RPE: 2-3. Talk test: Easy run remains conversational; drills stay crisp. HR guidance: Drills are technique, not conditioning. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "main",
+            "label": "Easy run",
+            "detail": "Relaxed aerobic mileage.",
+            "reps": "40-55 min"
+          },
+          {
+            "id": "drill_a",
+            "label": "A-skips",
+            "detail": "Tall posture, quick ground contact, no stomping.",
+            "reps": "2 x 20m"
+          },
+          {
+            "id": "drill_b",
+            "label": "High knees",
+            "detail": "Rhythm and posture over height.",
+            "reps": "2 x 20m"
+          },
+          {
+            "id": "drill_c",
+            "label": "Butt kicks",
+            "detail": "Quick turnover; keep knees under hips.",
+            "reps": "2 x 20m"
+          },
+          {
+            "id": "drill_d",
+            "label": "Straight-leg bounds",
+            "detail": "Light snap from the hips and ankles, not max power.",
+            "reps": "2 x 20m"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-steady-aerobic",
+      "name": "Steady Aerobic Check",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Controlled aerobic run for calibrating easy-versus-steady effort without threshold work.",
+      "tags": [
+        "running",
+        "steady",
+        "aerobic",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: steady_aerobic. RPE: 3-4. Talk test: Sentences possible. If you are reduced to phrases, back off. HR guidance: This is useful for mapping Garmin zones, but do not force HR into a prescribed zone. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Easy warmup",
+            "detail": "Ease into the run; do not start steady.",
+            "reps": "15-20 min"
+          },
+          {
+            "id": "main",
+            "label": "Controlled steady block",
+            "detail": "Steady aerobic pressure, never threshold. Keep breathing controlled.",
+            "reps": "10-25 min total"
+          },
+          {
+            "id": "cooldown",
+            "label": "Easy cooldown",
+            "detail": "Return to conversational running.",
+            "reps": "10-20 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-aerobic-progression",
+      "name": "Easy-to-Steady Progression",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Easy run that finishes slightly steadier only when the body gives permission.",
+      "tags": [
+        "running",
+        "progression",
+        "aerobic",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: aerobic_progression. RPE: 2-4. Talk test: Full sentences early; controlled sentences near the end. HR guidance: Let HR be observed, not targeted. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Easy first half",
+            "detail": "Stay in true easy effort.",
+            "reps": "35-45 min"
+          },
+          {
+            "id": "progression",
+            "label": "Optional steady finish",
+            "detail": "Only drift to steady if legs and breathing are good. No tempo.",
+            "reps": "10-20 min"
+          },
+          {
+            "id": "cooldown",
+            "label": "Easy finish",
+            "detail": "Back off before stopping.",
+            "reps": "5 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-long-easy",
+      "name": "Long Easy Run",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "Comfortable long run for aerobic durability and HR-drift calibration.",
+      "tags": [
+        "running",
+        "long-run",
+        "aerobic",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: long_easy. RPE: 2-3. Talk test: Full sentences for most of the run. Last 20 minutes may require focus but not strain. HR guidance: Use this to audit drift. Do not chase a faster finish during calibration. Use Garmin chest strap for calibration-quality HR; if using wrist HR, log the run as non-calibration-quality.",
+        "exercises": [
+          {
+            "id": "start",
+            "label": "Conservative start",
+            "detail": "Start slower than expected. First 20 min should feel trivial.",
+            "reps": "20 min"
+          },
+          {
+            "id": "main",
+            "label": "Aerobic duration",
+            "detail": "Comfortable rhythm. Fuel/hydrate if needed.",
+            "reps": "45-70 min"
+          },
+          {
+            "id": "finish",
+            "label": "Controlled finish",
+            "detail": "Maintain form without pressing pace.",
+            "reps": "10 min"
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-weekly-review",
+      "name": "Weekly Running Calibration Review",
+      "renderer": "checklist_block",
+      "slot_default": "evening",
+      "summary": "Weekly audit of RPE, Garmin zones, fatigue, and next-week adjustment signals.",
+      "tags": [
+        "running",
+        "review",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Use this after the final recovery run of each week. The goal is not judgment; the goal is better signal.",
+        "items": [
+          {
+            "id": "true_easy_pace_range",
+            "label": "What pace range actually felt easy this week?",
+            "detail": null
+          },
+          {
+            "id": "garmin_zone_mismatch",
+            "label": "Where did Garmin zones disagree with talk test/RPE?",
+            "detail": null
+          },
+          {
+            "id": "leg_status",
+            "label": "Any calf, Achilles, hamstring, knee, hip, or foot signals?",
+            "detail": null
+          },
+          {
+            "id": "heat_sleep_stress",
+            "label": "Heat, sleep, work stress, hydration notes?",
+            "detail": null
+          },
+          {
+            "id": "adjustment_next_week",
+            "label": "One adjustment for next week",
+            "detail": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-hr-strap-setup",
+      "name": "HR Strap Calibration Setup",
+      "renderer": "checklist_block",
+      "slot_default": "morning",
+      "summary": "Pre-run checklist to make HR data usable for zone calibration.",
+      "tags": [
+        "running",
+        "heart-rate",
+        "garmin",
+        "calibration",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Use this before the first run and repeat mentally before every calibration run. The point is not gadget obedience; the point is clean data.",
+        "items": [
+          {
+            "id": "strap",
+            "label": "Wear Garmin chest strap",
+            "detail": "Wet the electrodes, tighten the strap enough that it does not slide, and pair it before starting the run."
+          },
+          {
+            "id": "source",
+            "label": "Verify HR source",
+            "detail": "Confirm the watch is reading from the strap, not wrist optical HR."
+          },
+          {
+            "id": "warmup",
+            "label": "Watch for early spikes",
+            "detail": "If HR jumps unrealistically in the first 5-10 minutes, reseat the strap and mark the run as partial calibration quality."
+          },
+          {
+            "id": "log",
+            "label": "Log calibration quality",
+            "detail": "After the run, record strap used yes/no, signal quality, RPE, talk test, and Garmin zone mismatch."
+          }
+        ]
+      }
+    },
+    {
+      "id": "running-calibration-lthr-test",
+      "name": "Optional LTHR Calibration Test",
+      "renderer": "exercise_block",
+      "slot_default": "morning",
+      "summary": "One diagnostic lactate-threshold HR calibration test after 10-14 days of clean strap data.",
+      "tags": [
+        "running",
+        "lthr",
+        "calibration",
+        "diagnostic",
+        "running-calibration"
+      ],
+      "payload": {
+        "instructions": "Workout type: diagnostic_lthr_test. RPE: Progressive to hard-controlled; never all-out sprinting. Talk test: Final 30-minute field-test portion should be short phrases only, but controlled enough to avoid blowing up. HR guidance: Chest strap required. Preferred option is Garmin guided Lactate Threshold Test if available. Fallback is the 30-minute field test below. Do not use wrist HR for this test. Readiness gate: At least 10 days of mostly clean chest-strap HR data; No calf/Achilles/hamstring/knee pain above mild background noise; No unusual fatigue, illness, poor sleep, or heat stress; Previous two easy runs felt genuinely easy by talk test Skip if: Strap signal has been unreliable; Legs feel flat or sore from lifting/running; Weather is unusually hot/humid; You feel tempted to race the test After the run, log: Test option used: Garmin guided / 30-min field test / skipped; HR source: Garmin chest strap required; Chest strap signal quality: clean / dropouts / spikes; If field test: average HR for final 20 minutes; If Garmin guided: detected LTHR and pace, if provided; Perceived control: did you blow up, negative split, or stay even?; Weather and surface; Recommendation: update zones now / wait for more data / retest later",
+        "exercises": [
+          {
+            "id": "warmup",
+            "label": "Warm-up",
+            "detail": "Easy running only. Finish with relaxed breathing and no leg heaviness.",
+            "reps": "15-20 min"
+          },
+          {
+            "id": "strides",
+            "label": "Primer strides",
+            "detail": "Relaxed fast strides with 60-90 sec easy jog/walk between. These prime mechanics, not fitness.",
+            "reps": "4 x 20 sec"
+          },
+          {
+            "id": "option_a",
+            "label": "Option A: Garmin guided LTHR test",
+            "detail": "If your watch supports the guided Lactate Threshold Test, use that and follow the watch prompts with the chest strap connected.",
+            "reps": "Use Garmin protocol"
+          },
+          {
+            "id": "option_b",
+            "label": "Option B: 30-minute field test",
+            "detail": "Hard-controlled and even. Do not sprint the first 10 min. Average HR for final 20 min is the rough LTHR estimate.",
+            "reps": "30 min"
+          },
+          {
+            "id": "cooldown",
+            "label": "Cooldown",
+            "detail": "Easy jog/walk until breathing is normal. No extra mileage chase.",
+            "reps": "10-15 min"
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "four-week-running-calibration-patched-routine",
+      "name": "Four-Week Running Calibration — Patched",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-26",
+      "status": "active",
+      "tags": [
+        "running",
+        "calibration",
+        "daily-running",
+        "aerobic-base"
+      ],
+      "notes": "Patched version: Garmin chest strap required for calibration-quality HR; Week 1 is easy-only baseline; Week 3 includes one optional diagnostic LTHR test with easy fallback. Regular threshold training remains excluded.\n\nBaseline source: running-last-7-days.md. Baseline week: 49.05 miles; Seven consecutive runs, mostly 6-7 miles, with a 9-mile long run. Zone caveat: User reports Garmin zones likely read too hard. This patched bundle treats Garmin HR zones as observation data only until chest-strap data and one optional LTHR test provide a better anchor. Training priority: Calibration and consistency, not performance improvement. HR calibration policy: Garmin chest heart-rate strap for every calibration-quality run. If the strap is not used, mark the run as useful mileage but non-calibration-quality HR data. Do not rewrite zones after one odd run. Review after 10-14 days of strap data, then use Garmin guided LTHR test or field-test result as the main anchor. Calibration phases: Week 1: Easy-only baseline, strap validation, HR drift and talk-test audit. Strides are allowed because they are neuromuscular and fully recovered.; Week 2: First controlled steady-aerobic exposure if strap data is clean and easy effort is stable.; Week 3: Optional diagnostic LTHR calibration test. This is a test, not the beginning of threshold training.; Week 4: Deload, review zone settings, and decide the next real training block..\n\nIntensity definitions: RPE 1-2: Recovery. Nose breathing may be possible but not required. Full conversation. You should feel better after than before.; RPE 2-3: Easy aerobic. Full-sentence talk test. Breathing present but calm. You could continue a long time.; RPE 3-4: Steady aerobic. Sentences still possible, but not casual storytelling. No burning legs; no threshold chasing.; RPE 4-5: Upper aerobic audit only. Short sentences, controlled. During this calibration block, do not let this become a race.; 6+: Avoid sustained RPE 6+ in this block. Strides may briefly touch fast mechanics, but recover fully between them.; diagnostic_lthr_test: One controlled diagnostic test only, preferably Garmin guided LTHR. Alternative: 30 min hard-controlled field test, using average HR from the final 20 min as a rough LTHR estimate. This is not a weekly threshold workout.\n\nWeekly targets: Week 1: 46.5 mi, strap validation and easy-only baseline, 1 stride day, no steady/threshold, 1 long easy run; Week 2: 48.0 mi, small extension with first controlled aerobic check, 1 stride day, 1 easy-to-steady progression if strap data is clean, 1 long run; Week 3: 49.0 mi, highest calibration load plus optional diagnostic LTHR test, 1 stride day, 1 optional LTHR test or fallback steady audit, 1 long run; Week 4: 42.5 mi, deload, zone review, and next-block decision, reduced stride dose, short steady check only if fresh, reduced long run",
+      "assignments": [
+        {
+          "id": "four-week-running-calibration-patched:day01:hr-strap-setup",
+          "card_template_id": "running-calibration-hr-strap-setup",
+          "day": 1,
+          "slot": "morning",
+          "position": 5,
+          "prescription_override_json": {
+            "title": "Pair chest strap and mark data-quality rules",
+            "instructions": "Do this before Day 1. The full block only works if HR source is consistent. Wrist-HR runs are still valid mileage but should not be used to set zones."
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day01:easy-aerobic",
+          "card_template_id": "running-calibration-easy-aerobic",
+          "day": 1,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Calibration baseline easy run",
+            "distance_miles": 6,
+            "duration_target": "50-55 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Monday",
+            "week": 1,
+            "instructions": "Keep it boring-easy. Full-sentence talk test. Log whether Garmin calls this Z3/Z4 despite easy breathing. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "10-15 min very easy",
+                "detail": "Let HR rise naturally; no pace correction upward."
+              },
+              {
+                "segment": "Main",
+                "prescription": "Remainder easy",
+                "detail": "Full-sentence talk test. If Garmin says Z3/Z4 but breathing is easy, log the mismatch."
+              },
+              {
+                "segment": "Finish",
+                "prescription": "Last 5 min easy",
+                "detail": "Finish relaxed, not squeezed."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day02:easy-strides",
+          "card_template_id": "running-calibration-easy-strides",
+          "day": 2,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy run + relaxed strides",
+            "distance_miles": 7,
+            "duration_target": "55-60 min",
+            "rpe_target": "RPE 2-3 + 6x20s fast relaxed",
+            "day_of_week": "Tuesday",
+            "week": 1,
+            "instructions": "Easy run first, then 6 strides on flat ground. Strides are neuromuscular, not a workout. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "Most of the assigned distance",
+                "detail": "Keep this aerobic. Strides do not justify running the easy portion too hard."
+              },
+              {
+                "segment": "Strides",
+                "prescription": "As assigned, 15-20s each",
+                "detail": "Fast-relaxed; 60-90s walk/jog recovery; stop if calf/Achilles feels sharp."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "5-10 min easy",
+                "detail": "Return to easy running before finishing."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day03:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 3,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery shuffle",
+            "distance_miles": 6,
+            "duration_target": "48-52 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Wednesday",
+            "week": 1,
+            "instructions": "Let pace float. If legs feel heavy, cap at 45 min. This is not hidden aerobic training. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day04:easy-aerobic",
+          "card_template_id": "running-calibration-easy-aerobic",
+          "day": 4,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy-only strap calibration run",
+            "distance_miles": 7,
+            "duration_target": "55-60 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Thursday",
+            "week": 1,
+            "instructions": "No steady block today. Keep it easy-only so Week 1 gives clean baseline data. Use the Garmin chest strap and compare HR to talk test after the run.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "10-15 min very easy",
+                "detail": "Let HR rise naturally. Watch for strap spikes or dropouts."
+              },
+              {
+                "segment": "Main",
+                "prescription": "Remainder easy",
+                "detail": "Full-sentence talk test. If Garmin says Z3/Z4, do not chase it down mid-run; log the mismatch after."
+              },
+              {
+                "segment": "Finish",
+                "prescription": "5-10 min easy",
+                "detail": "Finish relaxed and note whether HR drifted despite stable effort."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day05:easy-drills",
+          "card_template_id": "running-calibration-easy-drills",
+          "day": 5,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + form drills",
+            "distance_miles": 6,
+            "duration_target": "48-55 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Friday",
+            "week": 1,
+            "instructions": "Easy run followed by short drills. Keep drills crisp, not tiring. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "40-55 min",
+                "detail": "Normal easy effort."
+              },
+              {
+                "segment": "Drills",
+                "prescription": "A-skips, high knees, butt kicks, straight-leg bounds",
+                "detail": "1-2 x 20m each. Crisp mechanics, not conditioning."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day06:long-easy",
+          "card_template_id": "running-calibration-long-easy",
+          "day": 6,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Long easy run",
+            "distance_miles": 9,
+            "duration_target": "75-80 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Saturday",
+            "week": 1,
+            "instructions": "Comfortable long run. Ignore pace if heat/humidity is high. Finish with the sense you could keep going. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Start",
+                "prescription": "First 20 min deliberately easy",
+                "detail": "Protect the end of the run by staying patient."
+              },
+              {
+                "segment": "Middle",
+                "prescription": "Comfortable aerobic running",
+                "detail": "Use terrain/heat to guide pace, not ego."
+              },
+              {
+                "segment": "Final audit",
+                "prescription": "Last 10-20 min controlled",
+                "detail": "Notice HR drift and breathing without pushing faster."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day07:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 7,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery + weekly note",
+            "distance_miles": 5.5,
+            "duration_target": "44-50 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Sunday",
+            "week": 1,
+            "instructions": "Shorter recovery run. Add weekly calibration notes after: easy pace, HR drift, soreness, sleep. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:week1:review",
+          "card_template_id": "running-calibration-weekly-review",
+          "day": 7,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 1 review. Separate mileage/fatigue notes from HR calibration notes. Only chest-strap runs count as calibration-quality HR data.",
+            "weekly_target_miles": 46.5,
+            "review_questions": [
+              "Which runs truly felt easy?",
+              "Did Garmin classify easy running too high?",
+              "Did any stride, steady, or long-run session leave residue for more than 24 hours?",
+              "What pace range should count as easy next week by feel?",
+              "Any injury-warning signal that needs volume reduction?"
+            ],
+            "extra_fields": [
+              {
+                "key": "strap_runs_count",
+                "label": "How many runs used Garmin chest strap?"
+              },
+              {
+                "key": "invalid_hr_runs",
+                "label": "Which runs had invalid/partial HR data?"
+              },
+              {
+                "key": "easy_hr_range",
+                "label": "What HR range matched true easy talk-test effort?"
+              },
+              {
+                "key": "cardiac_drift",
+                "label": "Any easy-run HR drift at stable effort?"
+              },
+              {
+                "key": "zone_update_decision",
+                "label": "Update zones, wait, or retest?"
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day08:easy-aerobic",
+          "card_template_id": "running-calibration-easy-aerobic",
+          "day": 8,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy aerobic",
+            "distance_miles": 6.5,
+            "duration_target": "52-58 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Monday",
+            "week": 2,
+            "instructions": "Repeat the baseline pattern. Try to make the first mile almost embarrassingly easy. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "10-15 min very easy",
+                "detail": "Let HR rise naturally; no pace correction upward."
+              },
+              {
+                "segment": "Main",
+                "prescription": "Remainder easy",
+                "detail": "Full-sentence talk test. If Garmin says Z3/Z4 but breathing is easy, log the mismatch."
+              },
+              {
+                "segment": "Finish",
+                "prescription": "Last 5 min easy",
+                "detail": "Finish relaxed, not squeezed."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day09:easy-strides",
+          "card_template_id": "running-calibration-easy-strides",
+          "day": 9,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + strides",
+            "distance_miles": 7,
+            "duration_target": "55-62 min",
+            "rpe_target": "RPE 2-3 + 6x20s",
+            "day_of_week": "Tuesday",
+            "week": 2,
+            "instructions": "Same stride dose as Week 1. If calves are tight, reduce to 4 strides. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "Most of the assigned distance",
+                "detail": "Keep this aerobic. Strides do not justify running the easy portion too hard."
+              },
+              {
+                "segment": "Strides",
+                "prescription": "As assigned, 15-20s each",
+                "detail": "Fast-relaxed; 60-90s walk/jog recovery; stop if calf/Achilles feels sharp."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "5-10 min easy",
+                "detail": "Return to easy running before finishing."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day10:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 10,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery run",
+            "distance_miles": 6,
+            "duration_target": "48-53 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Wednesday",
+            "week": 2,
+            "instructions": "Nasal-ish breathing if natural, but do not force it. Let cadence and posture stay relaxed. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day11:aerobic-progression",
+          "card_template_id": "running-calibration-aerobic-progression",
+          "day": 11,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy-to-steady progression",
+            "distance_miles": 7.5,
+            "duration_target": "60-65 min",
+            "rpe_target": "RPE 2-4",
+            "day_of_week": "Thursday",
+            "week": 2,
+            "instructions": "First 40 min easy, final 15-20 min steady aerobic only if breathing stays controlled. This is not a tempo. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy base",
+                "prescription": "First 40 min easy",
+                "detail": "Do not progress early."
+              },
+              {
+                "segment": "Optional steady finish",
+                "prescription": "15-20 min RPE 3-4",
+                "detail": "Only if breathing and legs are good. Otherwise stay easy."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "5 min easy",
+                "detail": "Downshift before stopping."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day12:easy-drills",
+          "card_template_id": "running-calibration-easy-drills",
+          "day": 12,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + drills",
+            "distance_miles": 6,
+            "duration_target": "48-55 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Friday",
+            "week": 2,
+            "instructions": "Smooth easy run, then 2 rounds of drills. Stop drills if coordination gets sloppy. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "40-55 min",
+                "detail": "Normal easy effort."
+              },
+              {
+                "segment": "Drills",
+                "prescription": "A-skips, high knees, butt kicks, straight-leg bounds",
+                "detail": "1-2 x 20m each. Crisp mechanics, not conditioning."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day13:long-easy",
+          "card_template_id": "running-calibration-long-easy",
+          "day": 13,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Long easy",
+            "distance_miles": 9.5,
+            "duration_target": "80-86 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Saturday",
+            "week": 2,
+            "instructions": "Add only a small long-run extension. Watch HR drift and perceived effort over last 20 min. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Start",
+                "prescription": "First 20 min deliberately easy",
+                "detail": "Protect the end of the run by staying patient."
+              },
+              {
+                "segment": "Middle",
+                "prescription": "Comfortable aerobic running",
+                "detail": "Use terrain/heat to guide pace, not ego."
+              },
+              {
+                "segment": "Final audit",
+                "prescription": "Last 10-20 min controlled",
+                "detail": "Notice HR drift and breathing without pushing faster."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day14:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 14,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery + weekly note",
+            "distance_miles": 5.5,
+            "duration_target": "44-50 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Sunday",
+            "week": 2,
+            "instructions": "Keep this as a real recovery day even if you feel good. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:week2:review",
+          "card_template_id": "running-calibration-weekly-review",
+          "day": 14,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 2 review. Separate mileage/fatigue notes from HR calibration notes. Only chest-strap runs count as calibration-quality HR data.",
+            "weekly_target_miles": 48,
+            "review_questions": [
+              "Which runs truly felt easy?",
+              "Did Garmin classify easy running too high?",
+              "Did any stride, steady, or long-run session leave residue for more than 24 hours?",
+              "What pace range should count as easy next week by feel?",
+              "Any injury-warning signal that needs volume reduction?"
+            ],
+            "extra_fields": [
+              {
+                "key": "strap_runs_count",
+                "label": "How many runs used Garmin chest strap?"
+              },
+              {
+                "key": "invalid_hr_runs",
+                "label": "Which runs had invalid/partial HR data?"
+              },
+              {
+                "key": "easy_hr_range",
+                "label": "What HR range matched true easy talk-test effort?"
+              },
+              {
+                "key": "cardiac_drift",
+                "label": "Any easy-run HR drift at stable effort?"
+              },
+              {
+                "key": "zone_update_decision",
+                "label": "Update zones, wait, or retest?"
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day15:easy-aerobic",
+          "card_template_id": "running-calibration-easy-aerobic",
+          "day": 15,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy aerobic",
+            "distance_miles": 6.5,
+            "duration_target": "52-58 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Monday",
+            "week": 3,
+            "instructions": "No progression today. Use it to check whether Week 2 accumulated fatigue. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "10-15 min very easy",
+                "detail": "Let HR rise naturally; no pace correction upward."
+              },
+              {
+                "segment": "Main",
+                "prescription": "Remainder easy",
+                "detail": "Full-sentence talk test. If Garmin says Z3/Z4 but breathing is easy, log the mismatch."
+              },
+              {
+                "segment": "Finish",
+                "prescription": "Last 5 min easy",
+                "detail": "Finish relaxed, not squeezed."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day16:easy-strides",
+          "card_template_id": "running-calibration-easy-strides",
+          "day": 16,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + slightly denser strides",
+            "distance_miles": 7.5,
+            "duration_target": "58-65 min",
+            "rpe_target": "RPE 2-3 + 8x15-20s",
+            "day_of_week": "Tuesday",
+            "week": 3,
+            "instructions": "8 shorter strides. Full walking/jog recovery. Speed should feel snappy, not anaerobic. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "Most of the assigned distance",
+                "detail": "Keep this aerobic. Strides do not justify running the easy portion too hard."
+              },
+              {
+                "segment": "Strides",
+                "prescription": "As assigned, 15-20s each",
+                "detail": "Fast-relaxed; 60-90s walk/jog recovery; stop if calf/Achilles feels sharp."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "5-10 min easy",
+                "detail": "Return to easy running before finishing."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day17:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 17,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery run",
+            "distance_miles": 6,
+            "duration_target": "48-53 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Wednesday",
+            "week": 3,
+            "instructions": "If the stride day created calf/Achilles tightness, make this 5 miles instead. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day18:lthr-calibration-test",
+          "card_template_id": "running-calibration-lthr-test",
+          "day": 18,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Optional LTHR calibration test",
+            "distance_miles": 8,
+            "duration_target": "60-75 min depending on warmup/cooldown",
+            "rpe_target": "Diagnostic hard-controlled only if ready",
+            "day_of_week": "Thursday",
+            "week": 3,
+            "instructions": "This is the only true hard diagnostic effort in the block. Prefer Garmin guided Lactate Threshold Test if available. If not, use the 30-minute field test and estimate LTHR from average HR over the final 20 minutes. Skip and do easy aerobic mileage if readiness is not good.",
+            "readiness_gate": [
+              "Chest strap has produced clean data for most runs in Weeks 1-2",
+              "No meaningful leg/tendon pain",
+              "Easy runs have felt easy by talk test",
+              "Sleep and heat conditions are acceptable"
+            ],
+            "fallback_if_not_ready": {
+              "card_template_id": "run-easy-aerobic",
+              "distance_miles": 7,
+              "duration_target": "55-60 min",
+              "instructions": "Skip the test. Run easy, collect strap HR, and preserve the calibration block."
+            },
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "15-20 min easy",
+                "detail": "Chest strap required. If signal is weird, abort the test and run easy."
+              },
+              {
+                "segment": "Strides",
+                "prescription": "4x20 sec relaxed with 60-90 sec easy",
+                "detail": "Prime mechanics without fatigue."
+              },
+              {
+                "segment": "Option A",
+                "prescription": "Garmin guided Lactate Threshold Test",
+                "detail": "Use this if available on the watch. Follow prompts; do not override with ego."
+              },
+              {
+                "segment": "Option B",
+                "prescription": "30 min hard-controlled",
+                "detail": "If no Garmin guided test, run evenly. Average HR for final 20 min is your rough LTHR estimate."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "10-15 min easy",
+                "detail": "Cool down until breathing normalizes. No extra work."
+              }
+            ],
+            "post_run_log": [
+              "Test completed or skipped",
+              "Test option used: Garmin guided / 30-minute field / skipped",
+              "HR source: Garmin chest strap required",
+              "Chest strap signal quality: clean / dropouts / spikes",
+              "Calibration quality: valid / partial / invalid",
+              "Detected Garmin LTHR if available",
+              "Field test final-20-min average HR if used",
+              "Pace/HR/RPE relationship",
+              "Whether you stayed controlled or blew up",
+              "Weather, heat, wind, sleep, fueling",
+              "Whether to update zones now, wait, or retest later"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day19:easy-drills",
+          "card_template_id": "running-calibration-easy-drills",
+          "day": 19,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Post-test easy + optional drills",
+            "distance_miles": 6,
+            "duration_target": "48-55 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Friday",
+            "week": 3,
+            "instructions": "If you completed the LTHR test yesterday, keep this very easy and skip drills if legs feel heavy. If you skipped the test, perform the normal easy + drills version. Use chest strap for HR audit.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "40-55 min",
+                "detail": "Normal easy effort."
+              },
+              {
+                "segment": "Drills",
+                "prescription": "A-skips, high knees, butt kicks, straight-leg bounds",
+                "detail": "1-2 x 20m each. Crisp mechanics, not conditioning."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "conditional_adjustment": {
+              "if_lthr_test_completed": "Run 5.5-6.0 easy, no drills unless legs feel fresh.",
+              "if_lthr_test_skipped": "Run the planned easy + drills session."
+            },
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day20:long-easy",
+          "card_template_id": "running-calibration-long-easy",
+          "day": 20,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Long easy",
+            "distance_miles": 10,
+            "duration_target": "84-92 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Saturday",
+            "week": 3,
+            "instructions": "Longest run of the block. Do not add fast finish unless legs feel unusually good. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Start",
+                "prescription": "First 20 min deliberately easy",
+                "detail": "Protect the end of the run by staying patient."
+              },
+              {
+                "segment": "Middle",
+                "prescription": "Comfortable aerobic running",
+                "detail": "Use terrain/heat to guide pace, not ego."
+              },
+              {
+                "segment": "Final audit",
+                "prescription": "Last 10-20 min controlled",
+                "detail": "Notice HR drift and breathing without pushing faster."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day21:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 21,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery + weekly note",
+            "distance_miles": 5,
+            "duration_target": "40-46 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Sunday",
+            "week": 3,
+            "instructions": "Shorter recovery day to absorb the bigger long run. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:week3:review",
+          "card_template_id": "running-calibration-weekly-review",
+          "day": 21,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 3 review. Separate mileage/fatigue notes from HR calibration notes. Only chest-strap runs count as calibration-quality HR data.",
+            "weekly_target_miles": 49,
+            "review_questions": [
+              "Which runs truly felt easy?",
+              "Did Garmin classify easy running too high?",
+              "Did any stride, steady, or long-run session leave residue for more than 24 hours?",
+              "What pace range should count as easy next week by feel?",
+              "Any injury-warning signal that needs volume reduction?"
+            ],
+            "extra_fields": [
+              {
+                "key": "strap_runs_count",
+                "label": "How many runs used Garmin chest strap?"
+              },
+              {
+                "key": "invalid_hr_runs",
+                "label": "Which runs had invalid/partial HR data?"
+              },
+              {
+                "key": "easy_hr_range",
+                "label": "What HR range matched true easy talk-test effort?"
+              },
+              {
+                "key": "cardiac_drift",
+                "label": "Any easy-run HR drift at stable effort?"
+              },
+              {
+                "key": "zone_update_decision",
+                "label": "Update zones, wait, or retest?"
+              },
+              {
+                "key": "lthr_result",
+                "label": "LTHR test result or reason skipped"
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day22:easy-aerobic",
+          "card_template_id": "running-calibration-easy-aerobic",
+          "day": 22,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Deload easy",
+            "distance_miles": 6,
+            "duration_target": "48-54 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Monday",
+            "week": 4,
+            "instructions": "Reduce ambition. This week is consolidation and better signal quality. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "10-15 min very easy",
+                "detail": "Let HR rise naturally; no pace correction upward."
+              },
+              {
+                "segment": "Main",
+                "prescription": "Remainder easy",
+                "detail": "Full-sentence talk test. If Garmin says Z3/Z4 but breathing is easy, log the mismatch."
+              },
+              {
+                "segment": "Finish",
+                "prescription": "Last 5 min easy",
+                "detail": "Finish relaxed, not squeezed."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day23:easy-strides",
+          "card_template_id": "running-calibration-easy-strides",
+          "day": 23,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + light strides",
+            "distance_miles": 6,
+            "duration_target": "48-55 min",
+            "rpe_target": "RPE 2-3 + 4-6x20s",
+            "day_of_week": "Tuesday",
+            "week": 4,
+            "instructions": "Reduced stride dose. Stop at 4 if legs do not pop. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "Most of the assigned distance",
+                "detail": "Keep this aerobic. Strides do not justify running the easy portion too hard."
+              },
+              {
+                "segment": "Strides",
+                "prescription": "As assigned, 15-20s each",
+                "detail": "Fast-relaxed; 60-90s walk/jog recovery; stop if calf/Achilles feels sharp."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "5-10 min easy",
+                "detail": "Return to easy running before finishing."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day24:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 24,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Recovery run",
+            "distance_miles": 5,
+            "duration_target": "40-46 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Wednesday",
+            "week": 4,
+            "instructions": "Very easy. This should improve freshness, not fitness. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day25:steady-aerobic",
+          "card_template_id": "running-calibration-steady-aerobic",
+          "day": 25,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Short steady check",
+            "distance_miles": 6.5,
+            "duration_target": "52-58 min",
+            "rpe_target": "RPE 3-4",
+            "day_of_week": "Thursday",
+            "week": 4,
+            "instructions": "Only 10-15 min steady in the middle. If fatigue is present, make the whole run easy. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Warm-up",
+                "prescription": "15-20 min easy",
+                "detail": "The warmup should feel easier than you think necessary."
+              },
+              {
+                "segment": "Steady block",
+                "prescription": "See day instructions",
+                "detail": "RPE 3-4, controlled sentences, no lactate burn, no threshold."
+              },
+              {
+                "segment": "Cooldown",
+                "prescription": "10-20 min easy",
+                "detail": "Let effort fall back to baseline easy."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day26:easy-drills",
+          "card_template_id": "running-calibration-easy-drills",
+          "day": 26,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Easy + light drills",
+            "distance_miles": 5.5,
+            "duration_target": "44-50 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Friday",
+            "week": 4,
+            "instructions": "One relaxed drill round only. Keep it clean. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Easy run",
+                "prescription": "40-55 min",
+                "detail": "Normal easy effort."
+              },
+              {
+                "segment": "Drills",
+                "prescription": "A-skips, high knees, butt kicks, straight-leg bounds",
+                "detail": "1-2 x 20m each. Crisp mechanics, not conditioning."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day27:long-easy",
+          "card_template_id": "running-calibration-long-easy",
+          "day": 27,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Reduced long run",
+            "distance_miles": 8.5,
+            "duration_target": "72-78 min",
+            "rpe_target": "RPE 2-3",
+            "day_of_week": "Saturday",
+            "week": 4,
+            "instructions": "Shorter long run. Goal is finishing fresher than Week 3. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Start",
+                "prescription": "First 20 min deliberately easy",
+                "detail": "Protect the end of the run by staying patient."
+              },
+              {
+                "segment": "Middle",
+                "prescription": "Comfortable aerobic running",
+                "detail": "Use terrain/heat to guide pace, not ego."
+              },
+              {
+                "segment": "Final audit",
+                "prescription": "Last 10-20 min controlled",
+                "detail": "Notice HR drift and breathing without pushing faster."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:day28:recovery",
+          "card_template_id": "running-calibration-recovery",
+          "day": 28,
+          "slot": "morning",
+          "position": 10,
+          "prescription_override_json": {
+            "title": "Final recovery + calibration review",
+            "distance_miles": 5,
+            "duration_target": "40-46 min",
+            "rpe_target": "RPE 1-2",
+            "day_of_week": "Sunday",
+            "week": 4,
+            "instructions": "After the run, write the 4-week review: true easy effort, HR drift, legs, shoes, heat, sleep. Use the Garmin chest strap; if strap data is missing, keep the run but mark HR as non-calibration-quality.",
+            "segments": [
+              {
+                "segment": "Recovery run",
+                "prescription": "Entire run at RPE 1-2",
+                "detail": "Soft stride, relaxed arms, no pace target."
+              },
+              {
+                "segment": "Post-run",
+                "prescription": "2-5 min walk",
+                "detail": "Stop only after breathing normalizes."
+              }
+            ],
+            "post_run_log": [
+              "HR source: Garmin chest strap / wrist HR / unknown",
+              "Chest strap signal quality: clean / dropouts / spikes / strap not used",
+              "Calibration quality: valid / partial / invalid",
+              "Actual distance and timer duration",
+              "Average HR and max HR",
+              "Garmin zone distribution, but treat as audit data",
+              "RPE 1-10",
+              "Talk-test result: full conversation / sentences / phrases",
+              "Leg signal: calves, Achilles, hamstrings, knees, hips, feet",
+              "Heat, humidity, sleep, fueling notes"
+            ],
+            "post_run_fields": [
+              {
+                "key": "temperature_f",
+                "label": "Temperature (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "humidity_percent",
+                "label": "Humidity (%)",
+                "type": "number",
+                "unit": "%"
+              },
+              {
+                "key": "dew_point_f",
+                "label": "Dew point (F)",
+                "type": "number",
+                "unit": "F"
+              },
+              {
+                "key": "wind_mph",
+                "label": "Wind (mph)",
+                "type": "number",
+                "unit": "mph"
+              },
+              {
+                "key": "sun_exposure",
+                "label": "Sun exposure",
+                "type": "select",
+                "options": [
+                  "shade",
+                  "mixed",
+                  "direct sun",
+                  "night"
+                ]
+              },
+              {
+                "key": "surface",
+                "label": "Surface",
+                "type": "select",
+                "options": [
+                  "road",
+                  "track",
+                  "trail",
+                  "treadmill",
+                  "mixed"
+                ]
+              },
+              {
+                "key": "elevation_gain_ft",
+                "label": "Elevation gain (ft)",
+                "type": "number",
+                "unit": "ft"
+              },
+              {
+                "key": "route_profile",
+                "label": "Route/elevation profile",
+                "type": "text"
+              },
+              {
+                "key": "shoe_model",
+                "label": "Shoe model",
+                "type": "text"
+              },
+              {
+                "key": "fueling_hydration",
+                "label": "Fueling/hydration notes",
+                "type": "text"
+              },
+              {
+                "key": "sleep_quality",
+                "label": "Sleep quality",
+                "type": "select",
+                "options": [
+                  "good",
+                  "average",
+                  "poor"
+                ]
+              },
+              {
+                "key": "soreness_or_pain",
+                "label": "Soreness or pain signals",
+                "type": "text"
+              },
+              {
+                "key": "hr_source_quality",
+                "label": "HR source quality",
+                "type": "select",
+                "options": [
+                  "clean chest strap",
+                  "chest strap dropouts",
+                  "wrist HR",
+                  "unknown"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "four-week-running-calibration-patched:week4:review",
+          "card_template_id": "running-calibration-weekly-review",
+          "day": 28,
+          "slot": "evening",
+          "position": 20,
+          "prescription_override_json": {
+            "instructions": "Week 4 review. Separate mileage/fatigue notes from HR calibration notes. Only chest-strap runs count as calibration-quality HR data.",
+            "weekly_target_miles": 42.5,
+            "review_questions": [
+              "Which runs truly felt easy?",
+              "Did Garmin classify easy running too high?",
+              "Did any stride, steady, or long-run session leave residue for more than 24 hours?",
+              "What pace range should count as easy next week by feel?",
+              "Any injury-warning signal that needs volume reduction?"
+            ],
+            "extra_fields": [
+              {
+                "key": "strap_runs_count",
+                "label": "How many runs used Garmin chest strap?"
+              },
+              {
+                "key": "invalid_hr_runs",
+                "label": "Which runs had invalid/partial HR data?"
+              },
+              {
+                "key": "easy_hr_range",
+                "label": "What HR range matched true easy talk-test effort?"
+              },
+              {
+                "key": "cardiac_drift",
+                "label": "Any easy-run HR drift at stable effort?"
+              },
+              {
+                "key": "zone_update_decision",
+                "label": "Update zones, wait, or retest?"
+              },
+              {
+                "key": "next_block_recommendation",
+                "label": "Next block: add threshold, build mileage, or keep calibrating?"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

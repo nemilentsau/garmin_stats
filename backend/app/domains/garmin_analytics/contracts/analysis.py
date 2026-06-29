@@ -1,6 +1,22 @@
 """Chart, trend, and distribution response contracts."""
 
+from enum import IntEnum
+
 from app.contracts.base import DefaultsRequired
+
+
+class BaselineWindow(IntEnum):
+    """Allowed trailing baseline windows (days) for HRV surfaces."""
+
+    D30 = 30
+    D60 = 60
+    D90 = 90
+
+
+# Single source of truth for the default baseline window. Referenced by the application
+# loaders, the HrvBaseline contract default, and the trends primitive (which re-exports it)
+# so the product default lives in exactly one place.
+BASELINE_WINDOW_DEFAULT = 60
 
 
 class CircadianHRPoint(DefaultsRequired):
@@ -80,41 +96,6 @@ class HeartRateAnalysisResponse(DefaultsRequired):
     pattern_windows: dict[str, HRPatternWindow] = {}
 
 
-class HrvBaselineBands(DefaultsRequired):
-    """Garmin HRV baseline bands extracted from overnight summaries."""
-
-    baseline_low_upper: float | None = None
-    baseline_balanced_lower: float | None = None
-    baseline_balanced_upper: float | None = None
-    five_min_high: float | None = None
-
-
-class HrvDistributionBin(DefaultsRequired):
-    """One histogram bin for nightly HRV values."""
-
-    bin_start: float
-    bin_end: float
-    count: int
-
-
-class HrvDistribution(DefaultsRequired):
-    """Nightly HRV distribution and selected-day percentile."""
-
-    bins: list[HrvDistributionBin] = []
-    total_days: int = 0
-    selected_value: float | None = None
-    selected_percentile: float | None = None
-
-
-class HrvTrajectory(DefaultsRequired):
-    """Overnight HRV trajectory across early, middle, and late segments."""
-
-    early_avg: float | None = None
-    mid_avg: float | None = None
-    late_avg: float | None = None
-    direction: str | None = None  # "rising", "falling", "flat", or None
-
-
 class HrvDayOfWeekBucket(DefaultsRequired):
     """Average nightly HRV for one weekday."""
 
@@ -122,40 +103,44 @@ class HrvDayOfWeekBucket(DefaultsRequired):
     day_index: int       # 0=Mon, 6=Sun
     avg_nightly: float | None = None
     sample_count: int = 0
+    # Where this weekday's average sits vs the window grand mean: "below" | "within" | "above"
+    # (None when there is no average or no reference). Backend-computed so the frontend colours
+    # the bar without any in-browser classification.
+    state: str | None = None
 
 
 class NightlyHrvTrendPoint(DefaultsRequired):
-    """Daily nightly-HRV trend point."""
+    """Daily nightly-HRV trend point with its trailing robust baseline."""
 
     date: str
     nightly_avg: float | None = None
     ma7: float | None = None
-
-
-class WeeklyHrvBox(DefaultsRequired):
-    """Weekly five-number summary for nightly HRV."""
-
-    iso_week: str
-    min_ms: float | None = None
-    q1_ms: float | None = None
-    median_ms: float | None = None
-    q3_ms: float | None = None
-    max_ms: float | None = None
-    day_count: int = 0
+    band_low: float | None = None
+    band_high: float | None = None
+    z: float | None = None
+    is_extreme: bool = False
+    trend_state: str | None = None  # "below" | "within" | "above" of the typical-range band
 
 
 class HrvPatternWindow(DefaultsRequired):
-    """Pre-computed distribution + day-of-week for a time window."""
+    """Pre-computed day-of-week HRV pattern for a time window.
 
-    distribution: HrvDistribution | None = None
+    ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
+    in the window (true grand mean, not a mean-of-weekday-means). ``total_sample_count``
+    is the number of nights represented across the weekday buckets (the sum of their
+    ``sample_count`` values). Both are provided so the frontend can show a
+    backend-authoritative reference and total without doing any aggregation itself.
+    """
+
     day_of_week: list[HrvDayOfWeekBucket] = []
+    overall_avg: float | None = None
+    total_sample_count: int = 0
 
 
 class HrvAnalysisResponse(DefaultsRequired):
     """HRV chart and pattern analysis response."""
 
     nightly_trend: list[NightlyHrvTrendPoint] = []
-    weekly_boxplots: list[WeeklyHrvBox] = []
     pattern_windows: dict[str, HrvPatternWindow] = {}  # "3M", "6M", "All"
 
 

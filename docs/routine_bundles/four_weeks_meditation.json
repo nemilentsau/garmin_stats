@@ -1,0 +1,555 @@
+{
+  "id": "meditation-skill-routine-4w",
+  "name": "Meditation Skill Routine",
+  "schema_version": 1,
+  "description": "Deterministic four-week meditation skill routine starting 2026-06-29. Build attention stability and reduce the stickiness of repetitive verbal thought loops, especially adversarial argument rehearsal.",
+  "card_templates": [
+    {
+      "id": "meditation-focused-attention-counting",
+      "name": "Focused Attention — Counting",
+      "renderer": "timer_session",
+      "slot_default": "midday",
+      "summary": "Breath-counting meditation for stabilizing attention.",
+      "tags": [
+        "meditation",
+        "focused_attention",
+        "attention"
+      ],
+      "payload": {
+        "duration_minutes": 12,
+        "pattern": "Exhale counting from 1 to 10",
+        "instructions": "Count each exhale from 1 to 10. When attention drifts or the count is lost, restart at 1 without self-criticism. Anchor: exhale count. Success condition: Not staying perfectly focused, but noticing drift and returning cleanly. Failure modes: trying to suppress thoughts, turning lost count into frustration, mechanically counting while thinking in the background.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "drift_detection_speed",
+            "label": "Drift detection speed",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "return_ease",
+            "label": "Ease of return",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_frequency",
+            "label": "Argument-loop frequency",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_stickiness",
+            "label": "Argument-loop stickiness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "emotional_charge",
+            "label": "Emotional charge",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-focused-attention-raw-anchor",
+      "name": "Focused Attention — Raw Anchor",
+      "renderer": "timer_session",
+      "slot_default": "midday",
+      "summary": "Focused attention using direct breath or body sensation without counting.",
+      "tags": [
+        "meditation",
+        "focused_attention",
+        "attention"
+      ],
+      "payload": {
+        "duration_minutes": 15,
+        "pattern": "Raw breath or body-contact anchor",
+        "instructions": "Rest attention on one physical anchor. When attention drifts, notice the drift and return to the anchor. Do not use counting unless attention becomes too unstable. Anchor: breath sensation or body contact. Fallback: Use exhale counting for 1-3 minutes if attention becomes too scattered. Success condition: Earlier detection of distraction and smoother return to the anchor.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "drift_detection_speed",
+            "label": "Drift detection speed",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "return_ease",
+            "label": "Ease of return",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_frequency",
+            "label": "Argument-loop frequency",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_stickiness",
+            "label": "Argument-loop stickiness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "emotional_charge",
+            "label": "Emotional charge",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-open-monitoring-noting",
+      "name": "Open Monitoring — Noting",
+      "renderer": "timer_session",
+      "slot_default": "midday",
+      "summary": "Open awareness practice with light labels for thoughts, sensations, and emotional charge.",
+      "tags": [
+        "meditation",
+        "open_monitoring",
+        "noting",
+        "thought_defusion"
+      ],
+      "payload": {
+        "duration_minutes": 12,
+        "pattern": "Open monitoring with light noting",
+        "instructions": "Notice sensations, sounds, thoughts, and emotions without following them. Use short labels when content becomes sticky, then return to open awareness. Anchor: open field of present-moment experience. Fallback anchor: body contact. Default labels: thinking, planning, arguing, rehearsing, remembering, judging, emotion, body, sound. Priority label: arguing. Success condition: The argument may appear, but you do not complete it. Failure modes: daydreaming and calling it open awareness, analyzing why a thought appeared, finishing the imaginary argument before returning.",
+        "rating_prompts": [
+          {
+            "key": "attention_stability",
+            "label": "Attention stability",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "drift_detection_speed",
+            "label": "Drift detection speed",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "return_ease",
+            "label": "Ease of return",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_frequency",
+            "label": "Argument-loop frequency",
+            "scale_min": 0,
+            "scale_max": 5
+          },
+          {
+            "key": "argument_loop_stickiness",
+            "label": "Argument-loop stickiness",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "emotional_charge",
+            "label": "Emotional charge",
+            "scale_min": 1,
+            "scale_max": 5
+          },
+          {
+            "key": "post_session_clarity",
+            "label": "Mental clarity after",
+            "scale_min": 1,
+            "scale_max": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "meditation-weekly-review",
+      "name": "Meditation Weekly Review",
+      "renderer": "checklist_block",
+      "slot_default": "evening",
+      "summary": "Brief weekly review of attention stability, thought stickiness, and argument-loop reduction.",
+      "tags": [
+        "meditation",
+        "reflection",
+        "review"
+      ],
+      "payload": {
+        "instructions": "Review the last week without moralizing. Identify which practice most reduced argument-loop stickiness and which context triggered the most rumination.",
+        "items": [
+          {
+            "id": "review-prompt-1",
+            "label": "Which practice made it easiest to notice thought loops early?"
+          },
+          {
+            "id": "review-prompt-2",
+            "label": "Which label was most useful?"
+          },
+          {
+            "id": "review-prompt-3",
+            "label": "Did argument loops feel less sticky this week?"
+          },
+          {
+            "id": "review-prompt-4",
+            "label": "What was the most common trigger?"
+          },
+          {
+            "id": "review-prompt-5",
+            "label": "What should stay unchanged next week?"
+          }
+        ]
+      }
+    }
+  ],
+  "routine_specs": [
+    {
+      "id": "meditation-skill-routine-4w-routine",
+      "name": "Meditation Skill Routine",
+      "start_date": "2026-06-29",
+      "end_date": "2026-07-26",
+      "status": "active",
+      "tags": [
+        "meditation",
+        "focused_attention",
+        "open_monitoring",
+        "noting"
+      ],
+      "notes": "Purpose: Build attention stability and reduce the stickiness of repetitive verbal thought loops, especially adversarial argument rehearsal.\n\nGoals: attention_stability: Improve ability to place attention on an anchor, notice distraction, and return without escalation. thought_defusion: Notice thoughts as events in awareness rather than arguments that must be completed. argument_loop_reduction: Reduce frequency, duration, and emotional charge of internal adversarial dialogue. deliberate_planning_boundary: Separate intentional planning from rumination, rehearsal, and imaginary debate.\n\nProgression: increase_duration_slowly: increase session duration gradually across the four weeks. reduce_scaffolding: move from counting toward raw-anchor attention when stable. label_only_when_needed: use noting labels only when attention is captured. do_not_chase_blank_mind: train recognition and return rather than suppressing thought. argument_loop_is_primary_target: judge transfer by whether adversarial thought loops become easier to interrupt.\n\nCompletion criteria: minimum_adherence: Complete at least 20 of 28 assigned days. focused_attention_exposure: Complete at least 8 focused-attention sessions. open_monitoring_exposure: Complete at least 8 open-monitoring sessions. review_completion: Complete at least 3 of 4 weekly reviews.\n\nAfter four weeks: focused_attention_improves_attention_but_not_argument_loops: Keep focused attention as support practice 2x/week and make open monitoring/noting the main practice. open_monitoring_reduces_argument_stickiness: Progress open monitoring to 25 minutes and add more running-transfer sessions. both_practices_help: Use alternating schedule: focused attention on high-distraction days, open monitoring on rumination-heavy days. neither_practice_reduces_argument_loops: Add stronger cognitive boundary protocol: scheduled planning windows, written argument parking lot, and run-specific noting.",
+      "assignments": [
+        {
+          "id": "meditation-skill-routine-4w:day1-midday-focused-attention-counting",
+          "card_template_id": "meditation-focused-attention-counting",
+          "day": 1,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Count exhales 1-10. Restart whenever attention drifts. Treat every restart as the training rep."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day2-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 2,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Use labels freely. Prioritize noticing 'arguing' and returning to body contact."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day3-midday-focused-attention-counting",
+          "card_template_id": "meditation-focused-attention-counting",
+          "day": 3,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Count exhales. At minute 8, optionally drop counting and stay with raw breath sensation."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day4-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 4,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Notice thoughts, sounds, and body sensations. Label sticky mental content only once, then release."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day5-midday-focused-attention-counting",
+          "card_template_id": "meditation-focused-attention-counting",
+          "day": 5,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 12,
+            "instructions": "Track how quickly you notice lost count. Do not care how many full cycles you complete."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day6-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 6,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Use the labels 'arguing', 'planning', and 'rehearsing' precisely. Do not finish the thought sequence."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day7-evening-weekly-review",
+          "card_template_id": "meditation-weekly-review",
+          "day": 7,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 1. Identify whether focused attention or open monitoring was more useful for interrupting rumination."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day8-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 8,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Use counting for the first 5 minutes, then switch to raw breath or body contact."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day9-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 9,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Open awareness. Use labels only when attention gets captured."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day10-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 10,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Stay with raw body or breath sensation. If scattered, use counting for 1-3 minutes, then drop it again."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day11-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 11,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "When an argument appears, label 'arguing' immediately and return to the full sensory field."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day12-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 12,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 15,
+            "instructions": "Raw anchor only unless attention becomes chaotic. Measure ease of return carefully."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day13-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 13,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 18,
+            "instructions": "Longer open-monitoring session. Do not analyze thought content. Label and release."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day14-evening-weekly-review",
+          "card_template_id": "meditation-weekly-review",
+          "day": 14,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 2. Compare argument-loop stickiness against Week 1."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day15-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 15,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 18,
+            "instructions": "Use raw anchor. The main score is drift detection speed, not perfect concentration."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day16-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 16,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 18,
+            "instructions": "Use fewer labels. Label only sticky thought patterns, especially argument rehearsal."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day17-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 17,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 18,
+            "instructions": "Stay with the physical anchor. Notice subtle background verbal thought."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day18-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 18,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Open awareness with body contact as fallback. Do not chase clarity; allow experience to move."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day19-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 19,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 18,
+            "instructions": "If thoughts are loud, return to the anchor more gently, not more aggressively."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day20-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 20,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Notice whether argument loops dissolve faster when labeled early."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day21-evening-weekly-review",
+          "card_template_id": "meditation-weekly-review",
+          "day": 21,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 5,
+            "instructions": "Review Week 3. Decide whether raw-anchor focused attention or open monitoring is producing more useful transfer."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day22-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 22,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Full 20-minute focused-attention sit. Use counting only as emergency scaffolding."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day23-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 23,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Open awareness. Label 'arguing' only once per episode, then return to the field."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day24-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 24,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Track whether attention returns faster than in Week 1."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day25-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 25,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Watch for the beginning of argument construction. Label before the imagined opponent fully forms."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day26-midday-focused-attention-raw-anchor",
+          "card_template_id": "meditation-focused-attention-raw-anchor",
+          "day": 26,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Final focused-attention comparison sit. Compare stability against Day 1."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day27-midday-open-monitoring-noting",
+          "card_template_id": "meditation-open-monitoring-noting",
+          "day": 27,
+          "slot": "midday",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 20,
+            "instructions": "Final open-monitoring comparison sit. Compare argument-loop stickiness against Day 2."
+          }
+        },
+        {
+          "id": "meditation-skill-routine-4w:day28-evening-weekly-review",
+          "card_template_id": "meditation-weekly-review",
+          "day": 28,
+          "slot": "evening",
+          "position": 10,
+          "prescription_override_json": {
+            "duration_minutes": 10,
+            "instructions": "Full routine review. Identify which practice should become the core meditation routine for the next block."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -524,6 +524,11 @@ Health data has natural temporal rhythms. Design for them:
 
 ## 10. Responsive Considerations
 
+This project is currently a desktop web dashboard, not a mobile app. Treat this
+section as future reference only unless the user explicitly scopes mobile,
+responsive, tablet, or touch behavior. Do not block desktop dashboard work on
+mobile breakpoints, touch-target rules, or phone screenshots by default.
+
 ### 10.1 Breakpoint Strategy
 
 | Breakpoint | Width | Grid | Cards per row | Behavior |
@@ -585,7 +590,7 @@ Before shipping any dashboard view, verify:
 - [ ] Time axes are proportionally spaced
 - [ ] Deltas show sign, arrow, and comparison period label
 - [ ] Bar charts start at zero
-- [ ] Mobile view has P0/P1 content only, touch targets >= 44px
+- [ ] Mobile view has P0/P1 content only, touch targets >= 44px (only when mobile/responsive behavior is explicitly in scope)
 - [ ] Dark mode avoids #000 background and #FFF text
 - [ ] Y-axis values are right-aligned with consistent decimal places
 - [ ] Filters show their current state visibly

@@ -1,17 +1,10 @@
 """Selected-day insight response contracts."""
 
 from app.contracts.base import DefaultsRequired
+from app.domains.garmin_analytics.contracts.analysis import BASELINE_WINDOW_DEFAULT
 from app.domains.garmin_health.contracts import (
     DailyHeartRateStats,
     DailyHrvStats,
-    HrvValue,
-)
-
-from .analysis import (
-    HrvBaselineBands,
-    HrvDayOfWeekBucket,
-    HrvDistribution,
-    HrvTrajectory,
 )
 
 
@@ -79,50 +72,25 @@ class HrvDataQuality(DefaultsRequired):
     coverage_hours: float | None = None
 
 
-class HrvIntradaySegment(DefaultsRequired):
-    """Aggregated HRV stats for one intraday segment."""
-
-    key: str
-    label: str
-    sample_count: int = 0
-    avg: float | None = None
-    min: float | None = None
-    max: float | None = None
-    stdev: float | None = None
-    coverage_start: str | None = None
-    coverage_end: str | None = None
-    coverage_hours: float | None = None
-    values: list[HrvValue] = []
-
-
-class HrvStatusBucket(DefaultsRequired):
-    """Count and percentage for one HRV status bucket."""
-
-    label: str
-    count: int
-    pct: float
-
-
-class HrvTrendBand(DefaultsRequired):
-    """Typical nightly HRV band across the analysis window."""
-
-    nightly_typical_low: float | None = None
-    nightly_typical_high: float | None = None
-
-
 class HrvStreak(DefaultsRequired):
-    """Current and recent HRV status streak information."""
+    """Current HRV status streak — an internal input to the low-streak insight rule.
+
+    Not serialized on any response; consumed only by ``low_status_streak_rule`` to decide
+    whether to emit the "Extended low HRV streak" insight.
+    """
 
     current_status: str | None = None
     streak_days: int = 0
-    worst_recent_streak: int = 0
 
 
-class HrvLongBaseline(DefaultsRequired):
-    """Longer baseline comparison for recent HRV trend."""
+class HrvBaseline(DefaultsRequired):
+    """Selected-day comparison against the trailing robust baseline."""
 
-    baseline_30d: float | None = None
-    delta_7d_vs_30d: float | None = None
+    baseline: float | None = None
+    delta_7d_vs_baseline: float | None = None
+    window_days: int = BASELINE_WINDOW_DEFAULT
+    selected_z: float | None = None
+    selected_is_extreme: bool = False
 
 
 class HrvInsight(DefaultsRequired):
@@ -140,13 +108,5 @@ class HrvInsightsResponse(DefaultsRequired):
     day_stats: DailyHrvStats
     recovery: HrvRecovery
     quality: HrvDataQuality
-    intraday_segments: list[HrvIntradaySegment] = []
-    trend_band: HrvTrendBand
-    streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
-    baseline_bands: HrvBaselineBands | None = None
-    distribution: HrvDistribution | None = None
-    trajectory: HrvTrajectory | None = None
-    status_mix: list[HrvStatusBucket] = []
-    day_of_week: list[HrvDayOfWeekBucket] = []
+    baseline: HrvBaseline | None = None
     insights: list[HrvInsight] = []

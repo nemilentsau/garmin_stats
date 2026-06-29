@@ -9,23 +9,27 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.domains.garmin_analytics.contracts import (
+    HrvBaseline,
     HrvDataQuality,
     HrvInsight,
-    HrvLongBaseline,
     HrvRecovery,
     HrvStreak,
-    HrvTrajectory,
 )
 from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.garmin_health.domain.daily_metrics import is_balanced_hrv_status
+from app.domains.garmin_health.domain.daily_metrics import (
+    is_balanced_hrv_status,
+    is_unfavorable_hrv_status,
+)
 
-_BAD_HRV_STATUSES = frozenset({"Low", "Unbalanced"})
 _LOW_RECOVERY_STATUSES = frozenset({"suppressed", "below_baseline"})
 
-_RECOVERY_STATUS_MESSAGES: dict[str, tuple[str, str, str]] = {
-    "suppressed": ("warning", "HRV appears suppressed", "Nightly HRV is below expected levels."),
-    "below_baseline": ("caution", "HRV is below baseline", "Nightly HRV is mildly below baseline."),
-    "elevated": ("good", "HRV is above baseline", "Nightly HRV is above baseline."),
+# (level, title) per recovery status. The detail line is always the delta sentence — the
+# verdict is delta-only, so a keyed status never carries a null delta (classify_hrv_recovery
+# returns None for a null delta, which maps to no message at all).
+_RECOVERY_STATUS_MESSAGES: dict[str, tuple[str, str]] = {
+    "suppressed": ("warning", "HRV appears suppressed"),
+    "below_baseline": ("caution", "HRV is below baseline"),
+    "elevated": ("good", "HRV is above baseline"),
 }
 
 
@@ -37,24 +41,22 @@ class InsightContext:
     recovery: HrvRecovery
     quality: HrvDataQuality
     resting_delta: float | None
-    overnight_stdev: float | None = None
     streak: HrvStreak | None = None
-    long_baseline: HrvLongBaseline | None = None
-    trajectory: HrvTrajectory | None = None
+    baseline: HrvBaseline | None = None
 
 
 def recovery_status_rule(ctx: InsightContext) -> HrvInsight | None:
     """Describe the selected day's HRV level versus its recent baseline."""
-    message = _RECOVERY_STATUS_MESSAGES.get(ctx.recovery.status or "")
+    status = ctx.recovery.status or ""
+    message = _RECOVERY_STATUS_MESSAGES.get(status)
     if message is None:
         return None
-    level, title, fallback_detail = message
-    delta = ctx.recovery.delta_nightly_from_baseline
-    detail = (
-        f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
-        if delta is not None
-        else fallback_detail
-    )
+    level, title = message
+    # A keyed status implies a non-null delta (see _RECOVERY_STATUS_MESSAGES), and the verdict
+    # is delta-only, so a below-type status always has a negative delta — the old
+    # status-vs-delta contradiction can no longer arise.
+    delta = ctx.recovery.delta_nightly_from_baseline or 0.0
+    detail = f"Nightly HRV is {delta:+.1f} ms versus the prior 7-day baseline."
     return HrvInsight(level=level, title=title, detail=detail)
 
 
@@ -72,29 +74,11 @@ def acute_weekly_gap_rule(ctx: InsightContext) -> HrvInsight | None:
     )
 
 
-def overnight_volatility_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Flag high overnight HRV variance when recovery is already low."""
-    if (
-        ctx.overnight_stdev is None
-        or ctx.overnight_stdev <= 25
-        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
-    ):
-        return None
-    return HrvInsight(
-        level="caution",
-        title="High overnight HRV volatility",
-        detail=(
-            f"Overnight HRV stdev is {ctx.overnight_stdev:.1f} ms, suggesting irregular "
-            "autonomic activity alongside suppressed recovery."
-        ),
-    )
-
-
 def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
     """Warn on three or more consecutive days of low/unbalanced HRV status."""
     if (
         ctx.streak is None
-        or ctx.streak.current_status not in _BAD_HRV_STATUSES
+        or not is_unfavorable_hrv_status(ctx.streak.current_status)
         or ctx.streak.streak_days < 3
     ):
         return None
@@ -109,36 +93,22 @@ def low_status_streak_rule(ctx: InsightContext) -> HrvInsight | None:
     )
 
 
-def falling_trajectory_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Warn when overnight HRV falls while selected-day recovery is low."""
+def baseline_rule(ctx: InsightContext) -> HrvInsight | None:
+    """Flag the recent 7-day HRV baseline trending below the trailing baseline."""
+    b = ctx.baseline
     if (
-        ctx.trajectory is None
-        or ctx.trajectory.direction != "falling"
-        or ctx.recovery.status not in _LOW_RECOVERY_STATUSES
-    ):
-        return None
-    return HrvInsight(
-        level="warning",
-        title="HRV declined through the night",
-        detail="HRV declined through the night, suggesting disrupted recovery.",
-    )
-
-
-def long_baseline_rule(ctx: InsightContext) -> HrvInsight | None:
-    """Flag recent 7-day HRV baseline deterioration versus the 30-day baseline."""
-    if (
-        ctx.long_baseline is None
-        or ctx.long_baseline.delta_7d_vs_30d is None
-        or ctx.long_baseline.baseline_30d is None
-        or ctx.long_baseline.delta_7d_vs_30d >= -5
+        b is None
+        or b.delta_7d_vs_baseline is None
+        or b.baseline is None
+        or b.delta_7d_vs_baseline >= -5
     ):
         return None
     return HrvInsight(
         level="caution",
-        title="7-day baseline is trending below 30-day average",
+        title=f"7-day baseline is trending below {b.window_days}-day baseline",
         detail=(
-            f"Recent 7-day baseline is {ctx.long_baseline.delta_7d_vs_30d:+.1f} ms versus "
-            f"30-day average of {ctx.long_baseline.baseline_30d:.1f} ms."
+            f"Recent 7-day baseline is {b.delta_7d_vs_baseline:+.1f} ms versus the "
+            f"{b.window_days}-day baseline of {b.baseline:.1f} ms."
         ),
     )
 
@@ -211,10 +181,8 @@ def low_coverage_rule(ctx: InsightContext) -> HrvInsight | None:
 _CAUTIONARY_RULES: tuple[Callable[[InsightContext], HrvInsight | None], ...] = (
     recovery_status_rule,
     acute_weekly_gap_rule,
-    overnight_volatility_rule,
     low_status_streak_rule,
-    falling_trajectory_rule,
-    long_baseline_rule,
+    baseline_rule,
     sleep_recovery_rule,
     resting_hr_divergence_rule,
 )

@@ -333,7 +333,7 @@ export interface paths {
         };
         /**
          * Get Hrv Analysis
-         * @description Return pre-computed HRV analysis (nightly trend with 7d MA, weekly boxplots).
+         * @description Return pre-computed HRV analysis (nightly trend with 7d MA + trailing band).
          */
         get: operations["get_hrv_analysis_api_hrv_analysis_get"];
         put?: never;
@@ -1643,6 +1643,12 @@ export interface components {
             threads: components["schemas"]["AssistantThread"][];
         };
         /**
+         * BaselineWindow
+         * @description Allowed trailing baseline windows (days) for HRV surfaces.
+         * @enum {integer}
+         */
+        BaselineWindow: 30 | 60 | 90;
+        /**
          * BodyBatteryAnalysisResponse
          * @description Body Battery chart and distribution analysis response.
          */
@@ -2855,11 +2861,6 @@ export interface components {
              */
             nightly_trend: components["schemas"]["NightlyHrvTrendPoint"][];
             /**
-             * Weekly Boxplots
-             * @default []
-             */
-            weekly_boxplots: components["schemas"]["WeeklyHrvBox"][];
-            /**
              * Pattern Windows
              * @default {}
              */
@@ -2868,18 +2869,26 @@ export interface components {
             };
         };
         /**
-         * HrvBaselineBands
-         * @description Garmin HRV baseline bands extracted from overnight summaries.
+         * HrvBaseline
+         * @description Selected-day comparison against the trailing robust baseline.
          */
-        HrvBaselineBands: {
-            /** Baseline Low Upper */
-            baseline_low_upper: number | null;
-            /** Baseline Balanced Lower */
-            baseline_balanced_lower: number | null;
-            /** Baseline Balanced Upper */
-            baseline_balanced_upper: number | null;
-            /** Five Min High */
-            five_min_high: number | null;
+        HrvBaseline: {
+            /** Baseline */
+            baseline: number | null;
+            /** Delta 7D Vs Baseline */
+            delta_7d_vs_baseline: number | null;
+            /**
+             * Window Days
+             * @default 60
+             */
+            window_days: number;
+            /** Selected Z */
+            selected_z: number | null;
+            /**
+             * Selected Is Extreme
+             * @default false
+             */
+            selected_is_extreme: boolean;
         };
         /** HrvDailyPoint */
         HrvDailyPoint: {
@@ -2936,38 +2945,8 @@ export interface components {
              * @default 0
              */
             sample_count: number;
-        };
-        /**
-         * HrvDistribution
-         * @description Nightly HRV distribution and selected-day percentile.
-         */
-        HrvDistribution: {
-            /**
-             * Bins
-             * @default []
-             */
-            bins: components["schemas"]["HrvDistributionBin"][];
-            /**
-             * Total Days
-             * @default 0
-             */
-            total_days: number;
-            /** Selected Value */
-            selected_value: number | null;
-            /** Selected Percentile */
-            selected_percentile: number | null;
-        };
-        /**
-         * HrvDistributionBin
-         * @description One histogram bin for nightly HRV values.
-         */
-        HrvDistributionBin: {
-            /** Bin Start */
-            bin_start: number;
-            /** Bin End */
-            bin_end: number;
-            /** Count */
-            count: number;
+            /** State */
+            state: string | null;
         };
         /**
          * HrvInsight
@@ -2991,27 +2970,7 @@ export interface components {
             day_stats: components["schemas"]["DailyHrvStats"];
             recovery: components["schemas"]["HrvRecovery"];
             quality: components["schemas"]["HrvDataQuality"];
-            /**
-             * Intraday Segments
-             * @default []
-             */
-            intraday_segments: components["schemas"]["HrvIntradaySegment"][];
-            trend_band: components["schemas"]["HrvTrendBand"];
-            streak: components["schemas"]["HrvStreak"] | null;
-            long_baseline: components["schemas"]["HrvLongBaseline"] | null;
-            baseline_bands: components["schemas"]["HrvBaselineBands"] | null;
-            distribution: components["schemas"]["HrvDistribution"] | null;
-            trajectory: components["schemas"]["HrvTrajectory"] | null;
-            /**
-             * Status Mix
-             * @default []
-             */
-            status_mix: components["schemas"]["HrvStatusBucket"][];
-            /**
-             * Day Of Week
-             * @default []
-             */
-            day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
+            baseline: components["schemas"]["HrvBaseline"] | null;
             /**
              * Insights
              * @default []
@@ -3019,60 +2978,28 @@ export interface components {
             insights: components["schemas"]["HrvInsight"][];
         };
         /**
-         * HrvIntradaySegment
-         * @description Aggregated HRV stats for one intraday segment.
-         */
-        HrvIntradaySegment: {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /**
-             * Sample Count
-             * @default 0
-             */
-            sample_count: number;
-            /** Avg */
-            avg: number | null;
-            /** Min */
-            min: number | null;
-            /** Max */
-            max: number | null;
-            /** Stdev */
-            stdev: number | null;
-            /** Coverage Start */
-            coverage_start: string | null;
-            /** Coverage End */
-            coverage_end: string | null;
-            /** Coverage Hours */
-            coverage_hours: number | null;
-            /**
-             * Values
-             * @default []
-             */
-            values: components["schemas"]["HrvValue"][];
-        };
-        /**
-         * HrvLongBaseline
-         * @description Longer baseline comparison for recent HRV trend.
-         */
-        HrvLongBaseline: {
-            /** Baseline 30D */
-            baseline_30d: number | null;
-            /** Delta 7D Vs 30D */
-            delta_7d_vs_30d: number | null;
-        };
-        /**
          * HrvPatternWindow
-         * @description Pre-computed distribution + day-of-week for a time window.
+         * @description Pre-computed day-of-week HRV pattern for a time window.
+         *
+         *     ``overall_avg`` is the sample-weighted mean of all present nightly HRV values
+         *     in the window (true grand mean, not a mean-of-weekday-means). ``total_sample_count``
+         *     is the number of nights represented across the weekday buckets (the sum of their
+         *     ``sample_count`` values). Both are provided so the frontend can show a
+         *     backend-authoritative reference and total without doing any aggregation itself.
          */
         HrvPatternWindow: {
-            distribution: components["schemas"]["HrvDistribution"] | null;
             /**
              * Day Of Week
              * @default []
              */
             day_of_week: components["schemas"]["HrvDayOfWeekBucket"][];
+            /** Overall Avg */
+            overall_avg: number | null;
+            /**
+             * Total Sample Count
+             * @default 0
+             */
+            total_sample_count: number;
         };
         /**
          * HrvRecovery
@@ -3101,36 +3028,6 @@ export interface components {
             hrv_summaries: components["schemas"]["HrvSummary"][];
         };
         /**
-         * HrvStatusBucket
-         * @description Count and percentage for one HRV status bucket.
-         */
-        HrvStatusBucket: {
-            /** Label */
-            label: string;
-            /** Count */
-            count: number;
-            /** Pct */
-            pct: number;
-        };
-        /**
-         * HrvStreak
-         * @description Current and recent HRV status streak information.
-         */
-        HrvStreak: {
-            /** Current Status */
-            current_status: string | null;
-            /**
-             * Streak Days
-             * @default 0
-             */
-            streak_days: number;
-            /**
-             * Worst Recent Streak
-             * @default 0
-             */
-            worst_recent_streak: number;
-        };
-        /**
          * HrvSummary
          * @description Parsed Garmin overnight HRV summary and baseline status.
          */
@@ -3151,30 +3048,6 @@ export interface components {
             baseline_balanced_upper: number | null;
             /** Status */
             status: string;
-        };
-        /**
-         * HrvTrajectory
-         * @description Overnight HRV trajectory across early, middle, and late segments.
-         */
-        HrvTrajectory: {
-            /** Early Avg */
-            early_avg: number | null;
-            /** Mid Avg */
-            mid_avg: number | null;
-            /** Late Avg */
-            late_avg: number | null;
-            /** Direction */
-            direction: string | null;
-        };
-        /**
-         * HrvTrendBand
-         * @description Typical nightly HRV band across the analysis window.
-         */
-        HrvTrendBand: {
-            /** Nightly Typical Low */
-            nightly_typical_low: number | null;
-            /** Nightly Typical High */
-            nightly_typical_high: number | null;
         };
         /**
          * HrvValue
@@ -3317,7 +3190,7 @@ export interface components {
         };
         /**
          * NightlyHrvTrendPoint
-         * @description Daily nightly-HRV trend point.
+         * @description Daily nightly-HRV trend point with its trailing robust baseline.
          */
         NightlyHrvTrendPoint: {
             /** Date */
@@ -3326,6 +3199,19 @@ export interface components {
             nightly_avg: number | null;
             /** Ma7 */
             ma7: number | null;
+            /** Band Low */
+            band_low: number | null;
+            /** Band High */
+            band_high: number | null;
+            /** Z */
+            z: number | null;
+            /**
+             * Is Extreme
+             * @default false
+             */
+            is_extreme: boolean;
+            /** Trend State */
+            trend_state: string | null;
         };
         /**
          * Note
@@ -4750,29 +4636,6 @@ export interface components {
             day_count: number;
         };
         /**
-         * WeeklyHrvBox
-         * @description Weekly five-number summary for nightly HRV.
-         */
-        WeeklyHrvBox: {
-            /** Iso Week */
-            iso_week: string;
-            /** Min Ms */
-            min_ms: number | null;
-            /** Q1 Ms */
-            q1_ms: number | null;
-            /** Median Ms */
-            median_ms: number | null;
-            /** Q3 Ms */
-            q3_ms: number | null;
-            /** Max Ms */
-            max_ms: number | null;
-            /**
-             * Day Count
-             * @default 0
-             */
-            day_count: number;
-        };
-        /**
          * WeeklyRestingHRBox
          * @description Weekly five-number summary for resting heart rate.
          */
@@ -5244,7 +5107,10 @@ export interface operations {
     };
     get_hrv_analysis_api_hrv_analysis_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Trailing baseline window (days) */
+                baseline?: components["schemas"]["BaselineWindow"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5258,6 +5124,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HrvAnalysisResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5287,6 +5162,8 @@ export interface operations {
             query?: {
                 /** @description Day (YYYY-MM-DD), defaults to latest day */
                 date?: string | null;
+                /** @description Trailing baseline window (days) */
+                baseline?: components["schemas"]["BaselineWindow"];
             };
             header?: never;
             path?: never;

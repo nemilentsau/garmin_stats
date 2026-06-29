@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recovery Score — Garmin Health Findings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-topic="recovery">
+
+<nav class="topnav">
+  <a class="topnav-back" href="index.html">← Findings</a>
+  <span class="topnav-title">Recovery Score</span>
+  <div class="topnav-links">
+    <a href="#event">The event</a>
+    <a href="#normalize">Normalize</a>
+    <a href="#weight">Weight</a>
+    <a href="#smooth">Smooth</a>
+    <a href="#change">Change</a>
+    <a href="#validate">Validate</a>
+    <a href="#continuum">Continuum</a>
+  </div>
+</nav>
+
+<main class="wrap page">
+
+  <header class="hero">
+    <div class="eyebrow">02 — Recovery Score</div>
+    <h1>Building a trustworthy recovery score.</h1>
+    <p class="sub">One number summarizing the seven-metric recovery axis — but only if it earns
+    trust. It has to catch the year’s one severe event, normalize against a moving baseline, weight
+    its inputs defensibly, smooth honestly, flag only real change, and pass tests registered before
+    the data was looked at. This is that chain, decision by decision.</p>
+  </header>
+
+  <!-- ============================== THE EVENT ============================== -->
+  <div class="section-intro" id="event">
+    <h2>The event the score must catch</h2>
+    <p>Every design choice below is judged against one yardstick: does it correctly register the
+    November 2025 low-recovery regime — the only severe, sustained episode in the dataset?</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">The November crash is a five-week, whole-body event.</h2>
+    </div>
+    <p class="lede">Not the two-week “worst fortnight” it first looked like — the composite stays
+    below its normal band from ~Nov 5 to ~Dec 11. Every recovery metric is suppressed together,
+    which is exactly why a <em>single composite</em> is the right instrument: no one metric tells
+    the whole story, but they all move as one.</p>
+
+    <figure class="plot framed">
+      <img src="assets/recovery-nov-regime.png" alt="Composite recovery score Sep 2025–Jan 2026 dipping below the normal band for five weeks">
+      <figcaption><b>The November low-recovery regime.</b> Composite recovery score (six-metric
+      robust-z), Sep 2025 – Jan 2026; the smoothed line sits below the normal band (z ≥ −0.5) for
+      ~5 weeks — far longer than the Nov 5–18 worst-fortnight (the soft boundary mid-regime).</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/recovery-regime-segments.png" alt="Per-metric z-score heatmap across regime segments">
+      <figcaption><b>Why one composite.</b> Per-metric recovery-signed z by regime segment: stress
+      crashes first (acute −2.5) and recovers first; HRV and body battery bottom out in the
+      <em>tail</em>; resting HR stays red into December — slowest to return.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · nov-regime-extent + leadlag-generalize</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Composite trajectory</dt><dd>acute (Nov 5–18) <span class="num">−1.4</span> → tail (Nov 19–Dec 5) <span class="num">−1.0</span> → post <span class="num">−0.3</span> → Jan <span class="num">+0.6</span></dd>
+          <dt>Back in normal band</dt><dd>~<span class="num">2025-12-11</span></dd>
+          <dt>Per-metric return</dt><dd>Body Battery Dec 9 · Stress/Resp/Sleep Dec 11 · HRV Dec 14 · <b>Resting HR Dec 22 (last)</b></dd>
+        </dl>
+        <div class="caveat"><b>Provisional — does not generalize.</b> The “stress leads, resting HR
+        lags” phase order appears only in this one severe episode. Of the year’s five low-recovery
+        dips, the other four (composite −0.69 to −0.96) trough <em>synchronously</em>. Treat the
+        lead-lag as a feature of severe sustained episodes only — and with n=1, even that is
+        provisional.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== NORMALIZE ============================== -->
+  <div class="section-intro" id="normalize">
+    <h2>Normalize against your whole history</h2>
+    <p>The single most counterintuitive decision — and the one most likely to be “simplified” into
+    a bug later.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Use an expanding personal baseline — never a trailing window.</h2>
+    </div>
+    <p class="lede">A trailing 30–60 day baseline <em>absorbs</em> a sustained regime: within a
+    couple of weeks its rolling median has crept down onto the crash values, so the score quietly
+    recenters mid-event — then overshoots high once the regime ends. An expanding (eventually
+    ~365-day-capped) personal history is the only candidate that holds the crash down.</p>
+
+    <figure class="plot framed">
+      <img src="assets/norm-candidate-timelines.png" alt="Five stacked timelines comparing trailing and expanding baselines, annotated with regime fidelity">
+      <figcaption><b>Trailing baselines fail the regime test.</b> Share of November-regime days
+      correctly scored as suppressed: trailing-30 <b>47%</b>, -60 <b>58%</b>, -90 <b>69%</b> (all
+      below the 70% bar) vs expanding <b>83%</b>. The shorter the window, the more it absorbs the
+      event it should flag.</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/norm-window-adaptation.png" alt="Oct–Dec zoom showing trailing baselines recentering and overshooting">
+      <figcaption><b>The mechanism (Oct–Dec zoom).</b> Inside the regime the trailing-30 score is
+      <em>shallowest</em> (its baseline already absorbed the regime); right after it, trailing-30
+      <em>overshoots</em> highest (~+2). The expanding baseline stays correctly deep throughout.</figcaption>
+    </figure>
+
+    <pre class="snippet"><span class="c"># Per-metric normalization — expanding personal robust-z</span>
+z(x, day) = ( x − <span class="k">median</span>(prior_days) ) / ( 1.4826 · <span class="k">MAD</span>(prior_days) )
+            <span class="c"># current day excluded · ≥ 30 prior present days required</span>
+composite = weighted mean over <span class="v">≥ 5 of 7</span> available inputs   <span class="c"># degraded-confidence flag below 7</span></pre>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-normalization-baseline</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Regime fidelity (bar ≥ 70%)</dt><dd>trailing-30 <span class="num">47%</span> · -60 <span class="num">58%</span> · -90 <span class="num">69.4%</span> · expanding <span class="num">83%</span> · hindsight-absolute <span class="num">89%</span></dd>
+          <dt>Plateau noise (lower = better)</dt><dd>expanding SD <span class="num">0.90</span> vs trailing <span class="num">1.02–1.47</span></dd>
+          <dt>Robustness</dt><dd>expanding wins under all 7 leave-one-metric-out variants</dd>
+        </dl>
+        <div class="caveat"><b>Provisional on the selection.</b> One severe regime in-sample, and
+        the registered acute criterion failed <em>every</em> candidate (even hindsight caps at 89%),
+        so expanding was chosen on the fidelity + tie-breaks rather than a clean pass. The
+        trailing-fails result itself is arithmetic, not luck.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== WEIGHT ============================== -->
+  <div class="section-intro" id="weight">
+    <h2>Weight the inputs</h2>
+    <p>A natural worry — “are we double-counting the correlated metrics?” — turns out to barely
+    matter, precisely because the axis is so dominant.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Weighting is practically immaterial — and that’s a feature.</h2>
+    </div>
+    <p class="lede">Equal, correlation-deflated, and PC1 weightings produce <em>near-identical</em>
+    daily scores (Spearman ≥ 0.9996). We adopt the correlation-deflated weights — the only scheme
+    with an explicit double-counting defense — and they land essentially at equal (1/7 ≈ 0.143).</p>
+
+    <figure class="plot framed">
+      <img src="assets/weight-candidates.png" alt="Grouped bars of three weighting schemes, all near 1/7">
+      <figcaption><b>Three weighting schemes, one answer.</b> Equal, deflated, and PC1 weight
+      vectors all hug the 1/7 = 0.143 line (full spread only 0.126–0.159). The choice does not move
+      the score. n=343.</figcaption>
+    </figure>
+
+    <pre class="snippet"><span class="c"># Adopted weights — correlation-deflated, recovery-signed, per-day renormalized over ≥5/7</span>
+RHR <span class="v">.142</span> (−)   HR&nbsp;avg <span class="v">.148</span> (−)   stress <span class="v">.139</span> (−)   respiration <span class="v">.137</span> (−)
+BB&nbsp; <span class="v">.135</span> (+)   HRV&nbsp;&nbsp;&nbsp; <span class="v">.140</span> (+)   sleep&nbsp; <span class="v">.159</span> (+)
+<span class="c"># deflation: w_i ∝ 1 / Σ_j |r_ij|   (row-sum of |Spearman r|, normalized to Σw = 1)</span></pre>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-score-weighting</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Day-score agreement</dt><dd>pairwise Spearman <span class="num">0.9996–0.9999</span>; p90 |Δ| ≤ <span class="num">0.04</span> z (max 0.09), n=343</dd>
+          <dt>Event behavior</dt><dd>regime fidelity <span class="num">83.3%</span> under all three schemes</dd>
+          <dt>Double-count defense</dt><dd>no metric weight &gt; <span class="num">0.16</span>, no pole &gt; <span class="num">57%</span>; composite correlates ≥ <span class="num">0.93</span> with each pole-only sub-composite</dd>
+        </dl>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== SMOOTH ============================== -->
+  <div class="section-intro" id="smooth">
+    <h2>Smooth the headline</h2>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">A seeded 7-day moving average is the knee — no transform needed.</h2>
+    </div>
+    <p class="lede">The raw score is already symmetric (skew −0.42), so a plain mean-based smoother
+    is valid. A 7-day window is the sweet spot: it removes plateau jitter <em>without</em> delaying
+    regime onset or flattening the crash. MA3 stays jagged; MA14 under-reads the November trough.</p>
+
+    <figure class="plot framed">
+      <img src="assets/smoothing-candidates.png" alt="Raw recovery score vs MA3, MA7, MA14 over the year">
+      <figcaption><b>Choosing the window.</b> Raw score (grey) vs MA3 / MA7 / MA14. MA7 tracks the
+      November trough and the Jan–Mar plateau cleanly; MA3 is still noisy, MA14 sits visibly
+      shallower at the crash.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-score-smoothing-spec</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Plateau noise reduction</dt><dd>MA7 cuts SD <span class="num">0.901 → 0.123</span> (86%); MA3 65%, MA14 93%</dd>
+          <dt>Onset detection delay</dt><dd>MA7 adds <span class="num">0</span> days; MA3 +1</dd>
+          <dt>Sustained depth preserved</dt><dd>MA7 trough <span class="num">−1.77</span> = the deepest 7-day mean (0% attenuation); MA14 loses 14%</dd>
+          <dt>Left-edge seed</dt><dd>seed with W−1 = <span class="num">6</span> prior days (<code>_MA_SEED_DAYS</code>); skipping it errs up to <span class="num">0.12</span> z on the first 6 points</dd>
+        </dl>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== CHANGE ============================== -->
+  <div class="section-intro" id="change">
+    <h2>Flag only real change</h2>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">A change is “meaningful” at sustained |Δ7| ≥ 0.97 z.</h2>
+    </div>
+    <p class="lede">The default badge compares this week’s mean to the prior week’s. Its threshold
+    is set so it almost never fires inside a calm plateau, yet catches the regime within a week —
+    and deliberately ignores single-night noise. A secondary acute threshold (|Δ1| ≥ 1.86 z)
+    covers genuine one-day shocks.</p>
+
+    <figure class="plot framed">
+      <img src="assets/change-thresholds.png" alt="Distributions of acute and sustained deltas with thresholds marked">
+      <figcaption><b>Setting the bar.</b> Acute |Δ1| and sustained |Δ7| distributions (z-units),
+      full series (blue) vs calm Jan–Mar plateau (orange). The 0.97 line sits beyond the entire
+      plateau Δ7 spread yet still catches the regime tail.</figcaption>
+    </figure>
+
+    <pre class="snippet"><span class="c"># Meaningful-change badges (z-units; rescale if the score is ever displayed 0–100)</span>
+Δ1(D) = score(D) − score(D−1)                              <span class="c"># acute</span>
+Δ7(D) = mean(score, D−6..D) − mean(score, D−13..D−7)       <span class="c"># sustained (default)</span>
+badge if  <span class="v">|Δ7| ≥ 0.97</span>  <span class="c">(default)</span>   or   <span class="v">|Δ1| ≥ 1.86</span>  <span class="c">(secondary)</span></pre>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-score-meaningful-change</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Threshold derivation</dt><dd>T7 = 0.97 z (full-series 1.4826×MAD of Δ7); T1 = 1.86 z (plateau p95)</dd>
+          <dt>Stable-window false positives</dt><dd>acute <span class="num">5.7%</span> / sustained <span class="num">0.0%</span> (bar ≤ 7%)</dd>
+          <dt>Regime onset flagged</dt><dd>day <span class="num">8</span> of the regime (2025-11-13)</dd>
+          <dt>Badge frequency</dt><dd>~<span class="num">9.9%</span> of days (≈ 3/month)</dd>
+          <dt>Single-night discipline</dt><dd>the 2026-02-26 acute dip correctly does <em>not</em> badge (Δ1 −1.20 vs −1.86) — single nights belong in drill-down, not the headline</dd>
+        </dl>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== VALIDATE ============================== -->
+  <div class="section-intro" id="validate">
+    <h2>Validate before shipping</h2>
+    <p>Three tests, registered in advance, against being fooled by a score that merely looks
+    plausible.</p>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">It passed all three pre-registered validation tests.</h2>
+    </div>
+    <p class="lede">T1 — the score has real temporal structure, not noise. T2 — with baselines
+    <em>frozen the day before each event</em>, it still detects the November crash and the February
+    peak. T3 — it stays stable on a genuinely clean April–June holdout that postdates every
+    parameter choice.</p>
+
+    <figure class="plot framed">
+      <img src="assets/validation-t2-frozen.png" alt="MA7 vs raw with pre-event reference percentiles, detecting both events">
+      <figcaption><b>T2 — leave-event-out.</b> With baselines frozen before each event, MA7 stays
+      below the pre-November P10 for <b>36 straight days</b> and rises above the pre-plateau P90 on
+      <b>93%</b> of February best-window days — it detects events it was never tuned on.</figcaption>
+    </figure>
+
+    <figure class="plot framed">
+      <img src="assets/validation-t1-autocorr.png" alt="Observed autocorrelation to the right of a permutation null distribution">
+      <figcaption><b>T1 — real structure, not noise.</b> The score’s lag-1 autocorrelation (0.46)
+      sits clearly right of a 7-day-block-permutation null (mean 0.39), p &lt; 1e-4.</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-score-validation</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>T1 temporal structure</dt><dd>raw lag-1 AC <span class="num">0.457</span>, CI [0.269, 0.492] &gt; null mean 0.390 at <span class="num">p&lt;1e-4</span></dd>
+          <dt>T2 frozen-event response</dt><dd>36 consecutive days below pre-Nov P10 (−0.72); 93% of Feb window above pre-plateau P90 (+0.43); 2026-02-26 raw Δ1 −1.20 (bottom 9%) but MA7 only −0.11</dd>
+          <dt>T3 clean holdout (Apr+)</dt><dd>lag-1 AC <span class="num">0.377</span> vs design 0.412 (|Δ| 0.035); Δ7 flag rate a sane <span class="num">8.3%</span> (n=72)</dd>
+        </dl>
+        <div class="caveat"><b>Caveat.</b> Events are n-of-1 (one severe regime, one plateau, one
+        acute dip, one holdout softening), and much of the lag-1 persistence is sub-weekly — the
+        scale the MA7 deliberately smooths.</div>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== CONTINUUM ============================== -->
+  <div class="section-intro" id="continuum">
+    <h2>One last temptation: “recovery states”</h2>
+    <hr class="rule">
+  </div>
+
+  <article class="finding">
+    <div class="finding-head">
+      <span class="badge badge-confident">confident</span>
+      <h2 class="takeaway">Recovery is a continuum — there are no hidden archetypes.</h2>
+    </div>
+    <p class="lede">It’s tempting to cluster days into named “recovery types.” But the seven-metric
+    daily structure is ~1-dimensional: clusters are stable only because they’re slices of the one
+    recovery score, not genuine types. A “state” label should be a coarse score band × trend
+    direction — not an invented physiological archetype.</p>
+
+    <figure class="plot framed">
+      <img src="assets/recovery-continuum-pca.png" alt="PCA scatter showing one elongated cloud, and a scree plot with PC1 dominant">
+      <figcaption><b>One cloud, not clusters.</b> 378 days form a single elongated cloud with a
+      smooth low→high recovery gradient (left); PC1 alone explains <b>74%</b> of variance with PC2
+      (9%) below the 15% second-dimension bar (right).</figcaption>
+    </figure>
+
+    <details class="evidence">
+      <summary>Evidence &amp; stats <span class="ev-tag">run · recovery-day-states</span></summary>
+      <div class="evidence-body">
+        <dl class="kv">
+          <dt>Dimensionality</dt><dd>PC1 <span class="num">74.1%</span>, PC2 <span class="num">8.8%</span> (below the 15% bar)</dd>
+          <dt>No natural k</dt><dd>silhouette declines monotonically k2 <span class="num">0.39</span> → k6 <span class="num">0.20</span>, no knee</dd>
+          <dt>Clusters are score slices</dt><dd>PC1-tertiles reproduce the k=3 clustering <span class="num">73%</span>; split-half ARI 0.72 / 0.64</dd>
+        </dl>
+        <p><b>Banner rule.</b> a coarse score band (suppressed / typical / strong vs personal
+        baseline) × Δ7 trend (improving / steady / declining) — no invented archetypes. Consistent
+        with the HRV principle: read level and trend, don’t threshold a continuum into modes.</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ============================== WHAT SHIPPED ============================== -->
+  <div class="section-intro">
+    <h2>What shipped</h2>
+    <p>The recovery score contract, end to end:</p>
+  </div>
+  <ul class="takeaways">
+    <li><b>Inputs</b> — seven-metric recovery axis (RHR, HR avg, stress, respiration, body battery, HRV, sleep), recovery-signed, renormalized per day over ≥5/7 available.</li>
+    <li><b>Normalization</b> — expanding personal robust-z (median ± 1.4826·MAD of prior days, ≥30 prior). Never a trailing 1–2 month window.</li>
+    <li><b>Weights</b> — correlation-deflated, which land ≈ equal (1/7); the choice is immaterial.</li>
+    <li><b>Smoothing</b> — seeded trailing 7-day moving average; no score-level transform.</li>
+    <li><b>Change badge</b> — sustained |Δ7| ≥ 0.97 z (default), acute |Δ1| ≥ 1.86 z (secondary).</li>
+    <li><b>Validation</b> — passed three pre-registered tests (real structure, frozen-event detection, clean holdout).</li>
+    <li><b>State</b> — coarse score band × trend direction; no clustered archetypes.</li>
+  </ul>
+
+  <footer class="foot">
+    <a href="index.html">← Back to all findings</a> &nbsp;·&nbsp; Continue:
+    <a href="general.html">General →</a> &nbsp; <a href="hrv.html">HRV →</a><br>
+    Snapshot 2026-06-11 (373 days) unless noted. Every threshold is in z-units and in-sample
+    (one regime, one plateau); full method and caveats in the evidence blocks and
+    <code>FINDINGS.md</code>.
+  </footer>
+
+</main>
+</body>
+</html>
