@@ -3,8 +3,9 @@
 	 * CardBody — dispatches to the card-type-specific component for a single occurrence.
 	 *
 	 * Currently wired:
-	 *   checklist → ChecklistCard (Phase 2)
-	 *   all other types → TEMPORARY inline fallback, replaced in Phases 3-5
+	 *   checklist     → ChecklistCard  (Phase 2)
+	 *   breath_timer  → BreathTimerCard (Phase 3)
+	 *   all other types → TEMPORARY inline fallback, replaced in Phases 4-5
 	 *
 	 * Props:
 	 *   card   — ScheduleOccurrence or TodayCard shape (both have payload_json; TodayCard adds
@@ -16,6 +17,7 @@
 	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 	import ChecklistCard from './ChecklistCard.svelte';
+	import BreathTimerCard from './BreathTimerCard.svelte';
 
 	type CardPayload = ScheduleOccurrence['payload_json'];
 	type CardActual = NonNullable<TodayCard['actual_json']>;
@@ -35,8 +37,8 @@
 		onActual?: (actual: CardActual) => void;
 	} = $props();
 
-	// --- TEMPORARY fallback state: ratings for timer/strength cards ---
-	// Each of these is replaced by a dedicated component in Phases 3-5.
+	// --- TEMPORARY fallback state: ratings for meditation_timer / strength cards ---
+	// Each of these is replaced by a dedicated component in Phases 4-5.
 	let ratings = $state<Record<string, number | null>>({});
 
 	// Initialise fallback rating state from existing actual on mount.
@@ -44,16 +46,10 @@
 	// value here is intentional — untrack() makes that explicit to the Svelte compiler.
 	const p = untrack(() => card.payload_json);
 	const actual = untrack(() => card.actual_json);
-	if (
-		p.card_type === 'breath_timer' ||
-		p.card_type === 'meditation_timer' ||
-		p.card_type === 'strength_session'
-	) {
+	if (p.card_type === 'meditation_timer' || p.card_type === 'strength_session') {
 		if (
 			actual &&
-			(actual.card_type === 'breath_timer' ||
-				actual.card_type === 'meditation_timer' ||
-				actual.card_type === 'strength_session')
+			(actual.card_type === 'meditation_timer' || actual.card_type === 'strength_session')
 		) {
 			for (const [k, v] of Object.entries(actual.ratings)) {
 				ratings[k] = v as number;
@@ -72,7 +68,7 @@
 			if (typeof v === 'number') cleanRatings[k] = v;
 		}
 
-		if (pl.card_type === 'breath_timer' || pl.card_type === 'meditation_timer') {
+		if (pl.card_type === 'meditation_timer') {
 			onActual?.({ card_type: pl.card_type, ratings: cleanRatings, completed_cycles: null });
 		} else if (pl.card_type === 'strength_session') {
 			onActual?.({ card_type: 'strength_session', exercises: [], ratings: cleanRatings });
@@ -91,15 +87,25 @@
 		{mode}
 		{onActual}
 	/>
+{:else if card.payload_json.card_type === 'breath_timer'}
+	<!--
+		BreathTimerCard is fully implemented (Phase 3).
+		payload_json is narrowed to BreathTimerPayload by the type guard above.
+	-->
+	<BreathTimerCard
+		card={{ payload_json: card.payload_json, actual_json: card.actual_json }}
+		{mode}
+		{onActual}
+	/>
 {:else}
-	<!-- TEMPORARY fallback — dedicated components replace this block in Phases 3-5. -->
+	<!-- TEMPORARY fallback — dedicated components replace this block in Phases 4-5. -->
 
 	{#if card.payload_json.instructions}
 		<p class="detail-copy">{card.payload_json.instructions}</p>
 	{/if}
 
 	{#if mode === 'log'}
-		{#if card.payload_json.card_type === 'breath_timer' || card.payload_json.card_type === 'meditation_timer' || card.payload_json.card_type === 'strength_session'}
+		{#if card.payload_json.card_type === 'meditation_timer' || card.payload_json.card_type === 'strength_session'}
 			{#if card.payload_json.rating_prompts.length > 0}
 				<div class="ratings-grid">
 					{#each card.payload_json.rating_prompts as prompt}
