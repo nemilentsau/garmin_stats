@@ -120,19 +120,14 @@ The five supported card types are:
   "card_type": "breath_timer",
   "duration_minutes": 5,
   "pattern_label": "4s in / 4s hold / 4s out / 4s hold",
-  "phases": [
-    { "kind": "inhale", "seconds": 4 },
-    { "kind": "hold_full", "seconds": 4 },
-    { "kind": "exhale", "seconds": 4 },
-    { "kind": "hold_empty", "seconds": 4 }
-  ],
-  "instructions": "...",
-  "rating_prompts": []
+  "instructions": "..."
 }
 ```
 
-- `phases` drive the breathing animation. `kind` is one of `inhale`,
-  `hold_full`, `exhale`, `hold_empty`.
+- `pattern_label` is the human-readable prescription; the watch is the timer,
+  so the card carries no animation or per-phase timing. The breath card logs a
+  single optional subjective signal, `ratings.felt_downshift` (1=Barely,
+  2=Somewhat, 3=Strongly) — it has no `rating_prompts`.
 
 ### `meditation_timer`
 

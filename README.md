@@ -139,7 +139,7 @@ The five card types are:
 |---|---|---|
 | `running_workout` | Running | `workout_type`, `segments`, `post_run_fields` |
 | `strength_session` | Strength | `exercises` (set_scheme), `rating_prompts` |
-| `breath_timer` | Breathwork | `phases` (inhale/hold/exhale), `pattern_label` |
+| `breath_timer` | Breathwork | `pattern_label`, `duration_minutes` (logs one `felt_downshift`) |
 | `meditation_timer` | Meditation | `technique`, `anchor` |
 | `checklist` | Any (via `domain`) | `items`, `domain` |
 
