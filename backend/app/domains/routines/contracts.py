@@ -27,7 +27,6 @@ CardType = Literal[
     "checklist",
 ]
 RunSegmentKind = Literal["warmup", "main", "strides", "cooldown", "intervals"]
-BreathPhaseKind = Literal["inhale", "hold_full", "exhale", "hold_empty"]
 
 
 class RatingPrompt(StrictDefaultsRequired):
@@ -93,22 +92,13 @@ class StrengthSessionPayload(StrictDefaultsRequired):
     rating_prompts: list[RatingPrompt] = []
 
 
-class BreathPhase(StrictDefaultsRequired):
-    """One timed phase of a breathing pattern."""
-
-    kind: BreathPhaseKind
-    seconds: int
-
-
 class BreathTimerPayload(StrictDefaultsRequired):
     """Typed prescription for a breathwork timer card."""
 
     card_type: Literal["breath_timer"] = "breath_timer"
     duration_minutes: int
     pattern_label: str
-    phases: list[BreathPhase] = []
     instructions: str | None = None
-    rating_prompts: list[RatingPrompt] = []
 
 
 class MeditationTimerPayload(StrictDefaultsRequired):
@@ -194,7 +184,6 @@ class TimerActual(StrictDefaultsRequired):
 
     card_type: Literal["breath_timer", "meditation_timer"]
     ratings: dict[str, int] = {}
-    completed_cycles: int | None = None
 
 
 class ChecklistAnswer(StrictDefaultsRequired):

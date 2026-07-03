@@ -172,6 +172,31 @@ _TODAY_CARD_BASE = {
 }
 
 
+def test_breath_payload_rejects_phases():
+    # phases was removed from the schema; extra keys are forbidden
+    with pytest.raises(ValidationError):
+        PAYLOAD_ADAPTER.validate_python(
+            {"card_type": "breath_timer", "duration_minutes": 5,
+             "pattern_label": "5s in / 5s out", "phases": [{"kind": "inhale", "seconds": 5}]}
+        )
+
+
+def test_breath_payload_valid_without_phases():
+    p = PAYLOAD_ADAPTER.validate_python(
+        {"card_type": "breath_timer", "duration_minutes": 10, "pattern_label": "5s in / 5s out"}
+    )
+    assert p.card_type == "breath_timer"
+    assert not hasattr(p, "phases")
+
+
+def test_timer_actual_has_no_completed_cycles():
+    a = ACTUAL_ADAPTER.validate_python(
+        {"card_type": "breath_timer", "ratings": {"felt_downshift": 2}}
+    )
+    assert a.ratings["felt_downshift"] == 2
+    assert not hasattr(a, "completed_cycles")
+
+
 class TestEmptyActualJsonCoercedToNone:
     def test_card_log_empty_dict_actual_json_coerces_to_none(self):
         """Legacy rows with actual_json={} must load without 500."""

@@ -38,10 +38,6 @@ def _card_request(card_id: str, *, slot_default: str) -> AssistantArtifactCreate
                 "card_type": "breath_timer",
                 "duration_minutes": 10,
                 "pattern_label": "5s in / 5s out",
-                "phases": [
-                    {"kind": "inhale", "seconds": 5},
-                    {"kind": "exhale", "seconds": 5},
-                ],
                 "instructions": "Stay relaxed.",
             },
         },

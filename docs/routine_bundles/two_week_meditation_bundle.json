@@ -18,31 +18,7 @@
         "card_type": "breath_timer",
         "duration_minutes": 10,
         "pattern_label": "5s in / 5s out",
-        "phases": [
-          {"kind": "inhale", "seconds": 5},
-          {"kind": "exhale", "seconds": 5}
-        ],
-        "instructions": "Find a smooth 5s/5s rhythm and keep the breath relaxed rather than deep.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "instructions": "Find a smooth 5s/5s rhythm and keep the breath relaxed rather than deep."
       }
     },
     {
@@ -59,31 +35,7 @@
         "card_type": "breath_timer",
         "duration_minutes": 8,
         "pattern_label": "4s in / 7s out",
-        "phases": [
-          {"kind": "inhale", "seconds": 4},
-          {"kind": "exhale", "seconds": 7}
-        ],
-        "instructions": "Keep the exhale smooth and complete without rushing the final second.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "instructions": "Keep the exhale smooth and complete without rushing the final second."
       }
     },
     {
@@ -100,33 +52,7 @@
         "card_type": "breath_timer",
         "duration_minutes": 5,
         "pattern_label": "4s in / 4s hold / 4s out / 4s hold",
-        "phases": [
-          {"kind": "inhale", "seconds": 4},
-          {"kind": "hold_full", "seconds": 4},
-          {"kind": "exhale", "seconds": 4},
-          {"kind": "hold_empty", "seconds": 4}
-        ],
-        "instructions": "Move cleanly through each transition without gasping on the holds.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "instructions": "Move cleanly through each transition without gasping on the holds."
       }
     },
     {
@@ -143,32 +69,7 @@
         "card_type": "breath_timer",
         "duration_minutes": 10,
         "pattern_label": "4s in / 6s out / 4s post-exhale hold",
-        "phases": [
-          {"kind": "inhale", "seconds": 4},
-          {"kind": "exhale", "seconds": 6},
-          {"kind": "hold_empty", "seconds": 4}
-        ],
-        "instructions": "Keep the hold calm; shorten to 3s if 4s creates strain or panic.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "instructions": "Keep the hold calm; shorten to 3s if 4s creates strain or panic."
       }
     },
     {

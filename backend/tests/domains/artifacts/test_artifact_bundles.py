@@ -97,14 +97,7 @@ def _card_request(
                 "card_type": "breath_timer",
                 "duration_minutes": 10,
                 "pattern_label": "5s in / 5s out",
-                "phases": [
-                    {"kind": "inhale", "seconds": 5},
-                    {"kind": "exhale", "seconds": 5},
-                ],
                 "instructions": "Stay relaxed.",
-                "rating_prompts": [
-                    {"key": "clarity", "label": "Clarity", "scale_min": 1, "scale_max": 5}
-                ],
             },
         },
     )
@@ -234,19 +227,7 @@ def _starter_bundle_spec() -> ArtifactBundleSpec:
                         "card_type": "breath_timer",
                         "duration_minutes": 8,
                         "pattern_label": "5s in / 5s out",
-                        "phases": [
-                            {"kind": "inhale", "seconds": 5},
-                            {"kind": "exhale", "seconds": 5},
-                        ],
                         "instructions": "Keep the breath smooth and relaxed.",
-                        "rating_prompts": [
-                            {
-                                "key": "attention_stability",
-                                "label": "Attention stability",
-                                "scale_min": 1,
-                                "scale_max": 5,
-                            }
-                        ],
                     },
                 }
             ],
@@ -300,14 +281,7 @@ def _bundle_card_spec(
             "card_type": "breath_timer",
             "duration_minutes": duration_minutes,
             "pattern_label": "5s in / 5s out",
-            "phases": [
-                {"kind": "inhale", "seconds": 5},
-                {"kind": "exhale", "seconds": 5},
-            ],
             "instructions": f"Practice {name.lower()}",
-            "rating_prompts": [
-                {"key": "clarity", "label": "Clarity", "scale_min": 1, "scale_max": 5}
-            ],
         },
     }
 
@@ -665,14 +639,13 @@ class TestArtifactBundles:
         ]
         assert len(breath_cards) == 4
         assert len(meditation_cards) == 2
-        # Spot-check: resonance card has correct phases
+        # Spot-check: resonance card has correct prescription and no phases field
         resonance = next(
             c for c in bundle.card_templates if c.id == "meditation-resonance-breathing"
         )
         assert isinstance(resonance.payload, BreathTimerPayload)
         assert resonance.payload.pattern_label == "5s in / 5s out"
-        assert len(resonance.payload.phases) == 2
-        assert resonance.payload.phases[0].kind == "inhale"
+        assert not hasattr(resonance.payload, "phases")
         # Spot-check: focused attention has correct technique and anchor
         focused = next(c for c in bundle.card_templates if c.id == "meditation-focused-attention")
         assert isinstance(focused.payload, MeditationTimerPayload)

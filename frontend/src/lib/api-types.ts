@@ -1721,19 +1721,6 @@ export interface components {
             ma7_min: number | null;
         };
         /**
-         * BreathPhase
-         * @description One timed phase of a breathing pattern.
-         */
-        BreathPhase: {
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "inhale" | "hold_full" | "exhale" | "hold_empty";
-            /** Seconds */
-            seconds: number;
-        };
-        /**
          * BreathTimerPayload
          * @description Typed prescription for a breathwork timer card.
          */
@@ -1747,18 +1734,8 @@ export interface components {
             duration_minutes: number;
             /** Pattern Label */
             pattern_label: string;
-            /**
-             * Phases
-             * @default []
-             */
-            phases: components["schemas"]["BreathPhase"][];
             /** Instructions */
             instructions?: string | null;
-            /**
-             * Rating Prompts
-             * @default []
-             */
-            rating_prompts: components["schemas"]["RatingPrompt-Input"][];
         };
         /**
          * BreathTimerPayload
@@ -1774,18 +1751,8 @@ export interface components {
             duration_minutes: number;
             /** Pattern Label */
             pattern_label: string;
-            /**
-             * Phases
-             * @default []
-             */
-            phases: components["schemas"]["BreathPhase"][];
             /** Instructions */
             instructions: string | null;
-            /**
-             * Rating Prompts
-             * @default []
-             */
-            rating_prompts: components["schemas"]["RatingPrompt-Output"][];
         };
         /**
          * CardLog
@@ -4980,8 +4947,6 @@ export interface components {
             ratings: {
                 [key: string]: number;
             };
-            /** Completed Cycles */
-            completed_cycles?: number | null;
         };
         /**
          * TimerActual
@@ -5000,8 +4965,6 @@ export interface components {
             ratings: {
                 [key: string]: number;
             };
-            /** Completed Cycles */
-            completed_cycles: number | null;
         };
         /**
          * TodayCard
