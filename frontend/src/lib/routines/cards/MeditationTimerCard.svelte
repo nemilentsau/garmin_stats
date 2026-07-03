@@ -20,7 +20,6 @@
 	export type TimerActual = {
 		card_type: 'meditation_timer';
 		ratings: Record<string, number>;
-		completed_cycles: null;
 	};
 
 	let {
@@ -58,8 +57,7 @@
 		}
 		onActual?.({
 			card_type: 'meditation_timer',
-			ratings: clean,
-			completed_cycles: null
+			ratings: clean
 		});
 	}
 
