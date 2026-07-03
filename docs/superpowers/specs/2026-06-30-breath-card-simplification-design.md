@@ -67,12 +67,13 @@ user **subjectively felt the downshift** — enabling the analysis "did felt-cal
 
 ## Contract & data changes
 
-- **`BreathTimerPayload`** (`backend/app/domains/routines/contracts.py`): remove `phases`.
-  Remove the now-unused `BreathPhase` model and `BreathPhaseKind` literal if nothing else
-  references them. `pattern_label`, `duration_minutes`, `instructions`, `rating_prompts` remain
-  defined on the model, but `rating_prompts` is no longer rendered by the breath card (see
-  below) — leave the field on the model (harmless, still typed) but drop the values from
-  bundles.
+- **`BreathTimerPayload`** (`backend/app/domains/routines/contracts.py`): remove `phases` AND
+  `rating_prompts` (the breath card no longer has configurable ratings — it owns a single fixed
+  felt-downshift signal — so `rating_prompts` is dead schema). Remove the now-unused `BreathPhase`
+  model and `BreathPhaseKind` literal. `BreathTimerPayload` keeps only `card_type`,
+  `duration_minutes`, `pattern_label`, `instructions`. (Meditation keeps its own separate
+  `rating_prompts` field — unaffected.) *[Amended 2026-07-03 per user decision: fully remove
+  rather than leave dormant.]*
 - **`TimerActual`** (shared by breath + meditation): remove `completed_cycles`. `ratings:
   dict[str, int]` stays (now carries `felt_downshift` for breath; meditation still uses it).
 - **Regenerate `frontend/src/lib/api-types.ts`** after the contract changes.
