@@ -4155,6 +4155,9 @@ export interface components {
         /**
          * RunningActual
          * @description Logged actuals for a completed running workout.
+         *
+         *     Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
+         *     occurrence), not inside the actual.
          */
         "RunningActual-Input": {
             /**
@@ -4177,8 +4180,6 @@ export interface components {
             calibration_quality: boolean;
             /** Rpe */
             rpe?: number | null;
-            /** Notes */
-            notes?: string | null;
             /**
              * Post Run
              * @default {}
@@ -4190,6 +4191,9 @@ export interface components {
         /**
          * RunningActual
          * @description Logged actuals for a completed running workout.
+         *
+         *     Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
+         *     occurrence), not inside the actual.
          */
         "RunningActual-Output": {
             /**
@@ -4212,8 +4216,6 @@ export interface components {
             calibration_quality: boolean;
             /** Rpe */
             rpe: number | null;
-            /** Notes */
-            notes: string | null;
             /**
              * Post Run
              * @default {}

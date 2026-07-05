@@ -16,19 +16,21 @@ const CARD_TYPE_DOMAIN: Record<CardType, Domain | null> = {
 	checklist: null
 };
 
-export function domainOf(payload: CardPayload): Domain | null {
-	if (payload.card_type === 'checklist') {
-		return (payload.domain as Domain) ?? null;
-	}
-	return CARD_TYPE_DOMAIN[payload.card_type];
-}
-
 export const DOMAIN_THEME: Record<Domain, { accent: string; icon: string }> = {
 	running: { accent: COLORS.heartRate, icon: '🏃' },
 	strength: { accent: COLORS.skinTemp, icon: '🏋' },
 	breathwork: { accent: COLORS.spo2, icon: '🫁' },
 	meditation: { accent: COLORS.hrv, icon: '🧘' }
 };
+
+export function domainOf(payload: CardPayload): Domain | null {
+	if (payload.card_type === 'checklist') {
+		// The backend allows any string here; only recognized domains map to a theme.
+		const domain = payload.domain;
+		return domain && domain in DOMAIN_THEME ? (domain as Domain) : null;
+	}
+	return CARD_TYPE_DOMAIN[payload.card_type];
+}
 
 /**
  * Returns the full domain theme (accent color, shadow, icon) for a card payload.

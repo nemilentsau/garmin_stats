@@ -7,9 +7,11 @@
 	 * and optional detail — read-only summary for Schedule.
 	 *
 	 * log mode: actuals form (distance_km, duration_min, avg_hr, hr_drift_pct, rpe,
-	 * calibration_quality toggle, notes textarea) plus a confounder section rendering
-	 * each post_run_fields entry as a labeled input. Emits RunningActual on every change.
-	 * Prefills from existing card.actual_json when the card_type matches.
+	 * calibration_quality toggle) plus a confounder section rendering each
+	 * post_run_fields entry as a labeled input. Emits RunningActual on every change.
+	 * Prefills from existing card.actual_json when the card_type matches. Free-text
+	 * notes are deliberately NOT part of the actual — the Today detail panel owns the
+	 * single card-level notes field (CardLog.notes).
 	 *
 	 * All numeric inputs use one-way value + guarded oninput handlers (no deep bind:value)
 	 * to avoid Svelte 5 deep-bind setter throws. State is seeded synchronously via untrack.
@@ -32,7 +34,6 @@
 		hr_drift_pct: number | null;
 		calibration_quality: boolean;
 		rpe: number | null;
-		notes: string | null;
 		post_run: Record<string, number | string | null>;
 	};
 
@@ -64,7 +65,6 @@
 	let hrDriftPct = $state<number | null>(initialActual?.hr_drift_pct ?? null);
 	let rpeVal = $state<number | null>(initialActual?.rpe ?? null);
 	let calibrationQuality = $state<boolean>(initialActual?.calibration_quality ?? false);
-	let notes = $state<string>((initialActual?.notes as string) ?? '');
 
 	// Post-run confounder fields keyed by field.key
 	let postRun = $state<Record<string, number | string | null>>(
@@ -95,7 +95,6 @@
 			hr_drift_pct: hrDriftPct,
 			calibration_quality: calibrationQuality,
 			rpe: rpeVal,
-			notes: notes.trim() || null,
 			post_run: { ...postRun }
 		};
 	}
@@ -105,6 +104,12 @@
 		if (raw === '') return null;
 		const n = Number(raw);
 		return Number.isFinite(n) ? n : null;
+	}
+
+	/** Coerce raw input string → integer|null; avg_hr and rpe are int-typed in the contract. */
+	function coerceIntNum(raw: string): number | null {
+		const n = coerceNum(raw);
+		return n === null ? null : Math.round(n);
 	}
 
 	// Guarded numeric input handlers — write to tracked $state, then emit.
@@ -118,7 +123,7 @@
 		emit();
 	}
 	function onAvgHrInput(e: Event) {
-		avgHr = coerceNum((e.currentTarget as HTMLInputElement).value);
+		avgHr = coerceIntNum((e.currentTarget as HTMLInputElement).value);
 		emit();
 	}
 	function onHrDriftInput(e: Event) {
@@ -126,15 +131,11 @@
 		emit();
 	}
 	function onRpeInput(e: Event) {
-		rpeVal = coerceNum((e.currentTarget as HTMLInputElement).value);
+		rpeVal = coerceIntNum((e.currentTarget as HTMLInputElement).value);
 		emit();
 	}
 	function onCalibrationChange(e: Event) {
 		calibrationQuality = (e.currentTarget as HTMLInputElement).checked;
-		emit();
-	}
-	function onNotesInput(e: Event) {
-		notes = (e.currentTarget as HTMLTextAreaElement).value;
 		emit();
 	}
 
@@ -316,18 +317,6 @@
 				</label>
 			</div>
 		</div>
-
-		<!-- Notes textarea -->
-		<label class="detail-field notes-field">
-			<span class="field-label">Notes</span>
-			<textarea
-				class="notes-input"
-				value={notes}
-				oninput={onNotesInput}
-				placeholder="How did it feel?"
-				rows={2}
-			></textarea>
-		</label>
 	</div>
 
 	<!-- Confounder fields (post_run_fields) -->
@@ -668,26 +657,6 @@
 		font-size: 12px;
 		color: #6b8292;
 		letter-spacing: 0.04em;
-	}
-
-	/* ── Notes ─────────────────────────────────────────────────────────────── */
-	.notes-input {
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(8, 15, 24, 0.7);
-		color: #eef5f8;
-		border-radius: 8px;
-		padding: 8px 10px;
-		font: inherit;
-		font-size: 13px;
-		width: 100%;
-		box-sizing: border-box;
-		resize: vertical;
-		line-height: 1.5;
-	}
-
-	.notes-input:focus {
-		outline: none;
-		border-color: rgba(74, 144, 217, 0.4);
 	}
 
 	/* ── Confounders (post_run_fields) ─────────────────────────────────────── */

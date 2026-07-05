@@ -10,12 +10,17 @@ interpolated into SQL.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from collections.abc import Iterable, Sequence
 from typing import Literal
 
+from pydantic import ValidationError
+
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
+
+log = logging.getLogger(__name__)
 
 JSON_RECORD_COLUMNS_SQL = (
     "id TEXT PRIMARY KEY, data TEXT NOT NULL, "
@@ -159,11 +164,18 @@ class JsonStore:
         params: tuple[object, ...] = (),
         order_by: str = "created_at, id",
         last_n: int | None = None,
+        on_invalid: Literal["raise", "skip"] = "raise",
     ) -> list[M]:
         """Load JSON-backed records with optional filtering and tail limit.
 
         When *last_n* is set the query returns only the last N rows (by
         *order_by*) while preserving ascending order in the result.
+
+        ``on_invalid="skip"`` drops rows that fail model validation with a
+        warning instead of raising.  Use it for availability-critical list
+        loads where one un-migratable legacy row must not take down the whole
+        response; keep the default for writes-adjacent reads where corruption
+        should surface loudly.
         """
         self._check(table)
         if last_n is not None and last_n > 0:
@@ -173,20 +185,43 @@ class JsonStore:
                 inner += f" WHERE {where_sql}"  # noqa: S608
             inner += f" ORDER BY {desc_cols} LIMIT ?"  # noqa: S608
             query = (
-                f"SELECT data, created_at, updated_at FROM ({inner}) "  # noqa: S608
+                f"SELECT id, data, created_at, updated_at FROM ({inner}) "  # noqa: S608
                 f"ORDER BY {order_by}"  # noqa: S608
             )
             with connect() as con:
                 rows = con.execute(query, (*params, last_n)).fetchall()
-            return [model_from_row(model, row) for row in rows]
+            return self._models_from_rows(table, model, rows, on_invalid)
 
-        query = f"SELECT data, created_at, updated_at FROM {table}"  # noqa: S608
+        query = f"SELECT id, data, created_at, updated_at FROM {table}"  # noqa: S608
         if where_sql:
             query += f" WHERE {where_sql}"  # noqa: S608
         query += f" ORDER BY {order_by}"  # noqa: S608
         with connect() as con:
             rows = con.execute(query, params).fetchall()
-        return [model_from_row(model, row) for row in rows]
+        return self._models_from_rows(table, model, rows, on_invalid)
+
+    @staticmethod
+    def _models_from_rows[M](
+        table: str,
+        model: type[M],
+        rows: list[sqlite3.Row],
+        on_invalid: Literal["raise", "skip"],
+    ) -> list[M]:
+        if on_invalid == "raise":
+            return [model_from_row(model, row) for row in rows]
+        result: list[M] = []
+        for row in rows:
+            try:
+                result.append(model_from_row(model, row))
+            except ValidationError:
+                log.warning(
+                    "Skipping %s row %r that fails %s validation",
+                    table,
+                    row["id"],
+                    model.__name__,
+                    exc_info=True,
+                )
+        return result
 
     def exists(self, table: str, record_id: str) -> bool:
         """Check whether a record exists without loading the JSON payload."""

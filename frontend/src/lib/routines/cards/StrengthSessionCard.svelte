@@ -14,9 +14,10 @@
 	 */
 	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
+	import { buildInitialRatings, cleanRatings } from './rating-helpers.js';
+	import RatingsGrid from './RatingsGrid.svelte';
 	import {
 		buildInitialExercises,
-		buildInitialRatings,
 		serializeExercises,
 		type LoggedStrengthExercise,
 		type StrengthSetLog
@@ -63,7 +64,7 @@
 		buildInitialExercises(initialPrescribed, initialActual)
 	);
 	let ratings = $state<Record<string, number | null>>(
-		buildInitialRatings(initialPrompts, initialActual)
+		buildInitialRatings(initialPrompts, initialActual?.ratings)
 	);
 
 	// ── Set / exercise helpers ─────────────────────────────────────────────────
@@ -116,14 +117,10 @@
 	// ── Emit ──────────────────────────────────────────────────────────────────
 
 	function emit() {
-		const cleanRatings: Record<string, number> = {};
-		for (const [k, v] of Object.entries(ratings)) {
-			if (typeof v === 'number' && Number.isFinite(v)) cleanRatings[k] = v;
-		}
 		onActual?.({
 			card_type: 'strength_session',
 			exercises: serializeExercises(exercises),
-			ratings: cleanRatings
+			ratings: cleanRatings(ratings)
 		});
 	}
 
@@ -285,27 +282,7 @@
 		<button class="add-extra-btn" onclick={addExtra}>+ Add extra exercise</button>
 	</div>
 
-	<!-- Ratings -->
-	{#if prompts.length > 0}
-		<div class="ratings-section">
-			<div class="ratings-grid">
-				{#each prompts as prompt}
-					<label class="detail-field">
-						<span class="field-label">{prompt.label}</span>
-						<input
-							type="number"
-							bind:value={ratings[prompt.key]}
-							min={prompt.scale_min}
-							max={prompt.scale_max}
-							placeholder="{prompt.scale_min}–{prompt.scale_max}"
-							onchange={emit}
-							onblur={emit}
-						/>
-					</label>
-				{/each}
-			</div>
-		</div>
-	{/if}
+	<RatingsGrid {prompts} bind:ratings onCommit={emit} />
 {/if}
 
 <style>
@@ -607,40 +584,4 @@
 		border-color: rgba(168, 112, 255, 0.5);
 	}
 
-	/* ── Ratings ────────────────────────────────────────────────────────────── */
-	.ratings-section {
-		margin-top: 4px;
-	}
-
-	.ratings-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 8px;
-	}
-
-	.detail-field {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.field-label {
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: #8fa3b0;
-	}
-
-	.detail-field input[type='number'] {
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(8, 15, 24, 0.7);
-		color: #eef5f8;
-		border-radius: 8px;
-		padding: 8px 10px;
-		font: inherit;
-		font-size: 13px;
-		width: 100%;
-		box-sizing: border-box;
-	}
 </style>

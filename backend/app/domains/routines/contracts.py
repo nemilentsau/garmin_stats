@@ -7,9 +7,10 @@ artifact specs are owned by the artifacts domain.
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.contracts.base import (
     AutoTotalResponse,
@@ -17,6 +18,8 @@ from app.contracts.base import (
     EntityStatus,
     StrictDefaultsRequired,
 )
+
+log = logging.getLogger(__name__)
 
 SlotName = Literal["morning", "midday", "evening", "anytime"]
 CardType = Literal[
@@ -140,7 +143,11 @@ CardPayload = Annotated[
 
 
 class RunningActual(StrictDefaultsRequired):
-    """Logged actuals for a completed running workout."""
+    """Logged actuals for a completed running workout.
+
+    Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
+    occurrence), not inside the actual.
+    """
 
     card_type: Literal["running_workout"] = "running_workout"
     distance_km: float | None = None
@@ -149,7 +156,6 @@ class RunningActual(StrictDefaultsRequired):
     hr_drift_pct: float | None = None
     calibration_quality: bool = False
     rpe: int | None = None
-    notes: str | None = None
     post_run: dict[str, float | str | None] = {}  # keyed by RunCustomField.key → logged value
 
 
@@ -304,19 +310,69 @@ class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
     assignments: list[RoutineAssignment] = []
 
 
-def _coerce_empty_actual_json(data: Any) -> Any:
-    """Coerce an empty or card_type-less actual_json dict to None.
+_ACTUAL_MODELS: dict[str, type[BaseModel]] = {
+    "running_workout": RunningActual,
+    "strength_session": StrengthActual,
+    "breath_timer": TimerActual,
+    "meditation_timer": TimerActual,
+    "checklist": ChecklistActual,
+}
 
-    Legacy rows (and any client-sent body) may carry ``actual_json: {}`` — an
-    empty dict with no ``card_type`` discriminator.  Pydantic cannot dispatch the
-    discriminated union without a truthy ``card_type`` and raises
-    ``ValidationError`` → 500.  We normalise those to ``None`` so existing data
-    loads cleanly and card logging degrades gracefully rather than crashing.
+
+def _coerce_empty_actual_json(data: Any) -> Any:
+    """Coerce ``actual_json: {}`` in a client-sent body to None.
+
+    Clients may send an empty dict for "nothing logged"; there is no
+    discriminator to dispatch on, so treat it as absent.  Anything else is left
+    for strict union validation — a client sending an undispatchable or
+    unknown-field actual is a request error (422), never silently rewritten.
     """
-    if isinstance(data, dict):
-        actual = data.get("actual_json")
-        if isinstance(actual, dict) and not actual.get("card_type"):
-            data = {**data, "actual_json": None}
+    if isinstance(data, dict) and data.get("actual_json") == {}:
+        return {**data, "actual_json": None}
+    return data
+
+
+def _normalize_stored_actual_json(data: Any) -> Any:
+    """Normalize legacy stored actual_json shapes so reads never 500.
+
+    Reads are tolerant while writes stay strict (see
+    ``TodayCardLogUpdateRequest``).  Three legacy shapes are handled:
+
+    - ``{}`` → None (rows written before the typed union existed);
+    - a known ``card_type`` with unknown top-level keys → the unknown keys are
+      dropped, so rows written before a field was removed from the contract
+      (e.g. breath ``completed_cycles``) still load;
+    - a missing or unknown ``card_type`` → None with a warning; the typed union
+      cannot represent the shape and the Today board must stay available.
+    """
+    if not isinstance(data, dict):
+        return data
+    actual = data.get("actual_json")
+    if not isinstance(actual, dict):
+        return data
+
+    card_type = actual.get("card_type")
+    model = _ACTUAL_MODELS.get(card_type) if isinstance(card_type, str) else None
+    if model is None:
+        if any(key != "card_type" for key in actual):
+            log.warning(
+                "Nulling stored actual_json with undispatchable card_type %r (keys: %s)",
+                card_type,
+                sorted(actual),
+            )
+        return {**data, "actual_json": None}
+
+    unknown_keys = actual.keys() - model.model_fields.keys()
+    if unknown_keys:
+        log.warning(
+            "Dropping legacy actual_json keys %s for card_type %r",
+            sorted(unknown_keys),
+            card_type,
+        )
+        return {
+            **data,
+            "actual_json": {k: v for k, v in actual.items() if k not in unknown_keys},
+        }
     return data
 
 
@@ -334,8 +390,8 @@ class CardLog(DefaultsRequired):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_actual_json(cls, data: Any) -> Any:
-        return _coerce_empty_actual_json(data)
+    def _normalize_actual_json(cls, data: Any) -> Any:
+        return _normalize_stored_actual_json(data)
 
 
 class CardOverride(DefaultsRequired):
@@ -405,8 +461,8 @@ class TodayCard(ScheduleOccurrence):
 
     @model_validator(mode="before")
     @classmethod
-    def _coerce_actual_json(cls, data: Any) -> Any:
-        return _coerce_empty_actual_json(data)
+    def _normalize_actual_json(cls, data: Any) -> Any:
+        return _normalize_stored_actual_json(data)
 
 
 class TodaySlot(DefaultsRequired):

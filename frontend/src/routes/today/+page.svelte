@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
 	import { api, type TodayCardLogUpdate, type TodayResponse } from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
@@ -19,8 +19,10 @@
 
 	let expandedOccurrenceKey = $state<string | null>(null);
 	let detailNote = $state('');
-	/** Actual emitted by the active CardBody; stashed here for debouncedPersistDetail. */
+	/** Actual emitted by the active CardBody; stashed here for schedulePersistDetail. */
 	let stagedActual = $state<CardActual | null>(null);
+	/** Bumped to remount the expanded CardBody so it re-seeds from card.actual_json. */
+	let detailRemountToken = $state(0);
 
 	/** Local status overrides — updated instantly on user action, drives UI. */
 	let localStatus = $state<Record<string, string>>({});
@@ -114,6 +116,9 @@
 		const date = selectedDate;
 		todayRequestToken += 1;
 		const requestToken = todayRequestToken;
+		// Persist any pending detail edit before the board switches away from its
+		// date (the persist closure captured its own date snapshot).
+		untrack(() => flushPendingPersist());
 		expandedOccurrenceKey = null;
 		localStatus = {};
 		void loadToday(date, requestToken).catch((e: unknown) => {
@@ -137,19 +142,16 @@
 	}
 
 	function toggleDetails(card: CardType) {
+		// Persist any pending edit for the previously expanded card BEFORE the
+		// shared staged state is re-seeded — otherwise the timer fires later and
+		// writes the newly expanded card's data onto the old card's log.
+		flushPendingPersist();
 		if (expandedOccurrenceKey === card.occurrence_key) {
 			expandedOccurrenceKey = null;
 			return;
 		}
 		expandedOccurrenceKey = card.occurrence_key;
 		initializeDetailState(card);
-	}
-
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	function buildActualJson(_card: CardType): CardActual | null {
-		// CardBody emits typed actuals via onActual → stagedActual; return whatever it has stashed.
-		return stagedActual;
 	}
 
 	/** Derive completion status from a ChecklistActual's answers array. */
@@ -161,16 +163,45 @@
 		return 'pending';
 	}
 
+	const STATUS_RANK: Record<CardStatus, number> = {
+		pending: 0,
+		skipped: 0,
+		partial: 1,
+		completed: 2
+	};
+
+	type StrengthActual = Extract<CardActual, { card_type: 'strength_session' }>;
+
+	function setHasData(set: StrengthActual['exercises'][number]['sets'][number]): boolean {
+		return set.weight != null || set.reps != null || set.rir != null;
+	}
+
+	/**
+	 * Derive completion from logged strength sets: every prescribed exercise has
+	 * at least one set with data → completed; any data at all → partial.
+	 */
+	function deriveStatusFromStrength(actual: StrengthActual, prescribedCount: number): CardStatus {
+		const loggedPrescribed = new Set(
+			actual.exercises
+				.filter((ex) => !ex.is_extra && ex.exercise_id && ex.sets.some(setHasData))
+				.map((ex) => ex.exercise_id)
+		);
+		if (prescribedCount > 0 && loggedPrescribed.size >= prescribedCount) return 'completed';
+		if (actual.exercises.some((ex) => ex.sets.some(setHasData))) return 'partial';
+		return 'pending';
+	}
+
 	/** Fire-and-forget persist to backend. No data refresh. */
 	async function persistToBackend(
 		card: CardType,
 		status: CardStatus,
 		actual_json?: CardActual | null,
-		notes?: string | null
+		notes?: string | null,
+		date: string = selectedDate
 	) {
 		error = null;
 		try {
-			await api.updateTodayCard(selectedDate, card.occurrence_key, {
+			await api.updateTodayCard(date, card.occurrence_key, {
 				card_template_id: card.card_template_id,
 				assignment_id: card.assignment_id,
 				status,
@@ -191,8 +222,26 @@
 		statusVersion++;
 
 		if (expandedOccurrenceKey === card.occurrence_key) {
-			// Detail panel open: persist with current staged actual + notes.
-			const actual = buildActualJson(card);
+			// This explicit persist supersedes any pending debounced one for the card.
+			cancelPendingPersist(card.occurrence_key);
+			if (card.payload_json.card_type === 'checklist') {
+				// The row toggle is authoritative: sync every answer to match so the
+				// persisted status and checklist answers can't contradict each other.
+				// Build answers from the payload items — stagedActual is null until
+				// the first item interaction — keeping any staged item notes.
+				const checked = newStatus === 'completed';
+				const staged = stagedActual?.card_type === 'checklist' ? stagedActual : null;
+				stagedActual = {
+					card_type: 'checklist',
+					answers: (card.payload_json.items ?? []).map((item) => ({
+						item_id: item.id,
+						checked,
+						text: staged?.answers.find((a) => a.item_id === item.id)?.text ?? null
+					}))
+				};
+				detailRemountToken++;
+			}
+			const actual = stagedActual;
 			const notes = detailNote.trim() || null;
 			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
@@ -209,22 +258,50 @@
 		void persistToBackend(card, 'skipped');
 	}
 
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+	/** The scheduled debounced persist; key identifies the card it belongs to. */
+	let pendingPersist: { key: string; run: () => void } | null = null;
+
 	/** Debounced persist for detail panel changes (notes blur or CardBody onActual). */
-	function debouncedPersistDetail(card: CardType, delay = 500) {
+	function schedulePersistDetail(card: CardType, delay = 500) {
 		if (saveTimeout) clearTimeout(saveTimeout);
-		saveTimeout = setTimeout(() => {
-			const status = effectiveStatus(card);
-			const actual = buildActualJson(card);
-			const notes = detailNote.trim() || null;
+		// Snapshot everything the persist needs NOW: the shared staged state is
+		// re-seeded when another card expands, and selectedDate can change before
+		// the timer fires. Status is resolved at fire time so instant local
+		// derivation (checklist/strength) is included.
+		const actual = stagedActual;
+		const notes = detailNote.trim() || null;
+		const date = selectedDate;
+		const run = () => {
+			saveTimeout = null;
+			pendingPersist = null;
 			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
-			void persistToBackend(card, status, actual, notes);
-		}, delay);
+			void persistToBackend(card, effectiveStatus(card), actual, notes, date);
+		};
+		pendingPersist = { key: card.occurrence_key, run };
+		saveTimeout = setTimeout(run, delay);
+	}
+
+	/** Run the scheduled persist immediately (before staged state is re-seeded). */
+	function flushPendingPersist() {
+		if (saveTimeout && pendingPersist) {
+			clearTimeout(saveTimeout);
+			pendingPersist.run();
+		}
+	}
+
+	/** Drop a scheduled persist that an explicit action for the same card supersedes. */
+	function cancelPendingPersist(key: string) {
+		if (pendingPersist?.key !== key) return;
+		if (saveTimeout) clearTimeout(saveTimeout);
+		saveTimeout = null;
+		pendingPersist = null;
 	}
 
 	/** Notes textarea blur — debounced persist. */
 	function onDetailBlur(card: CardType) {
-		debouncedPersistDetail(card, 400);
+		schedulePersistDetail(card, 400);
 	}
 
 	function formatSeconds(totalSeconds: number): string {
@@ -456,20 +533,36 @@
 							<!-- Expanded detail panel -->
 							{#if isExpanded}
 								<div class="detail-panel">
-									<CardBody
-										{card}
-										mode="log"
-										onActual={(actual) => {
-											stagedActual = actual;
-											// Derive checklist completion status from the answers array.
-											if (actual.card_type === 'checklist') {
-												const status = deriveStatusFromAnswers(actual.answers);
-												localStatus[card.occurrence_key] = status;
-												statusVersion++;
-											}
-											debouncedPersistDetail(card);
-										}}
-									/>
+									{#key detailRemountToken}
+										<CardBody
+											{card}
+											mode="log"
+											onActual={(actual) => {
+												stagedActual = actual;
+												if (actual.card_type === 'checklist') {
+													// Answers are the ground truth; derive status from them directly.
+													const status = deriveStatusFromAnswers(actual.answers);
+													localStatus[card.occurrence_key] = status;
+													statusVersion++;
+												} else if (
+													actual.card_type === 'strength_session' &&
+													card.payload_json.card_type === 'strength_session'
+												) {
+													// Logged sets are evidence, not the full story — only upgrade,
+													// never downgrade an explicitly set completed/skipped status.
+													const derived = deriveStatusFromStrength(
+														actual,
+														(card.payload_json.exercises ?? []).length
+													);
+													if (STATUS_RANK[derived] > STATUS_RANK[effectiveStatus(card)]) {
+														localStatus[card.occurrence_key] = derived;
+														statusVersion++;
+													}
+												}
+												schedulePersistDetail(card);
+											}}
+										/>
+									{/key}
 									<label class="detail-field">
 										<span>Notes</span>
 										<textarea

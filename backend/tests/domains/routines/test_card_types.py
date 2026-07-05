@@ -7,6 +7,8 @@ TodayCard, and TodayCardLogUpdateRequest.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -21,6 +23,7 @@ from app.domains.routines.contracts import (
     ScheduleOccurrence,
     StrengthActual,
     StrengthSessionPayload,
+    TimerActual,
     TodayCard,
     TodayCardLogUpdateRequest,
 )
@@ -255,3 +258,88 @@ class TestEmptyActualJsonCoercedToNone:
         )
         assert req.actual_json is not None
         assert req.actual_json.card_type == "checklist"
+
+
+# ---------------------------------------------------------------------------
+# Legacy stored actual_json shapes must load without 500 (reads are tolerant),
+# while client-sent bodies stay strict (writes reject unknown shapes).
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyStoredActualJsonNormalization:
+    def test_card_log_actual_with_removed_field_loads_and_drops_it(self):
+        """The live 2026-06-29 row: breath actual with removed completed_cycles."""
+        log = CardLog.model_validate(
+            {
+                **_CARD_LOG_BASE,
+                "actual_json": {
+                    "card_type": "breath_timer",
+                    "ratings": {},
+                    "completed_cycles": 0,
+                },
+            }
+        )
+        assert log.actual_json is not None
+        assert log.actual_json.card_type == "breath_timer"
+        assert not hasattr(log.actual_json, "completed_cycles")
+
+    def test_today_card_actual_with_removed_field_loads_and_drops_it(self):
+        card = TodayCard.model_validate(
+            {
+                **_TODAY_CARD_BASE,
+                "actual_json": {
+                    "card_type": "breath_timer",
+                    "ratings": {"felt_downshift": 2},
+                    "completed_cycles": 4,
+                },
+            }
+        )
+        assert isinstance(card.actual_json, TimerActual)
+        assert card.actual_json.ratings == {"felt_downshift": 2}
+
+    def test_card_log_nonempty_actual_without_card_type_nulls_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        """Old untyped shapes can't be dispatched; null them loudly, never crash."""
+        with caplog.at_level(logging.WARNING):
+            log = CardLog.model_validate(
+                {
+                    **_CARD_LOG_BASE,
+                    "actual_json": {"actual_minutes": 12, "ratings": {"clarity": 4}},
+                }
+            )
+        assert log.actual_json is None
+        assert any("actual_json" in record.message for record in caplog.records)
+
+    def test_card_log_unknown_card_type_actual_nulls_instead_of_raising(self):
+        log = CardLog.model_validate(
+            {
+                **_CARD_LOG_BASE,
+                "actual_json": {"card_type": "guided_journal", "entries": []},
+            }
+        )
+        assert log.actual_json is None
+
+    def test_update_request_rejects_unknown_actual_field(self):
+        """Write path stays strict: clients get a 422, not silent stripping."""
+        with pytest.raises(ValidationError):
+            TodayCardLogUpdateRequest.model_validate(
+                {
+                    "card_template_id": "c1",
+                    "actual_json": {
+                        "card_type": "breath_timer",
+                        "ratings": {},
+                        "completed_cycles": 3,
+                    },
+                }
+            )
+
+    def test_update_request_rejects_nonempty_actual_without_card_type(self):
+        """Write path stays strict: an undispatchable non-empty actual is a client error."""
+        with pytest.raises(ValidationError):
+            TodayCardLogUpdateRequest.model_validate(
+                {
+                    "card_template_id": "c1",
+                    "actual_json": {"actual_minutes": 12},
+                }
+            )

@@ -6,6 +6,7 @@ slot ordering. They stay free of repository, FastAPI, and artifact concerns.
 
 from __future__ import annotations
 
+import logging
 from datetime import date as date_cls
 
 from pydantic import TypeAdapter, ValidationError
@@ -18,6 +19,8 @@ from app.domains.routines.contracts import (
     RoutineSchedule,
     ScheduleOccurrence,
 )
+
+log = logging.getLogger(__name__)
 
 _PAYLOAD_ADAPTER: TypeAdapter[CardPayload] = TypeAdapter(CardPayload)
 
@@ -46,13 +49,13 @@ def merge_schedule_payload(
 ) -> CardPayload:
     """Merge card payload defaults with assignment-level prescription overrides.
 
-    Robustness guarantees:
+    Robustness guarantees (per the bundle spec's override rules):
     - ``card_type`` is always stripped from the override dict so no override can
       silently swap the payload discriminator to a different type.
-    - If the merged dict fails re-validation (e.g. an override key is not valid
-      for this payload type), the base ``card.payload_json`` is returned
-      unchanged.  One bad override degrades gracefully instead of 500-ing the
-      entire schedule/today response.
+    - Override keys are salvaged individually: keys the payload type rejects
+      (unknown fields or invalid values) are dropped with a warning while the
+      remaining valid keys still apply.  One bad key must not silently revert a
+      prescribed dose to the card default, and must never 500 the schedule.
     """
     if assignment is None or not assignment.prescription_override_json:
         return card.payload_json
@@ -66,13 +69,36 @@ def merge_schedule_payload(
     if not override:
         return card.payload_json
 
-    payload = dict(card.payload_json)
-    payload.update(override)
+    merged = dict(card.payload_json)
+    merged.update(override)
     try:
-        return _PAYLOAD_ADAPTER.validate_python(payload)
+        return _PAYLOAD_ADAPTER.validate_python(merged)
+    except ValidationError as exc:
+        rejected = {
+            part for err in exc.errors() for part in err["loc"] if part in override
+        }
+        log.warning(
+            "Dropping invalid prescription override keys %s for card %s "
+            "(assignment %s)",
+            sorted(rejected) if rejected else sorted(override),
+            card.id,
+            assignment.id,
+        )
+        salvaged = {k: v for k, v in override.items() if k not in rejected}
+        if not salvaged or salvaged == override:
+            return card.payload_json
+
+    merged = dict(card.payload_json)
+    merged.update(salvaged)
+    try:
+        return _PAYLOAD_ADAPTER.validate_python(merged)
     except ValidationError:
-        # Override contained an invalid key for this payload type; fall back to
-        # the base payload so the card still renders with its prescribed content.
+        log.warning(
+            "Prescription override for card %s (assignment %s) still invalid "
+            "after salvage; using the base payload",
+            card.id,
+            assignment.id,
+        )
         return card.payload_json
 
 

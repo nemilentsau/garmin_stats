@@ -54,3 +54,17 @@ test('domainOf returns null for a checklist with no domain', () => {
 	assert.equal(domainOf({ card_type: 'checklist', domain: null }), null);
 	assert.equal(domainOf({ card_type: 'checklist' }), null);
 });
+
+test('domainOf returns null for an unknown checklist domain string', () => {
+	const { domainOf } = mod;
+	// Backend allows any string; the theme lookup must not treat it as a Domain.
+	assert.equal(domainOf({ card_type: 'checklist', domain: 'recovery' }), null);
+});
+
+test('domainThemeOf falls back to the neutral theme for an unknown checklist domain', () => {
+	const { domainThemeOf } = mod;
+	// Must not throw (a throw here blanks the whole Today board during render).
+	const theme = domainThemeOf({ card_type: 'checklist', domain: 'core' });
+	assert.ok(theme.accent);
+	assert.equal(theme.icon, '');
+});

@@ -56,7 +56,9 @@
 	}
 
 	function selectLevel(level: 1 | 2 | 3) {
-		feltDownshift = level;
+		// Re-tapping the selected level clears it — an accidental tap must not
+		// permanently record a fabricated downshift rating.
+		feltDownshift = feltDownshift === level ? null : level;
 		emit();
 	}
 

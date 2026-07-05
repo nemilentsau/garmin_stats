@@ -99,35 +99,65 @@ test('buildInitialExercises with existing actual: restores extra exercises', () 
 	assert.deepEqual(result[1].sets[0], { set_index: 0, weight: 60, reps: 15, rir: 0 });
 });
 
-// ── buildInitialRatings ──────────────────────────────────────────────────────
-
-test('buildInitialRatings with no actual: all keys set to null', () => {
-	const { buildInitialRatings } = helpers;
-	const prompts = [
-		{ key: 'rpe', label: 'RPE', scale_min: 1, scale_max: 10 },
-		{ key: 'mood', label: 'Mood', scale_min: 1, scale_max: 5 }
-	];
-	const result = buildInitialRatings(prompts, null);
-	assert.deepEqual(result, { rpe: null, mood: null });
-});
-
-test('buildInitialRatings with existing actual: restores saved values, nulls missing keys', () => {
-	const { buildInitialRatings } = helpers;
-	const prompts = [
-		{ key: 'rpe', label: 'RPE', scale_min: 1, scale_max: 10 },
-		{ key: 'mood', label: 'Mood', scale_min: 1, scale_max: 5 }
+test('buildInitialExercises seeds prescribed exercises missing from the saved actual', () => {
+	const { buildInitialExercises } = helpers;
+	// 'bp' was added to the template after the log was first saved.
+	const prescribed = [
+		{ id: 'sq', label: 'Squat' },
+		{ id: 'bp', label: 'Bench' }
 	];
 	const actual = {
 		card_type: 'strength_session',
-		exercises: [],
-		ratings: { rpe: 8 }
+		exercises: [
+			{
+				exercise_id: 'sq',
+				label: null,
+				is_extra: false,
+				sets: [{ set_index: 0, weight: 100, reps: 5, rir: 2 }]
+			}
+		],
+		ratings: {}
 	};
-	const result = buildInitialRatings(prompts, actual);
-	assert.equal(result.rpe, 8);
-	assert.equal(result.mood, null);
+	const result = buildInitialExercises(prescribed, actual);
+	assert.equal(result.length, 2);
+	assert.equal(result[0].exercise_id, 'sq');
+	assert.deepEqual(result[0].sets[0], { set_index: 0, weight: 100, reps: 5, rir: 2 });
+	assert.equal(result[1].exercise_id, 'bp');
+	assert.equal(result[1].is_extra, false);
+	assert.deepEqual(result[1].sets[0], { set_index: 0, weight: null, reps: null, rir: null });
+});
+
+test('buildInitialExercises keeps logged exercises whose id is no longer prescribed', () => {
+	const { buildInitialExercises } = helpers;
+	const prescribed = [{ id: 'sq', label: 'Squat' }];
+	const actual = {
+		card_type: 'strength_session',
+		exercises: [
+			{
+				exercise_id: 'removed-lift',
+				label: 'Removed lift',
+				is_extra: false,
+				sets: [{ set_index: 0, weight: 40, reps: 10, rir: 1 }]
+			}
+		],
+		ratings: {}
+	};
+	const result = buildInitialExercises(prescribed, actual);
+	assert.equal(result.length, 2);
+	assert.equal(result[0].exercise_id, 'sq');
+	assert.equal(result[1].exercise_id, 'removed-lift');
+	assert.deepEqual(result[1].sets[0], { set_index: 0, weight: 40, reps: 10, rir: 1 });
 });
 
 // ── coerceSet ────────────────────────────────────────────────────────────────
+
+test('coerceSet rounds fractional reps and rir to integers, keeps weight fractional', () => {
+	const { coerceSet } = helpers;
+	assert.deepEqual(
+		coerceSet({ set_index: 0, weight: 62.5, reps: 8.5, rir: 1.5 }),
+		{ set_index: 0, weight: 62.5, reps: 9, rir: 2 }
+	);
+});
 
 test('coerceSet converts NaN to null, leaves finite numbers unchanged', () => {
 	const { coerceSet } = helpers;
