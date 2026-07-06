@@ -14,9 +14,11 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.routines.dependencies",
     },
     "backend/app/domains/artifacts/application/staging.py": {
+        "app.domains.routines.contracts",
         "app.domains.routines.dependencies",
     },
     "backend/app/domains/artifacts/application/validation.py": {
+        "app.domains.routines.contracts",
         "app.domains.routines.dependencies",
     },
     "backend/app/domains/artifacts/routes.py": {

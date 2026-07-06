@@ -1,34 +1,49 @@
 import type { ScheduleOccurrence } from '$lib/api';
 import { COLORS, DARK_MUTED_TEXT, withAlpha } from '$lib/colors';
-import { isRecord } from '$lib/utils';
 
 export type SlotAccent = { color: string; shadow: string };
 export type SlotName = ScheduleOccurrence['slot'];
-export type Renderer = ScheduleOccurrence['renderer'];
 
-export type TimerPayload = {
-	duration_minutes?: number;
-	pattern?: string;
-	instructions?: string;
-	segments?: { label: string; duration_seconds: number }[];
-	rating_prompts?: { key: string; label: string; scale_min?: number; scale_max?: number }[];
+export type CardPayload = ScheduleOccurrence['payload_json'];
+export type CardType = CardPayload['card_type'];
+export type Domain = 'running' | 'strength' | 'breathwork' | 'meditation';
+
+const CARD_TYPE_DOMAIN: Record<CardType, Domain | null> = {
+	running_workout: 'running',
+	strength_session: 'strength',
+	breath_timer: 'breathwork',
+	meditation_timer: 'meditation',
+	checklist: null
 };
 
-export type ChecklistPayload = {
-	instructions?: string;
-	items?: { id: string; label: string; detail?: string }[];
+export const DOMAIN_THEME: Record<Domain, { accent: string; icon: string }> = {
+	running: { accent: COLORS.heartRate, icon: '🏃' },
+	strength: { accent: COLORS.skinTemp, icon: '🏋' },
+	breathwork: { accent: COLORS.spo2, icon: '🫁' },
+	meditation: { accent: COLORS.hrv, icon: '🧘' }
 };
 
-export type ExercisePayload = {
-	instructions?: string;
-	exercises?: {
-		id: string;
-		label: string;
-		detail?: string;
-		reps?: string;
-		duration_seconds?: number;
-	}[];
-};
+export function domainOf(payload: CardPayload): Domain | null {
+	if (payload.card_type === 'checklist') {
+		// The backend allows any string here; only recognized domains map to a theme.
+		const domain = payload.domain;
+		return domain && domain in DOMAIN_THEME ? (domain as Domain) : null;
+	}
+	return CARD_TYPE_DOMAIN[payload.card_type];
+}
+
+/**
+ * Returns the full domain theme (accent color, shadow, icon) for a card payload.
+ * Falls back to a neutral accent for checklist cards with no domain.
+ */
+export function domainThemeOf(payload: CardPayload): { accent: string; shadow: string; icon: string } {
+	const domain = domainOf(payload);
+	if (domain) {
+		const t = DOMAIN_THEME[domain];
+		return { accent: t.accent, shadow: withAlpha(t.accent, '30'), icon: t.icon };
+	}
+	return { accent: DARK_MUTED_TEXT, shadow: withAlpha(DARK_MUTED_TEXT, '30'), icon: '' };
+}
 
 export const SLOT_ORDER: readonly SlotName[] = ['morning', 'midday', 'evening', 'anytime'];
 
@@ -55,27 +70,17 @@ export function slotAccent(slot: SlotName): SlotAccent {
 	return SLOT_ACCENTS[slot] ?? DEFAULT_SLOT_ACCENT;
 }
 
-export function timerPayload(payload: unknown): TimerPayload {
-	return isRecord(payload) ? (payload as TimerPayload) : {};
-}
-
-export function checklistPayload(payload: unknown): ChecklistPayload {
-	return isRecord(payload) ? (payload as ChecklistPayload) : {};
-}
-
-export function exercisePayload(payload: unknown): ExercisePayload {
-	return isRecord(payload) ? (payload as ExercisePayload) : {};
-}
-
-export function cardBrief(card: { renderer: Renderer; payload_json: unknown }): string {
-	if (card.renderer === 'timer_session') {
-		const payload = timerPayload(card.payload_json);
-		return payload.duration_minutes ? `${payload.duration_minutes} min` : '';
+export function cardBrief(card: { payload_json: CardPayload }): string {
+	const p = card.payload_json;
+	switch (p.card_type) {
+		case 'breath_timer':
+		case 'meditation_timer':
+			return p.duration_minutes ? `${p.duration_minutes} min` : '';
+		case 'strength_session':
+			return p.exercises?.length ? `${p.exercises.length} exercises` : '';
+		case 'running_workout':
+			return p.segments?.length ? `${p.segments.length} segments` : '';
+		case 'checklist':
+			return p.items?.length ? `${p.items.length} items` : '';
 	}
-	if (card.renderer === 'exercise_block') {
-		const payload = exercisePayload(card.payload_json);
-		return payload.exercises?.length ? `${payload.exercises.length} exercises` : '';
-	}
-	const payload = checklistPayload(card.payload_json);
-	return payload.items?.length ? `${payload.items.length} items` : '';
 }

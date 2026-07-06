@@ -1,10 +1,12 @@
 """Tests for routines today use cases."""
 
+import json
+
 import pytest
 
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.contracts import Experiment
-from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.routines.adapters import _STORE, SqliteRoutineRepository
 from app.domains.routines.application.today import (
     get_card_log_range,
     get_today,
@@ -56,7 +58,7 @@ def test_get_card_log_range_excludes_pending_entries():
             card_template_id="card-pending",
             assignment_id="assignment-pending",
             status="pending",
-            actual_json={},
+            actual_json=None,
             notes=None,
         )
     )
@@ -68,7 +70,7 @@ def test_get_card_log_range_excludes_pending_entries():
             card_template_id="card-completed",
             assignment_id="assignment-completed",
             status="completed",
-            actual_json={"actual_minutes": 10},
+            actual_json=None,
             notes="Done",
         )
     )
@@ -86,7 +88,7 @@ def test_upsert_today_card_log_validates_occurrence_identity():
         card_template_id="wrong-card",
         assignment_id=None,
         status="completed",
-        actual_json={},
+        actual_json=None,
         notes=None,
     )
 
@@ -123,10 +125,120 @@ def test_upsert_today_card_log_rejects_assignment_mismatch():
                 card_template_id=scheduled_card.card_template_id,
                 assignment_id="wrong-assignment",
                 status="completed",
-                actual_json={},
+                actual_json=None,
                 notes=None,
             ),
         )
+
+
+def test_upsert_today_card_log_rejects_actual_card_type_mismatch():
+    """An actual whose card_type differs from the occurrence payload must be rejected."""
+    activate_routine_card("card-guard")  # default payload is a breath_timer
+    activate_routine_spec(
+        "routine-guard",
+        assignments=[
+            routine_assignment_spec(
+                "routine-guard-assignment",
+                card_template_id="card-guard",
+                slot="evening",
+            )
+        ],
+    )
+
+    repo = SqliteRoutineRepository()
+    today = get_today(repo, date="2026-03-02")
+    scheduled_card = today.slots[2].cards[0]
+
+    with pytest.raises(ValueError, match="card type"):
+        _upsert_today_card_log(
+            repo,
+            date="2026-03-02",
+            occurrence_key=scheduled_card.occurrence_key,
+            request=TodayCardLogUpdateRequest.model_validate(
+                {
+                    "card_template_id": scheduled_card.card_template_id,
+                    "assignment_id": scheduled_card.assignment_id,
+                    "status": "completed",
+                    "actual_json": {
+                        "card_type": "strength_session",
+                        "exercises": [],
+                        "ratings": {},
+                    },
+                }
+            ),
+        )
+
+
+def test_get_today_skips_card_template_row_that_fails_validation():
+    """One un-migratable template row must not take down the whole Today board."""
+    activate_routine_card("card-good")
+    activate_routine_spec(
+        "routine-good",
+        assignments=[
+            routine_assignment_spec(
+                "routine-good-assignment",
+                card_template_id="card-good",
+                slot="morning",
+            )
+        ],
+    )
+    # Pre-branch shape: untyped payload_json with no card_type discriminator.
+    _STORE.save(
+        "card_templates",
+        "card-legacy",
+        json.dumps(
+            {
+                "id": "card-legacy",
+                "name": "Legacy Card",
+                "slot_default": "morning",
+                "status": "active",
+                "payload_json": {"duration_minutes": 15, "pattern": "5s in / 5s out"},
+            }
+        ),
+    )
+
+    response = get_today(SqliteRoutineRepository(), date="2026-03-02")
+
+    assert response.stats.total == 1
+    assert response.slots[0].cards[0].card_template_id == "card-good"
+
+
+def test_get_today_skips_card_log_row_that_fails_validation():
+    """One unreadable log row must not take down the whole Today board."""
+    activate_routine_card("card-log-tolerance")
+    activate_routine_spec(
+        "routine-log-tolerance",
+        assignments=[
+            routine_assignment_spec(
+                "routine-log-tolerance-assignment",
+                card_template_id="card-log-tolerance",
+                slot="morning",
+            )
+        ],
+    )
+    _STORE.save(
+        "card_logs",
+        "card-log:2026-03-02:broken",
+        json.dumps(
+            {
+                "id": "card-log:2026-03-02:broken",
+                "date": "2026-03-02",
+                "occurrence_key": "scheduled:broken:2026-03-02",
+                "card_template_id": "card-log-tolerance",
+                "status": "not-a-real-status",
+            }
+        ),
+        extra_columns={
+            "occurrence_key": "scheduled:broken:2026-03-02",
+            "log_date": "2026-03-02",
+            "card_template_id": "card-log-tolerance",
+            "assignment_id": None,
+        },
+    )
+
+    response = get_today(SqliteRoutineRepository(), date="2026-03-02")
+
+    assert response.stats.total == 1
 
 
 def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
@@ -169,7 +281,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )
@@ -186,7 +298,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=second_card.card_template_id,
             assignment_id=second_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )
@@ -203,7 +315,7 @@ def test_today_card_logs_recompute_linked_experiment_exposure_for_the_day():
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="skipped",
-            actual_json={},
+            actual_json=None,
             notes=None,
         ),
     )

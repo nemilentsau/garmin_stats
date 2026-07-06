@@ -1,13 +1,12 @@
 {
   "id": "two-week-meditation-foundation",
   "name": "Two-Week Meditation Foundation",
-  "schema_version": 1,
+  "schema_version": 2,
   "description": "Deterministic two-week meditation and breathwork routine starting 2026-03-16.",
   "card_templates": [
     {
       "id": "meditation-resonance-breathing",
       "name": "Resonance Breathing",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Steady resonance breathing for vagal tone and recovery priming.",
       "tags": [
@@ -16,35 +15,15 @@
         "recovery"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 10,
-        "pattern": "5s in / 5s out (~6 breaths per minute)",
-        "instructions": "Find a smooth 5s/5s rhythm and keep the breath relaxed rather than deep.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "pattern_label": "5s in / 5s out",
+        "instructions": "Find a smooth 5s/5s rhythm and keep the breath relaxed rather than deep."
       }
     },
     {
       "id": "meditation-extended-exhale",
       "name": "Extended Exhale",
-      "renderer": "timer_session",
       "slot_default": "evening",
       "summary": "Long-exhale breathwork for parasympathetic recovery.",
       "tags": [
@@ -53,35 +32,15 @@
         "recovery"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 8,
-        "pattern": "4s in / 7s out",
-        "instructions": "Keep the exhale smooth and complete without rushing the final second.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "pattern_label": "4s in / 7s out",
+        "instructions": "Keep the exhale smooth and complete without rushing the final second."
       }
     },
     {
       "id": "meditation-box-breathing",
       "name": "Box Breathing",
-      "renderer": "timer_session",
       "slot_default": "midday",
       "summary": "Balanced box breathing for composure and arousal control.",
       "tags": [
@@ -90,35 +49,15 @@
         "composure"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 5,
-        "pattern": "4s in / 4s hold / 4s out / 4s hold",
-        "instructions": "Move cleanly through each transition without gasping on the holds.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "pattern_label": "4s in / 4s hold / 4s out / 4s hold",
+        "instructions": "Move cleanly through each transition without gasping on the holds."
       }
     },
     {
       "id": "meditation-co2-tolerance",
       "name": "CO2 Tolerance",
-      "renderer": "timer_session",
       "slot_default": "morning",
       "summary": "Post-exhale hold practice for CO2 comfort and breath control.",
       "tags": [
@@ -127,35 +66,15 @@
         "co2"
       ],
       "payload": {
+        "card_type": "breath_timer",
         "duration_minutes": 10,
-        "pattern": "4s in / 6s out / 4s post-exhale hold",
-        "instructions": "Keep the hold calm; shorten to 3s if 4s creates strain or panic.",
-        "rating_prompts": [
-          {
-            "key": "attention_stability",
-            "label": "Attention stability",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "relaxation_depth",
-            "label": "Relaxation depth",
-            "scale_min": 1,
-            "scale_max": 5
-          },
-          {
-            "key": "mental_clarity",
-            "label": "Mental clarity after",
-            "scale_min": 1,
-            "scale_max": 5
-          }
-        ]
+        "pattern_label": "4s in / 6s out / 4s post-exhale hold",
+        "instructions": "Keep the hold calm; shorten to 3s if 4s creates strain or panic."
       }
     },
     {
       "id": "meditation-focused-attention",
       "name": "Focused Attention",
-      "renderer": "timer_session",
       "slot_default": "evening",
       "summary": "Breath-counting meditation for concentration stability.",
       "tags": [
@@ -164,8 +83,10 @@
         "mindfulness"
       ],
       "payload": {
+        "card_type": "meditation_timer",
         "duration_minutes": 10,
-        "pattern": "Breath counting on each exhale",
+        "technique": "focused_attention",
+        "anchor": "exhale count",
         "instructions": "Count each exhale from 1 to 10 and restart at 1 whenever attention drifts.",
         "rating_prompts": [
           {
@@ -192,7 +113,6 @@
     {
       "id": "meditation-open-monitoring",
       "name": "Open Monitoring",
-      "renderer": "timer_session",
       "slot_default": "evening",
       "summary": "Wide-lens awareness practice without a fixed anchor.",
       "tags": [
@@ -201,8 +121,10 @@
         "mindfulness"
       ],
       "payload": {
+        "card_type": "meditation_timer",
         "duration_minutes": 12,
-        "pattern": "Open awareness without a fixed anchor",
+        "technique": "open_monitoring",
+        "anchor": null,
         "instructions": "Notice sensations, sounds, and thoughts without following any of them.",
         "rating_prompts": [
           {

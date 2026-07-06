@@ -105,6 +105,13 @@ def upsert_today_card_log(
         and request.assignment_id != scheduled_card.assignment_id
     ):
         raise ValueError("Assignment id does not match the scheduled occurrence")
+    if (
+        request.actual_json is not None
+        and request.actual_json.card_type != scheduled_card.payload_json.card_type
+    ):
+        raise ValueError(
+            "Actual card type does not match the scheduled occurrence's card type"
+        )
 
     log = CardLog(
         id=f"card-log:{date}:{occurrence_key}",

@@ -1,0 +1,111 @@
+{
+  "id": "acute-hrv-response-by-practice-type-2026-06",
+  "name": "Acute HRV Response by Practice Type",
+  "status": "draft",
+  "hypothesis": "Breathwork produces larger immediate HRV/downshift effects than meditation or quiet sitting, while meditation may produce stronger cognitive clarity and lower thought stickiness.",
+  "goal": "Separate acute autonomic effects of breathwork from meditation-skill effects so HRV changes are not misattributed.",
+  "design": {
+    "type": "within_subject_crossover",
+    "comparison_level": "session",
+    "baseline_window_minutes": 5,
+    "post_window_minutes": 5,
+    "expected_lag_days": [0],
+    "min_sessions_per_arm": 4,
+    "min_adherence_pct": 0.75,
+    "washout_rule": "Do not run more than one scored acute-HRV practice within the same 2-hour window.",
+    "analysis_unit": "pre_post_session_delta"
+  },
+  "linked_routine_ids": [
+    "meditation-skill-routine-4w",
+    "breathwork-routine-4w"
+  ],
+  "intervention_arms": [
+    {
+      "id": "resonance_5_5",
+      "routine_id": "breathwork-routine-4w",
+      "practice_template_id": "breathwork-resonance-5-5"
+    },
+    {
+      "id": "extended_exhale",
+      "routine_id": "breathwork-routine-4w",
+      "practice_template_ids": [
+        "breathwork-extended-exhale-4-7",
+        "breathwork-extended-exhale-4-8"
+      ]
+    },
+    {
+      "id": "focused_attention",
+      "routine_id": "meditation-skill-routine-4w",
+      "practice_template_ids": [
+        "meditation-focused-attention-counting",
+        "meditation-focused-attention-raw-anchor"
+      ]
+    },
+    {
+      "id": "open_monitoring_noting",
+      "routine_id": "meditation-skill-routine-4w",
+      "practice_template_id": "meditation-open-monitoring-noting"
+    },
+    {
+      "id": "quiet_sitting_control",
+      "routine_id": null,
+      "practice_template_id": "control-quiet-sitting"
+    }
+  ],
+  "outcome_metrics": [
+    {
+      "path": "physiology.hrv.pre_post_delta",
+      "direction": "higher_is_better",
+      "min_effect_size": 0.3
+    },
+    {
+      "path": "physiology.heart_rate.pre_post_delta",
+      "direction": "lower_is_better",
+      "min_effect_size": 0.2
+    },
+    {
+      "path": "checkin.perceived_downshift",
+      "direction": "higher_is_better",
+      "min_effect_size": 0.5
+    },
+    {
+      "path": "checkin.post_session_clarity",
+      "direction": "higher_is_better",
+      "min_effect_size": 0.5
+    }
+  ],
+  "process_metrics": [
+    "session.duration_minutes",
+    "session.slot",
+    "session.practice_family",
+    "checkin.strain",
+    "checkin.relaxation_depth",
+    "checkin.attention_stability",
+    "checkin.argument_loop_stickiness"
+  ],
+  "confounder_watch": [
+    "training.run_type",
+    "training.rpe",
+    "sleep.quality",
+    "stress.avg",
+    "heart_rate.resting",
+    "checkin.caffeine_timing",
+    "checkin.alcohol_flag",
+    "environment.heat_humidity"
+  ],
+  "analysis_plan": {
+    "primary_contrast": "Each intervention arm versus quiet_sitting_control on pre_post_delta.",
+    "secondary_contrast": "Breathwork arms versus meditation arms.",
+    "interpretation_rule": "Do not treat breathwork-induced HRV increase as meditation skill improvement."
+  },
+  "decision_rules": [
+    {
+      "condition": "breathwork_improves_hrv_more_than_meditation",
+      "decision": "Use breathwork as the acute-HRV/recovery tool."
+    },
+    {
+      "condition": "meditation_improves_clarity_without_large_hrv_delta",
+      "decision": "Keep meditation for cognitive transfer, not acute HRV."
+    }
+  ]
+}

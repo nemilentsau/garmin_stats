@@ -11,15 +11,8 @@
 		type ScheduleWindow
 	} from '$lib/api';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
-	import {
-		SLOT_LABELS,
-		SLOT_ORDER,
-		cardBrief,
-		checklistPayload,
-		exercisePayload,
-		slotAccent,
-		timerPayload
-	} from '$lib/routines/card-payloads';
+	import { SLOT_LABELS, SLOT_ORDER, cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
+	import CardBody from '$lib/routines/cards/CardBody.svelte';
 	import { errorMessage } from '$lib/utils';
 
 	let loading = $state(true);
@@ -391,9 +384,10 @@
 								{/if}
 								{#each group.occurrences as occ}
 									{@const accent = slotAccent(occ.slot)}
+									{@const dt = domainThemeOf(occ.payload_json)}
 									{@const isExpanded = expandedOccurrenceKey === occ.occurrence_key}
 									{@const status = occStatus(occ)}
-									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${accent.color}; --tc-shadow: ${accent.shadow}`}>
+									<div class="timeline-card" class:expanded={isExpanded} class:done={status === 'completed'} class:skipped={status === 'skipped'} class:partial={status === 'partial'} style={`--tc-color: ${dt.accent}; --tc-shadow: ${dt.shadow}`}>
 										<button type="button" class="timeline-card-main" onclick={() => (expandedOccurrenceKey = isExpanded ? null : occ.occurrence_key)}>
 											{#if status === 'completed'}
 												<span class="status-check done-check">
@@ -407,6 +401,9 @@
 												<span class="status-check partial-check">
 													<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
 												</span>
+											{/if}
+											{#if dt.icon}
+												<span class="domain-icon">{dt.icon}</span>
 											{/if}
 											<div class="card-content">
 												<span class="card-name">{occ.name}</span>
@@ -425,60 +422,7 @@
 
 										{#if isExpanded}
 											<div class="detail-panel">
-												{#if occ.renderer === 'timer_session'}
-													{@const tp = timerPayload(occ.payload_json)}
-													{#if tp.instructions}
-														<p class="detail-copy">{tp.instructions}</p>
-													{/if}
-													{#if tp.segments?.length}
-														<div class="detail-list">
-															{#each tp.segments as seg}
-																<div class="detail-row">
-																	<span>{seg.label}</span>
-																	<span class="detail-meta">{Math.round(seg.duration_seconds / 60)} min</span>
-																</div>
-															{/each}
-														</div>
-													{/if}
-												{:else if occ.renderer === 'exercise_block'}
-													{@const ep = exercisePayload(occ.payload_json)}
-													{#if ep.instructions}
-														<p class="detail-copy">{ep.instructions}</p>
-													{/if}
-													{#if ep.exercises?.length}
-														<div class="detail-list">
-															{#each ep.exercises as ex}
-																<div class="detail-row">
-																	<div class="detail-row-content">
-																		<strong>{ex.label}</strong>
-																		{#if ex.detail}
-																			<small>{ex.detail}</small>
-																		{/if}
-																	</div>
-																</div>
-															{/each}
-														</div>
-													{/if}
-												{:else}
-													{@const cp = checklistPayload(occ.payload_json)}
-													{#if cp.instructions}
-														<p class="detail-copy">{cp.instructions}</p>
-													{/if}
-													{#if cp.items?.length}
-														<div class="detail-list">
-															{#each cp.items as item}
-																<div class="detail-row">
-																	<div class="detail-row-content">
-																		<strong>{item.label}</strong>
-																		{#if item.detail}
-																			<small>{item.detail}</small>
-																		{/if}
-																	</div>
-																</div>
-															{/each}
-														</div>
-													{/if}
-												{/if}
+												<CardBody card={occ} mode="view" />
 
 												{#if occ.tags.length > 0}
 													<div class="tag-row">
@@ -965,6 +909,13 @@
 		color: #6b8292;
 	}
 
+	.domain-icon {
+		flex-shrink: 0;
+		font-size: 14px;
+		line-height: 1;
+		opacity: 0.8;
+	}
+
 	.card-badges {
 		display: flex;
 		gap: 4px;
@@ -999,51 +950,7 @@
 		gap: 12px;
 	}
 
-	.detail-copy {
-		margin: 0;
-		color: #a7bac6;
-		font-size: 13px;
-		line-height: 1.5;
-	}
-
-	.detail-list {
-		display: grid;
-		gap: 6px;
-	}
-
-	.detail-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding: 8px 10px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
-		font-size: 13px;
-	}
-
-	.detail-row-content {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.detail-row-content strong {
-		font-size: 13px;
-		color: #eef5f8;
-	}
-
-	.detail-row-content small {
-		color: #6b8292;
-		font-size: 11px;
-	}
-
-	.detail-meta {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: var(--muted);
-		flex-shrink: 0;
-	}
+	/* Card-specific detail styles now live in ChecklistCard.svelte and CardBody.svelte */
 
 	/* ── Import button ── */
 	.import-btn {

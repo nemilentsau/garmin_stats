@@ -1,12 +1,15 @@
 """Artifact staging use cases.
 
 Staging accepts assistant-authored payloads, validates them against the artifact
-schema family, and records unsupported renderer requests as capability-request
-artifacts for later product decisions.
+schema family, and persists the result. Card templates are validated against the
+``CardPayload`` union; invalid payloads are recorded with their error list, and
+a draft requesting a card type outside that union additionally records a
+``capability_request`` artifact so demand for new card types stays queryable.
 """
 
 from __future__ import annotations
 
+from typing import get_args
 from uuid import uuid4
 
 from app.domains.artifacts.contracts import (
@@ -16,23 +19,37 @@ from app.domains.artifacts.contracts import (
     CapabilityRequestSpec,
 )
 from app.domains.artifacts.dependencies import ArtifactRepository
+from app.domains.routines.contracts import CardType
 from app.domains.routines.dependencies import RoutineRepository
 from app.utils.timeutil import now_iso
 
 from .validation import (
-    PAYLOAD_MODELS,
     validate_capability_request_payload,
     validate_card_template_payload,
     validate_routine_spec_payload,
 )
 
+_SUPPORTED_CARD_TYPES = frozenset(get_args(CardType))
+
+
+def _unsupported_card_type(payload_json: dict[str, object]) -> str | None:
+    """Return the draft's inner payload card_type when it names an unsupported type."""
+    payload = payload_json.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    card_type = payload.get("card_type")
+    if isinstance(card_type, str) and card_type not in _SUPPORTED_CARD_TYPES:
+        return card_type
+    return None
+
 
 def _system_capability_request(
     repo: ArtifactRepository,
     *,
-    requested_renderer: str,
+    requested_card_type: str,
     source_artifact: AssistantArtifactCreateRequest,
 ) -> AssistantArtifact:
+    """Persist the capability-request artifact recording an unsupported card type."""
     now = now_iso()
     artifact = AssistantArtifact(
         id=f"capreq-{uuid4().hex}",
@@ -42,10 +59,10 @@ def _system_capability_request(
         source_thread_id=source_artifact.source_thread_id,
         source_snapshot_id=source_artifact.source_snapshot_id,
         payload_json=CapabilityRequestSpec(
-            requested_renderer=requested_renderer,
+            requested_card_type=requested_card_type,
             reason=(
-                f"Assistant draft '{source_artifact.id}' requested unsupported renderer "
-                f"'{requested_renderer}'"
+                f"Assistant draft '{source_artifact.id}' requested unsupported card "
+                f"type '{requested_card_type}'"
             ),
             source_artifact_id=source_artifact.id,
             payload_example_json=source_artifact.payload_json,
@@ -65,10 +82,9 @@ def create_assistant_artifact(
     """Validate and persist one assistant-authored artifact draft."""
     now = now_iso()
     errors: list[str] = []
-    requested_renderer: str | None = None
 
     if request.kind == "card_template":
-        errors, requested_renderer = validate_card_template_payload(request.payload_json)
+        errors, _ = validate_card_template_payload(request.payload_json)
     elif request.kind == "routine_spec":
         errors = validate_routine_spec_payload(repo, routines_repo, request.payload_json)
     else:
@@ -89,16 +105,14 @@ def create_assistant_artifact(
     )
     repo.save_assistant_artifact(artifact)
 
-    if (
-        request.kind == "card_template"
-        and requested_renderer
-        and requested_renderer not in PAYLOAD_MODELS
-    ):
-        _system_capability_request(
-            repo,
-            requested_renderer=requested_renderer,
-            source_artifact=request,
-        )
+    if request.kind == "card_template" and errors:
+        requested_card_type = _unsupported_card_type(request.payload_json)
+        if requested_card_type is not None:
+            _system_capability_request(
+                repo,
+                requested_card_type=requested_card_type,
+                source_artifact=request,
+            )
 
     return artifact
 

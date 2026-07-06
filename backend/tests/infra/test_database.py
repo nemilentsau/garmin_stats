@@ -18,6 +18,7 @@ from app.domains.routines.contracts import (
     CardLog,
     CardOverride,
     CardTemplate,
+    MeditationTimerPayload,
     RoutineAssignment,
     RoutineSchedule,
 )
@@ -143,9 +144,11 @@ class TestStoreAndLoad:
         card = CardTemplate(
             id="card-1",
             name="Open Monitoring",
-            renderer="timer_session",
             slot_default="evening",
-            payload_json={"duration_minutes": 15},
+            payload_json=MeditationTimerPayload(
+                duration_minutes=15,
+                technique="focused_attention",
+            ),
         )
         routine = RoutineSchedule(
             id="routine-1",

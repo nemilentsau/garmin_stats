@@ -38,7 +38,11 @@ def load_card_template(card_id: str) -> CardTemplate | None:
 
 
 def load_card_templates(status: str | None = None) -> list[CardTemplate]:
-    """Load live card templates, optionally filtered by status."""
+    """Load live card templates, optionally filtered by status.
+
+    Skips rows that fail contract validation (with a warning) so one
+    un-migratable legacy template cannot take down every schedule/Today load.
+    """
     where_sql = ""
     params: tuple[object, ...] = ()
     if status is not None:
@@ -48,6 +52,7 @@ def load_card_templates(status: str | None = None) -> list[CardTemplate]:
         CardTemplate,
         where_sql=where_sql,
         params=params,
+        on_invalid="skip",
     )
 
 
@@ -198,7 +203,11 @@ def save_card_log(log: CardLog) -> None:
 
 
 def load_card_logs(date: str | None = None) -> list[CardLog]:
-    """Load card logs, optionally restricted to one date."""
+    """Load card logs, optionally restricted to one date.
+
+    Skips rows that fail contract validation (with a warning) so one broken
+    log row cannot take down the whole day's Today board.
+    """
     where_sql = "log_date = ?" if date is not None else ""
     params = (date,) if date is not None else ()
     return _STORE.load_many(
@@ -207,17 +216,22 @@ def load_card_logs(date: str | None = None) -> list[CardLog]:
         where_sql=where_sql,
         params=params,
         order_by="log_date, created_at, id",
+        on_invalid="skip",
     )
 
 
 def load_card_logs_range(start_date: str, end_date: str) -> list[CardLog]:
-    """Load card logs for a date range (inclusive on both ends)."""
+    """Load card logs for a date range (inclusive on both ends).
+
+    Tolerates broken rows the same way as :func:`load_card_logs`.
+    """
     return _STORE.load_many(
         "card_logs",
         CardLog,
         where_sql="log_date >= ? AND log_date <= ?",
         params=(start_date, end_date),
         order_by="log_date, created_at, id",
+        on_invalid="skip",
     )
 
 

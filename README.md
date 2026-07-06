@@ -115,8 +115,8 @@ For the full current code map and route inventory, see
 
 ## Routine Runtime
 
-Routines are imported through deterministic bundle JSON, not freeform markdown.
-The normal flow is:
+Routines are imported through deterministic bundle JSON (`schema_version: 2`),
+not freeform markdown. The normal flow is:
 
 ```text
 bundle JSON -> preview -> import -> auto-activate -> schedule and Today
@@ -129,6 +129,36 @@ logs execution for a date; it does not author schedule structure.
 Routine bundle assignments are explicit and day-relative. Activation compiles
 them into dated `RoutineAssignment` rows; the frontend does not compute schedule
 math.
+
+### Card types
+
+Each card template carries a typed `payload` with a `card_type` discriminator.
+The five card types are:
+
+| `card_type` | Domain | Key payload fields |
+|---|---|---|
+| `running_workout` | Running | `workout_type`, `segments`, `post_run_fields` |
+| `strength_session` | Strength | `exercises` (set_scheme), `rating_prompts` |
+| `breath_timer` | Breathwork | `pattern_label`, `duration_minutes` (logs one `felt_downshift`) |
+| `meditation_timer` | Meditation | `technique`, `anchor` |
+| `checklist` | Any (via `domain`) | `items`, `domain` |
+
+`payload_json` and `actual_json` on live runtime models (`CardTemplate`,
+`ScheduleOccurrence`, `TodayCard`, `CardLog`) are fully typed discriminated
+unions keyed on `card_type`. The OpenAPI schema exposes this union;
+`frontend/src/lib/api-types.ts` is generated from it (never hand-written).
+
+### Importing bundles
+
+To preview, import, and activate every bundle in `docs/routine_bundles/`:
+
+```bash
+cd backend && uv run python ../scripts/import_bundles.py
+```
+
+The script previews each bundle first (no writes on failure), then imports and
+activates. It writes to the configured database; set `GARMIN_DB_PATH` to
+override the default path.
 
 The bundle format is documented in
 [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).

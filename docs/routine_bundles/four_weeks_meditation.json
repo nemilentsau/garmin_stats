@@ -1,13 +1,12 @@
 {
   "id": "meditation-skill-routine-4w",
   "name": "Meditation Skill Routine",
-  "schema_version": 1,
+  "schema_version": 2,
   "description": "Deterministic four-week meditation skill routine starting 2026-06-29. Build attention stability and reduce the stickiness of repetitive verbal thought loops, especially adversarial argument rehearsal.",
   "card_templates": [
     {
       "id": "meditation-focused-attention-counting",
       "name": "Focused Attention — Counting",
-      "renderer": "timer_session",
       "slot_default": "midday",
       "summary": "Breath-counting meditation for stabilizing attention.",
       "tags": [
@@ -16,8 +15,10 @@
         "attention"
       ],
       "payload": {
+        "card_type": "meditation_timer",
         "duration_minutes": 12,
-        "pattern": "Exhale counting from 1 to 10",
+        "technique": "focused_attention",
+        "anchor": "exhale count",
         "instructions": "Count each exhale from 1 to 10. When attention drifts or the count is lost, restart at 1 without self-criticism. Anchor: exhale count. Success condition: Not staying perfectly focused, but noticing drift and returning cleanly. Failure modes: trying to suppress thoughts, turning lost count into frustration, mechanically counting while thinking in the background.",
         "rating_prompts": [
           {
@@ -68,7 +69,6 @@
     {
       "id": "meditation-focused-attention-raw-anchor",
       "name": "Focused Attention — Raw Anchor",
-      "renderer": "timer_session",
       "slot_default": "midday",
       "summary": "Focused attention using direct breath or body sensation without counting.",
       "tags": [
@@ -77,8 +77,10 @@
         "attention"
       ],
       "payload": {
+        "card_type": "meditation_timer",
         "duration_minutes": 15,
-        "pattern": "Raw breath or body-contact anchor",
+        "technique": "focused_attention",
+        "anchor": "breath or body contact",
         "instructions": "Rest attention on one physical anchor. When attention drifts, notice the drift and return to the anchor. Do not use counting unless attention becomes too unstable. Anchor: breath sensation or body contact. Fallback: Use exhale counting for 1-3 minutes if attention becomes too scattered. Success condition: Earlier detection of distraction and smoother return to the anchor.",
         "rating_prompts": [
           {
@@ -129,7 +131,6 @@
     {
       "id": "meditation-open-monitoring-noting",
       "name": "Open Monitoring — Noting",
-      "renderer": "timer_session",
       "slot_default": "midday",
       "summary": "Open awareness practice with light labels for thoughts, sensations, and emotional charge.",
       "tags": [
@@ -139,8 +140,10 @@
         "thought_defusion"
       ],
       "payload": {
+        "card_type": "meditation_timer",
         "duration_minutes": 12,
-        "pattern": "Open monitoring with light noting",
+        "technique": "open_monitoring",
+        "anchor": null,
         "instructions": "Notice sensations, sounds, thoughts, and emotions without following them. Use short labels when content becomes sticky, then return to open awareness. Anchor: open field of present-moment experience. Fallback anchor: body contact. Default labels: thinking, planning, arguing, rehearsing, remembering, judging, emotion, body, sound. Priority label: arguing. Success condition: The argument may appear, but you do not complete it. Failure modes: daydreaming and calling it open awareness, analyzing why a thought appeared, finishing the imaginary argument before returning.",
         "rating_prompts": [
           {
@@ -191,7 +194,6 @@
     {
       "id": "meditation-weekly-review",
       "name": "Meditation Weekly Review",
-      "renderer": "checklist_block",
       "slot_default": "evening",
       "summary": "Brief weekly review of attention stability, thought stickiness, and argument-loop reduction.",
       "tags": [
@@ -200,6 +202,8 @@
         "review"
       ],
       "payload": {
+        "card_type": "checklist",
+        "domain": "meditation",
         "instructions": "Review the last week without moralizing. Identify which practice most reduced argument-loop stickiness and which context triggered the most rumination.",
         "items": [
           {
@@ -314,7 +318,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 1. Identify whether focused attention or open monitoring was more useful for interrupting rumination."
           }
         },
@@ -391,7 +394,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 2. Compare argument-loop stickiness against Week 1."
           }
         },
@@ -468,7 +470,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 5,
             "instructions": "Review Week 3. Decide whether raw-anchor focused attention or open monitoring is producing more useful transfer."
           }
         },
@@ -545,7 +546,6 @@
           "slot": "evening",
           "position": 10,
           "prescription_override_json": {
-            "duration_minutes": 10,
             "instructions": "Full routine review. Identify which practice should become the core meditation routine for the next block."
           }
         }

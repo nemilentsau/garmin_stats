@@ -31,13 +31,13 @@ def _card_request(card_id: str, *, slot_default: str) -> AssistantArtifactCreate
         payload_json={
             "id": card_id,
             "name": f"Card {card_id}",
-            "renderer": "timer_session",
             "slot_default": slot_default,
             "summary": "Exposure sync fixture card",
             "tags": ["training"],
             "payload": {
+                "card_type": "breath_timer",
                 "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
+                "pattern_label": "5s in / 5s out",
                 "instructions": "Stay relaxed.",
             },
         },
@@ -129,7 +129,7 @@ def test_sync_experiment_exposures_marks_day_full_when_all_linked_cards_complete
                 card_template_id=card.card_template_id,
                 assignment_id=card.assignment_id,
                 status="completed",
-                actual_json={},
+                actual_json=None,
                 notes=None,
             )
         )
@@ -160,7 +160,7 @@ def test_sync_experiment_exposures_marks_day_partial_when_only_part_of_daily_dos
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         )
     )
@@ -197,7 +197,7 @@ def test_sync_experiment_exposures_preserves_manual_same_day_entries():
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         )
     )
@@ -242,7 +242,7 @@ def test_sync_experiment_exposures_refreshes_persisted_analysis_snapshot():
                 card_template_id=card.card_template_id,
                 assignment_id=card.assignment_id,
                 status="completed",
-                actual_json={},
+                actual_json=None,
                 notes=None,
             )
         )
@@ -290,7 +290,7 @@ def test_sync_experiment_exposures_updates_completed_experiments_after_late_edit
             card_template_id=first_card.card_template_id,
             assignment_id=first_card.assignment_id,
             status="completed",
-            actual_json={},
+            actual_json=None,
             notes=None,
         )
     )

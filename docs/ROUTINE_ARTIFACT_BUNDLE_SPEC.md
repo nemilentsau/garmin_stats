@@ -27,7 +27,7 @@ Important implications:
 {
   "id": "two-week-meditation-foundation",
   "name": "Two-Week Meditation Foundation",
-  "schema_version": 1,
+  "schema_version": 2,
   "description": "Optional summary",
   "card_templates": [],
   "routine_specs": []
@@ -38,7 +38,8 @@ Rules:
 
 - `id` is stable lowercase kebab-case.
 - `name` is human-readable.
-- `schema_version` is currently `1`.
+- `schema_version` is `2`. Bundles at version 1 (legacy `renderer` field) are
+  not accepted; re-author them to the typed `card_type` payload schema below.
 - At least one of `card_templates` or `routine_specs` must be present.
 - The bundle is deterministic before preview. Vague recurrence such as "every
   few days" must already be normalized to concrete assignment days.
@@ -51,7 +52,6 @@ Required fields:
 
 - `id`
 - `name`
-- `renderer`
 - `slot_default`
 - `payload`
 
@@ -60,15 +60,103 @@ Optional fields:
 - `summary`
 - `tags`
 
-Supported renderer families:
+`payload` must be a typed payload object carrying a `card_type` discriminator.
+The five supported card types are:
 
-- `timer_session`
-- `checklist_block`
-- `exercise_block`
+### `running_workout`
 
-If the source material needs another interaction model, stage a
-`capability_request` artifact instead of forcing unsupported behavior into a
-card payload.
+```json
+{
+  "card_type": "running_workout",
+  "workout_type": "easy",
+  "rpe": "4-5 / 10",
+  "talk_test": "full sentences",
+  "hr_guidance": "Z2, below 145 bpm",
+  "calibration_quality": false,
+  "instructions": "...",
+  "segments": [
+    { "id": "warmup", "label": "Warm-up", "kind": "warmup", "prescription": "10 min" }
+  ],
+  "post_run_fields": [
+    { "key": "temp_c", "label": "Temperature (°C)", "field_type": "number" }
+  ]
+}
+```
+
+- `workout_type` — string label for the run type (e.g. `easy`, `long_easy`,
+  `steady`, `progression`, `lthr_test`).
+- `segments` — ordered list; `kind` is one of `warmup`, `main`, `strides`,
+  `cooldown`, `intervals`; `prescription` is a flexible range string
+  (e.g. `"35-50 min"`).
+- `post_run_fields` — optional per-run confounder fields collected after the
+  run (weather, terrain, gear). Each carries `key`, `label`, `field_type`
+  (`number` or `text`), and optional `unit`.
+
+### `strength_session`
+
+```json
+{
+  "card_type": "strength_session",
+  "session_focus": "Chest + Side Delts",
+  "duration_minutes": 50,
+  "rir_guidance": "1-3 reps in reserve",
+  "instructions": "...",
+  "exercises": [
+    { "id": "bench", "label": "Bench Press", "set_scheme": "3x5-8" }
+  ],
+  "rating_prompts": [
+    { "key": "pump", "label": "Pump quality", "scale_min": 1, "scale_max": 5 }
+  ]
+}
+```
+
+- `set_scheme` is a range string such as `"3x5-8"` (sets × rep-range).
+- `rating_prompts` replace the old fake `post_session_ratings` exercise row.
+
+### `breath_timer`
+
+```json
+{
+  "card_type": "breath_timer",
+  "duration_minutes": 5,
+  "pattern_label": "4s in / 4s hold / 4s out / 4s hold",
+  "instructions": "..."
+}
+```
+
+- `pattern_label` is the human-readable prescription; the watch is the timer,
+  so the card carries no animation or per-phase timing. The breath card logs a
+  single optional subjective signal, `ratings.felt_downshift` (1=Barely,
+  2=Somewhat, 3=Strongly) — it has no `rating_prompts`.
+
+### `meditation_timer`
+
+```json
+{
+  "card_type": "meditation_timer",
+  "duration_minutes": 10,
+  "technique": "focused_attention",
+  "anchor": "exhale count",
+  "instructions": "...",
+  "rating_prompts": []
+}
+```
+
+### `checklist`
+
+```json
+{
+  "card_type": "checklist",
+  "instructions": "...",
+  "items": [
+    { "id": "strap", "label": "HR strap on and reading" }
+  ],
+  "domain": "running"
+}
+```
+
+- `domain` is optional (`running`, `strength`, `breathwork`, `meditation`);
+  used for visual theming on review and setup cards.
 
 ## Routine Specs
 
@@ -143,8 +231,13 @@ Use assignment-level `prescription_override_json` when the difference is only:
 - duration
 - instructions
 - prompts
-- pattern
+- segments or phase parameters
 - dose or progression
+
+Keys in `prescription_override_json` are validated against the target card
+type's payload at schedule merge time. Valid fields are applied as overrides;
+invalid keys (including `card_type` itself, which is stripped automatically)
+are silently ignored. The `card_type` discriminator cannot be overridden.
 
 Create a new card template only when the user-facing interaction type materially
 changes.
@@ -159,7 +252,7 @@ Preview rejects:
 - duplicate routine ids
 - duplicate assignment ids
 - unknown card references
-- unsupported renderer families
+- unknown or missing `card_type` values in card payloads
 - assignment ids already owned by another live or staged routine
 
 Preview is the validation boundary. It must not write artifacts, cards,

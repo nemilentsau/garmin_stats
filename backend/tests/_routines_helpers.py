@@ -40,14 +40,14 @@ def routine_card_request(
         payload_json={
             "id": card_id,
             "name": name or f"Card {card_id}",
-            "renderer": "timer_session",
             "slot_default": slot_default,
             "summary": summary or f"Summary for {card_id}",
             "tags": tags or ["training"],
             "payload": payload
             or {
+                "card_type": "breath_timer",
                 "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
+                "pattern_label": "5s in / 5s out",
                 "instructions": "Stay relaxed.",
             },
         },

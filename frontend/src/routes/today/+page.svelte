@@ -1,16 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
-	import { api, type TodayResponse } from '$lib/api';
+	import { api, type TodayCardLogUpdate, type TodayResponse } from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
-	import {
-		cardBrief,
-		checklistPayload,
-		exercisePayload,
-		slotAccent,
-		timerPayload
-	} from '$lib/routines/card-payloads';
-	import { errorMessage, isRecord } from '$lib/utils';
+	import { cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
+	import CardBody from '$lib/routines/cards/CardBody.svelte';
+	import { errorMessage } from '$lib/utils';
 
 	let loading = $state(true);
 	let error: string | null = $state(null);
@@ -19,11 +14,15 @@
 	let typeFilter = $state<string | null>(null);
 	let slotFilter = $state<string | null>(null);
 
+	type CardType = NonNullable<TodayResponse>['slots'][number]['cards'][number];
+	type CardActual = NonNullable<CardType['actual_json']>;
+
 	let expandedOccurrenceKey = $state<string | null>(null);
-	let detailDuration = $state<number | null>(null);
 	let detailNote = $state('');
-	let detailRatings = $state<Record<string, number | null>>({});
-	let detailItemStates = $state<Record<string, boolean>>({});
+	/** Actual emitted by the active CardBody; stashed here for schedulePersistDetail. */
+	let stagedActual = $state<CardActual | null>(null);
+	/** Bumped to remount the expanded CardBody so it re-seeds from card.actual_json. */
+	let detailRemountToken = $state(0);
 
 	/** Local status overrides — updated instantly on user action, drives UI. */
 	let localStatus = $state<Record<string, string>>({});
@@ -52,13 +51,13 @@
 
 	type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
 
-	function effectiveStatus(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): CardStatus {
+	function effectiveStatus(card: CardType): CardStatus {
 		return (localStatus[card.occurrence_key] ?? card.status) as CardStatus;
 	}
 
 	function filteredCards(
-		cards: NonNullable<TodayResponse>['slots'][number]['cards']
-	): NonNullable<TodayResponse>['slots'][number]['cards'] {
+		cards: CardType[]
+	): CardType[] {
 		if (!typeFilter) return cards;
 		return cards.filter((c) => c.routine_name === typeFilter);
 	}
@@ -67,7 +66,6 @@
 		return !slotFilter || slotFilter === slot;
 	}
 
-	type CardType = NonNullable<TodayResponse>['slots'][number]['cards'][number];
 	type RoutineGroup = { routine: string; cards: CardType[] };
 
 	function groupByRoutine(cards: CardType[]): RoutineGroup[] {
@@ -118,6 +116,9 @@
 		const date = selectedDate;
 		todayRequestToken += 1;
 		const requestToken = todayRequestToken;
+		// Persist any pending detail edit before the board switches away from its
+		// date (the persist closure captured its own date snapshot).
+		untrack(() => flushPendingPersist());
 		expandedOccurrenceKey = null;
 		localStatus = {};
 		void loadToday(date, requestToken).catch((e: unknown) => {
@@ -125,52 +126,14 @@
 		});
 	});
 
-	function initializeDetailState(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
-		const actual = isRecord(card.actual_json) ? card.actual_json : {};
+	function initializeDetailState(card: CardType) {
 		detailNote = card.notes ?? '';
-		detailRatings = {};
-		detailItemStates = {};
-		detailDuration = null;
-
-		if (card.renderer === 'timer_session') {
-			const payload = timerPayload(card.payload_json);
-			detailDuration =
-				typeof actual.actual_minutes === 'number'
-					? actual.actual_minutes
-					: (payload.duration_minutes ?? null);
-			if (isRecord(actual.ratings)) {
-				for (const [key, value] of Object.entries(actual.ratings)) {
-					detailRatings[key] = typeof value === 'number' ? value : null;
-				}
-			}
-			for (const prompt of payload.rating_prompts ?? []) {
-				if (!(prompt.key in detailRatings)) {
-					detailRatings[prompt.key] = null;
-				}
-			}
-			return;
-		}
-
-		if (isRecord(actual.item_states)) {
-			for (const [key, value] of Object.entries(actual.item_states)) {
-				detailItemStates[key] = value === true;
-			}
-		}
-
-		const items =
-			card.renderer === 'checklist_block'
-				? (checklistPayload(card.payload_json).items ?? [])
-				: (exercisePayload(card.payload_json).exercises ?? []);
-		for (const item of items) {
-			if (!(item.id in detailItemStates)) {
-				detailItemStates[item.id] = false;
-			}
-		}
+		// Seed from the card's persisted actual so that a notes-only change persists the
+		// existing actual correctly (before CardBody has emitted its first onActual).
+		stagedActual = card.actual_json;
 	}
 
-	function findCardByKey(key: string): NonNullable<TodayResponse>['slots'][number]['cards'][number] | null {
+	function findCardByKey(key: string): CardType | null {
 		for (const slot of today?.slots ?? []) {
 			const card = slot.cards.find((c) => c.occurrence_key === key);
 			if (card) return card;
@@ -178,9 +141,11 @@
 		return null;
 	}
 
-	function toggleDetails(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
+	function toggleDetails(card: CardType) {
+		// Persist any pending edit for the previously expanded card BEFORE the
+		// shared staged state is re-seeded — otherwise the timer fires later and
+		// writes the newly expanded card's data onto the old card's log.
+		flushPendingPersist();
 		if (expandedOccurrenceKey === card.occurrence_key) {
 			expandedOccurrenceKey = null;
 			return;
@@ -189,67 +154,96 @@
 		initializeDetailState(card);
 	}
 
-	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	function buildActualJson(card: NonNullable<TodayResponse>['slots'][number]['cards'][number]): Record<string, unknown> {
-		const actual_json: Record<string, unknown> = {};
-		if (card.renderer === 'timer_session') {
-			if (detailDuration !== null) actual_json.actual_minutes = detailDuration;
-			actual_json.ratings = detailRatings;
-		} else {
-			actual_json.item_states = detailItemStates;
-		}
-		return actual_json;
+	/** Derive completion status from a ChecklistActual's answers array. */
+	function deriveStatusFromAnswers(answers: { checked: boolean }[]): CardStatus {
+		if (answers.length === 0) return 'pending';
+		const checked = answers.filter((a) => a.checked).length;
+		if (checked === answers.length) return 'completed';
+		if (checked > 0) return 'partial';
+		return 'pending';
 	}
 
-	function deriveStatusFromItems(): CardStatus {
-		const values = Object.values(detailItemStates);
-		if (values.length === 0) return 'pending';
-		const checked = values.filter(Boolean).length;
-		if (checked === values.length) return 'completed';
-		if (checked > 0) return 'partial';
+	const STATUS_RANK: Record<CardStatus, number> = {
+		pending: 0,
+		skipped: 0,
+		partial: 1,
+		completed: 2
+	};
+
+	type StrengthActual = Extract<CardActual, { card_type: 'strength_session' }>;
+
+	function setHasData(set: StrengthActual['exercises'][number]['sets'][number]): boolean {
+		return set.weight != null || set.reps != null || set.rir != null;
+	}
+
+	/**
+	 * Derive completion from logged strength sets: every prescribed exercise has
+	 * at least one set with data → completed; any data at all → partial.
+	 */
+	function deriveStatusFromStrength(actual: StrengthActual, prescribedCount: number): CardStatus {
+		const loggedPrescribed = new Set(
+			actual.exercises
+				.filter((ex) => !ex.is_extra && ex.exercise_id && ex.sets.some(setHasData))
+				.map((ex) => ex.exercise_id)
+		);
+		if (prescribedCount > 0 && loggedPrescribed.size >= prescribedCount) return 'completed';
+		if (actual.exercises.some((ex) => ex.sets.some(setHasData))) return 'partial';
 		return 'pending';
 	}
 
 	/** Fire-and-forget persist to backend. No data refresh. */
 	async function persistToBackend(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number],
-		status: 'pending' | 'completed' | 'partial' | 'skipped',
-		actual_json?: Record<string, unknown>,
-		notes?: string | null
+		card: CardType,
+		status: CardStatus,
+		actual_json?: CardActual | null,
+		notes?: string | null,
+		date: string = selectedDate
 	) {
 		error = null;
 		try {
-			await api.updateTodayCard(selectedDate, card.occurrence_key, {
+			await api.updateTodayCard(date, card.occurrence_key, {
 				card_template_id: card.card_template_id,
 				assignment_id: card.assignment_id,
 				status,
-				actual_json: actual_json ?? (isRecord(card.actual_json) ? card.actual_json : {}),
+				// Output union is structurally compatible with the Input union expected by the API.
+				actual_json: (actual_json ?? card.actual_json ?? null) as TodayCardLogUpdate['actual_json'],
 				notes: notes ?? card.notes ?? null
 			});
-			} catch (e: unknown) {
+		} catch (e: unknown) {
 			error = errorMessage(e);
 		}
 	}
 
 	/** Row checkbox toggle — instant local update + background persist. */
-	function toggleComplete(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
+	function toggleComplete(card: CardType) {
 		const current = effectiveStatus(card);
 		const newStatus = current === 'completed' ? 'pending' : 'completed';
 		localStatus[card.occurrence_key] = newStatus;
 		statusVersion++;
 
-		// Sync sub-checkboxes if detail panel is open for this card
-		if (expandedOccurrenceKey === card.occurrence_key && card.renderer !== 'timer_session') {
-			const setAll = newStatus === 'completed';
-			for (const key of Object.keys(detailItemStates)) {
-				detailItemStates[key] = setAll;
+		if (expandedOccurrenceKey === card.occurrence_key) {
+			// This explicit persist supersedes any pending debounced one for the card.
+			cancelPendingPersist(card.occurrence_key);
+			if (card.payload_json.card_type === 'checklist') {
+				// The row toggle is authoritative: sync every answer to match so the
+				// persisted status and checklist answers can't contradict each other.
+				// Build answers from the payload items — stagedActual is null until
+				// the first item interaction — keeping any staged item notes.
+				const checked = newStatus === 'completed';
+				const staged = stagedActual?.card_type === 'checklist' ? stagedActual : null;
+				stagedActual = {
+					card_type: 'checklist',
+					answers: (card.payload_json.items ?? []).map((item) => ({
+						item_id: item.id,
+						checked,
+						text: staged?.answers.find((a) => a.item_id === item.id)?.text ?? null
+					}))
+				};
+				detailRemountToken++;
 			}
-			const actual = buildActualJson(card);
+			const actual = stagedActual;
 			const notes = detailNote.trim() || null;
-			card.actual_json = actual as Record<string, object>;
+			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
 			void persistToBackend(card, newStatus, actual, notes);
 		} else {
@@ -258,45 +252,56 @@
 	}
 
 	/** Row skip button — instant local update + background persist. */
-	function quickSkip(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
+	function quickSkip(card: CardType) {
 		localStatus[card.occurrence_key] = 'skipped';
 		statusVersion++;
 		void persistToBackend(card, 'skipped');
 	}
 
-	/** Detail checkbox toggle — update local state + derived status instantly, debounced persist. */
-	function onDetailCheckboxChange(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
-		const derived = deriveStatusFromItems();
-		localStatus[card.occurrence_key] = derived;
-		statusVersion++;
-		debouncedPersistDetail(card);
-	}
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+	/** The scheduled debounced persist; key identifies the card it belongs to. */
+	let pendingPersist: { key: string; run: () => void } | null = null;
 
-	/** Debounced persist for detail panel changes. */
-	function debouncedPersistDetail(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number],
-		delay = 500
-	) {
+	/** Debounced persist for detail panel changes (notes blur or CardBody onActual). */
+	function schedulePersistDetail(card: CardType, delay = 500) {
 		if (saveTimeout) clearTimeout(saveTimeout);
-		saveTimeout = setTimeout(() => {
-			const status = effectiveStatus(card);
-			const actual = buildActualJson(card);
-			const notes = detailNote.trim() || null;
-			card.actual_json = actual as Record<string, object>;
+		// Snapshot everything the persist needs NOW: the shared staged state is
+		// re-seeded when another card expands, and selectedDate can change before
+		// the timer fires. Status is resolved at fire time so instant local
+		// derivation (checklist/strength) is included.
+		const actual = stagedActual;
+		const notes = detailNote.trim() || null;
+		const date = selectedDate;
+		const run = () => {
+			saveTimeout = null;
+			pendingPersist = null;
+			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
-			void persistToBackend(card, status, actual, notes);
-		}, delay);
+			void persistToBackend(card, effectiveStatus(card), actual, notes, date);
+		};
+		pendingPersist = { key: card.occurrence_key, run };
+		saveTimeout = setTimeout(run, delay);
 	}
 
-	/** Notes/duration blur — debounced persist. */
-	function onDetailBlur(
-		card: NonNullable<TodayResponse>['slots'][number]['cards'][number]
-	) {
-		debouncedPersistDetail(card, 400);
+	/** Run the scheduled persist immediately (before staged state is re-seeded). */
+	function flushPendingPersist() {
+		if (saveTimeout && pendingPersist) {
+			clearTimeout(saveTimeout);
+			pendingPersist.run();
+		}
+	}
+
+	/** Drop a scheduled persist that an explicit action for the same card supersedes. */
+	function cancelPendingPersist(key: string) {
+		if (pendingPersist?.key !== key) return;
+		if (saveTimeout) clearTimeout(saveTimeout);
+		saveTimeout = null;
+		pendingPersist = null;
+	}
+
+	/** Notes textarea blur — debounced persist. */
+	function onDetailBlur(card: CardType) {
+		schedulePersistDetail(card, 400);
 	}
 
 	function formatSeconds(totalSeconds: number): string {
@@ -409,12 +414,14 @@
 						{@const isDone = status === 'completed'}
 						{@const isSkipped = status === 'skipped'}
 						{@const isPartial = status === 'partial'}
+						{@const dt = domainThemeOf(card.payload_json)}
 						<div
 							class="activity-row"
 							class:done={isDone}
 							class:skipped={isSkipped}
 							class:partial={isPartial}
 							class:expanded={isExpanded}
+							style={`--dr-color: ${dt.accent}`}
 						>
 							<div class="row-main">
 								<!-- Checkbox -->
@@ -456,6 +463,11 @@
 										</svg>
 									{/if}
 								</button>
+
+								<!-- Domain icon -->
+								{#if dt.icon}
+									<span class="domain-icon">{dt.icon}</span>
+								{/if}
 
 								<!-- Name + summary -->
 								<div class="row-content">
@@ -521,94 +533,36 @@
 							<!-- Expanded detail panel -->
 							{#if isExpanded}
 								<div class="detail-panel">
-									{#if card.renderer === 'timer_session'}
-										{@const payload = timerPayload(card.payload_json)}
-										{#if payload.pattern}
-											<p class="detail-pattern">{payload.pattern}</p>
-										{/if}
-										{#if payload.instructions}
-											<p class="detail-copy">{payload.instructions}</p>
-										{/if}
-										{#if (payload.segments?.length ?? 0) > 0}
-											<div class="detail-list">
-												{#each payload.segments ?? [] as segment}
-													<div class="detail-row">
-														<span>{segment.label}</span>
-														<strong>{formatSeconds(segment.duration_seconds)}</strong>
-													</div>
-												{/each}
-											</div>
-										{/if}
-										<label class="detail-field">
-											<span>Actual minutes</span>
-											<input type="number" bind:value={detailDuration} min="0" onblur={() => onDetailBlur(card)} />
-										</label>
-										{#if (payload.rating_prompts?.length ?? 0) > 0}
-											<div class="ratings-grid">
-												{#each payload.rating_prompts ?? [] as prompt}
-													<label class="detail-field">
-														<span>{prompt.label}</span>
-														<input
-															type="number"
-															bind:value={detailRatings[prompt.key]}
-															min={prompt.scale_min ?? 1}
-															max={prompt.scale_max ?? 5}
-															placeholder="{prompt.scale_min ?? 1}–{prompt.scale_max ?? 5}"
-															onblur={() => onDetailBlur(card)}
-														/>
-													</label>
-												{/each}
-											</div>
-										{/if}
-									{:else if card.renderer === 'checklist_block'}
-										{@const payload = checklistPayload(card.payload_json)}
-										{#if payload.instructions}
-											<p class="detail-copy">{payload.instructions}</p>
-										{/if}
-										<div class="checklist">
-											{#each payload.items ?? [] as item}
-												<label class="check-item">
-													<input
-														type="checkbox"
-														bind:checked={detailItemStates[item.id]}
-														onchange={() => onDetailCheckboxChange(card)}
-													/>
-													<div>
-														<strong>{item.label}</strong>
-														{#if item.detail}
-															<small>{item.detail}</small>
-														{/if}
-													</div>
-												</label>
-											{/each}
-										</div>
-									{:else}
-										{@const payload = exercisePayload(card.payload_json)}
-										{#if payload.instructions}
-											<p class="detail-copy">{payload.instructions}</p>
-										{/if}
-										<div class="checklist">
-											{#each payload.exercises ?? [] as exercise}
-												<label class="check-item">
-													<input
-														type="checkbox"
-														bind:checked={detailItemStates[exercise.id]}
-														onchange={() => onDetailCheckboxChange(card)}
-													/>
-													<div>
-														<strong>{exercise.label}</strong>
-														<small>
-															{exercise.detail ?? exercise.reps ?? ''}
-															{#if exercise.duration_seconds}
-																{exercise.detail || exercise.reps ? ' \u00B7 ' : ''}{formatSeconds(exercise.duration_seconds)}
-															{/if}
-														</small>
-													</div>
-												</label>
-											{/each}
-										</div>
-									{/if}
-
+									{#key detailRemountToken}
+										<CardBody
+											{card}
+											mode="log"
+											onActual={(actual) => {
+												stagedActual = actual;
+												if (actual.card_type === 'checklist') {
+													// Answers are the ground truth; derive status from them directly.
+													const status = deriveStatusFromAnswers(actual.answers);
+													localStatus[card.occurrence_key] = status;
+													statusVersion++;
+												} else if (
+													actual.card_type === 'strength_session' &&
+													card.payload_json.card_type === 'strength_session'
+												) {
+													// Logged sets are evidence, not the full story — only upgrade,
+													// never downgrade an explicitly set completed/skipped status.
+													const derived = deriveStatusFromStrength(
+														actual,
+														(card.payload_json.exercises ?? []).length
+													);
+													if (STATUS_RANK[derived] > STATUS_RANK[effectiveStatus(card)]) {
+														localStatus[card.occurrence_key] = derived;
+														statusVersion++;
+													}
+												}
+												schedulePersistDetail(card);
+											}}
+										/>
+									{/key}
 									<label class="detail-field">
 										<span>Notes</span>
 										<textarea
@@ -909,6 +863,7 @@
 		border-radius: 10px;
 		background: rgba(255, 255, 255, 0.025);
 		border: 1px solid rgba(255, 255, 255, 0.05);
+		border-left: 3px solid var(--dr-color, #5e7282);
 		transition:
 			background 0.15s,
 			opacity 0.2s;
@@ -942,6 +897,7 @@
 		opacity: 1;
 		background: rgba(255, 255, 255, 0.04);
 		border-color: rgba(255, 255, 255, 0.1);
+		border-left-color: var(--dr-color, #5e7282);
 	}
 
 	.row-main {
@@ -1051,6 +1007,13 @@
 		color: #8fa3b0;
 	}
 
+	.domain-icon {
+		flex-shrink: 0;
+		font-size: 14px;
+		line-height: 1;
+		opacity: 0.8;
+	}
+
 	.row-actions {
 		display: flex;
 		align-items: center;
@@ -1095,38 +1058,8 @@
 		gap: 12px;
 	}
 
-	.detail-pattern {
-		margin: 0 0 4px;
-		color: #d0dce4;
-		font-size: 14px;
-		font-weight: 600;
-		letter-spacing: 0.01em;
-	}
-
-	.detail-copy {
-		margin: 0;
-		color: #a7bac6;
-		font-size: 13px;
-		line-height: 1.5;
-	}
-
-	.detail-list,
-	.checklist {
-		display: grid;
-		gap: 6px;
-	}
-
-	.detail-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding: 8px 10px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
-		font-size: 13px;
-	}
-
+	/* Notes textarea label — detail-field is still used here; card-specific styles live in
+	   ChecklistCard.svelte and CardBody.svelte. */
 	.detail-field {
 		display: flex;
 		flex-direction: column;
@@ -1141,7 +1074,6 @@
 		color: #8fa3b0;
 	}
 
-	input,
 	textarea {
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: rgba(8, 15, 24, 0.7);
@@ -1150,37 +1082,7 @@
 		padding: 8px 10px;
 		font: inherit;
 		font-size: 13px;
-	}
-
-	textarea {
 		resize: vertical;
-	}
-
-	.ratings-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 8px;
-	}
-
-	.check-item {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 10px;
-		padding: 8px 10px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
-		font-size: 13px;
-	}
-
-	.check-item strong {
-		font-size: 13px;
-	}
-
-	.check-item small {
-		display: block;
-		margin-top: 2px;
-		color: #6b8292;
-		font-size: 11px;
 	}
 
 @media (max-width: 768px) {

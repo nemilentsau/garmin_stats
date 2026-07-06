@@ -17,7 +17,13 @@ from app.domains.routines.adapters import (
     load_routine_schedules,
 )
 from app.domains.routines.contracts import (
+    BreathTimerPayload,
     CardOverride,
+    ChecklistPayload,
+    MeditationTimerPayload,
+    RunningWorkoutPayload,
+    StrengthSessionPayload,
+    TimerActual,
     TodayCardLogUpdateRequest,
 )
 from tests._architecture import REPO_ROOT
@@ -76,8 +82,6 @@ _FOUR_WEEK_STRENGTH_RUNNING_BUNDLE_PATH = (
 
 def _card_request(
     card_id: str,
-    *,
-    renderer: str = "timer_session",
 ) -> AssistantArtifactCreateRequest:
     return AssistantArtifactCreateRequest(
         id=f"artifact-{card_id}",
@@ -86,17 +90,14 @@ def _card_request(
         payload_json={
             "id": card_id,
             "name": f"Card {card_id}",
-            "renderer": renderer,
             "slot_default": "evening",
             "summary": "Breath-led recovery card",
             "tags": ["mindfulness"],
             "payload": {
+                "card_type": "breath_timer",
                 "duration_minutes": 10,
-                "pattern": "5s in / 5s out",
+                "pattern_label": "5s in / 5s out",
                 "instructions": "Stay relaxed.",
-                "rating_prompts": [
-                    {"key": "clarity", "label": "Clarity", "scale_min": 1, "scale_max": 5}
-                ],
             },
         },
     )
@@ -219,22 +220,14 @@ def _starter_bundle_spec() -> ArtifactBundleSpec:
                 {
                     "id": "starter-breathing-card",
                     "name": "Starter Breathing Card",
-                    "renderer": "timer_session",
                     "slot_default": "morning",
                     "summary": "Reusable breathwork card template.",
                     "tags": ["starter", "breathwork"],
                     "payload": {
+                        "card_type": "breath_timer",
                         "duration_minutes": 8,
-                        "pattern": "5s in / 5s out",
+                        "pattern_label": "5s in / 5s out",
                         "instructions": "Keep the breath smooth and relaxed.",
-                        "rating_prompts": [
-                            {
-                                "key": "attention_stability",
-                                "label": "Attention stability",
-                                "scale_min": 1,
-                                "scale_max": 5,
-                            }
-                        ],
                     },
                 }
             ],
@@ -281,17 +274,14 @@ def _bundle_card_spec(
     return {
         "id": card_id,
         "name": name,
-        "renderer": "timer_session",
         "slot_default": "evening",
         "summary": "Breath-led recovery card",
         "tags": ["mindfulness"],
         "payload": {
+            "card_type": "breath_timer",
             "duration_minutes": duration_minutes,
-            "pattern": "5s in / 5s out",
+            "pattern_label": "5s in / 5s out",
             "instructions": f"Practice {name.lower()}",
-            "rating_prompts": [
-                {"key": "clarity", "label": "Clarity", "scale_min": 1, "scale_max": 5}
-            ],
         },
     }
 
@@ -330,17 +320,32 @@ class TestAssistantArtifactValidation:
         assert artifact.status == "validated"
         assert artifact.validation_errors == []
 
-    def test_unsupported_renderer_creates_capability_request_artifact(self):
+    def test_unsupported_card_type_creates_invalid_artifact(self):
         artifact = create_assistant_artifact(
-            _card_request("card-unsupported", renderer="guided_journal")
+            AssistantArtifactCreateRequest(
+                id="artifact-card-unsupported",
+                kind="card_template",
+                schema_version=1,
+                payload_json={
+                    "id": "card-unsupported",
+                    "name": "Card card-unsupported",
+                    "slot_default": "evening",
+                    "summary": "Unsupported type fixture",
+                    "tags": ["test"],
+                    "payload": {
+                        "card_type": "guided_journal",
+                        "instructions": "Write something.",
+                    },
+                },
+            )
         )
 
-        capability_requests = load_assistant_artifacts(kind="capability_request")
-
         assert artifact.status == "invalid"
-        assert "Unsupported renderer family 'guided_journal'" in artifact.validation_errors[0]
-        assert len(capability_requests) == 1
-        assert capability_requests[0].payload_json["requested_renderer"] == "guided_journal"
+        assert len(artifact.validation_errors) > 0
+        assert any(
+            "guided_journal" in err or "card_type" in err
+            for err in artifact.validation_errors
+        )
 
 
 class TestArtifactActivation:
@@ -387,7 +392,7 @@ class TestArtifactActivation:
 
         assert card is not None
         assert card.name == "Card refreshed"
-        assert card.payload_json["duration_minutes"] == 14
+        assert card.payload_json.model_dump()["duration_minutes"] == 14
         assert card.source_artifact_id == "artifact-card-refresh-v2"
 
 
@@ -519,7 +524,7 @@ class TestArtifactBundles:
 
         assert card is not None
         assert card.name == "First Revision"
-        assert card.payload_json["duration_minutes"] == 8
+        assert card.payload_json.model_dump()["duration_minutes"] == 8
 
     def test_activating_bundle_routine_updates_existing_live_card_to_bundle_revision(self):
         create_assistant_artifact(_card_request("shared-card"))
@@ -558,7 +563,7 @@ class TestArtifactBundles:
 
         assert card is not None
         assert card.name == "Updated Bundle Revision"
-        assert card.payload_json["duration_minutes"] == 12
+        assert card.payload_json.model_dump()["duration_minutes"] == 12
         assert card.source_artifact_id == card_artifact_id
 
     def test_preview_bundle_reports_assignment_id_collision_with_existing_live_routine(self):
@@ -627,6 +632,26 @@ class TestArtifactBundles:
         assert preview.valid is True
         assert len(preview.deltas) == 7
 
+        # Verify payload card_types
+        breath_cards = [c for c in bundle.card_templates if c.payload.card_type == "breath_timer"]
+        meditation_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "meditation_timer"
+        ]
+        assert len(breath_cards) == 4
+        assert len(meditation_cards) == 2
+        # Spot-check: resonance card has correct prescription and no phases field
+        resonance = next(
+            c for c in bundle.card_templates if c.id == "meditation-resonance-breathing"
+        )
+        assert isinstance(resonance.payload, BreathTimerPayload)
+        assert resonance.payload.pattern_label == "5s in / 5s out"
+        assert not hasattr(resonance.payload, "phases")
+        # Spot-check: focused attention has correct technique and anchor
+        focused = next(c for c in bundle.card_templates if c.id == "meditation-focused-attention")
+        assert isinstance(focused.payload, MeditationTimerPayload)
+        assert focused.payload.technique == "focused_attention"
+        assert focused.payload.anchor == "exhale count"
+
         imported = import_artifact_bundle(bundle)
         routine_artifact_ids = [
             delta.artifact_id for delta in imported.deltas if delta.kind == "routine_spec"
@@ -648,7 +673,8 @@ class TestArtifactBundles:
             "Extended Exhale",
         ]
         assert [
-            occurrence.payload_json["duration_minutes"] for occurrence in day1.occurrences
+            occurrence.payload_json.model_dump()["duration_minutes"]
+            for occurrence in day1.occurrences
         ] == [8, 6]
         assert [occurrence.slot for occurrence in day8.occurrences] == [
             "morning",
@@ -661,13 +687,17 @@ class TestArtifactBundles:
             "Extended Exhale",
         ]
         assert day12.occurrences[2].name == "Open Monitoring"
-        assert "Extended Exhale instead" in str(day12.occurrences[2].payload_json["instructions"])
+        assert "Extended Exhale instead" in str(
+            day12.occurrences[2].payload_json.model_dump()["instructions"]
+        )
 
         today = get_today("2026-03-16")
         all_cards = [card for slot in today.slots for card in slot.cards]
 
         assert [card.name for card in all_cards] == ["Resonance Breathing", "Extended Exhale"]
-        assert [card.payload_json["duration_minutes"] for card in all_cards] == [8, 6]
+        assert [
+            card.payload_json.model_dump()["duration_minutes"] for card in all_cards
+        ] == [8, 6]
 
     def test_four_week_meditation_bundle_previews_as_valid_artifact_bundle(self):
         bundle = _load_four_week_meditation_bundle()
@@ -703,6 +733,28 @@ class TestArtifactBundles:
         assert slots.count("morning") == 16
         assert slots.count("evening") == 12
         assert set(slots) == {"morning", "evening"}
+        # All breath timer cards carry the typed card_type discriminator
+        timer_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "breath_timer"
+        ]
+        assert len(timer_cards) == 8
+
+    def test_four_week_breathwork_bundle_import_exposes_breath_timer_card_type(self):
+        bundle = _load_four_week_breathwork_bundle()
+        imported = import_artifact_bundle(bundle)
+        routine_artifact_ids = [
+            delta.artifact_id for delta in imported.deltas if delta.kind == "routine_spec"
+        ]
+        activate_assistant_artifact(routine_artifact_ids[0])
+
+        templates = load_card_templates()
+        breathwork_timer_cards = [
+            t for t in templates if t.payload_json.card_type == "breath_timer"
+        ]
+        assert len(breathwork_timer_cards) == 8
+        assert all(
+            t.payload_json.card_type == "breath_timer" for t in breathwork_timer_cards
+        )
 
     def test_four_week_running_bundle_previews_with_owned_supported_cards(self):
         bundle = _load_four_week_running_bundle()
@@ -714,10 +766,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 10
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 33
-        assert {card.renderer for card in bundle.card_templates} == {
-            "checklist_block",
-            "exercise_block",
-        }
         assert all(
             card.id.startswith("running-calibration-") for card in bundle.card_templates
         )
@@ -725,21 +773,39 @@ class TestArtifactBundles:
         assert slots.count("morning") == 29
         assert slots.count("evening") == 4
         assert set(slots) == {"morning", "evening"}
+        running_workout_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "running_workout"
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(running_workout_cards) == 8
+        assert len(checklist_cards) == 2
+        strides_card = next(
+            c for c in running_workout_cards if c.id == "running-calibration-easy-strides"
+        )
+        assert isinstance(strides_card.payload, RunningWorkoutPayload)
+        assert strides_card.payload.workout_type == "easy_plus_strides"
+        assert strides_card.payload.calibration_quality is True
+        lthr_card = next(
+            c for c in running_workout_cards if c.id == "running-calibration-lthr-test"
+        )
+        assert isinstance(lthr_card.payload, RunningWorkoutPayload)
+        assert lthr_card.payload.workout_type == "diagnostic_lthr_test"
+        for card in checklist_cards:
+            assert isinstance(card.payload, ChecklistPayload)
+            assert card.payload.domain == "running"
 
     def test_four_week_running_bundle_collects_run_confounders_after_each_run(self):
         bundle = _load_four_week_running_bundle()
 
-        run_assignments = [
-            assignment
-            for assignment in bundle.routine_specs[0].assignments
-            if assignment.card_template_id
-            not in {
-                "running-calibration-hr-strap-setup",
-                "running-calibration-weekly-review",
-            }
+        running_cards = [
+            c
+            for c in bundle.card_templates
+            if isinstance(c.payload, RunningWorkoutPayload)
         ]
 
-        assert len(run_assignments) == 28
+        assert len(running_cards) == 8
         expected_field_keys = {
             "temperature_f",
             "humidity_percent",
@@ -755,12 +821,18 @@ class TestArtifactBundles:
             "soreness_or_pain",
             "hr_source_quality",
         }
-        for assignment in run_assignments:
-            post_run_fields = cast(
-                list[dict[str, object]],
-                assignment.prescription_override_json.get("post_run_fields", []),
-            )
-            assert {field["key"] for field in post_run_fields} == expected_field_keys
+        for card in running_cards:
+            assert isinstance(card.payload, RunningWorkoutPayload)
+            prf = card.payload.post_run_fields
+            assert {f.key for f in prf} == expected_field_keys
+        # spot-check typed fields on a known card
+        temp_field = next(
+            f
+            for f in running_cards[0].payload.post_run_fields  # type: ignore[union-attr]
+            if f.key == "temperature_f"
+        )
+        assert temp_field.field_type == "number"
+        assert temp_field.unit == "F"
 
     def test_four_week_running_support_bundle_previews_with_supported_slots_and_cards(self):
         bundle = _load_four_week_running_support_bundle()
@@ -772,10 +844,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 7
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 26
-        assert {card.renderer for card in bundle.card_templates} == {
-            "checklist_block",
-            "exercise_block",
-        }
         assert all(
             card.id.startswith("running-support-calibration-")
             for card in bundle.card_templates
@@ -785,6 +853,16 @@ class TestArtifactBundles:
         assert slots.count("midday") == 6
         assert slots.count("evening") == 16
         assert set(slots) == {"morning", "midday", "evening"}
+        strength_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "strength_session"
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(strength_cards) == 6
+        assert len(checklist_cards) == 1
+        assert isinstance(checklist_cards[0].payload, ChecklistPayload)
+        assert checklist_cards[0].payload.domain == "running"
 
     def test_four_week_running_meditation_transfer_bundle_previews_with_supported_slots_and_cards(
         self,
@@ -798,10 +876,6 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 10
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 32
-        assert {card.renderer for card in bundle.card_templates} == {
-            "checklist_block",
-            "exercise_block",
-        }
         assert all(
             card.id.startswith("running-meditation-transfer-")
             for card in bundle.card_templates
@@ -811,6 +885,13 @@ class TestArtifactBundles:
         assert slots.count("midday") == 1
         assert slots.count("evening") == 4
         assert set(slots) == {"morning", "midday", "evening"}
+        checklist_cards = [
+            c for c in bundle.card_templates if c.payload.card_type == "checklist"
+        ]
+        assert len(checklist_cards) == 10
+        for c in checklist_cards:
+            assert isinstance(c.payload, ChecklistPayload)
+            assert c.payload.domain == "running"
 
     def test_four_week_strength_running_bundle_previews_with_supported_slots_and_cards(
         self,
@@ -824,14 +905,46 @@ class TestArtifactBundles:
         assert len(bundle.card_templates) == 8
         assert len(bundle.routine_specs) == 1
         assert len(bundle.routine_specs[0].assignments) == 28
-        assert {card.renderer for card in bundle.card_templates} == {
-            "checklist_block",
-            "exercise_block",
-        }
+        # All card IDs use the expected prefix
         assert all(
             card.id.startswith("strength-running-calibration-")
             for card in bundle.card_templates
         )
+        # 6 workout cards are strength_session; 2 review/skip cards are checklist
+        strength_cards = [
+            c for c in bundle.card_templates if isinstance(c.payload, StrengthSessionPayload)
+        ]
+        checklist_cards = [
+            c for c in bundle.card_templates if isinstance(c.payload, ChecklistPayload)
+        ]
+        assert len(strength_cards) == 6
+        assert len(checklist_cards) == 2
+        # Each strength card has exercises (no fake post_session_ratings row) and rating_prompts
+        for card in strength_cards:
+            assert isinstance(card.payload, StrengthSessionPayload)
+            exercise_ids = [ex.id for ex in card.payload.exercises]
+            assert "post_session_ratings" not in exercise_ids
+            assert len(card.payload.rating_prompts) >= 2
+        # Push A specifics: session_focus, duration_minutes, rir_guidance, set_scheme
+        push_a = next(c for c in strength_cards if c.id == "strength-running-calibration-push-a")
+        assert isinstance(push_a.payload, StrengthSessionPayload)
+        assert push_a.payload.session_focus == "Chest + Side Delts"
+        assert push_a.payload.duration_minutes == 45
+        assert push_a.payload.rir_guidance is not None
+        pa1 = next(ex for ex in push_a.payload.exercises if ex.id == "pa1")
+        assert pa1.set_scheme == "3x5-8"
+        # Lower A specifics
+        lower_a = next(c for c in strength_cards if c.id == "strength-running-calibration-lower-a")
+        assert isinstance(lower_a.payload, StrengthSessionPayload)
+        assert lower_a.payload.session_focus == "Runner Force Production"
+        assert lower_a.payload.duration_minutes == 30
+        la1 = next(ex for ex in lower_a.payload.exercises if ex.id == "la1")
+        assert la1.set_scheme == "2-3x3-5"
+        # Checklist cards have domain == "strength"
+        for card in checklist_cards:
+            assert isinstance(card.payload, ChecklistPayload)
+            assert card.payload.domain == "strength"
+        # Slot distribution
         slots = [assignment.slot for assignment in bundle.routine_specs[0].assignments]
         assert slots.count("midday") == 23
         assert slots.count("evening") == 5
@@ -887,10 +1000,16 @@ class TestArtifactBundles:
             "Supporting Block 1",
             "Supporting Block 2",
         ]
-        assert _exercise_list(day1.occurrences[0].payload_json)[0]["reps"] == "2x8 each side"
-        assert _exercise_list(day12.occurrences[0].payload_json)[3]["label"] == "Turkish get-up"
-        assert _exercise_list(day12.occurrences[3].payload_json)[0]["reps"] == "3x4"
-        assert _exercise_list(day14.occurrences[0].payload_json)[3]["reps"] == "2x30s"
+        # Verify all card templates are strength_session
+        for card in bundle.card_templates:
+            assert isinstance(card.payload, StrengthSessionPayload), (
+                f"{card.id} is not strength_session"
+            )
+        # Spot-check: core-day-a template exercise set_scheme
+        core_a = next(c for c in bundle.card_templates if c.id == "core-day-a")
+        assert isinstance(core_a.payload, StrengthSessionPayload)
+        assert core_a.payload.exercises[0].id == "a1"
+        assert core_a.payload.exercises[0].set_scheme == "2x8 each side"
 
         today = get_today("2026-03-27")
         all_cards = [card for slot in today.slots for card in slot.cards]
@@ -909,14 +1028,7 @@ class TestArtifactBundles:
                 card_template_id=all_cards[0].card_template_id,
                 assignment_id=all_cards[0].assignment_id,
                 status="completed",
-                actual_json={
-                    "item_states": {
-                        "d1": True,
-                        "d2": True,
-                        "d3": True,
-                        "d4": False,
-                    }
-                },
+                actual_json=None,
                 notes="Core block completed before strength session.",
             ),
         )
@@ -928,8 +1040,6 @@ class TestArtifactBundles:
         )
 
         assert updated_core.status == "completed"
-        item_states = cast(dict[str, bool], updated_core.actual_json["item_states"])
-        assert item_states["d3"] is True
         assert updated_core.notes == "Core block completed before strength session."
 
 
@@ -977,7 +1087,7 @@ class TestTodayProjection:
                 card_template_id=scheduled_card.card_template_id,
                 assignment_id=scheduled_card.assignment_id,
                 status="partial",
-                actual_json={"actual_minutes": 8, "ratings": {"clarity": 4}},
+                actual_json=TimerActual(card_type="breath_timer", ratings={"clarity": 4}),
                 notes="Shortened after the run",
             ),
         )
@@ -985,7 +1095,8 @@ class TestTodayProjection:
         logged_card = today_with_log.slots[2].cards[0]
 
         assert logged_card.status == "partial"
-        assert logged_card.actual_json["actual_minutes"] == 8
+        assert logged_card.actual_json is not None
+        assert logged_card.actual_json.model_dump()["ratings"]["clarity"] == 4
         assert logged_card.notes == "Shortened after the run"
 
     def test_today_log_rejects_missing_occurrence(self):
