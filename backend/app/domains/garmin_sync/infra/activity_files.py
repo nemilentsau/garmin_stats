@@ -74,6 +74,7 @@ class FilesystemActivityStore:
     """ActivityFileStore adapter over the garmin_activities day-directory tree."""
 
     def has_activity(self, activities_dir: Path, day: date, activity_id: str) -> bool:
+        """Return whether this activity id already has a sidecar under the day directory."""
         return existing_activity_stem(activities_dir / day.isoformat(), activity_id) is not None
 
     def store_activity(
@@ -84,6 +85,7 @@ class FilesystemActivityStore:
         metadata: dict[str, Any],
         payload: bytes,
     ) -> None:
+        """Extract and persist one activity payload under the day directory."""
         store_activity_payload(activities_dir / day.isoformat(), activity_id, metadata, payload)
 
 
@@ -93,6 +95,12 @@ def _activity_file_stem_from_fit(
     metadata: dict[str, Any],
     fit_paths: list[Path],
 ) -> str:
+    """Build a readable, stable stem from decoded FIT session data.
+
+    On a stem collision with a different activity's sidecar, the Garmin
+    activity id is appended so two same-second activities never overwrite
+    each other.
+    """
     base_stem = _activity_base_stem(metadata, _activity_kind_from_fit(fit_paths[0]))
     metadata_path = day_dir / f"{base_stem}.json"
     if not metadata_path.exists() or _metadata_matches_activity(metadata_path, activity_id):

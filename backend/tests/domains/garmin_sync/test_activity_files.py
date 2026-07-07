@@ -19,6 +19,7 @@ from app.domains.garmin_sync.infra import activity_files
 from app.domains.garmin_sync.infra.activity_files import (
     FilesystemActivityStore,
     existing_activity_stem,
+    remove_activity_outputs,
     store_activity_payload,
 )
 
@@ -105,3 +106,33 @@ def test_store_adapter_round_trips_day_directories(tmp_path: Path):
 
     assert store.has_activity(tmp_path, day, "23398049297") is True
     assert (tmp_path / "2026-06-27" / "104056_running_generic.fit").exists()
+
+
+def test_remove_activity_outputs_deletes_fits_and_sidecar_only_for_stem(tmp_path: Path):
+    (tmp_path / "104056_running_generic.fit").write_bytes(b"fit")
+    (tmp_path / "104056_running_generic_part2.fit").write_bytes(b"fit2")
+    (tmp_path / "104056_running_generic.json").write_text("{}")
+    (tmp_path / "090000_other_run.fit").write_bytes(b"keep")
+
+    remove_activity_outputs(tmp_path, "104056_running_generic")
+
+    assert not (tmp_path / "104056_running_generic.fit").exists()
+    assert not (tmp_path / "104056_running_generic_part2.fit").exists()
+    assert not (tmp_path / "104056_running_generic.json").exists()
+    assert (tmp_path / "090000_other_run.fit").exists()
+
+
+def test_store_cleans_up_extracted_fits_when_fit_decode_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def _undecodable(_path: Path) -> str:
+        raise ValueError("undecodable FIT")
+
+    monkeypatch.setattr(activity_files, "_activity_kind_from_fit", _undecodable)
+    payload = _zip_payload({"a.fit": b"one", "b.fit": b"two"})
+    before = set(tmp_path.iterdir())
+
+    with pytest.raises(ValueError):
+        store_activity_payload(tmp_path, "7", METADATA, payload)
+
+    assert set(tmp_path.iterdir()) == before
