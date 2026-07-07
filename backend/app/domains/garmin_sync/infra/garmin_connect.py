@@ -6,23 +6,36 @@ import time
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from garminconnect import Garmin
 
-from app.domains.garmin_sync.dependencies import GarminDownloadClient
+from app.domains.garmin_sync.dependencies import ActivityRef, GarminDownloadClient
 
 _WELLNESS_ARCHIVE_PATH_PREFIX = "/download-service/files/wellness"
 _MINIMUM_ARCHIVE_BYTES = 100
+_MINIMUM_ACTIVITY_BYTES = 100
 _REQUEST_SPACING_SECONDS = 1.0
 
 
 class _RawGarminClient(Protocol):
     def download(self, path: str) -> bytes | bytearray | None: ...
 
+    def get_activities_by_date(
+        self,
+        startdate: str,
+        enddate: str,
+        activitytype: str | None = None,
+        sortorder: str | None = None,
+    ) -> list[dict[str, Any]]: ...
 
-class GarminConnectWellnessClient:
-    """Download daily wellness archives through the logged-in Garmin Connect client."""
+    def download_activity(
+        self, activity_id: str, dl_fmt: Any
+    ) -> bytes | bytearray | None: ...
+
+
+class GarminConnectDownloadClient:
+    """Download wellness archives and original activity payloads via Garmin Connect."""
 
     def __init__(
         self,
@@ -37,18 +50,41 @@ class GarminConnectWellnessClient:
         self._has_requested = False
 
     def download_wellness_archive(self, day: date) -> bytes | None:
-        if self._has_requested:
-            self._sleep(self._request_spacing_seconds)
-        self._has_requested = True
-
+        self._space_requests()
         data = self._client.download(f"{_WELLNESS_ARCHIVE_PATH_PREFIX}/{day.isoformat()}")
         if not data or len(data) < _MINIMUM_ARCHIVE_BYTES:
             return None
         return bytes(data)
 
+    def list_activities(self, day: date) -> list[ActivityRef]:
+        self._space_requests()
+        date_str = day.isoformat()
+        activities = self._client.get_activities_by_date(date_str, date_str, sortorder="asc")
+        refs: list[ActivityRef] = []
+        for activity in activities:
+            activity_id = activity.get("activityId")
+            if activity_id is None:
+                continue
+            refs.append(ActivityRef(activity_id=str(activity_id), metadata=activity))
+        return refs
+
+    def download_activity_original(self, activity_id: str) -> bytes | None:
+        self._space_requests()
+        data = self._client.download_activity(
+            activity_id, Garmin.ActivityDownloadFormat.ORIGINAL
+        )
+        if not data or len(data) < _MINIMUM_ACTIVITY_BYTES:
+            return None
+        return bytes(data)
+
+    def _space_requests(self) -> None:
+        if self._has_requested:
+            self._sleep(self._request_spacing_seconds)
+        self._has_requested = True
+
 
 class GarminConnectClientFactory:
-    """Create Garmin wellness download clients from saved token-directory login state."""
+    """Create Garmin download clients from saved token-directory login state."""
 
     def __init__(self, token_dir: Path) -> None:
         self._token_dir = token_dir
@@ -62,4 +98,4 @@ class GarminConnectClientFactory:
             )
         client = Garmin()
         client.login(str(token_path))
-        return GarminConnectWellnessClient(client, sleep=time.sleep)
+        return GarminConnectDownloadClient(client, sleep=time.sleep)

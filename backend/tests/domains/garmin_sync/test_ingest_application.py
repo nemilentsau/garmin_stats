@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
-from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.dependencies import ActivityRef, GarminSyncDependencies
 from app.domains.garmin_sync.workflows import (
     _plan_sync_dates,
     get_ingest_status,
@@ -58,6 +58,12 @@ class FakeGarminClient:
     def download_wellness_archive(self, day: date) -> bytes | None:
         self.days.append(day)
         return self.responses[day.isoformat()]
+
+    def list_activities(self, day: date) -> list[ActivityRef]:
+        raise NotImplementedError("not exercised by ingest application tests")
+
+    def download_activity_original(self, activity_id: str) -> bytes | None:
+        raise NotImplementedError("not exercised by ingest application tests")
 
 
 class FakeGarminClientFactory:
