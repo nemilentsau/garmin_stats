@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402, I001
 """Download Garmin wellness archives or activity FIT files from Garmin Connect.
 
 Usage:
@@ -29,18 +30,22 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import subprocess
 import sys
 import time
 from datetime import date, datetime, timedelta
-from io import BytesIO
 from pathlib import Path
-from zipfile import BadZipFile, ZipFile
 
-from garmin_fit_sdk import Decoder, Stream
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "backend"))
+
+from app.domains.garmin_sync.infra.activity_files import (
+    existing_activity_stem,
+    remove_activity_outputs,
+    store_activity_payload,
+)
 from garminconnect import Garmin
 
 try:
@@ -50,12 +55,10 @@ try:
 except ImportError:
     pass
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 TOKEN_DIR = os.environ.get("GARMINTOKENS", "~/.garminconnect")
 DOWNLOAD_SERVICE_URL = "/download-service/files"
 MINIMUM_ACTIVITY_BYTES = 100
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}(?:\.zip)?$")
-SAFE_FILENAME_PATTERN = re.compile(r"[^a-z0-9_-]+")
 
 
 def _derive_shared_checkout_root(repo_root: Path) -> Path | None:
@@ -221,15 +224,14 @@ def download_activity_files(
 
         activity_id_str = str(activity_id)
         name = activity.get("activityName") or "(unnamed)"
-        existing_stem = _existing_activity_stem(day_dir, activity_id_str)
+        existing_stem = existing_activity_stem(day_dir, activity_id_str)
 
         if existing_stem and not force:
             print(f"    {existing_stem}: already exists ({name})")
             skipped += 1
             continue
 
-        base_stem = _activity_base_stem(activity, activity_id_str)
-        print(f"    {base_stem}: downloading ({name})...", end=" ", flush=True)
+        print(f"    {activity_id_str}: downloading ({name})...", end=" ", flush=True)
         try:
             payload = client.download_activity(
                 activity_id_str,
@@ -245,24 +247,16 @@ def download_activity_files(
             failed += 1
             continue
 
-        day_dir.mkdir(parents=True, exist_ok=True)
-        if force:
-            _remove_activity_outputs(day_dir, existing_stem or base_stem)
+        if force and existing_stem:
+            remove_activity_outputs(day_dir, existing_stem)
 
         try:
-            extracted = _extract_activity_payload(payload, base_stem, day_dir)
-            final_stem = _activity_file_stem_from_fit(day_dir, activity_id_str, activity, extracted)
-            extracted = _rename_activity_outputs(day_dir, base_stem, final_stem, extracted)
+            extracted = store_activity_payload(day_dir, activity_id_str, activity, payload)
         except ValueError as e:
             print(f"FAILED ({e})")
             failed += 1
             continue
 
-        metadata_path = day_dir / f"{final_stem}.json"
-        metadata_path.write_text(
-            json.dumps(activity, indent=2, sort_keys=True, default=str),
-            encoding="utf-8",
-        )
         print(f"OK ({len(payload):,} bytes, {len(extracted)} FIT)")
         downloaded += 1
 
@@ -270,124 +264,6 @@ def download_activity_files(
             time.sleep(1)
 
     return downloaded, skipped, failed
-
-
-def _existing_activity_stem(day_dir: Path, activity_id: str) -> str | None:
-    """Find an existing downloaded activity by its Garmin Connect activity id."""
-    if not day_dir.exists():
-        return None
-
-    for metadata_path in sorted(day_dir.glob("*.json")):
-        if _metadata_matches_activity(metadata_path, activity_id):
-            return metadata_path.stem
-    return None
-
-
-def _activity_file_stem_from_fit(
-    day_dir: Path,
-    activity_id: str,
-    activity: dict,
-    fit_paths: list[Path],
-) -> str:
-    """Build a readable, stable activity filename stem from decoded FIT session data."""
-    base_stem = _activity_base_stem(activity, _activity_kind_from_fit(fit_paths[0]))
-    metadata_path = day_dir / f"{base_stem}.json"
-    if not metadata_path.exists() or _metadata_matches_activity(metadata_path, activity_id):
-        return base_stem
-    return f"{base_stem}_{activity_id}"
-
-
-def _activity_base_stem(activity: dict, activity_kind: str) -> str:
-    started_at = _activity_start_time(activity)
-    time_part = started_at.strftime("%H%M%S") if started_at else "unknown-time"
-    return f"{time_part}_{_safe_filename_part(activity_kind)}"
-
-
-def _activity_kind_from_fit(fit_path: Path) -> str:
-    messages, errors = Decoder(Stream.from_file(str(fit_path))).read()
-    if errors:
-        raise ValueError(f"{fit_path.name} decoded with errors: {errors}")
-
-    session = (messages.get("session_mesgs") or [{}])[0]
-    sport = _safe_filename_part(str(session.get("sport") or "activity"))
-    sub_sport = _safe_filename_part(str(session.get("sub_sport") or "generic"))
-    return f"{sport}_{sub_sport}"
-
-
-def _activity_start_time(activity: dict) -> datetime | None:
-    for key in ("startTimeLocal", "startTimeGMT"):
-        raw = activity.get(key)
-        if not raw:
-            continue
-        try:
-            return datetime.strptime(str(raw), "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            continue
-    return None
-
-
-def _safe_filename_part(value: str) -> str:
-    safe = SAFE_FILENAME_PATTERN.sub("-", value.strip().lower()).strip("-_")
-    return safe or "activity"
-
-
-def _metadata_matches_activity(metadata_path: Path, activity_id: str) -> bool:
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    return str(metadata.get("activityId")) == activity_id
-
-
-def _remove_activity_outputs(day_dir: Path, file_stem: str) -> None:
-    for path in day_dir.glob(f"{file_stem}*.fit"):
-        path.unlink(missing_ok=True)
-    (day_dir / f"{file_stem}.json").unlink(missing_ok=True)
-
-
-def _rename_activity_outputs(
-    day_dir: Path,
-    source_stem: str,
-    target_stem: str,
-    fit_paths: list[Path],
-) -> list[Path]:
-    if source_stem == target_stem:
-        return fit_paths
-
-    (day_dir / f"{source_stem}.json").unlink(missing_ok=True)
-    renamed: list[Path] = []
-    for index, fit_path in enumerate(fit_paths):
-        suffix = "" if index == 0 else f"_part{index + 1}"
-        target_path = day_dir / f"{target_stem}{suffix}.fit"
-        fit_path.replace(target_path)
-        renamed.append(target_path)
-    return renamed
-
-
-def _extract_activity_payload(payload: bytes, file_stem: str, day_dir: Path) -> list[Path]:
-    """Extract Garmin's original activity payload into activity FIT files."""
-    if not payload.startswith(b"PK"):
-        fit_path = day_dir / f"{file_stem}.fit"
-        fit_path.write_bytes(payload)
-        return [fit_path]
-
-    try:
-        with ZipFile(BytesIO(payload)) as archive:
-            fit_members = [
-                member for member in archive.namelist() if member.lower().endswith(".fit")
-            ]
-            if not fit_members:
-                raise ValueError("activity ZIP contained no FIT files")
-
-            extracted: list[Path] = []
-            for index, member in enumerate(fit_members):
-                suffix = "" if index == 0 else f"_part{index + 1}"
-                target_path = day_dir / f"{file_stem}{suffix}.fit"
-                target_path.write_bytes(archive.read(member))
-                extracted.append(target_path)
-            return extracted
-    except BadZipFile as e:
-        raise ValueError("activity payload was not a valid ZIP") from e
 
 
 def parse_date(s: str) -> date:

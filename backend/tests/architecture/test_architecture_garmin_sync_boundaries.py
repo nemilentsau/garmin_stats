@@ -193,6 +193,7 @@ def test_garmin_sync_uses_small_capability_layout_with_only_owned_infra_layer():
     assert not list((base / "application").glob("*.py"))
     assert sorted(path.name for path in (base / "infra").glob("*.py")) == [
         "__init__.py",
+        "activity_files.py",
         "factory.py",
         "filesystem.py",
         "garmin_connect.py",
