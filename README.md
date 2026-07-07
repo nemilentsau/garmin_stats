@@ -253,6 +253,14 @@ cd backend
 uv run python ../scripts/download_garmin.py --activities --health-range
 ```
 
+The dashboard's Sync button (`POST /api/ingest/sync`) also downloads new
+tracked-activity FIT files automatically, alongside the wellness archives, for
+the wellness ingest window plus a 3-day lookback. This is download-only: files
+land under `data/garmin_activities/YYYY-MM-DD/` but are not yet parsed or
+ingested into the database. The sync response reports counts via
+`activities_downloaded` / `activities_skipped` / `activities_failed`, shown
+next to the existing archive/day counts in the sync result line.
+
 FIT structure inspection support is in `scripts/explore_fit_files.py`.
 
 Runtime path overrides are centralized in backend app config:
