@@ -230,13 +230,36 @@ cd backend
 uv run python ../scripts/reingest.py
 ```
 
-Garmin Connect download support is in `scripts/download_garmin.py`. FIT structure
-inspection support is in `scripts/explore_fit_files.py`.
+Garmin Connect download support is in `scripts/download_garmin.py`. By default it
+downloads daily wellness archives. Tracked activity FIT files can be downloaded
+with `--activities`; Garmin returns one original ZIP per activity and the script
+extracts each FIT plus metadata under `data/garmin_activities/YYYY-MM-DD/`.
+Activity filenames use local start time plus decoded FIT `sport` and
+`sub_sport`, for example `104056_running_generic.fit` or
+`105002_training_strength_training.fit`; the Garmin activity id is kept in the
+JSON sidecar and is only appended to filenames if two activities would otherwise
+collide.
+
+```bash
+cd backend
+uv run python ../scripts/download_garmin.py --activities --date 2026-06-27
+```
+
+To backfill tracked activities across the same inclusive date range represented
+by the existing health archive data:
+
+```bash
+cd backend
+uv run python ../scripts/download_garmin.py --activities --health-range
+```
+
+FIT structure inspection support is in `scripts/explore_fit_files.py`.
 
 Runtime path overrides are centralized in backend app config:
 
 - `GARMIN_DB_PATH`
 - `GARMIN_DATA_DIR`
+- `GARMIN_ACTIVITY_DATA_DIR`
 - `GARMINTOKENS`
 
 ## Validation
