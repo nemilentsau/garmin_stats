@@ -22,3 +22,6 @@ class SyncResult(DefaultsRequired):
     deleted_latest: str | None = None
     days_ingested: int
     duration_ms: int
+    activities_downloaded: int
+    activities_skipped: int
+    activities_failed: int

@@ -93,6 +93,7 @@ class GarminSyncDependencies:
     """
 
     data_dir: Path
+    activities_dir: Path
     ingest: IngestGateway
     extract_archives: ArchiveExtractor
     suspend_watcher: WatcherAction
@@ -100,5 +101,6 @@ class GarminSyncDependencies:
     mark_watcher_synced: WatcherAction
     clients: GarminClientFactory
     files: SyncFileStore
+    activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock

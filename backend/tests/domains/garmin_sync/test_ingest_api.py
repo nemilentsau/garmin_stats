@@ -68,6 +68,9 @@ class TestIngestRoutes:
             deleted_latest="2026-03-14",
             days_ingested=1,
             duration_ms=123,
+            activities_downloaded=3,
+            activities_skipped=1,
+            activities_failed=0,
         )
 
         monkeypatch.setattr(ingest_mod, "build_container", lambda: _Container())
