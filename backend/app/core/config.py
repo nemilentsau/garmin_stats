@@ -23,6 +23,7 @@ _DEFAULT_CORS_ORIGINS = [
 class AppConfig:
     database_path: Path
     data_dir: Path
+    activities_dir: Path
     garmin_token_dir: Path
 
 
@@ -31,11 +32,15 @@ def get_app_config(environ: Mapping[str, str] | None = None) -> AppConfig:
     env = os.environ if environ is None else environ
     default_database_path = _PROJECT_ROOT / "storage" / "garmin_stats.db"
     default_data_dir = _PROJECT_ROOT / "data" / "garmin_health_stats"
+    default_activities_dir = _PROJECT_ROOT / "data" / "garmin_activities"
     return AppConfig(
         database_path=Path(
             env.get("GARMIN_DB_PATH", str(default_database_path))
         ).expanduser(),
         data_dir=Path(env.get("GARMIN_DATA_DIR", str(default_data_dir))).expanduser(),
+        activities_dir=Path(
+            env.get("GARMIN_ACTIVITY_DATA_DIR", str(default_activities_dir))
+        ).expanduser(),
         garmin_token_dir=Path(
             env.get("GARMINTOKENS", "~/.garminconnect")
         ).expanduser(),
