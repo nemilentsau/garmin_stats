@@ -1,0 +1,192 @@
+{
+  "id": "block0.calibration",
+  "identity": "measurement",
+  "window": {
+    "start": "2026-07-06",
+    "days": 28
+  },
+  "bundle_ids": [
+    "running.v3",
+    "strength.v3",
+    "support.v3"
+  ],
+  "baseline_tags": [
+    "heat-season",
+    "chronic-load",
+    "protocol-change"
+  ],
+  "flat_weeks": [
+    1,
+    2,
+    3
+  ],
+  "step_response": {
+    "week": 4,
+    "variable": "run_volume",
+    "target_fraction": 0.67,
+    "held_constant": [
+      "strength",
+      "hsr"
+    ]
+  },
+  "measurement_events": [
+    {
+      "id": "ev_lthr_test",
+      "card_id": "run.lthr_test",
+      "estimand": "LTHR (bpm), heat-season conditions",
+      "scheduled_day": 12,
+      "backup_days": [
+        16
+      ],
+      "required": true,
+      "on_all_missed": "extend_block"
+    }
+  ],
+  "scheduling_constraints": [
+    {
+      "id": "sc.protect_long_run",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ],
+        "targets": [
+          "hamstring",
+          "adductor"
+        ]
+      },
+      "relation": "within_hours_before",
+      "hours": 30,
+      "reference": {
+        "card_id": "run.long"
+      }
+    },
+    {
+      "id": "sc.protect_test",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ],
+        "targets": [
+          "quad",
+          "glute",
+          "hamstring",
+          "calf_achilles",
+          "soleus"
+        ]
+      },
+      "relation": "within_hours_before",
+      "hours": 24,
+      "reference": {
+        "card_id": "run.lthr_test"
+      }
+    },
+    {
+      "id": "sc.one_overload_per_tissue_per_day",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ]
+      },
+      "relation": "same_day_as",
+      "reference": {
+        "per_tissue_duplicate": true
+      }
+    }
+  ],
+  "exit_criteria": [
+    {
+      "id": "lthr_anchored",
+      "predicate": {
+        "signal": "event.ev_lthr_test.completed",
+        "op": "==",
+        "value": true
+      }
+    },
+    {
+      "id": "two_clean_cycles",
+      "predicate": {
+        "signal": "weeks.flat_valid_count",
+        "op": ">=",
+        "value": 2
+      }
+    },
+    {
+      "id": "e1rm_initialized",
+      "predicate": {
+        "all": [
+          {
+            "signal": "e1rm.squat_pattern",
+            "op": ">",
+            "value": 0
+          },
+          {
+            "signal": "e1rm.calf_soleus_hsr",
+            "op": ">",
+            "value": 0
+          },
+          {
+            "signal": "e1rm.hip_hinge",
+            "op": ">",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "heat_model_first_fit",
+      "predicate": {
+        "signal": "model.heat_correction.fitted",
+        "op": "==",
+        "value": true
+      }
+    }
+  ],
+  "extension_rules": [
+    {
+      "when_failed": "lthr_anchored",
+      "action": {
+        "extend_days": 7
+      },
+      "cap_total_extension_days": 14
+    },
+    {
+      "when_failed": "two_clean_cycles",
+      "action": {
+        "extend_days": 7
+      },
+      "cap_total_extension_days": 14
+    }
+  ],
+  "review_specs": [
+    {
+      "cadence": "weekly",
+      "computed": [
+        {
+          "id": "interference_check",
+          "estimator_id": "est.pacehr"
+        },
+        {
+          "id": "contamination_check",
+          "estimator_id": "est.strap_validity"
+        },
+        {
+          "id": "hsr_tolerance",
+          "estimator_id": "est.checkin"
+        },
+        {
+          "id": "planned_vs_executed_tonnage",
+          "estimator_id": "est.planned_vs_executed"
+        },
+        {
+          "id": "load_distribution",
+          "estimator_id": "est.day_rollup"
+        }
+      ],
+      "human_prompts": [
+        "Anything in mechanics or gait that felt off and is not captured by soreness or flags?",
+        "Motivation and appetite for the week ahead?",
+        "Any niggle not yet worth a tissue flag?"
+      ]
+    }
+  ]
+}

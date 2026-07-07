@@ -1,0 +1,32 @@
+{
+  "errors": [],
+  "warnings": [],
+  "week_run_miles": {
+    "1": 49.0,
+    "2": 49.5,
+    "3": 49.0,
+    "4": 32.8
+  },
+  "week_minutes_by_bundle": {
+    "1": {
+      "running.v3": 446,
+      "support.v3": 124,
+      "strength.v3": 270
+    },
+    "2": {
+      "running.v3": 439,
+      "support.v3": 124,
+      "strength.v3": 270
+    },
+    "3": {
+      "running.v3": 433,
+      "support.v3": 124,
+      "strength.v3": 270
+    },
+    "4": {
+      "running.v3": 298,
+      "support.v3": 124,
+      "strength.v3": 270
+    }
+  }
+}
