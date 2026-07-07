@@ -43,14 +43,17 @@ def store_activity_payload(
 
     Raises ``ValueError`` when the payload is not a usable FIT/ZIP-of-FITs or
     the first FIT cannot be decoded for naming; extracted files are removed on
-    failure so a bad payload leaves no partial state behind.
+    failure so a bad payload leaves no partial state behind. Any other
+    exception during naming is also cleaned up before it propagates, so a
+    non-ValueError from FIT decoding can't leave ``download-<id>*.fit``
+    orphans on disk.
     """
     day_dir.mkdir(parents=True, exist_ok=True)
     download_stem = f"download-{activity_id}"
     extracted = _extract_activity_payload(payload, download_stem, day_dir)
     try:
         final_stem = _activity_file_stem_from_fit(day_dir, activity_id, metadata, extracted)
-    except ValueError:
+    except Exception:
         for path in extracted:
             path.unlink(missing_ok=True)
         raise
@@ -64,8 +67,14 @@ def store_activity_payload(
 
 
 def remove_activity_outputs(day_dir: Path, file_stem: str) -> None:
-    """Delete the FIT files and sidecar for one stored activity stem."""
-    for path in day_dir.glob(f"{file_stem}*.fit"):
+    """Delete the FIT files and sidecar for one stored activity stem.
+
+    Matches the exact stem plus its ``_part*`` multi-FIT suffixes only, never
+    a glob superstring, so a collision-suffixed different activity (e.g.
+    ``{stem}_<activity_id>.fit``) is never swept up by mistake.
+    """
+    (day_dir / f"{file_stem}.fit").unlink(missing_ok=True)
+    for path in day_dir.glob(f"{file_stem}_part*.fit"):
         path.unlink(missing_ok=True)
     (day_dir / f"{file_stem}.json").unlink(missing_ok=True)
 

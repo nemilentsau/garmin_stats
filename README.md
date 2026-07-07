@@ -257,9 +257,13 @@ The dashboard's Sync button (`POST /api/ingest/sync`) also downloads new
 tracked-activity FIT files automatically, alongside the wellness archives, for
 the wellness ingest window plus a 3-day lookback. This is download-only: files
 land under `data/garmin_activities/YYYY-MM-DD/` but are not yet parsed or
-ingested into the database. The sync response reports counts via
-`activities_downloaded` / `activities_skipped` / `activities_failed`, shown
-next to the existing archive/day counts in the sync result line.
+ingested into the database. Activities uploaded to Garmin Connect later than
+that 3-day lookback window are not fetched by the Sync button — backfill them
+with `scripts/download_garmin.py --activities` (`--from`/`--to` or
+`--health-range`). The sync response reports counts via
+`activities_downloaded` / `activities_skipped` / `activities_failed`, but only
+the downloaded-workouts count is shown in the sync result line; skipped and
+failed counts are API-only.
 
 FIT structure inspection support is in `scripts/explore_fit_files.py`.
 

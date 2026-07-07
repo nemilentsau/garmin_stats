@@ -87,7 +87,9 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     finally:
         deps.resume_watcher()
 
-    activity_days = _plan_activity_dates(wellness_start=plan.dates[0], today=today)
+    activity_days = _plan_activity_dates(
+        wellness_start=plan.dates[0] if plan.dates else today, today=today
+    )
     activities_downloaded, activities_skipped, activities_failed = _sync_activities(
         deps, client, activity_days
     )
@@ -176,7 +178,11 @@ def _sync_activities(
     client: GarminDownloadClient,
     days: list[date],
 ) -> tuple[int, int, int]:
-    """Download missing activity payloads; per-item failures never abort the sweep."""
+    """Download missing activity payloads.
+
+    A listing failure skips that day; per-activity failures skip that
+    activity; nothing aborts the sweep or the completed wellness sync.
+    """
     downloaded = 0
     skipped = 0
     failed = 0
@@ -206,7 +212,7 @@ def _sync_activities(
                 deps.activity_files.store_activity(
                     deps.activities_dir, day, ref.activity_id, ref.metadata, payload
                 )
-            except ValueError:
+            except Exception:
                 log.exception("  %s: activity %s payload unusable", date_str, ref.activity_id)
                 failed += 1
                 continue

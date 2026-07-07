@@ -113,6 +113,10 @@ def test_remove_activity_outputs_deletes_fits_and_sidecar_only_for_stem(tmp_path
     (tmp_path / "104056_running_generic_part2.fit").write_bytes(b"fit2")
     (tmp_path / "104056_running_generic.json").write_text("{}")
     (tmp_path / "090000_other_run.fit").write_bytes(b"keep")
+    # Collision-suffixed DIFFERENT activity: a stem-superstring that a naive
+    # glob (`{stem}*.fit`) would incorrectly sweep up alongside the target.
+    (tmp_path / "104056_running_generic_23398049297.fit").write_bytes(b"keep-collision")
+    (tmp_path / "104056_running_generic_23398049297.json").write_text("{}")
 
     remove_activity_outputs(tmp_path, "104056_running_generic")
 
@@ -120,6 +124,8 @@ def test_remove_activity_outputs_deletes_fits_and_sidecar_only_for_stem(tmp_path
     assert not (tmp_path / "104056_running_generic_part2.fit").exists()
     assert not (tmp_path / "104056_running_generic.json").exists()
     assert (tmp_path / "090000_other_run.fit").exists()
+    assert (tmp_path / "104056_running_generic_23398049297.fit").exists()
+    assert (tmp_path / "104056_running_generic_23398049297.json").exists()
 
 
 def test_store_cleans_up_extracted_fits_when_fit_decode_fails(

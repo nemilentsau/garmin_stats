@@ -89,7 +89,7 @@ class FakeActivityFileStore:
     def __init__(self, *, existing: set[tuple[str, str]] | None = None) -> None:
         self.existing = existing if existing is not None else set()
         self.stored: list[tuple[Path, str, str]] = []
-        self.store_error: ValueError | None = None
+        self.store_error: Exception | None = None
 
     def has_activity(self, activities_dir: Path, day: date, activity_id: str) -> bool:
         return (day.isoformat(), activity_id) in self.existing
@@ -428,6 +428,28 @@ def test_sync_counts_unusable_activity_payload_as_failed(tmp_path: Path):
     result = sync_garmin(deps)
 
     assert (result.activities_downloaded, result.activities_failed) == (0, 1)
+
+
+def test_sync_counts_activity_store_oserror_as_failed(tmp_path: Path):
+    deps, _ingest, _archives, _watcher, _client, _files, store = _deps(
+        tmp_path,
+        activities={"2026-03-14": [_ref("a1")]},
+        activity_payloads={"a1": b"payload"},
+    )
+    store.store_error = OSError("disk full")
+
+    result = sync_garmin(deps)
+
+    assert (result.activities_downloaded, result.activities_failed) == (0, 1)
+    assert result.days_ingested == 1
+
+
+def test_sync_tolerates_future_dated_latest_archive(tmp_path: Path):
+    deps, *_rest = _deps(tmp_path, latest=date(2026, 3, 16), responses={})
+
+    result = sync_garmin(deps)
+
+    assert result.downloaded == 0
 
 
 def test_plan_activity_dates_applies_lookback_beyond_wellness_start():
