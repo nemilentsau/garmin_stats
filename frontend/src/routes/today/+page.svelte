@@ -21,6 +21,8 @@
 	let detailNote = $state('');
 	/** Actual emitted by the active CardBody; stashed here for schedulePersistDetail. */
 	let stagedActual = $state<CardActual | null>(null);
+	/** Selected value of the log panel's Variant control, seeded from card.variant_taken. */
+	let variantTaken = $state<string | null>(null);
 	/** Bumped to remount the expanded CardBody so it re-seeds from card.actual_json. */
 	let detailRemountToken = $state(0);
 
@@ -131,6 +133,18 @@
 		// Seed from the card's persisted actual so that a notes-only change persists the
 		// existing actual correctly (before CardBody has emitted its first onActual).
 		stagedActual = card.actual_json;
+		variantTaken = card.variant_taken;
+	}
+
+	/** Return the payload's variant_options, or [] for payload types that don't carry any. */
+	function variantOptionsFor(card: CardType): string[] {
+		return 'variant_options' in card.payload_json ? (card.payload_json.variant_options ?? []) : [];
+	}
+
+	/** item_id → kind lookup for a checklist card's items; {} for non-checklist payloads. */
+	function checklistItemKinds(card: CardType): Record<string, 'checkbox' | 'tissue_check'> {
+		if (card.payload_json.card_type !== 'checklist') return {};
+		return Object.fromEntries((card.payload_json.items ?? []).map((item) => [item.id, item.kind]));
 	}
 
 	function findCardByKey(key: string): CardType | null {
@@ -154,12 +168,25 @@
 		initializeDetailState(card);
 	}
 
-	/** Derive completion status from a ChecklistActual's answers array. */
-	function deriveStatusFromAnswers(answers: { checked: boolean }[]): CardStatus {
+	/**
+	 * Derive completion status from a ChecklistActual's answers array. Answered means:
+	 * checkbox items → checked; tissue_check items → a scale value has been recorded
+	 * (ChecklistCard's emit() always writes an int 0-3, defaulting to 0, once the card has
+	 * been touched — see ChecklistCard's scaleMap comment). itemKinds looks up each
+	 * answer's kind from the card's payload so a card mixing both kinds (e.g. tissue
+	 * check-in rows + a habitual "core done" checkbox) only reaches 'completed' once every
+	 * item — of either kind — has an answer, not just the checkbox ones.
+	 */
+	function deriveStatusFromAnswers(
+		answers: { item_id: string; checked: boolean; scale: number | null }[],
+		itemKinds: Record<string, 'checkbox' | 'tissue_check'>
+	): CardStatus {
 		if (answers.length === 0) return 'pending';
-		const checked = answers.filter((a) => a.checked).length;
-		if (checked === answers.length) return 'completed';
-		if (checked > 0) return 'partial';
+		const answered = answers.filter((a) =>
+			itemKinds[a.item_id] === 'tissue_check' ? a.scale !== null : a.checked
+		).length;
+		if (answered === answers.length) return 'completed';
+		if (answered > 0) return 'partial';
 		return 'pending';
 	}
 
@@ -197,7 +224,8 @@
 		status: CardStatus,
 		actual_json?: CardActual | null,
 		notes?: string | null,
-		date: string = selectedDate
+		date: string = selectedDate,
+		variantTakenValue?: string | null
 	) {
 		error = null;
 		try {
@@ -207,7 +235,8 @@
 				status,
 				// Output union is structurally compatible with the Input union expected by the API.
 				actual_json: (actual_json ?? card.actual_json ?? null) as TodayCardLogUpdate['actual_json'],
-				notes: notes ?? card.notes ?? null
+				notes: notes ?? card.notes ?? null,
+				variant_taken: variantTakenValue ?? card.variant_taken ?? null
 			});
 		} catch (e: unknown) {
 			error = errorMessage(e);
@@ -228,9 +257,13 @@
 				// The row toggle is authoritative: sync every answer to match so the
 				// persisted status and checklist answers can't contradict each other.
 				// Build answers from the payload items — stagedActual is null until
-				// the first item interaction — keeping any staged item notes. scale/flagged
-				// are not editable from this row toggle (tissue_check items are a later
-				// phase); carry forward whatever was already staged.
+				// the first item interaction — keeping any staged item text/scale/flagged.
+				// `checked` is forced to match the new row status for every item, including
+				// tissue_check items (where it has no independent display meaning — those
+				// items are read via scale/flagged, not checked). scale/flagged are never
+				// *set* by this row toggle; they're only carried forward from whatever
+				// ChecklistCard already staged this session, so a scale/flag tap made just
+				// before hitting "mark done" is preserved rather than reset to null.
 				const checked = newStatus === 'completed';
 				const staged = stagedActual?.card_type === 'checklist' ? stagedActual : null;
 				stagedActual = {
@@ -252,7 +285,8 @@
 			const notes = detailNote.trim() || null;
 			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
-			void persistToBackend(card, newStatus, actual, notes);
+			card.variant_taken = variantTaken;
+			void persistToBackend(card, newStatus, actual, notes, selectedDate, variantTaken);
 		} else {
 			void persistToBackend(card, newStatus);
 		}
@@ -269,7 +303,7 @@
 	/** The scheduled debounced persist; key identifies the card it belongs to. */
 	let pendingPersist: { key: string; run: () => void } | null = null;
 
-	/** Debounced persist for detail panel changes (notes blur or CardBody onActual). */
+	/** Debounced persist for detail panel changes (notes blur, CardBody onActual, variant tap). */
 	function schedulePersistDetail(card: CardType, delay = 500) {
 		if (saveTimeout) clearTimeout(saveTimeout);
 		// Snapshot everything the persist needs NOW: the shared staged state is
@@ -279,12 +313,14 @@
 		const actual = stagedActual;
 		const notes = detailNote.trim() || null;
 		const date = selectedDate;
+		const variant = variantTaken;
 		const run = () => {
 			saveTimeout = null;
 			pendingPersist = null;
 			if (actual !== null) card.actual_json = actual;
 			card.notes = notes;
-			void persistToBackend(card, effectiveStatus(card), actual, notes, date);
+			card.variant_taken = variant;
+			void persistToBackend(card, effectiveStatus(card), actual, notes, date, variant);
 		};
 		pendingPersist = { key: card.occurrence_key, run };
 		saveTimeout = setTimeout(run, delay);
@@ -309,6 +345,21 @@
 	/** Notes textarea blur — debounced persist. */
 	function onDetailBlur(card: CardType) {
 		schedulePersistDetail(card, 400);
+	}
+
+	/**
+	 * Variant segmented control tap. Selecting "skip" is treated as a status signal (the
+	 * user isn't doing the prescribed session at all), so it sets the local status to
+	 * skipped — the row checkbox/skip controls remain fully editable afterward. Any other
+	 * option only records which variant was taken; it never touches status.
+	 */
+	function selectVariant(card: CardType, option: string) {
+		variantTaken = option;
+		if (option === 'skip') {
+			localStatus[card.occurrence_key] = 'skipped';
+			statusVersion++;
+		}
+		schedulePersistDetail(card);
 	}
 
 	function formatSeconds(totalSeconds: number): string {
@@ -548,7 +599,10 @@
 												stagedActual = actual;
 												if (actual.card_type === 'checklist') {
 													// Answers are the ground truth; derive status from them directly.
-													const status = deriveStatusFromAnswers(actual.answers);
+													const status = deriveStatusFromAnswers(
+														actual.answers,
+														checklistItemKinds(card)
+													);
 													localStatus[card.occurrence_key] = status;
 													statusVersion++;
 												} else if (
@@ -570,6 +624,24 @@
 											}}
 										/>
 									{/key}
+									{#if variantOptionsFor(card).length > 0}
+										<div class="detail-field variant-field">
+											<span>Variant</span>
+											<div class="segment-row" role="group" aria-label="Variant taken">
+												{#each variantOptionsFor(card) as opt}
+													<button
+														type="button"
+														class="seg-btn"
+														class:selected={variantTaken === opt}
+														aria-pressed={variantTaken === opt}
+														onclick={() => selectVariant(card, opt)}
+													>
+														{opt}
+													</button>
+												{/each}
+											</div>
+										</div>
+									{/if}
 									<label class="detail-field">
 										<span>Notes</span>
 										<textarea
@@ -1090,6 +1162,47 @@
 		font: inherit;
 		font-size: 13px;
 		resize: vertical;
+	}
+
+	/* ── Variant control ── */
+	.variant-field .segment-row {
+		display: flex;
+		gap: 0;
+		border-radius: 8px;
+		overflow: hidden;
+		border: 1px solid rgba(91, 181, 166, 0.3);
+		width: fit-content;
+	}
+
+	.variant-field .seg-btn {
+		padding: 6px 14px;
+		border: none;
+		border-right: 1px solid rgba(91, 181, 166, 0.2);
+		background: rgba(91, 181, 166, 0.05);
+		color: #8fa3b0;
+		font: inherit;
+		font-size: 12px;
+		font-family: 'DM Mono', monospace;
+		letter-spacing: 0.04em;
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			color 0.15s;
+		white-space: nowrap;
+	}
+
+	.variant-field .seg-btn:last-child {
+		border-right: none;
+	}
+
+	.variant-field .seg-btn:hover:not(.selected) {
+		background: rgba(91, 181, 166, 0.12);
+		color: #c3d3dd;
+	}
+
+	.variant-field .seg-btn.selected {
+		background: rgba(91, 181, 166, 0.22);
+		color: #7be0d0;
 	}
 
 @media (max-width: 768px) {
