@@ -316,11 +316,8 @@ debugging or one-off flows, but that is not the canonical path.
 
 ## Checked-In Examples
 
+- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
 - [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
 - [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
-- [routine_bundles/four_week_running_calibration_bundle_patched.json](routine_bundles/four_week_running_calibration_bundle_patched.json)
-- [routine_bundles/four_week_running_meditation_transfer_bundle.json](routine_bundles/four_week_running_meditation_transfer_bundle.json)
-- [routine_bundles/four_week_running_support_calibration_bundle.json](routine_bundles/four_week_running_support_calibration_bundle.json)
-- [routine_bundles/four_week_strength_running_calibration_bundle.json](routine_bundles/four_week_strength_running_calibration_bundle.json)
-- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
+- [routine_bundles/block0_v3_derived.json](routine_bundles/block0_v3_derived.json) — Block 0 calibration (derived from `docs/routine-pivot/block0/` by `scripts/translate_block0.py` — do not hand-edit)
