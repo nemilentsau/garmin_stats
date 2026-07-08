@@ -58,7 +58,6 @@ not kept as a parallel source of truth (git history retains them).
 - [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
 - [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
-- [routine_bundles/block0_v3_derived.json](routine_bundles/block0_v3_derived.json) — Block 0 calibration (derived from `docs/routine-pivot/block0/` by `scripts/translate_block0.py` — do not hand-edit)
 
 ## Root Docs
 
