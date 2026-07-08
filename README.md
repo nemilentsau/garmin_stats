@@ -164,6 +164,12 @@ The bundle format is documented in
 [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
 Example bundles live in `docs/routine_bundles/`.
 
+Block 0 (the current calibration block) runs from a derived bundle,
+`docs/routine_bundles/block0_v3_derived.json`, generated from the v3 sources
+in `docs/routine-pivot/block0/` by `scripts/translate_block0.py`. Don't
+hand-edit the derived bundle — regenerate it from the v3 sources, which are
+canonical, and re-import.
+
 ## Repository Layout
 
 ```text
