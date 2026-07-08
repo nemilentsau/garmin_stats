@@ -1779,6 +1779,8 @@ export interface components {
             actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
+            /** Variant Taken */
+            variant_taken: string | null;
         };
         /**
          * CardLogRangeResponse
@@ -1915,6 +1917,9 @@ export interface components {
         /**
          * ChecklistAnswer
          * @description One answered checklist item.
+         *
+         *     ``checked``/``text`` answer ``checkbox`` items; ``scale``/``flagged``
+         *     answer ``tissue_check`` items (see ``ChecklistItem.kind``).
          */
         "ChecklistAnswer-Input": {
             /** Item Id */
@@ -1926,10 +1931,20 @@ export interface components {
             checked: boolean;
             /** Text */
             text?: string | null;
+            /** Scale */
+            scale?: number | null;
+            /**
+             * Flagged
+             * @default false
+             */
+            flagged: boolean;
         };
         /**
          * ChecklistAnswer
          * @description One answered checklist item.
+         *
+         *     ``checked``/``text`` answer ``checkbox`` items; ``scale``/``flagged``
+         *     answer ``tissue_check`` items (see ``ChecklistItem.kind``).
          */
         "ChecklistAnswer-Output": {
             /** Item Id */
@@ -1941,10 +1956,22 @@ export interface components {
             checked: boolean;
             /** Text */
             text: string | null;
+            /** Scale */
+            scale: number | null;
+            /**
+             * Flagged
+             * @default false
+             */
+            flagged: boolean;
         };
         /**
          * ChecklistItem
          * @description One checklist item inside a checklist card payload.
+         *
+         *     ``kind`` selects the answer shape: ``checkbox`` items are answered with
+         *     ``ChecklistAnswer.checked``/``text``; ``tissue_check`` items are answered
+         *     with ``ChecklistAnswer.scale``/``flagged`` (a 0-3 soreness rating plus a
+         *     pain flag), used for the per-tissue morning check-in.
          */
         "ChecklistItem-Input": {
             /** Id */
@@ -1953,10 +1980,21 @@ export interface components {
             label: string;
             /** Detail */
             detail?: string | null;
+            /**
+             * Kind
+             * @default checkbox
+             * @enum {string}
+             */
+            kind: "checkbox" | "tissue_check";
         };
         /**
          * ChecklistItem
          * @description One checklist item inside a checklist card payload.
+         *
+         *     ``kind`` selects the answer shape: ``checkbox`` items are answered with
+         *     ``ChecklistAnswer.checked``/``text``; ``tissue_check`` items are answered
+         *     with ``ChecklistAnswer.scale``/``flagged`` (a 0-3 soreness rating plus a
+         *     pain flag), used for the per-tissue morning check-in.
          */
         "ChecklistItem-Output": {
             /** Id */
@@ -1965,6 +2003,12 @@ export interface components {
             label: string;
             /** Detail */
             detail: string | null;
+            /**
+             * Kind
+             * @default checkbox
+             * @enum {string}
+             */
+            kind: "checkbox" | "tissue_check";
         };
         /**
          * ChecklistPayload
@@ -1985,6 +2029,13 @@ export interface components {
             items: components["schemas"]["ChecklistItem-Input"][];
             /** Domain */
             domain?: string | null;
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule?: string | null;
         };
         /**
          * ChecklistPayload
@@ -2005,6 +2056,13 @@ export interface components {
             items: components["schemas"]["ChecklistItem-Output"][];
             /** Domain */
             domain: string | null;
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule: string | null;
         };
         /**
          * CircadianHRPoint
@@ -4259,6 +4317,13 @@ export interface components {
              * @default []
              */
             post_run_fields: components["schemas"]["RunCustomField-Input"][];
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule?: string | null;
         };
         /**
          * RunningWorkoutPayload
@@ -4295,6 +4360,13 @@ export interface components {
              * @default []
              */
             post_run_fields: components["schemas"]["RunCustomField-Output"][];
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule: string | null;
         };
         /**
          * ScheduleDay
@@ -4702,6 +4774,13 @@ export interface components {
              * @default []
              */
             rating_prompts: components["schemas"]["RatingPrompt-Input"][];
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule?: string | null;
         };
         /**
          * StrengthSessionPayload
@@ -4731,6 +4810,13 @@ export interface components {
              * @default []
              */
             rating_prompts: components["schemas"]["RatingPrompt-Output"][];
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /** Selection Rule */
+            selection_rule: string | null;
         };
         /**
          * StrengthSetLog
@@ -5025,6 +5111,8 @@ export interface components {
             actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
+            /** Variant Taken */
+            variant_taken: string | null;
         };
         /**
          * TodayCardLogUpdateRequest
@@ -5045,6 +5133,8 @@ export interface components {
             actual_json?: (components["schemas"]["RunningActual-Input"] | components["schemas"]["StrengthActual-Input"] | components["schemas"]["TimerActual-Input"] | components["schemas"]["ChecklistActual-Input"]) | null;
             /** Notes */
             notes?: string | null;
+            /** Variant Taken */
+            variant_taken?: string | null;
         };
         /**
          * TodayResponse

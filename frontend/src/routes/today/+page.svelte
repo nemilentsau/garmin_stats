@@ -228,16 +228,23 @@
 				// The row toggle is authoritative: sync every answer to match so the
 				// persisted status and checklist answers can't contradict each other.
 				// Build answers from the payload items — stagedActual is null until
-				// the first item interaction — keeping any staged item notes.
+				// the first item interaction — keeping any staged item notes. scale/flagged
+				// are not editable from this row toggle (tissue_check items are a later
+				// phase); carry forward whatever was already staged.
 				const checked = newStatus === 'completed';
 				const staged = stagedActual?.card_type === 'checklist' ? stagedActual : null;
 				stagedActual = {
 					card_type: 'checklist',
-					answers: (card.payload_json.items ?? []).map((item) => ({
-						item_id: item.id,
-						checked,
-						text: staged?.answers.find((a) => a.item_id === item.id)?.text ?? null
-					}))
+					answers: (card.payload_json.items ?? []).map((item) => {
+						const existing = staged?.answers.find((a) => a.item_id === item.id);
+						return {
+							item_id: item.id,
+							checked,
+							text: existing?.text ?? null,
+							scale: existing?.scale ?? null,
+							flagged: existing?.flagged ?? false
+						};
+					})
 				};
 				detailRemountToken++;
 			}

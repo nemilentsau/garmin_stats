@@ -18,7 +18,13 @@
 	type FullActual = TodayCard['actual_json'];
 	export type ChecklistActual = {
 		card_type: 'checklist';
-		answers: { item_id: string; checked: boolean; text: string | null }[];
+		answers: {
+			item_id: string;
+			checked: boolean;
+			text: string | null;
+			scale: number | null;
+			flagged: boolean;
+		}[];
 	};
 
 	let {
@@ -57,13 +63,23 @@
 	);
 
 	function emit() {
+		// scale/flagged are not editable by this checkbox-only UI (tissue_check items are a
+		// later phase); carry forward whatever was already logged so re-emitting a checkbox
+		// answer never clobbers a tissue-check answer for a different item.
 		onActual?.({
 			card_type: 'checklist',
-			answers: items.map((item) => ({
-				item_id: item.id,
-				checked: checkedMap[item.id] ?? false,
-				text: textMap[item.id]?.trim() || null
-			}))
+			answers: items.map((item) => {
+				const existing = initialActual?.answers.find(
+					(a: { item_id: string }) => a.item_id === item.id
+				);
+				return {
+					item_id: item.id,
+					checked: checkedMap[item.id] ?? false,
+					text: textMap[item.id]?.trim() || null,
+					scale: existing?.scale ?? null,
+					flagged: existing?.flagged ?? false
+				};
+			})
 		});
 	}
 </script>
