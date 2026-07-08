@@ -67,9 +67,13 @@ Block 0 is live per `block0.json` (started 2026-07-06). Phase 0 is now the faste
 3. **Finish the audit per D3 (revised).** Done: `linter.py` reviewed; lint run reproduced byte-identically (0 errors / 0 warnings; weekly miles 49.0/49.5/49.0/32.8; budgets within declarations). Remaining: independent spot-checks of rules where the linter is soft — L11 novelty is hardcoded (`novel = 3`) rather than computed; L9's no-unramped-novel-overload check only covers `tendon_stiffness`; L7's coverage test passes on any ambient (non-capture) estimator input. Spot-check those three by hand against the compiled schedule before trusting the report fully.
 4. **Adopt in-place.** No interregnum: the window is running, week 1 is burn-in, baselines compute from day 8 (2026-07-13). App-side execution should be live well before day 8 so the baseline window starts with full capture.
 
+**Phase 0 shipped (2026-07-08).** Deltas from the written steps above: the typed tissue check-in and structured `variant_taken` branch logging were built immediately rather than run as the deferred "human discipline" convention described in step 1 — capture fidelity mattered more than staying minimal. Block 0 was imported and activated from the derived bundle (`docs/routine_bundles/block0_v3_derived.json`, regenerated from the v3 sources via `scripts/translate_block0.py`). The 5 pre-existing v2 training routines and their templates were retired (DB status flip only; their logs were kept, not deleted) to keep the Today board free of stale cards alongside Block 0.
+
 ### Phase 1 — v3 engine build (during Block 0's four weeks)
 
 Schema types, validator, signal registry, estimators, morning selection runtime, event log — now with concrete starting points from `block0/`: the validator ports `linter.py` (review-hardening the three soft spots above) instead of starting from scratch; the signal registry, estimator DAG (15 estimators, `est.*` IDs), state vector (S1–S5), and objective/constraint bands implement `registry.json` verbatim. Estimators built mid-block backfill from day-1 capture — that is what D2 buys; the activity FIT download pipeline (PR #64) supplies the raw running/strength data the `est.pacehr`, `est.day_rollup`, and e1RM estimators consume. Open technical decisions stay where they are (`schema_v3_spec.md` §13). Exit criterion: Block 1 bundles compile, lint with zero errors, and execute on the engine. **Block 1 adopts the engine.**
+
+Note: retired-routine history is invisible to Today/schedule read paths, and re-saving a card log on a retired-routine date re-derives experiment exposures without those occurrences — Phase 1's event/exposure design must account for this.
 
 ### Phase 2 — Dashboard reframe (overlaps Phase 1; no Block 0 dependency)
 

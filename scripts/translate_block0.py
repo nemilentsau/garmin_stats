@@ -65,7 +65,7 @@ def render_pred(p: dict) -> str:
     return render_cmp(p)
 
 
-def render_rule(selection: dict, variants: list[dict]) -> str:
+def render_rule(selection: dict, variants: list[dict], base_pres: dict | None = None) -> str:
     parts = [
         f"{cl['select'].capitalize().replace('_', ' ')} if {render_pred(cl['when'])}"
         for cl in selection["clauses"]
@@ -75,11 +75,17 @@ def render_rule(selection: dict, variants: list[dict]) -> str:
         parts.append("missing data → conservative")
     text = "; ".join(parts) + "."
     extras = []
-    for v in variants:
-        patch = v.get("prescription_patch") or {}
-        mi = sum(s.get("distance_mi", 0) for s in patch.get("segments", []))
-        if v["id"] not in ("full",) and mi:
-            extras.append(f"{v['id'].replace('_', ' ')} = {mi:g} mi")
+    if base_pres is not None:
+        full = next((v for v in variants if v["id"] == "full"), None)
+        full_pres = apply_patch(base_pres, (full or {}).get("prescription_patch"))
+        full_mi = sum(s.get("distance_mi", 0) for s in full_pres.get("segments", []))
+        for v in variants:
+            if v["id"] == "full" or not v.get("prescription_patch"):
+                continue
+            merged = apply_patch(base_pres, v["prescription_patch"])
+            mi = sum(s.get("distance_mi", 0) for s in merged.get("segments", []))
+            if mi and abs(mi - full_mi) > 1e-9:
+                extras.append(f"{v['id'].replace('_', ' ')} = {mi:g} mi")
     if extras:
         text += " (" + "; ".join(extras) + ")"
     return text
@@ -159,6 +165,7 @@ def running_payload(card: dict) -> dict:
     return {
         "card_type": "running_workout",
         "workout_type": card["name"],
+        "calibration_quality": card["contract"]["kind"] == "measurement",
         "instructions": " ".join(instructions) or None,
         "segments": run_segments(card["prescription"], card["id"]),
         "post_run_fields": [],
@@ -187,7 +194,12 @@ def strength_payload(card: dict, exlib: dict) -> dict:
 
 def checkin_payload() -> dict:
     items = [
-        {"id": f"tissue.{t}", "label": t.replace("_", " / "), "detail": None, "kind": "tissue_check"}
+        {
+            "id": f"tissue.{t}",
+            "label": t.replace("_", " / "),
+            "detail": None,
+            "kind": "tissue_check",
+        }
         for t in TISSUES
     ]
     items.append({
@@ -252,10 +264,13 @@ def build_bundle() -> dict:
             card = cards[a["card_id"]]
             full = next(v for v in a["variants"] if v["id"] == "full")
             pres = apply_patch(card["prescription"], full.get("prescription_patch"))
-            override: dict = {
-                "variant_options": [v["id"] for v in a["variants"]],
-                "selection_rule": render_rule(a["selection"], a["variants"]),
-            }
+            override: dict = {}
+            if len(a["variants"]) >= 2:
+                override["variant_options"] = [v["id"] for v in a["variants"]]
+            if a["selection"]["clauses"]:
+                override["selection_rule"] = render_rule(
+                    a["selection"], a["variants"], card["prescription"]
+                )
             if "segments" in card["prescription"] and card["id"] != "sup.daily":
                 override["segments"] = run_segments(pres, card["id"])
             if a.get("key_session"):
@@ -287,7 +302,10 @@ def build_bundle() -> dict:
             "end_date": END_DATE,
             "status": "active",
             "tags": ["block0", "v3-derived"],
-            "notes": "Window per docs/routine-pivot/block0/block0.json; week 1 burn-in, baselines from day 8.",
+            "notes": (
+                "Window per docs/routine-pivot/block0/block0.json; "
+                "week 1 burn-in, baselines from day 8."
+            ),
             "assignments": assignments,
         }],
     }

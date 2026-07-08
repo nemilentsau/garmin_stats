@@ -54,6 +54,28 @@ def test_rule_rendering_is_plain_english():
     )
 
 
+def test_rule_extras_use_merged_distances_and_suppress_equal_totals():
+    ns = _ns()
+    base = {
+        "segments": [
+            {"label": "easy", "distance_mi": 6.1},
+            {"label": "drills", "distance_mi": 0.4},
+        ]
+    }
+    variants = [
+        {"id": "full", "stimulus_fraction": 1.0},
+        {"id": "reduced", "stimulus_fraction": 0.7,
+         "prescription_patch": {"segments": [{"distance_mi": 4.5}]}},
+    ]
+    selection = {"clauses": [], "default": "full", "on_missing_signal": "select_default"}
+    text = ns["render_rule"](selection, variants, base)
+    assert "(reduced = 4.9 mi)" in text
+    same = [{"id": "full", "stimulus_fraction": 1.0},
+            {"id": "treadmill", "stimulus_fraction": 1.0,
+             "prescription_patch": {"segments": [{"label": "treadmill"}]}}]
+    assert "treadmill" not in ns["render_rule"](selection, same, base)
+
+
 def test_full_translation_matches_lint_report_and_counts():
     ns = _ns()
     bundle = ns["build_bundle"]()

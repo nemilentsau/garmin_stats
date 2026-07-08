@@ -17,6 +17,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "Easy Aerobic Run",
+        "calibration_quality": false,
         "instructions": null,
         "segments": [
           {
@@ -43,6 +44,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "Easy Run + Primer + Strides",
+        "calibration_quality": false,
         "instructions": null,
         "segments": [
           {
@@ -83,6 +85,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "Easy Run + Drills",
+        "calibration_quality": false,
         "instructions": null,
         "segments": [
           {
@@ -116,6 +119,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "Recovery Run",
+        "calibration_quality": false,
         "instructions": null,
         "segments": [
           {
@@ -142,6 +146,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "Long Run",
+        "calibration_quality": false,
         "instructions": null,
         "segments": [
           {
@@ -168,6 +173,7 @@
       "payload": {
         "card_type": "running_workout",
         "workout_type": "LTHR Field Test (30 min)",
+        "calibration_quality": true,
         "instructions": "Measurement: LTHR (bpm), heat-season conditions; threshold pace secondary. Gate: dew point (°C) <= 22; strap.validity_pct >= 0.95. Chest strap mandatory. Flat, uninterrupted course; treadmill variant runs indoors at 1 percent grade.",
         "segments": [
           {
@@ -627,12 +633,7 @@
           "day": 1,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d01",
@@ -693,12 +694,7 @@
           "day": 2,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_strides.d02",
@@ -759,12 +755,7 @@
           "day": 3,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d03",
@@ -811,12 +802,7 @@
           "day": 4,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d04",
@@ -863,12 +849,7 @@
           "day": 5,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_drills.d05",
@@ -881,7 +862,7 @@
               "full",
               "reduced"
             ],
-            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 4.5 mi)",
+            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 4.9 mi)",
             "segments": [
               {
                 "id": "run.easy_drills.seg1",
@@ -906,12 +887,7 @@
           "day": 6,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.long.d06",
@@ -973,12 +949,7 @@
           "day": 7,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d07",
@@ -1025,12 +996,7 @@
           "day": 8,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d08",
@@ -1091,12 +1057,7 @@
           "day": 9,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_strides.d09",
@@ -1157,12 +1118,7 @@
           "day": 10,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d10",
@@ -1209,12 +1165,7 @@
           "day": 11,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d11",
@@ -1261,12 +1212,7 @@
           "day": 12,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.lthr_test.d12",
@@ -1312,12 +1258,7 @@
           "day": 13,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.long.d13",
@@ -1379,12 +1320,7 @@
           "day": 14,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d14",
@@ -1431,12 +1367,7 @@
           "day": 15,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d15",
@@ -1497,12 +1428,7 @@
           "day": 16,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.lthr_test.d16",
@@ -1516,7 +1442,7 @@
               "treadmill",
               "alternate_strides"
             ],
-            "selection_rule": "Alternate strides if LTHR test already completed; Treadmill if dew point (°C) > 22; otherwise full; missing data → conservative. (alternate strides = 7 mi)",
+            "selection_rule": "Alternate strides if LTHR test already completed; Treadmill if dew point (°C) > 22; otherwise full; missing data → conservative.",
             "segments": [
               {
                 "id": "run.lthr_test.seg1",
@@ -1565,12 +1491,7 @@
           "day": 17,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d17",
@@ -1617,12 +1538,7 @@
           "day": 18,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d18",
@@ -1669,12 +1585,7 @@
           "day": 19,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_drills.d19",
@@ -1687,7 +1598,7 @@
               "full",
               "reduced"
             ],
-            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 4.5 mi)",
+            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 4.9 mi)",
             "segments": [
               {
                 "id": "run.easy_drills.seg1",
@@ -1712,12 +1623,7 @@
           "day": 20,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.long.d20",
@@ -1779,12 +1685,7 @@
           "day": 21,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d21",
@@ -1831,12 +1732,7 @@
           "day": 22,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d22",
@@ -1897,12 +1793,7 @@
           "day": 23,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_strides.d23",
@@ -1963,12 +1854,7 @@
           "day": 24,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d24",
@@ -2015,12 +1901,7 @@
           "day": 25,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy.d25",
@@ -2067,12 +1948,7 @@
           "day": 26,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.easy_drills.d26",
@@ -2085,7 +1961,7 @@
               "full",
               "reduced"
             ],
-            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 2.5 mi)",
+            "selection_rule": "Reduced if quad flag or glute flag or hamstring flag or calf achilles flag or soleus flag or adductor flag or tibialis foot flag or HRV (SWC units) < -2.0; otherwise full; missing data → conservative. (reduced = 2.9 mi)",
             "segments": [
               {
                 "id": "run.easy_drills.seg1",
@@ -2110,12 +1986,7 @@
           "day": 27,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.long.d27",
@@ -2177,12 +2048,7 @@
           "day": 28,
           "slot": "morning",
           "position": 0,
-          "prescription_override_json": {
-            "variant_options": [
-              "full"
-            ],
-            "selection_rule": "otherwise full."
-          }
+          "prescription_override_json": {}
         },
         {
           "id": "run.recovery.d28",
