@@ -165,6 +165,6 @@ display-only: it formats and renders, computing no statistics.
   experiment's target (run `2026-06-11-experiment-response-detectability`). The causal question
   stays in the experiment's own analysis pipeline.
 - **No load / strain / progress axis** — no activity or training-load data in the mart; see
-  `docs/ACTIVITY_ANALYTICS_DESIGN.md` for what would unlock it.
+  `docs/future/ACTIVITY_ANALYTICS_DESIGN.md` for what would unlock it.
 - **No 0–100 display scaling yet** — the z scale ships as-is; a friendlier surface is a deferred
   UX decision.

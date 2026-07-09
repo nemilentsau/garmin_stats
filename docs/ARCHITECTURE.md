@@ -544,7 +544,7 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - New Garmin analytics code should import from `backend/app/domains/garmin_analytics/`.
 - `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
 - `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, and `domain/primitives/` owns generic numeric/window helpers.
-- `domain/recovery_score/` owns the validated single-axis recovery score and the two health flags: `normalization` (expanding robust-z), `weighting` (correlation-deflated, recovery-signed), `smoothing` (seeded MA7), `thresholds` (meaningful-change/band/trend), `flags` (oxygen/thermoregulation + structural gaps), `regimes` (data-driven low/elevated detection), and `evidence` (per-day driver assembly). Each module is pure and unit-tested. `domain/dashboard.py` maps these onto the `DashboardOverviewResponse` (state, trajectory, evidence, driver series, latest flags, historical flag series, regimes; correlations retained for the HRV tab). See `docs/recovery-dashboard.md`.
+- `domain/recovery_score/` owns the validated single-axis recovery score and the two health flags: `normalization` (expanding robust-z), `weighting` (correlation-deflated, recovery-signed), `smoothing` (seeded MA7), `thresholds` (meaningful-change/band/trend), `flags` (oxygen/thermoregulation + structural gaps), `regimes` (data-driven low/elevated detection), and `evidence` (per-day driver assembly). Each module is pure and unit-tested. `domain/dashboard.py` maps these onto the `DashboardOverviewResponse` (state, trajectory, evidence, driver series, latest flags, historical flag series, regimes; correlations retained for the HRV tab). See `docs/reference/recovery-dashboard.md`.
 - Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
 
 ## Frontend
@@ -601,10 +601,10 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
 - [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
   Product overview, routes, setup, API map.
 
-- [docs/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ACTIVITY_ANALYTICS_DESIGN.md)
+- [docs/future/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/future/ACTIVITY_ANALYTICS_DESIGN.md)
   Planned analytical foundation for activity sessions, derived daily training features, and experiment-day joins.
 
-- [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
+- [docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
   Bundle import contract.
 
 - [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)

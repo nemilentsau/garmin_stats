@@ -39,7 +39,7 @@ def classify_hrv_recovery(*, delta: float | None) -> str | None:
 
     Tonight's verdict is a "today" signal — it reflects tonight versus the recent
     baseline only. Garmin's multi-day status is a separate trend signal and is
-    deliberately NOT folded in here (see docs/HRV_TAB_REFACTOR.md, "Trend vs Today").
+    deliberately NOT folded in here (see docs/reference/HRV_TAB_REFACTOR.md, "Trend vs Today").
     """
     if delta is None:
         return None
