@@ -119,9 +119,14 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
     Every file is classified and contract-validated independently; a second
     file of a singleton kind (block/registry/library), or a second bundle
     sharing an already-seen id, is kept as a per-file error rather than
-    silently replacing the first. Activation additionally requires
-    completeness (one block, its every declared `bundle_ids` entry present,
-    a registry, a library), zero lint errors, and every lint warning
+    silently replacing the first. Completeness is checked in both
+    directions: every block-declared `bundle_ids` entry must have a matching
+    uploaded bundle (`missing_kinds`), and every uploaded bundle must be
+    referenced by the block's `bundle_ids` (a per-file error on the stray
+    bundle) — an uploaded bundle the block doesn't reference would otherwise
+    validate and then silently vanish from lint/storage while the rest of
+    the set activates, which breaks the all-or-nothing contract. Activation
+    additionally requires zero lint errors and every lint warning
     acknowledged. On any gap this returns the full diagnosis with
     `activated=False` and never calls `repo.save_import`.
     """
@@ -132,6 +137,7 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
     block_count = 0
     bundles: dict[str, V3Bundle] = {}
     bundle_files: dict[str, ImportFile] = {}
+    bundle_result_index: dict[str, int] = {}
     registry: SignalRegistry | None = None
     registry_file: ImportFile | None = None
     registry_count = 0
@@ -174,6 +180,7 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
                 else:
                     bundles[bundle_model.id] = bundle_model
                     bundle_files[bundle_model.id] = file
+                    bundle_result_index[bundle_model.id] = len(file_results)
         elif kind == "registry":
             registry_model, errors = _validate(SignalRegistry, file.content)
             if registry_model is not None:
@@ -209,6 +216,16 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
         missing_kinds.extend(
             bundle_id for bundle_id in block.bundle_ids if bundle_id not in bundles
         )
+        for bundle_id, index in bundle_result_index.items():
+            if bundle_id in block.bundle_ids:
+                continue
+            result = file_results[index]
+            result.errors = [
+                *result.errors,
+                f"bundle '{bundle_id}' is not referenced by block '{block.id}' (bundle_ids)",
+            ]
+            result.valid = False
+            all_files_valid = False
 
     lint_report: LintReport | None = None
     activated = False

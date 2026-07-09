@@ -215,6 +215,24 @@ def test_duplicate_registry_is_a_per_file_error_and_blocks_activation():
 # ---------- contract-invalid content ----------
 
 
+def test_stray_bundle_not_referenced_by_block_blocks_activation():
+    repo = SqliteTrainingRepository()
+    extra_bundle = _load("support_v3.json")
+    extra_bundle["id"] = "extra.v3"
+    extra_bundle["name"] = "Unreferenced Extra Bundle"
+    files = [*_block0_files(), ImportFile(filename="extra_v3.json", content=extra_bundle)]
+    result = import_artifacts(repo, ImportRequest(files=files))
+
+    assert result.activated is False
+    extra_result = next(f for f in result.files if f.filename == "extra_v3.json")
+    assert extra_result.valid is False
+    assert extra_result.kind == "bundle"
+    assert any(
+        "extra.v3" in e and "not referenced by block" in e for e in extra_result.errors
+    )
+    assert repo.active_block() is None
+
+
 def test_contract_invalid_bundle_content_is_marked_invalid():
     repo = SqliteTrainingRepository()
     raw_running = _load("running_v3.json")

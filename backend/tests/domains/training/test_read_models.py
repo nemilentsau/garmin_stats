@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
+import pytest
+
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.domains.training.application.imports import ImportFile, ImportRequest, import_artifacts
 from app.domains.training.application.read_models import (
@@ -326,6 +328,87 @@ def test_upsert_training_log_is_idempotent_and_does_not_duplicate_rows():
 
     assert first == second
     assert len(repo.card_logs_for("2026-07-06")) == 1
+
+
+# ---------- upsert_training_log: occurrence validation (Fix 2) ----------
+
+
+def test_upsert_training_log_rejects_unknown_occurrence_key_on_a_valid_day():
+    repo = _imported_repo()
+    with pytest.raises(LookupError):
+        upsert_training_log(
+            repo,
+            date="2026-07-06",
+            occurrence_key="support.v3:sup.daily:d99",
+            update=TrainingLogUpdateRequest(status="completed"),
+        )
+
+
+def test_upsert_training_log_rejects_valid_key_on_a_date_outside_the_window():
+    repo = _imported_repo()
+    with pytest.raises(LookupError):
+        upsert_training_log(
+            repo,
+            date="2026-07-05",  # one day before block0's window starts
+            occurrence_key="support.v3:sup.daily:d01",
+            update=TrainingLogUpdateRequest(status="completed"),
+        )
+
+
+def test_upsert_training_log_rejects_any_key_with_no_active_block():
+    repo = SqliteTrainingRepository()
+    with pytest.raises(LookupError):
+        upsert_training_log(
+            repo,
+            date="2026-07-06",
+            occurrence_key="support.v3:sup.daily:d01",
+            update=TrainingLogUpdateRequest(status="completed"),
+        )
+
+
+# ---------- upsert_training_log: explicit-null-clears / absent-keeps (Fix 3) ----------
+
+
+def test_upsert_training_log_status_only_update_keeps_notes_and_capture():
+    repo = _imported_repo()
+    capture = TrainingCaptureLog(checkin=TrainingCheckinLog(soreness={"quad": 1}))
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(notes="felt good", capture=capture),
+    )
+
+    second = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(status="completed"),
+    )
+
+    assert second.status == "completed"
+    assert second.notes == "felt good"
+    assert second.capture == capture
+
+
+def test_upsert_training_log_explicit_null_notes_clears_stored_notes():
+    repo = _imported_repo()
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(notes="felt good"),
+    )
+
+    cleared = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(notes=None),
+    )
+
+    assert "notes" in TrainingLogUpdateRequest(notes=None).model_fields_set
+    assert cleared.notes is None
 
 
 # ---------- render_scheme ----------

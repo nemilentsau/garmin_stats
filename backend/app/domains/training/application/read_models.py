@@ -16,10 +16,16 @@ intensity), `render_rule` (a card's variant-selection rule, in English), and
 formatting with no I/O, kept here rather than in `contracts.py` so the wire
 contracts stay free of display concerns.
 
-`upsert_training_log` applies a partial update: any field left unset on
-`TrainingLogUpdateRequest` keeps the existing log's value rather than being
-cleared, mirroring the "absent means unchanged" semantics the routines
-Today board uses when saving a card log's `notes` field.
+`upsert_training_log` applies a partial update keyed off
+`TrainingLogUpdateRequest.model_fields_set`: a field the caller omitted from
+the request body keeps the existing log's value, while a field the caller
+included — even as an explicit `null` — is applied, clearing it when the
+value is `None`. This is "PATCH" semantics, not a mirror of the routines
+Today board (that backend always full-replaces a card log on save); it also
+rejects capture PUTs against an occurrence the compiled schedule doesn't
+recognize for the given date, raising `LookupError` (mapped to 404 by the
+app-level exception handler) rather than persisting a log nothing will ever
+display.
 """
 
 from __future__ import annotations
@@ -480,8 +486,15 @@ def get_block_status(repo: TrainingRepository) -> TrainingBlockStatus | None:
 class TrainingLogUpdateRequest(StrictDefaultsRequired):
     """Partial update for one card occurrence's capture log.
 
-    Every field is optional; a field left unset (None) keeps the existing
-    log's value rather than clearing it (see `upsert_training_log`).
+    Every field is optional, and presence — not nullness — decides what
+    happens: a field the request body omits keeps the existing log's value,
+    while a field the body includes is applied verbatim, even when its value
+    is explicit `null`. For `notes`/`variant_taken`/`capture` an explicit
+    `null` clears the stored value. `status` has no defined "cleared" state
+    (a stored log's `status` always has a concrete value, defaulting to
+    `"pending"`), so callers are expected to only ever send it as a real
+    status literal; see `upsert_training_log` for how presence is resolved
+    via `model_fields_set`.
     """
 
     status: TrainingCardStatus | None = None
@@ -490,29 +503,70 @@ class TrainingLogUpdateRequest(StrictDefaultsRequired):
     capture: TrainingCaptureLog | None = None
 
 
+def _resolve_occurrence_or_raise(
+    repo: TrainingRepository, *, date: str, occurrence_key: str
+) -> None:
+    """Raise `LookupError` unless `occurrence_key` is really scheduled on `date`.
+
+    Reuses `get_training_today`'s own resolution path — active block, day
+    number, compiled schedule — rather than trusting the caller-supplied
+    key: `date` outside the active block's window, or an `occurrence_key`
+    that doesn't match any compiled entry for that day (including "no
+    active block at all"), both 404 rather than silently persisting a log
+    no Today/schedule view will ever surface.
+    """
+    context = _active_context(repo)
+    if context is not None:
+        block, bundles, _registry, _library = context
+        day = _day_number(block, date)
+        if 1 <= day <= block.window.days:
+            schedule = compile_schedule(bundles)
+            known_keys = {
+                f"{entry.bundle_id}:{entry.card.id}:d{entry.day:02d}"
+                for entry in schedule
+                if entry.day == day
+            }
+            if occurrence_key in known_keys:
+                return
+    raise LookupError(f"no scheduled occurrence {occurrence_key} on {date}")
+
+
 def upsert_training_log(
     repo: TrainingRepository, *, date: str, occurrence_key: str, update: TrainingLogUpdateRequest
 ) -> TrainingCardLog:
     """Apply a partial update to one card occurrence's capture log and persist it.
 
-    Fields left unset on `update` keep the existing log's value; a
-    first-time update against an occurrence with no prior log starts every
-    unset field at its `TrainingCardLog` default (`status="pending"`, the
-    rest None). Calling this twice with an identical `update` is idempotent:
-    the second call persists the same values the first one wrote.
+    Raises `LookupError` (404 at the route layer) when `occurrence_key` is
+    not a real scheduled occurrence for `date` under the active block's
+    compiled schedule — see `_resolve_occurrence_or_raise`. Fields absent
+    from `update.model_fields_set` keep the existing log's value; fields
+    present are applied as-is, including an explicit `None` clearing
+    `notes`/`variant_taken`/`capture`. `status` is the one exception: a
+    stored log's `status` has no `None` state (`TrainingCardLog.status` is
+    never optional), so an explicit `status: null` is treated the same as
+    `status` being absent rather than being forwarded — there is nothing
+    valid to clear it to. A first-time update against an occurrence with no
+    prior log starts every absent field at its `TrainingCardLog` default
+    (`status="pending"`, the rest `None`). Calling this twice with an
+    identical `update` is idempotent: the second call persists the same
+    values the first one wrote.
     """
+    _resolve_occurrence_or_raise(repo, date=date, occurrence_key=occurrence_key)
     existing = repo.card_log(date, occurrence_key)
+    fields_set = update.model_fields_set
     status = (
-        update.status if update.status is not None else (existing.status if existing else "pending")
+        update.status
+        if "status" in fields_set and update.status is not None
+        else (existing.status if existing else "pending")
     )
     variant_taken = (
         update.variant_taken
-        if update.variant_taken is not None
+        if "variant_taken" in fields_set
         else (existing.variant_taken if existing else None)
     )
-    notes = update.notes if update.notes is not None else (existing.notes if existing else None)
+    notes = update.notes if "notes" in fields_set else (existing.notes if existing else None)
     capture = (
-        update.capture if update.capture is not None else (existing.capture if existing else None)
+        update.capture if "capture" in fields_set else (existing.capture if existing else None)
     )
     log = TrainingCardLog(
         id=f"{date}:{occurrence_key}",

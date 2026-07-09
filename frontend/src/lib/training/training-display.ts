@@ -12,19 +12,27 @@ import { COLORS, DARK_MUTED_TEXT } from '$lib/colors';
 
 export type TrainingCardTheme = { accent: string; icon: string };
 
-/** Accent color + icon for a training card row, mirroring `domainThemeOf` for routine cards. */
+/**
+ * Accent color + icon for a training card row, mirroring `domainThemeOf` for routine cards.
+ *
+ * `checkin_rows` is checked first: `sup.daily` carries both a tissue check-in and its own
+ * (small, non-key) segments — e.g. core work — so without this ordering it would theme as a
+ * run card. The teal accent matches the calm/recovery palette `card-payloads.ts` uses for
+ * breathwork (`COLORS.spo2`) and meditation (`COLORS.hrv`); `COLORS.respiration` is this
+ * module's equivalent for the daily body check-in.
+ */
 export function trainingCardTheme(card: TrainingTodayCard): TrainingCardTheme {
+	if (card.checkin_rows.length > 0) return { accent: COLORS.respiration, icon: '📋' };
 	if (card.exercises_display.length > 0) return { accent: COLORS.skinTemp, icon: '🏋' };
 	if (card.segments_display.length > 0) return { accent: COLORS.heartRate, icon: '🏃' };
-	if (card.checkin_rows.length > 0) return { accent: COLORS.respiration, icon: '' };
 	return { accent: DARK_MUTED_TEXT, icon: '' };
 }
 
 /** Compact metadata brief for a training card row, mirroring `cardBrief` for routine cards. */
 export function trainingCardBrief(card: TrainingTodayCard): string {
+	if (card.checkin_rows.length > 0) return `${card.checkin_rows.length} items`;
 	if (card.exercises_display.length > 0) return `${card.exercises_display.length} exercises`;
 	if (card.segments_display.length > 0) return `${card.segments_display.length} segments`;
-	if (card.checkin_rows.length > 0) return `${card.checkin_rows.length} check-ins`;
 	if (card.est_duration_min) return `${card.est_duration_min} min`;
 	return '';
 }
