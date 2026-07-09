@@ -169,6 +169,42 @@ def test_upsert_today_card_log_rejects_actual_card_type_mismatch():
         )
 
 
+def test_upsert_today_card_log_persists_variant_taken():
+    """variant_taken threads through upsert and readback exactly like notes."""
+    activate_routine_card("card-variant")
+    activate_routine_spec(
+        "routine-variant",
+        assignments=[
+            routine_assignment_spec(
+                "routine-variant-assignment",
+                card_template_id="card-variant",
+                slot="morning",
+            )
+        ],
+    )
+
+    repo = SqliteRoutineRepository()
+    today = get_today(repo, date="2026-03-02")
+    scheduled_card = today.slots[0].cards[0]
+
+    upsert_today_card_log(
+        "2026-03-02",
+        scheduled_card.occurrence_key,
+        TodayCardLogUpdateRequest(
+            card_template_id=scheduled_card.card_template_id,
+            assignment_id=scheduled_card.assignment_id,
+            status="completed",
+            actual_json=None,
+            notes=None,
+            variant_taken="reduced",
+        ),
+    )
+
+    updated_today = get_today(repo, date="2026-03-02")
+    updated_card = updated_today.slots[0].cards[0]
+    assert updated_card.variant_taken == "reduced"
+
+
 def test_get_today_skips_card_template_row_that_fails_validation():
     """One un-migratable template row must not take down the whole Today board."""
     activate_routine_card("card-good")

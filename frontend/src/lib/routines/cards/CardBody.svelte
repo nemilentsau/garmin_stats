@@ -15,6 +15,11 @@
 	 *   mode   — 'log' (Today board, user can enter actuals) | 'view' (Schedule, read-only).
 	 *   onActual — callback fired whenever the user changes log state; only used in 'log' mode.
 	 *              The parent is responsible for stashing + persisting the emitted value.
+	 *
+	 * Also renders a display-only "Rule: …" line under the card header (both modes) when the
+	 * occurrence's payload carries a non-null `selection_rule` — the v3 assignment's rendered
+	 * variant-selection predicate (running_workout / strength_session / checklist payloads
+	 * only). No logic here: this is a pass-through of a backend-generated string.
 	 */
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 	import ChecklistCard from './ChecklistCard.svelte';
@@ -40,7 +45,16 @@
 		mode: 'log' | 'view';
 		onActual?: (actual: CardActual) => void;
 	} = $props();
+
+	// Only running_workout / strength_session / checklist payloads carry selection_rule.
+	const selectionRule = $derived(
+		'selection_rule' in card.payload_json ? card.payload_json.selection_rule : null
+	);
 </script>
+
+{#if selectionRule}
+	<p class="rule-line">Rule: {selectionRule}</p>
+{/if}
 
 {#if card.payload_json.card_type === 'checklist'}
 	<!--
@@ -93,3 +107,14 @@
 		{onActual}
 	/>
 {/if}
+
+<style>
+	.rule-line {
+		margin: 0 0 10px;
+		color: #6b8292;
+		font-size: 11px;
+		font-family: 'DM Mono', monospace;
+		letter-spacing: 0.02em;
+		line-height: 1.5;
+	}
+</style>

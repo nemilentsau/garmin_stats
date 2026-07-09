@@ -14,6 +14,7 @@ from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
 from app.domains.programs.schema import init_program_schema
 from app.domains.routines.schema import init_routine_schema
+from app.domains.training.schema import init_training_schema
 from app.infra import sqlite
 
 
@@ -30,4 +31,5 @@ def init_storage() -> None:
         init_journal_schema(con)
         init_experiment_schema(con)
         init_program_schema(con)
+        init_training_schema(con)
         con.commit()

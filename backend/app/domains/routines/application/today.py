@@ -57,6 +57,7 @@ def get_today(repo: RoutineRepository, *, date: str) -> TodayResponse:
         card.status = log.status
         card.actual_json = log.actual_json
         card.notes = log.notes
+        card.variant_taken = log.variant_taken
 
     grouped: dict[str, list[TodayCard]] = defaultdict(list)
     for card in cards.values():
@@ -122,6 +123,7 @@ def upsert_today_card_log(
         status=request.status,
         actual_json=request.actual_json,
         notes=request.notes,
+        variant_taken=request.variant_taken,
     )
     repo.save_card_log(log)
     if observer is not None:

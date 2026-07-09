@@ -397,6 +397,29 @@ is reserved for shared app primitives rather than important product workflows.
   or unrelated SQLite helpers from application modules.
 - Public entrypoints: `/api/profile` and profile read/write use cases.
 
+#### `training`
+
+- Owns: v3 training artifact import and single-shot atomic activation (content
+  bundles, block definition, signal registry, exercise library), the ported
+  L1-L12 block linter, schedule compilation from imported bundles,
+  Today/schedule-window/block-status read models, and per-occurrence
+  capture-log persistence (set/rep/load logs, RPE, variant selection, and
+  check-in tissue soreness/flags).
+- Does not own: routine catalog or activation for non-training routines,
+  assistant artifact staging, experiment analysis, program import, Garmin
+  ingest, or Garmin analytics. The frontend Today and schedule pages compose
+  the training feed and the routines feed side by side; neither domain
+  imports the other.
+- May import: its own contracts, application helpers, and dependencies.
+- Must not import: routines, experiments, assistant, artifacts, journal,
+  programs, Garmin sync, Garmin analytics, FastAPI from application modules,
+  or SQLite helpers from application modules — persistence goes through
+  `app.infra.jsonstore` only, via `adapters.py`.
+- Public entrypoints: `/api/training/import`, `/api/training/today`,
+  `/api/training/schedule-window`, `/api/training/block`,
+  `/api/training/today/{date}/cards/{occurrence_key}`, import/activation use
+  cases, and Today/schedule-window/block-status read-model use cases.
+
 ### Slice Boundary Convention
 
 - Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
@@ -407,8 +430,8 @@ is reserved for shared app primitives rather than important product workflows.
 
 Current strict-boundary slices: `domains/assistant`, `domains/routines`,
 `domains/garmin_sync`, `domains/garmin_analytics`, `domains/experiments`,
-`domains/artifacts`, `domains/programs`, `domains/journal`, and `core/profile`.
-Transitional domain-routed slices today: none.
+`domains/artifacts`, `domains/programs`, `domains/journal`, `domains/training`,
+and `core/profile`. Transitional domain-routed slices today: none.
 
 ## Experiment Semantics
 

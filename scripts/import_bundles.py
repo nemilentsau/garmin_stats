@@ -36,7 +36,10 @@ BUNDLE_GLOB = "*.json"
 def main() -> int:
     init_storage()
 
-    bundle_files = sorted(BUNDLES_DIR.glob(BUNDLE_GLOB))
+    bundle_files = (
+        [Path(p).resolve() for p in sys.argv[1:]]
+        or sorted(BUNDLES_DIR.glob(BUNDLE_GLOB))
+    )
     if not bundle_files:
         print(f"No bundle JSON files found in {BUNDLES_DIR}")
         return 0

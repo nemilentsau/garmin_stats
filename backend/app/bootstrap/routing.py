@@ -26,6 +26,7 @@ from app.domains.garmin_sync.routes import router as ingest_router
 from app.domains.journal.routes import checkins_router, notes_router
 from app.domains.programs.routes import router as programs_router
 from app.domains.routines.routes import routines_router, today_router
+from app.domains.training.routes import training_router
 from app.realtime.routes import router as events_router
 
 
@@ -55,3 +56,4 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(target_metrics_router)
     app.include_router(programs_router)
     app.include_router(today_router)
+    app.include_router(training_router)

@@ -23,6 +23,7 @@ from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.adapters import SqliteJournalRepository
 from app.domains.programs.adapters import SqliteProgramRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
+from app.domains.training.adapters import SqliteTrainingRepository
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class AppContainer:
     profile_repo: SqliteProfileRepository
     programs_repo: SqliteProgramRepository
     routines_repo: SqliteRoutineRepository
+    training_repo: SqliteTrainingRepository
     experiments_repo: SqliteExperimentRepository
     experiments_read_source: ExperimentReadSource
     experiment_exposure_sync: ExperimentExposureSyncService
@@ -75,6 +77,7 @@ def build_container() -> AppContainer:
         profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
+        training_repo=SqliteTrainingRepository(),
         experiments_repo=experiments_repo,
         experiments_read_source=experiments_read_source,
         experiment_exposure_sync=ExperimentExposureSyncService(

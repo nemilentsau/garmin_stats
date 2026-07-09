@@ -57,11 +57,6 @@ not kept as a parallel source of truth (git history retains them).
 - [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
 - [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
 - [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
-- [routine_bundles/four_week_running_calibration_bundle_patched.json](routine_bundles/four_week_running_calibration_bundle_patched.json)
-- [routine_bundles/four_week_running_meditation_transfer_bundle.json](routine_bundles/four_week_running_meditation_transfer_bundle.json)
-- [routine_bundles/four_week_running_support_calibration_bundle.json](routine_bundles/four_week_running_support_calibration_bundle.json)
-- [routine_bundles/four_week_strength_running_calibration_bundle.json](routine_bundles/four_week_strength_running_calibration_bundle.json)
-- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
 
 ## Root Docs

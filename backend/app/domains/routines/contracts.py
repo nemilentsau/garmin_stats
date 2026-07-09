@@ -72,6 +72,8 @@ class RunningWorkoutPayload(StrictDefaultsRequired):
     instructions: str | None = None
     segments: list[RunSegment] = []
     post_run_fields: list[RunCustomField] = []
+    variant_options: list[str] = []
+    selection_rule: str | None = None
 
 
 class StrengthExercise(StrictDefaultsRequired):
@@ -93,6 +95,8 @@ class StrengthSessionPayload(StrictDefaultsRequired):
     instructions: str | None = None
     exercises: list[StrengthExercise] = []
     rating_prompts: list[RatingPrompt] = []
+    variant_options: list[str] = []
+    selection_rule: str | None = None
 
 
 class BreathTimerPayload(StrictDefaultsRequired):
@@ -116,11 +120,18 @@ class MeditationTimerPayload(StrictDefaultsRequired):
 
 
 class ChecklistItem(StrictDefaultsRequired):
-    """One checklist item inside a checklist card payload."""
+    """One checklist item inside a checklist card payload.
+
+    ``kind`` selects the answer shape: ``checkbox`` items are answered with
+    ``ChecklistAnswer.checked``/``text``; ``tissue_check`` items are answered
+    with ``ChecklistAnswer.scale``/``flagged`` (a 0-3 soreness rating plus a
+    pain flag), used for the per-tissue morning check-in.
+    """
 
     id: str
     label: str
     detail: str | None = None
+    kind: Literal["checkbox", "tissue_check"] = "checkbox"
 
 
 class ChecklistPayload(StrictDefaultsRequired):
@@ -130,6 +141,8 @@ class ChecklistPayload(StrictDefaultsRequired):
     instructions: str | None = None
     items: list[ChecklistItem] = []
     domain: str | None = None
+    variant_options: list[str] = []
+    selection_rule: str | None = None
 
 
 CardPayload = Annotated[
@@ -193,11 +206,17 @@ class TimerActual(StrictDefaultsRequired):
 
 
 class ChecklistAnswer(StrictDefaultsRequired):
-    """One answered checklist item."""
+    """One answered checklist item.
+
+    ``checked``/``text`` answer ``checkbox`` items; ``scale``/``flagged``
+    answer ``tissue_check`` items (see ``ChecklistItem.kind``).
+    """
 
     item_id: str
     checked: bool = False
     text: str | None = None
+    scale: int | None = Field(default=None, ge=0, le=3)
+    flagged: bool = False
 
 
 class ChecklistActual(StrictDefaultsRequired):
@@ -387,6 +406,7 @@ class CardLog(DefaultsRequired):
     status: CardLogStatus = "pending"
     actual_json: CardActual | None = None
     notes: str | None = None
+    variant_taken: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -415,6 +435,7 @@ class TodayCardLogUpdateRequest(StrictDefaultsRequired):
     status: CardLogStatus = "completed"
     actual_json: CardActual | None = None
     notes: str | None = None
+    variant_taken: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -458,6 +479,7 @@ class TodayCard(ScheduleOccurrence):
     status: CardLogStatus = "pending"
     actual_json: CardActual | None = None
     notes: str | None = None
+    variant_taken: str | None = None
 
     @model_validator(mode="before")
     @classmethod

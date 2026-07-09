@@ -93,6 +93,11 @@ models; the boundary rules matter more than the package label:
   version history. Imports store program specs only; protocol, routine, and
   experiment activation is intentionally not implemented yet.
 - `domains/journal/` owns daily check-ins and notes.
+- `domains/training/` owns v3 training artifact import/activation, the ported
+  L1-L12 block linter, schedule compilation, and Today/schedule-window/
+  block-status read models for imported training content. It is a standalone
+  slice today: it imports nothing from `domains/routines` and nothing imports
+  from it; the frontend composes the training and routine feeds side by side.
 - `core/profile/` owns app-level profile configuration.
 
 Current strict-boundary slices follow the same convention: route/API modules
@@ -163,6 +168,37 @@ override the default path.
 The bundle format is documented in
 [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
 Example bundles live in `docs/routine_bundles/`.
+
+Importing a bundle is the only way routine or experiment content enters the
+app — there is no generation, translation, or seeding path. The v3 training
+artifacts in `docs/routine-pivot/block0/` are the authoring source and spec.
+
+### Training import
+
+`domains/training` is a separate, standalone slice that imports v3 training
+artifacts natively — it does not go through the `domains/routines` bundle
+pipeline above. The frontend route is `/training/import`: select the six
+artifact files (`running_v3.json`, `strength_v3.json`, `support_v3.json`,
+`block0.json`, `registry.json`, `exercise_library.json`) and import. Import is
+single-shot and all-or-nothing — every file must be independently
+contract-valid, the set must be complete relative to the block's own
+`bundle_ids`, the ported L1-L12 block linter must report zero errors, and any
+lint warnings must be explicitly acknowledged; otherwise nothing is written
+and the whole set stays unwritten. A successful import activates the block
+and bundles atomically, retiring any previously active block.
+
+Backend endpoints:
+
+- `POST /api/training/import` — upload and activate a full artifact set.
+- `GET /api/training/block` — the active block's definition, lint report, and
+  current day.
+- `GET /api/training/today` — Today's training cards (`/today` renders these
+  next to routine cards, feed by feed).
+- `GET /api/training/schedule-window` — the schedule projection consumed by
+  `/routines/schedule`.
+- `PUT /api/training/today/{date}/cards/{occurrence_key}` — persist a
+  training card's status, variant selection, notes, and capture log (set/rep/
+  load, RPE, or check-in soreness/flags, depending on card type).
 
 ## Repository Layout
 

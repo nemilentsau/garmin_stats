@@ -102,6 +102,24 @@ export type Program = Schemas['Program'];
 export type ProgramsResponse = Schemas['ProgramsResponse'];
 export type ProgramVersion = Schemas['ProgramVersion'];
 export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
+export type ImportFile = Schemas['ImportFile'];
+export type ImportRequest = Schemas['ImportRequest'];
+export type ImportResult = Schemas['ImportResult'];
+export type FileValidation = Schemas['FileValidation'];
+export type LintReport = Schemas['LintReport'];
+export type TrainingBlockStatus = Schemas['TrainingBlockStatus'];
+export type TrainingTodayCard = Schemas['TrainingTodayCard'];
+export type TrainingTodayResponse = Schemas['TrainingTodayResponse'];
+export type TrainingScheduleDay = Schemas['TrainingScheduleDay'];
+export type TrainingScheduleWindow = Schemas['TrainingScheduleWindow'];
+export type TrainingCaptureLog = Schemas['TrainingCaptureLog-Output'];
+export type TrainingLogUpdateRequest = Schemas['TrainingLogUpdateRequest'];
+export type TrainingExerciseDisplay = Schemas['TrainingExerciseDisplay'];
+export type TrainingSegmentDisplay = Schemas['TrainingSegmentDisplay'];
+export type TrainingCheckinRow = Schemas['TrainingCheckinRow'];
+export type TrainingExerciseLog = Schemas['TrainingExerciseLog-Output'];
+export type TrainingSetLog = Schemas['TrainingSetLog-Output'];
+export type TrainingCheckinLog = Schemas['TrainingCheckinLog-Output'];
 
 function unwrap<T>(data: T | undefined, error: unknown): T {
 	if (error) {
@@ -360,6 +378,28 @@ export const api = {
 	getProgramVersions: async (programId: string) => {
 		return unwrapResponse(client.GET('/api/programs/{program_id}/versions', {
 			params: { path: { program_id: programId } }
+		}));
+	},
+	importTraining: async (body: ImportRequest) => {
+		return unwrapResponse(client.POST('/api/training/import', { body }));
+	},
+	getTrainingBlock: async () => {
+		return unwrapResponse(client.GET('/api/training/block'));
+	},
+	getTrainingToday: async (date: string) => {
+		return unwrapResponse(client.GET('/api/training/today', {
+			params: { query: { date } }
+		}));
+	},
+	getTrainingScheduleWindow: async (start: string, days = 14) => {
+		return unwrapResponse(client.GET('/api/training/schedule-window', {
+			params: { query: { start, days } }
+		}));
+	},
+	updateTrainingCard: async (date: string, occurrenceKey: string, payload: TrainingLogUpdateRequest) => {
+		return unwrapResponse(client.PUT('/api/training/today/{date}/cards/{occurrence_key}', {
+			params: { path: { date, occurrence_key: occurrenceKey } },
+			body: payload
 		}));
 	}
 };

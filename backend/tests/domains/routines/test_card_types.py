@@ -18,6 +18,8 @@ from app.domains.routines.contracts import (
     CardPayload,
     CardTemplate,
     ChecklistActual,
+    ChecklistAnswer,
+    ChecklistItem,
     ChecklistPayload,
     RunningWorkoutPayload,
     ScheduleOccurrence,
@@ -81,6 +83,27 @@ def test_unknown_card_type_is_rejected():
         PAYLOAD_ADAPTER.validate_python({"card_type": "nope"})
 
 
+def test_payload_variant_fields_default_empty():
+    """variant_options/selection_rule default to empty on all three variant-eligible payloads."""
+    running = RunningWorkoutPayload(card_type="running_workout", workout_type="Easy")
+    strength = StrengthSessionPayload(card_type="strength_session")
+    checklist = ChecklistPayload(card_type="checklist")
+    for payload in (running, strength, checklist):
+        assert payload.variant_options == []
+        assert payload.selection_rule is None
+
+
+def test_payload_variant_fields_are_settable():
+    payload = RunningWorkoutPayload(
+        card_type="running_workout",
+        workout_type="Easy",
+        variant_options=["standard", "reduced volume"],
+        selection_rule="Pick reduced volume if quad soreness >= 2.",
+    )
+    assert payload.variant_options == ["standard", "reduced volume"]
+    assert payload.selection_rule == "Pick reduced volume if quad soreness >= 2."
+
+
 ACTUAL_ADAPTER = TypeAdapter(CardActual)
 
 
@@ -119,6 +142,23 @@ def test_checklist_actual_round_trips():
     )
     assert isinstance(actual, ChecklistActual)
     assert actual.answers[0].text == "Resonance"
+
+
+def test_checklist_item_kind_defaults_to_checkbox_and_accepts_tissue_check():
+    item = ChecklistItem(id="tissue.quad", label="quad")
+    assert item.kind == "checkbox"
+    typed = ChecklistItem(id="tissue.quad", label="quad", kind="tissue_check")
+    assert typed.kind == "tissue_check"
+
+
+def test_checklist_answer_carries_scale_and_flag():
+    answer = ChecklistAnswer(item_id="tissue.quad", scale=2, flagged=True)
+    assert (answer.scale, answer.flagged, answer.checked) == (2, True, False)
+
+
+def test_checklist_answer_rejects_scale_out_of_range():
+    with pytest.raises(ValidationError):
+        ChecklistAnswer(item_id="tissue.quad", scale=4)
 
 
 def test_card_template_payload_is_typed_union():

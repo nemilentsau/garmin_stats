@@ -158,6 +158,49 @@ The five supported card types are:
 - `domain` is optional (`running`, `strength`, `breathwork`, `meditation`);
   used for visual theming on review and setup cards.
 
+### Checklist item kind
+
+`items[].kind` is `"checkbox"` (default) or `"tissue_check"`. `checkbox`
+items are answered with a boolean `checked`/free-text `text`. `tissue_check`
+items are answered with a 0-3 soreness scale and a pain flag instead of a
+checkbox — used for the per-tissue morning check-in.
+
+```json
+{ "id": "tissue.quad", "label": "Quad", "kind": "tissue_check" }
+```
+
+### Checklist answers
+
+Logged `ChecklistActual.answers[]` entries carry `checked`/`text` for
+`checkbox` items, or `scale`/`flagged` for `tissue_check` items:
+
+```json
+{ "item_id": "tissue.quad", "scale": 2, "flagged": true }
+```
+
+- `scale` — 0-3 soreness rating (0 = none, 3 = severe); `ge=0, le=3`.
+- `flagged` — `true` when the athlete flags pain, not just soreness.
+
+### Session variants (`variant_options`, `selection_rule`)
+
+`running_workout`, `strength_session`, and `checklist` payloads may carry
+`variant_options` (plain-language names of alternate versions of the
+session) and `selection_rule` (a plain-language sentence describing when to
+pick which variant). Both default to empty (`[]` / `null`) — most cards have
+no variants.
+
+```json
+{
+  "variant_options": ["standard", "reduced volume"],
+  "selection_rule": "Pick reduced volume if quad soreness >= 2 or pain is flagged this morning."
+}
+```
+
+Which variant the athlete actually performed is recorded as free text on the
+card log via `variant_taken` (mirrors `notes` on `CardLog` /
+`TodayCardLogUpdateRequest` / `TodayCard`), not as a structured reference
+back into `variant_options`.
+
 ## Routine Specs
 
 Each `routine_specs[]` item must match `RoutineSpec`.
@@ -273,11 +316,7 @@ debugging or one-off flows, but that is not the canonical path.
 
 ## Checked-In Examples
 
+- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
 - [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
 - [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
-- [routine_bundles/four_week_running_calibration_bundle_patched.json](routine_bundles/four_week_running_calibration_bundle_patched.json)
-- [routine_bundles/four_week_running_meditation_transfer_bundle.json](routine_bundles/four_week_running_meditation_transfer_bundle.json)
-- [routine_bundles/four_week_running_support_calibration_bundle.json](routine_bundles/four_week_running_support_calibration_bundle.json)
-- [routine_bundles/four_week_strength_running_calibration_bundle.json](routine_bundles/four_week_strength_running_calibration_bundle.json)
-- [routine_bundles/two_week_core_bundle.json](routine_bundles/two_week_core_bundle.json)
 - [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
