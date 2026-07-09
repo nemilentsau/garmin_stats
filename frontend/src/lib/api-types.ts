@@ -1300,6 +1300,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Import
+         * @description Validate, lint, and single-shot activate an uploaded v3 artifact set.
+         */
+        post: operations["post_import_api_training_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today
+         * @description Return one day's compiled training schedule merged with capture logs.
+         */
+        get: operations["get_today_api_training_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/schedule-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Schedule Window
+         * @description Return a multi-day training schedule projection starting at `start`.
+         */
+        get: operations["get_schedule_window_api_training_schedule_window_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Block
+         * @description Return the active block's lifecycle status, 404 when nothing is imported.
+         */
+        get: operations["get_block_api_training_block_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/today/{date}/cards/{occurrence_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Today Card Log
+         * @description Apply a partial update to one card occurrence's capture log.
+         */
+        put: operations["put_today_card_log_api_training_today__date__cards__occurrence_key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -1335,6 +1435,23 @@ export interface components {
             state: "full" | "partial" | "missed" | "unknown";
             /** Exposure Score */
             exposure_score: number | null;
+        };
+        /** AllPredicate */
+        AllPredicate: {
+            /** All */
+            all: (components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"])[];
+        };
+        /** AnalysisContract */
+        AnalysisContract: {
+            /** Model Id */
+            model_id: string;
+            /** Decision Informed */
+            decision_informed: string;
+        };
+        /** AnyPredicate */
+        AnyPredicate: {
+            /** Any */
+            any: (components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"])[];
         };
         /**
          * ArtifactBundleDelta
@@ -1648,6 +1765,13 @@ export interface components {
          * @enum {integer}
          */
         BaselineWindow: 30 | 60 | 90;
+        /** BlockWindow */
+        BlockWindow: {
+            /** Start */
+            start: string;
+            /** Days */
+            days: number;
+        };
         /**
          * BodyBatteryAnalysisResponse
          * @description Body Battery chart and distribution analysis response.
@@ -1753,6 +1877,21 @@ export interface components {
             pattern_label: string;
             /** Instructions */
             instructions: string | null;
+        };
+        /** CaptureField */
+        CaptureField: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "number" | "enum" | "bool" | "set_rep_load[]";
+            /** Scale */
+            scale: {
+                [key: string]: number;
+            } | null;
+            contract: components["schemas"]["AnalysisContract"];
         };
         /**
          * CardLog
@@ -2079,6 +2218,21 @@ export interface components {
              */
             sample_count: number;
         };
+        /**
+         * Cmp
+         * @description Leaf predicate: compares a named signal against a literal value.
+         */
+        Cmp: {
+            /** Signal */
+            signal: string;
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "<" | "<=" | ">" | ">=" | "==" | "in";
+            /** Value */
+            value: boolean | number | string | (boolean | number | string)[];
+        };
         /** ConfounderCheck */
         ConfounderCheck: {
             /** Path */
@@ -2110,6 +2264,15 @@ export interface components {
             /** Treatment Total Days */
             treatment_total_days: number | null;
         };
+        /** ConstraintReference */
+        ConstraintReference: {
+            /** Card Id */
+            card_id: string | null;
+            /** Key Session */
+            key_session: boolean | null;
+            /** Per Tissue Duplicate */
+            per_tissue_duplicate: boolean | null;
+        };
         /**
          * CorrelationPoint
          * @description One point in a nightly-HRV-vs-other-metric scatter (consumed by the HRV tab).
@@ -2121,6 +2284,13 @@ export interface components {
             hrv_nightly: number;
             /** Other Value */
             other_value: number;
+        };
+        /** Criterion */
+        Criterion: {
+            /** Id */
+            id: string;
+            /** Predicate */
+            predicate: components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"];
         };
         /**
          * DailyAggregatesResponse
@@ -2439,6 +2609,26 @@ export interface components {
              */
             correlations: components["schemas"]["MetricCorrelation"][];
         };
+        /** DoseSpec */
+        DoseSpec: {
+            /** Sets */
+            sets: number | null;
+            /** Reps */
+            reps: [
+                number,
+                number
+            ] | null;
+            /** Pct E1Rm */
+            pct_e1rm: number | null;
+            /** Rpe Max */
+            rpe_max: number | null;
+            /** Contacts */
+            contacts: number | null;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Distance Mi */
+            distance_mi: number | null;
+        };
         /**
          * DriverSeries
          * @description Per-metric value/baseline/Δz over the trajectory window (for hover-brushing).
@@ -2516,6 +2706,33 @@ export interface components {
              * @default []
              */
             sparkline: components["schemas"]["SparkPoint"][];
+        };
+        /** ExercisePrescriptionSpec */
+        ExercisePrescriptionSpec: {
+            /** Exercise Id */
+            exercise_id: string;
+            /** Targets */
+            targets: string[];
+            /**
+             * Involves
+             * @default []
+             */
+            involves: string[];
+            /** Sets */
+            sets: number;
+            /** Reps */
+            reps: [
+                number,
+                number
+            ];
+            load: components["schemas"]["LoadSpec"];
+            /** Tempo */
+            tempo: string | null;
+            /**
+             * Logging
+             * @constant
+             */
+            logging: "set_rep_load";
         };
         /** Experiment */
         "Experiment-Input": {
@@ -2788,6 +3005,41 @@ export interface components {
              * @default []
              */
             experiments: components["schemas"]["ExperimentWithAnalysis"][];
+        };
+        /** ExtensionRule */
+        ExtensionRule: {
+            /** When Failed */
+            when_failed: string;
+            /** Action */
+            action: {
+                [key: string]: unknown;
+            };
+            /** Cap Total Extension Days */
+            cap_total_extension_days: number;
+        };
+        /**
+         * FileValidation
+         * @description Per-file diagnosis: detected kind, contract validity, and any errors.
+         */
+        FileValidation: {
+            /** Filename */
+            filename: string;
+            /** Kind */
+            kind: ("bundle" | "block" | "registry" | "library") | null;
+            /** Valid */
+            valid: boolean;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+        };
+        /** ForbidSpec */
+        ForbidSpec: {
+            /** Contract Kind */
+            contract_kind: ("overload" | "maintenance" | "measurement" | "recovery")[] | null;
+            /** Targets */
+            targets: string[] | null;
         };
         /**
          * HRDistributionResponse
@@ -3254,6 +3506,53 @@ export interface components {
             /** Value */
             value: number;
         };
+        /**
+         * ImportFile
+         * @description One uploaded artifact file: its name plus parsed JSON content.
+         */
+        ImportFile: {
+            /** Filename */
+            filename: string;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ImportRequest
+         * @description An upload batch plus any lint warnings the caller has already accepted.
+         */
+        ImportRequest: {
+            /** Files */
+            files: components["schemas"]["ImportFile"][];
+            /**
+             * Warning Acks
+             * @default []
+             */
+            warning_acks: string[];
+        };
+        /**
+         * ImportResult
+         * @description Full diagnosis of one import attempt, including whether it activated.
+         */
+        ImportResult: {
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileValidation"][];
+            lint_report: components["schemas"]["LintReport"] | null;
+            /**
+             * Missing Kinds
+             * @default []
+             */
+            missing_kinds: string[];
+            /**
+             * Activated
+             * @default false
+             */
+            activated: boolean;
+        };
         /** IngestResult */
         IngestResult: {
             /** Days Ingested */
@@ -3271,6 +3570,57 @@ export interface components {
             days_in_db: number;
             /** Days On Disk */
             days_on_disk: number;
+        };
+        /** IntensityFloor */
+        IntensityFloor: {
+            /**
+             * Metric
+             * @enum {string}
+             */
+            metric: "pct_e1rm" | "rpe" | "zone";
+            /** Min */
+            min: number | string;
+        };
+        /**
+         * LintReport
+         * @description L1-L12 findings plus the weekly rollups the block's budgets are checked against.
+         */
+        LintReport: {
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+            /**
+             * Week Run Miles
+             * @default {}
+             */
+            week_run_miles: {
+                [key: string]: number;
+            };
+            /**
+             * Week Minutes By Bundle
+             * @default {}
+             */
+            week_minutes_by_bundle: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+        };
+        /** LoadSpec */
+        LoadSpec: {
+            /** Pct E1Rm */
+            pct_e1rm: number | null;
+            /** Rpe */
+            rpe: number | null;
+            /** Absolute Kg */
+            absolute_kg: number | null;
         };
         /**
          * LoggedStrengthExercise
@@ -3312,6 +3662,18 @@ export interface components {
              */
             sets: components["schemas"]["StrengthSetLog-Output"][];
         };
+        /** MaintenanceContract */
+        MaintenanceContract: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "maintenance";
+            /** Preserves */
+            preserves: string;
+            minimum_effective_dose: components["schemas"]["DoseSpec"];
+            intensity_floor: components["schemas"]["IntensityFloor"];
+        };
         /**
          * MeaningfulChange
          * @description Sustained (Δ7) and acute (Δ1) change of the score against the R2 thresholds.
@@ -3338,6 +3700,46 @@ export interface components {
              * @default false
              */
             is_acute: boolean;
+        };
+        /** MeasurementContract */
+        MeasurementContract: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "measurement";
+            /** Estimand */
+            estimand: string;
+            /** Quality Gate */
+            quality_gate: (components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"])[];
+            /**
+             * On Fail
+             * @enum {string}
+             */
+            on_fail: "retry_backup" | "flag_and_continue" | "extend_block";
+        };
+        /** MeasurementEvent */
+        MeasurementEvent: {
+            /** Id */
+            id: string;
+            /** Card Id */
+            card_id: string;
+            /** Estimand */
+            estimand: string;
+            /** Scheduled Day */
+            scheduled_day: number;
+            /**
+             * Backup Days
+             * @default []
+             */
+            backup_days: number[];
+            /** Required */
+            required: boolean;
+            /**
+             * On All Missed
+             * @enum {string}
+             */
+            on_all_missed: "extend_block" | "flag";
         };
         /**
          * MeditationTimerPayload
@@ -3495,6 +3897,17 @@ export interface components {
             trend_state: string | null;
         };
         /**
+         * NotPredicate
+         * @description Negation predicate that accepts and emits the 'not' key.
+         *
+         *     Serializes with `not_` by default; use `by_alias=True` to emit 'not'.
+         *     Both spellings validate due to `populate_by_name=True`.
+         */
+        NotPredicate: {
+            /** Not */
+            not: components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"];
+        };
+        /**
          * Note
          * @description Freeform user note attached to a local date.
          */
@@ -3583,6 +3996,27 @@ export interface components {
              * @default 0.2
              */
             min_effect_size: number;
+        };
+        /** OverloadContract */
+        OverloadContract: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "overload";
+            /**
+             * Adaptation
+             * @enum {string}
+             */
+            adaptation: "neural_force" | "tendon_stiffness" | "reactive_ability" | "threshold" | "vo2" | "aerobic_base" | "hypertrophy";
+            /**
+             * Progression Driver
+             * @enum {string}
+             */
+            progression_driver: "load" | "reps" | "contacts" | "pace" | "duration" | "density";
+            /** State Ref */
+            state_ref: string;
+            ramp: components["schemas"]["RampSpec"] | null;
         };
         /**
          * OxygenHealthFlag
@@ -3845,6 +4279,12 @@ export interface components {
              */
             programs: components["schemas"]["Program"][];
         };
+        /** RampSpec */
+        RampSpec: {
+            /** Weeks */
+            weeks: number;
+            endpoint: components["schemas"]["DoseSpec"];
+        };
         /**
          * RatingPrompt
          * @description One post-session rating prompt shared by workout card payloads.
@@ -3884,6 +4324,15 @@ export interface components {
              * @default 5
              */
             scale_max: number;
+        };
+        /** RecoveryContract */
+        RecoveryContract: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "recovery";
+            load_ceiling: components["schemas"]["DoseSpec"];
         };
         /**
          * RecoveryScorePoint
@@ -3982,6 +4431,31 @@ export interface components {
             resting_bpm: number | null;
             /** Ma7 Bpm */
             ma7_bpm: number | null;
+        };
+        /** ReviewComputed */
+        ReviewComputed: {
+            /** Id */
+            id: string;
+            /** Estimator Id */
+            estimator_id: string;
+        };
+        /** ReviewSpec */
+        ReviewSpec: {
+            /**
+             * Cadence
+             * @enum {string}
+             */
+            cadence: "weekly" | "block_end";
+            /**
+             * Computed
+             * @default []
+             */
+            computed: components["schemas"]["ReviewComputed"][];
+            /**
+             * Human Prompts
+             * @default []
+             */
+            human_prompts: string[];
         };
         /**
          * RoutineActivationAssignment
@@ -4449,6 +4923,47 @@ export interface components {
              */
             days: components["schemas"]["ScheduleDay"][];
         };
+        /** SchedulingConstraint */
+        SchedulingConstraint: {
+            /** Id */
+            id: string;
+            forbid: components["schemas"]["ForbidSpec"];
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "within_hours_before" | "within_hours_after" | "same_day_as";
+            /** Hours */
+            hours: number | null;
+            reference: components["schemas"]["ConstraintReference"];
+        };
+        /** SegmentIntensity */
+        SegmentIntensity: {
+            /** Zone */
+            zone: string | null;
+            /** Rpe */
+            rpe: number | null;
+            /** Hr Range */
+            hr_range: [
+                number,
+                number
+            ] | null;
+        };
+        /** SegmentPrescription */
+        SegmentPrescription: {
+            /** Segments */
+            segments: components["schemas"]["SegmentSpec"][];
+        };
+        /** SegmentSpec */
+        SegmentSpec: {
+            /** Label */
+            label: string;
+            intensity: components["schemas"]["SegmentIntensity"];
+            /** Duration Min */
+            duration_min: number | null;
+            /** Distance Mi */
+            distance_mi: number | null;
+        };
         /** SkinTempDailyPoint */
         SkinTempDailyPoint: {
             /** Date */
@@ -4672,6 +5187,20 @@ export interface components {
             /** Value */
             value: number | null;
         };
+        /** StepResponse */
+        StepResponse: {
+            /** Week */
+            week: number;
+            /** Variable */
+            variable: string;
+            /** Target Fraction */
+            target_fraction: number;
+            /**
+             * Held Constant
+             * @default []
+             */
+            held_constant: string[];
+        };
         /**
          * StrengthActual
          * @description Logged actuals for a strength session, including off-script extras.
@@ -4745,6 +5274,11 @@ export interface components {
             detail: string | null;
             /** Set Scheme */
             set_scheme: string;
+        };
+        /** StrengthPrescription */
+        StrengthPrescription: {
+            /** Exercises */
+            exercises: components["schemas"]["ExercisePrescriptionSpec"][];
         };
         /**
          * StrengthSessionPayload
@@ -5200,6 +5734,351 @@ export interface components {
             pending: number;
         };
         /**
+         * TrainingBlockStatus
+         * @description The active block's lifecycle snapshot: lint history plus burn-in phase.
+         */
+        TrainingBlockStatus: {
+            block: components["schemas"]["V3Block"];
+            lint_report: components["schemas"]["LintReport"];
+            /**
+             * Warning Acks
+             * @default []
+             */
+            warning_acks: string[];
+            /** Current Day */
+            current_day: number | null;
+            /** Burn In */
+            burn_in: boolean | null;
+            /** Activated At */
+            activated_at: string;
+        };
+        /**
+         * TrainingCaptureLog
+         * @description Everything a card's capture fields recorded for one occurrence.
+         */
+        "TrainingCaptureLog-Input": {
+            /**
+             * Set Logs
+             * @default []
+             */
+            set_logs: components["schemas"]["TrainingExerciseLog-Input"][];
+            checkin?: components["schemas"]["TrainingCheckinLog-Input"] | null;
+            /** Rpe */
+            rpe?: number | null;
+        };
+        /**
+         * TrainingCaptureLog
+         * @description Everything a card's capture fields recorded for one occurrence.
+         */
+        "TrainingCaptureLog-Output": {
+            /**
+             * Set Logs
+             * @default []
+             */
+            set_logs: components["schemas"]["TrainingExerciseLog-Output"][];
+            checkin: components["schemas"]["TrainingCheckinLog-Output"] | null;
+            /** Rpe */
+            rpe: number | null;
+        };
+        /**
+         * TrainingCardLog
+         * @description One card occurrence's completion state, keyed by `date:occurrence_key`.
+         */
+        TrainingCardLog: {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /** Occurrence Key */
+            occurrence_key: string;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /** Variant Taken */
+            variant_taken: string | null;
+            /** Notes */
+            notes: string | null;
+            capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+        };
+        /**
+         * TrainingCheckinLog
+         * @description Logged tissue soreness/flags/core-done for a check-in card.
+         */
+        "TrainingCheckinLog-Input": {
+            /**
+             * Soreness
+             * @default {}
+             */
+            soreness: {
+                [key: string]: number;
+            };
+            /**
+             * Flags
+             * @default {}
+             */
+            flags: {
+                [key: string]: boolean;
+            };
+            /** Core Done */
+            core_done?: boolean | null;
+        };
+        /**
+         * TrainingCheckinLog
+         * @description Logged tissue soreness/flags/core-done for a check-in card.
+         */
+        "TrainingCheckinLog-Output": {
+            /**
+             * Soreness
+             * @default {}
+             */
+            soreness: {
+                [key: string]: number;
+            };
+            /**
+             * Flags
+             * @default {}
+             */
+            flags: {
+                [key: string]: boolean;
+            };
+            /** Core Done */
+            core_done: boolean | null;
+        };
+        /**
+         * TrainingCheckinRow
+         * @description One tissue soreness prompt row for the daily check-in card.
+         */
+        TrainingCheckinRow: {
+            /** Tissue */
+            tissue: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * TrainingExerciseDisplay
+         * @description One strength exercise's read-only display projection for a scheduled card.
+         */
+        TrainingExerciseDisplay: {
+            /** Exercise Id */
+            exercise_id: string;
+            /** Name */
+            name: string;
+            /** Scheme */
+            scheme: string;
+            /** Tempo */
+            tempo: string | null;
+            /** Sets */
+            sets: number;
+            /** Log Sets */
+            log_sets: boolean;
+        };
+        /**
+         * TrainingExerciseLog
+         * @description Logged sets for one exercise within a card's capture.
+         */
+        "TrainingExerciseLog-Input": {
+            /** Exercise Id */
+            exercise_id: string;
+            /**
+             * Sets
+             * @default []
+             */
+            sets: components["schemas"]["TrainingSetLog-Input"][];
+        };
+        /**
+         * TrainingExerciseLog
+         * @description Logged sets for one exercise within a card's capture.
+         */
+        "TrainingExerciseLog-Output": {
+            /** Exercise Id */
+            exercise_id: string;
+            /**
+             * Sets
+             * @default []
+             */
+            sets: components["schemas"]["TrainingSetLog-Output"][];
+        };
+        /**
+         * TrainingLogUpdateRequest
+         * @description Partial update for one card occurrence's capture log.
+         *
+         *     Every field is optional; a field left unset (None) keeps the existing
+         *     log's value rather than clearing it (see `upsert_training_log`).
+         */
+        TrainingLogUpdateRequest: {
+            /** Status */
+            status?: ("pending" | "completed" | "partial" | "skipped") | null;
+            /** Variant Taken */
+            variant_taken?: string | null;
+            /** Notes */
+            notes?: string | null;
+            capture?: components["schemas"]["TrainingCaptureLog-Input"] | null;
+        };
+        /**
+         * TrainingScheduleDay
+         * @description One calendar day within a multi-day schedule window projection.
+         */
+        TrainingScheduleDay: {
+            /** Date */
+            date: string;
+            /** Day */
+            day: number;
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["TrainingTodayCard"][];
+        };
+        /**
+         * TrainingScheduleWindow
+         * @description A multi-day schedule projection (e.g. a two-week planning view).
+         */
+        TrainingScheduleWindow: {
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /**
+             * Days
+             * @default []
+             */
+            days: components["schemas"]["TrainingScheduleDay"][];
+        };
+        /**
+         * TrainingSegmentDisplay
+         * @description One run/support segment's read-only display projection for a scheduled card.
+         */
+        TrainingSegmentDisplay: {
+            /** Label */
+            label: string;
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * TrainingSetLog
+         * @description One logged set within a strength card's capture.
+         */
+        "TrainingSetLog-Input": {
+            /** Set Index */
+            set_index: number;
+            /** Weight */
+            weight?: number | null;
+            /** Reps */
+            reps?: number | null;
+            /** Rir */
+            rir?: number | null;
+        };
+        /**
+         * TrainingSetLog
+         * @description One logged set within a strength card's capture.
+         */
+        "TrainingSetLog-Output": {
+            /** Set Index */
+            set_index: number;
+            /** Weight */
+            weight: number | null;
+            /** Reps */
+            reps: number | null;
+            /** Rir */
+            rir: number | null;
+        };
+        /**
+         * TrainingTodayCard
+         * @description One scheduled card occurrence, fully projected for Today-board display.
+         */
+        TrainingTodayCard: {
+            /** Occurrence Key */
+            occurrence_key: string;
+            /** Date */
+            date: string;
+            /** Day */
+            day: number;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "morning" | "midday" | "evening";
+            /** Bundle Id */
+            bundle_id: string;
+            /** Bundle Name */
+            bundle_name: string;
+            card: components["schemas"]["V3Card"];
+            /**
+             * Key Session
+             * @default false
+             */
+            key_session: boolean;
+            /**
+             * Variants
+             * @default []
+             */
+            variants: components["schemas"]["Variant"][];
+            /** Rule Display */
+            rule_display: string | null;
+            /** Gate Display */
+            gate_display: string | null;
+            /**
+             * Variant Options
+             * @default []
+             */
+            variant_options: string[];
+            /**
+             * Segments Display
+             * @default []
+             */
+            segments_display: components["schemas"]["TrainingSegmentDisplay"][];
+            /**
+             * Exercises Display
+             * @default []
+             */
+            exercises_display: components["schemas"]["TrainingExerciseDisplay"][];
+            /**
+             * Checkin Rows
+             * @default []
+             */
+            checkin_rows: components["schemas"]["TrainingCheckinRow"][];
+            /**
+             * Capture Rpe
+             * @default false
+             */
+            capture_rpe: boolean;
+            /** Est Duration Min */
+            est_duration_min: number | null;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /** Variant Taken */
+            variant_taken: string | null;
+            /** Notes */
+            notes: string | null;
+            capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+        };
+        /**
+         * TrainingTodayResponse
+         * @description One day's compiled schedule, enriched with any saved capture logs.
+         */
+        TrainingTodayResponse: {
+            /** Date */
+            date: string;
+            /** Block Id */
+            block_id: string | null;
+            /** Block Name */
+            block_name: string | null;
+            /** Day */
+            day: number | null;
+            /**
+             * Cards
+             * @default []
+             */
+            cards: components["schemas"]["TrainingTodayCard"][];
+        };
+        /**
          * TrajectoryEvent
          * @description A sustained recovery regime detected from the score (low / elevated), for annotation.
          */
@@ -5336,6 +6215,77 @@ export interface components {
              */
             coaching_style_preferences: string[];
         };
+        /** V3Block */
+        V3Block: {
+            /** Id */
+            id: string;
+            /**
+             * Identity
+             * @enum {string}
+             */
+            identity: "measurement" | "development" | "consolidation" | "taper" | "race";
+            window: components["schemas"]["BlockWindow"];
+            /** Bundle Ids */
+            bundle_ids: string[];
+            /**
+             * Baseline Tags
+             * @default []
+             */
+            baseline_tags: string[];
+            /**
+             * Flat Weeks
+             * @default []
+             */
+            flat_weeks: number[];
+            step_response: components["schemas"]["StepResponse"] | null;
+            /**
+             * Measurement Events
+             * @default []
+             */
+            measurement_events: components["schemas"]["MeasurementEvent"][];
+            /**
+             * Scheduling Constraints
+             * @default []
+             */
+            scheduling_constraints: components["schemas"]["SchedulingConstraint"][];
+            /**
+             * Exit Criteria
+             * @default []
+             */
+            exit_criteria: components["schemas"]["Criterion"][];
+            /**
+             * Extension Rules
+             * @default []
+             */
+            extension_rules: components["schemas"]["ExtensionRule"][];
+            /**
+             * Review Specs
+             * @default []
+             */
+            review_specs: components["schemas"]["ReviewSpec"][];
+        };
+        /** V3Card */
+        V3Card: {
+            /** Id */
+            id: string;
+            /** Bundle Id */
+            bundle_id: string;
+            /** Name */
+            name: string;
+            /** Contract */
+            contract: components["schemas"]["OverloadContract"] | components["schemas"]["MaintenanceContract"] | components["schemas"]["MeasurementContract"] | components["schemas"]["RecoveryContract"];
+            /** Prescription */
+            prescription: components["schemas"]["StrengthPrescription"] | components["schemas"]["SegmentPrescription"];
+            /**
+             * Capture
+             * @default []
+             */
+            capture: components["schemas"]["CaptureField"][];
+            /** Display Notes */
+            display_notes: string | null;
+            /** Est Duration Min */
+            est_duration_min: number | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -5348,6 +6298,17 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Variant */
+        Variant: {
+            /** Id */
+            id: string;
+            /** Stimulus Fraction */
+            stimulus_fraction: number;
+            /** Prescription Patch */
+            prescription_patch: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * WeeklyBodyBatteryBox
@@ -7479,6 +8440,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardLog"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_import_api_training_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_today_api_training_today_get: {
+        parameters: {
+            query: {
+                /** @description Date (YYYY-MM-DD) */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingTodayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_window_api_training_schedule_window_get: {
+        parameters: {
+            query: {
+                /** @description Start date (YYYY-MM-DD) */
+                start: string;
+                /** @description Number of days in the window */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingScheduleWindow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_block_api_training_block_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingBlockStatus"];
+                };
+            };
+        };
+    };
+    put_today_card_log_api_training_today__date__cards__occurrence_key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+                occurrence_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainingLogUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCardLog"];
                 };
             };
             /** @description Validation Error */

@@ -53,7 +53,13 @@ stay a leaf module the application layer imports from, never the reverse.
 `StoredBundle`/`StoredBlock`/`StoredRegistry`/`StoredLibrary` are the
 persistence envelopes around one verbatim uploaded artifact (see
 `application/imports.py`), and the `TrainingCardLog` family is the
-per-occurrence capture record a later task's read models read and write.
+per-occurrence capture record `application/read_models.py` reads and writes.
+
+The `Training*Display`/`Training*Card`/`Training*Response`/`Training*Window`/
+`TrainingBlockStatus` classes at the bottom are `application/read_models.py`'s
+view-model and response contracts: read-only projections of the wire
+contracts above (plus any saved `TrainingCardLog`), never persisted
+themselves and never round-tripped back through the v3 artifact models.
 """
 
 from __future__ import annotations
@@ -542,3 +548,91 @@ class TrainingCardLog(DefaultsRequired):
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
+
+
+class TrainingExerciseDisplay(DefaultsRequired):
+    """One strength exercise's read-only display projection for a scheduled card."""
+
+    exercise_id: str
+    name: str  # from the exercise library
+    scheme: str  # "3×2–3 @ 87% e1RM"
+    tempo: str | None = None
+    sets: int
+    log_sets: bool  # True when the card's capture includes a set_rep_load[] field
+
+
+class TrainingSegmentDisplay(DefaultsRequired):
+    """One run/support segment's read-only display projection for a scheduled card."""
+
+    label: str
+    detail: str  # "7 mi · 55 min · Z1-Z2"
+
+
+class TrainingCheckinRow(DefaultsRequired):
+    """One tissue soreness prompt row for the daily check-in card."""
+
+    tissue: str
+    label: str
+
+
+class TrainingTodayCard(DefaultsRequired):
+    """One scheduled card occurrence, fully projected for Today-board display."""
+
+    occurrence_key: str
+    date: str
+    day: int
+    slot: SlotName3
+    bundle_id: str
+    bundle_name: str
+    card: V3Card  # verbatim
+    key_session: bool = False
+    variants: list[Variant] = []
+    rule_display: str | None = None  # omitted when the selection rule has no clauses
+    gate_display: str | None = None  # measurement cards only
+    variant_options: list[str] = []  # omitted when the assignment has < 2 variants
+    segments_display: list[TrainingSegmentDisplay] = []
+    exercises_display: list[TrainingExerciseDisplay] = []
+    checkin_rows: list[TrainingCheckinRow] = []  # non-empty only for the check-in card
+    capture_rpe: bool = False  # card captures a numeric RPE
+    est_duration_min: float | None = None
+    status: TrainingCardStatus = "pending"
+    variant_taken: str | None = None
+    notes: str | None = None
+    capture: TrainingCaptureLog | None = None
+
+
+class TrainingTodayResponse(DefaultsRequired):
+    """One day's compiled schedule, enriched with any saved capture logs."""
+
+    date: str
+    block_id: str | None = None
+    block_name: str | None = None  # block id doubles as name for now
+    day: int | None = None  # None when date is outside the active window
+    cards: list[TrainingTodayCard] = []
+
+
+class TrainingScheduleDay(DefaultsRequired):
+    """One calendar day within a multi-day schedule window projection."""
+
+    date: str
+    day: int
+    cards: list[TrainingTodayCard] = []
+
+
+class TrainingScheduleWindow(DefaultsRequired):
+    """A multi-day schedule projection (e.g. a two-week planning view)."""
+
+    start_date: str
+    end_date: str
+    days: list[TrainingScheduleDay] = []
+
+
+class TrainingBlockStatus(DefaultsRequired):
+    """The active block's lifecycle snapshot: lint history plus burn-in phase."""
+
+    block: V3Block
+    lint_report: LintReport
+    warning_acks: list[str] = []
+    current_day: int | None = None
+    burn_in: bool | None = None  # True during week 1
+    activated_at: str

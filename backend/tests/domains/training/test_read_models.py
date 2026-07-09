@@ -1,0 +1,472 @@
+"""Today/schedule-window/block-status read model tests against block0 canon.
+
+Block0's window is `start=2026-07-06, days=28` (`block0.json`), so day 1 is
+2026-07-06 and day 28 is 2026-08-02 — every date-boundary test below is
+anchored to those two literal dates. The render-helper unit tests exercise
+`render_scheme`/`render_segment`/`render_rule`/`render_gate`/`checkin_rows`
+directly against both synthetic fixtures (to hit branches block0 never
+exercises, e.g. `AllPredicate`/`NotPredicate`/`rhr.delta_7d`) and the real
+imported schedule (to prove the projection end to end).
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import date
+
+from app.domains.training.adapters import SqliteTrainingRepository
+from app.domains.training.application.imports import ImportFile, ImportRequest, import_artifacts
+from app.domains.training.application.read_models import (
+    TrainingLogUpdateRequest,
+    checkin_rows,
+    get_block_status,
+    get_training_schedule_window,
+    get_training_today,
+    render_gate,
+    render_rule,
+    render_scheme,
+    render_segment,
+    upsert_training_log,
+)
+from app.domains.training.contracts import (
+    AllPredicate,
+    Cmp,
+    ExercisePrescriptionSpec,
+    GuardedClause,
+    LoadSpec,
+    MeasurementContract,
+    NotPredicate,
+    SegmentIntensity,
+    SegmentSpec,
+    SelectionRule,
+    SignalRegistry,
+    TrainingCaptureLog,
+    TrainingCheckinLog,
+)
+from tests._architecture import REPO_ROOT
+
+BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
+_BLOCK0_FILENAMES = [
+    "block0.json",
+    "running_v3.json",
+    "strength_v3.json",
+    "support_v3.json",
+    "registry.json",
+    "exercise_library.json",
+]
+
+
+def _load(name: str) -> dict:
+    return json.loads((BLOCK0 / name).read_text(encoding="utf-8"))
+
+
+def _block0_files() -> list[ImportFile]:
+    return [ImportFile(filename=name, content=_load(name)) for name in _BLOCK0_FILENAMES]
+
+
+def _imported_repo() -> SqliteTrainingRepository:
+    repo = SqliteTrainingRepository()
+    result = import_artifacts(repo, ImportRequest(files=_block0_files()))
+    assert result.activated is True
+    return repo
+
+
+def _card(response, occurrence_key: str):
+    return next(c for c in response.cards if c.occurrence_key == occurrence_key)
+
+
+# ---------- get_training_today: day boundaries ----------
+
+
+def test_today_at_window_start_returns_day_one_checkin_first_and_patched_segments():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-06")
+
+    assert response.block_id == "block0.calibration"
+    assert response.block_name == "block0.calibration"
+    assert response.day == 1
+    assert [c.occurrence_key for c in response.cards] == [
+        "support.v3:sup.daily:d01",
+        "running.v3:run.easy:d01",
+        "strength.v3:str.push_a:d01",
+    ]
+
+    daily = _card(response, "support.v3:sup.daily:d01")
+    assert daily.rule_display is None
+    assert daily.variant_options == []
+    assert len(daily.checkin_rows) == 6
+    assert daily.capture_rpe is False
+    assert [s.detail for s in daily.segments_display] == ["2 min · RPE 1", "12 min · RPE 4"]
+
+    easy = _card(response, "running.v3:run.easy:d01")
+    assert easy.capture_rpe is True
+    assert easy.checkin_rows == []
+    assert [s.detail for s in easy.segments_display] == ["7 mi · Z1-Z2"]
+
+
+def test_today_before_window_start_returns_no_cards_but_keeps_block_identity():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-05")
+
+    assert response.day is None
+    assert response.cards == []
+    assert response.block_id == "block0.calibration"
+
+
+def test_today_after_window_end_returns_no_cards():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-08-03")
+
+    assert response.day is None
+    assert response.cards == []
+    assert response.block_id == "block0.calibration"
+
+
+def test_today_at_window_end_boundary_returns_day_28_with_cards():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-08-02")
+
+    assert response.day == 28
+    assert len(response.cards) == 4
+
+
+def test_today_with_no_active_block_returns_empty_response():
+    repo = SqliteTrainingRepository()
+    response = get_training_today(repo, date="2026-07-06")
+
+    assert response.block_id is None
+    assert response.block_name is None
+    assert response.day is None
+    assert response.cards == []
+
+
+# ---------- get_training_today: card projection details ----------
+
+
+def test_today_multi_variant_strength_card_exposes_variant_options_and_rule_text():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-07")  # day 2
+
+    lower_a = _card(response, "strength.v3:str.lower_a:d02")
+    assert lower_a.variant_options == ["full", "reduced", "skip"]
+    assert lower_a.rule_display == (
+        "Skip if quad flag or glute flag or HRV (SWC units) < -1.5; "
+        "Reduced if HRV (SWC units) < -0.75 or quad soreness >= 2; "
+        "otherwise full; missing data → conservative."
+    )
+
+
+def test_today_bare_comparison_rule_renders_without_any_or_all_wrapper():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-06")  # day 1
+
+    push_a = _card(response, "strength.v3:str.push_a:d01")
+    assert push_a.rule_display == (
+        "Skip if HRV (SWC units) < -2; Reduced if HRV (SWC units) < -1.25; "
+        "otherwise full; missing data → conservative."
+    )
+
+
+def test_today_measurement_card_exposes_gate_display_and_two_variants():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-17")  # day 12
+
+    lthr = _card(response, "running.v3:run.lthr_test:d12")
+    assert lthr.key_session is True
+    assert lthr.variant_options == ["full", "skip"]
+    assert lthr.gate_display == (
+        "Measurement: LTHR (bpm), heat-season conditions; threshold pace secondary. "
+        "Gate: dew point (°C) <= 22; strap.validity_pct >= 0.95."
+    )
+    assert lthr.capture_rpe is True
+    assert [s.label for s in lthr.segments_display] == [
+        "warmup",
+        "30 min max sustainable effort; LTHR = mean HR of final 20 min",
+        "cooldown",
+    ]
+    assert lthr.segments_display[0].detail == "1.7 mi · 15 min · Z1-Z2"
+
+
+def test_today_rule_uses_event_completed_signal_and_three_variants():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-21")  # day 16
+
+    lthr = _card(response, "running.v3:run.lthr_test:d16")
+    assert lthr.variant_options == ["full", "treadmill", "alternate_strides"]
+    assert lthr.rule_display == (
+        "Alternate_strides if ev_lthr_test already completed; "
+        "Treadmill if dew point (°C) > 22; "
+        "otherwise full; missing data → conservative."
+    )
+
+
+def test_today_strength_card_projects_exercises_with_scheme_name_and_log_sets():
+    repo = _imported_repo()
+    response = get_training_today(repo, date="2026-07-06")  # day 1
+
+    push_a = _card(response, "strength.v3:str.push_a:d01")
+    assert len(push_a.exercises_display) == 6
+    bench = push_a.exercises_display[0]
+    assert bench.exercise_id == "barbell_bench"
+    assert bench.name == "Barbell Bench Press"
+    assert bench.scheme == "4×5–8 @ RPE 8"
+    assert bench.log_sets is True
+    assert push_a.segments_display == []
+
+
+# ---------- get_training_schedule_window ----------
+
+
+def test_schedule_window_with_no_active_block_returns_empty_days():
+    repo = SqliteTrainingRepository()
+    window = get_training_schedule_window(repo, start_date="2026-07-06", duration_days=5)
+
+    assert window.start_date == "2026-07-06"
+    assert window.end_date == "2026-07-10"
+    assert window.days == []
+
+
+def test_schedule_window_spans_in_window_days_with_cards():
+    repo = _imported_repo()
+    window = get_training_schedule_window(repo, start_date="2026-07-06", duration_days=3)
+
+    assert [d.day for d in window.days] == [1, 2, 3]
+    assert [len(d.cards) for d in window.days] == [3, 4, 3]
+
+
+def test_schedule_window_includes_out_of_window_day_with_empty_cards():
+    repo = _imported_repo()
+    window = get_training_schedule_window(repo, start_date="2026-07-05", duration_days=2)
+
+    assert window.days[0].day == 0
+    assert window.days[0].cards == []
+    assert window.days[1].day == 1
+    assert len(window.days[1].cards) == 3
+
+
+# ---------- get_block_status ----------
+
+
+def test_block_status_with_no_import_returns_none():
+    repo = SqliteTrainingRepository()
+    assert get_block_status(repo) is None
+
+
+def test_block_status_reports_lint_report_and_dynamic_current_day():
+    repo = _imported_repo()
+    status = get_block_status(repo)
+
+    assert status is not None
+    assert status.block.id == "block0.calibration"
+    assert status.lint_report.errors == []
+    assert status.warning_acks == []
+    assert status.activated_at
+
+    expected_day = (date.today() - date(2026, 7, 6)).days + 1
+    if 1 <= expected_day <= 28:
+        assert status.current_day == expected_day
+        assert status.burn_in == (expected_day <= 7)
+    else:
+        assert status.current_day is None
+        assert status.burn_in is None
+
+
+# ---------- upsert_training_log ----------
+
+
+def test_upsert_training_log_round_trips_through_today():
+    repo = _imported_repo()
+    capture = TrainingCaptureLog(checkin=TrainingCheckinLog(soreness={"quad": 1}))
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(status="completed", variant_taken="full", capture=capture),
+    )
+
+    daily = _card(get_training_today(repo, date="2026-07-06"), "support.v3:sup.daily:d01")
+    assert daily.status == "completed"
+    assert daily.variant_taken == "full"
+    assert daily.capture is not None
+    assert daily.capture.checkin is not None
+    assert daily.capture.checkin.soreness == {"quad": 1}
+
+
+def test_upsert_training_log_partial_update_preserves_unset_fields():
+    repo = _imported_repo()
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(status="completed", variant_taken="full"),
+    )
+
+    second = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="support.v3:sup.daily:d01",
+        update=TrainingLogUpdateRequest(notes="felt good"),
+    )
+
+    assert second.status == "completed"
+    assert second.variant_taken == "full"
+    assert second.notes == "felt good"
+
+
+def test_upsert_training_log_is_idempotent_and_does_not_duplicate_rows():
+    repo = _imported_repo()
+    update = TrainingLogUpdateRequest(status="completed", variant_taken="full")
+
+    first = upsert_training_log(
+        repo, date="2026-07-06", occurrence_key="support.v3:sup.daily:d01", update=update
+    )
+    second = upsert_training_log(
+        repo, date="2026-07-06", occurrence_key="support.v3:sup.daily:d01", update=update
+    )
+
+    assert first == second
+    assert len(repo.card_logs_for("2026-07-06")) == 1
+
+
+# ---------- render_scheme ----------
+
+
+def test_render_scheme_prefers_pct_e1rm_over_rpe():
+    exercise = ExercisePrescriptionSpec(
+        exercise_id="pendulum_squat",
+        targets=["quad"],
+        sets=3,
+        reps=(2, 3),
+        load=LoadSpec(pct_e1rm=0.87, rpe=8),
+        logging="set_rep_load",
+    )
+    assert render_scheme(exercise) == "3×2–3 @ 87% e1RM"
+
+
+def test_render_scheme_uses_rpe_when_no_pct_e1rm():
+    exercise = ExercisePrescriptionSpec(
+        exercise_id="barbell_bench",
+        targets=["upper_push"],
+        sets=4,
+        reps=(5, 8),
+        load=LoadSpec(rpe=8),
+        logging="set_rep_load",
+    )
+    assert render_scheme(exercise) == "4×5–8 @ RPE 8"
+
+
+def test_render_scheme_uses_absolute_kg_as_last_resort():
+    exercise = ExercisePrescriptionSpec(
+        exercise_id="farmer_carry",
+        targets=["grip_carry"],
+        sets=3,
+        reps=(1, 1),
+        load=LoadSpec(absolute_kg=50),
+        logging="set_rep_load",
+    )
+    assert render_scheme(exercise) == "3×1–1 @ 50 kg"
+
+
+# ---------- render_segment ----------
+
+
+def test_render_segment_joins_distance_and_zone():
+    segment = SegmentSpec(label="easy", intensity=SegmentIntensity(zone="Z1-Z2"), distance_mi=7.0)
+    assert render_segment(segment) == "7 mi · Z1-Z2"
+
+
+def test_render_segment_joins_duration_and_rpe():
+    segment = SegmentSpec(label="core", intensity=SegmentIntensity(rpe=4), duration_min=12)
+    assert render_segment(segment) == "12 min · RPE 4"
+
+
+def test_render_segment_uses_hr_range_when_no_zone_or_rpe():
+    segment = SegmentSpec(label="tempo", intensity=SegmentIntensity(hr_range=(140, 150)))
+    assert render_segment(segment) == "140–150 bpm"
+
+
+# ---------- render_rule ----------
+
+
+def test_render_rule_returns_none_for_empty_clauses():
+    rule = SelectionRule(clauses=[], default="full", on_missing_signal="select_default")
+    assert render_rule(rule) is None
+
+
+def test_render_rule_all_predicate_uses_and_conjunction():
+    rule = SelectionRule(
+        clauses=[
+            GuardedClause(
+                when=AllPredicate(
+                    all=[
+                        Cmp(signal="sleep.score", op="<", value=50),
+                        Cmp(signal="rhr.delta_7d", op=">", value=5),
+                    ]
+                ),
+                select="reduced",
+            )
+        ],
+        default="full",
+        on_missing_signal="ask",
+    )
+    assert render_rule(rule) == (
+        "Reduced if sleep score < 50 and RHR delta (bpm) > 5; otherwise full; missing data → ask."
+    )
+
+
+def test_render_rule_not_predicate_negates_signal():
+    rule = SelectionRule(
+        clauses=[
+            GuardedClause(
+                when=NotPredicate.model_validate(
+                    {"not": Cmp(signal="flag.tissue.quad", op="==", value=True)}
+                ),
+                select="full",
+            )
+        ],
+        default="full",
+        on_missing_signal="select_default",
+    )
+    assert render_rule(rule) == (
+        "Full if not (quad flag); otherwise full; missing data → default."
+    )
+
+
+# ---------- render_gate ----------
+
+
+def test_render_gate_formats_estimand_and_quality_gate():
+    contract = MeasurementContract(
+        kind="measurement",
+        estimand="LTHR (bpm)",
+        quality_gate=[
+            Cmp(signal="env.dew_point", op="<=", value=22),
+            Cmp(signal="rhr.delta_7d", op=">", value=5),
+        ],
+        on_fail="retry_backup",
+    )
+    assert render_gate(contract) == (
+        "Measurement: LTHR (bpm). Gate: dew point (°C) <= 22; RHR delta (bpm) > 5."
+    )
+
+
+# ---------- checkin_rows ----------
+
+
+def test_checkin_rows_returns_six_tissues_in_registry_order_with_slash_labels():
+    repo = _imported_repo()
+    registry = repo.registry()
+    assert registry is not None
+
+    rows = checkin_rows(SignalRegistry.model_validate(registry.artifact))
+
+    assert [r.tissue for r in rows] == [
+        "quad",
+        "glute",
+        "hamstring",
+        "calf_achilles",
+        "soleus",
+        "tibialis_foot",
+    ]
+    assert next(r for r in rows if r.tissue == "tibialis_foot").label == "tibialis / foot"
+    assert next(r for r in rows if r.tissue == "quad").label == "quad"
