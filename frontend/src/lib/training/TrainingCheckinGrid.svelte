@@ -9,10 +9,13 @@
 	 * pattern — component is freshly mounted whenever the detail panel opens) from
 	 * `card.capture.checkin`. Adds one core_done checkbox row alongside the per-tissue rows.
 	 *
-	 * Every change emits the FULL TrainingCaptureLog: `checkin` reflects the live edit,
-	 * `set_logs`/`rpe` pass through untouched from this component's own once-only seed — the
-	 * shipped v3 bundles never combine `cap.checkin.*` fields with `set_rep_load[]` or rpe
-	 * capture on the same card (see `docs/routine-pivot/block0/support_v3.json`).
+	 * Capture ownership: this component owns ONLY `checkin`. It emits just that slice via
+	 * `onCheckin` on every change and never reads or replays `set_logs`/`rpe` — TrainingCardBody
+	 * composes the full TrainingCaptureLog from each child's slice. This is deliberate: a
+	 * component that seeds a sibling capture kind once and replays it unchanged on every emit
+	 * would silently revert that sibling's staged edits if a card ever combined capture kinds,
+	 * even though the shipped v3 bundles don't do so today (see
+	 * `docs/routine-pivot/block0/support_v3.json`).
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingCheckinRow } from '$lib/api';
@@ -20,11 +23,11 @@
 	let {
 		card,
 		mode,
-		onCapture
+		onCheckin
 	}: {
 		card: { checkin_rows: TrainingCheckinRow[]; capture: TrainingCaptureLog | null };
 		mode: 'log' | 'view';
-		onCapture?: (capture: TrainingCaptureLog) => void;
+		onCheckin?: (checkin: TrainingCaptureLog['checkin']) => void;
 	} = $props();
 
 	const rows = $derived(card.checkin_rows);
@@ -33,8 +36,6 @@
 	const initialRows = untrack(() => card.checkin_rows);
 	const initialCapture = untrack(() => card.capture);
 	const initialCheckin = initialCapture?.checkin ?? null;
-	const seedSetLogs = initialCapture?.set_logs ?? [];
-	const seedRpe = initialCapture?.rpe ?? null;
 
 	// scale defaults to 0 (visually "no soreness") when nothing was ever stored — a real,
 	// persistable value rather than a null placeholder, mirroring ChecklistCard's scaleMap.
@@ -49,14 +50,10 @@
 	const SCALE_LEVELS = [0, 1, 2, 3] as const;
 
 	function emit() {
-		onCapture?.({
-			set_logs: seedSetLogs,
-			rpe: seedRpe,
-			checkin: {
-				soreness: Object.fromEntries(rows.map((row) => [row.tissue, scaleMap[row.tissue] ?? 0])),
-				flags: Object.fromEntries(rows.map((row) => [row.tissue, flaggedMap[row.tissue] ?? false])),
-				core_done: coreDone
-			}
+		onCheckin?.({
+			soreness: Object.fromEntries(rows.map((row) => [row.tissue, scaleMap[row.tissue] ?? 0])),
+			flags: Object.fromEntries(rows.map((row) => [row.tissue, flaggedMap[row.tissue] ?? false])),
+			core_done: coreDone
 		});
 	}
 

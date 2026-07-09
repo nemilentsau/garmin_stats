@@ -10,17 +10,17 @@
 	 * plain read-only text/rows in both modes; no card in the shipped v3 bundles logs
 	 * segment-level actuals, so segments never get an editable form here.
 	 *
-	 * Capture ownership: TrainingStrengthGrid and TrainingCheckinGrid each seed themselves
-	 * once (untrack, house pattern — the component is freshly mounted whenever the detail
-	 * panel opens) from `card.capture` and emit the FULL TrainingCaptureLog on every change,
-	 * passing through the fields they don't own from their own seed untouched. This
-	 * component mirrors the same seed-once pattern for its own RPE field and additionally
-	 * keeps `latestCapture` — updated by every child emission and by the RPE input — so a
-	 * later RPE edit always merges against the freshest known set_logs/checkin rather than
-	 * a stale snapshot. The shipped v3 bundles never combine set_rep_load[]/checkin/rpe
-	 * capture on one card (see `docs/routine-pivot/block0/*.json`), so at most one of
-	 * grid/checkin/rpe is ever live per card in practice; this still resolves correctly if
-	 * that assumption changes.
+	 * Capture ownership: children own their slice; CardBody composes. TrainingStrengthGrid
+	 * emits ONLY `set_logs` (via `onSetLogs`) and TrainingCheckinGrid emits ONLY `checkin`
+	 * (via `onCheckin`) — neither reads nor replays a sibling's capture kind. This component
+	 * is the single owner of the composed `TrainingCaptureLog`: it seeds `latestCapture` once
+	 * (untrack, house pattern — the component is freshly mounted whenever the detail panel
+	 * opens) from `card.capture`, then updates just the relevant field on each child callback
+	 * or on its own RPE input and re-emits the full merged log via `onCapture`. Centralizing
+	 * the merge here — rather than having each child replay the other slices from its own
+	 * stale seed — is what prevents a card that combines capture kinds (nothing in the schema
+	 * forbids it, even though the shipped v3 bundles don't do so today, see
+	 * `docs/routine-pivot/block0/*.json`) from silently reverting a sibling's staged edit.
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingTodayCard } from '$lib/api';
@@ -44,24 +44,27 @@
 	// construction is correct and sufficient (see StrengthSessionCard for the same pattern).
 	const initialCapture = untrack(() => card.capture ?? EMPTY_CAPTURE);
 
-	/** Mirrors the latest known full capture — updated by every child emission and by the
-	 *  RPE input, so whichever fires last always merges against the freshest other fields. */
+	/** The single composed capture — updated field-by-field by each child's own-slice
+	 *  callback and by the RPE input, then re-emitted in full via onCapture. */
 	let latestCapture = $state<TrainingCaptureLog>(initialCapture);
 	let rpeValue = $state<number | null>(initialCapture.rpe);
 
-	function handleChildCapture(capture: TrainingCaptureLog) {
-		latestCapture = capture;
-		rpeValue = capture.rpe;
-		onCapture?.(capture);
+	function handleSetLogs(setLogs: TrainingCaptureLog['set_logs']) {
+		latestCapture = { ...latestCapture, set_logs: setLogs };
+		onCapture?.(latestCapture);
+	}
+
+	function handleCheckin(checkin: TrainingCaptureLog['checkin']) {
+		latestCapture = { ...latestCapture, checkin };
+		onCapture?.(latestCapture);
 	}
 
 	function onRpeInput(e: Event) {
 		const raw = (e.currentTarget as HTMLInputElement).value;
 		const num = raw === '' ? null : Number(raw);
 		rpeValue = num !== null && Number.isFinite(num) ? num : null;
-		const merged: TrainingCaptureLog = { ...latestCapture, rpe: rpeValue };
-		latestCapture = merged;
-		onCapture?.(merged);
+		latestCapture = { ...latestCapture, rpe: rpeValue };
+		onCapture?.(latestCapture);
 	}
 </script>
 
@@ -92,7 +95,7 @@
 	<TrainingStrengthGrid
 		card={{ exercises_display: card.exercises_display, capture: card.capture }}
 		{mode}
-		onCapture={handleChildCapture}
+		onSetLogs={handleSetLogs}
 	/>
 {/if}
 
@@ -100,7 +103,7 @@
 	<TrainingCheckinGrid
 		card={{ checkin_rows: card.checkin_rows, capture: card.capture }}
 		{mode}
-		onCapture={handleChildCapture}
+		onCheckin={handleCheckin}
 	/>
 {/if}
 

@@ -13,29 +13,24 @@
 	 * `$state` array directly — never a deep `bind:` into the nested `#each`, matching
 	 * StrengthSessionCard's per-set grid (Svelte 5 nested-each writeback bug).
 	 *
-	 * Every change emits the FULL TrainingCaptureLog: `set_logs` reflects the live edit,
-	 * `checkin`/`rpe` pass through untouched from this component's own once-only seed. The
-	 * shipped v3 bundles never combine a `set_rep_load[]` capture field with checkin or rpe
-	 * fields on the same card (see `docs/routine-pivot/block0/*.json`), so that passthrough
-	 * never goes stale in practice; TrainingCardBody still re-mirrors whichever capture
-	 * arrives last, so this stays correct even if that assumption changes.
+	 * Capture ownership: this component owns ONLY `set_logs`. It emits just that slice via
+	 * `onSetLogs` on every change and never reads or replays `checkin`/`rpe` — TrainingCardBody
+	 * composes the full TrainingCaptureLog from each child's slice. This is deliberate: a
+	 * component that seeds a sibling capture kind once and replays it unchanged on every emit
+	 * would silently revert that sibling's staged edits if a card ever combined capture kinds,
+	 * even though the shipped v3 bundles don't do so today (see `docs/routine-pivot/block0/*.json`).
 	 */
 	import { untrack } from 'svelte';
-	import type {
-		TrainingCaptureLog,
-		TrainingExerciseDisplay,
-		TrainingExerciseLog,
-		TrainingSetLog
-	} from '$lib/api';
+	import type { TrainingCaptureLog, TrainingExerciseDisplay, TrainingExerciseLog, TrainingSetLog } from '$lib/api';
 
 	let {
 		card,
 		mode,
-		onCapture
+		onSetLogs
 	}: {
 		card: { exercises_display: TrainingExerciseDisplay[]; capture: TrainingCaptureLog | null };
 		mode: 'log' | 'view';
-		onCapture?: (capture: TrainingCaptureLog) => void;
+		onSetLogs?: (setLogs: TrainingCaptureLog['set_logs']) => void;
 	} = $props();
 
 	const exercises = $derived(card.exercises_display);
@@ -45,8 +40,6 @@
 	// construction is correct and sufficient (see StrengthSessionCard for the same pattern).
 	const initialExercises = untrack(() => card.exercises_display);
 	const initialCapture = untrack(() => card.capture);
-	const seedCheckin = initialCapture?.checkin ?? null;
-	const seedRpe = initialCapture?.rpe ?? null;
 
 	function emptySet(index: number): TrainingSetLog {
 		return { set_index: index, weight: null, reps: null, rir: null };
@@ -105,11 +98,7 @@
 	}
 
 	function emit() {
-		onCapture?.({
-			set_logs: exerciseLogs,
-			checkin: seedCheckin,
-			rpe: seedRpe
-		});
+		onSetLogs?.(exerciseLogs);
 	}
 </script>
 
