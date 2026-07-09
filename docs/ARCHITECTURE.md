@@ -4,13 +4,14 @@ This file is a current-state code map. It is not a roadmap and it is not a histo
 
 ## Product Shape
 
-The shipped app has three active product centers:
+The shipped app has four active product centers:
 
 1. Recovery dashboard and metric drill-downs
 2. Assistant chat with retrieval-first evidence bundles and stored runs
-3. Routine runtime shared by Creation, Schedule, and Today
+3. Training block runtime (v3): artifact import, lint-gated activation, and the Today/schedule training feed
+4. Routine runtime shared by Creation, Schedule, and Today — now the import path for non-training bundles (meditation, breathwork)
 
-Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area.
+Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area. Standing rule from the pivot (`docs/routine-pivot/pivot_roadmap.md`): routine/experiment/training content enters the app **only** by importing an authored bundle — no generators, translators, seeders, or derived artifacts.
 
 ## Project Layout
 
@@ -404,7 +405,9 @@ is reserved for shared app primitives rather than important product workflows.
   L1-L12 block linter, schedule compilation from imported bundles,
   Today/schedule-window/block-status read models, and per-occurrence
   capture-log persistence (set/rep/load logs, RPE, variant selection, and
-  check-in tissue soreness/flags).
+  check-in tissue soreness/flags). The import endpoint is the ONLY ingress for
+  training content: artifacts are stored verbatim, and nothing else in the app
+  may create or derive training rows.
 - Does not own: routine catalog or activation for non-training routines,
   assistant artifact staging, experiment analysis, program import, Garmin
   ingest, or Garmin analytics. The frontend Today and schedule pages compose
@@ -466,6 +469,14 @@ Experiment adherence is protocol-defined and day-grain.
 - `/api/assistant/artifacts`
 - `/api/assistant/artifact-bundles`
 
+### Training (v3)
+
+- `/api/training/import`
+- `/api/training/today`
+- `/api/training/schedule-window`
+- `/api/training/block`
+- `/api/training/today/{date}/cards/{occurrence_key}`
+
 ### Routine runtime
 
 - `/api/cards`
@@ -492,7 +503,8 @@ Experiment adherence is protocol-defined and day-grain.
 
 ## Routine Runtime Boundary
 
-This is the most important current product boundary.
+Legacy boundary for v2 routine bundles (meditation, breathwork); the active
+training path is the standalone `training` slice (see its charter above).
 
 - Domain routes now mount from `backend/app/domains/routines/routes.py`.
 - `/routines/schedule` handles routine review and bundle import
@@ -549,10 +561,15 @@ Garmin analytics is biometric-first but not `DailyMetric`-only.
   Assistant threads and chat.
 
 - `/today`
-  Execution board for one day.
+  Execution board for one day. Composes two feeds side by side: the training
+  block's cards (`/api/training/today`) and v2 routine cards (`/api/today`).
 
 - `/routines/schedule`
-  Live 14-day schedule review and bundle import.
+  Live 14-day schedule review (both feeds) and v2 bundle import.
+
+- `/training/import`
+  v3 training artifact upload: per-file validation, lint report with warning
+  acks, and block activation.
 
 - `/experiments`, `/programs`
   Placeholder routes.

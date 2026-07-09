@@ -30,6 +30,7 @@
 - **Timestamps are local time.** FIT files store UTC; the parser extracts the per-day UTC offset from `monitoring_info_mesgs` and shifts all timestamps to local time at ingest. `DayData.utc_offset_hours` / `DailyMetric.utc_offset_hours` carry the offset for display. New timestamp fields must go through `_shift_timestamps` in `backend/app/domains/garmin_health/infra/fit_parser/timestamps.py`; `backend/app/parser.py` is only the compatibility facade.
 - **Re-ingest after parser changes**: `cd backend && uv run python ../scripts/reingest.py`
 - **Watcher/startup/ingest changes must prove no-op behavior**: if you touch startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution, tests must cover `missing`, `already in sync`, and `stale/changed` states, including an idempotence case where a second run with no file changes does no work. After those changes, do a real local smoke check against the actual data tree before considering the task done.
+- **Import is the only content ingress.** Routine, experiment, and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/routine-pivot/schema_v3_spec.md` + `block0/` artifacts, which are canon and read-only); schemas are never flattened into older engine formats.
 
 ## Architecture & Reference
 - Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
@@ -90,5 +91,6 @@ Six skills support this project. Each owns specific code layers:
 
 Update these as part of the same PR/commit that introduces the change:
 - **`README.md`**: frontend routes, API endpoints, project structure, setup instructions
+- **`docs/ARCHITECTURE.md`**: module charters, route inventory, and boundary rules when domains/routes change
 - **`FINDINGS.md`**: data analysis findings, data quality observations, open questions
 - Skip updates for internal refactors or code-only changes

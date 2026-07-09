@@ -5,6 +5,12 @@ not kept as a parallel source of truth (git history retains them).
 
 ## Read First
 
+- **[routine-pivot/](routine-pivot/)** — the canonical product direction:
+  [general_principles.md](routine-pivot/general_principles.md) (P1–P13),
+  [schema_v3_spec.md](routine-pivot/schema_v3_spec.md) (the v3 training schema the app imports),
+  [pivot_roadmap.md](routine-pivot/pivot_roadmap.md) (two standing objectives, phases, shipped
+  notes, and the import-only ingress rule), and [block0/](routine-pivot/block0/) (the authored
+  Block 0 artifacts — bundles, block, registry, exercise library, reference linter).
 - [ARCHITECTURE.md](ARCHITECTURE.md) — backend/frontend structure, ownership boundaries, route
   inventory, and domain rules.
 - [recovery-dashboard.md](recovery-dashboard.md) — the recovery score, health flags, regime

@@ -9,6 +9,10 @@
 > module path below as a target to build, not a contract that exists. The
 > pre-existing foundations it references (the `daily_metrics` mart, `parse_all_days`,
 > WELLNESS/SLEEP/HRV/SKIN_TEMP parsing, `alcohol_flag` daily check-ins) are real.
+> **Update 2026-07-09:** activity FIT *download* now exists — the sync button and
+> `scripts/download_garmin.py --activities` land files under
+> `data/garmin_activities/YYYY-MM-DD/`. Ingestion/parsing remains unbuilt as
+> described below.
 >
 > Current sequencing: do not start this activity/workout ingestion track until the
 > generic Garmin metric dashboards have been DRYed up and visually stabilized. In

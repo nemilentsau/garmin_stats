@@ -46,7 +46,7 @@ Applied to what exists today:
 
 ## 3. Sequencing decisions
 
-**D1 — Training track first, calmness second.** O1 is fully specced and its v2 predecessor is already terminated — the interregnum is running now. O2 needs design work, and current meditation practice continues as-is without harm. No dependency runs from O2 to O1.
+**D1 — Training track first, calmness second.** O1 is fully specced and its v2 predecessor is already terminated — the interregnum is running now. O2 needs design work, and current meditation practice continues as-is without harm. No dependency runs from O2 to O1. *(Post-wipe note, 2026-07-09: the meditation/breathwork routine content was deleted with everything else in the DB cleanup; the bundle files remain in `docs/routine_bundles/` and can be re-imported through the v2 path whenever wanted — the practice itself continues off-app either way.)*
 
 **D2 — Block 0 before the v3 engine.** The razor: capture cannot be backfilled; analysis can. The only thing that must exist on day 1 is capture, and it largely does — strength set×rep×load logging, post-run fields including dew point, chest-strap HR. Block 0 is deliberately the least adaptive block the system will ever run (flat volume, stationary weekly covariates), so it needs the least runtime machinery of any block. The selection-rule engine earns its keep in Block 1, not Block 0.
 
@@ -87,7 +87,7 @@ The training-state lane — S1–S4 trends plus the constraint strip — becomes
 
 ### Phase 3 — Calmness track (after Block 1 adopts the engine)
 
-Wire the D4 report as a real capture field with an analysis contract — model: calmness trend conditioned on training load and prior-day session type; decision informed: which practice and dose to run next, via experiments. Promote it into the experiment target-metric registry as a first-class outcome. Only then redesign meditation/breath routine content. Until Phase 3, meditation runs unchanged.
+Wire the D4 report as a real capture field with an analysis contract — model: calmness trend conditioned on training load and prior-day session type; decision informed: which practice and dose to run next, via experiments. Promote it into the experiment target-metric registry as a first-class outcome. Only then redesign meditation/breath routine content. Until Phase 3, meditation content stays as-authored (the v2 bundle files; not currently imported after the 2026-07-08 wipe — re-import at will).
 
 ---
 
@@ -99,4 +99,4 @@ Wire the D4 report as a real capture field with an analysis contract — model: 
 
 ---
 
-This doc retires when Phase 0 completes: after Block 0 is adopted, the principles and schema specs govern and this file is history.
+This doc retires when Block 1 adopts the full v3 engine (Phase 1 complete): from then on the principles and schema specs govern and this file is history. (The original Phase 0 retirement trigger is moot — Phase 0 was retracted and Phase 1's import slice shipped in its place.)

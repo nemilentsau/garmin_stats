@@ -61,6 +61,9 @@ Optional fields:
 - `tags`
 
 `payload` must be a typed payload object carrying a `card_type` discriminator.
+(This spec covers v2 routine bundles only. Training content uses the separate
+v3 schema in `docs/routine-pivot/schema_v3_spec.md` and its own import pipeline
+at `/training/import` — v3 artifacts never pass through this format.)
 The five supported card types are:
 
 ### `running_workout`
