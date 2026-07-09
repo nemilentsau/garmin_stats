@@ -43,6 +43,17 @@ parse against this contract set.
 This module intentionally does not parse `compiled_schedule.json`,
 `lint_report.json`, or `schedule_overview.md` — those are derived/reporting
 artifacts, not part of the v3 wire contract surface.
+
+Everything below `ExerciseLibrary` is a different kind of contract: computed
+or persisted domain shapes rather than parsed upload artifacts. `LintReport`
+is the linter's (`application/validation.py`) output contract, kept here —
+not in `application/validation.py` — purely to break an import cycle: the
+storage wrapper records below embed a `LintReport`, and `contracts.py` must
+stay a leaf module the application layer imports from, never the reverse.
+`StoredBundle`/`StoredBlock`/`StoredRegistry`/`StoredLibrary` are the
+persistence envelopes around one verbatim uploaded artifact (see
+`application/imports.py`), and the `TrainingCardLog` family is the
+per-occurrence capture record a later task's read models read and write.
 """
 
 from __future__ import annotations
@@ -51,7 +62,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
-from app.contracts.base import StrictDefaultsRequired
+from app.contracts.base import DefaultsRequired, StrictDefaultsRequired
 
 SchemaVersion3 = Literal["3.0"]
 SlotName3 = Literal["morning", "midday", "evening"]
@@ -423,3 +434,111 @@ class ExerciseDef(StrictDefaultsRequired):
 class ExerciseLibrary(StrictDefaultsRequired):
     schema_version: SchemaVersion3
     exercises: list[ExerciseDef]
+
+
+class LintReport(DefaultsRequired):
+    """L1-L12 findings plus the weekly rollups the block's budgets are checked against."""
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    week_run_miles: dict[int, float] = {}
+    week_minutes_by_bundle: dict[int, dict[str, float]] = {}
+
+
+StoredRecordStatus = Literal["active", "retired"]
+"""Lifecycle status for a stored block/bundle row (`application/imports.py`
+retires the previous generation before activating a new one)."""
+
+
+class StoredBundle(DefaultsRequired):
+    """One imported content bundle, keyed by its own artifact id.
+
+    `artifact` is the uploaded bundle JSON stored verbatim — never a
+    re-serialized round trip through `V3Bundle` — so a readback always equals
+    exactly what was uploaded.
+    """
+
+    id: str
+    status: StoredRecordStatus
+    artifact: dict[str, Any]
+
+
+class StoredBlock(DefaultsRequired):
+    """The active (or a formerly active, now retired) imported block.
+
+    Carries the lint report and warning acknowledgements produced at
+    activation time alongside the verbatim block artifact, so a later reader
+    never has to re-lint to know why a block was allowed to activate.
+    """
+
+    id: str
+    status: StoredRecordStatus
+    artifact: dict[str, Any]
+    lint_report: LintReport
+    warning_acks: list[str] = []
+    activated_at: str
+
+
+class StoredRegistry(DefaultsRequired):
+    """The single imported signal registry, replaced wholesale on every import.
+
+    The raw registry artifact has no id of its own; `id` is an
+    import-assigned bookkeeping value, not part of the artifact.
+    """
+
+    id: str
+    artifact: dict[str, Any]
+
+
+class StoredLibrary(DefaultsRequired):
+    """The single imported exercise library, replaced wholesale on every import."""
+
+    id: str
+    artifact: dict[str, Any]
+
+
+class TrainingSetLog(DefaultsRequired):
+    """One logged set within a strength card's capture."""
+
+    set_index: int
+    weight: float | None = None
+    reps: int | None = None
+    rir: int | None = None
+
+
+class TrainingExerciseLog(DefaultsRequired):
+    """Logged sets for one exercise within a card's capture."""
+
+    exercise_id: str
+    sets: list[TrainingSetLog] = []
+
+
+class TrainingCheckinLog(DefaultsRequired):
+    """Logged tissue soreness/flags/core-done for a check-in card."""
+
+    soreness: dict[str, int] = {}  # tissue -> 0..3 (attested)
+    flags: dict[str, bool] = {}
+    core_done: bool | None = None
+
+
+class TrainingCaptureLog(DefaultsRequired):
+    """Everything a card's capture fields recorded for one occurrence."""
+
+    set_logs: list[TrainingExerciseLog] = []
+    checkin: TrainingCheckinLog | None = None
+    rpe: float | None = None
+
+
+TrainingCardStatus = Literal["pending", "completed", "partial", "skipped"]
+
+
+class TrainingCardLog(DefaultsRequired):
+    """One card occurrence's completion state, keyed by `date:occurrence_key`."""
+
+    id: str  # f"{date}:{occurrence_key}"
+    date: str
+    occurrence_key: str  # f"{bundle_id}:{card_id}:d{day:02d}"
+    status: TrainingCardStatus = "pending"
+    variant_taken: str | None = None
+    notes: str | None = None
+    capture: TrainingCaptureLog | None = None

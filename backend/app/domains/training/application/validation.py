@@ -73,7 +73,6 @@ from re import IGNORECASE
 from re import compile as re_compile
 from typing import Any
 
-from app.contracts.base import DefaultsRequired
 from app.domains.training.application.compile import (
     SLOT_HOUR,
     CompiledEntry,
@@ -92,6 +91,7 @@ from app.domains.training.contracts import (
     ExerciseLibrary,
     ExercisePrescriptionSpec,
     ForbidSpec,
+    LintReport,
     MaintenanceContract,
     MeasurementContract,
     NotPredicate,
@@ -116,15 +116,6 @@ _BAD_NOTE = re_compile(r"\b(if|unless|only if|skip|instead|optional|coordinate)\
 #   L12 extension rule missing cap      -> ExtensionRule.cap_total_extension_days is required
 # If any of these contract fields is ever loosened to optional, reinstate the
 # corresponding lint check here.
-
-
-class LintReport(DefaultsRequired):
-    """L1-L12 findings plus the weekly rollups the block's budgets are checked against."""
-
-    errors: list[str] = []
-    warnings: list[str] = []
-    week_run_miles: dict[int, float] = {}
-    week_minutes_by_bundle: dict[int, dict[str, float]] = {}
 
 
 def _exercises(prescription: Prescription) -> list[ExercisePrescriptionSpec]:
