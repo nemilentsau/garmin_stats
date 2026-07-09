@@ -106,6 +106,17 @@ from app.domains.training.contracts import (
 
 _BAD_NOTE = re_compile(r"\b(if|unless|only if|skip|instead|optional|coordinate)\b", IGNORECASE)
 
+# Checks from the source linter that are structurally subsumed by the typed
+# contracts (non-optional fields; validation fails before lint() is reachable):
+#   L1 REQ per-kind contract fields  -> Contract union discriminates + requires them
+#   L6 capture missing AnalysisContract -> CaptureField.contract is required
+#   L8 strength sets/reps/load presence -> ExercisePrescriptionSpec requires them
+#   L10 ramp-without-endpoint           -> RampSpec.endpoint is required
+#   L10 intensity_floor missing metric  -> IntensityFloor.metric is required
+#   L12 extension rule missing cap      -> ExtensionRule.cap_total_extension_days is required
+# If any of these contract fields is ever loosened to optional, reinstate the
+# corresponding lint check here.
+
 
 class LintReport(DefaultsRequired):
     """L1-L12 findings plus the weekly rollups the block's budgets are checked against."""

@@ -57,6 +57,10 @@ def test_block0_artifacts_lint_clean_and_reproduce_shipped_report():
     assert report.warnings == []
     shipped = json.loads((BLOCK0 / "lint_report.json").read_text(encoding="utf-8"))
     assert report.week_run_miles == {int(k): v for k, v in shipped["week_run_miles"].items()}
+    assert report.week_minutes_by_bundle == {
+        int(week): {bundle_id: float(minutes) for bundle_id, minutes in bundle_minutes.items()}
+        for week, bundle_minutes in shipped["week_minutes_by_bundle"].items()
+    }
 
 
 # ---------- L1: residual contract-completeness (unknown state_ref) ----------
