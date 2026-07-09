@@ -102,6 +102,12 @@ export type Program = Schemas['Program'];
 export type ProgramsResponse = Schemas['ProgramsResponse'];
 export type ProgramVersion = Schemas['ProgramVersion'];
 export type ProgramVersionsResponse = Schemas['ProgramVersionsResponse'];
+export type ImportFile = Schemas['ImportFile'];
+export type ImportRequest = Schemas['ImportRequest'];
+export type ImportResult = Schemas['ImportResult'];
+export type FileValidation = Schemas['FileValidation'];
+export type LintReport = Schemas['LintReport'];
+export type TrainingBlockStatus = Schemas['TrainingBlockStatus'];
 
 function unwrap<T>(data: T | undefined, error: unknown): T {
 	if (error) {
@@ -361,5 +367,11 @@ export const api = {
 		return unwrapResponse(client.GET('/api/programs/{program_id}/versions', {
 			params: { path: { program_id: programId } }
 		}));
+	},
+	importTraining: async (body: ImportRequest) => {
+		return unwrapResponse(client.POST('/api/training/import', { body }));
+	},
+	getTrainingBlock: async () => {
+		return unwrapResponse(client.GET('/api/training/block'));
 	}
 };

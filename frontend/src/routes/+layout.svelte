@@ -33,7 +33,8 @@
 				{ href: '/today', label: 'Today' },
 				{ href: '/routines/schedule', label: 'Routine Schedule' },
 				{ href: '/experiments', label: 'Experiments' },
-				{ href: '/programs', label: 'Programs' }
+				{ href: '/programs', label: 'Programs' },
+				{ href: '/training/import', label: 'Import' }
 			]
 		},
 		{
