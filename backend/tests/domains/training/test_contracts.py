@@ -76,10 +76,22 @@ def test_block0_exit_criteria_all_predicate_and_bool_value_round_trip():
 def test_not_predicate_synthetic_round_trip():
     """No shipped artifact uses the `not` predicate key, but the schema spec
     defines it, so it is exercised here with a synthetic payload rather than
-    against canon.
+    against canon. Tests both default and by_alias serialization.
     """
-    predicate = TypeAdapter(Predicate).validate_python(
-        {"not": {"signal": "sleep.score", "op": "<", "value": 50}}
-    )
-    assert isinstance(predicate, NotPredicate)
-    assert predicate.not_.signal == "sleep.score"  # type: ignore[union-attr]
+    raw = {"not": {"signal": "flag.tissue.quad", "op": "==", "value": True}}
+    adapter = TypeAdapter(Predicate)
+    parsed = adapter.validate_python(raw)
+    assert isinstance(parsed, NotPredicate)
+    # default dump round-trips via populate_by_name
+    assert adapter.validate_python(parsed.model_dump(exclude_none=True)) == parsed
+    # by_alias dump uses the wire key "not"
+    dumped = parsed.model_dump(by_alias=True, exclude_none=True)
+    assert "not" in dumped
+    assert "not_" not in dumped
+    assert adapter.validate_python(dumped) == parsed
+
+
+def test_cmp_in_operator_accepts_value_list():
+    """The 'in' operator accepts a list of literal values."""
+    cmp = Cmp.model_validate({"signal": "x", "op": "in", "value": [1, 2.5, "a", True]})
+    assert cmp.value == [1, 2.5, "a", True]

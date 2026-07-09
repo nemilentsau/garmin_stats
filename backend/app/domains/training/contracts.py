@@ -27,10 +27,14 @@ artifacts don't need it to:
   Bundle authors only ever populate a subset of `SegmentSpec` keys inside it
   (e.g. `label`/`intensity` without `duration_min`), so it stays an
   unvalidated opaque dict, merged by index at read time by a later task.
-- `ExtensionRule.action: dict[str, Any]` — the spec types this
-  `{ extend_days: number; insert?: MeasurementEvent }`; `block0.json` only
-  ever uses `{"extend_days": <int>}`. Left as an opaque dict rather than a
-  closed shape since no artifact exercises `insert`.
+- `ExtensionRule.action: dict[str, Any]` — exactly as specified in the schema
+  (`{ extend_days: number; insert?: MeasurementEvent }`), stored as an
+  unvalidated opaque dict since all shipped artifacts only use
+  `{"extend_days": <int>}`.
+
+The `NotPredicate` serializes with `not_` by default (model_dump); pass
+`by_alias=True` to serialize as `not`. Both spellings validate due to
+`populate_by_name=True` in `NotPredicate.model_config`.
 
 Every model here parsed the six shipped artifacts on the first pass with no
 adjustments beyond what's listed above — no field in any artifact failed to
@@ -45,7 +49,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from app.contracts.base import StrictDefaultsRequired
 
@@ -81,6 +85,18 @@ class AnyPredicate(StrictDefaultsRequired):
 
 
 class NotPredicate(StrictDefaultsRequired):
+    """Negation predicate that accepts and emits the 'not' key.
+
+    Serializes with `not_` by default; use `by_alias=True` to emit 'not'.
+    Both spellings validate due to `populate_by_name=True`.
+    """
+
+    model_config = ConfigDict(
+        json_schema_serialization_defaults_required=True,
+        extra="forbid",
+        populate_by_name=True,
+    )
+
     not_: Predicate = Field(alias="not")
 
 
