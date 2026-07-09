@@ -4,6 +4,11 @@ The manual sync workflow treats the latest local archive as possibly partial,
 deletes it, downloads that day through today, extracts archives, and ingests only
 affected dates. Filesystem, Garmin, clock, ingest, and watcher operations are
 injected so this module stays policy-only.
+
+Sync also sweeps a short activity window (the wellness range plus a lookback for
+late uploads) to download any new Garmin Connect activity FIT files. The
+activities tree is neither watched nor ingested, so that sweep runs outside
+watcher suspension and does not affect wellness ingest counters.
 """
 
 from __future__ import annotations
@@ -43,13 +48,16 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
 
     File watching is suspended while the workflow mutates the data directory.
     The watcher fingerprint is marked synced only after incremental ingest
-    succeeds, so failed syncs still leave changed disk state detectable.
+    succeeds, so failed syncs still leave changed disk state detectable. The
+    activity sweep runs after watcher resumption, unguarded, because the
+    activities tree is neither watched nor ingested.
     """
     t0 = deps.monotonic()
     client = deps.clients.create()
+    today = deps.today()
 
     latest = deps.files.latest_zip_date(deps.data_dir)
-    plan = _plan_sync_dates(latest=latest, today=deps.today())
+    plan = _plan_sync_dates(latest=latest, today=today)
     deleted_latest = plan.deleted_latest.isoformat() if plan.deleted_latest else None
 
     deps.suspend_watcher()
@@ -79,6 +87,13 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     finally:
         deps.resume_watcher()
 
+    activity_days = _plan_activity_dates(
+        wellness_start=plan.dates[0] if plan.dates else today, today=today
+    )
+    activities_downloaded, activities_skipped, activities_failed = _sync_activities(
+        deps, client, activity_days
+    )
+
     duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(
         downloaded=downloaded,
@@ -87,6 +102,9 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deleted_latest=deleted_latest,
         days_ingested=ingest_result.days_ingested,
         duration_ms=duration_ms,
+        activities_downloaded=activities_downloaded,
+        activities_skipped=activities_skipped,
+        activities_failed=activities_failed,
     )
 
 
@@ -139,3 +157,64 @@ def _download_day(
     deps.files.write_zip(deps.data_dir, day, data)
     log.info("  %s: OK (%d bytes)", date_str, len(data))
     return "downloaded"
+
+
+_ACTIVITY_LOOKBACK_DAYS = 3
+
+
+def _plan_activity_dates(*, wellness_start: date, today: date) -> list[date]:
+    """Sweep the wellness window plus a short lookback for late activity uploads."""
+    start = min(wellness_start, today - timedelta(days=_ACTIVITY_LOOKBACK_DAYS))
+    days: list[date] = []
+    current = start
+    while current <= today:
+        days.append(current)
+        current += timedelta(days=1)
+    return days
+
+
+def _sync_activities(
+    deps: GarminSyncDependencies,
+    client: GarminDownloadClient,
+    days: list[date],
+) -> tuple[int, int, int]:
+    """Download missing activity payloads.
+
+    A listing failure skips that day; per-activity failures skip that
+    activity; nothing aborts the sweep or the completed wellness sync.
+    """
+    downloaded = 0
+    skipped = 0
+    failed = 0
+    for day in days:
+        date_str = day.isoformat()
+        try:
+            refs = client.list_activities(day)
+        except Exception:
+            log.exception("  %s: activity listing failed", date_str)
+            failed += 1
+            continue
+        for ref in refs:
+            if deps.activity_files.has_activity(deps.activities_dir, day, ref.activity_id):
+                skipped += 1
+                continue
+            try:
+                payload = client.download_activity_original(ref.activity_id)
+            except Exception:
+                log.exception("  %s: activity %s download failed", date_str, ref.activity_id)
+                failed += 1
+                continue
+            if payload is None:
+                log.info("  %s: activity %s had no payload", date_str, ref.activity_id)
+                failed += 1
+                continue
+            try:
+                deps.activity_files.store_activity(
+                    deps.activities_dir, day, ref.activity_id, ref.metadata, payload
+                )
+            except Exception:
+                log.exception("  %s: activity %s payload unusable", date_str, ref.activity_id)
+                failed += 1
+                continue
+            downloaded += 1
+    return downloaded, skipped, failed

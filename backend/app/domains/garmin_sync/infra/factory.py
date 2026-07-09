@@ -14,6 +14,7 @@ from pathlib import Path
 
 from app.core.config import AppConfig, get_app_config
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.infra.activity_files import FilesystemActivityStore
 from app.domains.garmin_sync.infra.filesystem import (
     FilesystemSyncFileStore,
     ensure_data_dir,
@@ -52,6 +53,7 @@ def build_garmin_sync_infra(
     )
     dependencies = GarminSyncDependencies(
         data_dir=sync_data_dir,
+        activities_dir=app_config.activities_dir,
         ingest=ingest,
         extract_archives=extract_existing_archives,
         suspend_watcher=watcher.suspend,
@@ -59,6 +61,7 @@ def build_garmin_sync_infra(
         mark_watcher_synced=watcher.mark_synced,
         clients=GarminConnectClientFactory(app_config.garmin_token_dir),
         files=FilesystemSyncFileStore(),
+        activity_files=FilesystemActivityStore(),
         today=date.today,
         monotonic=time.monotonic,
     )

@@ -50,6 +50,14 @@ class _UnusedFileStore:
         raise AssertionError("file store should not be used")
 
 
+class _UnusedActivityFileStore:
+    def has_activity(self, activities_dir: Path, day, activity_id: str):
+        raise AssertionError("activity file store should not be used")
+
+    def store_activity(self, activities_dir: Path, day, activity_id: str, metadata, payload: bytes):
+        raise AssertionError("activity file store should not be used")
+
+
 def _make_deps(
     *,
     data_dir: Path,
@@ -58,6 +66,7 @@ def _make_deps(
 ) -> GarminSyncDependencies:
     return GarminSyncDependencies(
         data_dir=data_dir,
+        activities_dir=data_dir / "garmin_activities",
         ingest=ingest,
         extract_archives=extract_archives,
         suspend_watcher=lambda: None,
@@ -65,6 +74,7 @@ def _make_deps(
         mark_watcher_synced=lambda: None,
         clients=_UnusedClientFactory(),
         files=_UnusedFileStore(),
+        activity_files=_UnusedActivityFileStore(),
         today=lambda: date(2026, 3, 15),
         monotonic=lambda: 0.0,
     )

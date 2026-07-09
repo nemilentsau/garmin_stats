@@ -5474,6 +5474,12 @@ export interface components {
             days_ingested: number;
             /** Duration Ms */
             duration_ms: number;
+            /** Activities Downloaded */
+            activities_downloaded: number;
+            /** Activities Skipped */
+            activities_skipped: number;
+            /** Activities Failed */
+            activities_failed: number;
         };
         /** TargetMetricDefinition */
         TargetMetricDefinition: {

@@ -166,6 +166,12 @@ class ActivitySession:
 
 V1 should parse from `session_mesgs`.
 
+For the running-specific field contract, unit normalization policy, and
+session/lap/record split, see `RUNNING_ACTIVITY_SCHEMA.md`.
+
+For the strength-specific field contract, Garmin set/repetition caveats, and
+session-load/record split, see `STRENGTH_ACTIVITY_SCHEMA.md`.
+
 Optional follow-on models:
 
 - `ActivityLap`

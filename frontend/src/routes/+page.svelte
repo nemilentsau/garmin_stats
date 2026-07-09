@@ -176,14 +176,14 @@
 			</button>
 			{#if syncResult}
 				<span class="sync-result">
-					{syncResult.downloaded} downloaded, {syncResult.days_ingested} days ingested
+					{syncResult.downloaded} archives, {syncResult.activities_downloaded} workouts, {syncResult.days_ingested} days ingested
 				</span>
 			{/if}
 		</div>
 	{/if}
 	{#if syncResult && freshnessNotice}
 		<div class="sync-result-banner">
-			{syncResult.downloaded} downloaded, {syncResult.days_ingested} days ingested
+			{syncResult.downloaded} archives, {syncResult.activities_downloaded} workouts, {syncResult.days_ingested} days ingested
 		</div>
 	{/if}
 

@@ -266,13 +266,48 @@ cd backend
 uv run python ../scripts/reingest.py
 ```
 
-Garmin Connect download support is in `scripts/download_garmin.py`. FIT structure
-inspection support is in `scripts/explore_fit_files.py`.
+Garmin Connect download support is in `scripts/download_garmin.py`. By default it
+downloads daily wellness archives. Tracked activity FIT files can be downloaded
+with `--activities`; Garmin returns one original ZIP per activity and the script
+extracts each FIT plus metadata under `data/garmin_activities/YYYY-MM-DD/`.
+Activity filenames use local start time plus decoded FIT `sport` and
+`sub_sport`, for example `104056_running_generic.fit` or
+`105002_training_strength_training.fit`; the Garmin activity id is kept in the
+JSON sidecar and is only appended to filenames if two activities would otherwise
+collide.
+
+```bash
+cd backend
+uv run python ../scripts/download_garmin.py --activities --date 2026-06-27
+```
+
+To backfill tracked activities across the same inclusive date range represented
+by the existing health archive data:
+
+```bash
+cd backend
+uv run python ../scripts/download_garmin.py --activities --health-range
+```
+
+The dashboard's Sync button (`POST /api/ingest/sync`) also downloads new
+tracked-activity FIT files automatically, alongside the wellness archives, for
+the wellness ingest window plus a 3-day lookback. This is download-only: files
+land under `data/garmin_activities/YYYY-MM-DD/` but are not yet parsed or
+ingested into the database. Activities uploaded to Garmin Connect later than
+that 3-day lookback window are not fetched by the Sync button — backfill them
+with `scripts/download_garmin.py --activities` (`--from`/`--to` or
+`--health-range`). The sync response reports counts via
+`activities_downloaded` / `activities_skipped` / `activities_failed`, but only
+the downloaded-workouts count is shown in the sync result line; skipped and
+failed counts are API-only.
+
+FIT structure inspection support is in `scripts/explore_fit_files.py`.
 
 Runtime path overrides are centralized in backend app config:
 
 - `GARMIN_DB_PATH`
 - `GARMIN_DATA_DIR`
+- `GARMIN_ACTIVITY_DATA_DIR`
 - `GARMINTOKENS`
 
 ## Validation

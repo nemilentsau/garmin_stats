@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
 
@@ -32,10 +32,22 @@ class IngestGateway(Protocol):
     def ingest_dates(self, data_dir: Path, dates: list[str]) -> IngestResult: ...
 
 
+@dataclass(frozen=True)
+class ActivityRef:
+    """One Garmin Connect activity listed for a date, with its raw metadata."""
+
+    activity_id: str
+    metadata: dict[str, Any]
+
+
 class GarminDownloadClient(Protocol):
-    """Logged-in Garmin client capable of downloading one wellness archive."""
+    """Logged-in Garmin client for wellness archives and activity payloads."""
 
     def download_wellness_archive(self, day: date) -> bytes | None: ...
+
+    def list_activities(self, day: date) -> list[ActivityRef]: ...
+
+    def download_activity_original(self, activity_id: str) -> bytes | None: ...
 
 
 class GarminClientFactory(Protocol):
@@ -56,6 +68,21 @@ class SyncFileStore(Protocol):
     def write_zip(self, data_dir: Path, day: date, data: bytes) -> None: ...
 
 
+class ActivityFileStore(Protocol):
+    """Filesystem port for the data/garmin_activities day-directory tree."""
+
+    def has_activity(self, activities_dir: Path, day: date, activity_id: str) -> bool: ...
+
+    def store_activity(
+        self,
+        activities_dir: Path,
+        day: date,
+        activity_id: str,
+        metadata: dict[str, Any],
+        payload: bytes,
+    ) -> None: ...
+
+
 @dataclass(frozen=True)
 class GarminSyncDependencies:
     """Dependency bundle passed from bootstrap into sync workflow functions.
@@ -66,6 +93,7 @@ class GarminSyncDependencies:
     """
 
     data_dir: Path
+    activities_dir: Path
     ingest: IngestGateway
     extract_archives: ArchiveExtractor
     suspend_watcher: WatcherAction
@@ -73,5 +101,6 @@ class GarminSyncDependencies:
     mark_watcher_synced: WatcherAction
     clients: GarminClientFactory
     files: SyncFileStore
+    activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock
