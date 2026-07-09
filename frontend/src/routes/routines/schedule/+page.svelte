@@ -8,11 +8,15 @@
 		type ArtifactBundleImportResponse,
 		type RoutineSchedule,
 		type ScheduleOccurrence,
-		type ScheduleWindow
+		type ScheduleWindow,
+		type TrainingScheduleWindow,
+		type TrainingTodayCard
 	} from '$lib/api';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
 	import { SLOT_LABELS, SLOT_ORDER, cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
 	import CardBody from '$lib/routines/cards/CardBody.svelte';
+	import TrainingCardBody from '$lib/training/TrainingCardBody.svelte';
+	import { trainingCardBrief, trainingCardTheme } from '$lib/training/training-display';
 	import { errorMessage } from '$lib/utils';
 
 	let loading = $state(true);
@@ -20,6 +24,7 @@
 	let windowStartDate = $state(localDateIso());
 	let selectedRoutineId = $state<string | null>(null);
 	let scheduleWindow = $state<ScheduleWindow | null>(null);
+	let trainingWindow = $state<TrainingScheduleWindow | null>(null);
 	let routines = $state<RoutineSchedule[]>([]);
 	let expandedOccurrenceKey = $state<string | null>(null);
 	/** Map of occurrence_key → completion status from card logs. */
@@ -33,6 +38,14 @@
 	const allOccurrences = $derived.by(() =>
 		scheduleWindow ? scheduleWindow.days.flatMap((day) => day.occurrences) : []
 	);
+
+	const allTrainingCards = $derived.by(() =>
+		trainingWindow ? trainingWindow.days.flatMap((day) => day.cards) : []
+	);
+
+	function trainingCardsForDate(date: string): TrainingTodayCard[] {
+		return trainingWindow?.days.find((d) => d.date === date)?.cards ?? [];
+	}
 
 	const routineOccurrenceCount = $derived.by(() => {
 		const counts: Record<string, number> = {};
@@ -71,7 +84,11 @@
 	type RoutineGroup = { routineName: string; occurrences: ScheduleOccurrence[] };
 	type TimelineDay = { date: string; groups: RoutineGroup[] };
 
-	/** Combined timeline — grouped by routine within each day. */
+	/**
+	 * Combined timeline — grouped by routine within each day. Also ensures every date that
+	 * has training cards but no legacy occurrences still gets a (routine-empty) day entry,
+	 * so the training-only block below always has a day row to render into.
+	 */
 	const combinedTimelineDays = $derived.by((): TimelineDay[] => {
 		const sorted = [...allOccurrences].sort(sortOccurrences);
 		const byDate = new Map<string, Map<string, ScheduleOccurrence[]>>();
@@ -81,6 +98,9 @@
 			const dateMap = byDate.get(occ.date)!;
 			if (!dateMap.has(rName)) dateMap.set(rName, []);
 			dateMap.get(rName)!.push(occ);
+		}
+		for (const card of allTrainingCards) {
+			if (!byDate.has(card.date)) byDate.set(card.date, new Map());
 		}
 		return [...byDate.entries()]
 			.sort(([a], [b]) => a.localeCompare(b))
@@ -139,13 +159,22 @@
 	async function loadScheduleWindow(startDate: string): Promise<void> {
 		const token = ++requestToken;
 		error = null;
-		const [win, logs] = await Promise.all([
+		const [win, logs, trainingWin] = await Promise.all([
 			api.getRoutineScheduleWindow(startDate),
 			api.getCardLogsRange(startDate, addDays(startDate, 13)),
+			api.getTrainingScheduleWindow(startDate, 14),
 		]);
 		if (token !== requestToken) return;
 		scheduleWindow = win;
 		windowStartDate = win.start_date;
+		// `trainingWin`'s inferred type and the TrainingScheduleWindow alias both resolve to
+		// the same OpenAPI schema, but reach it through different generic-instantiation
+		// paths (openapi-fetch's response inference vs. a direct `components["schemas"]`
+		// lookup); the mutually-recursive Predicate union (Cmp/All/Any/Not, used inside
+		// V3Card's MeasurementContract.quality_gate) makes TS give up comparing the two
+		// paths structurally and report them as unrelated. Cast rather than fight the
+		// checker — both sides are the same JSON shape.
+		trainingWindow = trainingWin as TrainingScheduleWindow;
 		const map: Record<string, string> = {};
 		for (const entry of logs.entries) {
 			map[entry.occurrence_key] = entry.status;
@@ -436,6 +465,56 @@
 									</div>
 								{/each}
 							{/each}
+
+							{#if !selectedRoutineId}
+								{@const dayTrainingCards = trainingCardsForDate(day.date)}
+								{#if dayTrainingCards.length > 0}
+									<div class="routine-divider">Training</div>
+									{#each dayTrainingCards as trCard}
+										{@const theme = trainingCardTheme(trCard)}
+										{@const isExpanded = expandedOccurrenceKey === trCard.occurrence_key}
+										<div class="timeline-card" class:expanded={isExpanded} class:done={trCard.status === 'completed'} class:skipped={trCard.status === 'skipped'} class:partial={trCard.status === 'partial'} style={`--tc-color: ${theme.accent}`}>
+											<button type="button" class="timeline-card-main" onclick={() => (expandedOccurrenceKey = isExpanded ? null : trCard.occurrence_key)}>
+												{#if trCard.status === 'completed'}
+													<span class="status-check done-check">
+														<svg viewBox="0 0 16 16" width="12" height="12" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+													</span>
+												{:else if trCard.status === 'skipped'}
+													<span class="status-check skip-check">
+														<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+													</span>
+												{:else if trCard.status === 'partial'}
+													<span class="status-check partial-check">
+														<svg viewBox="0 0 16 16" width="10" height="10" fill="none"><path d="M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+													</span>
+												{/if}
+												{#if theme.icon}
+													<span class="domain-icon">{theme.icon}</span>
+												{/if}
+												<div class="card-content">
+													<span class="card-name">{trCard.card.name}</span>
+													<span class="card-summary">
+														{trCard.bundle_name}{#if trCard.key_session} · key session{/if}
+													</span>
+												</div>
+												<span class="card-brief">{trainingCardBrief(trCard)}</span>
+												<div class="card-badges">
+													<span class="slot-badge" style={`--sb-color: ${slotAccent(trCard.slot).color}`}>{SLOT_LABELS[trCard.slot]}</span>
+												</div>
+												<svg class="expand-chevron" class:rotated={isExpanded} viewBox="0 0 16 16" width="14" height="14" fill="none">
+													<path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												</svg>
+											</button>
+
+											{#if isExpanded}
+												<div class="detail-panel">
+													<TrainingCardBody card={trCard} mode="view" />
+												</div>
+											{/if}
+										</div>
+									{/each}
+								{/if}
+							{/if}
 							</div>
 						</div>
 					{/each}
