@@ -22,27 +22,29 @@
 ## Key Constraints
 - API types flow: Pydantic models/routes → OpenAPI → generated TypeScript.
 - Never hand-write `frontend/src/lib/api-types.ts`; always regenerate via script after backend schema changes.
-- Data format: `data/garmin_health_stats/YYYY-MM-DD.zip` → extract → `data/garmin_health_stats/YYYY-MM-DD/*.fit`. Ingest pipeline handles zip extraction.
+- **Data sources & ingest:** two Garmin trees — wellness (`garmin_health_stats/`, ingested → `daily_metrics`) and tracked activities (`garmin_activities/`, downloaded from Garmin Connect every sync, parse/associate pending). Topology, config paths, and commands are in `docs/reference/data-and-ingest.md` (single source of truth) — do not restate paths here.
 - Period-level stats come from raw readings, never from averaging daily aggregates.
 - Frontend is display-only: zero statistical computation. All stats, aggregations, derived values, and data transformations (moving averages, smoothing, etc.) come from the backend API. Never compute these in the frontend.
 - Experiment exposures are `experiment_id + date` records, not card-level records. Derive them from whether the experiment protocol's prescribed daily dose/frequency was satisfied across all linked routine cards for that date.
 - Never reduce an experiment day to a "best card status" or treat multiple linked cards on the same day as ambiguity. Multiple same-day cards are expected when the intervention dose requires multiple sessions.
-- **Timestamps are local time.** FIT files store UTC; the parser extracts the per-day UTC offset from `monitoring_info_mesgs` and shifts all timestamps to local time at ingest. `DayData.utc_offset_hours` / `DailyMetric.utc_offset_hours` carry the offset for display. New timestamp fields must go through `_shift_timestamps` in `backend/app/domains/garmin_health/infra/fit_parser/timestamps.py`; `backend/app/parser.py` is only the compatibility facade.
-- **Re-ingest after parser changes**: `cd backend && uv run python ../scripts/reingest.py`
+- **Timestamps are local time** (invariant): FIT stores UTC; the parser shifts all timestamps to local at ingest, and `utc_offset_hours` carries the offset for display. New timestamp fields must be shifted at ingest — parser internals are owned by the `garmin-data` skill; data topology and the re-ingest command live in `docs/reference/data-and-ingest.md`.
 - **Watcher/startup/ingest changes must prove no-op behavior**: if you touch startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution, tests must cover `missing`, `already in sync`, and `stale/changed` states, including an idempotence case where a second run with no file changes does no work. After those changes, do a real local smoke check against the actual data tree before considering the task done.
 - **Import is the only content ingress.** Routine, experiment, and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/routine-pivot/schema_v3_spec.md` + `block0/` artifacts, which are canon and read-only); schemas are never flattened into older engine formats.
 
-## Architecture & Reference
-- Project structure, modules, backend/frontend conventions: `docs/ARCHITECTURE.md`
-- **Where new helpers go**: default to the closest domain. Only promote to `app/utils/` when *all three* rules hold — primitive-only signatures, no domain vocabulary in names, and two-plus consumers already exist. Read `docs/ARCHITECTURE.md` → "Shared Utilities" before adding anything to `app/utils/` or creating a new shared module.
+## Where Things Live (map)
+This file holds durable rules, setup, and pointers — not current-state facts. For detail, go to the one authoritative doc:
+- **Code map** — domains, dependency layering, boundaries, route inventory: `docs/ARCHITECTURE.md`
+- **Data sources, ingest, sync, config paths**: `docs/reference/data-and-ingest.md`
+- **How shipped features work** (recovery dashboard, HRV tab, …): `docs/reference/`
+- **Training system canon** (P1–P13 principles, v3 schema, roadmap, block0): `docs/routine-pivot/`
+- **Specs for unbuilt work**: `docs/future/`
+- **Doc index / question router**: `docs/README.md`
+- **Code conventions** (app/utils promotion rule, slice boundaries, frontend, doc style): `docs/reference/code-conventions.md`
+- **Route inventory** (generated): `docs/reference/routes.md` — regenerate via `scripts/generate_routes_doc.py`
+- **Where new helpers go**: default to the closest domain; promote to `app/utils/` only when all three hold — primitive-only signatures, no domain vocabulary in names, two-plus consumers exist (`docs/reference/code-conventions.md`).
 
 ## Code Documentation Style
-- Keep docs current as code moves. When adding or refactoring modules, ports, adapters, or workflow boundaries, update module/class/function docstrings in the same change.
-- Match the style in `backend/app/domains/routines/` and `backend/app/domains/experiments/`: short module docstring with 1-2 concrete paragraphs explaining what the module owns, what it deliberately delegates, and why that boundary exists.
-- Prefer boundary and lifecycle documentation over implementation narration. Good docs explain ownership, injected dependencies, failure/idempotence expectations, and cross-domain callbacks. Avoid comments that restate obvious code.
-- Add protocol/class docstrings when a type represents a port, adapter, observer, repository, workflow dependency bundle, or runtime state owner.
-- Add function/method docstrings for public use cases and any helper with non-obvious policy, side effects, failure behavior, or ordering constraints. Private one-line helpers with self-evident names do not need filler docs.
-- For tests, use a module docstring when the file covers a behavior slice or regression class. Test names should still carry the specific behavior under test.
+Docstring/comment conventions (boundary-first, ownership, lifecycle, when to add class/function/test docstrings) live in `docs/reference/code-conventions.md`. Keep in-code docs current in the same change that moves the code.
 
 ## Skills
 
@@ -89,11 +91,16 @@ Six skills support this project. Each owns specific code layers:
 
 ## Keeping Docs Current
 
-Update these as part of the same PR/commit that introduces the change:
-- **`README.md`**: frontend routes, API endpoints, project structure, setup instructions
-- **`docs/ARCHITECTURE.md`**: module charters, route inventory, and boundary rules when domains/routes change
+Each fact has exactly one authoritative home; every other mention links to it. Update the owning doc in the same PR/commit that changes the thing:
+- **`docs/reference/data-and-ingest.md`**: data trees, ingest/sync, config paths, data commands
+- **`backend/app/domains/<d>/CHARTER.md`**: that domain's boundary contract (Owns / does-not-own / imports / entrypoints) when the domain changes
+- **`docs/reference/routes.md`**: regenerate via `scripts/generate_routes_doc.py` after route changes
+- **`docs/ARCHITECTURE.md`**: the domain index + code map when a domain is added/removed or the dependency layering changes
+- **`README.md`**: product overview, setup, high-level data-flow narrative — link to the detail, don't restate paths
 - **`FINDINGS.md`**: data analysis findings, data quality observations, open questions
 - Skip updates for internal refactors or code-only changes
+
+**CLAUDE.md acid test:** before adding a line here, ask "will this still be true after a normal refactor?" If it names a path, filename, or command a refactor would move, it belongs in the owning doc — not in this always-loaded file.
 
 Docs hygiene rules:
 - **Implementation plans and working specs are never committed to `docs/`.** Write them to the gitignored `.superpowers/` scratch area (or the session scratchpad); they are working artifacts, deleted with the work. Git history is the archive.

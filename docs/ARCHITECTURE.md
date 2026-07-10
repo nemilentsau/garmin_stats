@@ -1,6 +1,6 @@
 # Architecture
 
-This file is a current-state code map. It is not a roadmap and it is not a historical implementation diary.
+Current-state code map. Not a roadmap, not a historical diary. This file is the high-level map; per-domain boundary contracts live colocated at `backend/app/domains/<domain>/CHARTER.md`, and volatile facts live in the reference docs linked below.
 
 ## Product Shape
 
@@ -9,603 +9,114 @@ The shipped app has four active product centers:
 1. Recovery dashboard and metric drill-downs
 2. Assistant chat with retrieval-first evidence bundles and stored runs
 3. Training block runtime (v3): artifact import, lint-gated activation, and the Today/schedule training feed
-4. Routine runtime shared by Creation, Schedule, and Today — now the import path for non-training bundles (meditation, breathwork)
+4. Routine runtime shared by Creation, Schedule, and Today — the import path for non-training bundles (meditation, breathwork)
 
-Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area. Standing rule from the pivot (`docs/routine-pivot/pivot_roadmap.md`): routine/experiment/training content enters the app **only** by importing an authored bundle — no generators, translators, seeders, or derived artifacts.
+Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area. Standing rule from the pivot (`routine-pivot/pivot_roadmap.md`): routine/experiment/training content enters the app **only** by importing an authored bundle — no generators, translators, seeders, or derived artifacts.
 
 ## Project Layout
 
-- `backend/app/`
-  FastAPI application code.
+- `backend/app/` — FastAPI application code.
+- `backend/tests/` — backend tests by ownership: architecture guards, bootstrap, infra, core, and domain slices.
+- `frontend/src/` — SvelteKit application.
+- `storage/` — local SQLite database, created at runtime.
+- `data/garmin_health_stats/` — Garmin wellness day archives + extracted FIT (ingested → `daily_metrics`).
+- `data/garmin_activities/` — per-activity FIT + JSON pulled from Garmin Connect every sync (download-only; parse/associate pending).
 
-- `backend/tests/`
-  Backend tests organized by ownership: architecture guards, bootstrap, infra,
-  core, and domain slices.
-
-- `frontend/src/`
-  SvelteKit application.
-
-- `storage/`
-  Local SQLite database, created at runtime.
-
-- `data/garmin_health_stats/`
-  Garmin day archives and extracted FIT files.
+Full data topology, ingest/sync flow, and config paths: **`reference/data-and-ingest.md`**.
 
 ## Backend
 
-Boundary tests guard module intent, not a mandatory folder template. Larger
-slices may use `api/`, `application/`, and `infra/` packages when those layers
-contain multiple stable concepts. Small capability slices should stay flatter
-when subpackages would only hold one file.
+Boundary tests guard module intent, not a mandatory folder template. Larger slices may use `api/`, `application/`, and `infra/` packages when those layers contain multiple stable concepts; small capability slices stay flatter.
 
 ### Main flow
 
-There are two major paths:
+Three paths:
 
-- Ingest path: FIT files -> Garmin health FIT parser -> daily metric composer -> SQLite
-- Read path: SQLite -> repository adapters -> domain/core application slices -> JSON API -> frontend
+- **Ingest (wellness):** FIT files → Garmin health FIT parser → daily metric composer → SQLite.
+- **Activity:** tracked-session FIT/JSON downloaded from Garmin Connect into `data/garmin_activities/` every sync; NOT yet parsed or ingested (see `reference/data-and-ingest.md`, `future/ACTIVITY_ANALYTICS_DESIGN.md`).
+- **Read:** SQLite → repository adapters → domain/core application slices → JSON API → frontend.
 
-The Garmin health dependency direction is:
+Dependency direction (the layering enforced by architecture tests):
 
-- `garmin_sync` ingest adapters -> `garmin_health`, `app.utils`
-- `garmin_analytics` -> `garmin_health`, `app.utils`
-- `experiments` and `assistant` -> `garmin_health` contracts, and analytics
-  adapters only when loading analytics read data
-- `garmin_health` -> `app.contracts.base`, `app.utils`
-- `app.utils` -> stdlib and numpy only
+- `garmin_sync` ingest adapters → `garmin_health`, `app.utils`
+- `garmin_analytics` → `garmin_health`, `app.utils`
+- `experiments` and `assistant` → `garmin_health` contracts, and analytics adapters only when loading analytics read data
+- `garmin_health` → `app.contracts.base`, `app.utils`
+- `app.utils` → stdlib and numpy only
 
 ### Core modules
 
-- `backend/app/contracts/base.py`
-  Shared Pydantic response-base helpers. User-facing contracts live with their
-  owning slices, for example `domains/routines/contracts.py`,
-  `domains/experiments/contracts.py`, and `core/profile/contracts.py`. Tiny
-  route-only response models may live directly with their route module.
-
-- `backend/app/bootstrap/`
-  App factory, router registration, lifespan entrypoint, process-runtime task
-  wiring, storage schema composition, and the current composition root.
-  Cross-domain reactions such as "refresh experiment analyses after Garmin
-  ingest" belong here rather than in the Garmin sync or experiment slices.
-
-- `backend/app/core/`
-  Shared cross-cutting modules being extracted out of the flat app root.
-
-- `backend/app/parser.py`
-  Compatibility facade for active Garmin FIT parser imports. The parser
-  implementation lives under
-  `backend/app/domains/garmin_health/infra/fit_parser/`.
-
-- `backend/app/utils/`
-  Shared, domain-agnostic helpers. See "Shared Utilities" below for the rule on what may live here.
-
-- `backend/app/domains/garmin_health/`
-  Canonical Garmin health contracts, deterministic FIT parsing, timestamp
-  normalization into local time, and daily metric composition.
-  Used by ingest persistence, analytics, experiments, and assistant.
-
-- `backend/app/main.py`
-  Compatibility entrypoint that exposes the assembled FastAPI app.
-
-### Shared Utilities (`app/utils/`)
-
-`app/utils/` is the only place above the domain layer where general-purpose helpers may live. It exists so two or more domains can share a primitive operation without one domain importing from another.
-
-A helper belongs in `app/utils/` only when **all three** rules hold:
-
-1. **Primitive-only signatures.** Inputs and outputs are language types (numbers, strings, datetimes, sequences, mappings) — never domain models like `DayData`, `DailyMetric`, `RoutineCard`, or `ExperimentExposure`.
-2. **No domain vocabulary in names.** Function and type names use generic terms (`safe_avg`, `percentile_rank`, `ScalarSummary`, `now_utc`). Names like `normalize_hrv_status`, `compute_hr_zones`, `classify_recovery` are domain-bound even when small, and stay in their owning domain.
-3. **Two or more consumers already need it.** Don't promote on speculation. A helper used by exactly one domain stays in that domain. Promote on the second real consumer, in the same PR that introduces it.
-
-Counter-examples (these belong in a domain, not `app/utils/`):
-- `compute_daily_heart_rate(wellness: DayWellness)` — takes a domain type. → `garmin_health/domain/daily_metrics/`.
-- `prior_7d_avg(...)` — encodes a period-window concept specific to analytics. → `garmin_analytics/domain/primitives/trends.py`.
-- `format_routine_card_label(card)` — single consumer + domain type. → `routines/`.
-
-Forbidden in `app/utils/`:
-- Imports from `app.domains.*`, `app.infra.*`, `app.routers.*`, or `app.bootstrap.*`. Allowed dependencies are stdlib and numpy.
-- Functions whose name or signature names a Garmin metric, routine concept, experiment concept, assistant concept, or persistence detail.
-- Re-exports from a domain (use the domain directly).
-
-Adding a helper here is a deliberate promotion, not a default landing spot. When in doubt, keep it domain-local — promotion is cheap to do later, demotion is not.
-
-Current contents:
-- `app/utils/timeutil.py` — UTC clock helpers and the shared inclusive ISO date-range generator (`date_range`), used by `garmin_analytics` trend densification and `experiments` window math.
-- `app/utils/numeric.py` — null-tolerant scalar summary, histogram, and percentile helpers used by `garmin_health` daily-metric calculators and `garmin_analytics` dashboard / insights / analysis modules.
+- `backend/app/contracts/base.py` — shared Pydantic response bases. User-facing contracts live with their owning slices.
+- `backend/app/bootstrap/` — app factory, router registration, lifespan, storage schema composition, composition root. Cross-domain reactions (e.g. "refresh experiment analyses after Garmin ingest") live here, not in the individual slices.
+- `backend/app/core/` — shared cross-cutting modules extracted out of the flat app root.
+- `backend/app/parser.py` — compatibility facade for the FIT parser; implementation under `domains/garmin_health/infra/fit_parser/`.
+- `backend/app/utils/` — shared, domain-agnostic helpers (promotion rule in `reference/code-conventions.md`).
+- `backend/app/main.py` — compatibility entrypoint exposing the assembled FastAPI app.
 
 ### Infrastructure
 
-- `backend/app/infra/sqlite.py`
-  Shared SQLite database path and connection primitive. It does not own table
-  definitions or domain persistence policy.
+- `backend/app/infra/sqlite.py` — shared SQLite path + connection primitive (no table/persistence policy).
+- `backend/app/infra/jsonstore.py` — generic JSON-record persistence helper for storage adapters that own their tables.
+- `backend/app/bootstrap/schema.py` — storage composition entrypoint (creates the DB, enables WAL, calls each slice's `schema.py`).
+- `backend/app/infra/cache.py` — in-memory cache with generation-based invalidation.
+- `backend/app/realtime/events.py` + `routes.py` — SSE event bus/heartbeat and the `/api/events` transport.
 
-- `backend/app/infra/jsonstore.py`
-  Generic JSON-record persistence helper used by storage adapters that own
-  their tables and contracts.
+### Domains (index)
 
-- `backend/app/bootstrap/schema.py`
-  Storage composition entrypoint. It creates the SQLite file, enables WAL, and
-  calls each storage-owning slice's `schema.py` initializer with one connection.
+Each domain's full boundary contract — **Owns / Does not own / May import / Must not import / Public entrypoints**, plus a code-verified section — lives in its own `CHARTER.md`, updated in the same PR that changes the domain. This table is the map; the charter is the authority.
 
-- `backend/app/infra/cache.py`
-  In-memory cache with generation-based invalidation.
+| Domain / slice | Purpose | Routes | Charter |
+|---|---|---|---|
+| `assistant` | Chat + retrieval-first evidence bundles, Claude Code runtime | `/api/assistant/threads…` | [charter](../backend/app/domains/assistant/CHARTER.md) |
+| `routines` | v2 routine catalog, schedule projection, Today execution (meditation/breath import path) | `/api/routines`, `/api/today` | [charter](../backend/app/domains/routines/CHARTER.md) |
+| `training` | v3 training import, lint-gated activation, Today/schedule feed, capture logs (import-only ingress) | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
+| `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (activities download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
+| `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
+| `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
+| `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
+| `artifacts` | Assistant-authored staging + bundle publish; delegates activation to `routines` | `/api/cards`, `/api/assistant/artifacts`, `/api/assistant/artifact-bundles` | [charter](../backend/app/domains/artifacts/CHARTER.md) |
+| `journal` | Daily check-ins + freeform notes (subjective context) | `/api/checkins`, `/api/notes` | [charter](../backend/app/domains/journal/CHARTER.md) |
+| `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
+| `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-- `backend/app/realtime/events.py`
-  SSE event bus and heartbeat loop.
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` reserves session-grain activity marts for future runs/strength/meditation.
 
-- `backend/app/realtime/routes.py`
-  Realtime transport endpoint for `/api/events`.
+## Conventions
 
-### Active service areas
+Slice boundary convention, `app/utils/` promotion rule, frontend conventions, and code-doc style: **`reference/code-conventions.md`**.
 
-- `domains/assistant/`
-  Assistant chat and retrieval-first evidence context. This slice uses a flat
-  small-capability layout: `routes.py` owns `/api/assistant` HTTP and streaming
-  endpoints, `application/` owns thread catalog, intent classification, entity
-  resolution, read-model interaction, evidence assembly, retrieval, and chat
-  orchestration, `domain/` owns pure assistant evidence payload policy,
-  `dependencies.py` owns conversation/read-model/runtime dependencies,
-  `adapters.py` owns assistant SQLite persistence, `read_gateway.py` owns the
-  cross-domain read-model wiring for evidence assembly, `runtime.py` owns Claude
-  Code subprocess execution, and `contracts.py` owns assistant API and
-  persistence shapes.
-
-- `domains/routines/`
-  Routine catalog, schedule projection, activation, and Today execution. This
-  slice uses a flat small-capability layout: `routes.py` owns `/api/routines`
-  and `/api/today`, `application/` owns use cases for catalog, activation,
-  schedule, and today, `schedule.py` owns pure schedule helpers,
-  `dependencies.py` owns repository/observer/callable dependencies,
-  `adapters.py` owns the SQLite repository adapter, and `contracts.py` owns
-  routine API/persistence/activation command shapes.
-
-- `domains/garmin_sync/`
-  Garmin ingest and Garmin Connect download orchestration. This domain owns
-  `/api/ingest`, `/api/ingest/status`, and `/api/ingest/sync`. It uses a
-  small-capability layout with domain policy at the package root and concrete
-  adapters under `infra/`: `routes.py` owns FastAPI routes, `workflows.py` owns
-  ingest/status/sync orchestration, `dependencies.py` owns workflow ports and
-  callables, `infra/sqlite_ingest.py` owns SQLite ingest/status writes,
-  `infra/filesystem.py` owns archive extraction and FIT source fingerprinting,
-  `infra/watcher.py` owns one stateful Garmin data-directory watcher instance
-  and suspend/resume controls, `infra/runtime.py` owns startup archive
-  reconciliation through injected Garmin sync dependencies,
-  `infra/garmin_connect.py` owns Garmin Connect login/download details,
-  `infra/factory.py` wires the production dependency bundle, and `contracts.py`
-  owns ingest/sync API response models.
-
-- `domains/garmin_health/`
-  Canonical Garmin health data slice. This domain owns parsed reading containers,
-  persisted `DailyMetric` rows, nullable daily metric stat contracts,
-  Garmin-vocabulary daily metric calculators, and pure day-to-metric
-  composition. It has no routes, repositories, sync workflows, dashboard reads,
-  experiment analysis, or assistant retrieval logic.
-
-- `domains/garmin_analytics/`
-  Garmin-derived analytical read models and dashboard use cases. This domain owns dashboard overview, full and metric-scoped daily metric responses, period summaries, metric-specific raw biometric routes, plus the current metric analysis and selected-day insight implementations for heart rate, HRV, sleep, stress, and body battery. `routes.py` owns HTTP only, `application/` owns named read use cases, `domain/` owns read-model calculations and response shaping, `adapters.py` owns persistence wiring, and `contracts/` owns API/read-model contracts split by concern (`raw`, `period`, `analysis`, `insights`, and `dashboard`). Activity/session marts are reserved here for future runs, meditations, and strength sessions.
-
-- `domains/experiments/`
-  Experiment CRUD, design preview/import, target metric registry, exposure
-  derivation, and N=1 analysis. This domain owns `/api/experiments` and
-  `/api/target-metrics`. Experiment analysis is a cached read model that
-  refreshes after exposure changes and on stale date-sensitive reads. It uses a
-  flat route/adapter/dependency layout: `routes.py` owns experiment and target
-  metric HTTP routes, `application/` owns named use cases (`management`,
-  `preview`, `exposures`, `exposure_sync`, `analysis_cache`, `analysis`, and
-  `target_metrics`), `dependencies.py` owns repository ports, `domain/` owns
-  pure experiment analysis, experiment-local statistical primitives, metric path
-  resolution, and exposure scoring, and `adapters.py` owns the SQLite repository
-  adapter.
-
-- `domains/artifacts/`
-  Assistant-authored artifact staging and publishing. This domain owns
-  `/api/cards`, `/api/assistant/artifacts`, and
-  `/api/assistant/artifact-bundles`. It uses a flat small-capability layout:
-  `routes.py` owns HTTP routes, `application/` owns staging, bundle planning,
-  activation, validation, and card catalog use cases, `dependencies.py` owns
-  repository dependencies, `adapters.py` owns SQLite persistence wiring, and
-  `contracts.py` owns staged artifact and bundle API shapes. Artifacts delegates
-  live routine activation writes to `domains/routines`.
-
-- `domains/journal/`
-  Subjective/user-authored context. This domain owns `/api/checkins` and
-  `/api/notes`, including daily check-ins, freeform notes, and future
-  journal-style context that can ground assistant coaching and experiment
-  interpretation. `routes.py` owns HTTP routes, `application/` owns check-in
-  and note use cases, `dependencies.py` owns the journal repository dependency
-  protocol, and `adapters.py` owns SQLite journal persistence and recent
-  check-in caching.
-
-- `core/profile/`
-  App-level profile configuration. This owns `/api/profile` without treating profile as a product domain. `api.py` owns the route using the composition-root repository, `application.py` owns profile use cases, `ports.py` defines the storage contract, and `adapters.py` owns the SQLite adapter.
-
-- `domains/programs/`
-  Secondary backend domain for program spec import and management. This domain
-  owns `/api/programs`; `routes.py` owns HTTP routes, `application/` owns import,
-  activation/retirement, and version use cases, `dependencies.py` owns the
-  repository dependency protocol, and `adapters.py` owns SQLite program spec and
-  version-history persistence. Program imports currently persist the program
-  spec and version history only; protocol, routine, and experiment activation is
-  intentionally not implemented yet.
-
-### Module Ownership Charters
-
-These charters are the boundary source of truth. A module can be a product domain,
-an operational capability, or an analytical read model; the package name alone is
-not proof that the design is sound.
-
-#### `assistant`
-
-- Owns: assistant threads, messages, evidence bundle assembly and persistence,
-  retrieval routing, assistant memory records, and runtime interaction.
-- Does not own: Garmin parsing, Garmin ingest, routine scheduling writes,
-  experiment exposure derivation, or artifact activation.
-- May import: its own contracts, application helpers, and dependencies, plus explicitly
-  allowlisted read dependencies needed to build evidence context, including
-  canonical Garmin health contracts.
-- Must not import: Garmin sync, Garmin analytics application internals, routine
-  activation internals, FastAPI from application modules, or SQLite helpers from
-  application modules.
-- Public entrypoints: `/api/assistant` routes and assistant application use cases
-  called by those routes.
-
-#### `routines`
-
-- Owns: routine catalog reads, routine activation, assignment projection, Today
-  card presentation, and Today log writes.
-- Does not own: assistant artifact staging, experiment analysis, program import,
-  Garmin ingest, or Garmin analytics.
-- May import: its own pure schedule helpers, routine dependencies, and
-  routine-owned contracts.
-- Must not import: artifacts, experiments, assistant, Garmin sync, Garmin
-  analytics, FastAPI from application modules, or SQLite helpers from application
-  modules.
-- Public entrypoints: `/api/routines`, `/api/today`, schedule-window use cases,
-  and Today log use cases.
-
-#### `garmin_sync`
-
-- Owns: Garmin archive acquisition, ingest status, manual ingest orchestration,
-  Garmin Connect wellness archive download orchestration, watcher suspension
-  during sync, and affected-date ingest decisions.
-- Does not own: FIT parsing semantics, analytics calculations, dashboard reads,
-  experiment refresh policy, routine scheduling, assistant evidence, or frontend
-  presentation.
-- May import: its own workflow ports, private workflow/runtime helpers, owned
-  ingest/sync contracts, SQLite connection primitives, cache invalidation,
-  event bus publishing, canonical Garmin health composition, and adapter code
-  under `domains/garmin_sync/infra` for archive extraction, watcher control,
-  filesystem writes, clock, SQLite ingest, and Garmin Connect login/download
-  details.
-- Must not import: routines, experiments, assistant, artifacts, journal,
-  programs, Garmin analytics application modules, FastAPI from application
-  modules, or SQLite helpers from application modules.
-- Public entrypoints: `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync`,
-  `trigger_ingest`, `get_ingest_status`, and `sync_garmin`.
-
-`garmin_sync` is a data acquisition capability, not a business domain. It is core
-to the product because the app depends on current local Garmin data, but `core/`
-is reserved for shared app primitives rather than important product workflows.
-
-#### `garmin_health`
-
-- Owns: canonical parsed Garmin reading rows, day-level containers, persisted
-  daily metric contracts, Garmin-vocabulary daily metric calculators, and pure
-  raw-day-to-daily-metric composition.
-- Does not own: archive acquisition, watcher/startup ingest orchestration,
-  SQLite persistence, dashboard reads, period summaries, experiment analysis,
-  assistant retrieval, frontend presentation, or API routing.
-- May import: `app.contracts.base`, `app.utils`, and its own contracts/domain
-  modules.
-- Must not import: Garmin sync, Garmin analytics, experiments, assistant,
-  routines, artifacts, journal, programs, infrastructure adapters, FastAPI from
-  application modules, or SQLite helpers from application modules.
-- Public entrypoints: canonical contracts under
-  `app.domains.garmin_health.contracts`, daily metric composition under
-  `app.domains.garmin_health.domain.daily`, and daily metric calculators under
-  `app.domains.garmin_health.domain.daily_metrics`.
-
-#### `garmin_analytics`
-
-- Owns: Garmin-derived read models, biometric API reads, dashboard overview,
-  daily metric API response wrapping, period summaries, metric drill-down
-  insights, and recovery analysis responses.
-- Does not own: archive acquisition, parser timestamp normalization, routine
-  execution, canonical daily metric composition, experiment exposure derivation,
-  assistant runtime behavior, or subjective journal writes.
-- May import: its biometric repository dependency protocol, Garmin analytics
-  domain helpers, Garmin analytics contracts, canonical Garmin health
-  contracts/calculators, and domain-agnostic helpers from `app.utils`.
-- Must not import: Garmin sync, routines, experiments, assistant, artifacts,
-  journal, programs, FastAPI from application modules, or SQLite helpers from
-  application modules.
-- Public entrypoints: dashboard, daily metric, and metric-scoped raw/daily/analysis/insight
-  API routes for sleep, HRV, skin temperature, heart rate, stress, body battery,
-  respiration, and pulse ox. Application files
-  are named by concern: `raw_biometrics.py` reads raw biometric tables,
-  `daily_aggregates.py` wraps persisted daily metrics and computes period windows,
-  `dashboard.py` loads overview inputs,
-  `metric_analysis.py` loads cached chart/trend analysis read models, and
-  `metric_insights.py` loads selected-day insight read models.
-
-#### `experiments`
-
-- Owns: experiment definitions, design preview/import, target metric registry,
-  experiment-day exposures, cached N=1 analysis, and active-analysis refresh.
-- Does not own: Today log storage, routine schedule projection internals beyond
-  explicit routine dependencies/use cases, Garmin ingest, assistant runtime, or artifact
-  staging.
-- May import: experiment repository dependencies, experiment-owned contracts,
-  allowlisted routine read/projection contracts needed for exposure derivation,
-  canonical Garmin health contracts, and experiment-owned domain analysis
-  helpers.
-- Must not import: Garmin sync, Garmin analytics application internals except
-  through analytics read adapters, assistant runtime, artifact persistence
-  internals, FastAPI from application modules, or SQLite helpers from application
-  modules.
-- Public entrypoints: `/api/experiments`, `/api/target-metrics`, experiment
-  management use cases, exposure use cases, and analysis refresh/read use cases.
-
-#### `artifacts`
-
-- Owns: assistant-authored artifact staging, card template persistence before
-  activation, bundle preview/import, bundle revision tracking, and capability
-  request records.
-- Does not own: live routine schedule semantics after activation, experiment
-  protocol semantics, program lifecycle semantics, assistant chat runtime, or
-  Garmin data.
-- May import: artifact repository dependencies, artifact-owned contracts, and
-  allowlisted routine activation contracts/dependencies for publishing live
-  cards/routines.
-- Must not import: Garmin sync, Garmin analytics, journal, programs,
-  experiments application internals, assistant runtime internals, FastAPI from
-  application modules, or SQLite helpers from application modules.
-- Public entrypoints: `/api/cards`, `/api/assistant/artifacts`,
-  `/api/assistant/artifact-bundles`, bundle preview, and bundle import.
-
-#### `journal`
-
-- Owns: user-authored daily check-ins, freeform notes, and journal context that
-  can later be read by assistant or experiment interpretation.
-- Does not own: Garmin metrics, routine execution, experiment definitions,
-  assistant runtime, or analytics computations.
-- May import: journal repository dependencies and journal-owned contracts.
-- Must not import: Garmin sync, Garmin analytics, routines, experiments,
-  assistant, artifacts, programs, FastAPI from application modules, or SQLite
-  helpers from application modules.
-- Public entrypoints: `/api/checkins`, `/api/notes`, check-in use cases, and
-  note use cases.
-
-#### `programs`
-
-- Owns: imported program specs, program lifecycle status, and program version
-  history.
-- Does not own: protocol activation, routine activation, experiment creation,
-  artifact staging, Garmin data, or assistant runtime behavior.
-- May import: program repository ports and program-owned contracts.
-- Must not import: Garmin sync, Garmin analytics, assistant, artifacts, journal,
-  routine activation internals, experiment management internals, FastAPI from
-  application modules, or SQLite helpers from application modules.
-- Public entrypoints: `/api/programs` and program import/list/read use cases.
-
-#### `core/profile`
-
-- Owns: app-level user profile configuration and profile persistence contracts.
-- Does not own: Garmin data, routine runtime, experiments, assistant behavior,
-  artifacts, journal content, programs, or analytics.
-- May import: profile repository ports and profile-owned contracts.
-- Must not import: any `app.domains.*` package, FastAPI from application modules,
-  or unrelated SQLite helpers from application modules.
-- Public entrypoints: `/api/profile` and profile read/write use cases.
-
-#### `training`
-
-- Owns: v3 training artifact import and single-shot atomic activation (content
-  bundles, block definition, signal registry, exercise library), the ported
-  L1-L12 block linter, schedule compilation from imported bundles,
-  Today/schedule-window/block-status read models, and per-occurrence
-  capture-log persistence (set/rep/load logs, RPE, variant selection, and
-  check-in tissue soreness/flags). The import endpoint is the ONLY ingress for
-  training content: artifacts are stored verbatim, and nothing else in the app
-  may create or derive training rows.
-- Does not own: routine catalog or activation for non-training routines,
-  assistant artifact staging, experiment analysis, program import, Garmin
-  ingest, or Garmin analytics. The frontend Today and schedule pages compose
-  the training feed and the routines feed side by side; neither domain
-  imports the other.
-- May import: its own contracts, application helpers, and dependencies.
-- Must not import: routines, experiments, assistant, artifacts, journal,
-  programs, Garmin sync, Garmin analytics, FastAPI from application modules,
-  or SQLite helpers from application modules — persistence goes through
-  `app.infra.jsonstore` only, via `adapters.py`.
-- Public entrypoints: `/api/training/import`, `/api/training/today`,
-  `/api/training/schedule-window`, `/api/training/block`,
-  `/api/training/today/{date}/cards/{occurrence_key}`, import/activation use
-  cases, and Today/schedule-window/block-status read-model use cases.
-
-### Slice Boundary Convention
-
-- Route modules may import FastAPI and `build_container()`, then pass container-owned dependencies into application use cases.
-- `application/` modules must stay FastAPI-free, must not call `build_container()`, and must not import global storage modules, `app.services.*`, or `app.routers.*`.
-- `adapters.py` modules are the SQLite or external-system boundary for small flat slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
-- Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
-- Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
-
-Current strict-boundary slices: `domains/assistant`, `domains/routines`,
-`domains/garmin_sync`, `domains/garmin_analytics`, `domains/experiments`,
-`domains/artifacts`, `domains/programs`, `domains/journal`, `domains/training`,
-and `core/profile`. Transitional domain-routed slices today: none.
+Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` / `app.services.*` paths. Current strict-boundary slices: all domains above plus `core/profile`; transitional slices: none.
 
 ## Experiment Semantics
 
-Experiment adherence is protocol-defined and day-grain.
+Full day-grain exposure semantics live in `backend/app/domains/experiments/CHARTER.md`. In short: one `ExperimentExposure` per `experiment_id + date`, derived from whether the planned daily intervention dose was met — never collapsed to a "best card status", and multiple same-day cards are expected, not ambiguity.
 
-- One `ExperimentExposure` represents one experiment-day for one `experiment_id + date`.
-- Exposure is derived from whether the planned intervention dose for that day was satisfied, not from any single card in isolation.
-- A routine may schedule multiple intervention cards on the same day. That is expected when the protocol requires multiple sessions or components.
-- Do not collapse an experiment day to a "best card status" and do not treat multiple same-day linked cards as ambiguity. The correct question is whether the prescribed daily dose was met, partially met, missed, or is still unresolved.
-- Experiment analysis is not a permanent historical snapshot for active windows. It is recomputed after exposure changes and refreshed on read when its `analysis_date` is stale.
+## Route Inventory
 
-## Backend Route Inventory
-
-### Health and ingest
-
-- `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync`
-- `/api/dashboard`
-- `/api/daily-aggregates`
-- `/api/sleep/raw`, `/api/sleep/daily`, `/api/sleep/analysis`
-- `/api/skin-temp/raw`, `/api/skin-temp/daily`
-- `/api/heart-rate/raw`, `/api/heart-rate/daily`, `/api/heart-rate/analysis`, `/api/heart-rate/insights`, `/api/heart-rate/distribution`
-- `/api/hrv/raw`, `/api/hrv/daily`, `/api/hrv/analysis`, `/api/hrv/insights`
-- `/api/stress/raw`, `/api/stress/daily`, `/api/stress/analysis`
-- `/api/body-battery/raw`, `/api/body-battery/daily`, `/api/body-battery/analysis`
-- `/api/respiration/raw`, `/api/respiration/daily`
-- `/api/pulse-ox/raw`, `/api/pulse-ox/daily`
-- `/api/events`
-
-### Assistant
-
-- `/api/assistant`
-- `/api/assistant/artifacts`
-- `/api/assistant/artifact-bundles`
-
-### Training (v3)
-
-- `/api/training/import`
-- `/api/training/today`
-- `/api/training/schedule-window`
-- `/api/training/block`
-- `/api/training/today/{date}/cards/{occurrence_key}`
-
-### Routine runtime
-
-- `/api/cards`
-- `/api/routines`
-- `/api/today`
-
-### Journal
-
-- `/api/checkins`
-- `/api/notes`
-
-### Experiments
-
-- `/api/experiments`
-- `/api/target-metrics`
-
-### Core app config
-
-- `/api/profile`
-
-### Secondary backend domains
-
-- `/api/programs`
-
-## Routine Runtime Boundary
-
-Legacy boundary for v2 routine bundles (meditation, breathwork); the active
-training path is the standalone `training` slice (see its charter above).
-
-- Domain routes now mount from `backend/app/domains/routines/routes.py`.
-- `/routines/schedule` handles routine review and bundle import
-- `/today` reads one day of live compiled occurrences and writes logs only
-
-Normal bundle flow:
-
-`bundle JSON -> preview -> import -> auto-activate -> live schedule/today`
-
-Important rules:
-
-- preview performs no writes
-- bundle import persists artifacts and auto-activates them
-- Today does not create schedule structure
-- schedule exceptions are still read for backward compatibility, but Today does not author them
-
-## Artifacts Boundary
-
-Artifacts is the staging and publishing layer for assistant-authored objects.
-
-- `domains/artifacts/routes.py` owns artifact, bundle, and card-template routes.
-- `domains/artifacts/application/` owns validation, bundle preview/import, capability requests, bundle id revisioning, and activation orchestration.
-- `domains/artifacts/adapters.py` owns the SQLite artifact repository adapter.
-- `domains/artifacts/dependencies.py` owns the artifact repository port.
-- Activated cards/routines become live runtime data owned by `domains/routines`.
-- Future experiment/program artifacts should enter through this domain, then delegate final writes to `domains/experiments` or `domains/programs`.
-
-Normal artifact flow:
-
-`assistant/generated JSON -> staged artifact or bundle import -> validated artifact -> activation -> live domain record`
-
-## Garmin Analytics Boundary
-
-Garmin analytics is biometric-first but not `DailyMetric`-only.
-
-- Domain routes mount from `backend/app/domains/garmin_analytics/routes.py` for dashboard overview, full daily metrics, metric-scoped daily summaries, canonical metric raw reads, heart-rate and HRV insights, and analysis endpoints for heart rate, HRV, sleep, stress, and body battery.
-- New Garmin analytics code should import from `backend/app/domains/garmin_analytics/`.
-- `application/` is orchestration only: it loads repository data, handles route-level missing-data decisions, applies caching, and delegates calculations.
-- `domain/aggregates/` owns deterministic period response shaping. Its composers stay thin: `garmin_health.domain.daily_metrics` owns metric-specific single-day rules, `period_metrics/` owns metric-specific period rules from raw readings, and period stats continue to come from raw readings rather than averaged daily summaries. `domain/analysis/` owns chart/trend analysis calculations, `domain/insights/` owns selected-day insight calculations, and `domain/primitives/` owns generic numeric/window helpers.
-- `domain/recovery_score/` owns the validated single-axis recovery score and the two health flags: `normalization` (expanding robust-z), `weighting` (correlation-deflated, recovery-signed), `smoothing` (seeded MA7), `thresholds` (meaningful-change/band/trend), `flags` (oxygen/thermoregulation + structural gaps), `regimes` (data-driven low/elevated detection), and `evidence` (per-day driver assembly). Each module is pure and unit-tested. `domain/dashboard.py` maps these onto the `DashboardOverviewResponse` (state, trajectory, evidence, driver series, latest flags, historical flag series, regimes; correlations retained for the HRV tab). See `docs/reference/recovery-dashboard.md`.
-- Future activity/session data belongs in Garmin analytics as session-grain read models, not as forced fields on `DailyMetric`.
+Generated from the FastAPI OpenAPI schema + SvelteKit routes: **`reference/routes.md`** — regenerate via `scripts/generate_routes_doc.py` (do not hand-maintain a route list here).
 
 ## Frontend
 
-### Routes
-
-- `/`
-  Recovery dashboard overview.
-
-- `/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`, `/respiration`, `/skin-temp`, `/pulse-ox`
-  Metric detail routes.
-
-- `/assistant`
-  Assistant threads and chat.
-
-- `/today`
-  Execution board for one day. Composes two feeds side by side: the training
-  block's cards (`/api/training/today`) and v2 routine cards (`/api/today`).
-
-- `/routines/schedule`
-  Live 14-day schedule review (both feeds) and v2 bundle import.
-
-- `/training/import`
-  v3 training artifact upload: per-file validation, lint report with warning
-  acks, and block activation.
-
-- `/experiments`, `/programs`
-  Placeholder routes.
-
-### Frontend conventions
-
-- Svelte 5 runes
-- typed API client in `frontend/src/lib/api.ts`
-- generated API types in `frontend/src/lib/api-types.ts`
-- display-only frontend for analytical values
-- shared chart/color/format helpers in `frontend/src/lib/`
+Route list is in `reference/routes.md`. Notable composition: `/today` and `/routines/schedule` render two feeds side by side — the training block's cards (`/api/training/*`) and v2 routine cards (`/api/today`) — and neither domain imports the other. Frontend conventions (runes, typed API client, generated types, display-only): `reference/code-conventions.md`.
 
 ## Storage and Runtime Config
 
-- Default DB path: `storage/garmin_stats.db`
-- Default data path: `data/garmin_health_stats/`
-- Environment overrides:
-  - `GARMIN_DB_PATH`
-  - `GARMIN_DATA_DIR`
-  - `GARMINTOKENS`
-  - `BACKEND_CORS_ORIGINS`
-  - `PUBLIC_API_BASE_URL`
+Data roots, ingest, and Garmin config paths are documented in full in **`reference/data-and-ingest.md`** (single source of truth). Quick reference:
+
+- DB path: `storage/garmin_stats.db` (`GARMIN_DB_PATH`)
+- Wellness tree: `data/garmin_health_stats/` (`GARMIN_DATA_DIR`)
+- Activities tree: `data/garmin_activities/` (`GARMIN_ACTIVITY_DATA_DIR`)
+- Garmin tokens: `~/.garminconnect` (`GARMINTOKENS`)
+- Other: `BACKEND_CORS_ORIGINS`, `PUBLIC_API_BASE_URL`
 
 ## Source Of Truth Docs
 
-- [docs/README.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/README.md)
-  Documentation index and source-of-truth guide.
-
-- [README.md](/Users/andreinemilentsau/Projects/garmin_stats/README.md)
-  Product overview, routes, setup, API map.
-
-- [docs/future/ACTIVITY_ANALYTICS_DESIGN.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/future/ACTIVITY_ANALYTICS_DESIGN.md)
-  Planned analytical foundation for activity sessions, derived daily training features, and experiment-day joins.
-
-- [docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](/Users/andreinemilentsau/Projects/garmin_stats/docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md)
-  Bundle import contract.
-
-- [FINDINGS.md](/Users/andreinemilentsau/Projects/garmin_stats/FINDINGS.md)
-  Current dataset observations.
+- [docs/README.md](README.md) — documentation index and question router.
+- [reference/data-and-ingest.md](reference/data-and-ingest.md) — data topology, ingest/sync, config paths.
+- [reference/routes.md](reference/routes.md) — generated route inventory.
+- [reference/code-conventions.md](reference/code-conventions.md) — cross-cutting code conventions.
+- `backend/app/domains/<domain>/CHARTER.md` — per-domain boundary contracts.
+- [README.md](../README.md) — product overview, setup, high-level data-flow narrative.
+- [future/ACTIVITY_ANALYTICS_DESIGN.md](future/ACTIVITY_ANALYTICS_DESIGN.md) — planned activity/session analytics.
+- [routine-pivot/](routine-pivot/) — training-system canon (principles, v3 schema, roadmap, block0).
+- [FINDINGS.md](../FINDINGS.md) — current dataset observations.
