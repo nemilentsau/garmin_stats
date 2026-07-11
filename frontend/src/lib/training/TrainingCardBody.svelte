@@ -49,6 +49,21 @@
 	let latestCapture = $state<TrainingCaptureLog>(initialCapture);
 	let rpeValue = $state<number | null>(initialCapture.rpe);
 
+	// Human-readable badge for the card's selection rule: the effective variant in plain
+	// words, with the raw HRV/soreness rule kept in the tooltip.
+	const variantMeta = $derived.by((): { label: string; tone: 'ok' | 'warn' } => {
+		switch (card.variant_taken) {
+			case 'skip':
+				return { label: 'Skipped', tone: 'warn' };
+			case 'reduced':
+				return { label: 'Reduced', tone: 'warn' };
+			case 'plus':
+				return { label: 'Plus', tone: 'ok' };
+			default:
+				return { label: 'Full', tone: 'ok' };
+		}
+	});
+
 	function handleSetLogs(setLogs: TrainingCaptureLog['set_logs']) {
 		latestCapture = { ...latestCapture, set_logs: setLogs };
 		onCapture?.(latestCapture);
@@ -69,7 +84,7 @@
 </script>
 
 {#if card.rule_display}
-	<p class="rule-line">Rule: {card.rule_display}</p>
+	<span class="rule-badge {variantMeta.tone}" title={`Rule — ${card.rule_display}`}>{variantMeta.label}</span>
 {/if}
 
 {#if card.gate_display}
@@ -85,7 +100,15 @@
 		{#each card.segments_display as seg}
 			<div class="segment-row">
 				<span class="seg-label">{seg.label}</span>
-				<span class="seg-detail">{seg.detail}</span>
+				{#if seg.distance_mi != null || seg.duration_min != null || seg.zone}
+					<span class="seg-detail">
+						{#if seg.distance_mi != null}<span class="seg-primary">{seg.distance_mi} mi</span>{/if}
+						{#if seg.duration_min != null}<span class="seg-sub">{seg.duration_min} min</span>{/if}
+						{#if seg.zone}<span class="seg-sub">{seg.zone}</span>{/if}
+					</span>
+				{:else}
+					<span class="seg-detail">{seg.detail}</span>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -133,6 +156,25 @@
 		line-height: 1.5;
 	}
 
+	.rule-badge {
+		align-self: flex-start;
+		display: inline-block;
+		font-size: 12px;
+		border-radius: 6px;
+		padding: 3px 9px;
+		cursor: default;
+	}
+	.rule-badge.ok {
+		color: #86efac;
+		background: rgba(34, 90, 54, 0.28);
+		border: 1px solid rgba(46, 110, 66, 0.5);
+	}
+	.rule-badge.warn {
+		color: #f4c67a;
+		background: rgba(120, 82, 20, 0.28);
+		border: 1px solid rgba(150, 110, 40, 0.5);
+	}
+
 	.detail-copy {
 		margin: 0;
 		color: #a7bac6;
@@ -166,6 +208,16 @@
 		font-size: 11px;
 		letter-spacing: 0.02em;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.seg-primary {
+		color: #eef5f8;
+		font-weight: 600;
+	}
+
+	.seg-sub {
+		margin-left: 8px;
+		color: #6b8292;
 	}
 
 	.detail-field {

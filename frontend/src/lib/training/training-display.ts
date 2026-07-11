@@ -28,11 +28,34 @@ export function trainingCardTheme(card: TrainingTodayCard): TrainingCardTheme {
 	return { accent: DARK_MUTED_TEXT, icon: '' };
 }
 
-/** Compact metadata brief for a training card row, mirroring `cardBrief` for routine cards. */
+/**
+ * The card's "next move" for the collapsed row: the anchor lift plus how many more for a
+ * strength card, the lead segment for a run — so the face states what you'd actually do
+ * first, not a bare count. Check-in is listed first for the same reason as `trainingCardTheme`
+ * (sup.daily carries both a check-in and small segments).
+ */
 export function trainingCardBrief(card: TrainingTodayCard): string {
-	if (card.checkin_rows.length > 0) return `${card.checkin_rows.length} items`;
-	if (card.exercises_display.length > 0) return `${card.exercises_display.length} exercises`;
-	if (card.segments_display.length > 0) return `${card.segments_display.length} segments`;
+	if (card.checkin_rows.length > 0) return `check-in · ${card.checkin_rows.length} tissues`;
+	if (card.exercises_display.length > 0) {
+		const [first, ...rest] = card.exercises_display;
+		const more = rest.length > 0 ? ` · +${rest.length}` : '';
+		return `${first.name} ${exerciseTarget(first)}${more}`;
+	}
+	if (card.segments_display.length > 0) {
+		const [first, ...rest] = card.segments_display;
+		const more = rest.length > 0 ? ` · +${rest.length}` : '';
+		return `${first.detail || first.label}${more}`;
+	}
 	if (card.est_duration_min) return `${card.est_duration_min} min`;
 	return '';
+}
+
+/** Compact "sets×reps @load" for one exercise, from its structured display fields. */
+function exerciseTarget(ex: TrainingTodayCard['exercises_display'][number]): string {
+	const reps = ex.reps_low === ex.reps_high ? `${ex.reps_low}` : `${ex.reps_low}–${ex.reps_high}`;
+	const base = `${ex.sets}×${reps}`;
+	if (ex.load_kind === 'rpe' && ex.load_value != null) return `${base} @${ex.load_value}`;
+	if (ex.load_kind === 'pct_e1rm' && ex.load_value != null) return `${base} @${Math.round(ex.load_value * 100)}%`;
+	if (ex.load_kind === 'absolute_kg' && ex.load_value != null) return `${base} ${ex.load_value}kg`;
+	return base;
 }
