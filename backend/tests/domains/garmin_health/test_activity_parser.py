@@ -136,6 +136,28 @@ class TestHrSource:
 
 
 class TestSessionExtraction:
+    def test_strips_only_trailing_none_in_zone_lists(self):
+        """Non-trailing None must be preserved; only trailing Nones stripped."""
+        zone_msgs = [
+            {
+                "reference_mesg": "session",
+                "time_in_hr_zone": [10.0, None, 20.0, None, None],
+                "hr_zone_high_boundary": [100, None, 150, None, None],
+                "time_in_power_zone": None,
+                "power_zone_high_boundary": None,
+            }
+        ]
+        messages = {
+            "session_mesgs": [SESSION_MSG],
+            "device_info_mesgs": [LOCAL_DEVICE],
+            "time_in_zone_mesgs": zone_msgs,
+        }
+        session = _extract_run_session(messages, None, "test.fit")
+        # Trailing Nones stripped, non-trailing None preserved
+        assert session.time_in_zones is not None
+        assert session.time_in_zones.time_in_hr_zone_s == [10.0, None, 20.0]
+        assert session.time_in_zones.hr_zone_high_boundary_bpm == [100, None, 150]
+
     def test_merges_fit_and_sidecar_with_unit_policy(self):
         session = _extract_run_session(
             _messages(), SIDECAR, "2026-07-10/105726_running_generic.fit"
@@ -158,6 +180,12 @@ class TestSessionExtraction:
         assert session.has_heart_rate is True
         assert session.has_power is True
         assert session.has_running_dynamics is True
+        # HR source integration: wrist optical (no external strap)
+        assert session.hr_source == "wrist"
+        assert session.hr_strap_serial is None
+        assert session.hr_strap_battery is None
+        # Body battery delta from sidecar
+        assert session.body_battery_delta == -7
 
     def test_no_sidecar_derives_id_from_source_file_and_keeps_fit_fields(self):
         session = _extract_run_session(_messages(), None, "2026-07-10/105726_running_generic.fit")

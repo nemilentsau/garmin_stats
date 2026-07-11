@@ -24,12 +24,14 @@ def _semicircles_to_deg(raw: int | None) -> float | None:
 
 
 def _cadence_spm(value: float | None, fractional: float | None) -> float | None:
+    """Cadence: (running cadence + fractional) × 2 to convert half-steps to steps per minute."""
     if value is None:
         return None
     return (value + (fractional or 0.0)) * 2
 
 
 def _pace_min_per_km(timer_s: float | None, distance_m: float | None) -> float | None:
+    """Pace: timer time / distance; returns min/km or None if distance is zero/missing."""
     if not timer_s or not distance_m or distance_m <= 0:
         return None
     return round(timer_s / 60 / (distance_m / 1000), 2)
@@ -69,6 +71,7 @@ def _detect_hr_source(messages: dict, has_hr: bool) -> tuple[str | None, str | N
 
 
 def _local_start(start_utc: datetime, offset_hours: float | None) -> datetime:
+    """Convert UTC timestamp to local; if offset_hours is None, return UTC-naive timestamp."""
     naive = start_utc.replace(tzinfo=None)
     if offset_hours is None:
         return naive
@@ -76,12 +79,21 @@ def _local_start(start_utc: datetime, offset_hours: float | None) -> datetime:
 
 
 def _extract_time_in_zones(messages: dict) -> RunningTimeInZones | None:
+    """Extract session-scope zone data, stripping only trailing None padding.
+
+    Garmin pads zone arrays with trailing Nones; non-trailing Nones are
+    preserved to maintain zone index alignment (e.g., [316, 387, None, 483]
+    means zone 2 has no high boundary but zone 3 does).
+    """
     for msg in messages.get("time_in_zone_mesgs", []):
         if msg.get("reference_mesg") != "session":
             continue
 
         def _clean(values: list | None) -> list:
-            return [v for v in (values or []) if v is not None]
+            trimmed = list(values or [])
+            while trimmed and trimmed[-1] is None:
+                trimmed.pop()
+            return trimmed
 
         return RunningTimeInZones(
             time_in_hr_zone_s=_clean(msg.get("time_in_hr_zone")),

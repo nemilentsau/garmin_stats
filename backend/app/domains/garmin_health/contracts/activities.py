@@ -13,12 +13,16 @@ from app.contracts.base import DefaultsRequired
 
 
 class RunningTimeInZones(DefaultsRequired):
-    """Session-scope HR/power zone times and boundaries."""
+    """Session-scope HR/power zone times and boundaries.
 
-    time_in_hr_zone_s: list[float] = []
-    hr_zone_high_boundary_bpm: list[int] = []
-    time_in_power_zone_s: list[float] = []
-    power_zone_high_boundary_w: list[int] = []
+    Zone arrays may contain None to represent missing zone boundaries
+    (preserving index alignment); only trailing Nones are stripped by the parser.
+    """
+
+    time_in_hr_zone_s: list[float | None] = []
+    hr_zone_high_boundary_bpm: list[int | None] = []
+    time_in_power_zone_s: list[float | None] = []
+    power_zone_high_boundary_w: list[int | None] = []
     functional_threshold_power_w: int | None = None
     threshold_heart_rate_bpm: int | None = None
     max_heart_rate_bpm: int | None = None
