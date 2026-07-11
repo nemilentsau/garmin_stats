@@ -5,12 +5,14 @@ Garmin wellness exports. It ingests Garmin FIT files, turns them into determinis
 recovery metrics, and presents them through a Svelte dashboard, a routine execution
 surface, and an assistant that answers from curated local context.
 
-The project is recovery-first today. It is useful for understanding HRV, sleep,
-resting heart rate, stress, body battery, and related day-to-day recovery signals.
-It also has a structured routine runtime that can schedule interventions and log
-what happened. Experiments are supported in the backend and are intended to sit on
-top of that routine runtime, but the primary product flow is currently dashboard +
-assistant + routines.
+The project is pivoting from recovery-first observation to goal-directed
+training (see `docs/routine-pivot/`). The primary product flow today is
+dashboard + assistant + the **v3 training block**: authored training artifacts
+are uploaded through `Training → Import`, validated by a build-time linter, and
+executed on the Today board with native capture. The older v2 routine runtime
+remains as the import path for non-training bundles (meditation, breathwork);
+experiments sit on top of it. Content of any kind enters the app **only** via
+import — there are no generators, seeders, or derived artifacts.
 
 ## What It Does
 
@@ -23,11 +25,18 @@ assistant + routines.
   a state-before-score banner, a shared-axis trajectory, an evidence table of what
   moved it, and oxygen/thermoregulation flags — with full metric drill-downs for
   HRV, sleep, heart rate, stress, body battery, respiration, skin temperature, and
-  pulse ox. See [docs/recovery-dashboard.md](docs/recovery-dashboard.md).
+  pulse ox. See [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md).
 - Tracks the next central-dashboard lanes separately from the recovery score. Sleep opportunity,
   health exceptions, and experiment adherence can build from existing data/contracts; load and
   progress are deferred until activity/session ingestion is intentionally started. See
-  [docs/central-dashboard-readiness.md](docs/central-dashboard-readiness.md).
+  [docs/future/central-dashboard-readiness.md](docs/future/central-dashboard-readiness.md).
+- Imports v3 training artifacts (bundles, block, signal registry, exercise
+  library) as-is through `Training → Import`, lints them (L1–L12), and executes
+  the active block on the Today board with native capture: per-set strength
+  logs, tissue check-in, run RPE, and variant branch logging.
+- Downloads tracked-activity FIT files from Garmin Connect during sync into
+  `data/garmin_activities/` (download-only; session ingestion is a planned
+  follow-up).
 - Provides an assistant chat that uses curated evidence bundles instead of direct
   raw database access.
 - Supports routine bundles that compile into live schedules and a Today execution
@@ -138,7 +147,9 @@ math.
 ### Card types
 
 Each card template carries a typed `payload` with a `card_type` discriminator.
-The five card types are:
+(These are the v2 routine-bundle card types; **training cards are separate** —
+they follow the v3 schema in `docs/routine-pivot/schema_v3_spec.md` and enter
+only through the training import.) The five card types are:
 
 | `card_type` | Domain | Key payload fields |
 |---|---|---|
@@ -166,7 +177,7 @@ activates. It writes to the configured database; set `GARMIN_DB_PATH` to
 override the default path.
 
 The bundle format is documented in
-[docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
+[docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
 Example bundles live in `docs/routine_bundles/`.
 
 Importing a bundle is the only way routine or experiment content enters the
@@ -342,15 +353,15 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
   guide.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
   ownership boundaries, and route inventory.
-- [docs/recovery-dashboard.md](docs/recovery-dashboard.md) - the recovery score, health
+- [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md) - the recovery score, health
   flags, and dashboard overview design reference.
-- [docs/recovery-score.md](docs/recovery-score.md) - product explanation and critique of
+- [docs/reference/recovery-score.md](docs/reference/recovery-score.md) - product explanation and critique of
   the recovery score as one lane of the dashboard.
-- [docs/central-dashboard-readiness.md](docs/central-dashboard-readiness.md) - current
+- [docs/future/central-dashboard-readiness.md](docs/future/central-dashboard-readiness.md) - current
   central-dashboard roadmap and data-readiness summary.
-- [docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
+- [docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) -
   canonical routine bundle JSON contract.
-- [docs/ACTIVITY_ANALYTICS_DESIGN.md](docs/ACTIVITY_ANALYTICS_DESIGN.md) - planned
+- [docs/future/ACTIVITY_ANALYTICS_DESIGN.md](docs/future/ACTIVITY_ANALYTICS_DESIGN.md) - planned
   activity/session analytics and experiment-day joins.
 - [FINDINGS.md](FINDINGS.md) - current observations and data quality notes from
   the live dataset.

@@ -140,7 +140,7 @@ def compute_pattern_window(metrics: list[DailyMetric]) -> HrvPatternWindow:
     overall_avg = safe_avg(nightly_vals)
     # Classify each weekday vs the grand mean on the backend so the frontend colours bars from a
     # backend-authoritative `state` and does no statistics of its own (matches the strip's
-    # trend_state; see docs/HRV_TAB_REFACTOR.md "Trend vs Today").
+    # trend_state; see docs/reference/HRV_TAB_REFACTOR.md "Trend vs Today").
     for bucket in day_of_week:
         bucket.state = _day_of_week_state(bucket.avg_nightly, overall_avg)
     return HrvPatternWindow(

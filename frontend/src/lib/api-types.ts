@@ -5880,6 +5880,15 @@ export interface components {
             sets: number;
             /** Log Sets */
             log_sets: boolean;
+            /** Reps Low */
+            reps_low: number;
+            /** Reps High */
+            reps_high: number;
+            /** Load Kind */
+            load_kind: ("pct_e1rm" | "rpe" | "absolute_kg") | null;
+            /** Load Value */
+            load_value: number | null;
+            last: components["schemas"]["TrainingLastLogged"] | null;
         };
         /**
          * TrainingExerciseLog
@@ -5908,11 +5917,34 @@ export interface components {
             sets: components["schemas"]["TrainingSetLog-Output"][];
         };
         /**
+         * TrainingLastLogged
+         * @description Most recent logged set for an exercise — the load anchor.
+         *
+         *     Built by `application/read_models.py`'s `last_logged_for` from prior
+         *     `TrainingCardLog` history; only ever populated on the Today path (the
+         *     schedule-window planning view always renders `last=None`).
+         */
+        TrainingLastLogged: {
+            /** Weight Kg */
+            weight_kg: number | null;
+            /** Reps */
+            reps: number | null;
+            /** Date */
+            date: string;
+        };
+        /**
          * TrainingLogUpdateRequest
          * @description Partial update for one card occurrence's capture log.
          *
-         *     Every field is optional; a field left unset (None) keeps the existing
-         *     log's value rather than clearing it (see `upsert_training_log`).
+         *     Every field is optional, and presence — not nullness — decides what
+         *     happens: a field the request body omits keeps the existing log's value,
+         *     while a field the body includes is applied verbatim, even when its value
+         *     is explicit `null`. For `notes`/`variant_taken`/`capture` an explicit
+         *     `null` clears the stored value. `status` has no defined "cleared" state
+         *     (a stored log's `status` always has a concrete value, defaulting to
+         *     `"pending"`), so callers are expected to only ever send it as a real
+         *     status literal; see `upsert_training_log` for how presence is resolved
+         *     via `model_fields_set`.
          */
         TrainingLogUpdateRequest: {
             /** Status */
@@ -5962,6 +5994,12 @@ export interface components {
             label: string;
             /** Detail */
             detail: string;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Zone */
+            zone: string | null;
         };
         /**
          * TrainingSetLog

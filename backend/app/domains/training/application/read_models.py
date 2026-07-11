@@ -16,6 +16,22 @@ intensity), `render_rule` (a card's variant-selection rule, in English), and
 formatting with no I/O, kept here rather than in `contracts.py` so the wire
 contracts stay free of display concerns.
 
+The prescription-seam helpers build on that: `structured_load` picks
+`render_scheme`'s same load dimension (`pct_e1rm` -> `rpe` -> `absolute_kg`)
+but returns it as typed `(kind, value)` for the frontend to format instead of
+a pre-rendered string; `build_exercise_display`/`build_segment_display` wrap
+one prescribed exercise/segment into its full `TrainingExerciseDisplay`/
+`TrainingSegmentDisplay` projection, string and structured fields together;
+and `last_logged_for` scans a card's prior logs to find the most recent
+logged set for one exercise, the "last" load anchor a lifter sees next to a
+prescribed set. Only `get_training_today` computes a real anchor: it loads
+prior-log history via `repo.card_logs_before(date)` and threads it as
+`prior_logs` through `_cards_for_day` -> `_build_card`, which calls
+`last_logged_for` per exercise. `get_training_schedule_window`'s planning
+view calls the same `_cards_for_day`/`_build_card` path without `prior_logs`,
+so every exercise's `last` is `None` there — a future day's card has no
+"prior" log to anchor against.
+
 `upsert_training_log` applies a partial update keyed off
 `TrainingLogUpdateRequest.model_fields_set`: a field the caller omitted from
 the request body keeps the existing log's value, while a field the caller
@@ -33,6 +49,7 @@ from __future__ import annotations
 import re
 from datetime import date as date_cls
 from datetime import timedelta
+from typing import Literal
 
 from app.contracts.base import StrictDefaultsRequired
 from app.domains.training.application.compile import (
@@ -48,6 +65,7 @@ from app.domains.training.contracts import (
     Cmp,
     ExerciseLibrary,
     ExercisePrescriptionSpec,
+    LoadSpec,
     MeasurementContract,
     NotPredicate,
     Predicate,
@@ -61,6 +79,7 @@ from app.domains.training.contracts import (
     TrainingCardStatus,
     TrainingCheckinRow,
     TrainingExerciseDisplay,
+    TrainingLastLogged,
     TrainingScheduleDay,
     TrainingScheduleWindow,
     TrainingSegmentDisplay,
@@ -149,6 +168,22 @@ def _predicate_phrase(predicate: Predicate) -> str:
     raise TypeError(f"Unknown predicate type: {type(predicate)!r}")  # pragma: no cover
 
 
+def structured_load(
+    load: LoadSpec,
+) -> tuple[Literal["pct_e1rm", "rpe", "absolute_kg"] | None, float | None]:
+    """Return the single present load dimension as (kind, value).
+
+    Mirrors `render_scheme`'s load precedence: pct_e1rm -> rpe -> absolute_kg.
+    """
+    if load.pct_e1rm is not None:
+        return "pct_e1rm", float(load.pct_e1rm)
+    if load.rpe is not None:
+        return "rpe", float(load.rpe)
+    if load.absolute_kg is not None:
+        return "absolute_kg", float(load.absolute_kg)
+    return None, None
+
+
 def render_scheme(exercise: ExercisePrescriptionSpec) -> str:
     """Render a strength exercise's sets/reps/load as one compact scheme string.
 
@@ -171,6 +206,76 @@ def render_scheme(exercise: ExercisePrescriptionSpec) -> str:
     return f"{scheme} @ {load_display}"
 
 
+def build_exercise_display(
+    exercise: ExercisePrescriptionSpec,
+    *,
+    name: str,
+    log_sets: bool,
+    last: TrainingLastLogged | None,
+) -> TrainingExerciseDisplay:
+    """Project one prescribed exercise into its read-only display projection.
+
+    `scheme` (via `render_scheme`) stays alongside the new structured
+    `reps_low`/`reps_high`/`load_kind`/`load_value` fields for this phase's
+    back-compat; `last` is always the caller's value verbatim — this task
+    never looks one up (Task 0.3's `last_logged_for` does).
+    """
+    lo, hi = exercise.reps
+    kind, value = structured_load(exercise.load)
+    return TrainingExerciseDisplay(
+        exercise_id=exercise.exercise_id,
+        name=name,
+        scheme=render_scheme(exercise),
+        tempo=exercise.tempo,
+        sets=exercise.sets,
+        log_sets=log_sets,
+        reps_low=lo,
+        reps_high=hi,
+        load_kind=kind,
+        load_value=value,
+        last=last,
+    )
+
+
+def last_logged_for(
+    logs: list[TrainingCardLog], *, exercise_id: str, before: str
+) -> TrainingLastLogged | None:
+    """Most recent logged set for `exercise_id` among `logs` dated strictly before `before`.
+
+    Scans every log whose capture recorded a `TrainingExerciseLog` for
+    `exercise_id`, keeps the latest-dated match, and returns the last set on
+    that log with a non-`None` weight as the load anchor (a card can log
+    warm-up sets with no weight after the working sets; those are skipped).
+    Returns `None` when no prior log recorded this exercise at all, or when
+    the latest matching log's sets carry no weight — both read as "no anchor
+    yet" to the caller. When multiple prior logs share the same latest date
+    for the exercise, `max` picks whichever candidate it encounters first for
+    that date, which is deterministic by the adapter's `id`
+    (`date:occurrence_key`) ordering but semantically arbitrary; current
+    templates never log one exercise on two same-day cards, so this never
+    actually happens.
+    """
+    candidates = [
+        log
+        for log in logs
+        if log.date < before
+        and log.capture is not None
+        and any(exercise.exercise_id == exercise_id for exercise in log.capture.set_logs)
+    ]
+    if not candidates:
+        return None
+    latest = max(candidates, key=lambda log: log.date)
+    assert latest.capture is not None  # narrowed by the candidates filter above
+    exercise_log = next(
+        exercise for exercise in latest.capture.set_logs if exercise.exercise_id == exercise_id
+    )
+    weighted_sets = [set_log for set_log in exercise_log.sets if set_log.weight is not None]
+    if not weighted_sets:
+        return None
+    last_set = weighted_sets[-1]
+    return TrainingLastLogged(weight_kg=last_set.weight, reps=last_set.reps, date=latest.date)
+
+
 def render_segment(segment: SegmentSpec) -> str:
     """Render a run/support segment's distance/duration/intensity as one line.
 
@@ -191,6 +296,23 @@ def render_segment(segment: SegmentSpec) -> str:
         lo, hi = intensity.hr_range
         parts.append(f"{lo}–{hi} bpm")
     return " · ".join(parts)
+
+
+def build_segment_display(segment: SegmentSpec) -> TrainingSegmentDisplay:
+    """Project one prescribed run/support segment into its display projection.
+
+    `detail` (via `render_segment`) stays alongside the new structured
+    `distance_mi`/`duration_min`/`zone` fields for this phase's back-compat.
+    `zone` is `None` for rpe-only or hr_range-only segments (e.g. drills,
+    strides, primers) — the frontend falls back to `detail` for those.
+    """
+    return TrainingSegmentDisplay(
+        label=segment.label,
+        detail=render_segment(segment),
+        distance_mi=segment.distance_mi,
+        duration_min=segment.duration_min,
+        zone=segment.intensity.zone,
+    )
 
 
 def render_rule(selection: SelectionRule) -> str | None:
@@ -282,8 +404,15 @@ def _build_card(
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
     repo: TrainingRepository,
+    prior_logs: list[TrainingCardLog] | None = None,
 ) -> TrainingTodayCard:
-    """Project one compiled schedule entry into a display-ready Today card, log merged in."""
+    """Project one compiled schedule entry into a display-ready Today card, log merged in.
+
+    `prior_logs` feeds `last_logged_for` per exercise — the Today path
+    (`get_training_today`) loads real history and passes it; the
+    schedule-window path leaves it `None` (planning view, read-only), so
+    `last` is always `None` there rather than looked up per rendered day.
+    """
     card = entry.card
     assignment = entry.assignment
     occurrence_key = f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
@@ -293,20 +422,20 @@ def _build_card(
     log_sets = any(field.type == "set_rep_load[]" for field in card.capture)
     if isinstance(card.prescription, StrengthPrescription):
         exercises_display = [
-            TrainingExerciseDisplay(
-                exercise_id=exercise.exercise_id,
+            build_exercise_display(
+                exercise,
                 name=_exercise_name(library, exercise.exercise_id),
-                scheme=render_scheme(exercise),
-                tempo=exercise.tempo,
-                sets=exercise.sets,
                 log_sets=log_sets,
+                last=last_logged_for(
+                    prior_logs or [], exercise_id=exercise.exercise_id, before=date
+                ),
             )
             for exercise in card.prescription.exercises
         ]
     else:
         patched = full_variant_prescription(entry)
         segments_display = [
-            TrainingSegmentDisplay(label=segment.label, detail=render_segment(segment))
+            build_segment_display(segment)
             for segment in (
                 SegmentSpec.model_validate(raw) for raw in patched.get("segments", [])
             )
@@ -373,12 +502,13 @@ def _cards_for_day(
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
     repo: TrainingRepository,
+    prior_logs: list[TrainingCardLog] | None = None,
 ) -> list[TrainingTodayCard]:
     entries = [entry for entry in schedule if entry.day == day]
     cards = [
         _build_card(
             entry, date=date, registry=registry, library=library, bundle_names=bundle_names,
-            repo=repo,
+            repo=repo, prior_logs=prior_logs,
         )
         for entry in entries
     ]
@@ -410,9 +540,10 @@ def get_training_today(repo: TrainingRepository, *, date: str) -> TrainingTodayR
 
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
+    prior_logs = repo.card_logs_before(date)
     cards = _cards_for_day(
         schedule, day, date=date, registry=registry, library=library,
-        bundle_names=bundle_names, repo=repo,
+        bundle_names=bundle_names, repo=repo, prior_logs=prior_logs,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -583,13 +714,17 @@ def upsert_training_log(
 
 __all__ = [
     "TrainingLogUpdateRequest",
+    "build_exercise_display",
+    "build_segment_display",
     "checkin_rows",
     "get_block_status",
     "get_training_schedule_window",
     "get_training_today",
+    "last_logged_for",
     "render_gate",
     "render_rule",
     "render_scheme",
     "render_segment",
+    "structured_load",
     "upsert_training_log",
 ]

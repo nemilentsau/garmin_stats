@@ -560,7 +560,7 @@
 
 	// Bar opacity per backend-computed weekday state — the frontend maps a backend value to a
 	// shade and does NO value-vs-reference classification of its own (that ±5 ms policy lives in
-	// the backend; see docs/HRV_TAB_REFACTOR.md "Trend vs Today"). Missing state → neutral.
+	// the backend; see docs/reference/HRV_TAB_REFACTOR.md "Trend vs Today"). Missing state → neutral.
 	const DAY_OF_WEEK_STATE_ALPHA: Record<string, string> = {
 		above: 'cc', // brightest — weekday runs above the grand mean
 		within: '77',

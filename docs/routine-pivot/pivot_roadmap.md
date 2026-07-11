@@ -1,102 +1,72 @@
-# Routine Pivot — App Reframe and Implementation Roadmap
+# Routine Pivot — Roadmap
 
-**Status:** Adopted (brainstorm session 2026-07-05); **revised 2026-07-07** to align with the authored Block 0 artifacts
-**Date:** 2026-07-05 (rev. 2026-07-07)
-**Governed by:** `general_principles.md` (P1–P13); `schema_v3_spec.md`; **`block0/` artifacts (bundles, registry, block definition)**
-**Scope:** Extends the v3 training-system pivot to the whole app. Names the two standing objectives, the survival rule for existing surfaces, and the build sequence through Block 1 adoption.
-
-**Source-of-truth rule:** the two governing markdowns and the `block0/` artifacts are canonical. This roadmap is subordinate — when it conflicts with them, the roadmap is amended (as in this revision), never the reverse. App code and surfaces bend to the artifacts; deleting app pieces that conflict is expected, not exceptional.
-
-**Rev. 2026-07-07 deltas** (after extracting `block0/` — authored in the same external session as the governing docs, previously opaque inside a zip):
-- Block 0 bundles already exist **in v3 wire format** (`running.v3`, `strength.v3`, `support.v3`), plus `block0.json`, `registry.json` (signals, estimators, 5-component state vector, objective), `exercise_library.json`, a draft `linter.py`, and its outputs. Phase 0 no longer authors anything — it **derives** app-side execution from these sources.
-- Block 0's window is pinned by `block0.json`: **2026-07-06 → 2026-08-02**. The 2026-07-13 plan-of-record start is superseded. Week 1 is burn-in (baselines compute from day 8), which absorbs app-side catch-up in the first days.
-- The §11 audit (D3) is partially discharged: `linter.py` was reviewed (implements L1–L12; soft spots noted below) and its run reproduced byte-identically (0 errors, 0 warnings). Independent spot-checks remain, since the linter shares authorship with the bundles it passed.
-- The state vector has five components (S5 = hip-hinge e1RM) and S1's signal is currently `pacehr.easy_hr_at_ref_pace` (proxy until the LTHR test anchors true threshold pace) — Phase 1 follows `registry.json`, not the four-component sketch in the schema spec.
+**Status:** Active. This file answers two questions: *where are we* and *what happens next.* History lives in the changelog at the bottom, not inline.
+**Governed by:** `general_principles.md` (P1–P13), `schema_v3_spec.md`, and the `block0/` artifacts — those are canonical; this roadmap bends to them, never the reverse.
 
 ---
 
-## 1. Two standing objectives
+## Where things stand (2026-07-09)
 
-The app stops being a recovery observatory. Every feature exists to serve one of two objectives:
+- **Block 0 is live in the app** (window 2026-07-06 → 2026-08-02, currently week 1 burn-in; baselines compute from day 8 = 07-13). The six canonical artifacts were uploaded through `Training → Import`, linted 0/0, stored verbatim, and execute on the Today board.
+- **Capture is flowing**: per-set strength logs, tissue check-in (soreness 0–3 + flags), run RPE, and `variant_taken` branch logging. Selection rules display in English; the human selects (accepted for this block).
+- **Import is the only ingress** — enforced in code and CLAUDE.md. Everything v2 was deleted from the DB; meditation/breath bundle files remain in `docs/routine_bundles/` for re-import whenever wanted.
+- **Activity FIT files download** from Garmin Connect on every sync into `data/garmin_activities/` — but nothing parses them yet.
+- **The app computes no training signals yet.** It collects; it does not yet estimate. That is the next step.
 
-**O1 — Training progression.** As specced: maximize weighted dS/dt over the state vector (S1 threshold pace at LTHR, S2 squat-pattern e1RM, S3 calf/soleus HSR e1RM, S4 upper physique proxy, S5 hip-hinge e1RM — weights and bands per `block0/registry.json`), subject to recovery constraints — HRV band, RHR band, tissue flags, sleep. Recovery metrics are constraints, never the objective (P1). Green constraint dashboards with flat S remain a failure state.
+## Next steps — in this order
 
-**O2 — Mind calmness.** Reduce rumination and adversarial internal dialogue. The primary outcome is subjective: a morning-after self-report (one 1–5 scale rating yesterday's mind), captured on the same morning check-in surface as soreness and tissue flags. Physiology (daytime stress, nightly HRV, RHR) is corroborating evidence only, and any physiological readout used for O2 must be conditioned on training load — a hard development block depresses HRV with zero change in mind state, and an unconditioned calmness metric would report "meditation stopped working" every Block 1.
+1. **Parse the workout files** (running + strength, session grain first). Specs already written: `docs/future/RUNNING_ACTIVITY_SCHEMA.md`, `docs/future/STRENGTH_ACTIVITY_SCHEMA.md`. Turns every downloaded FIT into per-session data: pace, HR, time-in-zone, strap validity. Idempotent ingest wired into sync/startup like wellness archives.
+2. **Compute the signals and estimators** — `block0/registry.json` implemented verbatim: HRV/RHR/sleep baselines with SWC bands (from the 400 days of wellness already in the DB), e1RM per lift + tonnage + planned-vs-executed (from the set logs capturing since day 1), easy-pace HR with first heat-correction fit, zone minutes, `load.day.total`. Nightly batch after sync; estimators backfill from stored capture — nothing is lost by building this in week 2. **Deliverable that matters: the weekly review (interference check, HSR tolerance, tonnage ratio) computes itself.**
+3. **Dashboard reframe** — the training-state lane (S1–S5 trends) plus the constraint strip becomes the primary surface; recovery demotes to guardrails; metric tabs become drill-downs (the §2 demotions). Deliberately AFTER step 2: the lanes render the signals step 2 creates.
+4. **Selection runtime + event log** — the app evaluates the morning rules itself (check-in + signals → full/reduced/skip, branch logged). **Deadline-bound: Block 1 needs the full engine when Block 0 exits (~2026-08-02).** Block 1 ships as v3 bundles into the same import pipeline.
+5. **Calmness track (Phase 3)** — after Block 1 adopts the engine: the morning-after 1–5 report becomes a real capture field with an analysis contract (calmness trend conditioned on training load), promoted to a first-class experiment outcome; only then is meditation/breath content redesigned.
 
-**Why the machinery differs.** Training dose-response is well characterized, so O1 runs on continuous state estimation (estimators, signals, selection rules). Calmness interventions are genuinely uncertain — which practice, what dose — so O2 runs on the A/B experiments engine, with the morning-after report promoted to a first-class outcome metric. Same measurement discipline, different instruments.
+Detailed execution plans are working artifacts (gitignored scratch), deleted when the work ships — this list is the plan of record, and each step lands here as a changelog entry when done.
 
 ---
 
-## 2. The surface-survival rule (P7, generalized)
+## Two standing objectives
 
-P7 governs capture fields; the same closure test now governs the app. Every surface, score, card, and metric names (a) the objective it serves and (b) the decision its output informs. Anything that cannot answer both is demoted or deleted.
+**O1 — Training progression.** Maximize weighted dS/dt over the state vector (S1 threshold pace at LTHR, S2 squat-pattern e1RM, S3 calf/soleus HSR e1RM, S4 upper physique proxy, S5 hip-hinge e1RM — weights and bands per `block0/registry.json`), subject to recovery constraints — HRV band, RHR band, tissue flags, sleep. Recovery metrics are constraints, never the objective (P1). Green constraint dashboards with flat S remain a failure state.
 
-Applied to what exists today:
+**O2 — Mind calmness.** Reduce rumination and adversarial internal dialogue. Primary outcome is subjective: a morning-after self-report (one 1–5 scale rating yesterday's mind) on the same morning check-in surface as soreness. Physiology (daytime stress, nightly HRV, RHR) is corroborating evidence only and must be conditioned on training load — an unconditioned calmness metric would report "meditation stopped working" every hard block.
+
+**Why the machinery differs.** Training dose-response is well characterized → O1 runs on continuous state estimation (estimators, signals, selection rules). Calmness interventions are genuinely uncertain → O2 runs on the A/B experiments engine, with the morning-after report as a first-class outcome metric.
+
+## The surface-survival rule (P7, generalized)
+
+Every surface, score, card, and metric names (a) the objective it serves and (b) the decision its output informs. Anything that cannot answer both is demoted or deleted.
 
 | Surface | Verdict |
 |---|---|
-| Recovery score | Demoted to the O1 constraint strip: band status plus which constraint fired. Not the home page. |
-| Per-metric tabs (HR, HRV, sleep, stress, …) | Drill-downs entered from a fired constraint or flag, not primary navigation. |
+| Recovery score | Demoted to the O1 constraint strip (band status + which constraint fired). Not the home page. |
+| Per-metric tabs (HR, HRV, sleep, …) | Drill-downs entered from a fired constraint or flag, not primary navigation. |
 | SpO2 / skin temp / respiration tabs | Health flags only; standalone surfaces demoted. |
-| Card ratings no model reads | Deleted (already done for the breath card; same test applies everywhere). |
+| Card ratings no model reads | Deleted. |
 | Experiments engine | Retained and promoted: O2's measurement layer. |
-| Routines/cards engine | Retained: execution layer for both objectives; migrates to v3 schema per the phases below. |
+| Training domain (v3) | The execution layer for O1; import-only ingress. |
+| v2 routines engine | Legacy import path for meditation/breath bundles until Phase 3; then retired wholesale. |
 
----
+## Standing rules (binding on all future work)
 
-## 3. Sequencing decisions
+- **Import is the only ingress.** Routine/experiment/training content enters exclusively by importing an authored bundle. No generators, translators, seeders, or derived artifacts — ever. (Origin: the 2026-07-08 retraction; see changelog.)
+- **The app adapts to the v3 schema, never the reverse.** Artifacts are stored verbatim; where the markdown spec and shipped artifacts disagree, artifacts win.
+- **Capture cannot be backfilled; analysis can.** Capture ships before analysis whenever a block clock is running.
+- **Morning-after calmness report** (banked for step 5): one 1–5 scale rating yesterday's internal dialogue, on the morning check-in — chosen over evening reports and episode logging.
+- **Baselines carry condition tags** (`heat-season`, `chronic-load`, `protocol-change`); missing check-in data sends rules conservative, and "missing" means *no card log for the date* — an untouched tissue on a saved check-in is an attested 0.
 
-**D1 — Training track first, calmness second.** O1 is fully specced and its v2 predecessor is already terminated — the interregnum is running now. O2 needs design work, and current meditation practice continues as-is without harm. No dependency runs from O2 to O1.
-
-**D2 — Block 0 before the v3 engine.** The razor: capture cannot be backfilled; analysis can. The only thing that must exist on day 1 is capture, and it largely does — strength set×rep×load logging, post-run fields including dew point, chest-strap HR. Block 0 is deliberately the least adaptive block the system will ever run (flat volume, stationary weekly covariates), so it needs the least runtime machinery of any block. The selection-rule engine earns its keep in Block 1, not Block 0.
-
-**D3 — One-off audit replaces the runtime linter, for Block 0 only.** The three Block 0 bundles are audited against `schema_v3_spec.md` §11, all twelve checks, before adoption. Named risk: reviewer discipline is the exact failure mode that produced v2's stacked hedges (§1.2 of the principles doc). Mitigations: the audit is the twelve checks applied mechanically, not judgment; a bundle that needs an exception fails and is re-authored — there are no waivers; and the real linter still gates Block 1. *(Rev. 2026-07-07: a draft `linter.py` shipped with the bundles and its 0/0 report reproduces byte-identically; because it shares authorship with the bundles, the audit's remaining job is spot-checking its three soft rules — see Phase 0 step 3.)*
-
-**D4 — Morning-after calmness report (banked for Phase 3).** Cadence and construct are fixed now so Phase 3 starts from a decision, not a debate: one 1–5 scale rating yesterday's internal dialogue, answered each morning alongside the soreness check-in. Chosen over an evening report (end-of-day fatigue colors the answer; one habit surface beats two) and over episode logging (in-the-moment capture during rumination is precisely the moment it won't happen).
-
----
-
-## 4. Phases
-
-### Phase 0 — Block 0 on the current engine (revised: translate, don't author; already in-window)
-
-Block 0 is live per `block0.json` (started 2026-07-06). Phase 0 is now the fastest honest path to the cards appearing on the Today board and capture flowing:
-
-1. **Translate v3 → current-engine import bundles.** Mechanically derive schema-v2 bundles (card templates + dated assignments from the compiled 28-day schedule, day 1 = 2026-07-06) from the three v3 sources. The v3 files stay canonical; the derived v2 bundles are build artifacts — regenerate on any source change, never hand-edit. Prescriptions map to existing card types (running_workout, strength_session, checklist for the morning check-in). Selection rules cannot execute on the v2 engine: for Block 0 they run as human discipline off `schedule_overview.md`'s plain-English rendering, with branches recorded in log notes (accepted in D2 — this block is the least adaptive the system will run).
-2. **Morning check-in capture**: the support bundle's daily check-in card specifies the capture (soreness 0–3 across six tissues, boolean tissue flags, core_done). The checklist card is the closest existing surface (checkbox+text) — a disciplined convention now, a typed extension only if week-1 use shows the convention corrupts the data.
-3. **Finish the audit per D3 (revised).** Done: `linter.py` reviewed; lint run reproduced byte-identically (0 errors / 0 warnings; weekly miles 49.0/49.5/49.0/32.8; budgets within declarations). Remaining: independent spot-checks of rules where the linter is soft — L11 novelty is hardcoded (`novel = 3`) rather than computed; L9's no-unramped-novel-overload check only covers `tendon_stiffness`; L7's coverage test passes on any ambient (non-capture) estimator input. Spot-check those three by hand against the compiled schedule before trusting the report fully.
-4. **Adopt in-place.** No interregnum: the window is running, week 1 is burn-in, baselines compute from day 8 (2026-07-13). App-side execution should be live well before day 8 so the baseline window starts with full capture.
-
-**Phase 0 shipped (2026-07-08).** Deltas from the written steps above: the typed tissue check-in and structured `variant_taken` branch logging were built immediately rather than run as the deferred "human discipline" convention described in step 1 — capture fidelity mattered more than staying minimal. Block 0 was imported and activated from the derived bundle (`docs/routine_bundles/block0_v3_derived.json`, regenerated from the v3 sources via `scripts/translate_block0.py`). The 5 pre-existing v2 training routines and their templates were retired (DB status flip only; their logs were kept, not deleted) to keep the Today board free of stale cards alongside Block 0.
-
-**Phase 0 RETRACTED (2026-07-08, user decision).** The translation approach was rejected the day it shipped: deriving v2 bundles from v3 sources created a second ingress path and shoehorned the new design into the old schema — both wrong. Standing principles from the retraction, binding on all future phases:
-
-- **Import is the only ingress.** Routine and experiment content enters the app exclusively by importing an authored bundle. No generators, no translators, no seeders, no derived artifacts. Anything that creates app content another way is a bug.
-- **The app adapts to the v3 schema, never the reverse.** Old designs are not retrofitted into new schemas, and new designs are not flattened into old ones. `schema_v3_spec.md` + the `block0/` artifacts are what the app must import and execute as-is.
-- Consequences applied same day: translator, derived bundle, and retire script deleted from the repo; the database wiped of ALL routine/experiment/artifact content (routines, templates, assignments, logs, overrides, experiments, exposures, analyses, imported artifacts — backup `storage/garmin_stats.pre-wipe.20260708-181624.db`). The board is empty until the app can import the v3 artifacts natively. The contract additions that match v3 semantics (typed tissue check-in capture, `variant_taken` branch logging, rule display) remain — they are app-side adaptations toward v3, not schema shoehorns.
-
-### Phase 1 — v3-native import + engine (NOW the immediate path; Block 0 window is running)
-
-First deliverable: **native import of the v3 artifacts as-is** — upload `running_v3.json` / `strength_v3.json` / `support_v3.json` / `block0.json` / `registry.json` / `exercise_library.json`, validate against the v3 schema (the validator ports `linter.py`, review-hardening the three soft spots above), and render/execute them on the board. Then the rest of the engine: signal registry, estimator DAG (15 estimators, `est.*` IDs), state vector (S1–S5), objective/constraint bands per `registry.json` verbatim; morning selection runtime; event log. Estimators built mid-block backfill from day-1 capture — that is what D2 buys; the activity FIT download pipeline (PR #64) supplies the raw running/strength data the `est.pacehr`, `est.day_rollup`, and e1RM estimators consume. Open technical decisions stay where they are (`schema_v3_spec.md` §13). Exit criterion: the Block 0 artifacts import, lint with zero errors, and execute natively; Block 1 ships as v3 bundles into the same pipeline.
-
-**Phase 1 first deliverable shipped (2026-07-09).** Native import of the six v3 artifacts as-is: upload → contract validation → the ported L1–L12 linter (parity-verified 0 errors / 0 warnings against `docs/routine-pivot/block0/lint_report.json`) → verbatim storage of the uploaded dicts → single-shot activation. Today/schedule/block read models project the compiled schedule with backend-side rendering (scheme/segment/rule/gate display strings, check-in rows) — the frontend does no v3 interpretation of its own. Native capture landed alongside: set logs, tissue check-in, RPE, and structured `variant_taken` branch logging, all persisted through a partial-update capture log keyed by `date:occurrence_key`. Remaining Phase 1 slices are unchanged: estimators/signals, the selection runtime, and the event log. Final-review follow-up items closed in the same pass: occurrence-validation now guards capture ingest (a capture PUT against an occurrence the compiled schedule doesn't recognize for that date 404s instead of persisting silently); typed 404 discrimination for block status and the check-in theming UX pass remain open.
-
-### Phase 2 — Dashboard reframe (overlaps Phase 1; no Block 0 dependency)
-
-The training-state lane — S1–S4 trends plus the constraint strip — becomes the primary surface; the §2 demotions are applied. Design goes through the usual dashboard/UX skills; this doc fixes only the information hierarchy: state first, constraints second, drill-downs on demand.
-
-### Phase 3 — Calmness track (after Block 1 adopts the engine)
-
-Wire the D4 report as a real capture field with an analysis contract — model: calmness trend conditioned on training load and prior-day session type; decision informed: which practice and dose to run next, via experiments. Promote it into the experiment target-metric registry as a first-class outcome. Only then redesign meditation/breath routine content. Until Phase 3, meditation runs unchanged.
-
----
-
-## 5. Non-goals
+## Non-goals
 
 - No v2 salvage beyond the salvage list in `general_principles.md` §3.4.
-- No calmness-side routine redesign before the sensor exists — P6 applies to minds as much as tissues: unsensed values get traded away silently.
-- No new metric surfaces "while we're at it": every addition goes through the §2 survival rule.
+- No calmness-side routine redesign before its sensor exists (P6: unsensed values get traded away silently).
+- No new metric surfaces "while we're at it": every addition goes through the survival rule above.
 
 ---
 
-This doc retires when Phase 0 completes: after Block 0 is adopted, the principles and schema specs govern and this file is history.
+## Changelog
+
+- **2026-07-05 — adopted.** Two-objective reframe, survival rule, sequencing decisions (training first; Block 0 before the engine; audit in lieu of runtime linter for Block 0; calmness report banked).
+- **2026-07-07 — revised to the artifacts.** `block0/` extracted from the authoring session: three v3 bundles, block definition, `registry.json` (5-component state vector incl. S5 hip-hinge), exercise library, reference linter with 0/0 report (reproduced byte-identically). Block 0 window pinned 2026-07-06 → 2026-08-02.
+- **2026-07-08 — Phase 0 shipped and RETRACTED same day.** A v3→v2 translation pipeline ran Block 0 on the old engine for one day; rejected as a second ingress and a schema shoehorn. Translator, derived bundle, and retire script deleted; DB wiped of all routine/experiment/artifact content. The import-only and app-adapts-to-schema rules date from here. Kept from that day's work: typed tissue check-in, `variant_taken` branch logging, rule display — v3-semantics adaptations, not shoehorns.
+- **2026-07-09 — v3-native import shipped** (next-steps list item 0, formerly "Phase 1 first deliverable"). New standalone `training` domain: upload → strict contract validation → ported L1–L12 linter (parity 0/0) → verbatim storage → single-shot activation; Today/schedule/block read models with backend-side display projections; native capture with occurrence-validated ingest. Block 0 re-activated through the real UI. Open minor follow-up: typed 404 discrimination for block status on the import page.
+- *(retirement)* This doc retires when Block 1 adopts the full engine (next-steps items 1–4 done): from then on the principles and schema specs govern and this file is history.

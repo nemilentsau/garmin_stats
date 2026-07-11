@@ -550,6 +550,19 @@ class TrainingCardLog(DefaultsRequired):
     capture: TrainingCaptureLog | None = None
 
 
+class TrainingLastLogged(DefaultsRequired):
+    """Most recent logged set for an exercise — the load anchor.
+
+    Built by `application/read_models.py`'s `last_logged_for` from prior
+    `TrainingCardLog` history; only ever populated on the Today path (the
+    schedule-window planning view always renders `last=None`).
+    """
+
+    weight_kg: float | None = None
+    reps: int | None = None
+    date: str
+
+
 class TrainingExerciseDisplay(DefaultsRequired):
     """One strength exercise's read-only display projection for a scheduled card."""
 
@@ -559,6 +572,11 @@ class TrainingExerciseDisplay(DefaultsRequired):
     tempo: str | None = None
     sets: int
     log_sets: bool  # True when the card's capture includes a set_rep_load[] field
+    reps_low: int
+    reps_high: int
+    load_kind: Literal["pct_e1rm", "rpe", "absolute_kg"] | None = None
+    load_value: float | None = None
+    last: TrainingLastLogged | None = None
 
 
 class TrainingSegmentDisplay(DefaultsRequired):
@@ -566,6 +584,9 @@ class TrainingSegmentDisplay(DefaultsRequired):
 
     label: str
     detail: str  # "7 mi · 55 min · Z1-Z2"
+    distance_mi: float | None = None
+    duration_min: float | None = None
+    zone: str | None = None  # None for rpe-only/hr_range-only segments (e.g. drills, strides)
 
 
 class TrainingCheckinRow(DefaultsRequired):
