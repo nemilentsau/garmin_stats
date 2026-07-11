@@ -5918,7 +5918,11 @@ export interface components {
         };
         /**
          * TrainingLastLogged
-         * @description Most recent logged set for an exercise — the load anchor. Populated in Task 0.3.
+         * @description Most recent logged set for an exercise — the load anchor.
+         *
+         *     Built by `application/read_models.py`'s `last_logged_for` from prior
+         *     `TrainingCardLog` history; only ever populated on the Today path (the
+         *     schedule-window planning view always renders `last=None`).
          */
         TrainingLastLogged: {
             /** Weight Kg */
@@ -5990,6 +5994,12 @@ export interface components {
             label: string;
             /** Detail */
             detail: string;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Zone */
+            zone: string | null;
         };
         /**
          * TrainingSetLog
