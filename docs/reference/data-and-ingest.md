@@ -1,6 +1,6 @@
 # Data Sources & Ingest
 
-**Status:** shipped (wellness ingest + activity download) · **partial** (activity parse/associate — pending, specs in `../future/`)
+**Status:** shipped (wellness ingest + activity download) · **shipped for running** (activity parse; see `run-activities.md`) · **partial** (strength/breathing parse, association — pending, specs in `../future/`)
 
 Single source of truth for *what Garmin data the app has, where it lives, and how it gets in*. If you touch data roots, ingest, sync, the watcher, or config paths, update this file in the same change. CLAUDE.md and README point here rather than restating any of it.
 
@@ -14,12 +14,12 @@ The app draws on **two separate local trees**. They are different shapes with di
 - **Pipeline (built):** `FIT files → garmin_health FIT parser → daily metric composer → SQLite` (`daily_metrics` + raw `wellness_data`/`sleep_data`/`hrv_data`/`skin_temp_data`). Owned by `garmin_sync` (acquisition/ingest) + `garmin_health` (parse/compose).
 - **This is the only tree the DB currently reads from.**
 
-### 2. `data/garmin_activities/` — tracked sessions (DOWNLOADED, NOT YET PARSED)
+### 2. `data/garmin_activities/` — tracked sessions (DOWNLOADED; RUNNING PARSED, STRENGTH/BREATHING NOT YET)
 
 - **Shape:** one directory per day, `YYYY-MM-DD/`, holding per-activity pairs `HHMMSS_{sport}_{sub_sport}.fit` + `HHMMSS_{sport}_{sub_sport}.json` (Garmin Connect summary sidecar). e.g. `154911_running_generic.fit`, `104600_training_strength_training.fit`, `131800_training_breathing.fit`.
-- **Content:** the raw FIT carries full `session` / `lap` / `record` messages — per-second HR/pace/cadence/power, splits, GPS. The JSON sidecar carries the Connect summary (distance, duration, training effect/load, power zones, `activityId`, `startTimeLocal`). ~1,100+ files on disk (~290+ running, plus strength/breathing/yoga). HR is present in runs from ~March 2026 onward (date-patterned — see `../future/RUNNING_ACTIVITY_SCHEMA.md`).
+- **Content:** the raw FIT carries full `session` / `lap` / `record` messages — per-second HR/pace/cadence/power, splits, GPS. The JSON sidecar carries the Connect summary (distance, duration, training effect/load, power zones, `activityId`, `startTimeLocal`). ~1,100+ files on disk (~290+ running, plus strength/breathing/yoga). HR is present in runs from ~March 2026 onward (date-patterned — see `run-activities.md`).
 - **Acquisition (built):** pulled from Garmin Connect on **every sync** and by backfill. `garmin_sync/infra/garmin_connect.py` logs in and downloads activity originals; `garmin_sync/workflows.py::sync_garmin` sweeps a recent-activity window; `garmin_sync/infra/activity_files.py` (`FilesystemActivityStore`) extracts each payload into the day tree, writes the JSON sidecar, and dedups by `activityId`. Manual backfill: `scripts/download_garmin.py --activities`.
-- **Parse/model/associate (NOT built):** nothing ingests these into the DB. The raw FIT is decoded once at download **only** to read `session_mesgs[0].sport/sub_sport` for the filename — no metrics are extracted, there is no `activity_sessions` table, no read model, no route, and **no link between a prescribed run and its actual activity**. This is roadmap next-step #1 (`../routine-pivot/pivot_roadmap.md`); the design lives in `../future/ACTIVITY_ANALYTICS_DESIGN.md`, `../future/RUNNING_ACTIVITY_SCHEMA.md`, `../future/STRENGTH_ACTIVITY_SCHEMA.md`.
+- **Parse (shipped for running; strength/breathing NOT built):** running FIT files (`*_running_*.fit`) parse into `running_activity_sessions`/`running_activity_laps`/`running_activity_series` on every sync and at startup, gated by a whole-tree fingerprint (`ingest_meta` key `activities_fingerprint`) so an unchanged activities tree is a no-op. Served by `/api/activities/runs*` and displayed at `/runs` + `/runs/[id]`. Full detail — parser/store/serve/display, `hr_source` semantics, units, known gaps — is `run-activities.md`. Strength and breathing FIT files still download but are not parsed: no metrics extracted, no table, no route. **Association between a prescribed run and its actual activity is still not built** — this is the remaining half of roadmap next-step #1 (`../routine-pivot/pivot_roadmap.md`). Strength parse design: `../future/STRENGTH_ACTIVITY_SCHEMA.md`; broader activity-mart design: `../future/ACTIVITY_ANALYTICS_DESIGN.md`.
 
 ## Configuration (`backend/app/core/config.py`)
 

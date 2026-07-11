@@ -1,23 +1,26 @@
 # Activity Analytics Design
 
-> **STATUS: PROPOSED / DEFERRED — not yet implemented (as of 2026-06-13).** This is a
-> forward-looking design. None of it exists in code yet: there is no
-> `ActivitySession` / `ExperimentDayRow` model, no `activity_sessions` /
-> `activity_daily_features` tables, no `parse_activity_file` / `parse_activities`
-> parser, no activity routes or pages, and no sleep-timing/training-load fields on
-> the daily mart. Activity FIT files are not ingested. Treat every schema and
-> module path below as a target to build, not a contract that exists. The
-> pre-existing foundations it references (the `daily_metrics` mart, `parse_all_days`,
-> WELLNESS/SLEEP/HRV/SKIN_TEMP parsing, `alcohol_flag` daily check-ins) are real.
-> **Update 2026-07-09:** activity FIT *download* now exists — the sync button and
-> `scripts/download_garmin.py --activities` land files under
-> `data/garmin_activities/YYYY-MM-DD/`. Ingestion/parsing remains unbuilt as
-> described below.
+> **STATUS: PROPOSED / DEFERRED for strength + the experiment-day mart. Running
+> session/lap/record ingest SHIPPED 2026-07.** None of the `ActivitySession` /
+> `ExperimentDayRow` generic models, `activity_sessions` / `activity_daily_features`
+> tables, or `parse_activity_file` / `parse_activities` generic parser described
+> below were built as designed here — running shipped instead as its own
+> running-specific tables (`running_activity_sessions`/`_laps`/`_series`),
+> series stored as one JSON blob per session (not a `activity_records` row-per-sample
+> table), record grain included from day one (not deferred, unlike the "records
+> only when a product route needs them" guidance below). Running has routes
+> (`/api/activities/runs*`) and pages (`/runs`, `/runs/[id]`) live now — see
+> `../reference/run-activities.md` for how it actually works. Strength ingest,
+> the generic cross-sport `ActivitySession` model, sleep-timing fields on the
+> daily mart, and the experiment-day mart below remain unbuilt; treat those
+> portions of this document as a target to build, not a contract that exists.
+> The pre-existing foundations it references (the `daily_metrics` mart,
+> `parse_all_days`, WELLNESS/SLEEP/HRV/SKIN_TEMP parsing, `alcohol_flag` daily
+> check-ins) are real.
 >
-> Current sequencing: do not start this activity/workout ingestion track until the
-> generic Garmin metric dashboards have been DRYed up and visually stabilized. In
-> the meantime, central-dashboard additions should use existing recovery, sleep,
-> health-flag, and experiment data only.
+> Current sequencing: strength parse (this doc's `STRENGTH_ACTIVITY_SCHEMA.md`)
+> and association between a prescribed run and its actual activity are next;
+> see `../routine-pivot/pivot_roadmap.md` next-steps.
 
 This document defines a future analytical foundation for Garmin Stats.
 
@@ -170,8 +173,9 @@ class ActivitySession:
 
 V1 should parse from `session_mesgs`.
 
-For the running-specific field contract, unit normalization policy, and
-session/lap/record split, see `RUNNING_ACTIVITY_SCHEMA.md`.
+Running shipped with its own tables and contracts instead of this generic
+model — see `../reference/run-activities.md` for the actual field contract,
+unit policy, and session/lap/series split.
 
 For the strength-specific field contract, Garmin set/repetition caveats, and
 session-load/record split, see `STRENGTH_ACTIVITY_SCHEMA.md`.

@@ -36,6 +36,7 @@ Backend/frontend structure, dependency layering, and the domain index. Per-domai
 ### `reference/` — how shipped things work and why
 
 - [data-and-ingest.md](reference/data-and-ingest.md) — **the two Garmin data trees, ingest/sync, and config paths. Single source of truth for data topology.**
+- [run-activities.md](reference/run-activities.md) — how tracked runs parse, store, and display (running only; strength still unparsed).
 - [routes.md](reference/routes.md) — generated route inventory (backend OpenAPI + SvelteKit).
 - [code-conventions.md](reference/code-conventions.md) — `app/utils/` promotion rule, slice boundaries, frontend conventions, doc style.
 - [recovery-dashboard.md](reference/recovery-dashboard.md) — recovery score, health flags, dashboard overview (ships until the Phase 2 reframe).
@@ -47,8 +48,8 @@ Backend/frontend structure, dependency layering, and the domain index. Per-domai
 
 Each doc carries a status header. A partial subsystem (design here, some of it shipped) links to the shipped half in `reference/` — e.g. activity FIT *download* is shipped (`reference/data-and-ingest.md`) while parse/associate is the design below.
 
-- [ACTIVITY_ANALYTICS_DESIGN.md](future/ACTIVITY_ANALYTICS_DESIGN.md) — activity/session ingestion design (FITs download today; parsing unbuilt).
-- [RUNNING_ACTIVITY_SCHEMA.md](future/RUNNING_ACTIVITY_SCHEMA.md) / [STRENGTH_ACTIVITY_SCHEMA.md](future/STRENGTH_ACTIVITY_SCHEMA.md) — proposed parser/read-model schemas; become Pydantic contracts (and get deleted here) when the parser is built.
+- [ACTIVITY_ANALYTICS_DESIGN.md](future/ACTIVITY_ANALYTICS_DESIGN.md) — activity/session ingestion design (running shipped 2026-07, see `reference/run-activities.md`; strength parsing + the generic cross-sport/experiment-day mart remain unbuilt).
+- [STRENGTH_ACTIVITY_SCHEMA.md](future/STRENGTH_ACTIVITY_SCHEMA.md) — proposed parser/read-model schema; becomes Pydantic contracts (and gets deleted here) when the strength parser is built. (Its running sibling shipped and was deleted the same way — see `reference/run-activities.md`.)
 - [activity-analysis/](future/activity-analysis/) — analyst question backlogs gated on that parser.
 - [central-dashboard-readiness.md](future/central-dashboard-readiness.md) — Phase 2 dashboard input.
 - [sleep-opportunity-regularity.md](future/sleep-opportunity-regularity.md), [health-exceptions.md](future/health-exceptions.md), [experiment-adherence.md](future/experiment-adherence.md) — pre-pivot lane requirement notes; inputs to Phase 2 design, deleted if that design supersedes them.
