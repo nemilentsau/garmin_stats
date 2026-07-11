@@ -52,4 +52,12 @@ class TrainingRepository(Protocol):
 
     def card_logs_for(self, date: str) -> list[TrainingCardLog]: ...
 
+    def card_logs_before(self, date: str) -> list[TrainingCardLog]:
+        """Load every capture log recorded strictly before `date`.
+
+        The history read behind the `last`-logged load anchor
+        (`application/read_models.py`'s `last_logged_for`).
+        """
+        ...
+
     def upsert_card_log(self, log: TrainingCardLog) -> None: ...

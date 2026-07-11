@@ -44,6 +44,8 @@ from app.domains.training.contracts import (
     SignalRegistry,
     TrainingCaptureLog,
     TrainingCheckinLog,
+    TrainingExerciseLog,
+    TrainingSetLog,
 )
 from tests._architecture import REPO_ROOT
 
@@ -216,6 +218,43 @@ def test_today_strength_card_projects_exercises_with_scheme_name_and_log_sets():
     assert push_a.segments_display == []
 
 
+# ---------- get_training_today: last-logged load anchor (Task 0.3) ----------
+
+
+def test_today_strength_exercise_surfaces_last_logged_anchor_from_prior_session():
+    repo = _imported_repo()
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="strength.v3:str.push_a:d01",
+        update=TrainingLogUpdateRequest(
+            status="completed",
+            capture=TrainingCaptureLog(
+                set_logs=[
+                    TrainingExerciseLog(
+                        exercise_id="barbell_bench",
+                        sets=[TrainingSetLog(set_index=1, weight=90, reps=8)],
+                    )
+                ]
+            ),
+        ),
+    )
+
+    # str.push_a recurs on day 8 (2026-07-13); its barbell_bench should now anchor
+    # to the set logged on day 1.
+    next_push_a = _card(get_training_today(repo, date="2026-07-13"), "strength.v3:str.push_a:d08")
+    bench = next(e for e in next_push_a.exercises_display if e.exercise_id == "barbell_bench")
+    assert bench.last is not None
+    assert (bench.last.weight_kg, bench.last.reps, bench.last.date) == (90.0, 8, "2026-07-06")
+
+
+def test_today_strength_exercise_has_no_last_logged_anchor_before_any_prior_session():
+    repo = _imported_repo()
+    push_a = _card(get_training_today(repo, date="2026-07-06"), "strength.v3:str.push_a:d01")
+    bench = next(e for e in push_a.exercises_display if e.exercise_id == "barbell_bench")
+    assert bench.last is None
+
+
 # ---------- get_training_schedule_window ----------
 
 
@@ -244,6 +283,32 @@ def test_schedule_window_includes_out_of_window_day_with_empty_cards():
     assert window.days[0].cards == []
     assert window.days[1].day == 1
     assert len(window.days[1].cards) == 3
+
+
+def test_schedule_window_never_surfaces_a_last_logged_anchor():
+    """The planning window is read-only and never loads prior-log history (unlike Today)."""
+    repo = _imported_repo()
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="strength.v3:str.push_a:d01",
+        update=TrainingLogUpdateRequest(
+            status="completed",
+            capture=TrainingCaptureLog(
+                set_logs=[
+                    TrainingExerciseLog(
+                        exercise_id="barbell_bench",
+                        sets=[TrainingSetLog(set_index=1, weight=90, reps=8)],
+                    )
+                ]
+            ),
+        ),
+    )
+
+    window = get_training_schedule_window(repo, start_date="2026-07-13", duration_days=1)
+    push_a = _card(window.days[0], "strength.v3:str.push_a:d08")
+    bench = next(e for e in push_a.exercises_display if e.exercise_id == "barbell_bench")
+    assert bench.last is None
 
 
 # ---------- get_block_status ----------
