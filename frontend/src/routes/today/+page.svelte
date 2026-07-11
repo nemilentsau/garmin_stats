@@ -941,14 +941,6 @@
 								<!-- Expanded detail panel -->
 								{#if isExpanded}
 									<div class="detail-panel">
-										<TrainingCardBody
-											{card}
-											mode="log"
-											onCapture={(capture) => {
-												stagedCapture = capture;
-												scheduleTrainingPersistDetail(card);
-											}}
-										/>
 										{#if trainingVariantOptionsFor(card).length > 0}
 											<div class="detail-field variant-field">
 												<span>Variant</span>
@@ -967,6 +959,14 @@
 												</div>
 											</div>
 										{/if}
+										<TrainingCardBody
+											{card}
+											mode="log"
+											onCapture={(capture) => {
+												stagedCapture = capture;
+												scheduleTrainingPersistDetail(card);
+											}}
+										/>
 										<label class="detail-field">
 											<span>Notes</span>
 											<textarea
