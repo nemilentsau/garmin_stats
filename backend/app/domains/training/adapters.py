@@ -147,6 +147,16 @@ class SqliteTrainingRepository:
             order_by="id",
         )
 
+    def card_logs_before(self, date: str) -> list[TrainingCardLog]:
+        """Load every capture log recorded strictly before one date."""
+        return _STORE.load_many(
+            "training_card_logs",
+            TrainingCardLog,
+            where_sql="json_extract(data, '$.date') < ?",
+            params=(date,),
+            order_by="id",
+        )
+
     def upsert_card_log(self, log: TrainingCardLog) -> None:
         """Persist one capture log, replacing any existing row with the same id."""
         _STORE.save("training_card_logs", log.id, log.model_dump_json())

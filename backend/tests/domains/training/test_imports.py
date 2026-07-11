@@ -273,3 +273,13 @@ def test_card_logs_for_filters_by_date():
 
     logs = repo.card_logs_for("2026-07-06")
     assert [log.occurrence_key for log in logs] == ["a"]
+
+
+def test_card_logs_before_filters_to_strictly_earlier_dates():
+    repo = SqliteTrainingRepository()
+    repo.upsert_card_log(TrainingCardLog(id="2026-07-05:a", date="2026-07-05", occurrence_key="a"))
+    repo.upsert_card_log(TrainingCardLog(id="2026-07-06:b", date="2026-07-06", occurrence_key="b"))
+    repo.upsert_card_log(TrainingCardLog(id="2026-07-07:c", date="2026-07-07", occurrence_key="c"))
+
+    logs = repo.card_logs_before("2026-07-06")
+    assert [log.occurrence_key for log in logs] == ["a"]

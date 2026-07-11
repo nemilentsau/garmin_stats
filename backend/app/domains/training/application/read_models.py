@@ -221,6 +221,40 @@ def build_exercise_display(
     )
 
 
+def last_logged_for(
+    logs: list[TrainingCardLog], *, exercise_id: str, before: str
+) -> TrainingLastLogged | None:
+    """Most recent logged set for `exercise_id` among `logs` dated strictly before `before`.
+
+    Scans every log whose capture recorded a `TrainingExerciseLog` for
+    `exercise_id`, keeps the latest-dated match, and returns the last set on
+    that log with a non-`None` weight as the load anchor (a card can log
+    warm-up sets with no weight after the working sets; those are skipped).
+    Returns `None` when no prior log recorded this exercise at all, or when
+    the latest matching log's sets carry no weight — both read as "no anchor
+    yet" to the caller.
+    """
+    candidates = [
+        log
+        for log in logs
+        if log.date < before
+        and log.capture is not None
+        and any(exercise.exercise_id == exercise_id for exercise in log.capture.set_logs)
+    ]
+    if not candidates:
+        return None
+    latest = max(candidates, key=lambda log: log.date)
+    assert latest.capture is not None  # narrowed by the candidates filter above
+    exercise_log = next(
+        exercise for exercise in latest.capture.set_logs if exercise.exercise_id == exercise_id
+    )
+    weighted_sets = [set_log for set_log in exercise_log.sets if set_log.weight is not None]
+    if not weighted_sets:
+        return None
+    last_set = weighted_sets[-1]
+    return TrainingLastLogged(weight_kg=last_set.weight, reps=last_set.reps, date=latest.date)
+
+
 def render_segment(segment: SegmentSpec) -> str:
     """Render a run/support segment's distance/duration/intensity as one line.
 
@@ -332,8 +366,15 @@ def _build_card(
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
     repo: TrainingRepository,
+    prior_logs: list[TrainingCardLog] | None = None,
 ) -> TrainingTodayCard:
-    """Project one compiled schedule entry into a display-ready Today card, log merged in."""
+    """Project one compiled schedule entry into a display-ready Today card, log merged in.
+
+    `prior_logs` feeds `last_logged_for` per exercise — the Today path
+    (`get_training_today`) loads real history and passes it; the
+    schedule-window path leaves it `None` (planning view, read-only), so
+    `last` is always `None` there rather than looked up per rendered day.
+    """
     card = entry.card
     assignment = entry.assignment
     occurrence_key = f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
@@ -347,7 +388,9 @@ def _build_card(
                 exercise,
                 name=_exercise_name(library, exercise.exercise_id),
                 log_sets=log_sets,
-                last=None,
+                last=last_logged_for(
+                    prior_logs or [], exercise_id=exercise.exercise_id, before=date
+                ),
             )
             for exercise in card.prescription.exercises
         ]
@@ -421,12 +464,13 @@ def _cards_for_day(
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
     repo: TrainingRepository,
+    prior_logs: list[TrainingCardLog] | None = None,
 ) -> list[TrainingTodayCard]:
     entries = [entry for entry in schedule if entry.day == day]
     cards = [
         _build_card(
             entry, date=date, registry=registry, library=library, bundle_names=bundle_names,
-            repo=repo,
+            repo=repo, prior_logs=prior_logs,
         )
         for entry in entries
     ]
@@ -458,9 +502,10 @@ def get_training_today(repo: TrainingRepository, *, date: str) -> TrainingTodayR
 
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
+    prior_logs = repo.card_logs_before(date)
     cards = _cards_for_day(
         schedule, day, date=date, registry=registry, library=library,
-        bundle_names=bundle_names, repo=repo,
+        bundle_names=bundle_names, repo=repo, prior_logs=prior_logs,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -636,6 +681,7 @@ __all__ = [
     "get_block_status",
     "get_training_schedule_window",
     "get_training_today",
+    "last_logged_for",
     "render_gate",
     "render_rule",
     "render_scheme",
