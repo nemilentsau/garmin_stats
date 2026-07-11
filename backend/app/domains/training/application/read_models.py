@@ -48,6 +48,7 @@ from app.domains.training.contracts import (
     Cmp,
     ExerciseLibrary,
     ExercisePrescriptionSpec,
+    LoadSpec,
     MeasurementContract,
     NotPredicate,
     Predicate,
@@ -147,6 +148,20 @@ def _predicate_phrase(predicate: Predicate) -> str:
     if isinstance(predicate, NotPredicate):
         return f"not ({_predicate_phrase(predicate.not_)})"
     raise TypeError(f"Unknown predicate type: {type(predicate)!r}")  # pragma: no cover
+
+
+def structured_load(load: LoadSpec) -> tuple[str | None, float | None]:
+    """Return the single present load dimension as (kind, value).
+
+    Mirrors `render_scheme`'s load precedence: pct_e1rm -> rpe -> absolute_kg.
+    """
+    if load.pct_e1rm is not None:
+        return "pct_e1rm", float(load.pct_e1rm)
+    if load.rpe is not None:
+        return "rpe", float(load.rpe)
+    if load.absolute_kg is not None:
+        return "absolute_kg", float(load.absolute_kg)
+    return None, None
 
 
 def render_scheme(exercise: ExercisePrescriptionSpec) -> str:
@@ -591,5 +606,6 @@ __all__ = [
     "render_rule",
     "render_scheme",
     "render_segment",
+    "structured_load",
     "upsert_training_log",
 ]
