@@ -100,7 +100,15 @@
 		{#each card.segments_display as seg}
 			<div class="segment-row">
 				<span class="seg-label">{seg.label}</span>
-				<span class="seg-detail">{seg.detail}</span>
+				{#if seg.distance_mi != null || seg.duration_min != null || seg.zone}
+					<span class="seg-detail">
+						{#if seg.distance_mi != null}<span class="seg-primary">{seg.distance_mi} mi</span>{/if}
+						{#if seg.duration_min != null}<span class="seg-sub">{seg.duration_min} min</span>{/if}
+						{#if seg.zone}<span class="seg-sub">{seg.zone}</span>{/if}
+					</span>
+				{:else}
+					<span class="seg-detail">{seg.detail}</span>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -200,6 +208,16 @@
 		font-size: 11px;
 		letter-spacing: 0.02em;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.seg-primary {
+		color: #eef5f8;
+		font-weight: 600;
+	}
+
+	.seg-sub {
+		margin-left: 8px;
+		color: #6b8292;
 	}
 
 	.detail-field {
