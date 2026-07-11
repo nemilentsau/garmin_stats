@@ -1,0 +1,732 @@
+{
+  "days": [
+    {
+      "day": 1,
+      "run_miles": 7.0,
+      "tissues_loaded": [
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.lthr_test"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_a"
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "calf_achilles",
+        "glute",
+        "hamstring",
+        "quad",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_strides"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_barbell"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_a"
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "run_miles": 5.0,
+      "tissues_loaded": [
+        "trunk_core",
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_a"
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "grip_carry",
+        "trunk_core",
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.lt_intervals"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_b"
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_drills"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_b"
+        }
+      ]
+    },
+    {
+      "day": 6,
+      "run_miles": 13.0,
+      "tissues_loaded": [],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.long"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        }
+      ]
+    },
+    {
+      "day": 7,
+      "run_miles": 4.0,
+      "tissues_loaded": [
+        "glute",
+        "quad",
+        "soleus",
+        "tibialis_foot",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_machine"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_b"
+        }
+      ]
+    },
+    {
+      "day": 8,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.tempo"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_a"
+        }
+      ]
+    },
+    {
+      "day": 9,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "calf_achilles",
+        "glute",
+        "hamstring",
+        "quad",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_strides"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_barbell"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_a"
+        }
+      ]
+    },
+    {
+      "day": 10,
+      "run_miles": 5.0,
+      "tissues_loaded": [
+        "trunk_core",
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_a"
+        }
+      ]
+    },
+    {
+      "day": 11,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "grip_carry",
+        "trunk_core",
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.lt_intervals"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_b"
+        }
+      ]
+    },
+    {
+      "day": 12,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_drills"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_b"
+        }
+      ]
+    },
+    {
+      "day": 13,
+      "run_miles": 13.0,
+      "tissues_loaded": [],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.long"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        }
+      ]
+    },
+    {
+      "day": 14,
+      "run_miles": 4.0,
+      "tissues_loaded": [
+        "glute",
+        "quad",
+        "soleus",
+        "tibialis_foot",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_machine"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_b"
+        }
+      ]
+    },
+    {
+      "day": 15,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.tempo"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_a"
+        }
+      ]
+    },
+    {
+      "day": 16,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "calf_achilles",
+        "glute",
+        "hamstring",
+        "quad",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_strides"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_barbell"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_a"
+        }
+      ]
+    },
+    {
+      "day": 17,
+      "run_miles": 5.0,
+      "tissues_loaded": [
+        "trunk_core",
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_a"
+        }
+      ]
+    },
+    {
+      "day": 18,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "grip_carry",
+        "trunk_core",
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.lt_intervals"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_b"
+        }
+      ]
+    },
+    {
+      "day": 19,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_drills"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_b"
+        }
+      ]
+    },
+    {
+      "day": 20,
+      "run_miles": 13.0,
+      "tissues_loaded": [],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.long"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        }
+      ]
+    },
+    {
+      "day": 21,
+      "run_miles": 4.0,
+      "tissues_loaded": [
+        "glute",
+        "quad",
+        "soleus",
+        "tibialis_foot",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_machine"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_b"
+        }
+      ]
+    },
+    {
+      "day": 22,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.tempo"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_a"
+        }
+      ]
+    },
+    {
+      "day": 23,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "calf_achilles",
+        "glute",
+        "hamstring",
+        "quad",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_strides"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_barbell"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_a"
+        }
+      ]
+    },
+    {
+      "day": 24,
+      "run_miles": 5.0,
+      "tissues_loaded": [
+        "trunk_core",
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_a"
+        }
+      ]
+    },
+    {
+      "day": 25,
+      "run_miles": 8.0,
+      "tissues_loaded": [
+        "grip_carry",
+        "trunk_core",
+        "upper_pull"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.lt_intervals"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.pull_b"
+        }
+      ]
+    },
+    {
+      "day": 26,
+      "run_miles": 6.0,
+      "tissues_loaded": [
+        "upper_push"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.easy_drills"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.push_b"
+        }
+      ]
+    },
+    {
+      "day": 27,
+      "run_miles": 13.0,
+      "tissues_loaded": [],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.long"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        }
+      ]
+    },
+    {
+      "day": 28,
+      "run_miles": 4.0,
+      "tissues_loaded": [
+        "glute",
+        "quad",
+        "soleus",
+        "tibialis_foot",
+        "trunk_core"
+      ],
+      "entries": [
+        {
+          "slot": "morning",
+          "bundle": "running.v3",
+          "card": "run.recovery"
+        },
+        {
+          "slot": "morning",
+          "bundle": "support.v3",
+          "card": "sup.daily"
+        },
+        {
+          "slot": "midday",
+          "bundle": "strength.v3",
+          "card": "str.legs_machine"
+        },
+        {
+          "slot": "midday",
+          "bundle": "support.v3",
+          "card": "sup.hsr_b"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1876 @@
+{
+  "id": "strength.v3",
+  "name": "Block 1 Strength \u2014 PPL x2 + Squat/Quad Legs",
+  "schema_version": "3.0",
+  "owns": [
+    "quad",
+    "glute",
+    "hamstring",
+    "upper_push",
+    "upper_pull",
+    "grip_carry"
+  ],
+  "cards": [
+    {
+      "id": "str.push_a",
+      "bundle_id": "strength.v3",
+      "name": "Push A \u2014 Upper Chest + Delts",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "hypertrophy",
+        "progression_driver": "load",
+        "state_ref": "S4"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "incline_bb_press",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 4,
+            "reps": [
+              5,
+              8
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core"
+            ],
+            "tempo": "top set then 3 back-offs at minus 7-10 percent"
+          },
+          {
+            "exercise_id": "machine_shoulder_press",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "lateral_raise",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 4,
+            "reps": [
+              12,
+              20
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "final set myo-reps"
+          },
+          {
+            "exercise_id": "triceps_pushdown",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 3,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "overhead_triceps_ext",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 2,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.push_a",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.upper_tonnage",
+            "decision_informed": "load progression; upper tonnage trend; planned-vs-executed"
+          }
+        }
+      ],
+      "est_duration_min": 55
+    },
+    {
+      "id": "str.push_b",
+      "bundle_id": "strength.v3",
+      "name": "Push B \u2014 Delt Volume (flex)",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "hypertrophy",
+        "progression_driver": "load",
+        "state_ref": "S4"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "incline_db_press",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 4,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "tempo": "top set then back-offs"
+          },
+          {
+            "exercise_id": "cable_fly",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 3,
+            "reps": [
+              12,
+              15
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "lateral_raise",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 5,
+            "reps": [
+              12,
+              20
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "final set myo-reps"
+          },
+          {
+            "exercise_id": "triceps_pushdown",
+            "targets": [
+              "upper_push"
+            ],
+            "sets": 3,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "final set rest-pause"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.push_b",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.upper_tonnage",
+            "decision_informed": "load progression; upper tonnage trend; planned-vs-executed"
+          }
+        }
+      ],
+      "est_duration_min": 48,
+      "display_notes": "Volume flex session; the recovery gates trim it on down weeks."
+    },
+    {
+      "id": "str.pull_a",
+      "bundle_id": "strength.v3",
+      "name": "Pull A \u2014 Lats + Rear Delts",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "hypertrophy",
+        "progression_driver": "load",
+        "state_ref": "S4"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "weighted_pullup",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 4,
+            "reps": [
+              6,
+              10
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "tempo": "top set then back-offs"
+          },
+          {
+            "exercise_id": "chest_supported_row",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "rear_delt_fly",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              12,
+              20
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "final set myo-reps"
+          },
+          {
+            "exercise_id": "ez_curl",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "hammer_curl",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 2,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.pull_a",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.upper_tonnage",
+            "decision_informed": "load progression; upper tonnage trend; planned-vs-executed"
+          }
+        }
+      ],
+      "est_duration_min": 55
+    },
+    {
+      "id": "str.pull_b",
+      "bundle_id": "strength.v3",
+      "name": "Pull B \u2014 Width + Traps + Grip",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "hypertrophy",
+        "progression_driver": "load",
+        "state_ref": "S4"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "machine_row",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 4,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core"
+            ],
+            "tempo": "top set then back-offs"
+          },
+          {
+            "exercise_id": "lat_pulldown",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              10,
+              12
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "rear_delt_fly",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              12,
+              20
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load"
+          },
+          {
+            "exercise_id": "ez_curl",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 3,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "stretch-biased"
+          },
+          {
+            "exercise_id": "barbell_shrug",
+            "targets": [
+              "upper_pull"
+            ],
+            "sets": 2,
+            "reps": [
+              10,
+              15
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "tempo": "controlled; the week's single upper-trap dose"
+          },
+          {
+            "exercise_id": "farmer_carry",
+            "targets": [
+              "grip_carry"
+            ],
+            "sets": 3,
+            "reps": [
+              1,
+              1
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core",
+              "upper_pull"
+            ],
+            "tempo": "30-40m per carry"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.pull_b",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.upper_tonnage",
+            "decision_informed": "load progression; upper tonnage trend; planned-vs-executed"
+          }
+        }
+      ],
+      "est_duration_min": 52
+    },
+    {
+      "id": "str.legs_barbell",
+      "bundle_id": "strength.v3",
+      "name": "Legs 1 \u2014 Barbell Back Squat",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "neural_force",
+        "progression_driver": "load",
+        "state_ref": "S2"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "barbell_back_squat",
+            "targets": [
+              "quad",
+              "glute"
+            ],
+            "sets": 4,
+            "reps": [
+              3,
+              5
+            ],
+            "load": {
+              "pct_e1rm": 0.85,
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core"
+            ],
+            "tempo": "top set at RPE 8, then 3 back-offs at 85-88 percent"
+          },
+          {
+            "exercise_id": "seated_ham_curl",
+            "targets": [
+              "hamstring"
+            ],
+            "sets": 3,
+            "reps": [
+              5,
+              8
+            ],
+            "load": {
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "tempo": "3s eccentric"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.legs_barbell",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.e1rm.squat_pattern",
+            "decision_informed": "squat e1RM trend; S2 progression; planned-vs-executed"
+          }
+        },
+        {
+          "id": "cap.set_log.legs_posterior",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.e1rm.hip_hinge",
+            "decision_informed": "posterior-chain e1RM trend; S5"
+          }
+        }
+      ],
+      "est_duration_min": 42,
+      "display_notes": "Barbell back squat top set at RPE 8, then back-offs; e1RM trend drives the load. The only heavy axial day."
+    },
+    {
+      "id": "str.legs_machine",
+      "bundle_id": "strength.v3",
+      "name": "Legs 2 \u2014 Machine Quad",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "hypertrophy",
+        "progression_driver": "load",
+        "state_ref": "S2"
+      },
+      "prescription": {
+        "exercises": [
+          {
+            "exercise_id": "pendulum_squat",
+            "targets": [
+              "quad",
+              "glute"
+            ],
+            "sets": 4,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core"
+            ],
+            "tempo": "last set to failure permitted"
+          },
+          {
+            "exercise_id": "leg_extension",
+            "targets": [
+              "quad"
+            ],
+            "sets": 3,
+            "reps": [
+              12,
+              15
+            ],
+            "load": {
+              "rpe": 10
+            },
+            "logging": "set_rep_load",
+            "tempo": "final set myo-reps"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.set_log.legs_machine",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.planned_vs_executed",
+            "decision_informed": "quad hypertrophy volume; planned-vs-executed"
+          }
+        }
+      ],
+      "est_duration_min": 30,
+      "display_notes": "Machine quad focus; last set may go to failure. No PR tracking here; axial-free the day after the long run."
+    }
+  ],
+  "assignments": [
+    {
+      "day": 1,
+      "slot": "midday",
+      "card_id": "str.pull_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 2,
+      "slot": "midday",
+      "card_id": "str.legs_barbell",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 3,
+      "slot": "midday",
+      "card_id": "str.push_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 4,
+      "slot": "midday",
+      "card_id": "str.pull_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 5,
+      "slot": "midday",
+      "card_id": "str.push_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.5
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -0.75
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 7,
+      "slot": "midday",
+      "card_id": "str.legs_machine",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 8,
+      "slot": "midday",
+      "card_id": "str.pull_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 9,
+      "slot": "midday",
+      "card_id": "str.legs_barbell",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 10,
+      "slot": "midday",
+      "card_id": "str.push_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 11,
+      "slot": "midday",
+      "card_id": "str.pull_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 12,
+      "slot": "midday",
+      "card_id": "str.push_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.5
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -0.75
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 14,
+      "slot": "midday",
+      "card_id": "str.legs_machine",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 15,
+      "slot": "midday",
+      "card_id": "str.pull_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 16,
+      "slot": "midday",
+      "card_id": "str.legs_barbell",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 17,
+      "slot": "midday",
+      "card_id": "str.push_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 18,
+      "slot": "midday",
+      "card_id": "str.pull_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 19,
+      "slot": "midday",
+      "card_id": "str.push_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.5
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -0.75
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 21,
+      "slot": "midday",
+      "card_id": "str.legs_machine",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 22,
+      "slot": "midday",
+      "card_id": "str.pull_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 23,
+      "slot": "midday",
+      "card_id": "str.legs_barbell",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 24,
+      "slot": "midday",
+      "card_id": "str.push_a",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 25,
+      "slot": "midday",
+      "card_id": "str.pull_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -2.0
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.25
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 26,
+      "slot": "midday",
+      "card_id": "str.push_b",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "plus",
+          "stimulus_fraction": 1.15
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.5
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -0.75
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 28,
+      "slot": "midday",
+      "card_id": "str.legs_machine",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.5
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -0.75
+                },
+                {
+                  "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    }
+  ],
+  "declared_budgets": [
+    {
+      "scope": "week",
+      "minutes_max": 320
+    }
+  ]
+}

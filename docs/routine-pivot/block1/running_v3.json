@@ -1,0 +1,2581 @@
+{
+  "id": "running.v3",
+  "name": "Block 1 Running \u2014 Threshold Development",
+  "schema_version": "3.0",
+  "owns": [],
+  "cards": [
+    {
+      "id": "run.tempo",
+      "bundle_id": "running.v3",
+      "name": "Tempo \u2014 Continuous at LTHR",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "threshold",
+        "progression_driver": "duration",
+        "state_ref": "S1"
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "warmup easy",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "distance_mi": 2.0
+          },
+          {
+            "label": "continuous tempo at LTHR",
+            "intensity": {
+              "zone": "threshold",
+              "rpe": 6
+            },
+            "distance_mi": 4.0
+          },
+          {
+            "label": "cooldown easy",
+            "intensity": {
+              "zone": "Z1"
+            },
+            "distance_mi": 2.0
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 62,
+      "display_notes": "Continuous run at LTHR; duration at LTHR grows across the block. Pace is secondary in heat."
+    },
+    {
+      "id": "run.lt_intervals",
+      "bundle_id": "running.v3",
+      "name": "Cruise Intervals at LTHR",
+      "contract": {
+        "kind": "overload",
+        "adaptation": "threshold",
+        "progression_driver": "duration",
+        "state_ref": "S1"
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "warmup easy",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "distance_mi": 2.0
+          },
+          {
+            "label": "4 to 5 x 5-6 min at LTHR, 60-90s easy float",
+            "intensity": {
+              "zone": "threshold",
+              "rpe": 6
+            },
+            "distance_mi": 4.0
+          },
+          {
+            "label": "cooldown easy",
+            "intensity": {
+              "zone": "Z1"
+            },
+            "distance_mi": 2.0
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 63,
+      "display_notes": "Cruise intervals at LTHR with short easy floats; time at LTHR grows across the block."
+    },
+    {
+      "id": "run.long",
+      "bundle_id": "running.v3",
+      "name": "Long Run",
+      "contract": {
+        "kind": "maintenance",
+        "preserves": "S1",
+        "minimum_effective_dose": {
+          "duration_min": 70
+        },
+        "intensity_floor": {
+          "metric": "zone",
+          "min": "Z1"
+        }
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "long easy",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "distance_mi": 13.0
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 112,
+      "display_notes": "Key aerobic session; keep it genuinely easy."
+    },
+    {
+      "id": "run.easy_strides",
+      "bundle_id": "running.v3",
+      "name": "Easy Run + Primer + Strides",
+      "contract": {
+        "kind": "maintenance",
+        "preserves": "S1",
+        "minimum_effective_dose": {
+          "duration_min": 35
+        },
+        "intensity_floor": {
+          "metric": "zone",
+          "min": "Z1"
+        }
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "easy",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "distance_mi": 5.4
+          },
+          {
+            "label": "primer: pogos 2x15-20s, A-skips 2x20m",
+            "intensity": {
+              "rpe": 5
+            },
+            "duration_min": 6
+          },
+          {
+            "label": "strides 6x20s, full recovery",
+            "intensity": {
+              "rpe": 7
+            },
+            "distance_mi": 0.6
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 52,
+      "display_notes": "Genuinely easy aerobic run with neuromuscular strides."
+    },
+    {
+      "id": "run.easy_drills",
+      "bundle_id": "running.v3",
+      "name": "Easy Run + Drills",
+      "contract": {
+        "kind": "maintenance",
+        "preserves": "S1",
+        "minimum_effective_dose": {
+          "duration_min": 35
+        },
+        "intensity_floor": {
+          "metric": "zone",
+          "min": "Z1"
+        }
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "easy",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "distance_mi": 5.6
+          },
+          {
+            "label": "drills: A/B-skip, high knees 2x20m each",
+            "intensity": {
+              "rpe": 5
+            },
+            "distance_mi": 0.4
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 52,
+      "display_notes": "Genuinely easy aerobic run with mechanics drills."
+    },
+    {
+      "id": "run.recovery",
+      "bundle_id": "running.v3",
+      "name": "Recovery Run",
+      "contract": {
+        "kind": "recovery",
+        "load_ceiling": {
+          "duration_min": 50,
+          "rpe_max": 4
+        }
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "recovery",
+            "intensity": {
+              "zone": "Z1"
+            },
+            "distance_mi": 5.0
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        }
+      ],
+      "est_duration_min": 45,
+      "display_notes": "Short and genuinely easy; drawn low-value volume that a rest-day conversion can claim."
+    },
+    {
+      "id": "run.lthr_test",
+      "bundle_id": "running.v3",
+      "name": "LTHR Field Test (30 min)",
+      "contract": {
+        "kind": "measurement",
+        "estimand": "LTHR (bpm), heat-season conditions; threshold pace secondary",
+        "quality_gate": [
+          {
+            "signal": "env.dew_point",
+            "op": "<=",
+            "value": 22
+          },
+          {
+            "signal": "strap.validity_pct",
+            "op": ">=",
+            "value": 0.95
+          }
+        ],
+        "on_fail": "retry_backup"
+      },
+      "prescription": {
+        "segments": [
+          {
+            "label": "warmup",
+            "intensity": {
+              "zone": "Z1-Z2"
+            },
+            "duration_min": 15,
+            "distance_mi": 1.7
+          },
+          {
+            "label": "30 min max sustainable effort; LTHR = mean HR of final 20 min",
+            "intensity": {
+              "rpe": 9
+            },
+            "duration_min": 30,
+            "distance_mi": 4.2
+          },
+          {
+            "label": "cooldown",
+            "intensity": {
+              "zone": "Z1"
+            },
+            "duration_min": 10,
+            "distance_mi": 1.1
+          }
+        ]
+      },
+      "capture": [
+        {
+          "id": "cap.run.rpe",
+          "type": "number",
+          "scale": {
+            "min": 1,
+            "max": 10
+          },
+          "contract": {
+            "model_id": "est.pacehr",
+            "decision_informed": "HR-pace-RPE mapping; threshold and interference readout"
+          }
+        },
+        {
+          "id": "cap.lthr.final20_hr",
+          "type": "number",
+          "contract": {
+            "model_id": "est.lthr",
+            "decision_informed": "zone anchoring for all blocks"
+          }
+        },
+        {
+          "id": "cap.lthr.conditions",
+          "type": "number",
+          "contract": {
+            "model_id": "est.lthr",
+            "decision_informed": "environment tag on the anchor"
+          }
+        }
+      ],
+      "est_duration_min": 55,
+      "display_notes": "Chest strap mandatory. Flat uninterrupted course; treadmill variant runs indoors at 1 percent grade for heat."
+    }
+  ],
+  "assignments": [
+    {
+      "day": 1,
+      "slot": "morning",
+      "card_id": "run.lthr_test",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "treadmill",
+          "stimulus_fraction": 1.0,
+          "prescription_patch": {
+            "segments": [
+              {
+                "label": "treadmill, climate-controlled, 1 percent grade"
+              }
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "signal": "hrv.dev_swc",
+              "op": "<",
+              "value": -1.5
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "signal": "env.dew_point",
+              "op": ">",
+              "value": 22
+            },
+            "select": "treadmill"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 2,
+      "slot": "morning",
+      "card_id": "run.easy_strides",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.9
+              },
+              {},
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 3,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 4,
+      "slot": "morning",
+      "card_id": "run.lt_intervals",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "3 x 5 min at LTHR, easy float"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 5,
+      "slot": "morning",
+      "card_id": "run.easy_drills",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              },
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 6,
+      "slot": "morning",
+      "card_id": "run.long",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.75,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 10.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 7,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              }
+            ]
+          }
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 2.5
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 8,
+      "slot": "morning",
+      "card_id": "run.tempo",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "shortened tempo at LTHR"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 9,
+      "slot": "morning",
+      "card_id": "run.easy_strides",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.9
+              },
+              {},
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 10,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 11,
+      "slot": "morning",
+      "card_id": "run.lt_intervals",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "3 x 5 min at LTHR, easy float"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 12,
+      "slot": "morning",
+      "card_id": "run.easy_drills",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              },
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 13,
+      "slot": "morning",
+      "card_id": "run.long",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.75,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 10.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 14,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              }
+            ]
+          }
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 2.5
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 15,
+      "slot": "morning",
+      "card_id": "run.tempo",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "shortened tempo at LTHR"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 16,
+      "slot": "morning",
+      "card_id": "run.easy_strides",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.9
+              },
+              {},
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 17,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 18,
+      "slot": "morning",
+      "card_id": "run.lt_intervals",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "3 x 5 min at LTHR, easy float"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 19,
+      "slot": "morning",
+      "card_id": "run.easy_drills",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              },
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 20,
+      "slot": "morning",
+      "card_id": "run.long",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.75,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 10.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 21,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              }
+            ]
+          }
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 2.5
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 22,
+      "slot": "morning",
+      "card_id": "run.tempo",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "shortened tempo at LTHR"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 23,
+      "slot": "morning",
+      "card_id": "run.easy_strides",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.9
+              },
+              {},
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 24,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 3.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 25,
+      "slot": "morning",
+      "card_id": "run.lt_intervals",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {},
+              {
+                "distance_mi": 2.5,
+                "label": "3 x 5 min at LTHR, easy float"
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "id": "skip",
+          "stimulus_fraction": 0.0
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "signal": "env.dew_point",
+                  "op": ">",
+                  "value": 22
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 40
+                }
+              ]
+            },
+            "select": "skip"
+          },
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -1.0
+                },
+                {
+                  "signal": "rhr.delta_7d",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "signal": "sleep.score",
+                  "op": "<",
+                  "value": 50
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 26,
+      "slot": "morning",
+      "card_id": "run.easy_drills",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.7,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              },
+              {}
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 27,
+      "slot": "morning",
+      "card_id": "run.long",
+      "key_session": true,
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.75,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 10.0
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    },
+    {
+      "day": 28,
+      "slot": "morning",
+      "card_id": "run.recovery",
+      "variants": [
+        {
+          "id": "full",
+          "stimulus_fraction": 1.0,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 4.0
+              }
+            ]
+          }
+        },
+        {
+          "id": "reduced",
+          "stimulus_fraction": 0.6,
+          "prescription_patch": {
+            "segments": [
+              {
+                "distance_mi": 2.5
+              }
+            ]
+          }
+        }
+      ],
+      "selection": {
+        "clauses": [
+          {
+            "when": {
+              "any": [
+                {
+                  "signal": "flag.tissue.quad",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.glute",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.calf_achilles",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.soleus",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.adductor",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "flag.tissue.tibialis_foot",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "signal": "hrv.dev_swc",
+                  "op": "<",
+                  "value": -2.0
+                }
+              ]
+            },
+            "select": "reduced"
+          }
+        ],
+        "default": "full",
+        "on_missing_signal": "select_conservative"
+      }
+    }
+  ],
+  "declared_budgets": [
+    {
+      "scope": "week",
+      "minutes_max": 460
+    }
+  ]
+}
