@@ -100,6 +100,22 @@
 		onSetLogs?.(exerciseLogs);
 	}
 
+	// ── Per-exercise log-panel open state. An exercise that already has a logged weight
+	// starts expanded so entered work stays visible; the rest collapse so the whole
+	// session is scannable and you open a row only to log it.
+	const initialExpanded: Record<string, boolean> = {};
+	for (const ex of initialExercises) {
+		if (ex.log_sets) {
+			const logged = initialCapture?.set_logs.find((l) => l.exercise_id === ex.exercise_id);
+			initialExpanded[ex.exercise_id] = !!(logged && logged.sets.some((s) => s.weight != null));
+		}
+	}
+	let expanded = $state<Record<string, boolean>>(initialExpanded);
+
+	function toggle(exerciseId: string) {
+		expanded[exerciseId] = !(expanded[exerciseId] ?? false);
+	}
+
 	// ── Presentation helpers (display-only formatting of backend-provided fields) ──────────
 	function trimNum(n: number): string {
 		// JS already renders 8.0 as "8"; kept as a seam for future unit formatting.
@@ -126,31 +142,44 @@
 	}
 </script>
 
-<div class="session-table" role="table">
-	<div class="row head" role="row">
+<div class="session-table">
+	<div class="row head">
 		<span class="dot" aria-hidden="true"></span>
-		<span class="col-ex" role="columnheader">Exercise</span>
-		<span class="col-tgt" role="columnheader">Target</span>
-		<span class="col-last" role="columnheader">Last</span>
+		<span class="col-ex">Exercise</span>
+		<span class="col-tgt">Target</span>
+		<span class="col-last">Last</span>
+		<span class="chev" aria-hidden="true"></span>
 	</div>
 
 	{#each exercises as ex, i (ex.exercise_id)}
-		<div class="row" class:anchor={i === 0} role="row">
+		{@const loggable = mode === 'log' && ex.log_sets}
+		<div class="row" class:anchor={i === 0}>
 			<span class="dot" aria-hidden="true">{i === 0 ? '●' : '○'}</span>
-			<span class="col-ex" role="cell">
+			<span class="col-ex">
 				<span class="ex-name">{ex.name}</span>
 				{#if i === 0}<span class="anchor-tag">anchor</span>{/if}
 				{#if ex.tempo}<span class="cue">{ex.tempo}</span>{/if}
 			</span>
-			<span class="col-tgt" role="cell">
+			<span class="col-tgt">
 				<span class="tgt-main">{ex.sets}×{formatReps(ex)}</span>
 				{#if formatLoad(ex)}<span class="load">{formatLoad(ex)}</span>{/if}
 			</span>
-			<span class="col-last" role="cell">{formatLast(ex.last)}</span>
+			<span class="col-last">{formatLast(ex.last)}</span>
+			{#if loggable}
+				<button
+					type="button"
+					class="chev-btn"
+					aria-expanded={expanded[ex.exercise_id] ?? false}
+					aria-label={`${expanded[ex.exercise_id] ? 'Hide' : 'Log'} sets for ${ex.name}`}
+					onclick={() => toggle(ex.exercise_id)}
+				>{expanded[ex.exercise_id] ? '▾' : '▸'}</button>
+			{:else}
+				<span class="chev" aria-hidden="true"></span>
+			{/if}
 		</div>
 
-		{#if mode === 'log' && ex.log_sets}
-			<div class="log-panel" role="row">
+		{#if loggable && expanded[ex.exercise_id]}
+			<div class="log-panel">
 				<div class="set-grid">
 					{#each setsFor(ex.exercise_id) as set, setIdx (setIdx)}
 						<div class="set-line">
@@ -201,11 +230,40 @@
 
 	.row {
 		display: grid;
-		grid-template-columns: 16px 1fr auto auto;
+		grid-template-columns: 16px 1fr auto auto 14px;
 		align-items: baseline;
 		gap: 10px;
 		padding: 9px 2px;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+	}
+	.chev {
+		align-self: center;
+		text-align: center;
+		font-size: 9px;
+		color: #6b8292;
+	}
+	.chev-btn {
+		align-self: center;
+		justify-self: center;
+		width: 20px;
+		height: 20px;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: #6b8292;
+		font-size: 10px;
+		cursor: pointer;
+		border-radius: 5px;
+	}
+	.chev-btn:hover {
+		color: #c5d8e4;
+		background: rgba(255, 255, 255, 0.05);
+	}
+	.chev-btn:focus-visible {
+		outline: 2px solid rgba(94, 234, 212, 0.45);
+		outline-offset: 1px;
 	}
 
 	.row.head {
