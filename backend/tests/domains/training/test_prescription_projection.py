@@ -1,20 +1,24 @@
-"""Structured-load and exercise-display projections for the workout-card redesign.
+"""Structured-load, exercise-display, and segment-display projections for the
+workout-card redesign.
 
-Covers Phase 0 Tasks 0.1-0.2 of the workout-card redesign — the seam that will
-let the frontend render aligned load/target columns instead of parsing
-`render_scheme`'s flattened display string.
+Covers Phase 0 Tasks 0.1-0.4 of the workout-card redesign — the seam that will
+let the frontend render aligned load/target/segment columns instead of
+parsing `render_scheme`'s/`render_segment`'s flattened display strings.
 """
 
 from __future__ import annotations
 
 from app.domains.training.application.read_models import (
     build_exercise_display,
+    build_segment_display,
     last_logged_for,
     structured_load,
 )
 from app.domains.training.contracts import (
     ExercisePrescriptionSpec,
     LoadSpec,
+    SegmentIntensity,
+    SegmentSpec,
     TrainingCaptureLog,
     TrainingCardLog,
     TrainingExerciseLog,
@@ -61,6 +65,35 @@ def test_exercise_display_passes_through_a_real_last_logged_value():
     d = build_exercise_display(ex, name="X", log_sets=True, last=last)
     assert d.last is not None
     assert d.last.date == "2026-07-09"
+
+
+# ---------- build_segment_display ----------
+
+
+def test_segment_display_carries_structured_fields_for_a_zoned_segment():
+    seg = SegmentSpec(
+        label="Steady climb",
+        intensity=SegmentIntensity(zone="Z1-Z2"),
+        duration_min=55,
+        distance_mi=7,
+    )
+    d = build_segment_display(seg)
+    assert (d.distance_mi, d.duration_min, d.zone) == (7, 55, "Z1-Z2")
+    assert d.label == "Steady climb"
+    assert d.detail == "7 mi · 55 min · Z1-Z2"  # back-compat preserved
+
+
+def test_segment_display_zone_and_distance_are_none_for_an_rpe_only_segment():
+    """Locks the drills/strides equivalence class: rpe-only, no zone, no distance."""
+    seg = SegmentSpec(
+        label="Strides",
+        intensity=SegmentIntensity(rpe=5),
+    )
+    d = build_segment_display(seg)
+    assert d.zone is None
+    assert d.distance_mi is None
+    assert d.duration_min is None
+    assert d.detail == "RPE 5"  # detail still renders via the rpe fallback
 
 
 # ---------- last_logged_for ----------

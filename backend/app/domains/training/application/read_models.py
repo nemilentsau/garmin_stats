@@ -277,6 +277,23 @@ def render_segment(segment: SegmentSpec) -> str:
     return " · ".join(parts)
 
 
+def build_segment_display(segment: SegmentSpec) -> TrainingSegmentDisplay:
+    """Project one prescribed run/support segment into its display projection.
+
+    `detail` (via `render_segment`) stays alongside the new structured
+    `distance_mi`/`duration_min`/`zone` fields for this phase's back-compat.
+    `zone` is `None` for rpe-only or hr_range-only segments (e.g. drills,
+    strides, primers) — the frontend falls back to `detail` for those.
+    """
+    return TrainingSegmentDisplay(
+        label=segment.label,
+        detail=render_segment(segment),
+        distance_mi=segment.distance_mi,
+        duration_min=segment.duration_min,
+        zone=segment.intensity.zone,
+    )
+
+
 def render_rule(selection: SelectionRule) -> str | None:
     """Render a card's variant-selection rule as one English sentence.
 
@@ -397,7 +414,7 @@ def _build_card(
     else:
         patched = full_variant_prescription(entry)
         segments_display = [
-            TrainingSegmentDisplay(label=segment.label, detail=render_segment(segment))
+            build_segment_display(segment)
             for segment in (
                 SegmentSpec.model_validate(raw) for raw in patched.get("segments", [])
             )
@@ -677,6 +694,7 @@ def upsert_training_log(
 __all__ = [
     "TrainingLogUpdateRequest",
     "build_exercise_display",
+    "build_segment_display",
     "checkin_rows",
     "get_block_status",
     "get_training_schedule_window",

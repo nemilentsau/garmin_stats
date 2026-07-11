@@ -584,6 +584,9 @@ class TrainingSegmentDisplay(DefaultsRequired):
 
     label: str
     detail: str  # "7 mi · 55 min · Z1-Z2"
+    distance_mi: float | None = None
+    duration_min: float | None = None
+    zone: str | None = None  # None for rpe-only/hr_range-only segments (e.g. drills, strides)
 
 
 class TrainingCheckinRow(DefaultsRequired):
