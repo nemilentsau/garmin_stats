@@ -397,7 +397,7 @@ class TestDiscoveryAndComposition:
     def test_batch_skips_broken_files_and_continues(self, tmp_path, monkeypatch):
         def _decode(path):
             # Check only the filename, not the full path (which may contain test dir name)
-            filename = path.name if hasattr(path, 'name') else str(path).split('/')[-1]
+            filename = path.name
             if "broken" in filename:
                 raise ValueError("corrupt fit")
             return FULL_MESSAGES
@@ -408,3 +408,28 @@ class TestDiscoveryAndComposition:
         parsed = parse_running_activities(tmp_path)
         assert len(parsed) == 1
         assert parsed[0].session.session_date == "2026-07-10"
+
+    def test_missing_activities_dir_returns_empty_list(self, tmp_path):
+        files = discover_running_activity_files(tmp_path / "does_not_exist")
+        assert files == []
+
+    def test_unreadable_sidecar_warns_and_parses_with_sidecar_none(
+        self, tmp_path, monkeypatch, caplog
+    ):
+        monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: FULL_MESSAGES)
+        fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        # Overwrite sidecar with invalid JSON
+        day_dir = tmp_path / "2026-07-10"
+        (day_dir / "105726_running_generic.json").write_text("{not json")
+
+        data = parse_running_activity(fit, tmp_path)
+
+        # Parse succeeds despite invalid sidecar
+        assert data.session is not None
+        # Sidecar-derived fields are None
+        assert data.session.activity_id is None
+        assert data.session.id.startswith("file:")
+        # Sidecar-independent fields from FIT are intact
+        assert data.session.session_date == "2026-07-10"
+        assert data.session.avg_heart_rate_bpm == 139
+        assert data.series.elapsed_s == [0, 1]
