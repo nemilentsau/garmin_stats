@@ -99,7 +99,7 @@ def test_segment_display_zone_and_distance_are_none_for_an_rpe_only_segment():
 # ---------- last_logged_for ----------
 
 
-def _log(date: str, exercise_id: str, *, weight: float, reps: int) -> TrainingCardLog:
+def _log(date: str, exercise_id: str, *, weight: float | None, reps: int) -> TrainingCardLog:
     """Build a minimal completed card log with one logged set for `exercise_id`."""
     return TrainingCardLog(
         id=f"{date}:x",
@@ -150,4 +150,12 @@ def test_last_logged_picks_latest_date_among_multiple_prior_logs():
 
 def test_last_logged_ignores_logs_on_or_after_the_before_date():
     logs = [_log("2026-07-11", "barbell_bench", weight=100, reps=5)]
+    assert last_logged_for(logs, exercise_id="barbell_bench", before="2026-07-11") is None
+
+
+def test_last_logged_returns_none_when_latest_logs_sets_all_lack_weight():
+    """Covers the `if not weighted_sets: return None` branch: the latest matching
+    log recorded a set for the exercise, but every set on it has `weight=None`
+    (e.g. a warm-up-only capture) — there is no load to anchor against."""
+    logs = [_log("2026-07-09", "barbell_bench", weight=None, reps=8)]
     assert last_logged_for(logs, exercise_id="barbell_bench", before="2026-07-11") is None

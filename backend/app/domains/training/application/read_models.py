@@ -16,6 +16,22 @@ intensity), `render_rule` (a card's variant-selection rule, in English), and
 formatting with no I/O, kept here rather than in `contracts.py` so the wire
 contracts stay free of display concerns.
 
+The prescription-seam helpers build on that: `structured_load` picks
+`render_scheme`'s same load dimension (`pct_e1rm` -> `rpe` -> `absolute_kg`)
+but returns it as typed `(kind, value)` for the frontend to format instead of
+a pre-rendered string; `build_exercise_display`/`build_segment_display` wrap
+one prescribed exercise/segment into its full `TrainingExerciseDisplay`/
+`TrainingSegmentDisplay` projection, string and structured fields together;
+and `last_logged_for` scans a card's prior logs to find the most recent
+logged set for one exercise, the "last" load anchor a lifter sees next to a
+prescribed set. Only `get_training_today` computes a real anchor: it loads
+prior-log history via `repo.card_logs_before(date)` and threads it as
+`prior_logs` through `_cards_for_day` -> `_build_card`, which calls
+`last_logged_for` per exercise. `get_training_schedule_window`'s planning
+view calls the same `_cards_for_day`/`_build_card` path without `prior_logs`,
+so every exercise's `last` is `None` there — a future day's card has no
+"prior" log to anchor against.
+
 `upsert_training_log` applies a partial update keyed off
 `TrainingLogUpdateRequest.model_fields_set`: a field the caller omitted from
 the request body keeps the existing log's value, while a field the caller
@@ -232,7 +248,12 @@ def last_logged_for(
     warm-up sets with no weight after the working sets; those are skipped).
     Returns `None` when no prior log recorded this exercise at all, or when
     the latest matching log's sets carry no weight — both read as "no anchor
-    yet" to the caller.
+    yet" to the caller. When multiple prior logs share the same latest date
+    for the exercise, `max` picks whichever candidate it encounters first for
+    that date, which is deterministic by the adapter's `id`
+    (`date:occurrence_key`) ordering but semantically arbitrary; current
+    templates never log one exercise on two same-day cards, so this never
+    actually happens.
     """
     candidates = [
         log
