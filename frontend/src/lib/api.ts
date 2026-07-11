@@ -120,6 +120,10 @@ export type TrainingCheckinRow = Schemas['TrainingCheckinRow'];
 export type TrainingExerciseLog = Schemas['TrainingExerciseLog-Output'];
 export type TrainingSetLog = Schemas['TrainingSetLog-Output'];
 export type TrainingCheckinLog = Schemas['TrainingCheckinLog-Output'];
+export type RunsList = Schemas['RunsListResponse'];
+export type RunListItem = Schemas['RunListItem'];
+export type RunDetail = Schemas['RunDetailResponse'];
+export type RunSeries = Schemas['RunSeriesResponse'];
 
 function unwrap<T>(data: T | undefined, error: unknown): T {
 	if (error) {
@@ -400,6 +404,21 @@ export const api = {
 		return unwrapResponse(client.PUT('/api/training/today/{date}/cards/{occurrence_key}', {
 			params: { path: { date, occurrence_key: occurrenceKey } },
 			body: payload
+		}));
+	},
+	getRuns: async (from?: string, to?: string) => {
+		return unwrapResponse(client.GET('/api/activities/runs', {
+			params: { query: { ...(from ? { from } : {}), ...(to ? { to } : {}) } }
+		}));
+	},
+	getRun: async (runId: string) => {
+		return unwrapResponse(client.GET('/api/activities/runs/{run_id}', {
+			params: { path: { run_id: runId } }
+		}));
+	},
+	getRunSeries: async (runId: string) => {
+		return unwrapResponse(client.GET('/api/activities/runs/{run_id}/series', {
+			params: { path: { run_id: runId } }
 		}));
 	}
 };
