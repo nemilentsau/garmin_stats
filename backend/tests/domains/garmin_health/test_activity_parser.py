@@ -1,7 +1,14 @@
 """Running-activity parser tests: extraction rules, unit policy, hr_source."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
+import app.domains.garmin_health.infra.fit_parser.activities as activities_mod
+from app.domains.garmin_health.infra.fit_parser.activities import (
+    discover_running_activity_files,
+    parse_running_activities,
+    parse_running_activity,
+)
 from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
     _derive_utc_offset,
     _detect_hr_source,
@@ -347,3 +354,57 @@ class TestLapExtraction:
         assert len(laps) == 2
         assert laps[0].lap_index == 0
         assert laps[1].lap_index == 1
+
+
+def _write_activity_pair(activities_dir, day, stem, sidecar=SIDECAR):
+    day_dir = activities_dir / day
+    day_dir.mkdir(parents=True, exist_ok=True)
+    (day_dir / f"{stem}.fit").write_bytes(b"fake-fit")
+    if sidecar is not None:
+        (day_dir / f"{stem}.json").write_text(json.dumps(sidecar))
+    return day_dir / f"{stem}.fit"
+
+
+FULL_MESSAGES = {
+    "session_mesgs": [SESSION_MSG],
+    "device_info_mesgs": [LOCAL_DEVICE, STRAP_DEVICE],
+    "time_in_zone_mesgs": ZONE_MSGS,
+    "lap_mesgs": [],
+    "record_mesgs": [_record(0), _record(1)],
+    "split_mesgs": [],
+}
+
+
+class TestDiscoveryAndComposition:
+    def test_discovery_selects_only_running_fits(self, tmp_path):
+        _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        _write_activity_pair(tmp_path, "2026-07-09", "061913_training_strength_training")
+        _write_activity_pair(tmp_path, "2026-07-08", "070000_running_trail")
+        files = discover_running_activity_files(tmp_path)
+        assert [f.name for f in files] == ["070000_running_trail.fit", "105726_running_generic.fit"]
+
+    def test_parse_composes_session_laps_series_and_counts(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: FULL_MESSAGES)
+        fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        data = parse_running_activity(fit, tmp_path)
+        assert data.session.source_file == "2026-07-10/105726_running_generic.fit"
+        assert data.session.record_count == 2
+        assert data.session.lap_count == 0
+        assert data.session.has_gps_trace is True
+        assert data.session.hr_source == "strap"
+        assert data.series.elapsed_s == [0, 1]
+
+    def test_batch_skips_broken_files_and_continues(self, tmp_path, monkeypatch):
+        def _decode(path):
+            # Check only the filename, not the full path (which may contain test dir name)
+            filename = path.name if hasattr(path, 'name') else str(path).split('/')[-1]
+            if "broken" in filename:
+                raise ValueError("corrupt fit")
+            return FULL_MESSAGES
+
+        monkeypatch.setattr(activities_mod, "decode_fit_file", _decode)
+        _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        _write_activity_pair(tmp_path, "2026-07-09", "064500_running_broken")
+        parsed = parse_running_activities(tmp_path)
+        assert len(parsed) == 1
+        assert parsed[0].session.session_date == "2026-07-10"

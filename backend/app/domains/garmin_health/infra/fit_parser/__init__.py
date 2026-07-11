@@ -1,5 +1,10 @@
 """Public FIT parser API for canonical Garmin health ingest."""
 
+from app.domains.garmin_health.infra.fit_parser.activities import (
+    discover_running_activity_files,
+    parse_running_activities,
+    parse_running_activity,
+)
 from app.domains.garmin_health.infra.fit_parser.days import (
     _parse_day,
     parse_all_days,
@@ -40,6 +45,7 @@ __all__ = [
     "_resolve_timestamp_16",
     "_shift_timestamps",
     "decode_fit_file",
+    "discover_running_activity_files",
     "get_available_days",
     "get_day_summary",
     "get_files_by_day",
@@ -47,6 +53,8 @@ __all__ = [
     "parse_datetime",
     "parse_day",
     "parse_hrv_day",
+    "parse_running_activities",
+    "parse_running_activity",
     "parse_skin_temp_day",
     "parse_sleep_day",
     "parse_wellness_day",

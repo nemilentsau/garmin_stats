@@ -19,6 +19,9 @@ and config paths: `docs/reference/data-and-ingest.md`.
 - The deterministic FIT parser implementation under `infra/fit_parser/`
   (timestamp normalization to local time via `_shift_timestamps`) — the code
   behind the `app.parser` compatibility facade.
+- Running-activity contracts (`contracts/activities.py`) and the running-activity
+  FIT parser (`infra/fit_parser/activities.py`, `activity_extractors.py`);
+  session/lap/series grain; reading (never writing) the `garmin_activities` tree.
 
 ## Does not own
 - Archive acquisition, watcher/startup ingest orchestration.

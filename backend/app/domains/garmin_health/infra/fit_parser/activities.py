@@ -1,0 +1,67 @@
+"""Running-activity FIT parsing: discovery, decode, and composition.
+
+Owns the file-level workflow for ``data/garmin_activities`` running files:
+find ``*_running_*.fit`` pairs, decode via the shared SDK adapter, hand the
+messages to the pure extractors, and assemble ``RunningActivityData``.
+Deliberately tolerant per file — a corrupt FIT logs a warning and is skipped
+so one bad download never blocks ingest (same policy as ``days.py``). Reads
+the activities tree only; acquisition and persistence belong to garmin_sync.
+"""
+
+import json
+import logging
+from pathlib import Path
+
+from app.domains.garmin_health.contracts import RunningActivityData
+from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
+    _extract_run_laps,
+    _extract_run_series,
+    _extract_run_session,
+)
+from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
+
+log = logging.getLogger(__name__)
+
+
+def discover_running_activity_files(activities_dir: Path) -> list[Path]:
+    """All running FIT files across day directories, sorted by relative path."""
+    if not activities_dir.exists():
+        return []
+    return sorted(activities_dir.glob("*/*_running_*.fit"))
+
+
+def _load_sidecar(fit_path: Path) -> dict | None:
+    """Load optional activity JSON sidecar; return None if missing or unreadable."""
+    sidecar_path = fit_path.with_suffix(".json")
+    if not sidecar_path.exists():
+        return None
+    try:
+        return json.loads(sidecar_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("Unreadable activity sidecar %s: %s", sidecar_path, e)
+        return None
+
+
+def parse_running_activity(fit_path: Path, activities_dir: Path) -> RunningActivityData:
+    """Parse one running FIT+sidecar pair into session + laps + series."""
+    messages = decode_fit_file(fit_path)
+    sidecar = _load_sidecar(fit_path)
+    source_file = str(fit_path.relative_to(activities_dir))
+    session = _extract_run_session(messages, sidecar, source_file)
+    laps = _extract_run_laps(messages)
+    series = _extract_run_series(messages)
+    session.lap_count = len(laps)
+    session.record_count = len(series.elapsed_s)
+    session.has_gps_trace = any(v is not None for v in series.lat)
+    return RunningActivityData(session=session, laps=laps, series=series)
+
+
+def parse_running_activities(activities_dir: Path) -> list[RunningActivityData]:
+    """Parse every running activity on disk; a failing file is skipped with a warning."""
+    parsed: list[RunningActivityData] = []
+    for fit_path in discover_running_activity_files(activities_dir):
+        try:
+            parsed.append(parse_running_activity(fit_path, activities_dir))
+        except Exception as e:
+            log.warning("Error parsing activity %s: %s", fit_path, e)
+    return parsed
