@@ -550,6 +550,14 @@ class TrainingCardLog(DefaultsRequired):
     capture: TrainingCaptureLog | None = None
 
 
+class TrainingLastLogged(DefaultsRequired):
+    """Most recent logged set for an exercise — the load anchor. Populated in Task 0.3."""
+
+    weight_kg: float | None = None
+    reps: int | None = None
+    date: str
+
+
 class TrainingExerciseDisplay(DefaultsRequired):
     """One strength exercise's read-only display projection for a scheduled card."""
 
@@ -559,6 +567,11 @@ class TrainingExerciseDisplay(DefaultsRequired):
     tempo: str | None = None
     sets: int
     log_sets: bool  # True when the card's capture includes a set_rep_load[] field
+    reps_low: int
+    reps_high: int
+    load_kind: Literal["pct_e1rm", "rpe", "absolute_kg"] | None = None
+    load_value: float | None = None
+    last: TrainingLastLogged | None = None
 
 
 class TrainingSegmentDisplay(DefaultsRequired):

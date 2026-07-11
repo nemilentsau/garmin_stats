@@ -33,6 +33,7 @@ from __future__ import annotations
 import re
 from datetime import date as date_cls
 from datetime import timedelta
+from typing import Literal
 
 from app.contracts.base import StrictDefaultsRequired
 from app.domains.training.application.compile import (
@@ -62,6 +63,7 @@ from app.domains.training.contracts import (
     TrainingCardStatus,
     TrainingCheckinRow,
     TrainingExerciseDisplay,
+    TrainingLastLogged,
     TrainingScheduleDay,
     TrainingScheduleWindow,
     TrainingSegmentDisplay,
@@ -150,7 +152,9 @@ def _predicate_phrase(predicate: Predicate) -> str:
     raise TypeError(f"Unknown predicate type: {type(predicate)!r}")  # pragma: no cover
 
 
-def structured_load(load: LoadSpec) -> tuple[str | None, float | None]:
+def structured_load(
+    load: LoadSpec,
+) -> tuple[Literal["pct_e1rm", "rpe", "absolute_kg"] | None, float | None]:
     """Return the single present load dimension as (kind, value).
 
     Mirrors `render_scheme`'s load precedence: pct_e1rm -> rpe -> absolute_kg.
@@ -184,6 +188,37 @@ def render_scheme(exercise: ExercisePrescriptionSpec) -> str:
     else:
         return scheme
     return f"{scheme} @ {load_display}"
+
+
+def build_exercise_display(
+    exercise: ExercisePrescriptionSpec,
+    *,
+    name: str,
+    log_sets: bool,
+    last: TrainingLastLogged | None,
+) -> TrainingExerciseDisplay:
+    """Project one prescribed exercise into its read-only display projection.
+
+    `scheme` (via `render_scheme`) stays alongside the new structured
+    `reps_low`/`reps_high`/`load_kind`/`load_value` fields for this phase's
+    back-compat; `last` is always the caller's value verbatim — this task
+    never looks one up (Task 0.3's `last_logged_for` does).
+    """
+    lo, hi = exercise.reps
+    kind, value = structured_load(exercise.load)
+    return TrainingExerciseDisplay(
+        exercise_id=exercise.exercise_id,
+        name=name,
+        scheme=render_scheme(exercise),
+        tempo=exercise.tempo,
+        sets=exercise.sets,
+        log_sets=log_sets,
+        reps_low=lo,
+        reps_high=hi,
+        load_kind=kind,
+        load_value=value,
+        last=last,
+    )
 
 
 def render_segment(segment: SegmentSpec) -> str:
@@ -308,13 +343,11 @@ def _build_card(
     log_sets = any(field.type == "set_rep_load[]" for field in card.capture)
     if isinstance(card.prescription, StrengthPrescription):
         exercises_display = [
-            TrainingExerciseDisplay(
-                exercise_id=exercise.exercise_id,
+            build_exercise_display(
+                exercise,
                 name=_exercise_name(library, exercise.exercise_id),
-                scheme=render_scheme(exercise),
-                tempo=exercise.tempo,
-                sets=exercise.sets,
                 log_sets=log_sets,
+                last=None,
             )
             for exercise in card.prescription.exercises
         ]
@@ -598,6 +631,7 @@ def upsert_training_log(
 
 __all__ = [
     "TrainingLogUpdateRequest",
+    "build_exercise_display",
     "checkin_rows",
     "get_block_status",
     "get_training_schedule_window",
