@@ -263,6 +263,27 @@ class TestSeriesExtraction:
         assert series.elapsed_s == []
         assert series.run_walk_spans == []
 
+    def test_span_dropped_when_mapped_split_type_missing_timestamp(self):
+        """Spans with missing start_time or end_time are dropped; only rwd_* with both kept."""
+        messages = {
+            "record_mesgs": [_record(0)],
+            "split_mesgs": [
+                {
+                    "split_type": "rwd_walk",
+                    "start_time": None,
+                    "end_time": START + timedelta(seconds=30),
+                },
+                {
+                    "split_type": "rwd_run",
+                    "start_time": START + timedelta(seconds=30),
+                    "end_time": START + timedelta(seconds=60),
+                },
+            ],
+        }
+        series = _extract_run_series(messages)
+        assert len(series.run_walk_spans) == 1
+        assert series.run_walk_spans[0].span_type == "run"
+
 
 class TestLapExtraction:
     def test_laps_carry_dynamics_and_pace(self):
@@ -306,3 +327,23 @@ class TestLapExtraction:
         assert lap.pace_min_per_km == round(542.718 / 60 / 1.60934, 2)
         assert lap.avg_cadence_spm == (82 + 0.0859375) * 2
         assert lap.avg_ground_contact_time_ms == 258.8
+
+    def test_lap_message_index_fallback_to_enumerate(self):
+        """Lap without message_index uses enumerate index as lap_index."""
+        messages = {
+            "session_mesgs": [SESSION_MSG],
+            "lap_mesgs": [
+                {
+                    "start_time": START,
+                    "total_timer_time": 500.0,
+                },
+                {
+                    "start_time": START + timedelta(seconds=500),
+                    "total_timer_time": 300.0,
+                },
+            ],
+        }
+        laps = _extract_run_laps(messages)
+        assert len(laps) == 2
+        assert laps[0].lap_index == 0
+        assert laps[1].lap_index == 1

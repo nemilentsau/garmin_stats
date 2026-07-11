@@ -196,6 +196,7 @@ _RWD_SPAN_TYPES = {"rwd_run": "run", "rwd_walk": "walk", "rwd_stand": "stand"}
 
 
 def _extract_run_laps(messages: dict) -> list[RunningActivityLap]:
+    """Lap start_s: offset from session start_time; lap_index: message_index or enumerate."""
     session = (messages.get("session_mesgs") or [{}])[0]
     session_start = session.get("start_time")
     laps: list[RunningActivityLap] = []
@@ -247,6 +248,7 @@ def _extract_run_laps(messages: dict) -> list[RunningActivityLap]:
 
 
 def _extract_run_series(messages: dict) -> RunningActivitySeries:
+    """Parallel column arrays with positional nulls; spans offset from first record; rwd_* only."""
     records = messages.get("record_mesgs", [])
     series = RunningActivitySeries()
     if records:
