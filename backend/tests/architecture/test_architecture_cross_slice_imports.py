@@ -144,6 +144,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/garmin_analytics/contracts/raw.py": {
         GARMIN_HEALTH_CONTRACTS,
     },
+    "backend/app/domains/garmin_analytics/contracts/runs.py": {
+        GARMIN_HEALTH_CONTRACTS,
+    },
     "backend/app/domains/garmin_analytics/domain/aggregates/biometric_responses.py": {
         GARMIN_HEALTH_CONTRACTS,
     },

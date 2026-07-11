@@ -99,6 +99,12 @@ from .raw import (
     SpO2RawResponse,
     StressRawResponse,
 )
+from .runs import (
+    RunDetailResponse,
+    RunListItem,
+    RunSeriesResponse,
+    RunsListResponse,
+)
 
 __all__ = [
     "BASELINE_WINDOW_DEFAULT",
@@ -160,6 +166,10 @@ __all__ = [
     "RespirationDailyPoint",
     "RespirationDailyResponse",
     "RestingHRTrendPoint",
+    "RunDetailResponse",
+    "RunListItem",
+    "RunSeriesResponse",
+    "RunsListResponse",
     "SkinTempDailyPoint",
     "SkinTempDailyResponse",
     "SkinTempResponse",

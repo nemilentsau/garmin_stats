@@ -12,6 +12,9 @@ from app.domains.garmin_health.contracts import (
     DaySkinTemp,
     DaySleep,
     DayWellness,
+    RunningActivityLap,
+    RunningActivitySeries,
+    RunningActivitySession,
 )
 
 
@@ -27,3 +30,15 @@ class BiometricReadRepository(Protocol):
     def load_hrv(self, date: str | None = None) -> list[DayHrv]: ...
 
     def load_skin_temp(self, date: str | None = None) -> list[DaySkinTemp]: ...
+
+
+class RunsReadRepository(Protocol):
+    """Read access for the running-activity mart (sessions, laps, record series)."""
+
+    def load_sessions(self) -> list[RunningActivitySession]: ...
+
+    def load_session(self, run_id: str) -> RunningActivitySession | None: ...
+
+    def load_laps(self, run_id: str) -> list[RunningActivityLap]: ...
+
+    def load_series(self, run_id: str) -> RunningActivitySeries | None: ...

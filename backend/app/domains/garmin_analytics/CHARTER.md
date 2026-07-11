@@ -6,12 +6,13 @@
 `garmin_analytics` owns Garmin-derived analytical read models and dashboard use
 cases. It is biometric-first but not `DailyMetric`-only: it serves the dashboard
 overview, full and metric-scoped daily metric responses, period summaries,
-metric-specific raw biometric reads, and the current metric analysis and
+metric-specific raw biometric reads, the current metric analysis and
 selected-day insight implementations for heart rate, HRV, sleep, stress, and body
-battery. It is a read/analytical layer over ingested Garmin tables — it acquires
-no data and normalizes no timestamps. Activity/session marts are reserved here for
-future runs, meditations, and strength sessions (see
-`docs/future/ACTIVITY_ANALYTICS_DESIGN.md`).
+battery, and the runs activity mart (list/detail/series reads over the
+running-activity tables `garmin_sync` ingests). It is a read/analytical layer over
+ingested Garmin tables — it acquires no data and normalizes no timestamps.
+Session marts for meditations and strength sessions remain reserved for future
+work (see `docs/future/ACTIVITY_ANALYTICS_DESIGN.md`).
 
 ## Owns
 - Garmin-derived read models and biometric API reads.
@@ -20,6 +21,8 @@ future runs, meditations, and strength sessions (see
 - Metric drill-down insights and recovery analysis responses.
 - The validated single-axis recovery score and its health flags
   (`domain/recovery_score/`).
+- The runs activity mart: run list/detail/series reads with backend-derived pace
+  (`application/runs.py`, `contracts/runs.py`, `SqliteRunsRepository`).
 
 ## Does not own
 - Archive acquisition (owned by `garmin_sync`).
@@ -31,7 +34,8 @@ future runs, meditations, and strength sessions (see
 - Subjective journal writes.
 
 ## May import
-- Its biometric repository dependency protocol (`application/dependencies.BiometricReadRepository`).
+- Its repository dependency protocols (`application/dependencies.BiometricReadRepository`,
+  `application/dependencies.RunsReadRepository`).
 - Garmin analytics domain helpers.
 - Garmin analytics contracts.
 - Canonical Garmin health contracts/calculators.
@@ -57,6 +61,7 @@ and pulse ox — specifically:
 - `/api/body-battery/{raw,daily,analysis}`
 - `/api/respiration/{raw,daily}`
 - `/api/pulse-ox/{raw,daily}`
+- `/api/activities/runs`, `/api/activities/runs/{run_id}`, `/api/activities/runs/{run_id}/series`
 
 Application files are named by concern:
 - `raw_biometrics.py` — reads raw biometric tables.
@@ -64,13 +69,17 @@ Application files are named by concern:
 - `dashboard.py` — loads overview inputs.
 - `metric_analysis.py` — loads cached chart/trend analysis read models.
 - `metric_insights.py` — loads selected-day insight read models.
+- `runs.py` — run list/detail/series reads with date-window filtering and
+  pace derivation.
 
 ## Key files
 - `routes.py` — HTTP only; binds request/response to application use cases.
 - `application/` — orchestration only: loads repository data, handles route-level
   missing-data decisions, applies caching, delegates calculations.
-- `application/dependencies.py` — `BiometricReadRepository` read port.
-- `adapters.py` — SQLite biometric read repository (persistence wiring).
+- `application/dependencies.py` — `BiometricReadRepository` and
+  `RunsReadRepository` read ports.
+- `adapters.py` — SQLite biometric and runs read repositories (persistence
+  wiring; `SqliteBiometricRepository`, `SqliteRunsRepository`).
 - `domain/aggregates/` — deterministic period response shaping; `period_metrics/`
   owns metric-specific period rules from raw readings (period stats never from
   averaged daily summaries).
@@ -83,21 +92,25 @@ Application files are named by concern:
 - `contracts/` — API/read-model contracts split by concern (`raw`, `period`,
   `analysis`, `insights`, `dashboard`).
 
-## Verified against code (2026-07-10)
+## Verified against code (2026-07-11)
 - Public entrypoints match: `routes.py` mounts exactly the routers above.
   Confirmed asymmetry is intentional and matches the central charter/route
   inventory — respiration and pulse-ox expose `raw`/`daily` only (no analysis/
   insights); skin-temp exposes `raw`/`daily` only; analysis exists for heart rate,
   HRV, sleep, stress, and body battery; insights exist for heart rate and HRV;
-  heart-rate additionally exposes `/distribution`.
+  heart-rate additionally exposes `/distribution`; runs expose list/detail/series
+  only (no analysis/insights yet).
 - Application files match the "named by concern" set: `raw_biometrics.py`,
-  `daily_aggregates.py`, `dashboard.py`, `metric_analysis.py`, `metric_insights.py`.
+  `daily_aggregates.py`, `dashboard.py`, `metric_analysis.py`, `metric_insights.py`,
+  `runs.py`.
 - Domain packages match the Garmin Analytics Boundary: `aggregates/`
   (+ `period_metrics/`), `analysis/`, `insights/`, `primitives/`,
-  `recovery_score/`, and `domain/dashboard.py`.
-- Import boundaries match: `application/dependencies.py` and `adapters.py` depend
-  on `garmin_health.contracts`; `adapters.py` alone touches `app.infra.sqlite`/
-  `app.infra.cache` (the allowed persistence boundary); no imports of garmin_sync
-  or other product domains.
+  `recovery_score/`, and `domain/dashboard.py`. Runs use cases are simple enough
+  (filter/sort/derive) to stay in `application/runs.py` without a `domain/runs/`
+  package; split out if run-specific calculations grow.
+- Import boundaries match: `application/dependencies.py`, `contracts/runs.py`, and
+  `adapters.py` depend on `garmin_health.contracts`; `adapters.py` alone touches
+  `app.infra.sqlite`/`app.infra.cache` (the allowed persistence boundary); no
+  imports of garmin_sync or other product domains.
 - Overall: matches ARCHITECTURE.md (Active service areas, Module Ownership Charter,
   and the Garmin Analytics Boundary section). No discrepancies.

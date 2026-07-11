@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (78 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (81 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -13,6 +13,14 @@ Backend from the FastAPI OpenAPI schema (78 operations); frontend from `frontend
 | Method | Path | Summary |
 |---|---|---|
 | GET | `/` | Root |
+
+### `activities`
+
+| Method | Path | Summary |
+|---|---|---|
+| GET | `/api/activities/runs` | List Runs Route |
+| GET | `/api/activities/runs/{run_id}` | Get Run Route |
+| GET | `/api/activities/runs/{run_id}/series` | Get Run Series Route |
 
 ### `assistant`
 

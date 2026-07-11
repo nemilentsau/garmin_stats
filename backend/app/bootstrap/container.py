@@ -16,6 +16,7 @@ from app.domains.experiments.application.exposure_sync import ExperimentExposure
 from app.domains.experiments.read_sources import ExperimentReadSource
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
+    SqliteRunsRepository,
 )
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
@@ -34,6 +35,7 @@ class AppContainer:
     assistant_read_store: AssistantReadModelGateway
     assistant_runtime: ClaudeCodeRuntime
     garmin_biometrics_repo: SqliteBiometricRepository
+    garmin_runs_repo: SqliteRunsRepository
     journal_repo: SqliteJournalRepository
     profile_repo: SqliteProfileRepository
     programs_repo: SqliteProgramRepository
@@ -73,6 +75,7 @@ def build_container() -> AppContainer:
         ),
         assistant_runtime=ClaudeCodeRuntime(),
         garmin_biometrics_repo=garmin_biometrics_repo,
+        garmin_runs_repo=SqliteRunsRepository(),
         journal_repo=journal_repo,
         profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),

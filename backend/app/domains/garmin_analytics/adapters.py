@@ -1,9 +1,10 @@
-"""SQLite-backed Garmin biometric read repository.
+"""SQLite-backed Garmin biometric and running-activity read repositories.
 
 This module is the single read implementation for ingested Garmin biometric
 tables. `SqliteBiometricRepository` satisfies application ports, while the
 module-level loaders expose the same reads for legacy callers that have not yet
-accepted the repository port.
+accepted the repository port. `SqliteRunsRepository` reads the running-activity
+mart written by `garmin_sync` (sessions, laps, per-second record series).
 """
 
 from pydantic import BaseModel
@@ -14,6 +15,9 @@ from app.domains.garmin_health.contracts import (
     DaySkinTemp,
     DaySleep,
     DayWellness,
+    RunningActivityLap,
+    RunningActivitySeries,
+    RunningActivitySession,
 )
 from app.infra import cache
 from app.infra.sqlite import connect
@@ -115,3 +119,70 @@ def load_hrv(date: str | None = None) -> list[DayHrv]:
 def load_skin_temp(date: str | None = None) -> list[DaySkinTemp]:
     """Load parsed skin-temperature rows, optionally restricted to one local date."""
     return _load_day_table("skin_temp_data", DaySkinTemp, cache.SKIN_TEMP_ALL, date)
+
+
+class SqliteRunsRepository:
+    """Repository adapter for the running-activity mart used by runs use cases."""
+
+    def load_sessions(self) -> list[RunningActivitySession]:
+        return load_run_sessions()
+
+    def load_session(self, run_id: str) -> RunningActivitySession | None:
+        return load_run_session(run_id)
+
+    def load_laps(self, run_id: str) -> list[RunningActivityLap]:
+        return load_run_laps(run_id)
+
+    def load_series(self, run_id: str) -> RunningActivitySeries | None:
+        return load_run_series(run_id)
+
+
+def load_run_sessions() -> list[RunningActivitySession]:
+    """Load all run sessions ordered by date/start time, cached across requests."""
+    return cache.cached(cache.RUNS_SESSIONS, _fetch_run_sessions)
+
+
+def _fetch_run_sessions() -> list[RunningActivitySession]:
+    with connect() as con:
+        rows = con.execute(
+            "SELECT data FROM running_activity_sessions ORDER BY session_date, start_time_local"
+        ).fetchall()
+    return [RunningActivitySession.model_validate_json(row["data"]) for row in rows]
+
+
+def load_run_session(run_id: str) -> RunningActivitySession | None:
+    """Load one run session by id, or None if it doesn't exist.
+
+    Uncached (unlike `load_run_sessions`): detail reads are per-page and keyed,
+    not an all-rows scan worth caching.
+    """
+    with connect() as con:
+        row = con.execute(
+            "SELECT data FROM running_activity_sessions WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    return RunningActivitySession.model_validate_json(row["data"]) if row else None
+
+
+def load_run_laps(run_id: str) -> list[RunningActivityLap]:
+    """Load laps for one run session ordered by lap_index. Uncached (see load_run_session)."""
+    with connect() as con:
+        rows = con.execute(
+            "SELECT data FROM running_activity_laps WHERE session_id = ? ORDER BY lap_index",
+            (run_id,),
+        ).fetchall()
+    return [RunningActivityLap.model_validate_json(row["data"]) for row in rows]
+
+
+def load_run_series(run_id: str) -> RunningActivitySeries | None:
+    """Load the record series for one run session, or None if it doesn't exist.
+
+    Uncached: series blobs are large per-second arrays and reads are per-page,
+    so caching the full table would waste memory for no repeat-read benefit.
+    """
+    with connect() as con:
+        row = con.execute(
+            "SELECT data FROM running_activity_series WHERE session_id = ?",
+            (run_id,),
+        ).fetchone()
+    return RunningActivitySeries.model_validate_json(row["data"]) if row else None
