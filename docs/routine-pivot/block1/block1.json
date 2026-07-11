@@ -1,0 +1,179 @@
+{
+  "id": "block1.threshold_development",
+  "identity": "development",
+  "window": {
+    "start": "2026-07-13",
+    "days": 28
+  },
+  "bundle_ids": [
+    "running.v3",
+    "strength.v3",
+    "support.v3"
+  ],
+  "baseline_tags": [
+    "protocol-change",
+    "heat-season",
+    "chronic-load"
+  ],
+  "measurement_events": [
+    {
+      "id": "ev_lthr_test",
+      "card_id": "run.lthr_test",
+      "estimand": "LTHR (bpm), heat-season conditions",
+      "scheduled_day": 1,
+      "backup_days": [
+        8
+      ],
+      "required": true,
+      "on_all_missed": "extend_block"
+    }
+  ],
+  "scheduling_constraints": [
+    {
+      "id": "sc.protect_long_run",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ],
+        "targets": [
+          "hamstring",
+          "adductor"
+        ]
+      },
+      "relation": "within_hours_before",
+      "hours": 30,
+      "reference": {
+        "card_id": "run.long"
+      }
+    },
+    {
+      "id": "sc.protect_test",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ],
+        "targets": [
+          "quad",
+          "glute",
+          "hamstring",
+          "calf_achilles",
+          "soleus"
+        ]
+      },
+      "relation": "within_hours_before",
+      "hours": 24,
+      "reference": {
+        "card_id": "run.lthr_test"
+      }
+    },
+    {
+      "id": "sc.one_overload_per_tissue_per_day",
+      "forbid": {
+        "contract_kind": [
+          "overload"
+        ]
+      },
+      "relation": "same_day_as",
+      "reference": {
+        "per_tissue_duplicate": true
+      }
+    }
+  ],
+  "exit_criteria": [
+    {
+      "id": "lthr_anchored",
+      "predicate": {
+        "signal": "event.ev_lthr_test.completed",
+        "op": "==",
+        "value": true
+      }
+    },
+    {
+      "id": "threshold_readout_valid",
+      "predicate": {
+        "signal": "pacehr.easy_hr_at_ref_pace",
+        "op": ">",
+        "value": 0
+      }
+    },
+    {
+      "id": "strength_progressing",
+      "predicate": {
+        "all": [
+          {
+            "signal": "e1rm.squat_pattern",
+            "op": ">",
+            "value": 0
+          },
+          {
+            "signal": "e1rm.hip_hinge",
+            "op": ">",
+            "value": 0
+          },
+          {
+            "signal": "e1rm.calf_soleus_hsr",
+            "op": ">",
+            "value": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "physique_held",
+      "predicate": {
+        "signal": "physique.proxy",
+        "op": ">",
+        "value": 0
+      }
+    },
+    {
+      "id": "adherence_held",
+      "predicate": {
+        "signal": "adherence.daily_core",
+        "op": ">=",
+        "value": 0.7
+      }
+    }
+  ],
+  "extension_rules": [],
+  "review_specs": [
+    {
+      "cadence": "weekly",
+      "computed": [
+        {
+          "id": "interference_check",
+          "estimator_id": "est.pacehr"
+        },
+        {
+          "id": "contamination_check",
+          "estimator_id": "est.strap_validity"
+        },
+        {
+          "id": "hsr_tolerance",
+          "estimator_id": "est.checkin"
+        },
+        {
+          "id": "planned_vs_executed_tonnage",
+          "estimator_id": "est.planned_vs_executed"
+        },
+        {
+          "id": "load_distribution",
+          "estimator_id": "est.day_rollup"
+        },
+        {
+          "id": "upper_tonnage_trend",
+          "estimator_id": "est.upper_tonnage"
+        },
+        {
+          "id": "heat_model_fit",
+          "estimator_id": "est.heat_correction"
+        }
+      ],
+      "human_prompts": [
+        "Anything in mechanics or gait that felt off and is not captured by soreness or flags?",
+        "Motivation and appetite for the week ahead?",
+        "Any niggle not yet worth a tissue flag?"
+      ]
+    }
+  ]
+}
