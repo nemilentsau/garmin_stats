@@ -8,6 +8,7 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
+	import { fmtKm, fmtDuration, fmtPace, fmtStartTime, fmtLoad, fmtTE, hrBadgeLabel } from '$lib/format-run';
 
 	let runs: RunListItem[] = $state([]);
 	let loading = $state(true);
@@ -49,48 +50,9 @@
 		applyFilter();
 	}
 
-	/* ── Pure display formatting: the backend supplies every value below, including
-	   the already-derived pace field. Nothing here computes or aggregates. ── */
-
-	function fmtKm(distanceM: number | null): string {
-		return distanceM == null ? '—' : (distanceM / 1000).toFixed(2);
-	}
-
-	function fmtDuration(seconds: number | null): string {
-		if (seconds == null) return '—';
-		const total = Math.round(seconds);
-		const h = Math.floor(total / 3600);
-		const m = Math.floor((total % 3600) / 60);
-		const s = total % 60;
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-	}
-
-	function fmtPace(paceMinPerKm: number | null): string {
-		if (paceMinPerKm == null) return '—';
-		const totalSeconds = Math.round(paceMinPerKm * 60);
-		const m = Math.floor(totalSeconds / 60);
-		const s = totalSeconds % 60;
-		return `${m}:${String(s).padStart(2, '0')}`;
-	}
-
-	function fmtStartTime(startTimeLocal: string): string {
-		return startTimeLocal.slice(11, 16);
-	}
-
-	function fmtLoad(load: number | null): string {
-		return load == null ? '—' : Math.round(load).toLocaleString();
-	}
-
-	function fmtTE(te: number | null): string {
-		return te == null ? '—' : te.toFixed(1);
-	}
-
-	function hrBadgeLabel(source: string | null): string | null {
-		if (source === 'strap') return 'CHEST';
-		if (source === 'wrist') return 'WRIST';
-		return null;
-	}
+	/* Formatting is imported from $lib/format-run (shared with /runs/[id]) — the backend
+	   supplies every value below, including the already-derived pace field. Nothing here
+	   computes or aggregates. */
 </script>
 
 <div class="runs-page">

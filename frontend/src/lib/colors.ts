@@ -14,6 +14,19 @@ export const COLORS = {
 	skinTemp: '#C9933A',
 	skinTemp7Day: '#e0b35e',
 	baseline: '#5e7282',
+	// Running detail page (per-metric identity, distinct from the wellness hues above)
+	pace: '#4FA8DE',
+	elevation: '#B98D5B',
+	cadence: '#7FBF6B',
+	strideLength: '#5BC8C8',
+	power: '#C15FA0',
+	verticalOscillation: '#8E97D9',
+	verticalRatio: '#D96B6B',
+	groundContactTime: '#6BA88E',
+	temperature: '#D98A4A',
+	runSpan: '#4CAF82',
+	walkSpan: '#D4944C',
+	standSpan: '#5e7282',
 } as const;
 
 /** Append hex alpha to a color string. */
