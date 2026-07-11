@@ -1,24 +1,23 @@
 <script lang="ts">
 	/**
-	 * TrainingStrengthGrid — per-exercise set-logging grid for a v3 strength card.
+	 * TrainingStrengthGrid — the whole-session strength table for a v3 strength card.
 	 *
-	 * view mode: exercise name + scheme chip + tempo detail only — no captured-set display,
-	 * mirroring StrengthSessionCard's view-mode simplicity (Schedule shows the prescription,
-	 * not history).
+	 * Read-primary layout: one aligned row per exercise (Exercise · Target · Last), so a
+	 * whole session is scannable at a glance and the prescription — not an empty input grid —
+	 * is the dominant content. `Target` is built from the structured prescription fields
+	 * (`sets`, `reps_low`/`reps_high`, `load_kind`/`load_value`, `tempo`); `Last` is the
+	 * backend-provided load anchor (`ex.last`, the most recent logged set). The first exercise
+	 * is emphasised as the session's anchor lift.
 	 *
-	 * log mode: for exercises the card flags `log_sets`, a per-set weight/reps/RIR grid
-	 * seeded once from `card.capture.set_logs` (matched by `exercise_id`), pre-filled with
-	 * one blank row per prescribed set when nothing was logged yet, plus an add-set button
-	 * for sets beyond the prescription. Guarded `oninput` handlers write into the tracked
-	 * `$state` array directly — never a deep `bind:` into the nested `#each`, matching
-	 * StrengthSessionCard's per-set grid (Svelte 5 nested-each writeback bug).
+	 * log mode: for exercises the card flags `log_sets`, a compact per-set weight/reps/RIR grid
+	 * appears as a secondary row beneath the exercise, seeded once from `card.capture.set_logs`
+	 * (matched by `exercise_id`), one blank row per prescribed set when nothing was logged yet,
+	 * plus an add-set button. Guarded `oninput` handlers write into the tracked `$state` array
+	 * directly — never a deep `bind:` into the nested `#each` (Svelte 5 nested-each writeback bug).
 	 *
 	 * Capture ownership: this component owns ONLY `set_logs`. It emits just that slice via
 	 * `onSetLogs` on every change and never reads or replays `checkin`/`rpe` — TrainingCardBody
-	 * composes the full TrainingCaptureLog from each child's slice. This is deliberate: a
-	 * component that seeds a sibling capture kind once and replays it unchanged on every emit
-	 * would silently revert that sibling's staged edits if a card ever combined capture kinds,
-	 * even though the shipped v3 bundles don't do so today (see `docs/routine-pivot/block0/*.json`).
+	 * composes the full TrainingCaptureLog from each child's slice.
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingExerciseDisplay, TrainingExerciseLog, TrainingSetLog } from '$lib/api';
@@ -37,7 +36,7 @@
 
 	// ── One-time synchronous init — never re-runs when card.capture changes. The component
 	// is freshly mounted each time a detail panel opens, so reading card.capture once at
-	// construction is correct and sufficient (see StrengthSessionCard for the same pattern).
+	// construction is correct and sufficient.
 	const initialExercises = untrack(() => card.exercises_display);
 	const initialCapture = untrack(() => card.capture);
 
@@ -100,156 +99,229 @@
 	function emit() {
 		onSetLogs?.(exerciseLogs);
 	}
+
+	// ── Presentation helpers (display-only formatting of backend-provided fields) ──────────
+	function trimNum(n: number): string {
+		// JS already renders 8.0 as "8"; kept as a seam for future unit formatting.
+		return String(n);
+	}
+
+	function formatReps(ex: TrainingExerciseDisplay): string {
+		return ex.reps_low === ex.reps_high ? `${ex.reps_low}` : `${ex.reps_low}–${ex.reps_high}`;
+	}
+
+	function formatLoad(ex: TrainingExerciseDisplay): string {
+		if (ex.load_kind === 'rpe' && ex.load_value != null) return `@${trimNum(ex.load_value)}`;
+		if (ex.load_kind === 'pct_e1rm' && ex.load_value != null) return `@${Math.round(ex.load_value * 100)}%`;
+		if (ex.load_kind === 'absolute_kg' && ex.load_value != null) return `${trimNum(ex.load_value)}kg`;
+		return '';
+	}
+
+	function formatLast(last: TrainingExerciseDisplay['last']): string {
+		if (!last) return '—';
+		if (last.weight_kg != null && last.reps != null) return `${trimNum(last.weight_kg)}×${last.reps}`;
+		if (last.weight_kg != null) return `${trimNum(last.weight_kg)}kg`;
+		if (last.reps != null) return `${last.reps} reps`;
+		return '—';
+	}
 </script>
 
-<div class="exercise-list">
-	{#each exercises as ex}
-		<div class="exercise-block">
-			<div class="ex-header-row">
-				<span class="ex-name">{ex.name}</span>
-				<span class="scheme-badge">{ex.scheme}</span>
-			</div>
-			{#if ex.tempo}
-				<span class="ex-detail">Tempo {ex.tempo}</span>
-			{/if}
+<div class="session-table" role="table">
+	<div class="row head" role="row">
+		<span class="dot" aria-hidden="true"></span>
+		<span class="col-ex" role="columnheader">Exercise</span>
+		<span class="col-tgt" role="columnheader">Target</span>
+		<span class="col-last" role="columnheader">Last</span>
+	</div>
 
-			{#if mode === 'log' && ex.log_sets}
-				<div class="set-table">
-					<div class="set-header-row">
-						<span class="col-set">Set</span>
-						<span class="col-num">Weight</span>
-						<span class="col-num">Reps</span>
-						<span class="col-num">RIR</span>
-					</div>
-					{#each setsFor(ex.exercise_id) as set, setIdx}
-						<div class="set-data-row">
-							<span class="col-set set-num">{set.set_index + 1}</span>
+	{#each exercises as ex, i (ex.exercise_id)}
+		<div class="row" class:anchor={i === 0} role="row">
+			<span class="dot" aria-hidden="true">{i === 0 ? '●' : '○'}</span>
+			<span class="col-ex" role="cell">
+				<span class="ex-name">{ex.name}</span>
+				{#if i === 0}<span class="anchor-tag">anchor</span>{/if}
+				{#if ex.tempo}<span class="cue">{ex.tempo}</span>{/if}
+			</span>
+			<span class="col-tgt" role="cell">
+				<span class="tgt-main">{ex.sets}×{formatReps(ex)}</span>
+				{#if formatLoad(ex)}<span class="load">{formatLoad(ex)}</span>{/if}
+			</span>
+			<span class="col-last" role="cell">{formatLast(ex.last)}</span>
+		</div>
+
+		{#if mode === 'log' && ex.log_sets}
+			<div class="log-panel" role="row">
+				<div class="set-grid">
+					{#each setsFor(ex.exercise_id) as set, setIdx (setIdx)}
+						<div class="set-line">
+							<span class="set-n">{set.set_index + 1}</span>
 							<input
 								type="number"
-								class="col-num set-input"
+								class="set-input"
 								value={set.weight ?? ''}
 								oninput={(e) => setSetField(ex.exercise_id, setIdx, 'weight', e.currentTarget.value)}
-								placeholder="—"
+								placeholder="kg"
 								min={0}
 								step={0.5}
+								aria-label="weight"
 							/>
 							<input
 								type="number"
-								class="col-num set-input"
+								class="set-input"
 								value={set.reps ?? ''}
 								oninput={(e) => setSetField(ex.exercise_id, setIdx, 'reps', e.currentTarget.value)}
-								placeholder="—"
+								placeholder="reps"
 								min={0}
+								aria-label="reps"
 							/>
 							<input
 								type="number"
-								class="col-num set-input"
+								class="set-input"
 								value={set.rir ?? ''}
 								oninput={(e) => setSetField(ex.exercise_id, setIdx, 'rir', e.currentTarget.value)}
-								placeholder="—"
+								placeholder="rir"
 								min={0}
 								max={10}
+								aria-label="reps in reserve"
 							/>
 						</div>
 					{/each}
+					<button type="button" class="add-set-btn" onclick={() => addSet(ex.exercise_id)}>+ set</button>
 				</div>
-				<button type="button" class="add-set-btn" onclick={() => addSet(ex.exercise_id)}>
-					+ Add set
-				</button>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/each}
 </div>
 
 <style>
-	.exercise-list {
+	.session-table {
 		display: grid;
+		gap: 0;
+	}
+
+	.row {
+		display: grid;
+		grid-template-columns: 16px 1fr auto auto;
+		align-items: baseline;
 		gap: 10px;
+		padding: 9px 2px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 	}
 
-	.exercise-block {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		padding: 10px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
+	.row.head {
+		padding: 4px 2px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 	}
 
-	.ex-header-row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-
-	.ex-name {
-		color: #c5d8e4;
-		font-size: 13px;
-		font-weight: 500;
-	}
-
-	.scheme-badge {
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: #6b8292;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 4px;
-		padding: 2px 6px;
-	}
-
-	.ex-detail {
-		color: #6b8292;
-		font-size: 11px;
-		line-height: 1.4;
-	}
-
-	/* ── Per-set grid ──────────────────────────────────────────────────────── */
-	.set-table {
-		display: grid;
-		gap: 3px;
-	}
-
-	.set-header-row,
-	.set-data-row {
-		display: grid;
-		grid-template-columns: 28px 1fr 1fr 1fr;
-		gap: 6px;
-		align-items: center;
-	}
-
-	.set-header-row {
-		padding: 0 2px 2px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-	}
-
-	.col-set,
-	.col-num {
+	.row.head span {
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: #4a5568;
-		text-align: center;
 	}
 
-	.set-num {
+	.dot {
+		color: #3a4658;
+		font-size: 9px;
+		line-height: 1;
+	}
+	.row.anchor .dot {
+		color: #d9a441;
+	}
+
+	.col-ex {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 6px;
+		min-width: 0;
+	}
+	.ex-name {
+		color: #c5d8e4;
+		font-size: 13.5px;
+		font-weight: 500;
+	}
+	.row.anchor .ex-name {
+		color: #eef5f8;
+		font-weight: 600;
+	}
+	.anchor-tag {
+		font-family: 'DM Mono', monospace;
+		font-size: 9px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #d9a441;
+		background: rgba(217, 164, 65, 0.12);
+		border-radius: 4px;
+		padding: 1px 5px;
+	}
+	.cue {
+		flex-basis: 100%;
+		color: #6b8292;
+		font-size: 11px;
+		line-height: 1.3;
+	}
+
+	.col-tgt {
+		text-align: right;
+		white-space: nowrap;
+		color: #eef5f8;
+		font-size: 13.5px;
+		font-variant-numeric: tabular-nums;
+	}
+	/* Structured reps + a visually-hidden "sets×reps" for screen readers; the sighted
+	   value shows sets via the reps element's ::before to keep tabular alignment simple. */
+	.tgt-main {
+		font-weight: 700;
+	}
+	.load {
+		color: #8fa3b0;
+		font-size: 12.5px;
+		margin-left: 3px;
+	}
+
+	.col-last {
+		text-align: right;
+		white-space: nowrap;
+		color: #8fa3b0;
+		font-size: 12.5px;
+		font-variant-numeric: tabular-nums;
+		min-width: 44px;
+	}
+
+	/* ── Compact per-set log panel (secondary) ─────────────────────────────────── */
+	.log-panel {
+		padding: 6px 2px 10px 26px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+	}
+	.set-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		align-items: flex-start;
+	}
+	.set-line {
+		display: grid;
+		grid-template-columns: 18px 56px 56px 56px;
+		gap: 6px;
+		align-items: center;
+	}
+	.set-n {
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		color: #4a5568;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
 	}
-
 	.set-input {
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		background: rgba(8, 15, 24, 0.7);
 		color: #eef5f8;
 		border-radius: 6px;
-		padding: 5px 6px;
+		padding: 4px 6px;
 		font: inherit;
-		font-size: 13px;
+		font-size: 12px;
 		font-family: 'DM Mono', monospace;
 		font-variant-numeric: tabular-nums;
 		text-align: center;
@@ -258,21 +330,20 @@
 		appearance: textfield;
 		-moz-appearance: textfield;
 	}
-
 	.set-input::-webkit-outer-spin-button,
 	.set-input::-webkit-inner-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
-
+	.set-input::placeholder {
+		color: #3a4658;
+	}
 	.set-input:focus {
 		outline: none;
 		border-color: rgba(74, 144, 217, 0.4);
 	}
-
 	.add-set-btn {
-		align-self: flex-start;
-		padding: 4px 10px;
+		padding: 3px 9px;
 		border-radius: 6px;
 		border: 1px dashed rgba(255, 255, 255, 0.12);
 		background: transparent;
@@ -280,13 +351,9 @@
 		font: inherit;
 		font-size: 11px;
 		font-family: 'DM Mono', monospace;
-		letter-spacing: 0.06em;
 		cursor: pointer;
-		transition:
-			color 0.15s,
-			border-color 0.15s;
+		transition: color 0.15s, border-color 0.15s;
 	}
-
 	.add-set-btn:hover {
 		color: #c5d8e4;
 		border-color: rgba(255, 255, 255, 0.25);
