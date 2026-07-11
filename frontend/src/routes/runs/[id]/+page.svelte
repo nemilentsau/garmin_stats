@@ -204,7 +204,7 @@
 			rows.push({
 				key: 'hr',
 				title: 'Heart Rate',
-				footnote: `avg ${fmtNum(session.avg_heart_rate_bpm)} · max ${fmtNum(session.max_heart_rate_bpm)} bpm${session.hr_source ? ` (${session.hr_source})` : ''}`,
+				footnote: `avg ${fmtNum(session.avg_heart_rate_bpm)} · max ${fmtNum(session.max_heart_rate_bpm)} bpm${hrBadgeLabel(session.hr_source) ? ` (${hrBadgeLabel(session.hr_source)})` : ''}`,
 				config: channelConfig('Heart Rate', s.heart_rate_bpm, COLORS.heartRate, {
 					area: true,
 					unit: 'bpm',
@@ -394,7 +394,7 @@
 			const rows: StatRow[] = [
 				{ label: 'Avg HR', value: fmtU0(s.avg_heart_rate_bpm, 'bpm') },
 				{ label: 'Max HR', value: fmtU0(s.max_heart_rate_bpm, 'bpm') },
-				{ label: 'Source', value: s.hr_source ?? '—' }
+				{ label: 'Source', value: hrBadgeLabel(s.hr_source) ?? '—' }
 			];
 			if (s.hr_strap_battery != null) rows.push({ label: 'Strap Battery', value: s.hr_strap_battery });
 			groups.push({ title: 'Heart Rate', rows });

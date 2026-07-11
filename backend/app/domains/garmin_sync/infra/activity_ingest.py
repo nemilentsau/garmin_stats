@@ -9,7 +9,9 @@ fingerprint-equality skip but not this per-file dedup). Parsing itself belongs
 to garmin_health's ``fit_parser``; this module only orchestrates and persists,
 tolerating a per-file parse failure so one corrupt download never blocks the
 rest of the batch. Invalidates the read cache only when rows were actually
-written, never on a skip or an all-failed batch.
+written, never on a skip or an all-failed batch. Because the fingerprint is
+written even when some files failed to parse, a file that fails once is not
+retried until the activities tree fingerprint changes (i.e. any new download).
 """
 
 from __future__ import annotations

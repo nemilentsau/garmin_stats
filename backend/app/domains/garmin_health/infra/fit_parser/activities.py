@@ -51,6 +51,9 @@ def parse_running_activity(fit_path: Path, activities_dir: Path) -> RunningActiv
     laps = _extract_run_laps(messages)
     series = _extract_run_series(messages)
     session.lap_count = len(laps)
+    # record_count relies on the extractor's 1:1 record↔row alignment: every
+    # column in series is appended once per record (positional nulls, never
+    # dropped rows), so any one column's length is the true record count.
     session.record_count = len(series.elapsed_s)
     session.has_gps_trace = any(v is not None for v in series.lat)
     return RunningActivityData(session=session, laps=laps, series=series)

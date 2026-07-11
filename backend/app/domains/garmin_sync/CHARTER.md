@@ -3,7 +3,8 @@
 **Status:** partial — wellness ingest/download is shipped; running-activity
 download + parse is shipped and wired into `workflows.sync_garmin` and startup
 reconciliation; associating parsed sessions with routine/experiment cards is
-pending, and there is no read API over the new tables.
+pending. The read API over the new tables lives in `garmin_analytics`
+(`/api/activities/runs*`), not in this domain.
 **Boundary source of truth for this domain. Update in the same PR that changes the domain.**
 
 `garmin_sync` is a data-acquisition capability, not a business domain. It keeps the

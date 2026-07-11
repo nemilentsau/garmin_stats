@@ -34,7 +34,7 @@ def _cadence_spm(value: float | None, fractional: float | None) -> float | None:
 
 
 def _pace_min_per_km(timer_s: float | None, distance_m: float | None) -> float | None:
-    """Pace: timer time / distance; returns min/km or None if distance is zero/missing."""
+    """Pace: timer time / distance; returns min/km or None if timer or distance is zero/missing."""
     if not timer_s or not distance_m or distance_m <= 0:
         return None
     return round(timer_s / 60 / (distance_m / 1000), 2)

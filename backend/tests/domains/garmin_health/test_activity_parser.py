@@ -413,9 +413,7 @@ class TestDiscoveryAndComposition:
         files = discover_running_activity_files(tmp_path / "does_not_exist")
         assert files == []
 
-    def test_unreadable_sidecar_warns_and_parses_with_sidecar_none(
-        self, tmp_path, monkeypatch, caplog
-    ):
+    def test_unreadable_sidecar_warns_and_parses_with_sidecar_none(self, tmp_path, monkeypatch):
         monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: FULL_MESSAGES)
         fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
         # Overwrite sidecar with invalid JSON
