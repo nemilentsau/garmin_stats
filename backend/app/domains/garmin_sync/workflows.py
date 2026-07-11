@@ -6,9 +6,12 @@ affected dates. Filesystem, Garmin, clock, ingest, and watcher operations are
 injected so this module stays policy-only.
 
 Sync also sweeps a short activity window (the wellness range plus a lookback for
-late uploads) to download any new Garmin Connect activity FIT files. The
-activities tree is neither watched nor ingested, so that sweep runs outside
-watcher suspension and does not affect wellness ingest counters.
+late uploads) to download any new Garmin Connect activity FIT files, then runs
+the running-activity ingest immediately after that sweep so newly downloaded
+sessions land in `running_activity_*` within the same sync call. The activities
+tree is neither watched nor incrementally ingested by date, so both the sweep
+and the ingest run outside watcher suspension and do not affect wellness ingest
+counters.
 """
 
 from __future__ import annotations
@@ -93,6 +96,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     activities_downloaded, activities_skipped, activities_failed = _sync_activities(
         deps, client, activity_days
     )
+    runs_result = deps.ingest.ingest_running_activities(deps.activities_dir)
 
     duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(
@@ -105,6 +109,8 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         activities_downloaded=activities_downloaded,
         activities_skipped=activities_skipped,
         activities_failed=activities_failed,
+        runs_ingested=runs_result.sessions_ingested,
+        runs_ingest_failed=runs_result.files_failed,
     )
 
 

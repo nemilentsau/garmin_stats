@@ -6,7 +6,11 @@ from pathlib import Path
 from watchfiles import Change
 
 import app.domains.garmin_sync.infra.watcher as watcher_mod
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
+from app.domains.garmin_sync.contracts import (
+    IngestResult,
+    IngestStatus,
+    RunningActivityIngestResult,
+)
 
 
 class _FakeIngest:
@@ -22,6 +26,11 @@ class _FakeIngest:
 
     def ingest_dates(self, data_dir: Path, dates: list[str]) -> IngestResult:
         raise AssertionError("ingest_dates should not be used by watcher")
+
+    def ingest_running_activities(
+        self, activities_dir: Path, force: bool = False
+    ) -> RunningActivityIngestResult:
+        raise AssertionError("ingest_running_activities should not be used by watcher")
 
 
 def test_changed_archive_extracts_ingests_refreshes_and_broadcasts(tmp_path):

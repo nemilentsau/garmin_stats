@@ -13,7 +13,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
+from app.domains.garmin_sync.contracts import (
+    IngestResult,
+    IngestStatus,
+    RunningActivityIngestResult,
+)
 
 DownloadOutcome = Literal["downloaded", "skipped", "failed"]
 ArchiveExtractor = Callable[[Path], int]
@@ -30,6 +34,10 @@ class IngestGateway(Protocol):
     def ingest_all(self, data_dir: Path) -> IngestResult: ...
 
     def ingest_dates(self, data_dir: Path, dates: list[str]) -> IngestResult: ...
+
+    def ingest_running_activities(
+        self, activities_dir: Path, force: bool = False
+    ) -> RunningActivityIngestResult: ...
 
 
 @dataclass(frozen=True)

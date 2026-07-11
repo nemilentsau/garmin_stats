@@ -13,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
+from app.domains.garmin_sync.contracts import (
+    IngestResult,
+    IngestStatus,
+    RunningActivityIngestResult,
+)
 from app.domains.garmin_sync.dependencies import ActivityRef, GarminSyncDependencies
 from app.domains.garmin_sync.workflows import (
     _plan_activity_dates,
@@ -36,6 +40,8 @@ class FakeIngestGateway:
         self.ingest_dates_result = IngestResult(days_ingested=1, duration_ms=25)
         self.ingest_dates_error: RuntimeError | None = None
         self.calls: list[tuple[str, Path, list[str] | None]] = []
+        self.running_result = RunningActivityIngestResult(sessions_ingested=2)
+        self.running_calls: list[Path] = []
 
     def check_status(self, data_dir: Path) -> IngestStatus:
         self.calls.append(("status", data_dir, None))
@@ -50,6 +56,12 @@ class FakeIngestGateway:
         if self.ingest_dates_error is not None:
             raise self.ingest_dates_error
         return self.ingest_dates_result
+
+    def ingest_running_activities(
+        self, activities_dir: Path, force: bool = False
+    ) -> RunningActivityIngestResult:
+        self.running_calls.append(activities_dir)
+        return self.running_result
 
 
 class FakeGarminClient:
@@ -463,3 +475,23 @@ def test_plan_activity_dates_keeps_older_wellness_start():
 
     assert days[0] == date(2026, 3, 10)
     assert days[-1] == date(2026, 3, 15)
+
+
+def test_sync_ingests_running_activities_after_download(tmp_path: Path):
+    deps, ingest, *_ = _deps(tmp_path)
+
+    result = sync_garmin(deps)
+
+    assert ingest.running_calls == [deps.activities_dir]
+    assert result.runs_ingested == 2
+    assert result.runs_ingest_failed == 0
+
+
+def test_sync_threads_running_activity_failures_into_result(tmp_path: Path):
+    deps, ingest, *_ = _deps(tmp_path)
+    ingest.running_result = RunningActivityIngestResult(sessions_ingested=1, files_failed=3)
+
+    result = sync_garmin(deps)
+
+    assert result.runs_ingested == 1
+    assert result.runs_ingest_failed == 3

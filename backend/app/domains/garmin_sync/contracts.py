@@ -25,6 +25,8 @@ class SyncResult(DefaultsRequired):
     activities_downloaded: int
     activities_skipped: int
     activities_failed: int
+    runs_ingested: int = 0
+    runs_ingest_failed: int = 0
 
 
 class RunningActivityIngestResult(DefaultsRequired):
