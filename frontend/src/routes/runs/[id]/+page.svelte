@@ -361,18 +361,6 @@
 		};
 	});
 
-	let runWalkFootnote = $derived.by(() => {
-		const spans = series?.series.run_walk_spans ?? [];
-		if (spans.length === 0) return '';
-		const totals = new Map<string, number>();
-		for (const sp of spans) {
-			totals.set(sp.span_type, (totals.get(sp.span_type) ?? 0) + (sp.end_s - sp.start_s));
-		}
-		return SPAN_ORDER.filter((t) => totals.has(t))
-			.map((t) => `${t} ${fmtDuration(totals.get(t) ?? 0)}`)
-			.join(' · ');
-	});
-
 	// ── Stats panel: definition-list groups (no cards). A group renders only when at least
 	// one of its fields has a real value — e.g. no Power group on a run with no power meter. ──
 	type StatRow = { label: string; value: string };
@@ -589,7 +577,8 @@
 			</div>
 
 			{#if runWalkConfig}
-				<ChartCard title="Run / Walk" footnote={runWalkFootnote}>
+				<!-- Chart.js bar types don't model [start, end] floating-bar tuples; cast to satisfy type-checker. -->
+				<ChartCard title="Run / Walk">
 					<ChartCanvas type="bar" config={runWalkConfig as unknown as ChartConfiguration<'bar'>} height={90} />
 				</ChartCard>
 			{/if}
