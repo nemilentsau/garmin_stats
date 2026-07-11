@@ -120,6 +120,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.garmin_health.domain.daily",
     },
+    "backend/app/domains/garmin_sync/infra/activity_ingest.py": {
+        "app.domains.garmin_health.infra.fit_parser",
+    },
     "backend/app/domains/garmin_analytics/adapters.py": {
         GARMIN_HEALTH_CONTRACTS,
     },

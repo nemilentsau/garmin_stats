@@ -15,6 +15,7 @@ ALLOWLISTED_APP_INFRA_DATABASE_IMPORTERS = set()
 ALLOWLISTED_APP_INFRA_CACHE_IMPORTERS = {
     "backend/app/domains/journal/adapters.py",
     "backend/app/domains/garmin_sync/infra/sqlite_ingest.py",
+    "backend/app/domains/garmin_sync/infra/activity_ingest.py",
     "backend/app/domains/garmin_analytics/application/daily_aggregates.py",
     "backend/app/domains/garmin_analytics/application/metric_analysis.py",
     "backend/app/domains/garmin_analytics/adapters.py",
