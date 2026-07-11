@@ -228,6 +228,8 @@ Backend from the FastAPI OpenAPI schema (81 operations); frontend from `frontend
 | `/pulse-ox` | page |
 | `/respiration` | page |
 | `/routines/schedule` | page |
+| `/runs` | page |
+| `/runs/[id]` | page |
 | `/skin-temp` | page |
 | `/sleep` | page |
 | `/stress` | page |
