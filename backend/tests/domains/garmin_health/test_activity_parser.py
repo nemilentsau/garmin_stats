@@ -1,10 +1,12 @@
 """Running-activity parser tests: extraction rules, unit policy, hr_source."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
     _derive_utc_offset,
     _detect_hr_source,
+    _extract_run_laps,
+    _extract_run_series,
     _extract_run_session,
 )
 
@@ -202,3 +204,105 @@ class TestSessionExtraction:
         assert session.avg_heart_rate_bpm is None
         assert session.has_heart_rate is False
         assert session.time_in_zones is None
+
+
+def _record(ts_offset_s, **overrides):
+    base = {
+        "timestamp": START + timedelta(seconds=ts_offset_s),
+        "distance": 0.48,
+        "enhanced_speed": 3.1,
+        "enhanced_altitude": -21.6,
+        "heart_rate": 140,
+        "cadence": 88,
+        "fractional_cadence": 0.5,
+        "power": 410,
+        "step_length": 1067.0,
+        "vertical_oscillation": 80.1,
+        "vertical_ratio": 7.5,
+        "stance_time": 252.0,
+        "temperature": 31,
+        "position_lat": 485817669,
+        "position_long": -883343073,
+    }
+    base.update(overrides)
+    return base
+
+
+class TestSeriesExtraction:
+    def test_column_arrays_preserve_positional_nulls_and_units(self):
+        messages = {
+            "record_mesgs": [
+                _record(0),
+                _record(1, stance_time=None, step_length=None, heart_rate=None),
+            ],
+            "split_mesgs": [
+                {
+                    "split_type": "rwd_run",
+                    "start_time": START,
+                    "end_time": START + timedelta(seconds=90),
+                },
+                {
+                    "split_type": "rwd_stand",
+                    "start_time": START + timedelta(seconds=90),
+                    "end_time": START + timedelta(seconds=100),
+                },
+                {"split_type": "interval_active", "start_time": START, "end_time": START},
+            ],
+        }
+        series = _extract_run_series(messages)
+        assert series.elapsed_s == [0, 1]
+        assert series.cadence_spm == [177.0, 177.0]  # (88 + 0.5) * 2
+        assert series.heart_rate_bpm == [140, None]
+        assert series.stance_time_ms == [252.0, None]
+        assert series.lat[0] == round(485817669 * (180 / 2**31), 7)
+        assert [s.span_type for s in series.run_walk_spans] == ["run", "stand"]
+        assert series.run_walk_spans[0].end_s == 90.0
+
+    def test_empty_records_yield_empty_series(self):
+        series = _extract_run_series({})
+        assert series.elapsed_s == []
+        assert series.run_walk_spans == []
+
+
+class TestLapExtraction:
+    def test_laps_carry_dynamics_and_pace(self):
+        messages = {
+            "session_mesgs": [SESSION_MSG],
+            "lap_mesgs": [
+                {
+                    "message_index": 0,
+                    "start_time": START,
+                    "total_timer_time": 542.718,
+                    "total_elapsed_time": 584.572,
+                    "total_distance": 1609.34,
+                    "enhanced_avg_speed": 2.965,
+                    "enhanced_max_speed": 3.368,
+                    "avg_heart_rate": 122,
+                    "max_heart_rate": 143,
+                    "avg_power": 383,
+                    "max_power": 470,
+                    "normalized_power": 395,
+                    "avg_running_cadence": 82,
+                    "avg_fractional_cadence": 0.0859375,
+                    "max_running_cadence": 91,
+                    "max_fractional_cadence": 0.0,
+                    "avg_stance_time": 258.8,
+                    "avg_step_length": 1064.1,
+                    "avg_vertical_oscillation": 82.2,
+                    "avg_vertical_ratio": 7.77,
+                    "total_ascent": 2,
+                    "total_descent": 1,
+                    "total_calories": 132,
+                    "intensity": "interval",
+                    "lap_trigger": "distance",
+                }
+            ],
+        }
+        laps = _extract_run_laps(messages)
+        assert len(laps) == 1
+        lap = laps[0]
+        assert lap.lap_index == 0
+        assert lap.start_s == 0.0
+        assert lap.pace_min_per_km == round(542.718 / 60 / 1.60934, 2)
+        assert lap.avg_cadence_spm == (82 + 0.0859375) * 2
+        assert lap.avg_ground_contact_time_ms == 258.8

@@ -11,8 +11,11 @@ every rule testable with synthetic dicts.
 from datetime import datetime, timedelta
 
 from app.domains.garmin_health.contracts import (
+    RunningActivityLap,
+    RunningActivitySeries,
     RunningActivitySession,
     RunningTimeInZones,
+    RunWalkSpan,
 )
 
 _SEMICIRCLE_TO_DEG = 180 / 2**31
@@ -187,3 +190,97 @@ def _extract_run_session(
         has_power=fit.get("avg_power") is not None,
         has_running_dynamics=fit.get("avg_stance_time") is not None,
     )
+
+
+_RWD_SPAN_TYPES = {"rwd_run": "run", "rwd_walk": "walk", "rwd_stand": "stand"}
+
+
+def _extract_run_laps(messages: dict) -> list[RunningActivityLap]:
+    session = (messages.get("session_mesgs") or [{}])[0]
+    session_start = session.get("start_time")
+    laps: list[RunningActivityLap] = []
+    for i, msg in enumerate(messages.get("lap_mesgs", [])):
+        start = msg.get("start_time")
+        start_s = (
+            (start - session_start).total_seconds()
+            if start is not None and session_start is not None
+            else None
+        )
+        avg_cadence = _cadence_spm(
+            msg.get("avg_running_cadence"), msg.get("avg_fractional_cadence")
+        )
+        max_cadence = _cadence_spm(
+            msg.get("max_running_cadence"), msg.get("max_fractional_cadence")
+        )
+        pace = _pace_min_per_km(
+            msg.get("total_timer_time"), msg.get("total_distance")
+        )
+        laps.append(
+            RunningActivityLap(
+                lap_index=msg.get("message_index", i),
+                start_s=start_s,
+                timer_time_s=msg.get("total_timer_time"),
+                elapsed_time_s=msg.get("total_elapsed_time"),
+                distance_m=msg.get("total_distance"),
+                pace_min_per_km=pace,
+                avg_speed_mps=msg.get("enhanced_avg_speed"),
+                max_speed_mps=msg.get("enhanced_max_speed"),
+                avg_heart_rate_bpm=msg.get("avg_heart_rate"),
+                max_heart_rate_bpm=msg.get("max_heart_rate"),
+                avg_power_w=msg.get("avg_power"),
+                max_power_w=msg.get("max_power"),
+                normalized_power_w=msg.get("normalized_power"),
+                avg_cadence_spm=avg_cadence,
+                max_cadence_spm=max_cadence,
+                avg_step_length_mm=msg.get("avg_step_length"),
+                avg_vertical_oscillation_mm=msg.get("avg_vertical_oscillation"),
+                avg_vertical_ratio_pct=msg.get("avg_vertical_ratio"),
+                avg_ground_contact_time_ms=msg.get("avg_stance_time"),
+                total_ascent_m=msg.get("total_ascent"),
+                total_descent_m=msg.get("total_descent"),
+                total_calories=msg.get("total_calories"),
+                intensity=msg.get("intensity"),
+                lap_trigger=msg.get("lap_trigger"),
+            )
+        )
+    return laps
+
+
+def _extract_run_series(messages: dict) -> RunningActivitySeries:
+    records = messages.get("record_mesgs", [])
+    series = RunningActivitySeries()
+    if records:
+        start_ts = records[0]["timestamp"]
+        for msg in records:
+            elapsed = int((msg["timestamp"] - start_ts).total_seconds())
+            series.elapsed_s.append(elapsed)
+            series.distance_m.append(msg.get("distance"))
+            series.speed_mps.append(msg.get("enhanced_speed"))
+            series.altitude_m.append(msg.get("enhanced_altitude"))
+            series.heart_rate_bpm.append(msg.get("heart_rate"))
+            cadence = _cadence_spm(
+                msg.get("cadence"), msg.get("fractional_cadence")
+            )
+            series.cadence_spm.append(cadence)
+            series.power_w.append(msg.get("power"))
+            series.step_length_mm.append(msg.get("step_length"))
+            series.vertical_oscillation_mm.append(msg.get("vertical_oscillation"))
+            series.vertical_ratio_pct.append(msg.get("vertical_ratio"))
+            series.stance_time_ms.append(msg.get("stance_time"))
+            series.temperature_c.append(msg.get("temperature"))
+            series.lat.append(_semicircles_to_deg(msg.get("position_lat")))
+            series.lon.append(_semicircles_to_deg(msg.get("position_long")))
+        for msg in messages.get("split_mesgs", []):
+            span_type = _RWD_SPAN_TYPES.get(msg.get("split_type"))
+            start_time = msg.get("start_time")
+            end_time = msg.get("end_time")
+            if span_type is None or start_time is None or end_time is None:
+                continue
+            series.run_walk_spans.append(
+                RunWalkSpan(
+                    span_type=span_type,
+                    start_s=(start_time - start_ts).total_seconds(),
+                    end_s=(end_time - start_ts).total_seconds(),
+                )
+            )
+    return series
