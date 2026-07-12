@@ -27,6 +27,17 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/artifacts/contracts.py": {
         "app.domains.routines.contracts",
     },
+    "backend/app/domains/coach/read_gateway.py": {
+        "app.domains.garmin_analytics.application",
+        "app.domains.garmin_analytics.application.dependencies",
+        "app.domains.garmin_analytics.contracts",
+        GARMIN_HEALTH_CONTRACTS,
+        "app.domains.journal.contracts",
+        "app.domains.journal.dependencies",
+        "app.domains.training.application",
+        "app.domains.training.contracts",
+        "app.domains.training.dependencies",
+    },
     "backend/app/domains/experiments/application/management.py": {
         "app.domains.routines.dependencies",
     },

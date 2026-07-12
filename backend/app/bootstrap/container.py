@@ -9,6 +9,8 @@ from app.bootstrap.run_activity_port import GarminRunActivityPort
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.adapters import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
+from app.domains.coach.adapters import SqliteCoachRepository
+from app.domains.coach.read_gateway import CoachReadGateway
 from app.domains.experiments.adapters import SqliteExperimentRepository
 from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.experiments.read_sources import ExperimentReadSource
@@ -29,6 +31,8 @@ from app.domains.training.adapters import SqliteTrainingRepository
 class AppContainer:
     config: AppConfig
     artifacts_repo: SqliteArtifactRepository
+    coach_repo: SqliteCoachRepository
+    coach_gateway: CoachReadGateway
     garmin_biometrics_repo: SqliteBiometricRepository
     garmin_runs_repo: SqliteRunsRepository
     journal_repo: SqliteJournalRepository
@@ -53,6 +57,8 @@ def build_container() -> AppContainer:
     garmin_biometrics_repo = SqliteBiometricRepository()
     garmin_runs_repo = SqliteRunsRepository()
     journal_repo = SqliteJournalRepository()
+    training_repo = SqliteTrainingRepository()
+    training_run_activity_port = GarminRunActivityPort(garmin_runs_repo)
     experiments_read_source = ExperimentReadSource(
         biometric_repo=garmin_biometrics_repo,
         journal_repo=journal_repo,
@@ -61,14 +67,22 @@ def build_container() -> AppContainer:
     return AppContainer(
         config=config,
         artifacts_repo=SqliteArtifactRepository(),
+        coach_repo=SqliteCoachRepository(),
+        coach_gateway=CoachReadGateway(
+            runs_repo=garmin_runs_repo,
+            biometrics_repo=garmin_biometrics_repo,
+            training_repo=training_repo,
+            run_activity_port=training_run_activity_port,
+            journal_repo=journal_repo,
+        ),
         garmin_biometrics_repo=garmin_biometrics_repo,
         garmin_runs_repo=garmin_runs_repo,
         journal_repo=journal_repo,
         profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
-        training_repo=SqliteTrainingRepository(),
-        training_run_activity_port=GarminRunActivityPort(garmin_runs_repo),
+        training_repo=training_repo,
+        training_run_activity_port=training_run_activity_port,
         experiments_repo=experiments_repo,
         experiments_read_source=experiments_read_source,
         experiment_exposure_sync=ExperimentExposureSyncService(
