@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (81 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (76 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -32,11 +32,6 @@ Backend from the FastAPI OpenAPI schema (81 operations); frontend from `frontend
 | POST | `/api/assistant/artifacts` | Post Artifact |
 | GET | `/api/assistant/artifacts/{artifact_id}` | Get Artifact Detail |
 | POST | `/api/assistant/artifacts/{artifact_id}/activate` | Post Activate Artifact |
-| GET | `/api/assistant/threads` | Get Threads |
-| POST | `/api/assistant/threads` | Post Thread |
-| GET | `/api/assistant/threads/{thread_id}` | Get Thread Detail |
-| GET | `/api/assistant/threads/{thread_id}/messages` | Get Thread Messages |
-| POST | `/api/assistant/threads/{thread_id}/messages` | Post Thread Message |
 
 ### `body-battery`
 
@@ -219,7 +214,6 @@ Backend from the FastAPI OpenAPI schema (81 operations); frontend from `frontend
 | Route | Kind |
 |---|---|
 | `/` | page |
-| `/assistant` | page |
 | `/body-battery` | page |
 | `/experiments` | page |
 | `/heart-rate` | page |

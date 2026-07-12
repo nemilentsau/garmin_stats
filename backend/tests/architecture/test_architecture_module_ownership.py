@@ -11,7 +11,6 @@ from tests._architecture import read_repo_file
 
 # module label -> repo-relative path of its colocated charter
 MODULE_CHARTERS = {
-    "assistant": "backend/app/domains/assistant/CHARTER.md",
     "routines": "backend/app/domains/routines/CHARTER.md",
     "garmin_sync": "backend/app/domains/garmin_sync/CHARTER.md",
     "garmin_health": "backend/app/domains/garmin_health/CHARTER.md",

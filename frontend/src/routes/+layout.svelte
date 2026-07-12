@@ -37,11 +37,6 @@
 				{ href: '/programs', label: 'Programs' },
 				{ href: '/training/import', label: 'Import' }
 			]
-		},
-		{
-			label: 'Assistant',
-			href: '/assistant',
-			subtabs: []
 		}
 	];
 

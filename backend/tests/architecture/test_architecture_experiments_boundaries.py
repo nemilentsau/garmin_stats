@@ -133,12 +133,6 @@ def test_migrated_experiment_router_shims_are_removed():
         assert not (REPO_ROOT / path).exists()
 
 
-def test_assistant_reads_experiment_analysis_through_domain_service():
-    source = read_repo_file("backend/app/domains/assistant/read_gateway.py")
-    assert "domains.experiments.application.analysis_cache" in source
-    assert "load_experiment_analysis" not in source
-
-
 def test_experiment_persistence_adapter_does_not_import_read_model_adapters():
     source = read_repo_file("backend/app/domains/experiments/adapters.py")
 

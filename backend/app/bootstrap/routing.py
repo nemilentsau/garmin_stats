@@ -8,7 +8,6 @@ from app.domains.artifacts.routes import (
     assistant_artifacts_router,
     cards_router,
 )
-from app.domains.assistant.routes import router as assistant_router
 from app.domains.experiments.routes import experiments_router, target_metrics_router
 from app.domains.garmin_analytics.routes import (
     body_battery_router,
@@ -46,7 +45,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(pulse_ox_router)
     app.include_router(runs_router)
     app.include_router(events_router)
-    app.include_router(assistant_router)
     app.include_router(assistant_artifact_bundles_router)
     app.include_router(assistant_artifacts_router)
     app.include_router(cards_router)

@@ -78,12 +78,6 @@ export type AssistantArtifactsResponse = Schemas['AssistantArtifactsResponse'];
 export type ArtifactBundleSpec = Schemas['ArtifactBundleSpec'];
 export type ArtifactBundlePreviewResponse = Schemas['ArtifactBundlePreviewResponse'];
 export type ArtifactBundleImportResponse = Schemas['ArtifactBundleImportResponse'];
-export type AssistantThread = Schemas['AssistantThread'];
-export type AssistantThreadInput = Schemas['AssistantThreadCreateRequest'];
-export type AssistantThreadsResponse = Schemas['AssistantThreadsResponse'];
-export type AssistantMessage = Schemas['AssistantMessage'];
-export type AssistantMessageInput = Schemas['AssistantMessageCreateRequest'];
-export type AssistantMessagesResponse = Schemas['AssistantMessagesResponse'];
 export type CardTemplate = Schemas['CardTemplate'];
 export type CardTemplatesResponse = Schemas['CardTemplatesResponse'];
 export type CardLog = Schemas['CardLog'];
@@ -322,9 +316,6 @@ export const api = {
 	getTargetMetrics: async () => {
 		return unwrapResponse(client.GET('/api/target-metrics'));
 	},
-	getAssistantThreads: async () => {
-		return unwrapResponse(client.GET('/api/assistant/threads'));
-	},
 	getAssistantArtifacts: async (params?: { kind?: string; status?: string }) => {
 		return unwrapResponse(client.GET('/api/assistant/artifacts', {
 			params: { query: params ?? {} }
@@ -346,14 +337,6 @@ export const api = {
 	importAssistantArtifactBundle: async (bundle: ArtifactBundleSpec) => {
 		return unwrapResponse(client.POST('/api/assistant/artifact-bundles/import', {
 			body: bundle
-		}));
-	},
-	createAssistantThread: async (thread: AssistantThreadInput) => {
-		return unwrapResponse(client.POST('/api/assistant/threads', { body: thread }));
-	},
-	getAssistantThreadMessages: async (threadId: string) => {
-		return unwrapResponse(client.GET('/api/assistant/threads/{thread_id}/messages', {
-			params: { path: { thread_id: threadId } }
 		}));
 	},
 	getPrograms: async (status?: 'active' | 'retired') => {

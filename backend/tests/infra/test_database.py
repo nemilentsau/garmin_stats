@@ -4,7 +4,6 @@ import app.domains.routines.adapters as routine_db
 import app.infra.sqlite as sqlite
 from app.core.profile.adapters import SqliteProfileRepository
 from app.core.profile.contracts import UserProfile
-from app.domains.assistant.contracts import AssistantThread, AssistantThreadsResponse
 from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -38,9 +37,6 @@ class TestInit:
         assert "daily_metrics" in tables
         assert "ingest_meta" in tables
         assert "user_profile" in tables
-        assert "assistant_threads" in tables
-        assert "assistant_evidence_bundles" in tables
-        assert "assistant_memory_records" in tables
         assert "assistant_artifacts" in tables
         assert "card_templates" in tables
         assert "routine_schedules" in tables
@@ -74,7 +70,6 @@ class TestInit:
             "wellness_data",
             "ingest_meta",
             "user_profile",
-            "assistant_messages",
             "routine_assignments",
             "experiment_exposures",
             "assistant_artifacts",
@@ -220,24 +215,3 @@ class TestCardOverridesRange:
             individual_results.extend(routine_db.load_card_overrides_range(date, date))
 
         assert [o.id for o in range_result] == [o.id for o in individual_results]
-
-
-# ---------------------------------------------------------------------------
-# Auto-total response model (Task 2)
-# ---------------------------------------------------------------------------
-
-class TestAutoTotal:
-    def test_auto_total_computed_from_items(self):
-        response = AssistantThreadsResponse(
-            threads=[AssistantThread(id="thread-1", title="Recovery")],
-        )
-
-        assert response.total == 1
-
-    def test_explicit_total_is_respected(self):
-        response = AssistantThreadsResponse(
-            threads=[AssistantThread(id="thread-1", title="Recovery")],
-            total=42,
-        )
-
-        assert response.total == 42

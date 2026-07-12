@@ -71,48 +71,6 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
         "app.domains.journal.contracts",
         "app.domains.journal.dependencies",
     },
-    "backend/app/domains/assistant/dependencies.py": {
-        "app.core.profile.contracts",
-        "app.domains.experiments.contracts",
-        GARMIN_HEALTH_CONTRACTS,
-        "app.domains.journal.contracts",
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/assistant/application/entity_resolution.py": {
-        "app.domains.experiments.contracts",
-    },
-    "backend/app/domains/assistant/application/retrieval.py": {
-        "app.domains.experiments.contracts",
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/assistant/domain/current_state.py": {
-        GARMIN_HEALTH_CONTRACTS,
-        "app.domains.journal.contracts",
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/assistant/domain/experiment_evidence.py": {
-        "app.domains.experiments.contracts",
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/assistant/domain/payloads.py": {
-        "app.core.profile.contracts",
-        GARMIN_HEALTH_CONTRACTS,
-        "app.domains.journal.contracts",
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/assistant/read_gateway.py": {
-        "app.core.profile.contracts",
-        "app.core.profile.ports",
-        "app.domains.experiments.application.analysis_cache",
-        "app.domains.experiments.contracts",
-        "app.domains.experiments.dependencies",
-        "app.domains.garmin_analytics.application.dependencies",
-        GARMIN_HEALTH_CONTRACTS,
-        "app.domains.journal.contracts",
-        "app.domains.journal.dependencies",
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-    },
     "backend/app/domains/garmin_sync/infra/factory.py": {
         "app.core.config",
     },
