@@ -4753,7 +4753,9 @@ export interface components {
          *     conversion helpers in `application/runs.py` for the exact constants and
          *     rounding rule each field uses. `avg_ground_contact_balance_label` and the
          *     respiration fields are strap-only: they render as None when the run has
-         *     no chest-strap running dynamics (wrist-only runs).
+         *     no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
+         *     are watch-level (Firstbeat), not strap-dependent — pass-through, already
+         *     dimensionless ints, no conversion.
          */
         RunDisplayStats: {
             /** Distance Mi */
@@ -4788,6 +4790,12 @@ export interface components {
             max_respiration_rate_brpm: number | null;
             /** Min Respiration Rate Brpm */
             min_respiration_rate_brpm: number | null;
+            /** Stamina Beginning Potential Pct */
+            stamina_beginning_potential_pct: number | null;
+            /** Stamina Ending Potential Pct */
+            stamina_ending_potential_pct: number | null;
+            /** Stamina Min Pct */
+            stamina_min_pct: number | null;
             /**
              * Lap Display
              * @default []
@@ -4887,7 +4895,11 @@ export interface components {
          *     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
          *     `stance_time_pct` — live inside the embedded `series` object (already in
          *     native display units — balance %, brpm, % — no conversion applies); empty
-         *     on wrist-only runs, same as the imperial arrays above.
+         *     on wrist-only runs, same as the imperial arrays above. Stamina/performance-
+         *     condition arrays (`stamina_pct`/`stamina_potential_pct`/`performance_condition`)
+         *     likewise live only inside `series` — dimensionless ints, no imperial
+         *     conversion, no top-level duplicate (see commit 59abb86 for why: duplicating
+         *     embedded series data at the top level was tried and reverted).
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
@@ -5062,6 +5074,21 @@ export interface components {
              */
             stance_time_pct: (number | null)[];
             /**
+             * Stamina Pct
+             * @default []
+             */
+            stamina_pct: (number | null)[];
+            /**
+             * Stamina Potential Pct
+             * @default []
+             */
+            stamina_potential_pct: (number | null)[];
+            /**
+             * Performance Condition
+             * @default []
+             */
+            performance_condition: (number | null)[];
+            /**
              * Temperature C
              * @default []
              */
@@ -5172,6 +5199,12 @@ export interface components {
             max_respiration_rate_brpm: number | null;
             /** Min Respiration Rate Brpm */
             min_respiration_rate_brpm: number | null;
+            /** Stamina Beginning Potential Pct */
+            stamina_beginning_potential_pct: number | null;
+            /** Stamina Ending Potential Pct */
+            stamina_ending_potential_pct: number | null;
+            /** Stamina Min Pct */
+            stamina_min_pct: number | null;
             /** Avg Temperature C */
             avg_temperature_c: number | null;
             /** Min Temperature C */

@@ -12,7 +12,7 @@ import json
 import logging
 from pathlib import Path
 
-from app.domains.garmin_health.contracts import RunningActivityData
+from app.domains.garmin_health.contracts import RunningActivityData, RunningActivitySeries
 from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
     _extract_run_laps,
     _extract_run_series,
@@ -21,6 +21,22 @@ from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
 from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
 
 log = logging.getLogger(__name__)
+
+
+def _stamina_scalars(series: RunningActivitySeries) -> tuple[int | None, int | None, int | None]:
+    """Derive the Connect Stats-panel Stamina fields from the record series.
+
+    Beginning/Ending Potential are the first/last non-null stamina-potential
+    samples; Min Stamina is the minimum non-null stamina sample (stamina dips
+    below potential during the run, matching Connect's semantics). None-safe:
+    old watch firmware without stamina channels yields (None, None, None).
+    """
+    potential = [v for v in series.stamina_potential_pct if v is not None]
+    stamina = [v for v in series.stamina_pct if v is not None]
+    beginning = potential[0] if potential else None
+    ending = potential[-1] if potential else None
+    minimum = min(stamina) if stamina else None
+    return beginning, ending, minimum
 
 
 def discover_running_activity_files(activities_dir: Path) -> list[Path]:
@@ -56,6 +72,11 @@ def parse_running_activity(fit_path: Path, activities_dir: Path) -> RunningActiv
     # dropped rows), so any one column's length is the true record count.
     session.record_count = len(series.elapsed_s)
     session.has_gps_trace = any(v is not None for v in series.lat)
+    (
+        session.stamina_beginning_potential_pct,
+        session.stamina_ending_potential_pct,
+        session.stamina_min_pct,
+    ) = _stamina_scalars(series)
     return RunningActivityData(session=session, laps=laps, series=series)
 
 

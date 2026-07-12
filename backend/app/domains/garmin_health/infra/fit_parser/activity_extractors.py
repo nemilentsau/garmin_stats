@@ -283,6 +283,15 @@ def _extract_run_series(messages: dict) -> RunningActivitySeries:
             series.stance_time_balance_pct.append(msg.get("stance_time_balance"))
             series.respiration_rate_brpm.append(msg.get("enhanced_respiration_rate"))
             series.stance_time_pct.append(msg.get("stance_time_percent"))
+            # Undocumented numeric FIT fields: the SDK exposes these as int dict keys
+            # rather than named fields. 137 = stamina potential (ceiling, >= 138
+            # throughout), 138 = stamina (dips first, recovers toward potential), 90 =
+            # performance condition (sparse: absent for the first ~6-8min while Garmin
+            # baselines, then ~1/sec) — validated against Garmin Connect, see
+            # activity-messages.json.
+            series.stamina_potential_pct.append(msg.get(137))
+            series.stamina_pct.append(msg.get(138))
+            series.performance_condition.append(msg.get(90))
             series.temperature_c.append(msg.get("temperature"))
             series.lat.append(_semicircles_to_deg(msg.get("position_lat")))
             series.lon.append(_semicircles_to_deg(msg.get("position_long")))

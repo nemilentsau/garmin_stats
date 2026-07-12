@@ -154,6 +154,9 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         avg_respiration_rate_brpm=session.avg_respiration_rate_brpm,
         max_respiration_rate_brpm=session.max_respiration_rate_brpm,
         min_respiration_rate_brpm=session.min_respiration_rate_brpm,
+        stamina_beginning_potential_pct=session.stamina_beginning_potential_pct,
+        stamina_ending_potential_pct=session.stamina_ending_potential_pct,
+        stamina_min_pct=session.stamina_min_pct,
         lap_display=[
             LapDisplayRow(
                 lap_index=lap.lap_index,

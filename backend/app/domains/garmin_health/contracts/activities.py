@@ -80,6 +80,13 @@ class RunningActivitySession(DefaultsRequired):
     max_respiration_rate_brpm: float | None = None
     min_respiration_rate_brpm: float | None = None
 
+    # Firstbeat stamina (Connect Stats-panel "Stamina" group): begin/end read off
+    # stamina-potential (the ceiling), min reads off stamina itself (the dip). Derived
+    # at parse time from the record series — see parse_running_activity's post-fill.
+    stamina_beginning_potential_pct: int | None = None
+    stamina_ending_potential_pct: int | None = None
+    stamina_min_pct: int | None = None
+
     avg_temperature_c: float | None = None
     min_temperature_c: float | None = None
     max_temperature_c: float | None = None
@@ -172,6 +179,9 @@ class RunningActivitySeries(DefaultsRequired):
     stance_time_balance_pct: list[float | None] = []
     respiration_rate_brpm: list[float | None] = []
     stance_time_pct: list[float | None] = []
+    stamina_pct: list[int | None] = []
+    stamina_potential_pct: list[int | None] = []
+    performance_condition: list[int | None] = []
     temperature_c: list[float | None] = []
     lat: list[float | None] = []
     lon: list[float | None] = []

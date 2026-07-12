@@ -68,7 +68,9 @@ class RunDisplayStats(DefaultsRequired):
     conversion helpers in `application/runs.py` for the exact constants and
     rounding rule each field uses. `avg_ground_contact_balance_label` and the
     respiration fields are strap-only: they render as None when the run has
-    no chest-strap running dynamics (wrist-only runs).
+    no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
+    are watch-level (Firstbeat), not strap-dependent — pass-through, already
+    dimensionless ints, no conversion.
     """
 
     distance_mi: float | None = None
@@ -87,6 +89,9 @@ class RunDisplayStats(DefaultsRequired):
     avg_respiration_rate_brpm: float | None = None
     max_respiration_rate_brpm: float | None = None
     min_respiration_rate_brpm: float | None = None
+    stamina_beginning_potential_pct: int | None = None
+    stamina_ending_potential_pct: int | None = None
+    stamina_min_pct: int | None = None
     lap_display: list[LapDisplayRow] = []
 
 
@@ -111,7 +116,11 @@ class RunSeriesResponse(DefaultsRequired):
     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
     `stance_time_pct` — live inside the embedded `series` object (already in
     native display units — balance %, brpm, % — no conversion applies); empty
-    on wrist-only runs, same as the imperial arrays above.
+    on wrist-only runs, same as the imperial arrays above. Stamina/performance-
+    condition arrays (`stamina_pct`/`stamina_potential_pct`/`performance_condition`)
+    likewise live only inside `series` — dimensionless ints, no imperial
+    conversion, no top-level duplicate (see commit 59abb86 for why: duplicating
+    embedded series data at the top level was tried and reverted).
     """
 
     series: RunningActivitySeries

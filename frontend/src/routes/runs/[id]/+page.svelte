@@ -16,7 +16,7 @@
 		fmtMph,
 		fmtCm
 	} from '$lib/format-run';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import { COLORS, withAlpha, DARK_MUTED_TEXT } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import { tightScale } from '$lib/chart-scale';
 	import LineChart from '$lib/components/LineChart.svelte';
@@ -116,6 +116,8 @@
 			dots?: boolean;
 			unit?: string;
 			format?: (v: number) => string;
+			/** Solid reference line at y=0 (e.g. Performance Condition, which oscillates around a baseline). */
+			zeroLine?: boolean;
 		} = {}
 	): ChartConfiguration<'line'> {
 		const format = opts.format ?? ((v: number) => String(Math.round(v)));
@@ -155,7 +157,23 @@
 									? `${label}: —`
 									: `${label}: ${format(ctx.parsed.y)}${opts.unit ? ' ' + opts.unit : ''}`
 						}
-					}
+					},
+					...(opts.zeroLine
+						? {
+								annotation: {
+									annotations: {
+										zero: {
+											type: 'line' as const,
+											yMin: 0,
+											yMax: 0,
+											borderColor: '#4a5c6a',
+											borderWidth: 1,
+											borderDash: [4, 3]
+										}
+									}
+								}
+							}
+						: {})
 				},
 				scales: {
 					x: xScale,
@@ -165,6 +183,78 @@
 						reverse: opts.reverse ?? false,
 						title: opts.unit ? { display: true, text: opts.unit, ...DARK_TICK } : undefined,
 						ticks: { ...DARK_TICK, callback: (v: number | string) => format(Number(v)) },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	}
+
+	// ── Stamina chart: two datasets (stamina + its ceiling, potential) sharing one fixed
+	// 0-100 y-axis — a percentage-of-capacity gauge, the one deliberate exception to
+	// tightScale (Garmin renders this range fixed too, not data-hugging). Bypasses
+	// channelConfig since that builder only supports a single dataset. ──
+	function staminaConfig(
+		stamina: (number | null)[],
+		potential: (number | null)[]
+	): ChartConfiguration<'line'> {
+		return {
+			type: 'line',
+			data: {
+				labels: elapsedS,
+				datasets: [
+					{
+						label: 'Stamina',
+						data: stamina,
+						borderColor: COLORS.stamina,
+						backgroundColor: withAlpha(COLORS.stamina, '22'),
+						fill: true,
+						pointRadius: 0,
+						borderWidth: 1.5,
+						spanGaps: false
+					},
+					{
+						label: 'Potential',
+						data: potential,
+						borderColor: COLORS.staminaPotential,
+						backgroundColor: COLORS.staminaPotential,
+						fill: false,
+						pointRadius: 0,
+						borderWidth: 1.5,
+						borderDash: [4, 3],
+						spanGaps: false
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				animation: false,
+				interaction: { mode: 'nearest', axis: 'x', intersect: false },
+				plugins: {
+					legend: {
+						display: true,
+						labels: { boxWidth: 12, font: { size: 11 }, color: DARK_MUTED_TEXT }
+					},
+					tooltip: {
+						...chartTooltip(COLORS.stamina),
+						callbacks: {
+							title: (items) => fmtElapsed(elapsedS[items[0]?.dataIndex ?? 0] ?? 0),
+							label: (ctx) =>
+								ctx.parsed.y == null
+									? `${ctx.dataset.label}: —`
+									: `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}%`
+						}
+					}
+				},
+				scales: {
+					x: xScale,
+					y: {
+						min: 0,
+						max: 100,
+						title: { display: true, text: '%', ...DARK_TICK },
+						ticks: { ...DARK_TICK, callback: (v: number | string) => String(v) },
 						grid: DARK_GRID_Y,
 						border: DARK_BORDER
 					}
@@ -336,6 +426,29 @@
 			});
 		}
 
+		if (hasData(s.stamina_pct) || hasData(s.stamina_potential_pct)) {
+			rows.push({
+				key: 'stamina',
+				title: 'Stamina',
+				footnote: `beginning ${fmtNum(d.stamina_beginning_potential_pct)}% · ending ${fmtNum(d.stamina_ending_potential_pct)}% · min ${fmtNum(d.stamina_min_pct)}%`,
+				config: staminaConfig(s.stamina_pct, s.stamina_potential_pct)
+			});
+		}
+
+		if (hasData(s.performance_condition)) {
+			rows.push({
+				key: 'performanceCondition',
+				title: 'Performance Condition',
+				footnote: '',
+				config: channelConfig(
+					'Performance Condition',
+					s.performance_condition,
+					COLORS.performanceCondition,
+					{ dots: true, zeroLine: true, format: (v) => String(Math.round(v)) }
+				)
+			});
+		}
+
 		return rows;
 	});
 
@@ -478,6 +591,21 @@
 					{ label: 'Avg', value: fmtU1(d.avg_respiration_rate_brpm, 'brpm') },
 					{ label: 'Min', value: fmtU1(d.min_respiration_rate_brpm, 'brpm') },
 					{ label: 'Max', value: fmtU1(d.max_respiration_rate_brpm, 'brpm') }
+				]
+			});
+		}
+
+		if (
+			d.stamina_beginning_potential_pct != null ||
+			d.stamina_ending_potential_pct != null ||
+			d.stamina_min_pct != null
+		) {
+			groups.push({
+				title: 'Stamina',
+				rows: [
+					{ label: 'Beginning Potential', value: fmtU0(d.stamina_beginning_potential_pct, '%') },
+					{ label: 'Ending Potential', value: fmtU0(d.stamina_ending_potential_pct, '%') },
+					{ label: 'Min Stamina', value: fmtU0(d.stamina_min_pct, '%') }
 				]
 			});
 		}

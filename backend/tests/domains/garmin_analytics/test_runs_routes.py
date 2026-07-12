@@ -140,6 +140,9 @@ def test_run_detail_display_preserves_none_for_missing_metric_fields():
     assert display["avg_respiration_rate_brpm"] is None
     assert display["max_respiration_rate_brpm"] is None
     assert display["min_respiration_rate_brpm"] is None
+    assert display["stamina_beginning_potential_pct"] is None
+    assert display["stamina_ending_potential_pct"] is None
+    assert display["stamina_min_pct"] is None
 
     lap_display = display["lap_display"][0]
     assert lap_display["avg_ground_contact_balance_label"] is None
@@ -177,6 +180,24 @@ def test_run_detail_display_includes_strap_dynamics_for_strap_run():
     assert lap_display["avg_ground_contact_balance_label"] == "49.6% L / 50.4% R"
     assert lap_display["avg_respiration_rate_brpm"] == 33.42
     assert lap_display["avg_vertical_oscillation_cm"] == round(80.6 / 10, 1)
+
+
+def test_run_detail_display_includes_stamina_scalars_when_present():
+    """Stamina fields are watch-level (Firstbeat), not strap-dependent — present on
+    this run alongside no strap-dynamics data, unlike the strap-only fields above."""
+    insert_run(
+        "2026-07-10",
+        "wrist-run",
+        stamina_beginning_potential_pct=98,
+        stamina_ending_potential_pct=77,
+        stamina_min_pct=77,
+    )
+    body = client.get("/api/activities/runs/wrist-run").json()
+    display = body["display"]
+
+    assert display["stamina_beginning_potential_pct"] == 98
+    assert display["stamina_ending_potential_pct"] == 77
+    assert display["stamina_min_pct"] == 77
 
 
 def test_missing_run_is_404():
@@ -229,6 +250,35 @@ def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
     assert "stance_time_balance_pct" not in body
     assert "respiration_rate_brpm" not in body
     assert "stance_time_pct" not in body
+
+
+def test_series_passes_through_stamina_and_performance_condition_arrays():
+    """Stamina/potential/PC arrays live only inside the embedded series (no top-level
+    duplicate — the strap-dynamics duplication mistake reverted in commit 59abb86)."""
+    insert_run(
+        "2026-07-10",
+        "r2",
+        stamina_pct=[98, 90, 77],
+        stamina_potential_pct=[98, 95, 77],
+        performance_condition=[None, 1, 2],
+    )
+    body = client.get("/api/activities/runs/r2/series").json()
+    assert body["series"]["stamina_pct"] == [98, 90, 77]
+    assert body["series"]["stamina_potential_pct"] == [98, 95, 77]
+    assert body["series"]["performance_condition"] == [None, 1, 2]
+    assert "stamina_pct" not in body
+    assert "stamina_potential_pct" not in body
+    assert "performance_condition" not in body
+
+
+def test_series_stamina_arrays_absent_when_not_populated():
+    """A run with no stamina series data yields empty arrays inside the embedded
+    series (the model's `[]` default), matching the wrist-only-strap-dynamics pattern."""
+    insert_run("2026-07-10", "r2")
+    body = client.get("/api/activities/runs/r2/series").json()
+    assert body["series"]["stamina_pct"] == []
+    assert body["series"]["stamina_potential_pct"] == []
+    assert body["series"]["performance_condition"] == []
 
 
 def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():

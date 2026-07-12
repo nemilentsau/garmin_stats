@@ -31,6 +31,12 @@ def insert_run(
     stance_time_balance_pct: list[float | None] | None = None,
     respiration_rate_brpm: list[float | None] | None = None,
     stance_time_pct: list[float | None] | None = None,
+    stamina_beginning_potential_pct: int | None = None,
+    stamina_ending_potential_pct: int | None = None,
+    stamina_min_pct: int | None = None,
+    stamina_pct: list[int | None] | None = None,
+    stamina_potential_pct: list[int | None] | None = None,
+    performance_condition: list[int | None] | None = None,
     lap_avg_ground_contact_balance_pct: float | None = None,
     lap_avg_respiration_rate_brpm: float | None = None,
     lap_avg_vertical_oscillation_mm: float | None = None,
@@ -48,6 +54,15 @@ def insert_run(
     leaves those arrays at the model's `[]` default, matching a wrist-only
     run's absent strap dynamics). `lap_avg_*` kwargs apply the same lap-level
     strap-dynamics value to every generated lap.
+
+    `stamina_pct`/`stamina_potential_pct`/`performance_condition` series kwargs
+    behave the same way (default `None` leaves those arrays empty).
+    `stamina_beginning_potential_pct`/`stamina_ending_potential_pct`/
+    `stamina_min_pct` set the session-level derived scalars directly — the real
+    parser derives these from the series at parse time, but this helper writes
+    pre-derived values straight onto the stored session row (route tests exercise
+    the API pass-through, not the parser's derivation, which is covered in
+    `test_activity_parser.py`).
     """
     session = RunningActivitySession(
         id=run_id,
@@ -74,6 +89,9 @@ def insert_run(
         avg_respiration_rate_brpm=avg_respiration_rate_brpm,
         max_respiration_rate_brpm=max_respiration_rate_brpm,
         min_respiration_rate_brpm=min_respiration_rate_brpm,
+        stamina_beginning_potential_pct=stamina_beginning_potential_pct,
+        stamina_ending_potential_pct=stamina_ending_potential_pct,
+        stamina_min_pct=stamina_min_pct,
     )
     series_kwargs = {
         "elapsed_s": [0, 1, 2],
@@ -86,6 +104,12 @@ def insert_run(
         series_kwargs["respiration_rate_brpm"] = respiration_rate_brpm
     if stance_time_pct is not None:
         series_kwargs["stance_time_pct"] = stance_time_pct
+    if stamina_pct is not None:
+        series_kwargs["stamina_pct"] = stamina_pct
+    if stamina_potential_pct is not None:
+        series_kwargs["stamina_potential_pct"] = stamina_potential_pct
+    if performance_condition is not None:
+        series_kwargs["performance_condition"] = performance_condition
     series = RunningActivitySeries(**series_kwargs)
     now = datetime.now(UTC).isoformat()
     with connect() as con:

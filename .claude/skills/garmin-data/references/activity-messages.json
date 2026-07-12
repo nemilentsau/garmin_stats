@@ -13,13 +13,15 @@
   },
   "record_mesgs": {
     "status": "parsed",
-    "notes": "~1/sec. Sparser channels (stance_time, step_length, vertical_*) must preserve positional nulls.",
+    "notes": "~1/sec. Sparser channels (stance_time, step_length, vertical_*) must preserve positional nulls. Fields 90/137/138 are undocumented numeric FIT fields the SDK exposes as int dict keys (msg.get(137) etc.), not named fields.",
     "fields_extracted": ["timestamp", "distance", "enhanced_speed", "enhanced_altitude", "heart_rate", "cadence", "fractional_cadence", "power", "step_length", "vertical_oscillation", "vertical_ratio", "stance_time", "stance_time_balance", "enhanced_respiration_rate", "stance_time_percent", "temperature", "position_lat", "position_long"],
+    "fields_undocumented_numeric": {
+      "137": "stamina potential (0-100 int; the ceiling — always >= field 138; declines ~monotonically over the run). Validated 2026-07-11 against 3 Garmin Connect activities (Jun 27, Jul 5, Jul 10), 9/9 anchor values (begin/end/min) exact.",
+      "138": "stamina (0-100 int; dips first under effort, recovers back toward potential). Session-level Beginning/Ending Potential (from 137) and Min Stamina (from 138) match Connect's Stats-panel Stamina group exactly. Validated 2026-07-11, 9/9 anchors exact.",
+      "90": "performance condition (small int, roughly ±10, delta from baseline fitness). SPARSE: absent for the first ~6-8min while Garmin baselines, then ~1/sec. Validated 2026-07-11 against Connect's Performance Condition chart tooltips."
+    },
     "fields_undocumented": {
-      "90": "performance-condition candidate (n=2519/3060 in probe)",
       "134": "strap-era only; unknown (observed in strap runs; 100 in probe)",
-      "137": "stamina candidate (starts ~98)",
-      "138": "stamina-potential candidate (starts ~98)",
       "133, 135-136, 140, 143": "unknown; 136 tracked heart_rate in probe",
       "144": "strap-era only; unknown (observed in strap runs; 84 in probe)"
     }

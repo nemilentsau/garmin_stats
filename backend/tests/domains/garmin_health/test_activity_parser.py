@@ -250,7 +250,18 @@ class TestSessionExtraction:
         assert session.has_strap_dynamics is False
 
 
-def _record(ts_offset_s, **overrides):
+def _record(
+    ts_offset_s,
+    *,
+    stamina: int | None = 92,
+    stamina_potential: int | None = 92,
+    performance_condition: int | None = 1,
+    **overrides,
+):
+    """Base record dict. `stamina`/`stamina_potential`/`performance_condition` map to
+    the undocumented numeric FIT keys 138/137/90 (the SDK exposes these as int dict
+    keys, not named fields) — kept as named params since int keys can't be passed
+    via `**overrides` kwargs."""
     base = {
         "timestamp": START + timedelta(seconds=ts_offset_s),
         "distance": 0.48,
@@ -270,6 +281,9 @@ def _record(ts_offset_s, **overrides):
         "temperature": 31,
         "position_lat": 485817669,
         "position_long": -883343073,
+        138: stamina,
+        137: stamina_potential,
+        90: performance_condition,
     }
     base.update(overrides)
     return base
@@ -315,6 +329,24 @@ class TestSeriesExtraction:
         assert series.lat[0] == round(485817669 * (180 / 2**31), 7)
         assert [s.span_type for s in series.run_walk_spans] == ["run", "stand"]
         assert series.run_walk_spans[0].end_s == 90.0
+
+    def test_stamina_and_performance_condition_mapped_with_positional_nulls(self):
+        """137 = stamina potential, 138 = stamina, 90 = performance condition
+        (undocumented numeric FIT keys the SDK exposes as int dict keys). Field 90
+        is sparse — Garmin baselines for the first ~6-8min before emitting it — so
+        the leading record (no PC yet) pins a leading None distinct from the dense
+        137/138 channels, which are populated from the first record."""
+        messages = {
+            "record_mesgs": [
+                _record(0, stamina=92, stamina_potential=98, performance_condition=None),
+                _record(1, stamina=90, stamina_potential=97, performance_condition=1),
+                _record(2, stamina=None, stamina_potential=None, performance_condition=None),
+            ],
+        }
+        series = _extract_run_series(messages)
+        assert series.stamina_pct == [92, 90, None]
+        assert series.stamina_potential_pct == [98, 97, None]
+        assert series.performance_condition == [None, 1, None]
 
     def test_empty_records_yield_empty_series(self):
         series = _extract_run_series({})
@@ -362,6 +394,9 @@ class TestSeriesExtraction:
         assert series.stance_time_balance_pct == [None, None]
         assert series.respiration_rate_brpm == [None, None]
         assert series.stance_time_pct == [None, None]
+        assert series.stamina_pct == [None, None]
+        assert series.stamina_potential_pct == [None, None]
+        assert series.performance_condition == [None, None]
 
 
 class TestLapExtraction:
@@ -511,6 +546,40 @@ class TestDiscoveryAndComposition:
         assert data.session.has_gps_trace is True
         assert data.session.hr_source == "strap"
         assert data.series.elapsed_s == [0, 1]
+
+    def test_parse_derives_stamina_session_scalars_from_series(self, tmp_path, monkeypatch):
+        """Beginning/Ending Potential = first/last non-null of field 137; Min Stamina =
+        min non-null of field 138 — matches Connect's Stats-panel Stamina group."""
+        messages = {
+            **FULL_MESSAGES,
+            "record_mesgs": [
+                _record(0, stamina=92, stamina_potential=98, performance_condition=None),
+                _record(1, stamina=65, stamina_potential=90, performance_condition=1),
+                _record(2, stamina=70, stamina_potential=65, performance_condition=2),
+            ],
+        }
+        monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: messages)
+        fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        data = parse_running_activity(fit, tmp_path)
+        assert data.session.stamina_beginning_potential_pct == 98
+        assert data.session.stamina_ending_potential_pct == 65
+        assert data.session.stamina_min_pct == 65
+
+    def test_parse_stamina_scalars_none_when_series_entirely_null(self, tmp_path, monkeypatch):
+        """Old watch firmware without stamina channels: None-safe, not KeyError/min()-on-empty."""
+        messages = {
+            **FULL_MESSAGES,
+            "record_mesgs": [
+                _record(0, stamina=None, stamina_potential=None, performance_condition=None),
+                _record(1, stamina=None, stamina_potential=None, performance_condition=None),
+            ],
+        }
+        monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: messages)
+        fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        data = parse_running_activity(fit, tmp_path)
+        assert data.session.stamina_beginning_potential_pct is None
+        assert data.session.stamina_ending_potential_pct is None
+        assert data.session.stamina_min_pct is None
 
     def test_batch_skips_broken_files_and_continues(self, tmp_path, monkeypatch):
         def _decode(path):
