@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.bootstrap.run_activity_port import GarminRunActivityPort
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.adapters import SqliteProfileRepository
 from app.domains.artifacts.adapters import SqliteArtifactRepository
@@ -41,6 +42,7 @@ class AppContainer:
     programs_repo: SqliteProgramRepository
     routines_repo: SqliteRoutineRepository
     training_repo: SqliteTrainingRepository
+    training_run_activity_port: GarminRunActivityPort
     experiments_repo: SqliteExperimentRepository
     experiments_read_source: ExperimentReadSource
     experiment_exposure_sync: ExperimentExposureSyncService
@@ -55,6 +57,7 @@ def build_container() -> AppContainer:
     routines_repo = SqliteRoutineRepository()
     profile_repo = SqliteProfileRepository()
     garmin_biometrics_repo = SqliteBiometricRepository()
+    garmin_runs_repo = SqliteRunsRepository()
     journal_repo = SqliteJournalRepository()
     experiments_read_source = ExperimentReadSource(
         biometric_repo=garmin_biometrics_repo,
@@ -75,12 +78,13 @@ def build_container() -> AppContainer:
         ),
         assistant_runtime=ClaudeCodeRuntime(),
         garmin_biometrics_repo=garmin_biometrics_repo,
-        garmin_runs_repo=SqliteRunsRepository(),
+        garmin_runs_repo=garmin_runs_repo,
         journal_repo=journal_repo,
         profile_repo=profile_repo,
         programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
         training_repo=SqliteTrainingRepository(),
+        training_run_activity_port=GarminRunActivityPort(garmin_runs_repo),
         experiments_repo=experiments_repo,
         experiments_read_source=experiments_read_source,
         experiment_exposure_sync=ExperimentExposureSyncService(

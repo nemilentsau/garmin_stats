@@ -5,8 +5,21 @@
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import { fmtSigned } from '$lib/format';
-	import { fmtKm, fmtDuration, fmtPace, fmtStartTime, hrBadgeLabel } from '$lib/format-run';
-	import { COLORS, withAlpha } from '$lib/colors';
+	import {
+		fmtMiBare,
+		fmtDuration,
+		fmtPace,
+		fmtPaceBare,
+		fmtStartTime,
+		hrBadgeLabel,
+		fmtFt,
+		fmtFtBare,
+		fmtF,
+		fmtMph,
+		fmtCm,
+		fmtCmBare
+	} from '$lib/format-run';
+	import { COLORS, withAlpha, DARK_MUTED_TEXT } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import { tightScale } from '$lib/chart-scale';
 	import LineChart from '$lib/components/LineChart.svelte';
@@ -14,6 +27,7 @@
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import PageState from '$lib/components/PageState.svelte';
+	import RunRouteMap from '$lib/components/RunRouteMap.svelte';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -68,9 +82,6 @@
 	function fmtMeters(mm: number | null | undefined): string {
 		return mm == null ? '—' : `${(mm / 1000).toFixed(2)} m`;
 	}
-	function fmtMps(v: number | null | undefined): string {
-		return v == null ? '—' : `${v.toFixed(2)} m/s`;
-	}
 	function fmtKJ(j: number | null | undefined): string {
 		return j == null ? '—' : `${(j / 1000).toFixed(1)} kJ`;
 	}
@@ -109,6 +120,8 @@
 			dots?: boolean;
 			unit?: string;
 			format?: (v: number) => string;
+			/** Dashed reference line at y=0 (e.g. Performance Condition, which oscillates around a baseline). */
+			zeroLine?: boolean;
 		} = {}
 	): ChartConfiguration<'line'> {
 		const format = opts.format ?? ((v: number) => String(Math.round(v)));
@@ -148,7 +161,23 @@
 									? `${label}: —`
 									: `${label}: ${format(ctx.parsed.y)}${opts.unit ? ' ' + opts.unit : ''}`
 						}
-					}
+					},
+					...(opts.zeroLine
+						? {
+								annotation: {
+									annotations: {
+										zero: {
+											type: 'line' as const,
+											yMin: 0,
+											yMax: 0,
+											borderColor: '#4a5c6a',
+											borderWidth: 1,
+											borderDash: [4, 3]
+										}
+									}
+								}
+							}
+						: {})
 				},
 				scales: {
 					x: xScale,
@@ -166,36 +195,109 @@
 		};
 	}
 
+	// ── Stamina chart: two datasets (stamina + its ceiling, potential) sharing one fixed
+	// 0-100 y-axis — a percentage-of-capacity gauge, the one deliberate exception to
+	// tightScale (Garmin renders this range fixed too, not data-hugging). Bypasses
+	// channelConfig since that builder only supports a single dataset. ──
+	function staminaConfig(
+		stamina: (number | null)[],
+		potential: (number | null)[]
+	): ChartConfiguration<'line'> {
+		return {
+			type: 'line',
+			data: {
+				labels: elapsedS,
+				datasets: [
+					{
+						label: 'Stamina',
+						data: stamina,
+						borderColor: COLORS.stamina,
+						backgroundColor: withAlpha(COLORS.stamina, '22'),
+						fill: true,
+						pointRadius: 0,
+						borderWidth: 1.5,
+						spanGaps: false
+					},
+					{
+						label: 'Potential',
+						data: potential,
+						borderColor: COLORS.staminaPotential,
+						backgroundColor: COLORS.staminaPotential,
+						fill: false,
+						pointRadius: 0,
+						borderWidth: 1.5,
+						borderDash: [4, 3],
+						spanGaps: false
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				animation: false,
+				interaction: { mode: 'nearest', axis: 'x', intersect: false },
+				plugins: {
+					legend: {
+						display: true,
+						labels: { boxWidth: 12, font: { size: 11 }, color: DARK_MUTED_TEXT }
+					},
+					tooltip: {
+						...chartTooltip(COLORS.stamina),
+						callbacks: {
+							title: (items) => fmtElapsed(elapsedS[items[0]?.dataIndex ?? 0] ?? 0),
+							label: (ctx) =>
+								ctx.parsed.y == null
+									? `${ctx.dataset.label}: —`
+									: `${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}%`
+						}
+					}
+				},
+				scales: {
+					x: xScale,
+					y: {
+						min: 0,
+						max: 100,
+						title: { display: true, text: '%', ...DARK_TICK },
+						ticks: { ...DARK_TICK, callback: (v: number | string) => String(v) },
+						grid: DARK_GRID_Y,
+						border: DARK_BORDER
+					}
+				}
+			}
+		};
+	}
+
 	type ChartRow = { key: string; title: string; footnote: string; config: ChartConfiguration<'line'> };
 
 	let chartRows = $derived.by<ChartRow[]>(() => {
 		if (!series || !detail) return [];
 		const s = series.series;
 		const session = detail.session;
+		const d = detail.display;
 		const rows: ChartRow[] = [];
 
-		if (hasData(s.altitude_m)) {
+		if (hasData(series.altitude_ft)) {
 			rows.push({
 				key: 'elevation',
 				title: 'Elevation',
-				footnote: `↑ ${fmtU0(session.total_ascent_m, 'm')} · ↓ ${fmtU0(session.total_descent_m, 'm')}`,
-				config: channelConfig('Elevation', s.altitude_m, COLORS.elevation, {
+				footnote: `↑ ${fmtFt(d.total_ascent_ft)} · ↓ ${fmtFt(d.total_descent_ft)}`,
+				config: channelConfig('Elevation', series.altitude_ft, COLORS.elevation, {
 					area: true,
-					unit: 'm',
+					unit: 'ft',
 					format: (v) => String(Math.round(v))
 				})
 			});
 		}
 
-		if (hasData(series.pace_min_per_km)) {
+		if (hasData(series.pace_min_per_mi)) {
 			rows.push({
 				key: 'pace',
 				title: 'Pace',
-				footnote: `avg ${fmtPace(session.pace_min_per_km)} /km`,
-				config: channelConfig('Pace', series.pace_min_per_km, COLORS.pace, {
+				footnote: `avg ${fmtPace(d.pace_min_per_mi)}`,
+				config: channelConfig('Pace', series.pace_min_per_mi, COLORS.pace, {
 					reverse: true,
-					unit: '/km',
-					format: (v) => fmtPace(v)
+					unit: '/mi',
+					format: (v) => fmtPaceBare(v)
 				})
 			});
 		}
@@ -256,7 +358,7 @@
 			rows.push({
 				key: 'vosc',
 				title: 'Vertical Oscillation',
-				footnote: `avg ${fmtU1(session.avg_vertical_oscillation_mm, 'mm')}`,
+				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)}`,
 				config: channelConfig('Vertical Oscillation', s.vertical_oscillation_mm, COLORS.verticalOscillation, {
 					dots: true,
 					unit: 'mm',
@@ -291,15 +393,63 @@
 			});
 		}
 
-		if (hasData(s.temperature_c)) {
+		if (hasData(s.stance_time_balance_pct)) {
+			rows.push({
+				key: 'gctBalance',
+				title: 'GCT Balance',
+				footnote: d.avg_ground_contact_balance_label ?? '—',
+				config: channelConfig('GCT Balance', s.stance_time_balance_pct, COLORS.groundContactBalance, {
+					dots: true,
+					format: (v) => `${v.toFixed(1)}% L`
+				})
+			});
+		}
+
+		if (hasData(s.respiration_rate_brpm)) {
+			rows.push({
+				key: 'respiration',
+				title: 'Respiration Rate',
+				footnote: `avg ${fmtU1(d.avg_respiration_rate_brpm, 'brpm')} · min ${fmtU1(d.min_respiration_rate_brpm, 'brpm')} · max ${fmtU1(d.max_respiration_rate_brpm, 'brpm')}`,
+				config: channelConfig('Respiration Rate', s.respiration_rate_brpm, COLORS.respiration, {
+					area: true,
+					unit: 'brpm',
+					format: (v) => v.toFixed(1)
+				})
+			});
+		}
+
+		if (hasData(series.temperature_f)) {
 			rows.push({
 				key: 'temp',
 				title: 'Temperature',
-				footnote: `min ${fmtU1(session.min_temperature_c, '°C')} · avg ${fmtU1(session.avg_temperature_c, '°C')} · max ${fmtU1(session.max_temperature_c, '°C')}`,
-				config: channelConfig('Temperature', s.temperature_c, COLORS.temperature, {
-					unit: '°C',
+				footnote: `min ${fmtF(d.min_temperature_f)} · avg ${fmtF(d.avg_temperature_f)} · max ${fmtF(d.max_temperature_f)}`,
+				config: channelConfig('Temperature', series.temperature_f, COLORS.temperature, {
+					unit: '°F',
 					format: (v) => v.toFixed(1)
 				})
+			});
+		}
+
+		if (hasData(s.stamina_pct) || hasData(s.stamina_potential_pct)) {
+			rows.push({
+				key: 'stamina',
+				title: 'Stamina',
+				footnote: `beginning ${fmtNum(d.stamina_beginning_potential_pct)}% · ending ${fmtNum(d.stamina_ending_potential_pct)}% · min ${fmtNum(d.stamina_min_pct)}%`,
+				config: staminaConfig(s.stamina_pct, s.stamina_potential_pct)
+			});
+		}
+
+		if (hasData(s.performance_condition)) {
+			rows.push({
+				key: 'performanceCondition',
+				title: 'Performance Condition',
+				footnote: 'delta vs baseline fitness, ±10',
+				config: channelConfig(
+					'Performance Condition',
+					s.performance_condition,
+					COLORS.performanceCondition,
+					{ dots: true, zeroLine: true, format: (v) => String(Math.round(v)) }
+				)
 			});
 		}
 
@@ -369,6 +519,7 @@
 	let statGroups = $derived.by<StatGroup[]>(() => {
 		if (!detail) return [];
 		const s = detail.session;
+		const d = detail.display;
 		const groups: StatGroup[] = [];
 
 		groups.push({
@@ -383,10 +534,10 @@
 		groups.push({
 			title: 'Pace / Speed',
 			rows: [
-				{ label: 'Avg Pace', value: `${fmtPace(s.pace_min_per_km)} /km` },
-				{ label: 'Avg Speed', value: fmtMps(s.avg_speed_mps) },
-				{ label: 'Max Speed', value: fmtMps(s.max_speed_mps) },
-				{ label: 'Grade-Adj. Speed', value: fmtMps(s.grade_adjusted_avg_speed_mps) }
+				{ label: 'Avg Pace', value: fmtPace(d.pace_min_per_mi) },
+				{ label: 'Avg Speed', value: fmtMph(d.avg_speed_mph) },
+				{ label: 'Max Speed', value: fmtMph(d.max_speed_mph) },
+				{ label: 'GAP', value: fmtPace(d.gap_min_per_mi) }
 			]
 		});
 
@@ -424,9 +575,41 @@
 					{ label: 'Avg Cadence', value: fmtU0(s.avg_cadence_spm, 'spm') },
 					{ label: 'Max Cadence', value: fmtU0(s.max_cadence_spm, 'spm') },
 					{ label: 'Stride Length', value: fmtMeters(s.avg_step_length_mm) },
-					{ label: 'Vert. Oscillation', value: fmtU1(s.avg_vertical_oscillation_mm, 'mm') },
+					{ label: 'Vert. Oscillation', value: fmtCm(d.avg_vertical_oscillation_cm) },
 					{ label: 'Vert. Ratio', value: fmtU1(s.avg_vertical_ratio_pct, '%') },
-					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') }
+					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') },
+					{ label: 'GCT Balance', value: d.avg_ground_contact_balance_label ?? '—' },
+					{ label: 'Stance Time', value: fmtU1(d.avg_stance_time_pct, '%') }
+				]
+			});
+		}
+
+		if (
+			d.avg_respiration_rate_brpm != null ||
+			d.min_respiration_rate_brpm != null ||
+			d.max_respiration_rate_brpm != null
+		) {
+			groups.push({
+				title: 'Respiration',
+				rows: [
+					{ label: 'Avg', value: fmtU1(d.avg_respiration_rate_brpm, 'brpm') },
+					{ label: 'Min', value: fmtU1(d.min_respiration_rate_brpm, 'brpm') },
+					{ label: 'Max', value: fmtU1(d.max_respiration_rate_brpm, 'brpm') }
+				]
+			});
+		}
+
+		if (
+			d.stamina_beginning_potential_pct != null ||
+			d.stamina_ending_potential_pct != null ||
+			d.stamina_min_pct != null
+		) {
+			groups.push({
+				title: 'Stamina',
+				rows: [
+					{ label: 'Beginning Potential', value: fmtU0(d.stamina_beginning_potential_pct, '%') },
+					{ label: 'Ending Potential', value: fmtU0(d.stamina_ending_potential_pct, '%') },
+					{ label: 'Min Stamina', value: fmtU0(d.stamina_min_pct, '%') }
 				]
 			});
 		}
@@ -435,8 +618,8 @@
 			groups.push({
 				title: 'Elevation',
 				rows: [
-					{ label: 'Ascent', value: fmtU0(s.total_ascent_m, 'm') },
-					{ label: 'Descent', value: fmtU0(s.total_descent_m, 'm') }
+					{ label: 'Ascent', value: fmtFt(d.total_ascent_ft) },
+					{ label: 'Descent', value: fmtFt(d.total_descent_ft) }
 				]
 			});
 		}
@@ -478,13 +661,24 @@
 	// ── Laps table: only show columns that have at least one real value across laps. ──
 	let lapColumns = $derived.by(() => {
 		const laps = detail?.laps ?? [];
+		const lapDisplays = detail?.display.lap_display ?? [];
 		return {
 			hr: laps.some((l) => l.avg_heart_rate_bpm != null),
 			power: laps.some((l) => l.avg_power_w != null),
 			cadence: laps.some((l) => l.avg_cadence_spm != null),
 			gct: laps.some((l) => l.avg_ground_contact_time_ms != null),
-			vertOsc: laps.some((l) => l.avg_vertical_oscillation_mm != null)
+			vertOsc: lapDisplays.some((l) => l.avg_vertical_oscillation_cm != null),
+			balance: lapDisplays.some((l) => l.avg_ground_contact_balance_label != null),
+			respiration: lapDisplays.some((l) => l.avg_respiration_rate_brpm != null)
 		};
+	});
+
+	// Laps carry no unit-converted fields themselves; imperial distance/pace/vert-osc-cm and
+	// the strap-dynamics display fields per lap come from `display.lap_display`, joined here
+	// by `lap_index`.
+	let lapDisplayByIndex = $derived.by(() => {
+		const rows = detail?.display.lap_display ?? [];
+		return new Map(rows.map((row) => [row.lap_index, row]));
 	});
 
 	// ── Time in zones: HR + power zone breakdowns as proportional stacked bars. ──
@@ -548,6 +742,7 @@
 	<PageState {error} {loading} loadingLabel="Loading run…">
 		{#if detail && series}
 			{@const session = detail.session}
+			{@const display = detail.display}
 			<div class="run-header">
 				<a href="/runs" class="back-link">← Runs</a>
 				<div class="run-header-main">
@@ -560,10 +755,20 @@
 			</div>
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-				<StatCard title="Distance" value={fmtKm(session.distance_m)} unit="km" />
+				<StatCard title="Distance" value={fmtMiBare(display.distance_mi)} unit="mi" />
 				<StatCard title="Time" value={fmtDuration(session.timer_time_s)} />
-				<StatCard title="Avg Pace" value={fmtPace(session.pace_min_per_km)} unit="/km" color={COLORS.pace} />
-				<StatCard title="Total Ascent" value={fmtNum(session.total_ascent_m)} unit="m" color={COLORS.elevation} />
+				<StatCard
+					title="Avg Pace"
+					value={fmtPaceBare(display.pace_min_per_mi)}
+					unit="/mi"
+					color={COLORS.pace}
+				/>
+				<StatCard
+					title="Total Ascent"
+					value={fmtFtBare(display.total_ascent_ft)}
+					unit="ft"
+					color={COLORS.elevation}
+				/>
 				<StatCard title="Calories" value={fmtNum(session.total_calories)} />
 				{#if session.avg_heart_rate_bpm != null}
 					<StatCard
@@ -575,6 +780,14 @@
 					/>
 				{/if}
 			</div>
+
+			{#if session.has_gps_trace}
+				<ChartCard title="Route">
+					<div class="route-map-frame">
+						<RunRouteMap lat={series.series.lat} lon={series.series.lon} pace={series.pace_min_per_mi} />
+					</div>
+				</ChartCard>
+			{/if}
 
 			{#if runWalkConfig}
 				<!-- Chart.js bar types don't model [start, end] floating-bar tuples; cast to satisfy type-checker. -->
@@ -615,28 +828,33 @@
 						<thead>
 							<tr>
 								<th class="left">#</th>
-								<th class="num">distance</th>
+								<th class="num">distance (mi)</th>
 								<th class="num">time</th>
-								<th class="num">pace</th>
+								<th class="num">pace (/mi)</th>
 								{#if lapColumns.hr}<th class="num">avg hr</th>{/if}
 								{#if lapColumns.power}<th class="num">avg power</th>{/if}
 								{#if lapColumns.cadence}<th class="num">cadence</th>{/if}
 								{#if lapColumns.gct}<th class="num">gct</th>{/if}
-								{#if lapColumns.vertOsc}<th class="num">vert osc</th>{/if}
+								{#if lapColumns.balance}<th class="num">gct balance</th>{/if}
+								{#if lapColumns.vertOsc}<th class="num">vert osc (cm)</th>{/if}
+								{#if lapColumns.respiration}<th class="num">respiration</th>{/if}
 							</tr>
 						</thead>
 						<tbody>
 							{#each detail.laps as lap (lap.lap_index)}
+								{@const lapDisplay = lapDisplayByIndex.get(lap.lap_index)}
 								<tr>
 									<td class="left">{lap.lap_index + 1}</td>
-									<td class="num">{fmtKm(lap.distance_m)}</td>
+									<td class="num">{fmtMiBare(lapDisplay?.distance_mi ?? null)}</td>
 									<td class="num">{fmtDuration(lap.timer_time_s)}</td>
-									<td class="num">{fmtPace(lap.pace_min_per_km)}</td>
+									<td class="num">{fmtPaceBare(lapDisplay?.pace_min_per_mi ?? null)}</td>
 									{#if lapColumns.hr}<td class="num">{fmtNum(lap.avg_heart_rate_bpm)}</td>{/if}
 									{#if lapColumns.power}<td class="num">{fmtNum(lap.avg_power_w)}</td>{/if}
 									{#if lapColumns.cadence}<td class="num">{fmtNum(lap.avg_cadence_spm)}</td>{/if}
 									{#if lapColumns.gct}<td class="num">{fmtNum(lap.avg_ground_contact_time_ms)}</td>{/if}
-									{#if lapColumns.vertOsc}<td class="num">{lap.avg_vertical_oscillation_mm != null ? lap.avg_vertical_oscillation_mm.toFixed(1) : '—'}</td>{/if}
+									{#if lapColumns.balance}<td class="num">{lapDisplay?.avg_ground_contact_balance_label ?? '—'}</td>{/if}
+									{#if lapColumns.vertOsc}<td class="num">{fmtCmBare(lapDisplay?.avg_vertical_oscillation_cm ?? null)}</td>{/if}
+									{#if lapColumns.respiration}<td class="num">{fmtU1(lapDisplay?.avg_respiration_rate_brpm ?? null, 'brpm')}</td>{/if}
 								</tr>
 							{/each}
 						</tbody>
@@ -707,6 +925,14 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
 		color: #5e7282;
+	}
+
+	/* ── Route map: fixed-height frame so the Leaflet map has a concrete box to fill;
+	     border-radius clips the tile layer to match the app's rounded card chrome. ── */
+	.route-map-frame {
+		height: 340px;
+		border-radius: 6px;
+		overflow: hidden;
 	}
 
 	.section-title {

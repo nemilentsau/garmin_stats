@@ -451,6 +451,29 @@
 		}
 	}
 
+	/**
+	 * Persist a run-link change (candidate pick or detach) for a training card, then refetch
+	 * the Today feed. Unlike `persistTrainingBackend`'s optimistic local-merge-and-move-on,
+	 * this one awaits and reloads: `associated_activity`/`run_candidates` are backend-computed
+	 * (`match_run_to_card`) and the frontend does no matching of its own (display-only rule),
+	 * so there is no local value to optimistically merge — and because `run_candidates` is
+	 * shared across every run card on the same date, one card's link can change what an
+	 * unrelated run card on the same day should now show as its own candidates/association.
+	 */
+	async function persistRunLink(
+		card: TrainingTodayCard,
+		patch: { linked_run_id?: string | null; run_link_detached?: boolean | null }
+	) {
+		error = null;
+		try {
+			await api.updateTrainingCard(selectedDate, card.occurrence_key, patch);
+			todayRequestToken += 1;
+			await loadToday(selectedDate, todayRequestToken);
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		}
+	}
+
 	/** Row checkbox toggle for a training card — instant local update + background persist. */
 	function toggleTrainingComplete(card: TrainingTodayCard) {
 		const current = effectiveStatus(card);
@@ -966,6 +989,7 @@
 												stagedCapture = capture;
 												scheduleTrainingPersistDetail(card);
 											}}
+											onRunLink={(patch) => persistRunLink(card, patch)}
 										/>
 										<label class="detail-field">
 											<span>Notes</span>

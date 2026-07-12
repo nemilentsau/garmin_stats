@@ -3642,6 +3642,29 @@ export interface components {
             min: number | string;
         };
         /**
+         * LapDisplayRow
+         * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
+         *
+         *     The lap's other fields (time, HR, cadence, ...) need no unit conversion and
+         *     render straight from the embedded `RunningActivityLap`. The strap-only
+         *     fields below are None on wrist-only laps, same as their session-level
+         *     counterparts on `RunDisplayStats`.
+         */
+        LapDisplayRow: {
+            /** Lap Index */
+            lap_index: number;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+            /** Avg Ground Contact Balance Label */
+            avg_ground_contact_balance_label: string | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Avg Vertical Oscillation Cm */
+            avg_vertical_oscillation_cm: number | null;
+        };
+        /**
          * LintReport
          * @description L1-L12 findings plus the weekly rollups the block's budgets are checked against.
          */
@@ -4709,6 +4732,9 @@ export interface components {
         /**
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
+         *
+         *     `session`/`laps` stay metric (canonical); `display` is the imperial
+         *     projection the frontend renders from.
          */
         RunDetailResponse: {
             session: components["schemas"]["RunningActivitySession"];
@@ -4717,6 +4743,64 @@ export interface components {
              * @default []
              */
             laps: components["schemas"]["RunningActivityLap"][];
+            display: components["schemas"]["RunDisplayStats"];
+        };
+        /**
+         * RunDisplayStats
+         * @description Imperial display projection of a run's canonical (metric) session stats.
+         *
+         *     Every field is None-preserving from its metric source; see the `_*_to_*`
+         *     conversion helpers in `application/runs.py` for the exact constants and
+         *     rounding rule each field uses. `avg_ground_contact_balance_label` and the
+         *     respiration fields are strap-only: they render as None when the run has
+         *     no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
+         *     are watch-level (Firstbeat), not strap-dependent — pass-through, already
+         *     dimensionless ints, no conversion.
+         */
+        RunDisplayStats: {
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+            /** Gap Min Per Mi */
+            gap_min_per_mi: number | null;
+            /** Avg Speed Mph */
+            avg_speed_mph: number | null;
+            /** Max Speed Mph */
+            max_speed_mph: number | null;
+            /** Total Ascent Ft */
+            total_ascent_ft: number | null;
+            /** Total Descent Ft */
+            total_descent_ft: number | null;
+            /** Avg Temperature F */
+            avg_temperature_f: number | null;
+            /** Min Temperature F */
+            min_temperature_f: number | null;
+            /** Max Temperature F */
+            max_temperature_f: number | null;
+            /** Avg Vertical Oscillation Cm */
+            avg_vertical_oscillation_cm: number | null;
+            /** Avg Ground Contact Balance Label */
+            avg_ground_contact_balance_label: string | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
+            /** Min Respiration Rate Brpm */
+            min_respiration_rate_brpm: number | null;
+            /** Stamina Beginning Potential Pct */
+            stamina_beginning_potential_pct: number | null;
+            /** Stamina Ending Potential Pct */
+            stamina_ending_potential_pct: number | null;
+            /** Stamina Min Pct */
+            stamina_min_pct: number | null;
+            /**
+             * Lap Display
+             * @default []
+             */
+            lap_display: components["schemas"]["LapDisplayRow"][];
         };
         /**
          * RunListItem
@@ -4733,12 +4817,12 @@ export interface components {
             activity_name: string | null;
             /** Sub Sport */
             sub_sport: string | null;
-            /** Distance M */
-            distance_m: number | null;
+            /** Distance Mi */
+            distance_mi: number | null;
             /** Timer Time S */
             timer_time_s: number | null;
-            /** Pace Min Per Km */
-            pace_min_per_km: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
             /** Avg Heart Rate Bpm */
             avg_heart_rate_bpm: number | null;
             /** Hr Source */
@@ -4803,15 +4887,42 @@ export interface components {
         };
         /**
          * RunSeriesResponse
-         * @description Single-run chart-series endpoint response, with backend-derived pace.
+         * @description Single-run chart-series endpoint response: metric series plus imperial arrays.
+         *
+         *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
+         *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
+         *     frontend charts bind to, index-aligned with `series.elapsed_s`.
+         *     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
+         *     `stance_time_pct` — live inside the embedded `series` object (already in
+         *     native display units — balance %, brpm, % — no conversion applies); empty
+         *     on wrist-only runs, same as the imperial arrays above. Stamina/performance-
+         *     condition arrays (`stamina_pct`/`stamina_potential_pct`/`performance_condition`)
+         *     likewise live only inside `series` — dimensionless ints, no imperial
+         *     conversion, no top-level duplicate (see commit 59abb86 for why: duplicating
+         *     embedded series data at the top level was tried and reverted).
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
             /**
-             * Pace Min Per Km
+             * Pace Min Per Mi
              * @default []
              */
-            pace_min_per_km: (number | null)[];
+            pace_min_per_mi: (number | null)[];
+            /**
+             * Altitude Ft
+             * @default []
+             */
+            altitude_ft: (number | null)[];
+            /**
+             * Temperature F
+             * @default []
+             */
+            temperature_f: (number | null)[];
+            /**
+             * Distance Mi
+             * @default []
+             */
+            distance_mi: (number | null)[];
         };
         /**
          * RunWalkSpan
@@ -4868,6 +4979,14 @@ export interface components {
             avg_vertical_ratio_pct: number | null;
             /** Avg Ground Contact Time Ms */
             avg_ground_contact_time_ms: number | null;
+            /** Avg Ground Contact Balance Pct */
+            avg_ground_contact_balance_pct: number | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
             /** Total Ascent M */
             total_ascent_m: number | null;
             /** Total Descent M */
@@ -4939,6 +5058,36 @@ export interface components {
              * @default []
              */
             stance_time_ms: (number | null)[];
+            /**
+             * Stance Time Balance Pct
+             * @default []
+             */
+            stance_time_balance_pct: (number | null)[];
+            /**
+             * Respiration Rate Brpm
+             * @default []
+             */
+            respiration_rate_brpm: (number | null)[];
+            /**
+             * Stance Time Pct
+             * @default []
+             */
+            stance_time_pct: (number | null)[];
+            /**
+             * Stamina Pct
+             * @default []
+             */
+            stamina_pct: (number | null)[];
+            /**
+             * Stamina Potential Pct
+             * @default []
+             */
+            stamina_potential_pct: (number | null)[];
+            /**
+             * Performance Condition
+             * @default []
+             */
+            performance_condition: (number | null)[];
             /**
              * Temperature C
              * @default []
@@ -5040,6 +5189,22 @@ export interface components {
             avg_vertical_ratio_pct: number | null;
             /** Avg Ground Contact Time Ms */
             avg_ground_contact_time_ms: number | null;
+            /** Avg Ground Contact Balance Pct */
+            avg_ground_contact_balance_pct: number | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
+            /** Min Respiration Rate Brpm */
+            min_respiration_rate_brpm: number | null;
+            /** Stamina Beginning Potential Pct */
+            stamina_beginning_potential_pct: number | null;
+            /** Stamina Ending Potential Pct */
+            stamina_ending_potential_pct: number | null;
+            /** Stamina Min Pct */
+            stamina_min_pct: number | null;
             /** Avg Temperature C */
             avg_temperature_c: number | null;
             /** Min Temperature C */
@@ -5106,6 +5271,11 @@ export interface components {
              * @default false
              */
             has_running_dynamics: boolean;
+            /**
+             * Has Strap Dynamics
+             * @default false
+             */
+            has_strap_dynamics: boolean;
             /**
              * Has Gps Trace
              * @default false
@@ -6292,6 +6462,13 @@ export interface components {
             /** Notes */
             notes: string | null;
             capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+            /** Linked Run Id */
+            linked_run_id: string | null;
+            /**
+             * Run Link Detached
+             * @default false
+             */
+            run_link_detached: boolean;
         };
         /**
          * TrainingCheckinLog
@@ -6423,12 +6600,25 @@ export interface components {
          *     Every field is optional, and presence — not nullness — decides what
          *     happens: a field the request body omits keeps the existing log's value,
          *     while a field the body includes is applied verbatim, even when its value
-         *     is explicit `null`. For `notes`/`variant_taken`/`capture` an explicit
-         *     `null` clears the stored value. `status` has no defined "cleared" state
-         *     (a stored log's `status` always has a concrete value, defaulting to
-         *     `"pending"`), so callers are expected to only ever send it as a real
-         *     status literal; see `upsert_training_log` for how presence is resolved
-         *     via `model_fields_set`.
+         *     is explicit `null`. For `notes`/`variant_taken`/`capture`/`linked_run_id`
+         *     an explicit `null` clears the stored value. `status`/`run_link_detached`
+         *     have no defined "cleared" state (a stored log's `status` always has a
+         *     concrete value, defaulting to `"pending"`; `run_link_detached` is always
+         *     a concrete bool, defaulting to `False`), so callers are expected to only
+         *     ever send them as a real literal — an explicit `null` is treated the
+         *     same as the field being absent; see `upsert_training_log` for how
+         *     presence is resolved via `model_fields_set`. Both are typed `X | None`
+         *     (rather than a bare, always-required `bool`/literal) purely so the field
+         *     stays optional to omit in the generated OpenAPI/TypeScript request type.
+         *
+         *     `linked_run_id`/`run_link_detached` are the run-card association
+         *     controls: setting `linked_run_id` manually links one of the date's
+         *     tracked runs (validated against `RunActivityReadPort.runs_for_date` —
+         *     a non-null id absent from that date's runs raises `ValueError`, mapped
+         *     to 400 by the app-level exception handler); setting `run_link_detached`
+         *     (with no `linked_run_id` in the same request) suppresses auto-matching
+         *     for this occurrence without picking a specific run. See
+         *     `match_run_to_card` for how the two combine when both are stored.
          */
         TrainingLogUpdateRequest: {
             /** Status */
@@ -6438,6 +6628,49 @@ export interface components {
             /** Notes */
             notes?: string | null;
             capture?: components["schemas"]["TrainingCaptureLog-Input"] | null;
+            /** Linked Run Id */
+            linked_run_id?: string | null;
+            /** Run Link Detached */
+            run_link_detached?: boolean | null;
+        };
+        /**
+         * TrainingRunActivitySummary
+         * @description Training-local projection of a tracked run; imperial display units.
+         *
+         *     Built entirely outside `training` — the injected `RunActivityReadPort`
+         *     (`dependencies.py`) is the only source of these — so this contract never
+         *     round-trips through `garmin_analytics`/`garmin_health` vocabulary or
+         *     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
+         *     does the m->mi / min-per-km->min-per-mi conversion once, at the
+         *     composition boundary. `link_source` distinguishes a run picked by the
+         *     Today read model's auto-matching policy (`"auto"`) from one a person
+         *     manually linked via the capture-log PATCH (`"manual"`).
+         */
+        TrainingRunActivitySummary: {
+            /** Run Id */
+            run_id: string;
+            /** Start Time Local */
+            start_time_local: string;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Timer Time S */
+            timer_time_s: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+            /** Avg Heart Rate Bpm */
+            avg_heart_rate_bpm: number | null;
+            /** Hr Source */
+            hr_source: string | null;
+            /** Training Load */
+            training_load: number | null;
+            /** Aerobic Training Effect */
+            aerobic_training_effect: number | null;
+            /**
+             * Link Source
+             * @default auto
+             * @enum {string}
+             */
+            link_source: "auto" | "manual";
         };
         /**
          * TrainingScheduleDay
@@ -6586,6 +6819,12 @@ export interface components {
             /** Notes */
             notes: string | null;
             capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+            associated_activity: components["schemas"]["TrainingRunActivitySummary"] | null;
+            /**
+             * Run Candidates
+             * @default []
+             */
+            run_candidates: components["schemas"]["TrainingRunActivitySummary"][];
         };
         /**
          * TrainingTodayResponse

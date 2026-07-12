@@ -165,6 +165,11 @@ def _extract_run_session(
         avg_vertical_oscillation_mm=fit.get("avg_vertical_oscillation"),
         avg_vertical_ratio_pct=fit.get("avg_vertical_ratio"),
         avg_ground_contact_time_ms=fit.get("avg_stance_time"),
+        avg_ground_contact_balance_pct=fit.get("avg_stance_time_balance"),
+        avg_stance_time_pct=fit.get("avg_stance_time_percent"),
+        avg_respiration_rate_brpm=fit.get("enhanced_avg_respiration_rate"),
+        max_respiration_rate_brpm=fit.get("enhanced_max_respiration_rate"),
+        min_respiration_rate_brpm=fit.get("enhanced_min_respiration_rate"),
         avg_temperature_c=fit.get("avg_temperature"),
         min_temperature_c=fit.get("min_temperature"),
         max_temperature_c=fit.get("max_temperature"),
@@ -189,6 +194,7 @@ def _extract_run_session(
         has_heart_rate=has_hr,
         has_power=fit.get("avg_power") is not None,
         has_running_dynamics=fit.get("avg_stance_time") is not None,
+        has_strap_dynamics=fit.get("avg_stance_time_balance") is not None,
     )
 
 
@@ -238,6 +244,10 @@ def _extract_run_laps(messages: dict) -> list[RunningActivityLap]:
                 avg_vertical_oscillation_mm=msg.get("avg_vertical_oscillation"),
                 avg_vertical_ratio_pct=msg.get("avg_vertical_ratio"),
                 avg_ground_contact_time_ms=msg.get("avg_stance_time"),
+                avg_ground_contact_balance_pct=msg.get("avg_stance_time_balance"),
+                avg_stance_time_pct=msg.get("avg_stance_time_percent"),
+                avg_respiration_rate_brpm=msg.get("enhanced_avg_respiration_rate"),
+                max_respiration_rate_brpm=msg.get("enhanced_max_respiration_rate"),
                 total_ascent_m=msg.get("total_ascent"),
                 total_descent_m=msg.get("total_descent"),
                 total_calories=msg.get("total_calories"),
@@ -270,6 +280,18 @@ def _extract_run_series(messages: dict) -> RunningActivitySeries:
             series.vertical_oscillation_mm.append(msg.get("vertical_oscillation"))
             series.vertical_ratio_pct.append(msg.get("vertical_ratio"))
             series.stance_time_ms.append(msg.get("stance_time"))
+            series.stance_time_balance_pct.append(msg.get("stance_time_balance"))
+            series.respiration_rate_brpm.append(msg.get("enhanced_respiration_rate"))
+            series.stance_time_pct.append(msg.get("stance_time_percent"))
+            # Undocumented numeric FIT fields: the SDK exposes these as int dict keys
+            # rather than named fields. 137 = stamina potential (ceiling, >= 138
+            # throughout), 138 = stamina (dips first, recovers toward potential), 90 =
+            # performance condition (sparse: absent for the first ~6-8min while Garmin
+            # baselines, then ~1/sec) — validated against Garmin Connect, see
+            # activity-messages.json.
+            series.stamina_potential_pct.append(msg.get(137))
+            series.stamina_pct.append(msg.get(138))
+            series.performance_condition.append(msg.get(90))
             series.temperature_c.append(msg.get("temperature"))
             series.lat.append(_semicircles_to_deg(msg.get("position_lat")))
             series.lon.append(_semicircles_to_deg(msg.get("position_long")))

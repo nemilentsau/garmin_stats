@@ -548,6 +548,8 @@ class TrainingCardLog(DefaultsRequired):
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
+    linked_run_id: str | None = None  # manual run-card link; wins over auto-matching
+    run_link_detached: bool = False  # explicitly cleared auto-match; no linked_run_id set
 
 
 class TrainingLastLogged(DefaultsRequired):
@@ -596,6 +598,31 @@ class TrainingCheckinRow(DefaultsRequired):
     label: str
 
 
+class TrainingRunActivitySummary(DefaultsRequired):
+    """Training-local projection of a tracked run; imperial display units.
+
+    Built entirely outside `training` — the injected `RunActivityReadPort`
+    (`dependencies.py`) is the only source of these — so this contract never
+    round-trips through `garmin_analytics`/`garmin_health` vocabulary or
+    units; the adapter that produces it (`bootstrap/run_activity_port.py`)
+    does the m->mi / min-per-km->min-per-mi conversion once, at the
+    composition boundary. `link_source` distinguishes a run picked by the
+    Today read model's auto-matching policy (`"auto"`) from one a person
+    manually linked via the capture-log PATCH (`"manual"`).
+    """
+
+    run_id: str
+    start_time_local: str
+    distance_mi: float | None = None
+    timer_time_s: float | None = None
+    pace_min_per_mi: float | None = None
+    avg_heart_rate_bpm: int | None = None
+    hr_source: str | None = None
+    training_load: float | None = None
+    aerobic_training_effect: float | None = None
+    link_source: Literal["auto", "manual"] = "auto"
+
+
 class TrainingTodayCard(DefaultsRequired):
     """One scheduled card occurrence, fully projected for Today-board display."""
 
@@ -620,6 +647,8 @@ class TrainingTodayCard(DefaultsRequired):
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
+    associated_activity: TrainingRunActivitySummary | None = None  # run cards only
+    run_candidates: list[TrainingRunActivitySummary] = []  # run cards only, Today path only
 
 
 class TrainingTodayResponse(DefaultsRequired):

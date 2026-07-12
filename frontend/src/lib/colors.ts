@@ -23,10 +23,17 @@ export const COLORS = {
 	verticalOscillation: '#8E97D9',
 	verticalRatio: '#D96B6B',
 	groundContactTime: '#6BA88E',
+	groundContactBalance: '#D9A73A',
 	temperature: '#D98A4A',
+	stamina: '#3DBF8F',
+	staminaPotential: '#8FE0C4',
+	performanceCondition: '#9B6BCD',
 	runSpan: '#4CAF82',
 	walkSpan: '#D4944C',
 	standSpan: '#5e7282',
+	// Route map pace quantile colors (fastest to slowest, warm to cool)
+	paceQuantile2: '#DB8248',
+	paceQuantile4: '#7FA3C9',
 } as const;
 
 /** Append hex alpha to a color string. */

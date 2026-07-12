@@ -17,13 +17,17 @@ from datetime import date
 import pytest
 
 from app.domains.training.adapters import SqliteTrainingRepository
+from app.domains.training.application.compile import compile_schedule
 from app.domains.training.application.imports import ImportFile, ImportRequest, import_artifacts
 from app.domains.training.application.read_models import (
     TrainingLogUpdateRequest,
+    _active_context,  # pyright: ignore[reportPrivateUsage]
+    _cards_for_day,  # pyright: ignore[reportPrivateUsage]
     checkin_rows,
     get_block_status,
     get_training_schedule_window,
     get_training_today,
+    match_run_to_card,
     render_gate,
     render_rule,
     render_scheme,
@@ -45,6 +49,7 @@ from app.domains.training.contracts import (
     TrainingCaptureLog,
     TrainingCheckinLog,
     TrainingExerciseLog,
+    TrainingRunActivitySummary,
     TrainingSetLog,
 )
 from tests._architecture import REPO_ROOT
@@ -77,6 +82,29 @@ def _imported_repo() -> SqliteTrainingRepository:
 
 def _card(response, occurrence_key: str):
     return next(c for c in response.cards if c.occurrence_key == occurrence_key)
+
+
+def _run(run_id: str, *, distance_mi: float | None = None) -> TrainingRunActivitySummary:
+    return TrainingRunActivitySummary(
+        run_id=run_id, start_time_local="2026-07-06T07:00:00", distance_mi=distance_mi
+    )
+
+
+class _FakeRunActivityPort:
+    """Test double for `RunActivityReadPort` — a fixed date -> runs mapping.
+
+    Records every `runs_for_date` call (date args, in order) in `self.calls`
+    so tests can assert on whether — not just what — the port was queried,
+    e.g. proving `_cards_for_day` skips it entirely on a run-card-free day.
+    """
+
+    def __init__(self, runs_by_date: dict[str, list[TrainingRunActivitySummary]]) -> None:
+        self._runs_by_date = runs_by_date
+        self.calls: list[str] = []
+
+    def runs_for_date(self, date: str) -> list[TrainingRunActivitySummary]:
+        self.calls.append(date)
+        return self._runs_by_date.get(date, [])
 
 
 # ---------- get_training_today: day boundaries ----------
@@ -255,6 +283,248 @@ def test_today_strength_exercise_has_no_last_logged_anchor_before_any_prior_sess
     assert bench.last is None
 
 
+# ---------- match_run_to_card: matching policy (Task 8) ----------
+
+
+def test_match_run_to_card_detached_with_no_manual_link_returns_none():
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=True,
+        prescribed_distance_mi=7.0,
+        runs_today=[_run("r1", distance_mi=7.0)],
+        run_cards_today=1,
+    )
+    assert result is None
+
+
+def test_match_run_to_card_manual_link_wins_even_when_detached_flag_is_also_set():
+    """A manual `linked_run_id` takes precedence over `run_link_detached` and over
+    distance-closeness: the prescribed distance (5.0) is closer to r1, but the
+    manually linked r2 is still returned.
+    """
+    runs = [_run("r1", distance_mi=5.0), _run("r2", distance_mi=9.0)]
+    result = match_run_to_card(
+        linked_run_id="r2",
+        run_link_detached=True,
+        prescribed_distance_mi=5.0,
+        runs_today=runs,
+        run_cards_today=1,
+    )
+    assert result is not None
+    assert result.run_id == "r2"
+    assert result.link_source == "manual"
+
+
+def test_match_run_to_card_stale_manual_link_returns_none():
+    result = match_run_to_card(
+        linked_run_id="ghost",
+        run_link_detached=False,
+        prescribed_distance_mi=7.0,
+        runs_today=[_run("r1", distance_mi=7.0)],
+        run_cards_today=1,
+    )
+    assert result is None
+
+
+def test_match_run_to_card_auto_links_the_only_run_when_one_run_card_scheduled():
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=False,
+        prescribed_distance_mi=7.0,
+        runs_today=[_run("r1", distance_mi=6.5)],
+        run_cards_today=1,
+    )
+    assert result is not None
+    assert result.run_id == "r1"
+    assert result.link_source == "auto"
+
+
+def test_match_run_to_card_auto_picks_run_closest_to_prescribed_distance():
+    runs = [_run("near", distance_mi=6.5), _run("far", distance_mi=9.0)]
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=False,
+        prescribed_distance_mi=7.0,
+        runs_today=runs,
+        run_cards_today=1,
+    )
+    assert result is not None
+    assert result.run_id == "near"
+
+
+def test_match_run_to_card_auto_picks_longest_run_when_card_has_no_distance_prescription():
+    runs = [
+        _run("short", distance_mi=3.0),
+        _run("long", distance_mi=9.0),
+        _run("mid", distance_mi=5.0),
+    ]
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=False,
+        prescribed_distance_mi=None,
+        runs_today=runs,
+        run_cards_today=1,
+    )
+    assert result is not None
+    assert result.run_id == "long"
+
+
+def test_match_run_to_card_returns_none_when_multiple_run_cards_scheduled():
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=False,
+        prescribed_distance_mi=7.0,
+        runs_today=[_run("r1", distance_mi=7.0)],
+        run_cards_today=2,
+    )
+    assert result is None
+
+
+def test_match_run_to_card_returns_none_when_no_runs_available():
+    result = match_run_to_card(
+        linked_run_id=None,
+        run_link_detached=False,
+        prescribed_distance_mi=7.0,
+        runs_today=[],
+        run_cards_today=1,
+    )
+    assert result is None
+
+
+# ---------- get_training_today: run association (Task 8) ----------
+
+
+def test_today_run_card_auto_links_the_days_only_run():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    response = get_training_today(repo, date="2026-07-06", run_activity_port=port)
+
+    easy = _card(response, "running.v3:run.easy:d01")
+    assert easy.associated_activity is not None
+    assert easy.associated_activity.run_id == "r1"
+    assert easy.associated_activity.link_source == "auto"
+    assert [r.run_id for r in easy.run_candidates] == ["r1"]
+
+
+def test_today_non_run_cards_never_get_run_association_fields():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    response = get_training_today(repo, date="2026-07-06", run_activity_port=port)
+
+    for occurrence_key in ("support.v3:sup.daily:d01", "strength.v3:str.push_a:d01"):
+        card = _card(response, occurrence_key)
+        assert card.associated_activity is None
+        assert card.run_candidates == []
+
+
+def test_today_run_card_manual_link_overrides_auto_distance_match():
+    repo = _imported_repo()
+    # run.easy prescribes 7 mi total; "closer" is the auto pick by distance,
+    # but the manual link below must win regardless.
+    port = _FakeRunActivityPort(
+        {"2026-07-06": [_run("closer", distance_mi=6.9), _run("farther", distance_mi=3.0)]}
+    )
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id="farther"),
+        run_activity_port=port,
+    )
+
+    easy = _card(
+        get_training_today(repo, date="2026-07-06", run_activity_port=port),
+        "running.v3:run.easy:d01",
+    )
+    assert easy.associated_activity is not None
+    assert easy.associated_activity.run_id == "farther"
+    assert easy.associated_activity.link_source == "manual"
+
+
+def test_today_run_card_stale_link_shows_no_association_but_keeps_candidates():
+    repo = _imported_repo()
+    valid_port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id="r1"),
+        run_activity_port=valid_port,
+    )
+    # A later read sees a different set of runs for the date (e.g. a
+    # re-ingest changed run ids) — the saved link is now stale.
+    stale_port = _FakeRunActivityPort({"2026-07-06": [_run("r2", distance_mi=5.0)]})
+
+    easy = _card(
+        get_training_today(repo, date="2026-07-06", run_activity_port=stale_port),
+        "running.v3:run.easy:d01",
+    )
+    assert easy.associated_activity is None
+    assert [r.run_id for r in easy.run_candidates] == ["r2"]
+
+
+def test_today_run_card_detached_shows_no_association_but_keeps_candidates():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(run_link_detached=True),
+    )
+
+    easy = _card(
+        get_training_today(repo, date="2026-07-06", run_activity_port=port),
+        "running.v3:run.easy:d01",
+    )
+    assert easy.associated_activity is None
+    assert [r.run_id for r in easy.run_candidates] == ["r1"]
+
+
+def test_today_without_run_activity_port_leaves_run_cards_unassociated():
+    repo = _imported_repo()
+    easy = _card(get_training_today(repo, date="2026-07-06"), "running.v3:run.easy:d01")
+    assert easy.associated_activity is None
+    assert easy.run_candidates == []
+
+
+def test_cards_for_day_skips_run_activity_port_when_day_has_no_run_cards():
+    """`_cards_for_day` must not call `runs_for_date` on a day with zero
+    `running.v3` cards — the port deserializes every tracked-run session for
+    the date, so a run-card-free day should be a no-op against it. Block0's
+    canon window schedules a running card every single day, so this drops
+    day 1's `running.v3:run.easy` entry from the real compiled schedule
+    before calling `_cards_for_day` directly, leaving its two non-run cards
+    (`sup.daily`, `str.push_a`) intact — proving the gate keys off the day's
+    run-card *count*, not an empty day.
+    """
+    repo = _imported_repo()
+    context = _active_context(repo)
+    assert context is not None
+    _block, bundles, registry, library = context
+    bundle_names = {bundle.id: bundle.name for bundle in bundles}
+    schedule = compile_schedule(bundles)
+    schedule_without_running = [
+        entry for entry in schedule if not (entry.day == 1 and entry.bundle_id == "running.v3")
+    ]
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+
+    cards = _cards_for_day(
+        schedule_without_running,
+        1,
+        date="2026-07-06",
+        registry=registry,
+        library=library,
+        bundle_names=bundle_names,
+        repo=repo,
+        run_activity_port=port,
+    )
+
+    assert port.calls == []
+    assert [c.bundle_id for c in cards] == ["support.v3", "strength.v3"]
+    assert all(c.associated_activity is None and c.run_candidates == [] for c in cards)
+
+
 # ---------- get_training_schedule_window ----------
 
 
@@ -309,6 +579,21 @@ def test_schedule_window_never_surfaces_a_last_logged_anchor():
     push_a = _card(window.days[0], "strength.v3:str.push_a:d08")
     bench = next(e for e in push_a.exercises_display if e.exercise_id == "barbell_bench")
     assert bench.last is None
+
+
+def test_schedule_window_never_associates_a_run_even_when_today_would_auto_match():
+    """`get_training_schedule_window` never accepts a `RunActivityReadPort` — its
+    call path leaves `_cards_for_day`'s port parameter at its default, so a run
+    card here always renders unassociated, unlike the identical day read through
+    `get_training_today` with a port supplied (see the Task 8 association tests
+    above, which auto-link this exact day/card/distance combination).
+    """
+    repo = _imported_repo()
+    window = get_training_schedule_window(repo, start_date="2026-07-06", duration_days=1)
+
+    easy = _card(window.days[0], "running.v3:run.easy:d01")
+    assert easy.associated_activity is None
+    assert easy.run_candidates == []
 
 
 # ---------- get_block_status ----------
@@ -474,6 +759,111 @@ def test_upsert_training_log_explicit_null_notes_clears_stored_notes():
 
     assert "notes" in TrainingLogUpdateRequest(notes=None).model_fields_set
     assert cleared.notes is None
+
+
+# ---------- upsert_training_log: run-link fields (Task 8) ----------
+
+
+def test_upsert_training_log_links_run_id_when_valid_for_date():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+
+    log = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id="r1"),
+        run_activity_port=port,
+    )
+
+    assert log.linked_run_id == "r1"
+    assert log.run_link_detached is False
+
+
+def test_upsert_training_log_rejects_linked_run_id_not_among_the_dates_runs():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+
+    with pytest.raises(ValueError):
+        upsert_training_log(
+            repo,
+            date="2026-07-06",
+            occurrence_key="running.v3:run.easy:d01",
+            update=TrainingLogUpdateRequest(linked_run_id="ghost"),
+            run_activity_port=port,
+        )
+
+
+def test_upsert_training_log_rejects_linked_run_id_when_no_port_supplied():
+    """A missing `run_activity_port` is treated as "no runs for this date" —
+    any non-null `linked_run_id` is rejected, never silently accepted.
+    """
+    repo = _imported_repo()
+
+    with pytest.raises(ValueError):
+        upsert_training_log(
+            repo,
+            date="2026-07-06",
+            occurrence_key="running.v3:run.easy:d01",
+            update=TrainingLogUpdateRequest(linked_run_id="r1"),
+        )
+
+
+def test_upsert_training_log_detaches_run_link():
+    repo = _imported_repo()
+
+    log = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(run_link_detached=True),
+    )
+
+    assert log.run_link_detached is True
+    assert log.linked_run_id is None
+
+
+def test_upsert_training_log_partial_update_preserves_linked_run_id_when_field_absent():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id="r1"),
+        run_activity_port=port,
+    )
+
+    second = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(status="completed"),
+    )
+
+    assert second.linked_run_id == "r1"
+    assert second.status == "completed"
+
+
+def test_upsert_training_log_explicit_null_linked_run_id_clears_it():
+    repo = _imported_repo()
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id="r1"),
+        run_activity_port=port,
+    )
+
+    cleared = upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key="running.v3:run.easy:d01",
+        update=TrainingLogUpdateRequest(linked_run_id=None),
+    )
+
+    assert cleared.linked_run_id is None
 
 
 # ---------- render_scheme ----------

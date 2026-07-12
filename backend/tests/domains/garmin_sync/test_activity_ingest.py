@@ -138,6 +138,38 @@ class TestActivityIngest:
         assert result.sessions_ingested == 0
         assert _session_count() == 1
 
+    def test_wiping_tables_and_fingerprint_forces_full_reingest(self, tmp_path, monkeypatch):
+        """Proves the rebuild path used by scripts/reingest_activities.py: deleting the
+        running_activity_* rows and the activities_fingerprint meta key makes a
+        subsequent ingest re-parse every file from scratch, not just new ones."""
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _fake_parse)
+        _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+        _write_fit(tmp_path, "2026-07-09", "064500_running_generic")
+        first = ingest_running_activities(tmp_path)
+        assert first.sessions_ingested == 2
+        assert _session_count() == 2
+
+        with connect() as con, con:
+            for table in (
+                "running_activity_sessions",
+                "running_activity_laps",
+                "running_activity_series",
+            ):
+                con.execute(f"DELETE FROM {table}")
+            con.execute("DELETE FROM ingest_meta WHERE key = 'activities_fingerprint'")
+        assert _session_count() == 0
+
+        result = ingest_running_activities(tmp_path)
+
+        assert result.skipped is False
+        assert result.sessions_ingested == 2
+        assert _session_count() == 2
+        with connect() as con:
+            row = con.execute(
+                "SELECT session_id, data FROM running_activity_series LIMIT 1"
+            ).fetchone()
+        assert row is not None
+
     def test_ingest_persists_laps_alongside_session_and_series(self, tmp_path, monkeypatch):
         lap = RunningActivityLap(lap_index=0, distance_m=1000.0)
 

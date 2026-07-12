@@ -5,6 +5,16 @@ logging both persist through this single protocol. The concrete SQLite
 adapter (`adapters.py`) owns the single-active-block/bundle retirement
 invariant and transaction boundaries; this module only describes the shape
 callers depend on.
+
+`RunActivityReadPort` is a second, unrelated dependency: the read-only seam
+`application/read_models.py`'s run<->prescription association policy uses to
+see tracked runs. `training` must never import `garmin_analytics`/
+`garmin_health` (see `CHARTER.md`), so this Protocol is implemented entirely
+outside the slice — `bootstrap/run_activity_port.py` adapts the
+`garmin_analytics` runs repository to it, and `bootstrap/container.py` wires
+the concrete instance in. Association is Today-only: `get_training_today`
+takes this port as an optional parameter and threads it down to the read
+model's card projection; `get_training_schedule_window` never receives one.
 """
 
 from __future__ import annotations
@@ -17,6 +27,7 @@ from app.domains.training.contracts import (
     StoredLibrary,
     StoredRegistry,
     TrainingCardLog,
+    TrainingRunActivitySummary,
 )
 
 
@@ -61,3 +72,16 @@ class TrainingRepository(Protocol):
         ...
 
     def upsert_card_log(self, log: TrainingCardLog) -> None: ...
+
+
+class RunActivityReadPort(Protocol):
+    """Read-only view of tracked runs for one date; implemented outside training.
+
+    The single seam through which the Today read model's run<->prescription
+    association policy sees tracked-run data. Every field on the returned
+    `TrainingRunActivitySummary` is already training-local and imperial —
+    the implementation owns any unit conversion, so nothing here or in
+    `application/read_models.py` ever imports a garmin contract or unit.
+    """
+
+    def runs_for_date(self, date: str) -> list[TrainingRunActivitySummary]: ...
