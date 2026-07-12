@@ -36,7 +36,7 @@ def test_assistant_artifact_routes_remain_registered():
     assert "/api/assistant/artifact-bundles/import" in paths
 
 
-def test_storage_initialization_does_not_drop_preexisting_retired_tables():
+def test_storage_initialization_drops_only_preexisting_retired_chat_tables():
     with sqlite.connect() as connection:
         connection.execute("DROP TABLE IF EXISTS assistant_threads")
         connection.execute(
@@ -51,8 +51,18 @@ def test_storage_initialization_does_not_drop_preexisting_retired_tables():
     init_storage()
 
     with sqlite.connect() as connection:
-        row = connection.execute(
-            "SELECT marker FROM assistant_threads WHERE id = ?", ("sentinel",)
-        ).fetchone()
-    assert row is not None
-    assert row["marker"] == "preserve-me"
+        tables = {
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+    assert "assistant_threads" not in tables
+    assert "coach_reviews" in tables
+    assert "assistant_artifacts" in tables
+
+
+def test_coach_routes_remain_registered_after_assistant_retirement():
+    paths = _route_paths()
+    assert "/api/coach/status" in paths
+    assert "/api/coach/reviews/run" in paths

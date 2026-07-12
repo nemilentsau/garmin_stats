@@ -18,7 +18,7 @@ from matplotlib.figure import Figure  # noqa: E402
 from app.domains.coach.infra.paths import library_panel_path
 from app.domains.garmin_analytics.contracts import RunDetailResponse, RunSeriesResponse
 
-PANEL_SPEC_VERSION = 2
+PANEL_SPEC_VERSION = 3
 
 _LINE_COLOR = "#2166ac"
 _SECONDARY_COLOR = "#b2182b"
@@ -256,6 +256,6 @@ def render_current_run_stack(
             x=0.01,
             ha="left",
         )
-        figure.savefig(path, dpi=150, facecolor="white")
+        figure.savefig(path, dpi=100, facecolor="white")
         plt.close(figure)
     return paths

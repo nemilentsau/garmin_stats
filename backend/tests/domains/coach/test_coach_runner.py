@@ -86,6 +86,7 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     assert result.usage == {"input_tokens": 11, "output_tokens": 7}
     for flag in ("--ignore-user-config", "--ignore-rules", "--json", "--skip-git-repo-check"):
         assert flag in argv
+    assert argv[argv.index("--config") + 1] == "project_doc_max_bytes=0"
     assert argv[:1] == ["exec"]
     assert argv[argv.index("-i") + 1] == str(image)
     assert record["cwd"] == str(tmp_path / "workspace")

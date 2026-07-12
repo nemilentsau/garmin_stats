@@ -138,6 +138,8 @@ def _command(
             "--ignore-rules",
             "--json",
             "--skip-git-repo-check",
+            "--config",
+            "project_doc_max_bytes=0",
             "--model",
             os.environ.get("COACH_CODEX_MODEL", "gpt-5.6-sol"),
             "--output-schema",
