@@ -20,7 +20,7 @@
       "134": "strap-era only; unknown (observed in strap runs; 100 in probe)",
       "137": "stamina candidate (starts ~98)",
       "138": "stamina-potential candidate (starts ~98)",
-      "133-136, 140, 143": "unknown; 136 tracked heart_rate in probe",
+      "133, 135-136, 140, 143": "unknown; 136 tracked heart_rate in probe",
       "144": "strap-era only; unknown (observed in strap runs; 84 in probe)"
     }
   },

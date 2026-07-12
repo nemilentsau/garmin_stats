@@ -343,7 +343,7 @@ class TestSeriesExtraction:
         assert series.run_walk_spans[0].span_type == "run"
 
     def test_wrist_style_series_has_strap_fields_empty_and_none(self):
-        """Wrist-style records (no strap fields) → strap arrays remain empty."""
+        """Wrist-style records (no strap fields) → strap arrays hold positional Nones."""
         def _wrist_record(ts_offset_s):
             """Record without strap fields."""
             return {
