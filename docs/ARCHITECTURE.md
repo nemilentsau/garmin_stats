@@ -20,7 +20,7 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
 - `frontend/src/` — SvelteKit application.
 - `storage/` — local SQLite database, created at runtime.
 - `data/garmin_health_stats/` — Garmin wellness day archives + extracted FIT (ingested → `daily_metrics`).
-- `data/garmin_activities/` — per-activity FIT + JSON pulled from Garmin Connect every sync (running parsed into session/lap/series tables; strength/breathing parse + prescribed-run association pending).
+- `data/garmin_activities/` — per-activity FIT + JSON pulled from Garmin Connect every sync (running parsed into session/lap/series tables and associated with prescribed run cards; strength/breathing parse pending).
 
 Full data topology, ingest/sync flow, and config paths: **`reference/data-and-ingest.md`**.
 
@@ -33,7 +33,7 @@ Boundary tests guard module intent, not a mandatory folder template. Larger slic
 Three paths:
 
 - **Ingest (wellness):** FIT files → Garmin health FIT parser → daily metric composer → SQLite.
-- **Activity:** tracked-session FIT/JSON downloaded from Garmin Connect into `data/garmin_activities/` every sync; running activities parsed into `running_activity_{sessions,laps,series}` on sync/startup (see `reference/run-activities.md`); strength/breathing parse and prescribed-run association pending (`reference/data-and-ingest.md`, `future/ACTIVITY_ANALYTICS_DESIGN.md`).
+- **Activity:** tracked-session FIT/JSON downloaded from Garmin Connect into `data/garmin_activities/` every sync; running activities parsed into `running_activity_{sessions,laps,series}` on sync/startup and associated with prescribed run cards (see `reference/run-activities.md`); strength/breathing parse pending (`reference/data-and-ingest.md`, `future/ACTIVITY_ANALYTICS_DESIGN.md`).
 - **Read:** SQLite → repository adapters → domain/core application slices → JSON API → frontend.
 
 Dependency direction (the layering enforced by architecture tests):

@@ -27,7 +27,8 @@ The product direction and the training system's source of truth. Everything else
 - [general_principles.md](routine-pivot/general_principles.md) — P1–P13 governing principles.
 - [schema_v3_spec.md](routine-pivot/schema_v3_spec.md) — the v3 training schema the app imports.
 - [pivot_roadmap.md](routine-pivot/pivot_roadmap.md) — two standing objectives, phases, shipped notes, and the import-only ingress rule.
-- [block0/](routine-pivot/block0/) — the authored Block 0 artifacts imported verbatim by the app.
+- [block0/](routine-pivot/block0/) — the retired Block 0 artifacts; frozen as the schema-exemplar + test-fixture canon, no longer imported.
+- [block1/](routine-pivot/block1/) — the authored Block 1 (threshold-development) artifacts, the active block imported verbatim by the app.
 
 ### `ARCHITECTURE.md` — the code map
 

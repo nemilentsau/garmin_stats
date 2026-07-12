@@ -22,7 +22,7 @@
 ## Key Constraints
 - API types flow: Pydantic models/routes → OpenAPI → generated TypeScript.
 - Never hand-write `frontend/src/lib/api-types.ts`; always regenerate via script after backend schema changes.
-- **Data sources & ingest:** two Garmin trees — wellness (`garmin_health_stats/`, ingested → `daily_metrics`) and tracked activities (`garmin_activities/`, downloaded from Garmin Connect every sync, parse/associate pending). Topology, config paths, and commands are in `docs/reference/data-and-ingest.md` (single source of truth) — do not restate paths here.
+- **Data sources & ingest:** two Garmin trees — wellness (`garmin_health_stats/`, ingested → `daily_metrics`) and tracked activities (`garmin_activities/`, downloaded from Garmin Connect every sync; running is parsed into session/lap/series tables and associated with prescribed run cards; strength/breathing parse is still pending). Topology, config paths, and commands are in `docs/reference/data-and-ingest.md` (single source of truth) — do not restate paths here.
 - Period-level stats come from raw readings, never from averaging daily aggregates.
 - **Display units are US imperial** (user rule, 2026-07-11): distance in miles, pace in min/mi, elevation in feet, temperature in °F — matching the user's Garmin Connect profile. Never display km or min/km. Storage and canonical contracts stay FIT-native metric; the backend read layer converts and serves display-ready imperial fields. Garmin-style exceptions stay metric: stride length (m), vertical oscillation (cm), ground contact time (ms).
 - Frontend is display-only: zero statistical computation. All stats, aggregations, derived values, and data transformations (moving averages, smoothing, etc.) come from the backend API. Never compute these in the frontend.
@@ -30,14 +30,14 @@
 - Never reduce an experiment day to a "best card status" or treat multiple linked cards on the same day as ambiguity. Multiple same-day cards are expected when the intervention dose requires multiple sessions.
 - **Timestamps are local time** (invariant): FIT stores UTC; the parser shifts all timestamps to local at ingest, and `utc_offset_hours` carries the offset for display. New timestamp fields must be shifted at ingest — parser internals are owned by the `garmin-data` skill; data topology and the re-ingest command live in `docs/reference/data-and-ingest.md`.
 - **Watcher/startup/ingest changes must prove no-op behavior**: if you touch startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution, tests must cover `missing`, `already in sync`, and `stale/changed` states, including an idempotence case where a second run with no file changes does no work. After those changes, do a real local smoke check against the actual data tree before considering the task done.
-- **Import is the only content ingress.** Routine, experiment, and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/routine-pivot/schema_v3_spec.md` + `block0/` artifacts, which are canon and read-only); schemas are never flattened into older engine formats.
+- **Import is the only content ingress.** Routine, experiment, and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/routine-pivot/schema_v3_spec.md` + `block1/` artifacts, the active imported block; `block0/` is retired and stays read-only as the frozen schema exemplar + test-fixture canon); schemas are never flattened into older engine formats.
 
 ## Where Things Live (map)
 This file holds durable rules, setup, and pointers — not current-state facts. For detail, go to the one authoritative doc:
 - **Code map** — domains, dependency layering, boundaries, route inventory: `docs/ARCHITECTURE.md`
 - **Data sources, ingest, sync, config paths**: `docs/reference/data-and-ingest.md`
 - **How shipped features work** (recovery dashboard, HRV tab, …): `docs/reference/`
-- **Training system canon** (P1–P13 principles, v3 schema, roadmap, block0): `docs/routine-pivot/`
+- **Training system canon** (P1–P13 principles, v3 schema, roadmap, block0, block1): `docs/routine-pivot/`
 - **Specs for unbuilt work**: `docs/future/`
 - **Doc index / question router**: `docs/README.md`
 - **Code conventions** (app/utils promotion rule, slice boundaries, frontend, doc style): `docs/reference/code-conventions.md`
