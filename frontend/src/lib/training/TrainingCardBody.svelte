@@ -21,20 +21,37 @@
 	 * stale seed — is what prevents a card that combines capture kinds (nothing in the schema
 	 * forbids it, even though the shipped v3 bundles don't do so today, see
 	 * `docs/routine-pivot/block0/*.json`) from silently reverting a sibling's staged edit.
+	 *
+	 * Run-link (`associated_activity`/`run_candidates`, `running.v3` cards only — every other
+	 * card gets both empty/null from the backend, so the block below is naturally a no-op for
+	 * them) is a separate concern from `TrainingCaptureLog`: it has its own backend fields
+	 * (`linked_run_id`/`run_link_detached`) and its own PATCH, so it does NOT flow through
+	 * `latestCapture`/`onCapture`. This component only displays `associated_activity` and the
+	 * `run_candidates` picker and emits the user's choice via `onRunLink`; it does no matching
+	 * itself (display-only rule) — the page owns the PATCH call and refetches the Today feed
+	 * on success, since a run-link change can change what every other run card that day
+	 * displays too (multiple run cards share the same day's `run_candidates`).
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingTodayCard } from '$lib/api';
+	import { fmtDuration, fmtLoad, fmtMi, fmtPace, fmtStartTime, fmtTE, hrBadgeLabel } from '$lib/format-run';
 	import TrainingCheckinGrid from './TrainingCheckinGrid.svelte';
 	import TrainingStrengthGrid from './TrainingStrengthGrid.svelte';
+
+	/** Partial run-link PATCH — mirrors `TrainingLogUpdateRequest`'s `linked_run_id`/
+	 *  `run_link_detached` fields; the page owns the actual PATCH + feed refresh. */
+	type RunLinkPatch = { linked_run_id?: string | null; run_link_detached?: boolean | null };
 
 	let {
 		card,
 		mode,
-		onCapture
+		onCapture,
+		onRunLink
 	}: {
 		card: TrainingTodayCard;
 		mode: 'log' | 'view';
 		onCapture?: (capture: TrainingCaptureLog) => void;
+		onRunLink?: (patch: RunLinkPatch) => void;
 	} = $props();
 
 	const EMPTY_CAPTURE: TrainingCaptureLog = { set_logs: [], checkin: null, rpe: null };
@@ -48,6 +65,24 @@
 	 *  callback and by the RPE input, then re-emitted in full via onCapture. */
 	let latestCapture = $state<TrainingCaptureLog>(initialCapture);
 	let rpeValue = $state<number | null>(initialCapture.rpe);
+
+	/** Run-candidate picker visibility — opened by "Not this run?" (already linked) or
+	 *  "Link a run…" (unlinked with candidates); closed on pick, detach, or toggle. */
+	let runPickerOpen = $state(false);
+
+	function pickRun(runId: string) {
+		runPickerOpen = false;
+		onRunLink?.({ linked_run_id: runId });
+	}
+
+	/** Clears both the manual link and sets `run_link_detached`. A stored `linked_run_id`
+	 *  always wins over `run_link_detached` alone (backend `match_run_to_card` precedence),
+	 *  so Detach must send both fields — otherwise detaching a manually-linked card would
+	 *  be a no-op, since the stale `linked_run_id` would keep resolving the association. */
+	function detachRun() {
+		runPickerOpen = false;
+		onRunLink?.({ linked_run_id: null, run_link_detached: true });
+	}
 
 	// Human-readable badge for the card's selection rule: the effective variant in plain
 	// words, with the raw HRV/soreness rule kept in the tooltip.
@@ -111,6 +146,72 @@
 				{/if}
 			</div>
 		{/each}
+	</div>
+{/if}
+
+{#if card.associated_activity || (mode === 'log' && card.run_candidates.length > 0)}
+	<div class="executed-block">
+		{#if card.associated_activity}
+			{@const activity = card.associated_activity}
+			<div class="executed-header">
+				<span class="executed-title">Executed</span>
+				<span class="link-badge" class:auto={activity.link_source === 'auto'}>
+					{activity.link_source === 'auto' ? 'auto-linked' : 'linked'}
+				</span>
+			</div>
+			<div class="executed-stats">
+				<span class="executed-stat"><span class="executed-primary">{fmtMi(activity.distance_mi)}</span> mi</span>
+				<span class="executed-stat">{fmtDuration(activity.timer_time_s)}</span>
+				<span class="executed-stat">{fmtPace(activity.pace_min_per_mi)} /mi</span>
+				{#if activity.avg_heart_rate_bpm != null}
+					<span class="executed-stat">
+						{Math.round(activity.avg_heart_rate_bpm)} bpm
+						{#if hrBadgeLabel(activity.hr_source)}
+							<span class="hr-badge" class:chest={hrBadgeLabel(activity.hr_source) === 'CHEST'}
+								>{hrBadgeLabel(activity.hr_source)}</span
+							>
+						{/if}
+					</span>
+				{/if}
+				{#if activity.training_load != null}
+					<span class="executed-stat">{fmtLoad(activity.training_load)} load</span>
+				{/if}
+				{#if activity.aerobic_training_effect != null}
+					<span class="executed-stat">TE {fmtTE(activity.aerobic_training_effect)}</span>
+				{/if}
+				<span class="executed-stat executed-muted">{fmtStartTime(activity.start_time_local)}</span>
+			</div>
+			<div class="executed-actions">
+				<a class="view-run-link" href={`/runs/${activity.run_id}`}>View run →</a>
+				{#if mode === 'log'}
+					<button type="button" class="link-action" onclick={() => (runPickerOpen = !runPickerOpen)}>
+						Not this run?
+					</button>
+					<button type="button" class="link-action" onclick={detachRun}>Detach</button>
+				{/if}
+			</div>
+		{:else if mode === 'log' && card.run_candidates.length > 0}
+			<button type="button" class="link-affordance" onclick={() => (runPickerOpen = !runPickerOpen)}>
+				Link a run…
+			</button>
+		{/if}
+
+		{#if runPickerOpen && mode === 'log'}
+			<div class="run-picker" role="radiogroup" aria-label="Select the tracked run for this session">
+				{#each card.run_candidates as candidate (candidate.run_id)}
+					<label class="run-picker-row">
+						<input
+							type="radio"
+							name={`run-candidate-${card.occurrence_key}`}
+							checked={card.associated_activity?.run_id === candidate.run_id}
+							onchange={() => pickRun(candidate.run_id)}
+						/>
+						<span class="run-picker-time">{fmtStartTime(candidate.start_time_local)}</span>
+						<span class="run-picker-dist">{fmtMi(candidate.distance_mi)} mi</span>
+					</label>
+				{/each}
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -217,6 +318,169 @@
 
 	.seg-sub {
 		margin-left: 8px;
+		color: #6b8292;
+	}
+
+	/* ── Executed block (run-link) — a quiet sub-block adjacent to segment-list, not a
+	   card-in-card: same background tint as segment-list rows, no border/shadow of its own. */
+	.executed-block {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 8px 10px;
+		border-radius: 7px;
+		background: rgba(255, 255, 255, 0.025);
+	}
+
+	.executed-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.executed-title {
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: #8fa3b0;
+	}
+
+	.link-badge {
+		display: inline-block;
+		padding: 1px 6px;
+		border-radius: 3px;
+		font-size: 9px;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		color: #8fa3b0;
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.link-badge.auto {
+		color: #5bb5a6;
+		background: rgba(91, 181, 166, 0.12);
+	}
+
+	.executed-stats {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 3px 12px;
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		color: #c5d8e4;
+	}
+
+	.executed-primary {
+		color: #eef5f8;
+		font-weight: 600;
+	}
+
+	.executed-muted {
+		color: #6b8292;
+	}
+
+	.hr-badge {
+		display: inline-block;
+		margin-left: 4px;
+		padding: 1px 5px;
+		border-radius: 3px;
+		font-size: 9px;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		color: #8fa3b0;
+		background: rgba(255, 255, 255, 0.06);
+		vertical-align: middle;
+	}
+
+	.hr-badge.chest {
+		color: #5bb5a6;
+		background: rgba(91, 181, 166, 0.12);
+	}
+
+	.executed-actions {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.view-run-link {
+		color: #7bb8e0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		text-decoration: none;
+	}
+
+	.view-run-link:hover {
+		text-decoration: underline;
+	}
+
+	.link-action {
+		border: none;
+		background: transparent;
+		color: #8fa3b0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.link-action:hover {
+		color: #c3d3dd;
+		text-decoration: underline;
+	}
+
+	.link-affordance {
+		align-self: flex-start;
+		border: 1px dashed rgba(255, 255, 255, 0.14);
+		background: transparent;
+		color: #8fa3b0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		border-radius: 6px;
+		padding: 5px 10px;
+		cursor: pointer;
+	}
+
+	.link-affordance:hover {
+		color: #c3d3dd;
+		border-color: rgba(255, 255, 255, 0.28);
+	}
+
+	.run-picker {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		padding-top: 8px;
+	}
+
+	.run-picker-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 5px 4px;
+		border-radius: 5px;
+		cursor: pointer;
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		color: #c5d8e4;
+	}
+
+	.run-picker-row:hover {
+		background: rgba(255, 255, 255, 0.04);
+	}
+
+	.run-picker-row input[type='radio'] {
+		accent-color: #5bb5a6;
+	}
+
+	.run-picker-dist {
 		color: #6b8292;
 	}
 
