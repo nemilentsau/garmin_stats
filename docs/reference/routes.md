@@ -235,6 +235,7 @@ Backend from the FastAPI OpenAPI schema (91 operations); frontend from `frontend
 |---|---|
 | `/` | page |
 | `/body-battery` | page |
+| `/coach` | page |
 | `/experiments` | page |
 | `/heart-rate` | page |
 | `/hrv` | page |

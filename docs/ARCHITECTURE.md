@@ -7,7 +7,7 @@ Current-state code map. Not a roadmap, not a historical diary. This file is the 
 The shipped app has four active product centers:
 
 1. Recovery dashboard and metric drill-downs
-2. Assistant chat with retrieval-first evidence bundles and stored runs
+2. Coach: queued run reviews, evidence-grounded chat, and bounded semantic memory
 3. Training block runtime (v3): artifact import, lint-gated activation, and the Today/schedule training feed
 4. Routine runtime shared by Creation, Schedule, and Today — the import path for non-training bundles (meditation, breathwork)
 
@@ -40,7 +40,8 @@ Dependency direction (the layering enforced by architecture tests):
 
 - `garmin_sync` ingest adapters → `garmin_health`, `app.utils`
 - `garmin_analytics` → `garmin_health`, `app.utils`
-- `experiments` and `assistant` → `garmin_health` contracts, and analytics adapters only when loading analytics read data
+- `experiments` → `garmin_health` contracts and its injected read sources
+- `coach` → existing `garmin_analytics`, `training`, `journal`, and `garmin_health` read contracts through one gateway; it does not own estimator computation
 - `garmin_health` → `app.contracts.base`, `app.utils`
 - `app.utils` → stdlib and numpy only
 
@@ -67,19 +68,19 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 
 | Domain / slice | Purpose | Routes | Charter |
 |---|---|---|---|
-| `assistant` | Chat + retrieval-first evidence bundles, Claude Code runtime | `/api/assistant/threads…` | [charter](../backend/app/domains/assistant/CHARTER.md) |
+| `coach` | Durable run reviews, evidence-grounded chat, hierarchical context, semantic journal/brief, isolated Codex runtime | `/api/coach/*` | [charter](../backend/app/domains/coach/CHARTER.md) |
 | `routines` | v2 routine catalog, schedule projection, Today execution (meditation/breath import path) | `/api/routines`, `/api/today` | [charter](../backend/app/domains/routines/CHARTER.md) |
 | `training` | v3 training import, lint-gated activation, Today/schedule feed, capture logs (import-only ingress) | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
 | `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (running activities parsed; strength/breathing download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
 | `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
 | `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
 | `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
-| `artifacts` | Assistant-authored staging + bundle publish; delegates activation to `routines` | `/api/cards`, `/api/assistant/artifacts`, `/api/assistant/artifact-bundles` | [charter](../backend/app/domains/artifacts/CHARTER.md) |
+| `artifacts` | Authored staging + bundle publish; delegates activation to `routines` | `/api/cards`, `/api/assistant/artifacts`, `/api/assistant/artifact-bundles` | [charter](../backend/app/domains/artifacts/CHARTER.md) |
 | `journal` | Daily check-ins + freeform notes (subjective context) | `/api/checkins`, `/api/notes` | [charter](../backend/app/domains/journal/CHARTER.md) |
 | `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` consumes tracked-run summaries for run↔prescription association (Today board only) through an injected `RunActivityReadPort`, never a direct import — the concrete adapter over `garmin_analytics`'s run data lives in `backend/app/bootstrap/run_activity_port.py` (see `training/CHARTER.md`, `reference/run-activities.md`).
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and compatibility-prefixed `/api/assistant/artifact*` routes are owned by `artifacts`; there is no assistant chat slice. `coach` reuses application read models and owns only descriptive packaging, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` consumes tracked-run summaries for run↔prescription association (Today board only) through an injected `RunActivityReadPort`, never a direct import — the concrete adapter over `garmin_analytics`'s run data lives in `backend/app/bootstrap/run_activity_port.py` (see `training/CHARTER.md`, `reference/run-activities.md`).
 
 ## Conventions
 
@@ -107,7 +108,7 @@ Data roots, ingest, and Garmin config paths are documented in full in **`referen
 - Wellness tree: `data/garmin_health_stats/` (`GARMIN_DATA_DIR`)
 - Activities tree: `data/garmin_activities/` (`GARMIN_ACTIVITY_DATA_DIR`)
 - Garmin tokens: `~/.garminconnect` (`GARMINTOKENS`)
-- Other: `BACKEND_CORS_ORIGINS`, `PUBLIC_API_BASE_URL`
+- Other: `BACKEND_CORS_ORIGINS`, `PUBLIC_API_BASE_URL`, `GARMIN_COACH_WORKER_ENABLED`
 
 ## Source Of Truth Docs
 
@@ -115,6 +116,7 @@ Data roots, ingest, and Garmin config paths are documented in full in **`referen
 - [reference/data-and-ingest.md](reference/data-and-ingest.md) — data topology, ingest/sync, config paths.
 - [reference/routes.md](reference/routes.md) — generated route inventory.
 - [reference/code-conventions.md](reference/code-conventions.md) — cross-cutting code conventions.
+- [reference/coach.md](reference/coach.md) — coach evidence, memory, queue, runtime, and API behavior.
 - `backend/app/domains/<domain>/CHARTER.md` — per-domain boundary contracts.
 - [README.md](../README.md) — product overview, setup, high-level data-flow narrative.
 - [future/ACTIVITY_ANALYTICS_DESIGN.md](future/ACTIVITY_ANALYTICS_DESIGN.md) — planned activity/session analytics.

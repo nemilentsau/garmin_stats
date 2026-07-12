@@ -14,7 +14,8 @@ Current project documentation only. Implementation plans, working specs, and sup
 | What a domain owns / may import (its boundary contract) | `backend/app/domains/<domain>/CHARTER.md` |
 | Where new code / a shared helper belongs; slice + frontend conventions | [`reference/code-conventions.md`](reference/code-conventions.md) |
 | The training-system rules, v3 schema, roadmap | [`routine-pivot/`](routine-pivot/) (canon) |
-| How a shipped feature works (recovery score, HRV tab) | [`reference/`](reference/) |
+| How Coach evidence, memory, jobs, and runtime work | [`reference/coach.md`](reference/coach.md) |
+| How another shipped feature works (recovery score, HRV tab) | [`reference/`](reference/) |
 | What's designed but not built yet | [`future/`](future/) |
 | Data-analysis findings | [`findings/`](findings/) (+ local `FINDINGS.md`) |
 
@@ -40,6 +41,7 @@ Backend/frontend structure, dependency layering, and the domain index. Per-domai
 - [run-activities.md](reference/run-activities.md) — how tracked runs parse, store, and display (running only; strength still unparsed).
 - [routes.md](reference/routes.md) — generated route inventory (backend OpenAPI + SvelteKit).
 - [code-conventions.md](reference/code-conventions.md) — `app/utils/` promotion rule, slice boundaries, frontend conventions, doc style.
+- [coach.md](reference/coach.md) — Coach evidence boundary, context, memory, durable jobs, Codex isolation, and API/UI lifecycle.
 - [recovery-dashboard.md](reference/recovery-dashboard.md) — recovery score, health flags, dashboard overview (ships until the Phase 2 reframe).
 - [recovery-score.md](reference/recovery-score.md) — explanation and critique of the score.
 - [HRV_TAB_REFACTOR.md](reference/HRV_TAB_REFACTOR.md) — HRV tab rationale (cited by code comments).

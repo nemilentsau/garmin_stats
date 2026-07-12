@@ -5,7 +5,7 @@ description: Use when choosing frontend UX, layout, spacing, typography, color, 
 
 # UX Design
 
-This project is a dense Garmin health, assistant, Today, and routine-management app. Prefer calm operational clarity over expressive landing-page design.
+This project is a dense Garmin health, coach, Today, and routine-management app. Prefer calm operational clarity over expressive landing-page design.
 
 ## Product Direction
 
@@ -39,7 +39,7 @@ Cards are correct for independent objects and for a single metric's own detail s
 - Use familiar controls: icon buttons for tools, segmented controls for modes, toggles for binary settings, inputs/sliders for numeric values, tabs for view changes, menus for option sets.
 - Use lucide icons where available. Pair unfamiliar icon-only controls with tooltips.
 - Today and schedule flows should optimize repeated daily use: low friction, clear status, visible next action.
-- Assistant surfaces should make evidence and actions readable without implying that the frontend owns the underlying analysis.
+- Coach surfaces are operational tools, not KPI dashboards: show review/thread/job states in words, use aligned rows and stable panes, and make evidence/refs readable without implying that the frontend owns analysis.
 
 ## Validation
 

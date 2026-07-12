@@ -37,8 +37,16 @@ The app draws on **two separate local trees**. They are different shapes with di
 - **Download tracked activities (backfill):** `cd backend && uv run python ../scripts/download_garmin.py --activities …` (see README "Data And Ingest" for `--date` / `--from`/`--to` / `--health-range`)
 - **Sync (wellness archives + activities):** `POST /api/ingest/sync` (also the frontend sync button)
 
+After both wellness and running-activity ingest succeed, sync invokes a generic
+bootstrap-supplied callback. Bootstrap uses it to reconcile idempotent coach review work;
+the sync domain imports no coach symbols. An unchanged sync still invokes the callback
+because local-date eligibility can change while the source tree does not. Watcher-driven
+successful ingest runs the same composition alongside experiment-analysis refresh. When
+`GARMIN_COACH_WORKER_ENABLED=false`, bootstrap skips coach reconciliation and execution.
+
 ## Invariants (for code that touches this path)
 
 - **Timestamps are local time.** FIT files store UTC; the parser extracts the per-day UTC offset from `monitoring_info_mesgs` and shifts all timestamps to local at ingest (`DayData.utc_offset_hours` / `DailyMetric.utc_offset_hours` carry it for display). New timestamp fields must be shifted at ingest — see the `garmin-data` skill for the parser internals.
 - **Period-level stats come from raw readings**, never from averaging daily aggregates.
 - **Watcher/startup/ingest changes must prove no-op behavior:** touching startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution requires tests covering `missing`, `already in sync`, and `stale/changed`, including an idempotence case where a second run with no file changes does no work — then a real local smoke check against the actual data tree.
+- **Post-ingest reactions must remain injected and idempotent.** `garmin_sync` calls a no-argument capability only after both ingest paths succeed; cross-domain reaction composition stays in bootstrap. Repeated successful callbacks may do no work.

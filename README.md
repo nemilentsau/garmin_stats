@@ -1,13 +1,13 @@
-# Garmin Health Assistant
+# Garmin Health Coach
 
 Garmin Health Assistant is a local-first personal health application built around
 Garmin wellness exports. It ingests Garmin FIT files, turns them into deterministic
 recovery metrics, and presents them through a Svelte dashboard, a routine execution
-surface, and an assistant that answers from curated local context.
+surface, and a coach that reviews training from bounded local evidence.
 
 The project is pivoting from recovery-first observation to goal-directed
 training (see `docs/routine-pivot/`). The primary product flow today is
-dashboard + assistant + the **v3 training block**: authored training artifacts
+dashboard + coach + the **v3 training block**: authored training artifacts
 are uploaded through `Training → Import`, validated by a build-time linter, and
 executed on the Today board with native capture. The older v2 routine runtime
 remains as the import path for non-training bundles (meditation, breathwork);
@@ -43,8 +43,9 @@ import — there are no generators, seeders, or derived artifacts.
   prescribed run card it satisfies and surfaced on the Today board. Strength
   and breathing activity files still download-only. See
   [docs/reference/run-activities.md](docs/reference/run-activities.md).
-- Provides an assistant chat that uses curated evidence bundles instead of direct
-  raw database access.
+- Provides queued run reviews and coach chat from existing analytics, a 20-run
+  digest with on-demand detail, semantic journal/brief memory, and strict evidence
+  limits. See [docs/reference/coach.md](docs/reference/coach.md).
 - Supports routine bundles that compile into live schedules and a Today execution
   board.
 - Derives experiment exposure rows from completed routine cards when experiments
@@ -91,14 +92,16 @@ models; the boundary rules matter more than the package label:
   extraction, ingest status, and affected-date ingest decisions.
 - `domains/garmin_health/` owns canonical Garmin health contracts, FIT parsing,
   timestamp normalization, and daily metric composition used by ingest
-  persistence, analytics, experiments, and assistant.
+  persistence, analytics, experiments, and coach evidence reads.
 - `domains/garmin_analytics/` owns Garmin-derived read models, dashboard data,
   biometric reads, recovery insights, analyses, and period summaries.
-- `domains/assistant/` owns assistant threads, retrieval, evidence bundles, memory,
-  and runtime integration.
+- `domains/coach/` owns durable reviews/threads/jobs, hierarchical evidence
+  workspaces, semantic journal/brief memory, plot packaging, and isolated Codex
+  execution. It reuses analytics/training/journal read models rather than owning
+  estimators.
 - `domains/routines/` owns routine catalog, schedule projection, Today execution,
   and routine activation.
-- `domains/artifacts/` owns assistant-authored card/routine artifacts, bundle
+- `domains/artifacts/` owns authored card/routine artifacts, bundle
   preview/import, capability requests, and card-template persistence before
   delegating live routine activation to `domains/routines`.
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
@@ -127,7 +130,7 @@ transitional slices should be explicitly allowlisted in architecture tests with
 their permitted boundary violations.
 
 The frontend is a SvelteKit app under `frontend/src/`. It renders the recovery
-overview, metric detail pages, assistant chat, Today board, and routine schedule
+overview, metric detail pages, Coach, Today board, and routine schedule
 review. Shared API helpers and generated API types live in `frontend/src/lib/`.
 
 For the full current code map and route inventory, see
