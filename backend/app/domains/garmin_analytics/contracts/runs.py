@@ -48,12 +48,17 @@ class LapDisplayRow(DefaultsRequired):
     """One lap's imperial display fields, joined to the embedded lap by `lap_index`.
 
     The lap's other fields (time, HR, cadence, ...) need no unit conversion and
-    render straight from the embedded `RunningActivityLap`.
+    render straight from the embedded `RunningActivityLap`. The strap-only
+    fields below are None on wrist-only laps, same as their session-level
+    counterparts on `RunDisplayStats`.
     """
 
     lap_index: int
     distance_mi: float | None = None
     pace_min_per_mi: float | None = None
+    avg_ground_contact_balance_label: str | None = None
+    avg_respiration_rate_brpm: float | None = None
+    avg_vertical_oscillation_cm: float | None = None
 
 
 class RunDisplayStats(DefaultsRequired):
@@ -61,7 +66,9 @@ class RunDisplayStats(DefaultsRequired):
 
     Every field is None-preserving from its metric source; see the `_*_to_*`
     conversion helpers in `application/runs.py` for the exact constants and
-    rounding rule each field uses.
+    rounding rule each field uses. `avg_ground_contact_balance_label` and the
+    respiration fields are strap-only: they render as None when the run has
+    no chest-strap running dynamics (wrist-only runs).
     """
 
     distance_mi: float | None = None
@@ -75,6 +82,11 @@ class RunDisplayStats(DefaultsRequired):
     min_temperature_f: float | None = None
     max_temperature_f: float | None = None
     avg_vertical_oscillation_cm: float | None = None
+    avg_ground_contact_balance_label: str | None = None
+    avg_stance_time_pct: float | None = None
+    avg_respiration_rate_brpm: float | None = None
+    max_respiration_rate_brpm: float | None = None
+    min_respiration_rate_brpm: float | None = None
     lap_display: list[LapDisplayRow] = []
 
 
@@ -96,6 +108,11 @@ class RunSeriesResponse(DefaultsRequired):
     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
     frontend charts bind to, index-aligned with `series.elapsed_s`.
+    `stance_time_balance_pct`/`respiration_rate_brpm`/`stance_time_pct` are
+    strap-dynamics arrays passed through unchanged from the stored series
+    (already native display units — balance %, brpm, % — no conversion
+    applies); empty on wrist-only runs, same as the imperial arrays above are
+    empty when their source data is absent.
     """
 
     series: RunningActivitySeries
@@ -103,3 +120,6 @@ class RunSeriesResponse(DefaultsRequired):
     altitude_ft: list[float | None] = []
     temperature_f: list[float | None] = []
     distance_mi: list[float | None] = []
+    stance_time_balance_pct: list[float | None] = []
+    respiration_rate_brpm: list[float | None] = []
+    stance_time_pct: list[float | None] = []

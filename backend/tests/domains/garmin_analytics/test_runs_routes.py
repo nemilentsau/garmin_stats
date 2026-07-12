@@ -120,7 +120,7 @@ def test_run_detail_display_preserves_none_for_missing_metric_fields():
     """None-preservation branch for every converter: a run with no ascent, temp,
     speed, or vertical-oscillation source data yields None display fields,
     while the always-populated distance/pace fields stay non-None."""
-    insert_run("2026-07-10", "r2")
+    insert_run("2026-07-10", "r2", lap_count=1)
     body = client.get("/api/activities/runs/r2").json()
     display = body["display"]
 
@@ -135,6 +135,48 @@ def test_run_detail_display_preserves_none_for_missing_metric_fields():
     assert display["min_temperature_f"] is None
     assert display["max_temperature_f"] is None
     assert display["avg_vertical_oscillation_cm"] is None
+    assert display["avg_ground_contact_balance_label"] is None
+    assert display["avg_stance_time_pct"] is None
+    assert display["avg_respiration_rate_brpm"] is None
+    assert display["max_respiration_rate_brpm"] is None
+    assert display["min_respiration_rate_brpm"] is None
+
+    lap_display = display["lap_display"][0]
+    assert lap_display["avg_ground_contact_balance_label"] is None
+    assert lap_display["avg_respiration_rate_brpm"] is None
+    assert lap_display["avg_vertical_oscillation_cm"] is None
+
+
+def test_run_detail_display_includes_strap_dynamics_for_strap_run():
+    """Strap-run branch: a run (and its laps) with chest-strap dynamics gets a
+    rendered balance label plus the respiration/stance-time pass-throughs, at
+    both the session and lap-display level."""
+    insert_run(
+        "2026-07-05",
+        "strap-run",
+        lap_count=1,
+        avg_ground_contact_balance_pct=49.76,
+        avg_stance_time_pct=33.42,
+        avg_respiration_rate_brpm=35.78,
+        max_respiration_rate_brpm=45.44,
+        min_respiration_rate_brpm=23.2,
+        lap_avg_ground_contact_balance_pct=49.62,
+        lap_avg_respiration_rate_brpm=33.42,
+        lap_avg_vertical_oscillation_mm=80.6,
+    )
+    body = client.get("/api/activities/runs/strap-run").json()
+    display = body["display"]
+
+    assert display["avg_ground_contact_balance_label"] == "49.8% L / 50.2% R"
+    assert display["avg_stance_time_pct"] == 33.42
+    assert display["avg_respiration_rate_brpm"] == 35.78
+    assert display["max_respiration_rate_brpm"] == 45.44
+    assert display["min_respiration_rate_brpm"] == 23.2
+
+    lap_display = display["lap_display"][0]
+    assert lap_display["avg_ground_contact_balance_label"] == "49.6% L / 50.4% R"
+    assert lap_display["avg_respiration_rate_brpm"] == 33.42
+    assert lap_display["avg_vertical_oscillation_cm"] == round(80.6 / 10, 1)
 
 
 def test_missing_run_is_404():
@@ -150,6 +192,34 @@ def test_series_serves_imperial_arrays():
     # speed 3.2 m/s → min/km = 1000/(3.2*60); min/mi = that × 1.609344
     assert round(body["pace_min_per_mi"][0], 3) == round(1000 / (3.2 * 60) * 1.609344, 3)
     assert body["pace_min_per_mi"][2] is None  # 0.1 m/s below threshold
+
+
+def test_series_strap_dynamics_arrays_absent_for_wrist_run():
+    """Wrist-only branch: a run with no strap-dynamics series data yields
+    empty pass-through arrays (the model's `[]` default), not a 3-slot
+    None-filled array — the frontend's `hasData` gate treats both the same,
+    but empty is what the wrist-only ingest actually stores."""
+    insert_run("2026-07-10", "r2")
+    body = client.get("/api/activities/runs/r2/series").json()
+    assert body["stance_time_balance_pct"] == []
+    assert body["respiration_rate_brpm"] == []
+    assert body["stance_time_pct"] == []
+
+
+def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
+    """Strap-run branch: balance/respiration/stance-time arrays pass through
+    unchanged (native units, no imperial conversion) and preserve None gaps."""
+    insert_run(
+        "2026-07-05",
+        "strap-run",
+        stance_time_balance_pct=[49.09, None, 49.46],
+        respiration_rate_brpm=[23.2, 23.2, None],
+        stance_time_pct=[35.25, 35.0, None],
+    )
+    body = client.get("/api/activities/runs/strap-run/series").json()
+    assert body["stance_time_balance_pct"] == [49.09, None, 49.46]
+    assert body["respiration_rate_brpm"] == [23.2, 23.2, None]
+    assert body["stance_time_pct"] == [35.25, 35.0, None]
 
 
 def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():

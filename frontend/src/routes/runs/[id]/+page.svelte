@@ -299,6 +299,31 @@
 			});
 		}
 
+		if (hasData(series.stance_time_balance_pct)) {
+			rows.push({
+				key: 'gctBalance',
+				title: 'GCT Balance',
+				footnote: d.avg_ground_contact_balance_label ?? '—',
+				config: channelConfig('GCT Balance', series.stance_time_balance_pct, COLORS.groundContactBalance, {
+					dots: true,
+					format: (v) => `${v.toFixed(1)}% L`
+				})
+			});
+		}
+
+		if (hasData(series.respiration_rate_brpm)) {
+			rows.push({
+				key: 'respiration',
+				title: 'Respiration Rate',
+				footnote: `avg ${fmtU1(d.avg_respiration_rate_brpm, 'brpm')} · min ${fmtU1(d.min_respiration_rate_brpm, 'brpm')} · max ${fmtU1(d.max_respiration_rate_brpm, 'brpm')}`,
+				config: channelConfig('Respiration Rate', series.respiration_rate_brpm, COLORS.respiration, {
+					area: true,
+					unit: 'brpm',
+					format: (v) => v.toFixed(1)
+				})
+			});
+		}
+
 		if (hasData(series.temperature_f)) {
 			rows.push({
 				key: 'temp',
@@ -435,7 +460,24 @@
 					{ label: 'Stride Length', value: fmtMeters(s.avg_step_length_mm) },
 					{ label: 'Vert. Oscillation', value: `${fmtCm(d.avg_vertical_oscillation_cm)} cm` },
 					{ label: 'Vert. Ratio', value: fmtU1(s.avg_vertical_ratio_pct, '%') },
-					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') }
+					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') },
+					{ label: 'GCT Balance', value: d.avg_ground_contact_balance_label ?? '—' },
+					{ label: 'Stance Time', value: fmtU1(d.avg_stance_time_pct, '%') }
+				]
+			});
+		}
+
+		if (
+			d.avg_respiration_rate_brpm != null ||
+			d.min_respiration_rate_brpm != null ||
+			d.max_respiration_rate_brpm != null
+		) {
+			groups.push({
+				title: 'Respiration',
+				rows: [
+					{ label: 'Avg', value: fmtU1(d.avg_respiration_rate_brpm, 'brpm') },
+					{ label: 'Min', value: fmtU1(d.min_respiration_rate_brpm, 'brpm') },
+					{ label: 'Max', value: fmtU1(d.max_respiration_rate_brpm, 'brpm') }
 				]
 			});
 		}
@@ -487,17 +529,21 @@
 	// ── Laps table: only show columns that have at least one real value across laps. ──
 	let lapColumns = $derived.by(() => {
 		const laps = detail?.laps ?? [];
+		const lapDisplays = detail?.display.lap_display ?? [];
 		return {
 			hr: laps.some((l) => l.avg_heart_rate_bpm != null),
 			power: laps.some((l) => l.avg_power_w != null),
 			cadence: laps.some((l) => l.avg_cadence_spm != null),
 			gct: laps.some((l) => l.avg_ground_contact_time_ms != null),
-			vertOsc: laps.some((l) => l.avg_vertical_oscillation_mm != null)
+			vertOsc: lapDisplays.some((l) => l.avg_vertical_oscillation_cm != null),
+			balance: lapDisplays.some((l) => l.avg_ground_contact_balance_label != null),
+			respiration: lapDisplays.some((l) => l.avg_respiration_rate_brpm != null)
 		};
 	});
 
-	// Laps carry no unit-converted fields themselves; imperial distance/pace per lap
-	// come from `display.lap_display`, joined here by `lap_index`.
+	// Laps carry no unit-converted fields themselves; imperial distance/pace/vert-osc-cm and
+	// the strap-dynamics display fields per lap come from `display.lap_display`, joined here
+	// by `lap_index`.
 	let lapDisplayByIndex = $derived.by(() => {
 		const rows = detail?.display.lap_display ?? [];
 		return new Map(rows.map((row) => [row.lap_index, row]));
@@ -639,7 +685,9 @@
 								{#if lapColumns.power}<th class="num">avg power</th>{/if}
 								{#if lapColumns.cadence}<th class="num">cadence</th>{/if}
 								{#if lapColumns.gct}<th class="num">gct</th>{/if}
-								{#if lapColumns.vertOsc}<th class="num">vert osc</th>{/if}
+								{#if lapColumns.balance}<th class="num">gct balance</th>{/if}
+								{#if lapColumns.vertOsc}<th class="num">vert osc (cm)</th>{/if}
+								{#if lapColumns.respiration}<th class="num">respiration</th>{/if}
 							</tr>
 						</thead>
 						<tbody>
@@ -654,7 +702,9 @@
 									{#if lapColumns.power}<td class="num">{fmtNum(lap.avg_power_w)}</td>{/if}
 									{#if lapColumns.cadence}<td class="num">{fmtNum(lap.avg_cadence_spm)}</td>{/if}
 									{#if lapColumns.gct}<td class="num">{fmtNum(lap.avg_ground_contact_time_ms)}</td>{/if}
-									{#if lapColumns.vertOsc}<td class="num">{lap.avg_vertical_oscillation_mm != null ? lap.avg_vertical_oscillation_mm.toFixed(1) : '—'}</td>{/if}
+									{#if lapColumns.balance}<td class="num">{lapDisplay?.avg_ground_contact_balance_label ?? '—'}</td>{/if}
+									{#if lapColumns.vertOsc}<td class="num">{fmtCm(lapDisplay?.avg_vertical_oscillation_cm ?? null)}</td>{/if}
+									{#if lapColumns.respiration}<td class="num">{fmtU1(lapDisplay?.avg_respiration_rate_brpm ?? null, 'brpm')}</td>{/if}
 								</tr>
 							{/each}
 						</tbody>

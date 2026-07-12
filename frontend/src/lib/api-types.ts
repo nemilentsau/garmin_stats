@@ -3646,7 +3646,9 @@ export interface components {
          * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
          *
          *     The lap's other fields (time, HR, cadence, ...) need no unit conversion and
-         *     render straight from the embedded `RunningActivityLap`.
+         *     render straight from the embedded `RunningActivityLap`. The strap-only
+         *     fields below are None on wrist-only laps, same as their session-level
+         *     counterparts on `RunDisplayStats`.
          */
         LapDisplayRow: {
             /** Lap Index */
@@ -3655,6 +3657,12 @@ export interface components {
             distance_mi: number | null;
             /** Pace Min Per Mi */
             pace_min_per_mi: number | null;
+            /** Avg Ground Contact Balance Label */
+            avg_ground_contact_balance_label: string | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Avg Vertical Oscillation Cm */
+            avg_vertical_oscillation_cm: number | null;
         };
         /**
          * LintReport
@@ -4743,7 +4751,9 @@ export interface components {
          *
          *     Every field is None-preserving from its metric source; see the `_*_to_*`
          *     conversion helpers in `application/runs.py` for the exact constants and
-         *     rounding rule each field uses.
+         *     rounding rule each field uses. `avg_ground_contact_balance_label` and the
+         *     respiration fields are strap-only: they render as None when the run has
+         *     no chest-strap running dynamics (wrist-only runs).
          */
         RunDisplayStats: {
             /** Distance Mi */
@@ -4768,6 +4778,16 @@ export interface components {
             max_temperature_f: number | null;
             /** Avg Vertical Oscillation Cm */
             avg_vertical_oscillation_cm: number | null;
+            /** Avg Ground Contact Balance Label */
+            avg_ground_contact_balance_label: string | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
+            /** Min Respiration Rate Brpm */
+            min_respiration_rate_brpm: number | null;
             /**
              * Lap Display
              * @default []
@@ -4864,6 +4884,11 @@ export interface components {
          *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
          *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
          *     frontend charts bind to, index-aligned with `series.elapsed_s`.
+         *     `stance_time_balance_pct`/`respiration_rate_brpm`/`stance_time_pct` are
+         *     strap-dynamics arrays passed through unchanged from the stored series
+         *     (already native display units — balance %, brpm, % — no conversion
+         *     applies); empty on wrist-only runs, same as the imperial arrays above are
+         *     empty when their source data is absent.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
@@ -4887,6 +4912,21 @@ export interface components {
              * @default []
              */
             distance_mi: (number | null)[];
+            /**
+             * Stance Time Balance Pct
+             * @default []
+             */
+            stance_time_balance_pct: (number | null)[];
+            /**
+             * Respiration Rate Brpm
+             * @default []
+             */
+            respiration_rate_brpm: (number | null)[];
+            /**
+             * Stance Time Pct
+             * @default []
+             */
+            stance_time_pct: (number | null)[];
         };
         /**
          * RunWalkSpan
@@ -4943,6 +4983,14 @@ export interface components {
             avg_vertical_ratio_pct: number | null;
             /** Avg Ground Contact Time Ms */
             avg_ground_contact_time_ms: number | null;
+            /** Avg Ground Contact Balance Pct */
+            avg_ground_contact_balance_pct: number | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
             /** Total Ascent M */
             total_ascent_m: number | null;
             /** Total Descent M */
@@ -5014,6 +5062,21 @@ export interface components {
              * @default []
              */
             stance_time_ms: (number | null)[];
+            /**
+             * Stance Time Balance Pct
+             * @default []
+             */
+            stance_time_balance_pct: (number | null)[];
+            /**
+             * Respiration Rate Brpm
+             * @default []
+             */
+            respiration_rate_brpm: (number | null)[];
+            /**
+             * Stance Time Pct
+             * @default []
+             */
+            stance_time_pct: (number | null)[];
             /**
              * Temperature C
              * @default []
@@ -5115,6 +5178,16 @@ export interface components {
             avg_vertical_ratio_pct: number | null;
             /** Avg Ground Contact Time Ms */
             avg_ground_contact_time_ms: number | null;
+            /** Avg Ground Contact Balance Pct */
+            avg_ground_contact_balance_pct: number | null;
+            /** Avg Stance Time Pct */
+            avg_stance_time_pct: number | null;
+            /** Avg Respiration Rate Brpm */
+            avg_respiration_rate_brpm: number | null;
+            /** Max Respiration Rate Brpm */
+            max_respiration_rate_brpm: number | null;
+            /** Min Respiration Rate Brpm */
+            min_respiration_rate_brpm: number | null;
             /** Avg Temperature C */
             avg_temperature_c: number | null;
             /** Min Temperature C */
@@ -5181,6 +5254,11 @@ export interface components {
              * @default false
              */
             has_running_dynamics: boolean;
+            /**
+             * Has Strap Dynamics
+             * @default false
+             */
+            has_strap_dynamics: boolean;
             /**
              * Has Gps Trace
              * @default false

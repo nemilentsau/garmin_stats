@@ -23,6 +23,7 @@ export const COLORS = {
 	verticalOscillation: '#8E97D9',
 	verticalRatio: '#D96B6B',
 	groundContactTime: '#6BA88E',
+	groundContactBalance: '#D9A73A',
 	temperature: '#D98A4A',
 	runSpan: '#4CAF82',
 	walkSpan: '#D4944C',

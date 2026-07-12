@@ -63,6 +63,20 @@ def _mm_to_cm(value_mm: float | None) -> float | None:
     return None if value_mm is None else round(value_mm / 10, 1)
 
 
+def _ground_contact_balance_label(value_pct: float | None) -> str | None:
+    """Render Garmin's "L / R" stance-time balance split, e.g. "49.8% L / 50.2% R".
+
+    The stored value is the left foot's share of total ground contact time;
+    the right share is its complement (100 - value). Both sides round to 1dp
+    independently, matching Connect's display — this is arithmetic on one
+    stored field, so it belongs backend-side per the frontend display-only
+    rule (CLAUDE.md). None-preserving (wrist-only runs have no balance data).
+    """
+    if value_pct is None:
+        return None
+    return f"{round(value_pct, 1):.1f}% L / {round(100 - value_pct, 1):.1f}% R"
+
+
 def _speed_mps_to_pace_min_per_km(value_mps: float | None) -> float | None:
     """m/s -> min/km pace; None below `_MIN_PACE_SPEED_MPS` or when speed is None.
 
@@ -133,11 +147,23 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         min_temperature_f=_c_to_f(session.min_temperature_c),
         max_temperature_f=_c_to_f(session.max_temperature_c),
         avg_vertical_oscillation_cm=_mm_to_cm(session.avg_vertical_oscillation_mm),
+        avg_ground_contact_balance_label=_ground_contact_balance_label(
+            session.avg_ground_contact_balance_pct
+        ),
+        avg_stance_time_pct=session.avg_stance_time_pct,
+        avg_respiration_rate_brpm=session.avg_respiration_rate_brpm,
+        max_respiration_rate_brpm=session.max_respiration_rate_brpm,
+        min_respiration_rate_brpm=session.min_respiration_rate_brpm,
         lap_display=[
             LapDisplayRow(
                 lap_index=lap.lap_index,
                 distance_mi=_m_to_mi(lap.distance_m),
                 pace_min_per_mi=_minkm_to_minmi(lap.pace_min_per_km),
+                avg_ground_contact_balance_label=_ground_contact_balance_label(
+                    lap.avg_ground_contact_balance_pct
+                ),
+                avg_respiration_rate_brpm=lap.avg_respiration_rate_brpm,
+                avg_vertical_oscillation_cm=_mm_to_cm(lap.avg_vertical_oscillation_mm),
             )
             for lap in laps
         ],
@@ -174,4 +200,7 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
         altitude_ft=[_m_to_ft(v) for v in series.altitude_m],
         temperature_f=[_c_to_f(v) for v in series.temperature_c],
         distance_mi=[_m_to_mi(v) for v in series.distance_m],
+        stance_time_balance_pct=series.stance_time_balance_pct,
+        respiration_rate_brpm=series.respiration_rate_brpm,
+        stance_time_pct=series.stance_time_pct,
     )
