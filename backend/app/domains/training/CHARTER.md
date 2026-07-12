@@ -13,10 +13,17 @@ The v3-native training runtime. It imports authored v3 training artifacts, lint-
 - Schedule compilation from imported bundles.
 - Today / schedule-window / block-status read models.
 - Per-occurrence capture-log persistence (set/rep/load logs, RPE, variant
-  selection, and check-in tissue soreness/flags).
+  selection, check-in tissue soreness/flags, and run-card link state
+  `linked_run_id`/`run_link_detached`).
 - The import endpoint is the ONLY ingress for training content: artifacts are
   stored verbatim, and nothing else in the app may create or derive training
   rows.
+- The run<->prescription association read policy (`match_run_to_card`):
+  which tracked run, if any, a scheduled `running.v3` card displays as
+  executed, on the Today view only. Training defines this policy and the
+  `RunActivityReadPort` Protocol/`TrainingRunActivitySummary` contract it
+  reads through, but never sees a tracked run except via that injected
+  port — see "Must not import".
 
 ## Does not own
 
@@ -40,6 +47,13 @@ routines feed side by side; neither domain imports the other.
   Garmin analytics, FastAPI from application modules, or SQLite helpers from
   application modules.
 - Persistence goes through `app.infra.jsonstore` only, via `adapters.py`.
+- Tracked-run data for association goes through the injected
+  `RunActivityReadPort` only — never a direct `garmin_analytics`/
+  `garmin_health` import. The concrete adapter (`GarminRunActivityPort`,
+  wrapping `garmin_analytics`'s runs repository) and its wiring live outside
+  this slice, in `backend/app/bootstrap/run_activity_port.py` and
+  `bootstrap/container.py` — bootstrap is not a slice, so this composition
+  needs no cross-slice allowlist entry.
 
 ## Public entrypoints
 
@@ -65,13 +79,20 @@ routines feed side by side; neither domain imports the other.
   schedule compilation from imported bundles.
 - `application/read_models.py` — `get_training_today`,
   `get_training_schedule_window`, `get_block_status`, and `upsert_training_log`
-  (PATCH-semantics capture-log upsert with occurrence validation).
+  (PATCH-semantics capture-log upsert with occurrence validation), plus the
+  pure `match_run_to_card` run<->prescription association policy that
+  `get_training_today` (only) threads through `_cards_for_day`/`_build_card`
+  when a `RunActivityReadPort` is supplied.
 - `contracts.py` — v3 wire contracts (parse the read-only Block 0 artifacts),
   the `LintReport` output contract, `Stored{Bundle,Block,Registry,Library}`
-  persistence envelopes, the `TrainingCardLog` capture record, and the
-  `Training*` display/response/window view models.
+  persistence envelopes, the `TrainingCardLog` capture record (incl.
+  `linked_run_id`/`run_link_detached`), the training-local
+  `TrainingRunActivitySummary` run projection, and the `Training*`
+  display/response/window view models.
 - `dependencies.py` — `TrainingRepository` protocol (the single persistence
-  dependency for import, activation, and capture use cases).
+  dependency for import, activation, and capture use cases) and
+  `RunActivityReadPort` (read-only tracked-run access for association,
+  implemented outside the slice — see "Must not import").
 - `adapters.py` — `SqliteTrainingRepository`: the persistence boundary; owns the
   single-active-block/bundle retire-then-activate transaction.
 - `schema.py` — five jsonstore tables (`training_bundles`, `training_blocks`,

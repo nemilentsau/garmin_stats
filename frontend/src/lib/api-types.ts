@@ -6462,6 +6462,13 @@ export interface components {
             /** Notes */
             notes: string | null;
             capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+            /** Linked Run Id */
+            linked_run_id: string | null;
+            /**
+             * Run Link Detached
+             * @default false
+             */
+            run_link_detached: boolean;
         };
         /**
          * TrainingCheckinLog
@@ -6593,12 +6600,25 @@ export interface components {
          *     Every field is optional, and presence — not nullness — decides what
          *     happens: a field the request body omits keeps the existing log's value,
          *     while a field the body includes is applied verbatim, even when its value
-         *     is explicit `null`. For `notes`/`variant_taken`/`capture` an explicit
-         *     `null` clears the stored value. `status` has no defined "cleared" state
-         *     (a stored log's `status` always has a concrete value, defaulting to
-         *     `"pending"`), so callers are expected to only ever send it as a real
-         *     status literal; see `upsert_training_log` for how presence is resolved
-         *     via `model_fields_set`.
+         *     is explicit `null`. For `notes`/`variant_taken`/`capture`/`linked_run_id`
+         *     an explicit `null` clears the stored value. `status`/`run_link_detached`
+         *     have no defined "cleared" state (a stored log's `status` always has a
+         *     concrete value, defaulting to `"pending"`; `run_link_detached` is always
+         *     a concrete bool, defaulting to `False`), so callers are expected to only
+         *     ever send them as a real literal — an explicit `null` is treated the
+         *     same as the field being absent; see `upsert_training_log` for how
+         *     presence is resolved via `model_fields_set`. Both are typed `X | None`
+         *     (rather than a bare, always-required `bool`/literal) purely so the field
+         *     stays optional to omit in the generated OpenAPI/TypeScript request type.
+         *
+         *     `linked_run_id`/`run_link_detached` are the run-card association
+         *     controls: setting `linked_run_id` manually links one of the date's
+         *     tracked runs (validated against `RunActivityReadPort.runs_for_date` —
+         *     a non-null id absent from that date's runs raises `ValueError`, mapped
+         *     to 400 by the app-level exception handler); setting `run_link_detached`
+         *     (with no `linked_run_id` in the same request) suppresses auto-matching
+         *     for this occurrence without picking a specific run. See
+         *     `match_run_to_card` for how the two combine when both are stored.
          */
         TrainingLogUpdateRequest: {
             /** Status */
@@ -6608,6 +6628,49 @@ export interface components {
             /** Notes */
             notes?: string | null;
             capture?: components["schemas"]["TrainingCaptureLog-Input"] | null;
+            /** Linked Run Id */
+            linked_run_id?: string | null;
+            /** Run Link Detached */
+            run_link_detached?: boolean | null;
+        };
+        /**
+         * TrainingRunActivitySummary
+         * @description Training-local projection of a tracked run; imperial display units.
+         *
+         *     Built entirely outside `training` — the injected `RunActivityReadPort`
+         *     (`dependencies.py`) is the only source of these — so this contract never
+         *     round-trips through `garmin_analytics`/`garmin_health` vocabulary or
+         *     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
+         *     does the m->mi / min-per-km->min-per-mi conversion once, at the
+         *     composition boundary. `link_source` distinguishes a run picked by the
+         *     Today read model's auto-matching policy (`"auto"`) from one a person
+         *     manually linked via the capture-log PATCH (`"manual"`).
+         */
+        TrainingRunActivitySummary: {
+            /** Run Id */
+            run_id: string;
+            /** Start Time Local */
+            start_time_local: string;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Timer Time S */
+            timer_time_s: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+            /** Avg Heart Rate Bpm */
+            avg_heart_rate_bpm: number | null;
+            /** Hr Source */
+            hr_source: string | null;
+            /** Training Load */
+            training_load: number | null;
+            /** Aerobic Training Effect */
+            aerobic_training_effect: number | null;
+            /**
+             * Link Source
+             * @default auto
+             * @enum {string}
+             */
+            link_source: "auto" | "manual";
         };
         /**
          * TrainingScheduleDay
@@ -6756,6 +6819,12 @@ export interface components {
             /** Notes */
             notes: string | null;
             capture: components["schemas"]["TrainingCaptureLog-Output"] | null;
+            associated_activity: components["schemas"]["TrainingRunActivitySummary"] | null;
+            /**
+             * Run Candidates
+             * @default []
+             */
+            run_candidates: components["schemas"]["TrainingRunActivitySummary"][];
         };
         /**
          * TrainingTodayResponse

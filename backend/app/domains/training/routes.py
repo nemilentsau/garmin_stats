@@ -39,7 +39,10 @@ def post_import(request: ImportRequest):
 @training_router.get("/today", response_model=TrainingTodayResponse)
 def get_today(date: str = Query(..., description="Date (YYYY-MM-DD)")):
     """Return one day's compiled training schedule merged with capture logs."""
-    return get_training_today(build_container().training_repo, date=date)
+    container = build_container()
+    return get_training_today(
+        container.training_repo, date=date, run_activity_port=container.training_run_activity_port
+    )
 
 
 @training_router.get("/schedule-window", response_model=TrainingScheduleWindow)
@@ -65,6 +68,11 @@ def get_block():
 @training_router.put("/today/{date}/cards/{occurrence_key}", response_model=TrainingCardLog)
 def put_today_card_log(date: str, occurrence_key: str, request: TrainingLogUpdateRequest):
     """Apply a partial update to one card occurrence's capture log."""
+    container = build_container()
     return upsert_training_log(
-        build_container().training_repo, date=date, occurrence_key=occurrence_key, update=request
+        container.training_repo,
+        date=date,
+        occurrence_key=occurrence_key,
+        update=request,
+        run_activity_port=container.training_run_activity_port,
     )
