@@ -24,6 +24,11 @@ ArchiveExtractor = Callable[[Path], int]
 WatcherAction = Callable[[], None]
 TodayProvider = Callable[[], date]
 MonotonicClock = Callable[[], float]
+AfterSuccessfulSync = Callable[[], object]
+
+
+def _noop_after_sync() -> None:
+    return None
 
 
 class IngestGateway(Protocol):
@@ -112,3 +117,4 @@ class GarminSyncDependencies:
     activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock
+    after_successful_sync: AfterSuccessfulSync = _noop_after_sync

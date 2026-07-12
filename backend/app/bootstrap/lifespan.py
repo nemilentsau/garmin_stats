@@ -18,5 +18,7 @@ async def lifespan(app: FastAPI):
     init_storage()
     runtime = ProcessRuntime(build_container())
     runtime.start()
-    yield
-    runtime.stop()
+    try:
+        yield
+    finally:
+        await runtime.stop()

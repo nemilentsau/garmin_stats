@@ -40,3 +40,17 @@ export function createDataUpdateListener(onUpdate: () => void | Promise<void>): 
 		source.close();
 	};
 }
+
+export function createCoachUpdateListener(onUpdate: () => void | Promise<void>): () => void {
+	const source = new EventSource(`${API_BASE}/api/events`);
+	source.addEventListener('coach_updated', () => {
+		try {
+			Promise.resolve(onUpdate()).catch((e: unknown) => {
+				console.warn('[SSE] coach refresh failed:', e instanceof Error ? e.message : e);
+			});
+		} catch (e: unknown) {
+			console.warn('[SSE] coach refresh failed:', e instanceof Error ? e.message : e);
+		}
+	});
+	return () => source.close();
+}

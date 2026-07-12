@@ -97,6 +97,7 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deps, client, activity_days
     )
     runs_result = deps.ingest.ingest_running_activities(deps.activities_dir)
+    deps.after_successful_sync()
 
     duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(
