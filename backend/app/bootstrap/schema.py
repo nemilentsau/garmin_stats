@@ -8,6 +8,7 @@ initializer under one connection.
 
 from app.core.profile.schema import init_profile_schema
 from app.domains.artifacts.schema import init_artifact_schema
+from app.domains.coach.schema import init_coach_schema
 from app.domains.experiments.schema import init_experiment_schema
 from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
@@ -25,6 +26,7 @@ def init_storage() -> None:
         init_garmin_sync_schema(con)
         init_profile_schema(con)
         init_artifact_schema(con)
+        init_coach_schema(con)
         init_routine_schema(con)
         init_journal_schema(con)
         init_experiment_schema(con)
