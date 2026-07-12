@@ -40,9 +40,8 @@ Every model here parsed the six shipped artifacts on the first pass with no
 adjustments beyond what's listed above — no field in any artifact failed to
 parse against this contract set.
 
-This module intentionally does not parse `compiled_schedule.json`,
-`lint_report.json`, or `schedule_overview.md` — those are derived/reporting
-artifacts, not part of the v3 wire contract surface.
+This module intentionally does not parse `lint_report.json` — that is a
+derived/reporting artifact, not part of the v3 wire contract surface.
 
 Everything below `ExerciseLibrary` is a different kind of contract: computed
 or persisted domain shapes rather than parsed upload artifacts. `LintReport`

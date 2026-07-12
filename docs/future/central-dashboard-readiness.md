@@ -4,7 +4,9 @@ This note summarizes the dashboard-axis documents and separates what Garmin Stat
 show on the central dashboard now from what requires new backend derivation, new data ingestion, or
 more logged exposure.
 
-**Current sequencing (2026-06-13):** the central dashboard first slate is in place. The active
+**Update (2026-07):** running activity ingestion shipped 2026-07 (see `reference/run-activities.md`), overtaking the 2026-06-13 sequencing note below that deferred it. The readiness table below still governs the dashboard reframe.
+
+**Original sequencing (2026-06-13, superseded above):** the central dashboard first slate is in place. The active
 frontend work is to DRY up and visually improve the generic metric detail dashboards
 (`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`, `/respiration`, `/skin-temp`,
 `/pulse-ox`). During that refactor, central-dashboard additions should be limited to access points

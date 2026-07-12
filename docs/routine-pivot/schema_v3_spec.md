@@ -363,7 +363,7 @@ interface ExtensionRule {
 }
 ```
 
-**Concrete state vector for this athlete (initial):** `S1 threshold_pace_at_lthr` (heat-corrected), `S2 e1rm.squat_pattern`, `S3 e1rm.calf_soleus_hsr`, `S4 upper_physique_proxy` (upper tonnage trend + bodyweight). Every component has capture scheduled in every block, or L7 fires.
+**Concrete state vector for this athlete (initial):** `S1 threshold_pace_at_lthr` (heat-corrected), `S2 e1rm.squat_pattern`, `S3 e1rm.calf_soleus_hsr`, `S4 upper_physique_proxy` (upper tonnage trend + bodyweight), `S5 e1rm.hip_hinge`. Every component has capture scheduled in every block, or L7 fires.
 
 ---
 

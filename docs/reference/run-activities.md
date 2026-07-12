@@ -4,6 +4,8 @@
 
 How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` UI. For the two-tree data topology, download/sync mechanics, and config paths, see `data-and-ingest.md` — this page only covers the running-specific parse → store → serve → display path.
 
+**Data dictionaries:** machine-readable FIT + sidecar field dictionaries live at `.claude/skills/garmin-data/references/activity-messages.json` and `activity-sidecar.json`.
+
 ## Pipeline
 
 `*_running_*.fit (+ .json sidecar) → garmin_health FIT parser → garmin_sync ingest → running_activity_* tables → garmin_analytics read model → /api/activities/runs* → /runs, /runs/[id]`

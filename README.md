@@ -28,15 +28,21 @@ import — there are no generators, seeders, or derived artifacts.
   pulse ox. See [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md).
 - Tracks the next central-dashboard lanes separately from the recovery score. Sleep opportunity,
   health exceptions, and experiment adherence can build from existing data/contracts; load and
-  progress are deferred until activity/session ingestion is intentionally started. See
+  progress build on the activity/session ingestion that has now started (running is shipped; see
+  below). See
   [docs/future/central-dashboard-readiness.md](docs/future/central-dashboard-readiness.md).
 - Imports v3 training artifacts (bundles, block, signal registry, exercise
   library) as-is through `Training → Import`, lints them (L1–L12), and executes
   the active block on the Today board with native capture: per-set strength
   logs, tissue check-in, run RPE, and variant branch logging.
 - Downloads tracked-activity FIT files from Garmin Connect during sync into
-  `data/garmin_activities/` (download-only; session ingestion is a planned
-  follow-up).
+  `data/garmin_activities/`. Running activities are fully parsed into session/
+  lap/series tables and shown at `/runs` and `/runs/[id]` with Garmin-parity
+  detail (strap channels, stamina/performance-condition, a GPS route map,
+  imperial display units); a tracked run is also associated with the
+  prescribed run card it satisfies and surfaced on the Today board. Strength
+  and breathing activity files still download-only. See
+  [docs/reference/run-activities.md](docs/reference/run-activities.md).
 - Provides an assistant chat that uses curated evidence bundles instead of direct
   raw database access.
 - Supports routine bundles that compile into live schedules and a Today execution
@@ -302,15 +308,20 @@ uv run python ../scripts/download_garmin.py --activities --health-range
 
 The dashboard's Sync button (`POST /api/ingest/sync`) also downloads new
 tracked-activity FIT files automatically, alongside the wellness archives, for
-the wellness ingest window plus a 3-day lookback. This is download-only: files
-land under `data/garmin_activities/YYYY-MM-DD/` but are not yet parsed or
-ingested into the database. Activities uploaded to Garmin Connect later than
-that 3-day lookback window are not fetched by the Sync button — backfill them
-with `scripts/download_garmin.py --activities` (`--from`/`--to` or
+the wellness ingest window plus a 3-day lookback. Files land under
+`data/garmin_activities/YYYY-MM-DD/`; running activities are then parsed into
+session/lap/series tables on that same sync (and on startup), while strength
+and breathing files remain download-only, not yet parsed or ingested into the
+database. Activities uploaded to Garmin Connect later than that 3-day lookback
+window are not fetched by the Sync button — backfill them with
+`scripts/download_garmin.py --activities` (`--from`/`--to` or
 `--health-range`). The sync response reports counts via
 `activities_downloaded` / `activities_skipped` / `activities_failed`, but only
 the downloaded-workouts count is shown in the sync result line; skipped and
-failed counts are API-only.
+failed counts are API-only. After a parser-field change, re-parse
+already-downloaded activity files with `scripts/reingest_activities.py` — see
+[docs/reference/data-and-ingest.md](docs/reference/data-and-ingest.md) for
+details.
 
 FIT structure inspection support is in `scripts/explore_fit_files.py`.
 
@@ -353,6 +364,10 @@ Do not edit `frontend/src/lib/api-types.ts` by hand.
   guide.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - current backend/frontend structure,
   ownership boundaries, and route inventory.
+- [docs/reference/data-and-ingest.md](docs/reference/data-and-ingest.md) - the
+  two Garmin data trees, ingest/sync mechanics, and config paths.
+- [docs/reference/run-activities.md](docs/reference/run-activities.md) - how
+  tracked runs parse, store, and display.
 - [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md) - the recovery score, health
   flags, and dashboard overview design reference.
 - [docs/reference/recovery-score.md](docs/reference/recovery-score.md) - product explanation and critique of
