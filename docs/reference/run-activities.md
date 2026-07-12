@@ -26,6 +26,7 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 - Called from two places, both after their wellness-side work, per `garmin_sync/CHARTER.md`:
   - `infra/runtime.py::run_startup_ingest_if_needed` — unconditionally on process startup (cheap no-op when the tree is unchanged, since the engine's own fingerprint gate handles that).
   - `workflows.py::sync_garmin` — immediately after the per-sync activity-download sweep, so a run downloaded in a sync call is parsed and queryable within that same call.
+- **Adding a parser field requires an activity re-ingest.** Because `source_file` dedup skips any file already in `running_activity_sessions`, a normal sync/startup ingest never re-parses existing downloads — new/changed parser fields only reach already-stored rows via a full rebuild: `cd backend && uv run python ../scripts/reingest_activities.py` (see `data-and-ingest.md` Commands).
 
 ### Serve (`garmin_analytics`)
 

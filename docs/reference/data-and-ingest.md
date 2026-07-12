@@ -33,6 +33,7 @@ The app draws on **two separate local trees**. They are different shapes with di
 ## Commands
 
 - **Re-ingest wellness after parser changes:** `cd backend && uv run python ../scripts/reingest.py`
+- **Re-ingest running activities after parser changes:** `cd backend && uv run python ../scripts/reingest_activities.py` (wipes `running_activity_*` + the `activities_fingerprint` meta key, then re-parses every file — see `run-activities.md`)
 - **Download tracked activities (backfill):** `cd backend && uv run python ../scripts/download_garmin.py --activities …` (see README "Data And Ingest" for `--date` / `--from`/`--to` / `--health-range`)
 - **Sync (wellness archives + activities):** `POST /api/ingest/sync` (also the frontend sync button)
 
