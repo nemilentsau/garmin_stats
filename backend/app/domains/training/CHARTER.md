@@ -98,7 +98,7 @@ routines feed side by side; neither domain imports the other.
 - `schema.py` — five jsonstore tables (`training_bundles`, `training_blocks`,
   `training_registry`, `training_exercise_library`, `training_card_logs`).
 
-## Verified against code (2026-07-10)
+## Verified against code (2026-07-10; association re-checked 2026-07-12)
 
 matches — with one clarifying note that is not a violation:
 
@@ -127,3 +127,11 @@ matches — with one clarifying note that is not a violation:
   and the dependency-direction rules in `docs/ARCHITECTURE.md`, and the
   "Must not import" clause explicitly permits `app.infra.jsonstore`, so they are
   in-bounds.
+- Association re-check (2026-07-12, after `74bd5a9`/`982fc0c` landed): `match_run_to_card`'s
+  manual-wins/detach/auto-single-card-closest-distance precedence, `_is_run_card`'s
+  `running.v3` discriminator, `GET /today`-only threading of `run_activity_port` (confirmed
+  absent from `get_training_schedule_window`), and the PATCH-only-if-present semantics of
+  `linked_run_id`/`run_link_detached` on `TrainingLogUpdateRequest` all match this charter's
+  "Owns"/"Key files" description exactly — no drift found. Full policy write-up, with the
+  `RunActivityReadPort`/`GarminRunActivityPort` port boundary, lives in
+  `docs/reference/run-activities.md` ("Association").

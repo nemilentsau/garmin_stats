@@ -79,7 +79,7 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation.
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` consumes tracked-run summaries for run↔prescription association (Today board only) through an injected `RunActivityReadPort`, never a direct import — the concrete adapter over `garmin_analytics`'s run data lives in `backend/app/bootstrap/run_activity_port.py` (see `training/CHARTER.md`, `reference/run-activities.md`).
 
 ## Conventions
 
