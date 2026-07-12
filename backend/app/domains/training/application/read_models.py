@@ -634,11 +634,21 @@ def _cards_for_day(
     `run_activity_port` (Today-path only, `None` from the schedule-window
     path) is resolved to this date's tracked runs exactly once here — every
     card the day compiles shares that one list and the day's run-card count,
-    rather than each run card independently re-querying the port.
+    rather than each run card independently re-querying the port. The port
+    is only ever called when the day actually has a `running.v3` card:
+    `runs_for_date` deserializes every tracked-run session for the date, so
+    skipping the call on a run-card-free day avoids that cost on every Today
+    fetch for the (common) days with no running card scheduled — behavior is
+    identical either way, since `_is_run_card` gates association to
+    `run_cards_today` cards regardless of what `runs_today` would have held.
     """
     entries = [entry for entry in schedule if entry.day == day]
-    runs_today = run_activity_port.runs_for_date(date) if run_activity_port is not None else []
     run_cards_today = sum(1 for entry in entries if _is_run_card(entry))
+    runs_today = (
+        run_activity_port.runs_for_date(date)
+        if run_activity_port is not None and run_cards_today > 0
+        else []
+    )
     cards = [
         _build_card(
             entry, date=date, registry=registry, library=library, bundle_names=bundle_names,

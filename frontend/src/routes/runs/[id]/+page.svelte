@@ -6,15 +6,18 @@
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import { fmtSigned } from '$lib/format';
 	import {
-		fmtMi,
+		fmtMiBare,
 		fmtDuration,
 		fmtPace,
+		fmtPaceBare,
 		fmtStartTime,
 		hrBadgeLabel,
 		fmtFt,
+		fmtFtBare,
 		fmtF,
 		fmtMph,
-		fmtCm
+		fmtCm,
+		fmtCmBare
 	} from '$lib/format-run';
 	import { COLORS, withAlpha, DARK_MUTED_TEXT } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
@@ -117,7 +120,7 @@
 			dots?: boolean;
 			unit?: string;
 			format?: (v: number) => string;
-			/** Solid reference line at y=0 (e.g. Performance Condition, which oscillates around a baseline). */
+			/** Dashed reference line at y=0 (e.g. Performance Condition, which oscillates around a baseline). */
 			zeroLine?: boolean;
 		} = {}
 	): ChartConfiguration<'line'> {
@@ -277,7 +280,7 @@
 			rows.push({
 				key: 'elevation',
 				title: 'Elevation',
-				footnote: `↑ ${fmtFt(d.total_ascent_ft)} ft · ↓ ${fmtFt(d.total_descent_ft)} ft`,
+				footnote: `↑ ${fmtFt(d.total_ascent_ft)} · ↓ ${fmtFt(d.total_descent_ft)}`,
 				config: channelConfig('Elevation', series.altitude_ft, COLORS.elevation, {
 					area: true,
 					unit: 'ft',
@@ -290,11 +293,11 @@
 			rows.push({
 				key: 'pace',
 				title: 'Pace',
-				footnote: `avg ${fmtPace(d.pace_min_per_mi)} /mi`,
+				footnote: `avg ${fmtPace(d.pace_min_per_mi)}`,
 				config: channelConfig('Pace', series.pace_min_per_mi, COLORS.pace, {
 					reverse: true,
 					unit: '/mi',
-					format: (v) => fmtPace(v)
+					format: (v) => fmtPaceBare(v)
 				})
 			});
 		}
@@ -355,7 +358,7 @@
 			rows.push({
 				key: 'vosc',
 				title: 'Vertical Oscillation',
-				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)} cm`,
+				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)}`,
 				config: channelConfig('Vertical Oscillation', s.vertical_oscillation_mm, COLORS.verticalOscillation, {
 					dots: true,
 					unit: 'mm',
@@ -419,7 +422,7 @@
 			rows.push({
 				key: 'temp',
 				title: 'Temperature',
-				footnote: `min ${fmtF(d.min_temperature_f)}°F · avg ${fmtF(d.avg_temperature_f)}°F · max ${fmtF(d.max_temperature_f)}°F`,
+				footnote: `min ${fmtF(d.min_temperature_f)} · avg ${fmtF(d.avg_temperature_f)} · max ${fmtF(d.max_temperature_f)}`,
 				config: channelConfig('Temperature', series.temperature_f, COLORS.temperature, {
 					unit: '°F',
 					format: (v) => v.toFixed(1)
@@ -440,7 +443,7 @@
 			rows.push({
 				key: 'performanceCondition',
 				title: 'Performance Condition',
-				footnote: '',
+				footnote: 'delta vs baseline fitness, ±10',
 				config: channelConfig(
 					'Performance Condition',
 					s.performance_condition,
@@ -531,10 +534,10 @@
 		groups.push({
 			title: 'Pace / Speed',
 			rows: [
-				{ label: 'Avg Pace', value: `${fmtPace(d.pace_min_per_mi)} /mi` },
-				{ label: 'Avg Speed', value: `${fmtMph(d.avg_speed_mph)} mph` },
-				{ label: 'Max Speed', value: `${fmtMph(d.max_speed_mph)} mph` },
-				{ label: 'GAP', value: `${fmtPace(d.gap_min_per_mi)} /mi` }
+				{ label: 'Avg Pace', value: fmtPace(d.pace_min_per_mi) },
+				{ label: 'Avg Speed', value: fmtMph(d.avg_speed_mph) },
+				{ label: 'Max Speed', value: fmtMph(d.max_speed_mph) },
+				{ label: 'GAP', value: fmtPace(d.gap_min_per_mi) }
 			]
 		});
 
@@ -572,7 +575,7 @@
 					{ label: 'Avg Cadence', value: fmtU0(s.avg_cadence_spm, 'spm') },
 					{ label: 'Max Cadence', value: fmtU0(s.max_cadence_spm, 'spm') },
 					{ label: 'Stride Length', value: fmtMeters(s.avg_step_length_mm) },
-					{ label: 'Vert. Oscillation', value: `${fmtCm(d.avg_vertical_oscillation_cm)} cm` },
+					{ label: 'Vert. Oscillation', value: fmtCm(d.avg_vertical_oscillation_cm) },
 					{ label: 'Vert. Ratio', value: fmtU1(s.avg_vertical_ratio_pct, '%') },
 					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') },
 					{ label: 'GCT Balance', value: d.avg_ground_contact_balance_label ?? '—' },
@@ -615,8 +618,8 @@
 			groups.push({
 				title: 'Elevation',
 				rows: [
-					{ label: 'Ascent', value: `${fmtFt(d.total_ascent_ft)} ft` },
-					{ label: 'Descent', value: `${fmtFt(d.total_descent_ft)} ft` }
+					{ label: 'Ascent', value: fmtFt(d.total_ascent_ft) },
+					{ label: 'Descent', value: fmtFt(d.total_descent_ft) }
 				]
 			});
 		}
@@ -752,10 +755,20 @@
 			</div>
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-				<StatCard title="Distance" value={fmtMi(display.distance_mi)} unit="mi" />
+				<StatCard title="Distance" value={fmtMiBare(display.distance_mi)} unit="mi" />
 				<StatCard title="Time" value={fmtDuration(session.timer_time_s)} />
-				<StatCard title="Avg Pace" value={fmtPace(display.pace_min_per_mi)} unit="/mi" color={COLORS.pace} />
-				<StatCard title="Total Ascent" value={fmtFt(display.total_ascent_ft)} unit="ft" color={COLORS.elevation} />
+				<StatCard
+					title="Avg Pace"
+					value={fmtPaceBare(display.pace_min_per_mi)}
+					unit="/mi"
+					color={COLORS.pace}
+				/>
+				<StatCard
+					title="Total Ascent"
+					value={fmtFtBare(display.total_ascent_ft)}
+					unit="ft"
+					color={COLORS.elevation}
+				/>
 				<StatCard title="Calories" value={fmtNum(session.total_calories)} />
 				{#if session.avg_heart_rate_bpm != null}
 					<StatCard
@@ -832,15 +845,15 @@
 								{@const lapDisplay = lapDisplayByIndex.get(lap.lap_index)}
 								<tr>
 									<td class="left">{lap.lap_index + 1}</td>
-									<td class="num">{fmtMi(lapDisplay?.distance_mi ?? null)}</td>
+									<td class="num">{fmtMiBare(lapDisplay?.distance_mi ?? null)}</td>
 									<td class="num">{fmtDuration(lap.timer_time_s)}</td>
-									<td class="num">{fmtPace(lapDisplay?.pace_min_per_mi ?? null)}</td>
+									<td class="num">{fmtPaceBare(lapDisplay?.pace_min_per_mi ?? null)}</td>
 									{#if lapColumns.hr}<td class="num">{fmtNum(lap.avg_heart_rate_bpm)}</td>{/if}
 									{#if lapColumns.power}<td class="num">{fmtNum(lap.avg_power_w)}</td>{/if}
 									{#if lapColumns.cadence}<td class="num">{fmtNum(lap.avg_cadence_spm)}</td>{/if}
 									{#if lapColumns.gct}<td class="num">{fmtNum(lap.avg_ground_contact_time_ms)}</td>{/if}
 									{#if lapColumns.balance}<td class="num">{lapDisplay?.avg_ground_contact_balance_label ?? '—'}</td>{/if}
-									{#if lapColumns.vertOsc}<td class="num">{fmtCm(lapDisplay?.avg_vertical_oscillation_cm ?? null)}</td>{/if}
+									{#if lapColumns.vertOsc}<td class="num">{fmtCmBare(lapDisplay?.avg_vertical_oscillation_cm ?? null)}</td>{/if}
 									{#if lapColumns.respiration}<td class="num">{fmtU1(lapDisplay?.avg_respiration_rate_brpm ?? null, 'brpm')}</td>{/if}
 								</tr>
 							{/each}

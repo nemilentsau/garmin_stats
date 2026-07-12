@@ -30,7 +30,7 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 
 ### Serve (`garmin_analytics`)
 
-- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above; no derivation beyond backend-owned pace (`pace_min_per_km` — never recomputed on the frontend).
+- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above; no derivation beyond backend-owned pace (`pace_min_per_mi`, plus the imperial display projection on `RunDisplayStats`) — the frontend derives nothing.
 - Routes (`backend/app/domains/garmin_analytics/routes.py`, prefix `/api/activities/runs`, see `routes.md`):
   - `GET /api/activities/runs?from=&to=` — `RunsListResponse`, newest first, optional inclusive date-range filter.
   - `GET /api/activities/runs/{run_id}` — `RunDetailResponse` (full session fields + laps).
@@ -62,7 +62,7 @@ All three are None on wrist-only runs, same as `hr_source="wrist"`/`None` above.
 
 ## Stamina / performance-condition
 
-Firstbeat's Stamina, Stamina Potential, and Performance Condition — the same metrics Connect's Stats-panel "Stamina" group and Performance Condition chart show. Sourced from **undocumented numeric FIT record field IDs**, not named fields: `137` = stamina potential (the ceiling; monotonically ≥ 138 throughout a run), `138` = stamina (dips first, recovers toward potential), `90` = performance condition. The SDK exposes these as positional int dict keys (`msg.get(137)`/`msg.get(138)`/`msg.get(90)`), not named — see `activity_extractors.py` ~L287-294; tracked as unknowns in `.claude/skills/garmin-data/references/activity-messages.json`.
+Firstbeat's Stamina, Stamina Potential, and Performance Condition — the same metrics Connect's Stats-panel "Stamina" group and Performance Condition chart show. Sourced from **undocumented numeric FIT record field IDs**, not named fields: `137` = stamina potential (the ceiling; monotonically ≥ 138 throughout a run), `138` = stamina (dips first, recovers toward potential), `90` = performance condition. The SDK exposes these as positional int dict keys (`msg.get(137)`/`msg.get(138)`/`msg.get(90)`), not named — see `activity_extractors.py` ~L287-294; documented (with validation provenance) in `.claude/skills/garmin-data/references/activity-messages.json`.
 
 - **Series** (`RunningActivitySeries`): `stamina_pct`, `stamina_potential_pct`, `performance_condition` — per-record, positional nulls (field 90 in particular has a leading gap while Garmin's model baselines).
 - **Session scalars** (`RunningActivitySession`, derived at parse time from the series — `activities.py::_stamina_scalars`): `stamina_beginning_potential_pct`/`stamina_ending_potential_pct` (first/last non-null `stamina_potential_pct` sample), `stamina_min_pct` (minimum non-null `stamina_pct` sample — the dip, matching Connect's Stats-panel semantics). None-safe: old watch firmware without stamina channels yields `(None, None, None)`, not a `KeyError`/`min()`-on-empty.
@@ -127,3 +127,5 @@ This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Serie
 - **No time↔distance axis toggle.** Chart x-axis is elapsed time only.
 - **Strength and breathing FIT files are not parsed.** Only `*_running_*.fit` is discovered; strength-specific schema remains a design doc (`../future/STRENGTH_ACTIVITY_SCHEMA.md`).
 - **Zone boundaries display backend sentinels verbatim.** E.g. power zone 6's upper boundary can show as `4000` (an open-ended-top-zone sentinel, not a real reading) — the frontend renders whatever the backend sends without inferring intent.
+- **Ascent reads the FIT integer meters (`total_ascent_m`), not the JSON sidecar's float (`elevationGain`) that Connect itself displays** — a ±1 m / ~3 ft delta from Connect on some runs. Switching to the sidecar field is batched with the next parser-field change plus a re-ingest, not done standalone.
+- **Served/stored but not yet charted:** `RunSeriesResponse.distance_mi` (reserved for a time↔distance x-axis toggle) and the stored `stance_time_pct` series (reserved for a dedicated stance-time channel chart).

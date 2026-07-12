@@ -160,9 +160,9 @@
 				</span>
 			</div>
 			<div class="executed-stats">
-				<span class="executed-stat"><span class="executed-primary">{fmtMi(activity.distance_mi)}</span> mi</span>
+				<span class="executed-stat"><span class="executed-primary">{fmtMi(activity.distance_mi)}</span></span>
 				<span class="executed-stat">{fmtDuration(activity.timer_time_s)}</span>
-				<span class="executed-stat">{fmtPace(activity.pace_min_per_mi)} /mi</span>
+				<span class="executed-stat">{fmtPace(activity.pace_min_per_mi)}</span>
 				{#if activity.avg_heart_rate_bpm != null}
 					<span class="executed-stat">
 						{Math.round(activity.avg_heart_rate_bpm)} bpm
@@ -207,7 +207,7 @@
 							onchange={() => pickRun(candidate.run_id)}
 						/>
 						<span class="run-picker-time">{fmtStartTime(candidate.start_time_local)}</span>
-						<span class="run-picker-dist">{fmtMi(candidate.distance_mi)} mi</span>
+						<span class="run-picker-dist">{fmtMi(candidate.distance_mi)}</span>
 					</label>
 				{/each}
 			</div>

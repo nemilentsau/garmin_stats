@@ -8,7 +8,15 @@
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
-	import { fmtMi, fmtDuration, fmtPace, fmtStartTime, fmtLoad, fmtTE, hrBadgeLabel } from '$lib/format-run';
+	import {
+		fmtMiBare,
+		fmtDuration,
+		fmtPaceBare,
+		fmtStartTime,
+		fmtLoad,
+		fmtTE,
+		hrBadgeLabel
+	} from '$lib/format-run';
 
 	let runs: RunListItem[] = $state([]);
 	let loading = $state(true);
@@ -130,9 +138,9 @@
 							</a>
 						</td>
 						<td class="left name-cell">{run.activity_name ?? '—'}</td>
-						<td class="num">{fmtMi(run.distance_mi)}</td>
+						<td class="num">{fmtMiBare(run.distance_mi)}</td>
 						<td class="num">{fmtDuration(run.timer_time_s)}</td>
-						<td class="num">{fmtPace(run.pace_min_per_mi)}</td>
+						<td class="num">{fmtPaceBare(run.pace_min_per_mi)}</td>
 						<td class="num">
 							{#if run.avg_heart_rate_bpm != null}
 								<span class="hr-value">{Math.round(run.avg_heart_rate_bpm)}</span>
