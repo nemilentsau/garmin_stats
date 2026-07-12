@@ -22,6 +22,11 @@ from app.domains.garmin_sync.infra.activity_ingest import ingest_running_activit
 from app.infra.sqlite import connect
 
 if __name__ == "__main__":
+    activities_dir = get_app_config().activities_dir
+    if not activities_dir.exists():
+        print(f"Activities dir not found: {activities_dir} — refusing to wipe tables.")
+        sys.exit(1)
+
     with connect() as con, con:
         for table in (
             "running_activity_sessions",
@@ -32,5 +37,5 @@ if __name__ == "__main__":
         con.execute("DELETE FROM ingest_meta WHERE key = 'activities_fingerprint'")
 
     print("Re-ingesting all running activity FIT files...")
-    result = ingest_running_activities(get_app_config().activities_dir)
+    result = ingest_running_activities(activities_dir)
     print(f"reingested: {result.sessions_ingested} sessions, {result.files_failed} failed")
