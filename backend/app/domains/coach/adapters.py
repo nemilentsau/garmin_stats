@@ -4,19 +4,24 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
+from typing import Literal
 from uuid import uuid4
 
 from app.domains.coach.contracts import (
+    ArtifactRef,
     BriefVersion,
+    ChatOutput,
     CoachJob,
     CoachMessage,
     CoachReconciliationState,
     CoachReview,
     CoachThread,
+    DistillOutput,
     InitialReviewCandidate,
     JobKind,
     JournalEntry,
     ReviewKind,
+    ReviewOutput,
 )
 from app.domains.coach.time import utc_now_iso
 from app.infra.sqlite import connect
@@ -256,6 +261,85 @@ class SqliteCoachRepository:
                 raise LookupError(f"Unknown coach review: {review.id}")
             _save_review(connection, review)
 
+    def mark_review_generating(self, review_id: str, *, updated_at: str) -> None:
+        """Mark a claimed review as generating before external execution."""
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(row)
+            _save_review(
+                connection,
+                review.model_copy(
+                    update={"status": "generating", "updated_at": updated_at, "error": None}
+                ),
+            )
+            connection.commit()
+
+    def complete_review_output(
+        self,
+        *,
+        review_id: str,
+        job_id: str,
+        output: ReviewOutput,
+        finished_at: str,
+    ) -> None:
+        """Persist review, semantic memory, optional brief, and job atomically."""
+        self._validate_artifact_refs(output.refs)
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            if job.status != "running":
+                raise ValueError(f"Coach job {job_id} is not running")
+            row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(row)
+            completed_review = review.model_copy(
+                update={
+                    "status": "complete",
+                    "verdict": output.verdict,
+                    "content_md": output.review_md,
+                    "refs": output.refs,
+                    "plots_viewed": output.plots_viewed,
+                    "error": None,
+                    "updated_at": finished_at,
+                }
+            )
+            _save_review(connection, completed_review)
+            self._insert_journal_output(
+                connection,
+                content_md=output.journal_entry_md,
+                refs=output.refs,
+                kind="review",
+                source_id=review_id,
+                created_at=finished_at,
+            )
+            if output.brief_md is not None:
+                self._insert_brief_output(
+                    connection,
+                    content_md=output.brief_md,
+                    source_id=review_id,
+                    created_at=finished_at,
+                )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "complete",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": None,
+                    }
+                ),
+            )
+            connection.commit()
+
     def insert_thread(self, thread: CoachThread) -> None:
         with connect() as connection, connection:
             connection.execute(
@@ -302,6 +386,178 @@ class SqliteCoachRepository:
             )
             if result.rowcount == 0:
                 raise LookupError(f"Unknown coach thread: {thread.id}")
+
+    def complete_chat_output(
+        self,
+        *,
+        job_id: str,
+        thread_id: str,
+        output: ChatOutput,
+        session_id: str | None,
+        finished_at: str,
+    ) -> CoachMessage:
+        self._validate_artifact_refs(output.refs)
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            if job.status != "running":
+                raise ValueError(f"Coach job {job_id} is not running")
+            row = connection.execute(
+                "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach thread: {thread_id}")
+            thread = _model_from_row(CoachThread, row)
+            message = CoachMessage(
+                id=_new_id("message"),
+                thread_id=thread_id,
+                role="coach",
+                content_md=output.answer_md,
+                refs=output.refs,
+                job_id=job_id,
+                created_at=finished_at,
+            )
+            self._insert_message(connection, message)
+            changed_thread = thread.model_copy(
+                update={
+                    "codex_session_id": session_id or thread.codex_session_id,
+                    "last_activity_at": finished_at,
+                }
+            )
+            connection.execute(
+                "UPDATE coach_threads SET last_activity_at = ?, data = ? WHERE id = ?",
+                (finished_at, changed_thread.model_dump_json(), thread_id),
+            )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "complete",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": None,
+                    }
+                ),
+            )
+            connection.commit()
+        return message
+
+    def fail_chat_output(
+        self, *, job_id: str, thread_id: str, error: str, finished_at: str
+    ) -> None:
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            message = CoachMessage(
+                id=_new_id("message"),
+                thread_id=thread_id,
+                role="system",
+                content_md="The coach is temporarily unavailable. You can retry this turn.",
+                job_id=job_id,
+                created_at=finished_at,
+            )
+            self._insert_message(connection, message)
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "failed",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": error,
+                    }
+                ),
+            )
+            connection.commit()
+
+    def complete_distill_output(
+        self,
+        *,
+        job_id: str,
+        thread_id: str,
+        output: DistillOutput,
+        finished_at: str,
+    ) -> None:
+        self._validate_artifact_refs(output.refs)
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            row = connection.execute(
+                "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach thread: {thread_id}")
+            thread = _model_from_row(CoachThread, row)
+            self._insert_journal_output(
+                connection,
+                content_md=output.journal_entry_md,
+                refs=output.refs,
+                kind="chat",
+                source_id=thread_id,
+                created_at=finished_at,
+            )
+            if output.brief_md is not None:
+                self._insert_brief_output(
+                    connection,
+                    content_md=output.brief_md,
+                    source_id=thread_id,
+                    created_at=finished_at,
+                )
+            changed_thread = thread.model_copy(
+                update={"status": "closed", "last_activity_at": finished_at}
+            )
+            connection.execute(
+                "UPDATE coach_threads SET status = ?, last_activity_at = ?, data = ? WHERE id = ?",
+                (
+                    changed_thread.status,
+                    changed_thread.last_activity_at,
+                    changed_thread.model_dump_json(),
+                    thread_id,
+                ),
+            )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "complete",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": None,
+                    }
+                ),
+            )
+            connection.commit()
+
+    def fail_distill_output(
+        self, *, job_id: str, thread_id: str, error: str, finished_at: str
+    ) -> None:
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            row = connection.execute(
+                "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach thread: {thread_id}")
+            thread = _model_from_row(CoachThread, row).model_copy(
+                update={"status": "close_failed", "last_activity_at": finished_at}
+            )
+            connection.execute(
+                "UPDATE coach_threads SET status = ?, last_activity_at = ?, data = ? WHERE id = ?",
+                (thread.status, thread.last_activity_at, thread.model_dump_json(), thread_id),
+            )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "failed",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": error,
+                    }
+                ),
+            )
+            connection.commit()
 
     def enqueue_chat_message(
         self,
@@ -384,6 +640,16 @@ class SqliteCoachRepository:
             _save_job(connection, job)
             connection.commit()
         return job
+
+    def mark_thread_closing(self, thread_id: str, *, updated_at: str) -> None:
+        thread = self.thread(thread_id)
+        if thread is None:
+            raise LookupError(f"Unknown coach thread: {thread_id}")
+        if thread.status != "open":
+            raise ValueError("Only open coach threads can begin closing")
+        self.update_thread(
+            thread.model_copy(update={"status": "closing", "last_activity_at": updated_at})
+        )
 
     @staticmethod
     def _insert_message(connection: sqlite3.Connection, message: CoachMessage) -> None:
@@ -608,6 +874,55 @@ class SqliteCoachRepository:
                 """
             ).fetchone()
         return None if row is None else _model_from_row(BriefVersion, row)
+
+    @staticmethod
+    def _validate_artifact_refs(refs: list[ArtifactRef]) -> None:
+        allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+        for ref in refs:
+            if not ref.value or any(character not in allowed for character in ref.value):
+                raise ValueError(f"Unsafe artifact reference: {ref.value}")
+
+    @staticmethod
+    def _insert_journal_output(
+        connection: sqlite3.Connection,
+        *,
+        content_md: str,
+        refs: list[ArtifactRef],
+        kind: Literal["review", "chat", "admonish"],
+        source_id: str,
+        created_at: str,
+    ) -> None:
+        entry = JournalEntry(
+            id=_new_id("journal"),
+            ts=created_at,
+            kind=kind,
+            content_md=content_md,
+            refs=refs,
+            source_id=source_id,
+        )
+        connection.execute(
+            "INSERT INTO coach_journal (id, ts, data) VALUES (?, ?, ?)",
+            (entry.id, entry.ts, entry.model_dump_json()),
+        )
+
+    @staticmethod
+    def _insert_brief_output(
+        connection: sqlite3.Connection,
+        *,
+        content_md: str,
+        source_id: str,
+        created_at: str,
+    ) -> None:
+        brief = BriefVersion(
+            id=_new_id("brief"),
+            content_md=content_md,
+            source_id=source_id,
+            created_at=created_at,
+        )
+        connection.execute(
+            "INSERT INTO coach_brief_versions (id, created_at, data) VALUES (?, ?, ?)",
+            (brief.id, brief.created_at, brief.model_dump_json()),
+        )
 
     def enqueue_initial_backfill(
         self,
