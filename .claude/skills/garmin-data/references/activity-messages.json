@@ -1,0 +1,27 @@
+{
+  "file_type": "ACTIVITY (data/garmin_activities tree, running files)",
+  "verified_against": "2026-07-10/105726_running_generic.fit, 2026-07-01+02 strap runs (2026-07-11)",
+  "session_mesgs": {
+    "status": "parsed",
+    "notes": "One per file. Cadence fields are half-cadence: spm = (value + fractional) * 2. Positions are semicircles: deg = raw * 180 / 2^31. training_load_peak is Garmin load scalar.",
+    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "total_ascent", "total_descent", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "total_work", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "avg_temperature", "min_temperature", "max_temperature", "total_calories", "total_strides", "total_training_effect", "total_anaerobic_training_effect", "training_load_peak", "sport", "sub_sport", "sport_profile_name", "start_position_lat", "start_position_long", "end_position_lat", "end_position_long"]
+  },
+  "lap_mesgs": {"status": "parsed", "notes": "Same field vocabulary as session at lap grain; message_index is the lap index."},
+  "record_mesgs": {
+    "status": "parsed",
+    "notes": "~1/sec. Sparser channels (stance_time, step_length, vertical_*) must preserve positional nulls.",
+    "fields_extracted": ["timestamp", "distance", "enhanced_speed", "enhanced_altitude", "heart_rate", "cadence", "fractional_cadence", "power", "step_length", "vertical_oscillation", "vertical_ratio", "stance_time", "temperature", "position_lat", "position_long"],
+    "fields_undocumented": {
+      "90": "performance-condition candidate (n=2519/3060 in probe)",
+      "137": "stamina candidate (starts ~98)",
+      "138": "stamina-potential candidate (starts ~98)",
+      "133-136, 140, 143": "unknown; 136 tracked heart_rate in probe"
+    }
+  },
+  "time_in_zone_mesgs": {"status": "parsed", "notes": "Filter reference_mesg == 'session'. power_zone_high_boundary has trailing nulls to strip."},
+  "split_mesgs": {"status": "parsed", "notes": "Run/walk detection: split_type rwd_run|rwd_walk|rwd_stand with start_time/end_time. Other split types ignored."},
+  "device_info_mesgs": {"status": "parsed", "notes": "HR source detection: non-local entry with ble_device_type or antplus_device_type == 'heart_rate' => chest strap (capture serial_number, battery_status); else wrist optical when HR present."},
+  "activity_mesgs": {"status": "parsed", "notes": "local_timestamp - timestamp = UTC offset fallback when the JSON sidecar is missing."},
+  "json_sidecar": {"status": "parsed", "notes": "Connect summary next to each FIT: activityId, activityName, startTimeGMT/startTimeLocal (offset source), movingDuration, vO2MaxValue, avgGradeAdjustedSpeed, TE messages/label, differenceBodyBattery, steps, intensity minutes."},
+  "unparsed_message_types": ["gps_metadata_mesgs", "event_mesgs", "split_summary_mesgs", "numeric ids 22/104/113/140/141/147/233/288/325/326/327/394/499"]
+}

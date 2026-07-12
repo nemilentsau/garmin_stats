@@ -20,7 +20,7 @@ Experiments remain backend-supported and domain-owned, but the frontend experime
 - `frontend/src/` — SvelteKit application.
 - `storage/` — local SQLite database, created at runtime.
 - `data/garmin_health_stats/` — Garmin wellness day archives + extracted FIT (ingested → `daily_metrics`).
-- `data/garmin_activities/` — per-activity FIT + JSON pulled from Garmin Connect every sync (download-only; parse/associate pending).
+- `data/garmin_activities/` — per-activity FIT + JSON pulled from Garmin Connect every sync (running parsed into session/lap/series tables; strength/breathing parse + prescribed-run association pending).
 
 Full data topology, ingest/sync flow, and config paths: **`reference/data-and-ingest.md`**.
 
@@ -33,7 +33,7 @@ Boundary tests guard module intent, not a mandatory folder template. Larger slic
 Three paths:
 
 - **Ingest (wellness):** FIT files → Garmin health FIT parser → daily metric composer → SQLite.
-- **Activity:** tracked-session FIT/JSON downloaded from Garmin Connect into `data/garmin_activities/` every sync; NOT yet parsed or ingested (see `reference/data-and-ingest.md`, `future/ACTIVITY_ANALYTICS_DESIGN.md`).
+- **Activity:** tracked-session FIT/JSON downloaded from Garmin Connect into `data/garmin_activities/` every sync; running activities parsed into `running_activity_{sessions,laps,series}` on sync/startup (see `reference/run-activities.md`); strength/breathing parse and prescribed-run association pending (`reference/data-and-ingest.md`, `future/ACTIVITY_ANALYTICS_DESIGN.md`).
 - **Read:** SQLite → repository adapters → domain/core application slices → JSON API → frontend.
 
 Dependency direction (the layering enforced by architecture tests):
@@ -70,7 +70,7 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `assistant` | Chat + retrieval-first evidence bundles, Claude Code runtime | `/api/assistant/threads…` | [charter](../backend/app/domains/assistant/CHARTER.md) |
 | `routines` | v2 routine catalog, schedule projection, Today execution (meditation/breath import path) | `/api/routines`, `/api/today` | [charter](../backend/app/domains/routines/CHARTER.md) |
 | `training` | v3 training import, lint-gated activation, Today/schedule feed, capture logs (import-only ingress) | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
-| `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (activities download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
+| `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (running activities parsed; strength/breathing download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
 | `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
 | `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
 | `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
@@ -79,7 +79,7 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` reserves session-grain activity marts for future runs/strength/meditation.
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and `/api/assistant/artifact*` routes are owned by `artifacts` (shared URL prefixes, different owner). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation.
 
 ## Conventions
 

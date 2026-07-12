@@ -18,6 +18,7 @@ from app.domains.garmin_analytics.routes import (
     hrv_router,
     pulse_ox_router,
     respiration_router,
+    runs_router,
     skin_temp_router,
     sleep_router,
     stress_router,
@@ -43,6 +44,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(body_battery_router)
     app.include_router(respiration_router)
     app.include_router(pulse_ox_router)
+    app.include_router(runs_router)
     app.include_router(events_router)
     app.include_router(assistant_router)
     app.include_router(assistant_artifact_bundles_router)

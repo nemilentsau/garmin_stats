@@ -1,8 +1,9 @@
 # Running Analysis Questions
 
-> Status: analyst backlog for future finding runs. These questions assume
-> activity FIT ingestion exposes the fields proposed in
-> `../RUNNING_ACTIVITY_SCHEMA.md`.
+> Status: analyst backlog for future finding runs. Running FIT ingestion now
+> exists and exposes the fields these questions assume — see
+> `../../reference/run-activities.md` for the shipped contract. None of the
+> analyses below have been run yet.
 
 This file is not a dashboard spec. It is a queue of question-led analyses that
 should be run before deciding which running metrics deserve product surface.

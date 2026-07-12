@@ -1,5 +1,13 @@
 """Public canonical Garmin health contracts."""
 
+from .activities import (
+    RunningActivityData,
+    RunningActivityLap,
+    RunningActivitySeries,
+    RunningActivitySession,
+    RunningTimeInZones,
+    RunWalkSpan,
+)
 from .daily import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
@@ -52,6 +60,12 @@ __all__ = [
     "HrvValue",
     "RespirationReading",
     "RestingHRReading",
+    "RunningActivityData",
+    "RunningActivityLap",
+    "RunningActivitySeries",
+    "RunningActivitySession",
+    "RunningTimeInZones",
+    "RunWalkSpan",
     "SkinTempOvernight",
     "SleepAssessment",
     "SleepLevel",

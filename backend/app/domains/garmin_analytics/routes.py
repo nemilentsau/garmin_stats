@@ -15,10 +15,14 @@ from app.domains.garmin_analytics.application import (
 from app.domains.garmin_analytics.application import metric_analysis as metric_analysis_uc
 from app.domains.garmin_analytics.application import metric_insights as metric_insights_uc
 from app.domains.garmin_analytics.application import raw_biometrics as raw_biometrics_uc
+from app.domains.garmin_analytics.application import runs as runs_uc
 from app.domains.garmin_analytics.application.dashboard import (
     get_dashboard_overview as load_dashboard_overview,
 )
-from app.domains.garmin_analytics.application.dependencies import BiometricReadRepository
+from app.domains.garmin_analytics.application.dependencies import (
+    BiometricReadRepository,
+    RunsReadRepository,
+)
 from app.domains.garmin_analytics.contracts import (
     BASELINE_WINDOW_DEFAULT,
     BaselineWindow,
@@ -38,6 +42,9 @@ from app.domains.garmin_analytics.contracts import (
     HrvResponse,
     RespirationDailyResponse,
     RespirationRawResponse,
+    RunDetailResponse,
+    RunSeriesResponse,
+    RunsListResponse,
     SkinTempDailyResponse,
     SkinTempResponse,
     SleepAnalysisResponse,
@@ -57,6 +64,14 @@ def get_biometrics_repo() -> BiometricReadRepository:
 
 
 BiometricsRepo = Annotated[BiometricReadRepository, Depends(get_biometrics_repo)]
+
+
+def get_runs_repo() -> RunsReadRepository:
+    """FastAPI dependency yielding the configured runs read repository."""
+    return build_container().garmin_runs_repo
+
+
+RunsRepo = Annotated[RunsReadRepository, Depends(get_runs_repo)]
 _HrvBaseline = Annotated[
     BaselineWindow,
     Query(description="Trailing baseline window (days)"),
@@ -80,6 +95,7 @@ stress_router = APIRouter(prefix="/api/stress", tags=["stress"])
 body_battery_router = APIRouter(prefix="/api/body-battery", tags=["body-battery"])
 respiration_router = APIRouter(prefix="/api/respiration", tags=["respiration"])
 pulse_ox_router = APIRouter(prefix="/api/pulse-ox", tags=["pulse-ox"])
+runs_router = APIRouter(prefix="/api/activities/runs", tags=["runs"])
 
 
 @dashboard_router.get("", response_model=DashboardOverviewResponse)
@@ -273,3 +289,25 @@ def get_pulse_ox_raw(
 def get_pulse_ox_daily(repo: BiometricsRepo):
     """Return daily pulse-ox metrics and period summaries."""
     return daily_aggregates_uc.get_spo2_daily(repo)
+
+
+@runs_router.get("", response_model=RunsListResponse)
+def list_runs_route(
+    repo: RunsRepo,
+    from_date: str | None = Query(None, alias="from", description="YYYY-MM-DD inclusive"),
+    to_date: str | None = Query(None, alias="to", description="YYYY-MM-DD inclusive"),
+):
+    """List tracked runs, newest first."""
+    return runs_uc.list_runs(repo, from_date=from_date, to_date=to_date)
+
+
+@runs_router.get("/{run_id}", response_model=RunDetailResponse)
+def get_run_route(repo: RunsRepo, run_id: str):
+    """Full run detail: session stats, laps, zones, run/walk spans."""
+    return runs_uc.get_run(repo, run_id)
+
+
+@runs_router.get("/{run_id}/series", response_model=RunSeriesResponse)
+def get_run_series_route(repo: RunsRepo, run_id: str):
+    """Chart-ready column arrays for one run."""
+    return runs_uc.get_run_series(repo, run_id)

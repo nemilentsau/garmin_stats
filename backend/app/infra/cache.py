@@ -28,6 +28,7 @@ HRV_PATTERNS = "hrv_patterns"
 SLEEP_ANALYSIS = "sleep_analysis"
 STRESS_ANALYSIS = "stress_analysis"
 BODY_BATTERY_ANALYSIS = "body_battery_analysis"
+RUNS_SESSIONS = "runs_sessions"
 
 
 def generation() -> int:

@@ -10,7 +10,12 @@ from pathlib import Path
 
 from app.domains.garmin_health.contracts import DayData
 from app.domains.garmin_health.domain.daily import compute_daily_metrics
-from app.domains.garmin_sync.contracts import IngestResult, IngestStatus
+from app.domains.garmin_sync.contracts import (
+    IngestResult,
+    IngestStatus,
+    RunningActivityIngestResult,
+)
+from app.domains.garmin_sync.infra import activity_ingest
 from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
 from app.infra import cache
 from app.infra.sqlite import connect
@@ -227,3 +232,8 @@ class DatabaseIngestGateway:
 
     def ingest_dates(self, data_dir: Path, dates: list[str]) -> IngestResult:
         return ingest_dates(data_dir, dates)
+
+    def ingest_running_activities(
+        self, activities_dir: Path, force: bool = False
+    ) -> RunningActivityIngestResult:
+        return activity_ingest.ingest_running_activities(activities_dir, force=force)

@@ -584,6 +584,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activities/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs Route
+         * @description List tracked runs, newest first.
+         */
+        get: operations["list_runs_route_api_activities_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/activities/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run Route
+         * @description Full run detail: session stats, laps, zones, run/walk spans.
+         */
+        get: operations["get_run_route_api_activities_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/activities/runs/{run_id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run Series Route
+         * @description Chart-ready column arrays for one run.
+         */
+        get: operations["get_run_series_route_api_activities_runs__run_id__series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -4647,6 +4707,63 @@ export interface components {
             unit: string | null;
         };
         /**
+         * RunDetailResponse
+         * @description Single-run detail endpoint response: full session stats plus laps.
+         */
+        RunDetailResponse: {
+            session: components["schemas"]["RunningActivitySession"];
+            /**
+             * Laps
+             * @default []
+             */
+            laps: components["schemas"]["RunningActivityLap"][];
+        };
+        /**
+         * RunListItem
+         * @description One row of the runs list: session summary fields, no laps/series.
+         */
+        RunListItem: {
+            /** Id */
+            id: string;
+            /** Session Date */
+            session_date: string;
+            /** Start Time Local */
+            start_time_local: string;
+            /** Activity Name */
+            activity_name: string | null;
+            /** Sub Sport */
+            sub_sport: string | null;
+            /** Distance M */
+            distance_m: number | null;
+            /** Timer Time S */
+            timer_time_s: number | null;
+            /** Pace Min Per Km */
+            pace_min_per_km: number | null;
+            /** Avg Heart Rate Bpm */
+            avg_heart_rate_bpm: number | null;
+            /** Hr Source */
+            hr_source: string | null;
+            /** Training Load */
+            training_load: number | null;
+            /** Aerobic Training Effect */
+            aerobic_training_effect: number | null;
+            /**
+             * Has Heart Rate
+             * @default false
+             */
+            has_heart_rate: boolean;
+            /**
+             * Has Power
+             * @default false
+             */
+            has_power: boolean;
+            /**
+             * Has Running Dynamics
+             * @default false
+             */
+            has_running_dynamics: boolean;
+        };
+        /**
          * RunSegment
          * @description One segment of a running workout; prescription is a range string.
          */
@@ -4683,6 +4800,317 @@ export interface components {
             detail: string | null;
             /** Prescription */
             prescription: string;
+        };
+        /**
+         * RunSeriesResponse
+         * @description Single-run chart-series endpoint response, with backend-derived pace.
+         */
+        RunSeriesResponse: {
+            series: components["schemas"]["RunningActivitySeries"];
+            /**
+             * Pace Min Per Km
+             * @default []
+             */
+            pace_min_per_km: (number | null)[];
+        };
+        /**
+         * RunWalkSpan
+         * @description Run/walk/stand detection span, offsets from session start.
+         */
+        RunWalkSpan: {
+            /** Span Type */
+            span_type: string;
+            /** Start S */
+            start_s: number;
+            /** End S */
+            end_s: number;
+        };
+        /**
+         * RunningActivityLap
+         * @description One lap of a run; ``start_s`` is the offset from session start.
+         */
+        RunningActivityLap: {
+            /** Lap Index */
+            lap_index: number;
+            /** Start S */
+            start_s: number | null;
+            /** Timer Time S */
+            timer_time_s: number | null;
+            /** Elapsed Time S */
+            elapsed_time_s: number | null;
+            /** Distance M */
+            distance_m: number | null;
+            /** Pace Min Per Km */
+            pace_min_per_km: number | null;
+            /** Avg Speed Mps */
+            avg_speed_mps: number | null;
+            /** Max Speed Mps */
+            max_speed_mps: number | null;
+            /** Avg Heart Rate Bpm */
+            avg_heart_rate_bpm: number | null;
+            /** Max Heart Rate Bpm */
+            max_heart_rate_bpm: number | null;
+            /** Avg Power W */
+            avg_power_w: number | null;
+            /** Max Power W */
+            max_power_w: number | null;
+            /** Normalized Power W */
+            normalized_power_w: number | null;
+            /** Avg Cadence Spm */
+            avg_cadence_spm: number | null;
+            /** Max Cadence Spm */
+            max_cadence_spm: number | null;
+            /** Avg Step Length Mm */
+            avg_step_length_mm: number | null;
+            /** Avg Vertical Oscillation Mm */
+            avg_vertical_oscillation_mm: number | null;
+            /** Avg Vertical Ratio Pct */
+            avg_vertical_ratio_pct: number | null;
+            /** Avg Ground Contact Time Ms */
+            avg_ground_contact_time_ms: number | null;
+            /** Total Ascent M */
+            total_ascent_m: number | null;
+            /** Total Descent M */
+            total_descent_m: number | null;
+            /** Total Calories */
+            total_calories: number | null;
+            /** Intensity */
+            intensity: string | null;
+            /** Lap Trigger */
+            lap_trigger: string | null;
+        };
+        /**
+         * RunningActivitySeries
+         * @description Per-second record stream as parallel column arrays (nulls positional).
+         */
+        RunningActivitySeries: {
+            /**
+             * Elapsed S
+             * @default []
+             */
+            elapsed_s: number[];
+            /**
+             * Distance M
+             * @default []
+             */
+            distance_m: (number | null)[];
+            /**
+             * Speed Mps
+             * @default []
+             */
+            speed_mps: (number | null)[];
+            /**
+             * Altitude M
+             * @default []
+             */
+            altitude_m: (number | null)[];
+            /**
+             * Heart Rate Bpm
+             * @default []
+             */
+            heart_rate_bpm: (number | null)[];
+            /**
+             * Cadence Spm
+             * @default []
+             */
+            cadence_spm: (number | null)[];
+            /**
+             * Power W
+             * @default []
+             */
+            power_w: (number | null)[];
+            /**
+             * Step Length Mm
+             * @default []
+             */
+            step_length_mm: (number | null)[];
+            /**
+             * Vertical Oscillation Mm
+             * @default []
+             */
+            vertical_oscillation_mm: (number | null)[];
+            /**
+             * Vertical Ratio Pct
+             * @default []
+             */
+            vertical_ratio_pct: (number | null)[];
+            /**
+             * Stance Time Ms
+             * @default []
+             */
+            stance_time_ms: (number | null)[];
+            /**
+             * Temperature C
+             * @default []
+             */
+            temperature_c: (number | null)[];
+            /**
+             * Lat
+             * @default []
+             */
+            lat: (number | null)[];
+            /**
+             * Lon
+             * @default []
+             */
+            lon: (number | null)[];
+            /**
+             * Run Walk Spans
+             * @default []
+             */
+            run_walk_spans: components["schemas"]["RunWalkSpan"][];
+        };
+        /**
+         * RunningActivitySession
+         * @description One tracked run: FIT session summary merged with the Connect sidecar.
+         */
+        RunningActivitySession: {
+            /** Id */
+            id: string;
+            /** Activity Id */
+            activity_id: string | null;
+            /** Source File */
+            source_file: string;
+            /** Session Date */
+            session_date: string;
+            /** Start Time Local */
+            start_time_local: string;
+            /** Utc Offset Hours */
+            utc_offset_hours: number | null;
+            /**
+             * Sport
+             * @default running
+             */
+            sport: string;
+            /** Sub Sport */
+            sub_sport: string | null;
+            /** Sport Profile Name */
+            sport_profile_name: string | null;
+            /** Activity Name */
+            activity_name: string | null;
+            /** Location Name */
+            location_name: string | null;
+            /** Elapsed Time S */
+            elapsed_time_s: number | null;
+            /** Timer Time S */
+            timer_time_s: number | null;
+            /** Moving Time S */
+            moving_time_s: number | null;
+            /** Distance M */
+            distance_m: number | null;
+            /** Pace Min Per Km */
+            pace_min_per_km: number | null;
+            /** Avg Speed Mps */
+            avg_speed_mps: number | null;
+            /** Max Speed Mps */
+            max_speed_mps: number | null;
+            /** Grade Adjusted Avg Speed Mps */
+            grade_adjusted_avg_speed_mps: number | null;
+            /** Total Ascent M */
+            total_ascent_m: number | null;
+            /** Total Descent M */
+            total_descent_m: number | null;
+            /** Avg Heart Rate Bpm */
+            avg_heart_rate_bpm: number | null;
+            /** Max Heart Rate Bpm */
+            max_heart_rate_bpm: number | null;
+            /** Hr Source */
+            hr_source: string | null;
+            /** Hr Strap Serial */
+            hr_strap_serial: string | null;
+            /** Hr Strap Battery */
+            hr_strap_battery: string | null;
+            /** Avg Power W */
+            avg_power_w: number | null;
+            /** Max Power W */
+            max_power_w: number | null;
+            /** Normalized Power W */
+            normalized_power_w: number | null;
+            /** Total Work J */
+            total_work_j: number | null;
+            /** Avg Cadence Spm */
+            avg_cadence_spm: number | null;
+            /** Max Cadence Spm */
+            max_cadence_spm: number | null;
+            /** Avg Step Length Mm */
+            avg_step_length_mm: number | null;
+            /** Avg Vertical Oscillation Mm */
+            avg_vertical_oscillation_mm: number | null;
+            /** Avg Vertical Ratio Pct */
+            avg_vertical_ratio_pct: number | null;
+            /** Avg Ground Contact Time Ms */
+            avg_ground_contact_time_ms: number | null;
+            /** Avg Temperature C */
+            avg_temperature_c: number | null;
+            /** Min Temperature C */
+            min_temperature_c: number | null;
+            /** Max Temperature C */
+            max_temperature_c: number | null;
+            /** Total Calories */
+            total_calories: number | null;
+            /** Total Strides */
+            total_strides: number | null;
+            /** Steps */
+            steps: number | null;
+            /** Aerobic Training Effect */
+            aerobic_training_effect: number | null;
+            /** Anaerobic Training Effect */
+            anaerobic_training_effect: number | null;
+            /** Aerobic Te Message */
+            aerobic_te_message: string | null;
+            /** Anaerobic Te Message */
+            anaerobic_te_message: string | null;
+            /** Training Effect Label */
+            training_effect_label: string | null;
+            /** Training Load */
+            training_load: number | null;
+            /** Vo2Max */
+            vo2max: number | null;
+            /** Body Battery Delta */
+            body_battery_delta: number | null;
+            /** Moderate Intensity Minutes */
+            moderate_intensity_minutes: number | null;
+            /** Vigorous Intensity Minutes */
+            vigorous_intensity_minutes: number | null;
+            /** Start Lat */
+            start_lat: number | null;
+            /** Start Lon */
+            start_lon: number | null;
+            /** End Lat */
+            end_lat: number | null;
+            /** End Lon */
+            end_lon: number | null;
+            time_in_zones: components["schemas"]["RunningTimeInZones"] | null;
+            /**
+             * Lap Count
+             * @default 0
+             */
+            lap_count: number;
+            /**
+             * Record Count
+             * @default 0
+             */
+            record_count: number;
+            /**
+             * Has Heart Rate
+             * @default false
+             */
+            has_heart_rate: boolean;
+            /**
+             * Has Power
+             * @default false
+             */
+            has_power: boolean;
+            /**
+             * Has Running Dynamics
+             * @default false
+             */
+            has_running_dynamics: boolean;
+            /**
+             * Has Gps Trace
+             * @default false
+             */
+            has_gps_trace: boolean;
         };
         /**
          * RunningActual
@@ -4755,6 +5183,41 @@ export interface components {
             post_run: {
                 [key: string]: number | string | null;
             };
+        };
+        /**
+         * RunningTimeInZones
+         * @description Session-scope HR/power zone times and boundaries.
+         *
+         *     Zone arrays may contain None to represent missing zone boundaries
+         *     (preserving index alignment); only trailing Nones are stripped by the parser.
+         */
+        RunningTimeInZones: {
+            /**
+             * Time In Hr Zone S
+             * @default []
+             */
+            time_in_hr_zone_s: (number | null)[];
+            /**
+             * Hr Zone High Boundary Bpm
+             * @default []
+             */
+            hr_zone_high_boundary_bpm: (number | null)[];
+            /**
+             * Time In Power Zone S
+             * @default []
+             */
+            time_in_power_zone_s: (number | null)[];
+            /**
+             * Power Zone High Boundary W
+             * @default []
+             */
+            power_zone_high_boundary_w: (number | null)[];
+            /** Functional Threshold Power W */
+            functional_threshold_power_w: number | null;
+            /** Threshold Heart Rate Bpm */
+            threshold_heart_rate_bpm: number | null;
+            /** Max Heart Rate Bpm */
+            max_heart_rate_bpm: number | null;
         };
         /**
          * RunningWorkoutPayload
@@ -4841,6 +5304,17 @@ export interface components {
             variant_options: string[];
             /** Selection Rule */
             selection_rule: string | null;
+        };
+        /**
+         * RunsListResponse
+         * @description Runs list endpoint response.
+         */
+        RunsListResponse: {
+            /**
+             * Runs
+             * @default []
+             */
+            runs: components["schemas"]["RunListItem"][];
         };
         /**
          * ScheduleDay
@@ -5480,6 +5954,16 @@ export interface components {
             activities_skipped: number;
             /** Activities Failed */
             activities_failed: number;
+            /**
+             * Runs Ingested
+             * @default 0
+             */
+            runs_ingested: number;
+            /**
+             * Runs Ingest Failed
+             * @default 0
+             */
+            runs_ingest_failed: number;
         };
         /** TargetMetricDefinition */
         TargetMetricDefinition: {
@@ -7177,6 +7661,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpO2DailyResponse"];
+                };
+            };
+        };
+    };
+    list_runs_route_api_activities_runs_get: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM-DD inclusive */
+                from?: string | null;
+                /** @description YYYY-MM-DD inclusive */
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunsListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_route_api_activities_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_series_route_api_activities_runs__run_id__series_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

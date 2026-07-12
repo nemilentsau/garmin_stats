@@ -25,3 +25,14 @@ class SyncResult(DefaultsRequired):
     activities_downloaded: int
     activities_skipped: int
     activities_failed: int
+    runs_ingested: int = 0
+    runs_ingest_failed: int = 0
+
+
+class RunningActivityIngestResult(DefaultsRequired):
+    """Outcome of one running-activity ingest pass."""
+
+    skipped: bool = False
+    files_seen: int = 0
+    sessions_ingested: int = 0
+    files_failed: int = 0
