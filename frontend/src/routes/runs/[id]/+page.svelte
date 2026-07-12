@@ -24,6 +24,7 @@
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import PageState from '$lib/components/PageState.svelte';
+	import RunRouteMap from '$lib/components/RunRouteMap.svelte';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -767,6 +768,14 @@
 				{/if}
 			</div>
 
+			{#if session.has_gps_trace}
+				<ChartCard title="Route">
+					<div class="route-map-frame">
+						<RunRouteMap lat={series.series.lat} lon={series.series.lon} pace={series.pace_min_per_mi} />
+					</div>
+				</ChartCard>
+			{/if}
+
 			{#if runWalkConfig}
 				<!-- Chart.js bar types don't model [start, end] floating-bar tuples; cast to satisfy type-checker. -->
 				<ChartCard title="Run / Walk">
@@ -903,6 +912,14 @@
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
 		color: #5e7282;
+	}
+
+	/* ── Route map: fixed-height frame so the Leaflet map has a concrete box to fill;
+	     border-radius clips the tile layer to match the app's rounded card chrome. ── */
+	.route-map-frame {
+		height: 340px;
+		border-radius: 6px;
+		overflow: hidden;
 	}
 
 	.section-title {
