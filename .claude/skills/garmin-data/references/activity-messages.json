@@ -1,35 +1,167 @@
 {
-  "file_type": "ACTIVITY (data/garmin_activities tree, running files)",
-  "verified_against": "2026-07-10/105726_running_generic.fit, 2026-07-01+02 strap runs (2026-07-11)",
-  "session_mesgs": {
-    "status": "parsed",
-    "notes": "One per file. Cadence fields are half-cadence: spm = (value + fractional) * 2. Positions are semicircles: deg = raw * 180 / 2^31. training_load_peak is Garmin load scalar.",
-    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "total_ascent", "total_descent", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "total_work", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_stance_time_balance", "avg_stance_time_percent", "enhanced_avg_respiration_rate", "enhanced_max_respiration_rate", "enhanced_min_respiration_rate", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "avg_temperature", "min_temperature", "max_temperature", "total_calories", "total_strides", "total_training_effect", "total_anaerobic_training_effect", "training_load_peak", "sport", "sub_sport", "sport_profile_name", "start_position_lat", "start_position_long", "end_position_lat", "end_position_long"]
+  "$dictionary": "Garmin running-activity FIT data dictionary (data/garmin_activities tree, *_running_*.fit)",
+  "format_version": 1,
+  "verified_against": [
+    "2026-06-27/104056_running_generic.fit (wrist, stamina/PC anchors)",
+    "2026-07-05/110251_running_generic.fit (chest strap, long run)",
+    "2026-07-10/105726_running_generic.fit (wrist)",
+    "2026-07-11/171239_running_generic.fit (strap)"
+  ],
+  "conventions": {
+    "types": "post-decode Python types from garmin-fit-sdk (Decoder auto-applies FIT scale/offset)",
+    "nullable": "true = the key can be absent or None on individual messages; parsers must preserve positional nulls in series",
+    "maps_to": "field on the app's stored contracts (backend/app/domains/garmin_health/contracts/activities.py); '-' = decoded but not extracted",
+    "undocumented numeric fields": "the SDK exposes unknown FIT fields as int dict keys — access via msg.get(137), never str keys"
   },
-  "lap_mesgs": {
-    "status": "parsed",
-    "notes": "Same field vocabulary as session at lap grain; message_index is the lap index. Strap fields (avg_stance_time_balance, avg_stance_time_percent, enhanced_avg/max_respiration_rate) extracted when present.",
-    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_stance_time_balance", "avg_stance_time_percent", "enhanced_avg_respiration_rate", "enhanced_max_respiration_rate", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "total_ascent", "total_descent", "total_calories", "intensity", "lap_trigger"]
-  },
-  "record_mesgs": {
-    "status": "parsed",
-    "notes": "~1/sec. Sparser channels (stance_time, step_length, vertical_*) must preserve positional nulls. Fields 90/137/138 are undocumented numeric FIT fields the SDK exposes as int dict keys (msg.get(137) etc.), not named fields.",
-    "fields_extracted": ["timestamp", "distance", "enhanced_speed", "enhanced_altitude", "heart_rate", "cadence", "fractional_cadence", "power", "step_length", "vertical_oscillation", "vertical_ratio", "stance_time", "stance_time_balance", "enhanced_respiration_rate", "stance_time_percent", "temperature", "position_lat", "position_long"],
-    "fields_undocumented_numeric": {
-      "137": "stamina potential (0-100 int; the ceiling — always >= field 138; declines ~monotonically over the run). Validated 2026-07-11 against 3 Garmin Connect activities (Jun 27, Jul 5, Jul 10), 9/9 anchor values (begin/end/min) exact.",
-      "138": "stamina (0-100 int; dips first under effort, recovers back toward potential). Session-level Beginning/Ending Potential (from 137) and Min Stamina (from 138) match Connect's Stats-panel Stamina group exactly. Validated 2026-07-11, 9/9 anchors exact.",
-      "90": "performance condition (small int, roughly ±10, delta from baseline fitness). SPARSE: absent for the first ~6-8min while Garmin baselines, then ~1/sec. Validated 2026-07-11 against Connect's Performance Condition chart tooltips."
+  "messages": {
+    "session_mesgs": {
+      "cardinality": "exactly 1 per file",
+      "status": "parsed",
+      "fields": {
+        "start_time": {"type": "datetime (tz-aware UTC)", "unit": "-", "nullable": false, "maps_to": "session_date + start_time_local (shifted by per-activity UTC offset)"},
+        "total_elapsed_time": {"type": "float", "unit": "s", "nullable": true, "maps_to": "elapsed_time_s"},
+        "total_timer_time": {"type": "float", "unit": "s", "nullable": true, "maps_to": "timer_time_s", "notes": "pace_min_per_km derived as timer/60/(distance/1000)"},
+        "total_distance": {"type": "float", "unit": "m", "nullable": true, "maps_to": "distance_m"},
+        "enhanced_avg_speed": {"type": "float", "unit": "m/s", "nullable": true, "maps_to": "avg_speed_mps"},
+        "enhanced_max_speed": {"type": "float", "unit": "m/s", "nullable": true, "maps_to": "max_speed_mps"},
+        "total_ascent": {"type": "int", "unit": "m (integer-truncated)", "nullable": true, "maps_to": "total_ascent_m", "notes": "sidecar elevationGain is the float source Connect displays (±1 m vs this)"},
+        "total_descent": {"type": "int", "unit": "m (integer-truncated)", "nullable": true, "maps_to": "total_descent_m"},
+        "avg_heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "avg_heart_rate_bpm", "notes": "absent on runs before ~2026-03 (date-patterned)"},
+        "max_heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "max_heart_rate_bpm"},
+        "avg_power": {"type": "int", "unit": "W", "nullable": true, "maps_to": "avg_power_w"},
+        "max_power": {"type": "int", "unit": "W", "nullable": true, "maps_to": "max_power_w"},
+        "normalized_power": {"type": "int", "unit": "W", "nullable": true, "maps_to": "normalized_power_w"},
+        "total_work": {"type": "int", "unit": "J", "nullable": true, "maps_to": "total_work_j"},
+        "avg_running_cadence": {"type": "int", "unit": "half-steps/min", "nullable": true, "maps_to": "avg_cadence_spm", "notes": "spm = (value + avg_fractional_cadence) * 2; pinned: (87 + 0.71875)*2 = 175.4375 matches sidecar exactly"},
+        "avg_fractional_cadence": {"type": "float", "unit": "half-steps/min fraction", "nullable": true, "maps_to": "(folded into avg_cadence_spm)"},
+        "max_running_cadence": {"type": "int", "unit": "half-steps/min", "nullable": true, "maps_to": "max_cadence_spm (×2 rule)"},
+        "max_fractional_cadence": {"type": "float", "unit": "half-steps/min fraction", "nullable": true, "maps_to": "(folded into max_cadence_spm)"},
+        "avg_stance_time": {"type": "float", "unit": "ms", "nullable": true, "maps_to": "avg_ground_contact_time_ms"},
+        "avg_stance_time_balance": {"type": "float", "unit": "% left", "nullable": true, "maps_to": "avg_ground_contact_balance_pct", "notes": "STRAP-ONLY. Value is %L; %R = 100 - value. 49.76 matched Connect's '49.8% L / 50.2% R'"},
+        "avg_stance_time_percent": {"type": "float", "unit": "% of stride cycle on ground", "nullable": true, "maps_to": "avg_stance_time_pct", "notes": "STRAP-ONLY"},
+        "enhanced_avg_respiration_rate": {"type": "float", "unit": "brpm", "nullable": true, "maps_to": "avg_respiration_rate_brpm", "notes": "STRAP-ONLY"},
+        "enhanced_max_respiration_rate": {"type": "float", "unit": "brpm", "nullable": true, "maps_to": "max_respiration_rate_brpm", "notes": "STRAP-ONLY"},
+        "enhanced_min_respiration_rate": {"type": "float", "unit": "brpm", "nullable": true, "maps_to": "min_respiration_rate_brpm", "notes": "STRAP-ONLY"},
+        "avg_step_length": {"type": "float", "unit": "mm", "nullable": true, "maps_to": "avg_step_length_mm", "notes": "sidecar avgStrideLength is the same value in cm"},
+        "avg_vertical_oscillation": {"type": "float", "unit": "mm", "nullable": true, "maps_to": "avg_vertical_oscillation_mm", "notes": "sidecar/Connect display cm"},
+        "avg_vertical_ratio": {"type": "float", "unit": "%", "nullable": true, "maps_to": "avg_vertical_ratio_pct"},
+        "avg_temperature": {"type": "int", "unit": "°C", "nullable": true, "maps_to": "avg_temperature_c"},
+        "min_temperature": {"type": "int", "unit": "°C", "nullable": true, "maps_to": "min_temperature_c"},
+        "max_temperature": {"type": "int", "unit": "°C", "nullable": true, "maps_to": "max_temperature_c"},
+        "total_calories": {"type": "int", "unit": "kcal", "nullable": true, "maps_to": "total_calories"},
+        "total_strides": {"type": "int", "unit": "strides", "nullable": true, "maps_to": "total_strides"},
+        "total_training_effect": {"type": "float", "unit": "Garmin TE scale 0-5", "nullable": true, "maps_to": "aerobic_training_effect"},
+        "total_anaerobic_training_effect": {"type": "float", "unit": "Garmin TE scale 0-5", "nullable": true, "maps_to": "anaerobic_training_effect"},
+        "training_load_peak": {"type": "float", "unit": "Garmin load scalar", "nullable": true, "maps_to": "training_load", "notes": "equals sidecar activityTrainingLoad"},
+        "sport": {"type": "str", "unit": "-", "nullable": false, "maps_to": "sport", "notes": "'running' for this tree's run files"},
+        "sub_sport": {"type": "str", "unit": "-", "nullable": true, "maps_to": "sub_sport", "notes": "'generic' | 'trail' observed"},
+        "sport_profile_name": {"type": "str", "unit": "-", "nullable": true, "maps_to": "sport_profile_name"},
+        "start_position_lat": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "start_lat (deg = raw × 180/2^31, 7dp)"},
+        "start_position_long": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "start_lon"},
+        "end_position_lat": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "end_lat"},
+        "end_position_long": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "end_lon"},
+        "nec_lat / nec_long / swc_lat / swc_long": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "-", "notes": "bounding box corners; not extracted"}
+      }
     },
-    "fields_undocumented": {
-      "134": "strap-era only; unknown (observed in strap runs; 100 in probe)",
-      "133, 135-136, 140, 143": "unknown; 136 tracked heart_rate in probe",
-      "144": "strap-era only; unknown (observed in strap runs; 84 in probe)"
+    "record_mesgs": {
+      "cardinality": "~1/sec; 3000-6100 observed per run",
+      "status": "parsed",
+      "notes": "Series contract stores parallel column arrays; a null on any channel stays at its sample index (positional nulls). elapsed_s = int seconds from the FIRST record's timestamp.",
+      "fields": {
+        "timestamp": {"type": "datetime (tz-aware UTC)", "unit": "-", "nullable": false, "maps_to": "elapsed_s (offset from first record; offset-invariant, no local shift needed)"},
+        "distance": {"type": "float", "unit": "m cumulative", "nullable": true, "maps_to": "distance_m[]"},
+        "enhanced_speed": {"type": "float", "unit": "m/s", "nullable": true, "maps_to": "speed_mps[]", "notes": "pace series derived backend-side; speed < 0.5 m/s → null pace"},
+        "enhanced_altitude": {"type": "float", "unit": "m", "nullable": true, "maps_to": "altitude_m[]"},
+        "heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "heart_rate_bpm[]"},
+        "cadence": {"type": "int", "unit": "half-steps/min", "nullable": true, "maps_to": "cadence_spm[] (with fractional, ×2 rule)"},
+        "fractional_cadence": {"type": "float", "unit": "half-steps/min fraction", "nullable": true, "maps_to": "(folded into cadence_spm[])"},
+        "power": {"type": "int", "unit": "W", "nullable": true, "maps_to": "power_w[]", "notes": "slightly sparser than records (n=3052/3060 observed)"},
+        "step_length": {"type": "float", "unit": "mm", "nullable": true, "maps_to": "step_length_mm[]", "notes": "sparser than records"},
+        "vertical_oscillation": {"type": "float", "unit": "mm", "nullable": true, "maps_to": "vertical_oscillation_mm[]", "notes": "sparser"},
+        "vertical_ratio": {"type": "float", "unit": "%", "nullable": true, "maps_to": "vertical_ratio_pct[]", "notes": "sparser"},
+        "stance_time": {"type": "float", "unit": "ms", "nullable": true, "maps_to": "stance_time_ms[]", "notes": "sparser"},
+        "stance_time_balance": {"type": "float", "unit": "% left", "nullable": true, "maps_to": "stance_time_balance_pct[]", "notes": "STRAP-ONLY"},
+        "stance_time_percent": {"type": "float", "unit": "% of stride cycle", "nullable": true, "maps_to": "stance_time_pct[]", "notes": "STRAP-ONLY; stored, not yet charted"},
+        "enhanced_respiration_rate": {"type": "float", "unit": "brpm", "nullable": true, "maps_to": "respiration_rate_brpm[]", "notes": "STRAP-ONLY"},
+        "temperature": {"type": "int", "unit": "°C", "nullable": true, "maps_to": "temperature_c[]"},
+        "position_lat": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "lat[] (deg)"},
+        "position_long": {"type": "int", "unit": "semicircles", "nullable": true, "maps_to": "lon[] (deg)"},
+        "accumulated_power": {"type": "int", "unit": "W·s cumulative", "nullable": true, "maps_to": "-"},
+        "activity_type": {"type": "str", "unit": "-", "nullable": true, "maps_to": "-", "notes": "'running' per record"},
+        "cycle_length16": {"type": "float", "unit": "-", "nullable": true, "maps_to": "-", "notes": "0.0 in all probes"}
+      },
+      "undocumented_numeric_fields": {
+        "137": {"type": "int", "unit": "% 0-100", "maps_to": "stamina_potential_pct[]", "semantics": "stamina potential — the ceiling; always >= field 138; declines ~monotonically; session Beginning/Ending Potential = first/last non-null", "validation": "2026-07-11 vs 3 Connect activities (Jun 27, Jul 5, Jul 10): 9/9 begin/end/min anchors exact"},
+        "138": {"type": "int", "unit": "% 0-100", "maps_to": "stamina_pct[]", "semantics": "stamina — dips first under effort, recovers toward potential; session Min Stamina = min non-null", "validation": "2026-07-11, same 3 activities, exact"},
+        "90": {"type": "int", "unit": "delta vs baseline fitness, ~±10", "maps_to": "performance_condition[]", "semantics": "performance condition; SPARSE — absent the first ~6-10 min while Garmin baselines, then ~1/sec", "validation": "2026-07-11 vs Connect PC chart shape/start/range on the same activities"},
+        "134": {"maps_to": "-", "semantics": "unknown; STRAP-ERA only (observed 100)"},
+        "144": {"maps_to": "-", "semantics": "unknown; STRAP-ERA only (observed 84)"},
+        "133, 135-136, 140, 143": {"maps_to": "-", "semantics": "unknown; 136 tracked heart_rate in probe"}
+      }
+    },
+    "lap_mesgs": {
+      "cardinality": "1 per lap (auto-lap ~1 mi default; 7-16 observed)",
+      "status": "parsed",
+      "notes": "Same field vocabulary and units as session_mesgs at lap grain (see session fields for types/units). Lap-specific fields below. lap start_s = start_time - session start_time (NOT first-record offset).",
+      "fields": {
+        "message_index": {"type": "int", "unit": "-", "nullable": true, "maps_to": "lap_index (fallback: enumerate order)"},
+        "intensity": {"type": "str", "unit": "-", "nullable": true, "maps_to": "intensity", "notes": "'interval' observed"},
+        "lap_trigger": {"type": "str", "unit": "-", "nullable": true, "maps_to": "lap_trigger", "notes": "'distance' observed"},
+        "enhanced_min_altitude / enhanced_max_altitude": {"type": "float", "unit": "m", "nullable": true, "maps_to": "-"}
+      }
+    },
+    "time_in_zone_mesgs": {
+      "cardinality": "1 per session + 1 per lap + others (37-42 observed); FILTER reference_mesg == 'session'",
+      "status": "parsed",
+      "fields": {
+        "reference_mesg": {"type": "str", "unit": "-", "nullable": false, "maps_to": "(filter key)", "notes": "'session' | 'lap'"},
+        "reference_index": {"type": "int", "unit": "-", "nullable": false, "maps_to": "-"},
+        "time_in_hr_zone": {"type": "list[float]", "unit": "s per zone (7 entries)", "nullable": true, "maps_to": "time_in_zones.time_in_hr_zone_s", "notes": "strip TRAILING nulls only — a mid-list null must keep its index"},
+        "hr_zone_high_boundary": {"type": "list[int]", "unit": "bpm (6 entries)", "nullable": true, "maps_to": "time_in_zones.hr_zone_high_boundary_bpm"},
+        "time_in_power_zone": {"type": "list[float]", "unit": "s per zone (8 entries)", "nullable": true, "maps_to": "time_in_zones.time_in_power_zone_s"},
+        "power_zone_high_boundary": {"type": "list[int|None]", "unit": "W", "nullable": true, "maps_to": "time_in_zones.power_zone_high_boundary_w", "notes": "trailing None padding observed: [316, 387, 434, 483, 554, 4000, None, None]; top zone's 4000 is an open-ended ceiling"},
+        "functional_threshold_power": {"type": "int", "unit": "W", "nullable": true, "maps_to": "time_in_zones.functional_threshold_power_w"},
+        "threshold_heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "time_in_zones.threshold_heart_rate_bpm"},
+        "max_heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "time_in_zones.max_heart_rate_bpm"},
+        "hr_calc_type / pwr_calc_type": {"type": "str", "unit": "-", "nullable": true, "maps_to": "-", "notes": "'percent_max_hr' / 'percent_ftp' observed"},
+        "resting_heart_rate": {"type": "int", "unit": "bpm", "nullable": true, "maps_to": "-", "notes": "0 observed (unset)"}
+      }
+    },
+    "split_mesgs": {
+      "cardinality": "one per run/walk/stand span + other split kinds (23-29 observed)",
+      "status": "parsed (rwd_* types only)",
+      "fields": {
+        "split_type": {"type": "str", "unit": "-", "nullable": false, "maps_to": "run_walk_spans[].span_type", "notes": "rwd_run→run, rwd_walk→walk, rwd_stand→stand; other types (interval_active, ...) ignored"},
+        "start_time / end_time": {"type": "datetime UTC", "unit": "-", "nullable": true, "maps_to": "run_walk_spans[].start_s/end_s (offsets from first record; span dropped if either missing)"},
+        "total_elapsed_time / total_timer_time": {"type": "float", "unit": "s", "nullable": true, "maps_to": "-"},
+        "total_distance": {"type": "float", "unit": "m", "nullable": true, "maps_to": "-"},
+        "avg_speed / max_speed": {"type": "float", "unit": "m/s", "nullable": true, "maps_to": "-"}
+      }
+    },
+    "device_info_mesgs": {
+      "cardinality": "many (70+ observed); one entry per device/sensor state change",
+      "status": "parsed (HR-source detection only)",
+      "notes": "hr_source policy: any entry with source_type != 'local' AND (ble_device_type == 'heart_rate' OR antplus_device_type == 'heart_rate') → 'strap' (+ serial_number, battery_status captured); else 'wrist' when HR present; else null.",
+      "fields": {
+        "source_type": {"type": "str", "unit": "-", "nullable": true, "maps_to": "(hr_source policy)", "notes": "'local' (watch) | 'bluetooth_low_energy' | 'antplus'"},
+        "ble_device_type": {"type": "str", "unit": "-", "nullable": true, "maps_to": "(hr_source policy)", "notes": "'heart_rate' for the chest strap"},
+        "antplus_device_type": {"type": "str", "unit": "-", "nullable": true, "maps_to": "(hr_source policy)"},
+        "manufacturer": {"type": "str", "unit": "-", "nullable": true, "maps_to": "-", "notes": "'garmin' observed"},
+        "product": {"type": "int", "unit": "-", "nullable": true, "maps_to": "-", "notes": "4314 = watch (EPIX PRO 51mm), 3865 = internal, 4607 = user's HR strap"},
+        "serial_number": {"type": "int", "unit": "-", "nullable": true, "maps_to": "hr_strap_serial (str)"},
+        "battery_status": {"type": "str", "unit": "-", "nullable": true, "maps_to": "hr_strap_battery", "notes": "'good' observed"},
+        "device_index": {"type": "int|'creator'", "unit": "-", "nullable": false, "maps_to": "-"}
+      }
+    },
+    "activity_mesgs": {
+      "cardinality": "1 per file",
+      "status": "parsed (UTC-offset fallback only)",
+      "fields": {
+        "timestamp": {"type": "datetime UTC", "unit": "-", "nullable": false, "maps_to": "(offset fallback)"},
+        "local_timestamp": {"type": "datetime naive-local", "unit": "-", "nullable": true, "maps_to": "utc_offset_hours fallback = local_timestamp - timestamp (sidecar startTimeGMT/Local wins when present)"}
+      }
     }
   },
-  "time_in_zone_mesgs": {"status": "parsed", "notes": "Filter reference_mesg == 'session'. power_zone_high_boundary has trailing nulls to strip."},
-  "split_mesgs": {"status": "parsed", "notes": "Run/walk detection: split_type rwd_run|rwd_walk|rwd_stand with start_time/end_time. Other split types ignored."},
-  "device_info_mesgs": {"status": "parsed", "notes": "HR source detection: non-local entry with ble_device_type or antplus_device_type == 'heart_rate' => chest strap (capture serial_number, battery_status); else wrist optical when HR present."},
-  "activity_mesgs": {"status": "parsed", "notes": "local_timestamp - timestamp = UTC offset fallback when the JSON sidecar is missing."},
-  "json_sidecar": {"status": "parsed", "notes": "Connect summary next to each FIT: activityId, activityName, startTimeGMT/startTimeLocal (offset source), movingDuration, vO2MaxValue, avgGradeAdjustedSpeed, TE messages/label, differenceBodyBattery, steps, intensity minutes."},
-  "unparsed_message_types": ["gps_metadata_mesgs", "event_mesgs", "split_summary_mesgs", "numeric ids 22/104/113/140/141/147/233/288/325/326/327/394/499"]
+  "unparsed_message_types": ["gps_metadata_mesgs", "event_mesgs (timer start/stop/pauses)", "split_summary_mesgs (per-split-type rollups; sidecar splitSummaries mirrors them)", "file_id_mesgs", "device_settings_mesgs", "user_profile_mesgs", "sport_mesgs", "training_settings_mesgs", "zones_target_mesgs", "timestamp_correlation_mesgs", "numeric ids 22/104/113/140/141/147/233/288/325/326/327/394/499"],
+  "sidecar": "see activity-sidecar.json for the Connect summary JSON stored next to each FIT"
 }
