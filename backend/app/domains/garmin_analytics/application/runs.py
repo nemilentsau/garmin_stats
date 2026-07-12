@@ -200,7 +200,4 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
         altitude_ft=[_m_to_ft(v) for v in series.altitude_m],
         temperature_f=[_c_to_f(v) for v in series.temperature_c],
         distance_mi=[_m_to_mi(v) for v in series.distance_m],
-        stance_time_balance_pct=series.stance_time_balance_pct,
-        respiration_rate_brpm=series.respiration_rate_brpm,
-        stance_time_pct=series.stance_time_pct,
     )

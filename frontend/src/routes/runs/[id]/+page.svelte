@@ -299,24 +299,24 @@
 			});
 		}
 
-		if (hasData(series.stance_time_balance_pct)) {
+		if (hasData(s.stance_time_balance_pct)) {
 			rows.push({
 				key: 'gctBalance',
 				title: 'GCT Balance',
 				footnote: d.avg_ground_contact_balance_label ?? '—',
-				config: channelConfig('GCT Balance', series.stance_time_balance_pct, COLORS.groundContactBalance, {
+				config: channelConfig('GCT Balance', s.stance_time_balance_pct, COLORS.groundContactBalance, {
 					dots: true,
 					format: (v) => `${v.toFixed(1)}% L`
 				})
 			});
 		}
 
-		if (hasData(series.respiration_rate_brpm)) {
+		if (hasData(s.respiration_rate_brpm)) {
 			rows.push({
 				key: 'respiration',
 				title: 'Respiration Rate',
 				footnote: `avg ${fmtU1(d.avg_respiration_rate_brpm, 'brpm')} · min ${fmtU1(d.min_respiration_rate_brpm, 'brpm')} · max ${fmtU1(d.max_respiration_rate_brpm, 'brpm')}`,
-				config: channelConfig('Respiration Rate', series.respiration_rate_brpm, COLORS.respiration, {
+				config: channelConfig('Respiration Rate', s.respiration_rate_brpm, COLORS.respiration, {
 					area: true,
 					unit: 'brpm',
 					format: (v) => v.toFixed(1)

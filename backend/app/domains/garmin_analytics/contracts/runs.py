@@ -108,11 +108,10 @@ class RunSeriesResponse(DefaultsRequired):
     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
     frontend charts bind to, index-aligned with `series.elapsed_s`.
-    `stance_time_balance_pct`/`respiration_rate_brpm`/`stance_time_pct` are
-    strap-dynamics arrays passed through unchanged from the stored series
-    (already native display units — balance %, brpm, % — no conversion
-    applies); empty on wrist-only runs, same as the imperial arrays above are
-    empty when their source data is absent.
+    Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
+    `stance_time_pct` — live inside the embedded `series` object (already in
+    native display units — balance %, brpm, % — no conversion applies); empty
+    on wrist-only runs, same as the imperial arrays above.
     """
 
     series: RunningActivitySeries
@@ -120,6 +119,3 @@ class RunSeriesResponse(DefaultsRequired):
     altitude_ft: list[float | None] = []
     temperature_f: list[float | None] = []
     distance_mi: list[float | None] = []
-    stance_time_balance_pct: list[float | None] = []
-    respiration_rate_brpm: list[float | None] = []
-    stance_time_pct: list[float | None] = []

@@ -196,19 +196,24 @@ def test_series_serves_imperial_arrays():
 
 def test_series_strap_dynamics_arrays_absent_for_wrist_run():
     """Wrist-only branch: a run with no strap-dynamics series data yields
-    empty pass-through arrays (the model's `[]` default), not a 3-slot
-    None-filled array — the frontend's `hasData` gate treats both the same,
-    but empty is what the wrist-only ingest actually stores."""
+    empty arrays inside the embedded series (the model's `[]` default), not a
+    3-slot None-filled array — the frontend's `hasData` gate treats both the
+    same, but empty is what the wrist-only ingest actually stores."""
     insert_run("2026-07-10", "r2")
     body = client.get("/api/activities/runs/r2/series").json()
-    assert body["stance_time_balance_pct"] == []
-    assert body["respiration_rate_brpm"] == []
-    assert body["stance_time_pct"] == []
+    assert body["series"]["stance_time_balance_pct"] == []
+    assert body["series"]["respiration_rate_brpm"] == []
+    assert body["series"]["stance_time_pct"] == []
+    # Top-level strap arrays removed; only imperial conversions remain there.
+    assert "stance_time_balance_pct" not in body
+    assert "respiration_rate_brpm" not in body
+    assert "stance_time_pct" not in body
 
 
 def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
-    """Strap-run branch: balance/respiration/stance-time arrays pass through
-    unchanged (native units, no imperial conversion) and preserve None gaps."""
+    """Strap-run branch: balance/respiration/stance-time arrays live inside
+    the embedded series, unchanged (native units, no imperial conversion) and
+    preserve None gaps."""
     insert_run(
         "2026-07-05",
         "strap-run",
@@ -217,9 +222,13 @@ def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
         stance_time_pct=[35.25, 35.0, None],
     )
     body = client.get("/api/activities/runs/strap-run/series").json()
-    assert body["stance_time_balance_pct"] == [49.09, None, 49.46]
-    assert body["respiration_rate_brpm"] == [23.2, 23.2, None]
-    assert body["stance_time_pct"] == [35.25, 35.0, None]
+    assert body["series"]["stance_time_balance_pct"] == [49.09, None, 49.46]
+    assert body["series"]["respiration_rate_brpm"] == [23.2, 23.2, None]
+    assert body["series"]["stance_time_pct"] == [35.25, 35.0, None]
+    # Top-level strap arrays removed; only imperial conversions remain there.
+    assert "stance_time_balance_pct" not in body
+    assert "respiration_rate_brpm" not in body
+    assert "stance_time_pct" not in body
 
 
 def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():

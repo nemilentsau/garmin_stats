@@ -4884,11 +4884,10 @@ export interface components {
          *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
          *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
          *     frontend charts bind to, index-aligned with `series.elapsed_s`.
-         *     `stance_time_balance_pct`/`respiration_rate_brpm`/`stance_time_pct` are
-         *     strap-dynamics arrays passed through unchanged from the stored series
-         *     (already native display units — balance %, brpm, % — no conversion
-         *     applies); empty on wrist-only runs, same as the imperial arrays above are
-         *     empty when their source data is absent.
+         *     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
+         *     `stance_time_pct` — live inside the embedded `series` object (already in
+         *     native display units — balance %, brpm, % — no conversion applies); empty
+         *     on wrist-only runs, same as the imperial arrays above.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
@@ -4912,21 +4911,6 @@ export interface components {
              * @default []
              */
             distance_mi: (number | null)[];
-            /**
-             * Stance Time Balance Pct
-             * @default []
-             */
-            stance_time_balance_pct: (number | null)[];
-            /**
-             * Respiration Rate Brpm
-             * @default []
-             */
-            respiration_rate_brpm: (number | null)[];
-            /**
-             * Stance Time Pct
-             * @default []
-             */
-            stance_time_pct: (number | null)[];
         };
         /**
          * RunWalkSpan
