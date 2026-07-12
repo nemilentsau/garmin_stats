@@ -371,10 +371,14 @@ def assemble_workspace(
         current_dir = directory / "current" / safe_current
         _write(current_dir / "summary.md", run_summary_markdown(context))
         _write(current_dir / "laps.md", laps_markdown(context))
-        current_images = [
-            str(path.resolve())
-            for path in render_current_run_stack(current_dir / "images", detail, series)
-        ]
+        cached_current = render_current_run_stack(plot_cache_dir, detail, series)
+        image_dir = current_dir / "images"
+        image_dir.mkdir(parents=True, exist_ok=True)
+        current_images = []
+        for cached_image in cached_current:
+            destination = image_dir / cached_image.name
+            shutil.copy2(cached_image, destination)
+            current_images.append(str(destination.resolve()))
 
     resolved: list[ArtifactRef] = []
     for ref in _refs(journal, transcript):

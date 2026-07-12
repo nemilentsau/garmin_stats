@@ -309,6 +309,7 @@ def test_current_run_images_are_attached_only_for_review(tmp_path, fake_plots):
 
     assert len(review.current_images) == 2
     assert all(Path(path).is_absolute() for path in review.current_images)
+    assert all((tmp_path / "cache" / Path(path).name).is_file() for path in review.current_images)
     assert chat.current_images == []
 
 

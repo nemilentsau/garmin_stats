@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api, type RunDetail, type RunSeries } from '$lib/api';
+	import { api, type CoachReview, type RunDetail, type RunSeries } from '$lib/api';
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import { fmtSigned } from '$lib/format';
@@ -40,6 +40,28 @@
 	let series: RunSeries | null = $state.raw(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let coachReview: CoachReview | null = $state(null);
+	let reviewBusy = $state(false);
+
+	async function loadCoachReview(id: string) {
+		try {
+			coachReview = await api.getCoachRunReview(id);
+		} catch (e: unknown) {
+			coachReview = errorMessage(e).toLowerCase().includes('no coach review') ? null : null;
+		}
+	}
+
+	async function requestCoachReview(id: string) {
+		reviewBusy = true;
+		try {
+			const result = await api.enqueueCoachRunReview(id);
+			coachReview = result.review;
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			reviewBusy = false;
+		}
+	}
 
 	async function loadRun(id: string) {
 		loading = true;
@@ -47,6 +69,7 @@
 			const [nextDetail, nextSeries] = await Promise.all([api.getRun(id), api.getRunSeries(id)]);
 			detail = nextDetail;
 			series = nextSeries;
+			await loadCoachReview(id);
 			error = null;
 		} catch (e: unknown) {
 			detail = null;
@@ -752,6 +775,13 @@
 						{#if session.location_name}· {session.location_name}{/if}
 					</span>
 				</div>
+				{#if coachReview}
+					<a class="coach-action" href={`/coach?review=${coachReview.id}`}>Open coach review</a>
+				{:else}
+					<button class="coach-action" onclick={() => requestCoachReview(session.id)} disabled={reviewBusy}>
+						{reviewBusy ? 'Queueing…' : 'Review with coach'}
+					</button>
+				{/if}
 			</div>
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
@@ -915,6 +945,19 @@
 		gap: 12px;
 		flex-wrap: wrap;
 	}
+	.coach-action {
+		margin-left: auto;
+		flex-shrink: 0;
+		border: 1px solid rgba(91, 181, 166, 0.28);
+		background: rgba(91, 181, 166, 0.08);
+		color: #7fc9bc;
+		border-radius: 4px;
+		padding: 7px 10px;
+		font: 10px 'DM Mono', monospace;
+		text-decoration: none;
+		cursor: pointer;
+	}
+	.coach-action:disabled { opacity: 0.5; cursor: default; }
 	.run-header-main h1 {
 		margin: 0;
 		font-size: 20px;
