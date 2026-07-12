@@ -63,6 +63,11 @@ def _mm_to_cm(value_mm: float | None) -> float | None:
     return None if value_mm is None else round(value_mm / 10, 1)
 
 
+def _mm_to_m(value_mm: float | None) -> float | None:
+    """Millimeters -> meters, 3dp. None-preserving."""
+    return None if value_mm is None else round(value_mm / 1000, 3)
+
+
 def _ground_contact_balance_label(value_pct: float | None) -> str | None:
     """Render Garmin's "L / R" stance-time balance split, e.g. "49.8% L / 50.2% R".
 
@@ -203,4 +208,6 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
         altitude_ft=[_m_to_ft(v) for v in series.altitude_m],
         temperature_f=[_c_to_f(v) for v in series.temperature_c],
         distance_mi=[_m_to_mi(v) for v in series.distance_m],
+        step_length_m=[_mm_to_m(v) for v in series.step_length_mm],
+        vertical_oscillation_cm=[_mm_to_cm(v) for v in series.vertical_oscillation_mm],
     )

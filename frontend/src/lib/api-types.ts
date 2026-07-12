@@ -4714,7 +4714,9 @@ export interface components {
          *
          *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
          *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
-         *     frontend charts bind to, index-aligned with `series.elapsed_s`.
+         *     frontend charts bind to. `step_length_m` and `vertical_oscillation_cm` are
+         *     Garmin-style metric display exceptions. Every projection is index-aligned
+         *     with `series.elapsed_s`.
          *     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
          *     `stance_time_pct` — live inside the embedded `series` object (already in
          *     native display units — balance %, brpm, % — no conversion applies); empty
@@ -4746,6 +4748,16 @@ export interface components {
              * @default []
              */
             distance_mi: (number | null)[];
+            /**
+             * Step Length M
+             * @default []
+             */
+            step_length_m: (number | null)[];
+            /**
+             * Vertical Oscillation Cm
+             * @default []
+             */
+            vertical_oscillation_cm: (number | null)[];
         };
         /**
          * RunWalkSpan

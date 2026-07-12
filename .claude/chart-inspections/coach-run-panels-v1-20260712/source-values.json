@@ -1,0 +1,426 @@
+[
+  {
+    "run_id": "23490523365",
+    "session_date": "2026-07-05",
+    "activity_name": "Jersey City Running",
+    "hr_source": "strap",
+    "lap_count": 13,
+    "record_count": 6065,
+    "channels": [
+      "Pace",
+      "Heart rate",
+      "Cadence",
+      "Elevation",
+      "Power",
+      "Stride length",
+      "Vertical oscillation",
+      "Vertical ratio",
+      "Ground contact time",
+      "Ground contact balance",
+      "Respiration",
+      "Stance time",
+      "Stamina",
+      "Stamina potential",
+      "Performance condition",
+      "Temperature"
+    ],
+    "display": {
+      "distance_mi": 12.02,
+      "pace_min_per_mi": 8.4,
+      "gap_min_per_mi": 8.36,
+      "avg_speed_mph": 7.1,
+      "max_speed_mph": 10.1,
+      "total_ascent_ft": 1450.0,
+      "total_descent_ft": 1375.0,
+      "avg_temperature_f": 86.0,
+      "min_temperature_f": 82.4,
+      "max_temperature_f": 89.6,
+      "avg_vertical_oscillation_cm": 8.1,
+      "avg_ground_contact_balance_label": "49.8% L / 50.2% R",
+      "avg_stance_time_pct": 33.42,
+      "avg_respiration_rate_brpm": 35.78,
+      "max_respiration_rate_brpm": 45.44,
+      "min_respiration_rate_brpm": 23.2,
+      "stamina_beginning_potential_pct": 100,
+      "stamina_ending_potential_pct": 56,
+      "stamina_min_pct": 56,
+      "lap_display": [
+        {
+          "lap_index": 0,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.56,
+          "avg_ground_contact_balance_label": "49.6% L / 50.4% R",
+          "avg_respiration_rate_brpm": 33.42,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 1,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.18,
+          "avg_ground_contact_balance_label": "51.0% L / 49.0% R",
+          "avg_respiration_rate_brpm": 41.09,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 2,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.21,
+          "avg_ground_contact_balance_label": "50.3% L / 49.7% R",
+          "avg_respiration_rate_brpm": 40.24,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 3,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.13,
+          "avg_ground_contact_balance_label": "50.5% L / 49.5% R",
+          "avg_respiration_rate_brpm": 36.17,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 4,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.29,
+          "avg_ground_contact_balance_label": "50.4% L / 49.6% R",
+          "avg_respiration_rate_brpm": 36.72,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 5,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.42,
+          "avg_ground_contact_balance_label": "49.6% L / 50.4% R",
+          "avg_respiration_rate_brpm": 37.48,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 6,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.42,
+          "avg_ground_contact_balance_label": "49.7% L / 50.3% R",
+          "avg_respiration_rate_brpm": 37.41,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 7,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 9.16,
+          "avg_ground_contact_balance_label": "49.9% L / 50.1% R",
+          "avg_respiration_rate_brpm": 34.26,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 8,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.37,
+          "avg_ground_contact_balance_label": "49.7% L / 50.3% R",
+          "avg_respiration_rate_brpm": 35.37,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 9,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.45,
+          "avg_ground_contact_balance_label": "49.7% L / 50.3% R",
+          "avg_respiration_rate_brpm": 31.88,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 10,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.45,
+          "avg_ground_contact_balance_label": "49.1% L / 50.9% R",
+          "avg_respiration_rate_brpm": 33.23,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 11,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.19,
+          "avg_ground_contact_balance_label": "47.9% L / 52.1% R",
+          "avg_respiration_rate_brpm": 32.46,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 12,
+          "distance_mi": 0.02,
+          "pace_min_per_mi": 6.21,
+          "avg_ground_contact_balance_label": "47.7% L / 52.3% R",
+          "avg_respiration_rate_brpm": 32.8,
+          "avg_vertical_oscillation_cm": 8.8
+        }
+      ]
+    },
+    "historical_panel": "02-eda-01-23490523365-historical.png",
+    "current_stack": [
+      "02-eda-01-23490523365-current-p01.png",
+      "02-eda-01-23490523365-current-p02.png",
+      "02-eda-01-23490523365-current-p03.png",
+      "02-eda-01-23490523365-current-p04.png"
+    ]
+  },
+  {
+    "run_id": "23563889771",
+    "session_date": "2026-07-11",
+    "activity_name": "Jersey City Running",
+    "hr_source": "wrist",
+    "lap_count": 7,
+    "record_count": 3192,
+    "channels": [
+      "Pace",
+      "Heart rate",
+      "Cadence",
+      "Elevation",
+      "Power",
+      "Stride length",
+      "Vertical oscillation",
+      "Vertical ratio",
+      "Ground contact time",
+      "Stamina",
+      "Stamina potential",
+      "Performance condition",
+      "Temperature"
+    ],
+    "display": {
+      "distance_mi": 6.02,
+      "pace_min_per_mi": 8.8,
+      "gap_min_per_mi": 8.88,
+      "avg_speed_mph": 6.8,
+      "max_speed_mph": 9.5,
+      "total_ascent_ft": 125.0,
+      "total_descent_ft": 128.0,
+      "avg_temperature_f": 82.4,
+      "min_temperature_f": 80.6,
+      "max_temperature_f": 86.0,
+      "avg_vertical_oscillation_cm": 8.0,
+      "avg_ground_contact_balance_label": null,
+      "avg_stance_time_pct": null,
+      "avg_respiration_rate_brpm": null,
+      "max_respiration_rate_brpm": null,
+      "min_respiration_rate_brpm": null,
+      "stamina_beginning_potential_pct": 100,
+      "stamina_ending_potential_pct": 80,
+      "stamina_min_pct": 80,
+      "lap_display": [
+        {
+          "lap_index": 0,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 9.5,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 1,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.8,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 2,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.75,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 3,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.77,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 4,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.58,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 7.9
+        },
+        {
+          "lap_index": 5,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.43,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 7.9
+        },
+        {
+          "lap_index": 6,
+          "distance_mi": 0.02,
+          "pace_min_per_mi": 7.13,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        }
+      ]
+    },
+    "historical_panel": "02-eda-02-23563889771-historical.png",
+    "current_stack": [
+      "02-eda-02-23563889771-current-p01.png",
+      "02-eda-02-23563889771-current-p02.png",
+      "02-eda-02-23563889771-current-p03.png",
+      "02-eda-02-23563889771-current-p04.png"
+    ]
+  },
+  {
+    "run_id": "23211503506",
+    "session_date": "2026-06-11",
+    "activity_name": "Antibes Running",
+    "hr_source": "wrist",
+    "lap_count": 13,
+    "record_count": 6262,
+    "channels": [
+      "Pace",
+      "Heart rate",
+      "Cadence",
+      "Elevation",
+      "Power",
+      "Stride length",
+      "Vertical oscillation",
+      "Vertical ratio",
+      "Ground contact time",
+      "Stamina",
+      "Stamina potential",
+      "Performance condition"
+    ],
+    "display": {
+      "distance_mi": 12.21,
+      "pace_min_per_mi": 8.51,
+      "gap_min_per_mi": 8.63,
+      "avg_speed_mph": 7.0,
+      "max_speed_mph": 8.5,
+      "total_ascent_ft": 135.0,
+      "total_descent_ft": 177.0,
+      "avg_temperature_f": null,
+      "min_temperature_f": null,
+      "max_temperature_f": null,
+      "avg_vertical_oscillation_cm": 8.1,
+      "avg_ground_contact_balance_label": null,
+      "avg_stance_time_pct": null,
+      "avg_respiration_rate_brpm": null,
+      "max_respiration_rate_brpm": null,
+      "min_respiration_rate_brpm": null,
+      "stamina_beginning_potential_pct": 92,
+      "stamina_ending_potential_pct": 46,
+      "stamina_min_pct": 46,
+      "lap_display": [
+        {
+          "lap_index": 0,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.9,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.3
+        },
+        {
+          "lap_index": 1,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.55,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 2,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.61,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 3,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.48,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 4,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.69,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 5,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.59,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 6,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.63,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 7,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.95,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.0
+        },
+        {
+          "lap_index": 8,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.63,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.1
+        },
+        {
+          "lap_index": 9,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.43,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 10,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 8.18,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 11,
+          "distance_mi": 1.0,
+          "pace_min_per_mi": 7.82,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.2
+        },
+        {
+          "lap_index": 12,
+          "distance_mi": 0.21,
+          "pace_min_per_mi": 7.42,
+          "avg_ground_contact_balance_label": null,
+          "avg_respiration_rate_brpm": null,
+          "avg_vertical_oscillation_cm": 8.3
+        }
+      ]
+    },
+    "historical_panel": "02-eda-03-23211503506-historical.png",
+    "current_stack": [
+      "02-eda-03-23211503506-current-p01.png",
+      "02-eda-03-23211503506-current-p02.png",
+      "02-eda-03-23211503506-current-p03.png"
+    ]
+  }
+]

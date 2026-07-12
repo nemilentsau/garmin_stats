@@ -325,3 +325,23 @@ def test_series_converts_altitude_temperature_distance_arrays_with_null_preserve
         round(22.0 * 9 / 5 + 32, 1),
     ]
     assert body["distance_mi"] == [round(0.0 / 1609.344, 2), None, round(50.0 / 1609.344, 2)]
+
+
+def test_series_converts_running_dynamics_to_garmin_display_units():
+    insert_run("2026-07-10", "r2")
+    series = RunningActivitySeries(
+        elapsed_s=[0, 1, 2],
+        step_length_mm=[1200.0, None, 980.0],
+        vertical_oscillation_mm=[88.0, None, 75.0],
+    )
+    with connect() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO running_activity_series (session_id, data) VALUES (?, ?)",
+            ("r2", series.model_dump_json()),
+        )
+        con.commit()
+
+    body = client.get("/api/activities/runs/r2/series").json()
+
+    assert body["step_length_m"] == [1.2, None, 0.98]
+    assert body["vertical_oscillation_cm"] == [8.8, None, 7.5]
