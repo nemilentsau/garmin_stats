@@ -644,6 +644,229 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_api_coach_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reviews */
+        get: operations["get_reviews_api_coach_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/run-reviews/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Review */
+        get: operations["get_run_review_api_coach_run_reviews__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Run Review */
+        post: operations["post_run_review_api_coach_reviews_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review */
+        get: operations["get_review_api_coach_reviews__review_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/{review_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Review Retry */
+        post: operations["post_review_retry_api_coach_reviews__review_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Threads */
+        get: operations["get_threads_api_coach_threads_get"];
+        put?: never;
+        /** Post Thread */
+        post: operations["post_thread_api_coach_threads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Messages */
+        get: operations["get_messages_api_coach_threads__thread_id__messages_get"];
+        put?: never;
+        /** Post Message */
+        post: operations["post_message_api_coach_threads__thread_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Close */
+        post: operations["post_close_api_coach_threads__thread_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/retry-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Retry Close */
+        post: operations["post_retry_close_api_coach_threads__thread_id__retry_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_coach_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Brief */
+        get: operations["get_brief_api_coach_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal */
+        get: operations["get_journal_api_coach_journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -1559,6 +1782,16 @@ export interface components {
              */
             routine_specs: components["schemas"]["RoutineSpec"][];
         };
+        /** ArtifactRef */
+        ArtifactRef: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "plot" | "review" | "date";
+            /** Value */
+            value: string;
+        };
         /**
          * AssistantArtifact
          * @description Persisted assistant-authored artifact with validation state.
@@ -1760,6 +1993,17 @@ export interface components {
             pattern_label: string;
             /** Instructions */
             instructions: string | null;
+        };
+        /** BriefVersion */
+        BriefVersion: {
+            /** Id */
+            id: string;
+            /** Content Md */
+            content_md: string;
+            /** Source Id */
+            source_id: string;
+            /** Created At */
+            created_at: string;
         };
         /** CaptureField */
         CaptureField: {
@@ -2115,6 +2359,197 @@ export interface components {
             op: "<" | "<=" | ">" | ">=" | "==" | "in";
             /** Value */
             value: boolean | number | string | (boolean | number | string)[];
+        };
+        /** CoachBriefResponse */
+        CoachBriefResponse: {
+            brief: components["schemas"]["BriefVersion"] | null;
+        };
+        /** CoachEnqueueResponse */
+        CoachEnqueueResponse: {
+            /** Created */
+            created: boolean;
+            job: components["schemas"]["CoachJob"];
+            review: components["schemas"]["CoachReview"] | null;
+            message: components["schemas"]["CoachMessage"] | null;
+        };
+        /** CoachJob */
+        CoachJob: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review_run" | "review_skip" | "chat_turn" | "distill_thread";
+            /** Dedupe Key */
+            dedupe_key: string;
+            /** Priority */
+            priority: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "failed";
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /** Available At */
+            available_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** CoachJournalResponse */
+        CoachJournalResponse: {
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["JournalEntry"][];
+        };
+        /** CoachMessage */
+        CoachMessage: {
+            /** Id */
+            id: string;
+            /** Thread Id */
+            thread_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "coach" | "system";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Job Id */
+            job_id: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /** CoachMessageCreateRequest */
+        CoachMessageCreateRequest: {
+            /** Content Md */
+            content_md: string;
+        };
+        /** CoachMessagesResponse */
+        CoachMessagesResponse: {
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["CoachMessage"][];
+        };
+        /** CoachReview */
+        CoachReview: {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "skip";
+            /** Run Id */
+            run_id: string | null;
+            /** Occurrence Key */
+            occurrence_key: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "generating" | "complete" | "failed";
+            /** Verdict */
+            verdict: ("compliant" | "partial" | "non_compliant" | "skipped" | "unplanned") | null;
+            /** Content Md */
+            content_md: string | null;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /**
+             * Plots Viewed
+             * @default []
+             */
+            plots_viewed: string[];
+            /** Job Id */
+            job_id: string;
+            /** Error */
+            error: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** CoachReviewsResponse */
+        CoachReviewsResponse: {
+            /**
+             * Reviews
+             * @default []
+             */
+            reviews: components["schemas"]["CoachReview"][];
+        };
+        /** CoachRunReviewRequest */
+        CoachRunReviewRequest: {
+            /** Run Id */
+            run_id: string;
+        };
+        /** CoachStatusResponse */
+        CoachStatusResponse: {
+            /** Worker Enabled */
+            worker_enabled: boolean;
+            running_job: components["schemas"]["CoachJob"] | null;
+            /** Queued Count */
+            queued_count: number;
+        };
+        /** CoachThread */
+        CoachThread: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "closing" | "closed" | "close_failed";
+            /** Codex Session Id */
+            codex_session_id: string | null;
+            /** Created At */
+            created_at: string;
+            /** Last Activity At */
+            last_activity_at: string;
+        };
+        /** CoachThreadCreateRequest */
+        CoachThreadCreateRequest: {
+            /** Title */
+            title: string;
+        };
+        /** CoachThreadsResponse */
+        CoachThreadsResponse: {
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["CoachThread"][];
         };
         /** ConfounderCheck */
         ConfounderCheck: {
@@ -3463,6 +3898,27 @@ export interface components {
             metric: "pct_e1rm" | "rpe" | "zone";
             /** Min */
             min: number | string;
+        };
+        /** JournalEntry */
+        JournalEntry: {
+            /** Id */
+            id: string;
+            /** Ts */
+            ts: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review" | "chat" | "admonish";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Source Id */
+            source_id: string;
         };
         /**
          * LapDisplayRow
@@ -7822,6 +8278,448 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunSeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_coach_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachStatusResponse"];
+                };
+            };
+        };
+    };
+    get_reviews_api_coach_reviews_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReviewsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_review_api_coach_run_reviews__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_run_review_api_coach_reviews_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachRunReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_api_coach_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_review_retry_api_coach_reviews__review_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_threads_api_coach_threads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachThreadsResponse"];
+                };
+            };
+        };
+    };
+    post_thread_api_coach_threads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachThreadCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_messages_api_coach_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachMessagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_message_api_coach_threads__thread_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_close_api_coach_threads__thread_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_retry_close_api_coach_threads__thread_id__retry_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_coach_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brief_api_coach_brief_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachBriefResponse"];
+                };
+            };
+        };
+    };
+    get_journal_api_coach_journal_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJournalResponse"];
                 };
             };
             /** @description Validation Error */

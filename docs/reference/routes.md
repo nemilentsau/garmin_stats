@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (76 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (91 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -53,6 +53,26 @@ Backend from the FastAPI OpenAPI schema (76 operations); frontend from `frontend
 |---|---|---|
 | GET | `/api/checkins` | Get Checkins |
 | POST | `/api/checkins` | Post Checkin |
+
+### `coach`
+
+| Method | Path | Summary |
+|---|---|---|
+| GET | `/api/coach/brief` | Get Brief |
+| GET | `/api/coach/jobs/{job_id}` | Get Job |
+| GET | `/api/coach/journal` | Get Journal |
+| GET | `/api/coach/reviews` | Get Reviews |
+| POST | `/api/coach/reviews/run` | Post Run Review |
+| GET | `/api/coach/reviews/{review_id}` | Get Review |
+| POST | `/api/coach/reviews/{review_id}/retry` | Post Review Retry |
+| GET | `/api/coach/run-reviews/{run_id}` | Get Run Review |
+| GET | `/api/coach/status` | Get Status |
+| GET | `/api/coach/threads` | Get Threads |
+| POST | `/api/coach/threads` | Post Thread |
+| POST | `/api/coach/threads/{thread_id}/close` | Post Close |
+| GET | `/api/coach/threads/{thread_id}/messages` | Get Messages |
+| POST | `/api/coach/threads/{thread_id}/messages` | Post Message |
+| POST | `/api/coach/threads/{thread_id}/retry-close` | Post Retry Close |
 
 ### `daily-aggregates`
 

@@ -698,6 +698,19 @@ class SqliteCoachRepository:
             ).fetchone()
         return None if row is None else _job_from_row(row)
 
+    def failed_distill_job(self, thread_id: str) -> CoachJob | None:
+        with connect() as connection:
+            row = connection.execute(
+                """
+                SELECT data FROM coach_jobs
+                WHERE kind = 'distill_thread' AND status = 'failed'
+                  AND json_extract(data, '$.payload.thread_id') = ?
+                ORDER BY updated_at DESC, id LIMIT 1
+                """,
+                (thread_id,),
+            ).fetchone()
+        return None if row is None else _job_from_row(row)
+
     def queued_count(self) -> int:
         with connect() as connection:
             row = connection.execute(

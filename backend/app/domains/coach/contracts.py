@@ -166,3 +166,15 @@ class CoachStatusResponse(StrictDefaultsRequired):
     worker_enabled: bool
     running_job: CoachJob | None = None
     queued_count: int
+
+
+class CoachRunReviewRequest(StrictDefaultsRequired):
+    run_id: str
+
+
+class CoachThreadCreateRequest(StrictDefaultsRequired):
+    title: str = Field(min_length=1, max_length=120)
+
+
+class CoachMessageCreateRequest(StrictDefaultsRequired):
+    content_md: str = Field(min_length=1, max_length=12000)

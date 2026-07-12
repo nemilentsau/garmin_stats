@@ -69,6 +69,21 @@ class CoachJobs:
     def retry_job(self, job_id: str) -> CoachJob:
         return self.repo.retry_failed_job(job_id, available_at=utc_now_iso())
 
+    def retry_close(self, thread_id: str) -> CoachJob:
+        thread = self.repo.thread(thread_id)
+        if thread is None:
+            raise LookupError(f"Unknown coach thread: {thread_id}")
+        if thread.status != "close_failed":
+            raise ValueError("Only a close-failed thread can retry closing")
+        job = self.repo.failed_distill_job(thread_id)
+        if job is None:
+            raise LookupError(f"No failed close job for thread: {thread_id}")
+        now = utc_now_iso()
+        self.repo.update_thread(
+            thread.model_copy(update={"status": "closing", "last_activity_at": now})
+        )
+        return self.repo.retry_failed_job(job.id, available_at=now)
+
     def reconcile_pending(self) -> list[CoachJob]:
         today = date.fromisoformat(self.local_today())
         state = self.repo.reconciliation_state()

@@ -118,6 +118,17 @@ export type RunsList = Schemas['RunsListResponse'];
 export type RunListItem = Schemas['RunListItem'];
 export type RunDetail = Schemas['RunDetailResponse'];
 export type RunSeries = Schemas['RunSeriesResponse'];
+export type CoachStatus = Schemas['CoachStatusResponse'];
+export type CoachReview = Schemas['CoachReview'];
+export type CoachReviewsResponse = Schemas['CoachReviewsResponse'];
+export type CoachJob = Schemas['CoachJob'];
+export type CoachThread = Schemas['CoachThread'];
+export type CoachThreadsResponse = Schemas['CoachThreadsResponse'];
+export type CoachMessage = Schemas['CoachMessage'];
+export type CoachMessagesResponse = Schemas['CoachMessagesResponse'];
+export type CoachJournalResponse = Schemas['CoachJournalResponse'];
+export type CoachBriefResponse = Schemas['CoachBriefResponse'];
+export type CoachEnqueueResponse = Schemas['CoachEnqueueResponse'];
 
 function unwrap<T>(data: T | undefined, error: unknown): T {
 	if (error) {
@@ -402,6 +413,66 @@ export const api = {
 	getRunSeries: async (runId: string) => {
 		return unwrapResponse(client.GET('/api/activities/runs/{run_id}/series', {
 			params: { path: { run_id: runId } }
+		}));
+	},
+	getCoachStatus: async () => unwrapResponse(client.GET('/api/coach/status')),
+	getCoachReviews: async (params?: { from?: string; to?: string; limit?: number }) => {
+		return unwrapResponse(client.GET('/api/coach/reviews', {
+			params: { query: params ?? {} }
+		}));
+	},
+	getCoachReview: async (reviewId: string) => {
+		return unwrapResponse(client.GET('/api/coach/reviews/{review_id}', {
+			params: { path: { review_id: reviewId } }
+		}));
+	},
+	getCoachRunReview: async (runId: string) => {
+		return unwrapResponse(client.GET('/api/coach/run-reviews/{run_id}', {
+			params: { path: { run_id: runId } }
+		}));
+	},
+	enqueueCoachRunReview: async (runId: string) => {
+		return unwrapResponse(client.POST('/api/coach/reviews/run', { body: { run_id: runId } }));
+	},
+	retryCoachReview: async (reviewId: string) => {
+		return unwrapResponse(client.POST('/api/coach/reviews/{review_id}/retry', {
+			params: { path: { review_id: reviewId } }
+		}));
+	},
+	getCoachThreads: async () => unwrapResponse(client.GET('/api/coach/threads')),
+	createCoachThread: async (title: string) => {
+		return unwrapResponse(client.POST('/api/coach/threads', { body: { title } }));
+	},
+	getCoachMessages: async (threadId: string) => {
+		return unwrapResponse(client.GET('/api/coach/threads/{thread_id}/messages', {
+			params: { path: { thread_id: threadId } }
+		}));
+	},
+	sendCoachMessage: async (threadId: string, contentMd: string) => {
+		return unwrapResponse(client.POST('/api/coach/threads/{thread_id}/messages', {
+			params: { path: { thread_id: threadId } },
+			body: { content_md: contentMd }
+		}));
+	},
+	closeCoachThread: async (threadId: string) => {
+		return unwrapResponse(client.POST('/api/coach/threads/{thread_id}/close', {
+			params: { path: { thread_id: threadId } }
+		}));
+	},
+	retryCoachThreadClose: async (threadId: string) => {
+		return unwrapResponse(client.POST('/api/coach/threads/{thread_id}/retry-close', {
+			params: { path: { thread_id: threadId } }
+		}));
+	},
+	getCoachJob: async (jobId: string) => {
+		return unwrapResponse(client.GET('/api/coach/jobs/{job_id}', {
+			params: { path: { job_id: jobId } }
+		}));
+	},
+	getCoachBrief: async () => unwrapResponse(client.GET('/api/coach/brief')),
+	getCoachJournal: async (limit = 30) => {
+		return unwrapResponse(client.GET('/api/coach/journal', {
+			params: { query: { limit } }
 		}));
 	}
 };
