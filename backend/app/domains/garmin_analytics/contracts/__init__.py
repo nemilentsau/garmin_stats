@@ -100,7 +100,9 @@ from .raw import (
     StressRawResponse,
 )
 from .runs import (
+    LapDisplayRow,
     RunDetailResponse,
+    RunDisplayStats,
     RunListItem,
     RunSeriesResponse,
     RunsListResponse,
@@ -147,6 +149,7 @@ __all__ = [
     "HrvResponse",
     "HrvStreak",
     "HRZoneDuration",
+    "LapDisplayRow",
     "MeaningfulChange",
     "MetricCorrelation",
     "NightlyHrvTrendPoint",
@@ -167,6 +170,7 @@ __all__ = [
     "RespirationDailyResponse",
     "RestingHRTrendPoint",
     "RunDetailResponse",
+    "RunDisplayStats",
     "RunListItem",
     "RunSeriesResponse",
     "RunsListResponse",

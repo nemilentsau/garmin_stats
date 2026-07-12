@@ -1,13 +1,14 @@
 /**
  * Shared display formatters for the run pages (`/runs` list + `/runs/[id]` detail).
- * Pure formatting only — every value is already computed by the backend; nothing here
- * derives, aggregates, or smooths data. Kept in one place so the list and detail pages
+ * Pure formatting only — every value is already computed by the backend, already in
+ * US imperial units (mi, min/mi, ft, °F — CLAUDE.md units rule); nothing here derives,
+ * aggregates, smooths, or converts units. Kept in one place so the list and detail pages
  * can never drift apart on how a pace or duration reads.
  */
 
-/** Distance in meters -> km, 2 decimals. */
-export function fmtKm(distanceM: number | null): string {
-	return distanceM == null ? '—' : (distanceM / 1000).toFixed(2);
+/** Distance in miles, 2 decimals. */
+export function fmtMi(distanceMi: number | null): string {
+	return distanceMi == null ? '—' : distanceMi.toFixed(2);
 }
 
 /** Seconds -> h:mm:ss, with the hour segment dropped under 1h (m:ss). */
@@ -21,13 +22,33 @@ export function fmtDuration(seconds: number | null): string {
 	return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-/** Pace in min/km -> m:ss (minutes not zero-padded). */
-export function fmtPace(paceMinPerKm: number | null): string {
-	if (paceMinPerKm == null) return '—';
-	const totalSeconds = Math.round(paceMinPerKm * 60);
+/** Pace in min/mi -> m:ss (minutes not zero-padded). */
+export function fmtPace(paceMinPerMi: number | null): string {
+	if (paceMinPerMi == null) return '—';
+	const totalSeconds = Math.round(paceMinPerMi * 60);
 	const m = Math.floor(totalSeconds / 60);
 	const s = totalSeconds % 60;
 	return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Feet, whole number with thousands separator. */
+export function fmtFt(feet: number | null): string {
+	return feet == null ? '—' : Math.round(feet).toLocaleString();
+}
+
+/** Fahrenheit, 1 decimal. */
+export function fmtF(temperatureF: number | null): string {
+	return temperatureF == null ? '—' : temperatureF.toFixed(1);
+}
+
+/** Miles per hour, 1 decimal. */
+export function fmtMph(speedMph: number | null): string {
+	return speedMph == null ? '—' : speedMph.toFixed(1);
+}
+
+/** Centimeters, 1 decimal. */
+export function fmtCm(centimeters: number | null): string {
+	return centimeters == null ? '—' : centimeters.toFixed(1);
 }
 
 /** ISO local timestamp -> "HH:MM". */

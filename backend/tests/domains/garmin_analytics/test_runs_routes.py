@@ -15,7 +15,16 @@ def test_list_runs_ordered_and_filtered():
     insert_run("2026-07-10", "r2")
     body = client.get("/api/activities/runs", params={"from": "2026-07-05"}).json()
     assert [r["id"] for r in body["runs"]] == ["r2"]
-    assert body["runs"][0]["pace_min_per_km"] is not None
+    assert body["runs"][0]["pace_min_per_mi"] is not None
+
+
+def test_list_serves_imperial_display_fields():
+    insert_run("2026-07-10", "r2")
+    body = client.get("/api/activities/runs").json()
+    run = body["runs"][0]
+    assert "pace_min_per_km" not in run and "distance_m" not in run
+    assert run["distance_mi"] == round(9695.29 / 1609.344, 2)
+    assert run["pace_min_per_mi"] == round(5.24 * 1.609344, 2)
 
 
 def test_list_runs_newest_first_without_date_filter():
@@ -71,18 +80,76 @@ def test_run_detail_laps_are_ordered_by_lap_index_not_insertion_order():
     assert [lap["lap_index"] for lap in body["laps"]] == [0, 1, 2]
 
 
+def test_run_detail_display_converts_metric_session_to_imperial():
+    insert_run(
+        "2026-07-10",
+        "r2",
+        lap_count=1,
+        total_ascent_m=139,
+        total_descent_m=100,
+        avg_temperature_c=31,
+        min_temperature_c=18,
+        max_temperature_c=33,
+        avg_speed_mps=3.5,
+        max_speed_mps=4.2,
+        grade_adjusted_avg_speed_mps=3.0,
+        avg_vertical_oscillation_mm=88.0,
+    )
+    body = client.get("/api/activities/runs/r2").json()
+    display = body["display"]
+
+    assert display["distance_mi"] == round(9695.29 / 1609.344, 2)
+    assert display["pace_min_per_mi"] == round(5.24 * 1.609344, 2)
+    assert display["gap_min_per_mi"] == round(1000 / (3.0 * 60) * 1.609344, 2)
+    assert display["avg_speed_mph"] == round(3.5 * 2.2369363, 1)
+    assert display["max_speed_mph"] == round(4.2 * 2.2369363, 1)
+    assert display["total_ascent_ft"] == round(139 * 3.28084, 0)
+    assert display["total_descent_ft"] == round(100 * 3.28084, 0)
+    assert display["avg_temperature_f"] == round(31 * 9 / 5 + 32, 1)
+    assert display["min_temperature_f"] == round(18 * 9 / 5 + 32, 1)
+    assert display["max_temperature_f"] == round(33 * 9 / 5 + 32, 1)
+    assert display["avg_vertical_oscillation_cm"] == round(88.0 / 10, 1)
+
+    lap_display = display["lap_display"][0]
+    assert lap_display["lap_index"] == 0
+    assert lap_display["distance_mi"] == round(1609.34 / 1609.344, 2)
+    assert lap_display["pace_min_per_mi"] is None  # lap has no stored pace_min_per_km
+
+
+def test_run_detail_display_preserves_none_for_missing_metric_fields():
+    """None-preservation branch for every converter: a run with no ascent, temp,
+    speed, or vertical-oscillation source data yields None display fields,
+    while the always-populated distance/pace fields stay non-None."""
+    insert_run("2026-07-10", "r2")
+    body = client.get("/api/activities/runs/r2").json()
+    display = body["display"]
+
+    assert display["distance_mi"] is not None
+    assert display["pace_min_per_mi"] is not None
+    assert display["gap_min_per_mi"] is None
+    assert display["avg_speed_mph"] is None
+    assert display["max_speed_mph"] is None
+    assert display["total_ascent_ft"] is None
+    assert display["total_descent_ft"] is None
+    assert display["avg_temperature_f"] is None
+    assert display["min_temperature_f"] is None
+    assert display["max_temperature_f"] is None
+    assert display["avg_vertical_oscillation_cm"] is None
+
+
 def test_missing_run_is_404():
     assert client.get("/api/activities/runs/nope").status_code == 404
     assert client.get("/api/activities/runs/nope/series").status_code == 404
 
 
-def test_series_returns_parallel_arrays_with_backend_pace():
+def test_series_serves_imperial_arrays():
     insert_run("2026-07-10", "r2")
     body = client.get("/api/activities/runs/r2/series").json()
     assert body["series"]["elapsed_s"] == [0, 1, 2]
-    # speed 3.2 m/s → 1000/(3.2*60); zero-ish speed → null pace
-    assert round(body["pace_min_per_km"][0], 3) == round(1000 / (3.2 * 60), 3)
-    assert body["pace_min_per_km"][2] is None
+    assert "pace_min_per_km" not in body
+    # speed 3.2 m/s → min/km = 1000/(3.2*60); min/mi = that × 1.609344
+    assert round(body["pace_min_per_mi"][0], 3) == round(1000 / (3.2 * 60) * 1.609344, 3)
+    assert body["pace_min_per_mi"][2] is None  # 0.1 m/s below threshold
 
 
 def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():
@@ -100,6 +167,32 @@ def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():
 
     body = client.get("/api/activities/runs/r2/series").json()
 
-    assert round(body["pace_min_per_km"][0], 3) == round(1000 / (0.5 * 60), 3)
-    assert body["pace_min_per_km"][1] is None
-    assert body["pace_min_per_km"][2] is None
+    assert round(body["pace_min_per_mi"][0], 3) == round(1000 / (0.5 * 60) * 1.609344, 3)
+    assert body["pace_min_per_mi"][1] is None  # 0.4 m/s below the 0.5 threshold
+    assert body["pace_min_per_mi"][2] is None  # missing speed sample
+
+
+def test_series_converts_altitude_temperature_distance_arrays_with_null_preserved():
+    insert_run("2026-07-10", "r2")
+    series = RunningActivitySeries(
+        elapsed_s=[0, 1, 2],
+        altitude_m=[100.0, None, 120.0],
+        temperature_c=[20.0, None, 22.0],
+        distance_m=[0.0, None, 50.0],
+    )
+    with connect() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO running_activity_series (session_id, data) VALUES (?, ?)",
+            ("r2", series.model_dump_json()),
+        )
+        con.commit()
+
+    body = client.get("/api/activities/runs/r2/series").json()
+
+    assert body["altitude_ft"] == [round(100.0 * 3.28084, 0), None, round(120.0 * 3.28084, 0)]
+    assert body["temperature_f"] == [
+        round(20.0 * 9 / 5 + 32, 1),
+        None,
+        round(22.0 * 9 / 5 + 32, 1),
+    ]
+    assert body["distance_mi"] == [round(0.0 / 1609.344, 2), None, round(50.0 / 1609.344, 2)]

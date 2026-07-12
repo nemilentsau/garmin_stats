@@ -3642,6 +3642,21 @@ export interface components {
             min: number | string;
         };
         /**
+         * LapDisplayRow
+         * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
+         *
+         *     The lap's other fields (time, HR, cadence, ...) need no unit conversion and
+         *     render straight from the embedded `RunningActivityLap`.
+         */
+        LapDisplayRow: {
+            /** Lap Index */
+            lap_index: number;
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+        };
+        /**
          * LintReport
          * @description L1-L12 findings plus the weekly rollups the block's budgets are checked against.
          */
@@ -4709,6 +4724,9 @@ export interface components {
         /**
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
+         *
+         *     `session`/`laps` stay metric (canonical); `display` is the imperial
+         *     projection the frontend renders from.
          */
         RunDetailResponse: {
             session: components["schemas"]["RunningActivitySession"];
@@ -4717,6 +4735,44 @@ export interface components {
              * @default []
              */
             laps: components["schemas"]["RunningActivityLap"][];
+            display: components["schemas"]["RunDisplayStats"];
+        };
+        /**
+         * RunDisplayStats
+         * @description Imperial display projection of a run's canonical (metric) session stats.
+         *
+         *     Every field is None-preserving from its metric source; see the `_*_to_*`
+         *     conversion helpers in `application/runs.py` for the exact constants and
+         *     rounding rule each field uses.
+         */
+        RunDisplayStats: {
+            /** Distance Mi */
+            distance_mi: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
+            /** Gap Min Per Mi */
+            gap_min_per_mi: number | null;
+            /** Avg Speed Mph */
+            avg_speed_mph: number | null;
+            /** Max Speed Mph */
+            max_speed_mph: number | null;
+            /** Total Ascent Ft */
+            total_ascent_ft: number | null;
+            /** Total Descent Ft */
+            total_descent_ft: number | null;
+            /** Avg Temperature F */
+            avg_temperature_f: number | null;
+            /** Min Temperature F */
+            min_temperature_f: number | null;
+            /** Max Temperature F */
+            max_temperature_f: number | null;
+            /** Avg Vertical Oscillation Cm */
+            avg_vertical_oscillation_cm: number | null;
+            /**
+             * Lap Display
+             * @default []
+             */
+            lap_display: components["schemas"]["LapDisplayRow"][];
         };
         /**
          * RunListItem
@@ -4733,12 +4789,12 @@ export interface components {
             activity_name: string | null;
             /** Sub Sport */
             sub_sport: string | null;
-            /** Distance M */
-            distance_m: number | null;
+            /** Distance Mi */
+            distance_mi: number | null;
             /** Timer Time S */
             timer_time_s: number | null;
-            /** Pace Min Per Km */
-            pace_min_per_km: number | null;
+            /** Pace Min Per Mi */
+            pace_min_per_mi: number | null;
             /** Avg Heart Rate Bpm */
             avg_heart_rate_bpm: number | null;
             /** Hr Source */
@@ -4803,15 +4859,34 @@ export interface components {
         };
         /**
          * RunSeriesResponse
-         * @description Single-run chart-series endpoint response, with backend-derived pace.
+         * @description Single-run chart-series endpoint response: metric series plus imperial arrays.
+         *
+         *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
+         *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
+         *     frontend charts bind to, index-aligned with `series.elapsed_s`.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
             /**
-             * Pace Min Per Km
+             * Pace Min Per Mi
              * @default []
              */
-            pace_min_per_km: (number | null)[];
+            pace_min_per_mi: (number | null)[];
+            /**
+             * Altitude Ft
+             * @default []
+             */
+            altitude_ft: (number | null)[];
+            /**
+             * Temperature F
+             * @default []
+             */
+            temperature_f: (number | null)[];
+            /**
+             * Distance Mi
+             * @default []
+             */
+            distance_mi: (number | null)[];
         };
         /**
          * RunWalkSpan

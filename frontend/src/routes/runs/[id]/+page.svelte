@@ -5,7 +5,17 @@
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import { fmtSigned } from '$lib/format';
-	import { fmtKm, fmtDuration, fmtPace, fmtStartTime, hrBadgeLabel } from '$lib/format-run';
+	import {
+		fmtMi,
+		fmtDuration,
+		fmtPace,
+		fmtStartTime,
+		hrBadgeLabel,
+		fmtFt,
+		fmtF,
+		fmtMph,
+		fmtCm
+	} from '$lib/format-run';
 	import { COLORS, withAlpha } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import { tightScale } from '$lib/chart-scale';
@@ -67,9 +77,6 @@
 	}
 	function fmtMeters(mm: number | null | undefined): string {
 		return mm == null ? '—' : `${(mm / 1000).toFixed(2)} m`;
-	}
-	function fmtMps(v: number | null | undefined): string {
-		return v == null ? '—' : `${v.toFixed(2)} m/s`;
 	}
 	function fmtKJ(j: number | null | undefined): string {
 		return j == null ? '—' : `${(j / 1000).toFixed(1)} kJ`;
@@ -172,29 +179,30 @@
 		if (!series || !detail) return [];
 		const s = series.series;
 		const session = detail.session;
+		const d = detail.display;
 		const rows: ChartRow[] = [];
 
-		if (hasData(s.altitude_m)) {
+		if (hasData(series.altitude_ft)) {
 			rows.push({
 				key: 'elevation',
 				title: 'Elevation',
-				footnote: `↑ ${fmtU0(session.total_ascent_m, 'm')} · ↓ ${fmtU0(session.total_descent_m, 'm')}`,
-				config: channelConfig('Elevation', s.altitude_m, COLORS.elevation, {
+				footnote: `↑ ${fmtFt(d.total_ascent_ft)} ft · ↓ ${fmtFt(d.total_descent_ft)} ft`,
+				config: channelConfig('Elevation', series.altitude_ft, COLORS.elevation, {
 					area: true,
-					unit: 'm',
+					unit: 'ft',
 					format: (v) => String(Math.round(v))
 				})
 			});
 		}
 
-		if (hasData(series.pace_min_per_km)) {
+		if (hasData(series.pace_min_per_mi)) {
 			rows.push({
 				key: 'pace',
 				title: 'Pace',
-				footnote: `avg ${fmtPace(session.pace_min_per_km)} /km`,
-				config: channelConfig('Pace', series.pace_min_per_km, COLORS.pace, {
+				footnote: `avg ${fmtPace(d.pace_min_per_mi)} /mi`,
+				config: channelConfig('Pace', series.pace_min_per_mi, COLORS.pace, {
 					reverse: true,
-					unit: '/km',
+					unit: '/mi',
 					format: (v) => fmtPace(v)
 				})
 			});
@@ -256,7 +264,7 @@
 			rows.push({
 				key: 'vosc',
 				title: 'Vertical Oscillation',
-				footnote: `avg ${fmtU1(session.avg_vertical_oscillation_mm, 'mm')}`,
+				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)} cm`,
 				config: channelConfig('Vertical Oscillation', s.vertical_oscillation_mm, COLORS.verticalOscillation, {
 					dots: true,
 					unit: 'mm',
@@ -291,13 +299,13 @@
 			});
 		}
 
-		if (hasData(s.temperature_c)) {
+		if (hasData(series.temperature_f)) {
 			rows.push({
 				key: 'temp',
 				title: 'Temperature',
-				footnote: `min ${fmtU1(session.min_temperature_c, '°C')} · avg ${fmtU1(session.avg_temperature_c, '°C')} · max ${fmtU1(session.max_temperature_c, '°C')}`,
-				config: channelConfig('Temperature', s.temperature_c, COLORS.temperature, {
-					unit: '°C',
+				footnote: `min ${fmtF(d.min_temperature_f)}°F · avg ${fmtF(d.avg_temperature_f)}°F · max ${fmtF(d.max_temperature_f)}°F`,
+				config: channelConfig('Temperature', series.temperature_f, COLORS.temperature, {
+					unit: '°F',
 					format: (v) => v.toFixed(1)
 				})
 			});
@@ -369,6 +377,7 @@
 	let statGroups = $derived.by<StatGroup[]>(() => {
 		if (!detail) return [];
 		const s = detail.session;
+		const d = detail.display;
 		const groups: StatGroup[] = [];
 
 		groups.push({
@@ -383,10 +392,10 @@
 		groups.push({
 			title: 'Pace / Speed',
 			rows: [
-				{ label: 'Avg Pace', value: `${fmtPace(s.pace_min_per_km)} /km` },
-				{ label: 'Avg Speed', value: fmtMps(s.avg_speed_mps) },
-				{ label: 'Max Speed', value: fmtMps(s.max_speed_mps) },
-				{ label: 'Grade-Adj. Speed', value: fmtMps(s.grade_adjusted_avg_speed_mps) }
+				{ label: 'Avg Pace', value: `${fmtPace(d.pace_min_per_mi)} /mi` },
+				{ label: 'Avg Speed', value: `${fmtMph(d.avg_speed_mph)} mph` },
+				{ label: 'Max Speed', value: `${fmtMph(d.max_speed_mph)} mph` },
+				{ label: 'GAP', value: `${fmtPace(d.gap_min_per_mi)} /mi` }
 			]
 		});
 
@@ -424,7 +433,7 @@
 					{ label: 'Avg Cadence', value: fmtU0(s.avg_cadence_spm, 'spm') },
 					{ label: 'Max Cadence', value: fmtU0(s.max_cadence_spm, 'spm') },
 					{ label: 'Stride Length', value: fmtMeters(s.avg_step_length_mm) },
-					{ label: 'Vert. Oscillation', value: fmtU1(s.avg_vertical_oscillation_mm, 'mm') },
+					{ label: 'Vert. Oscillation', value: `${fmtCm(d.avg_vertical_oscillation_cm)} cm` },
 					{ label: 'Vert. Ratio', value: fmtU1(s.avg_vertical_ratio_pct, '%') },
 					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') }
 				]
@@ -435,8 +444,8 @@
 			groups.push({
 				title: 'Elevation',
 				rows: [
-					{ label: 'Ascent', value: fmtU0(s.total_ascent_m, 'm') },
-					{ label: 'Descent', value: fmtU0(s.total_descent_m, 'm') }
+					{ label: 'Ascent', value: `${fmtFt(d.total_ascent_ft)} ft` },
+					{ label: 'Descent', value: `${fmtFt(d.total_descent_ft)} ft` }
 				]
 			});
 		}
@@ -485,6 +494,13 @@
 			gct: laps.some((l) => l.avg_ground_contact_time_ms != null),
 			vertOsc: laps.some((l) => l.avg_vertical_oscillation_mm != null)
 		};
+	});
+
+	// Laps carry no unit-converted fields themselves; imperial distance/pace per lap
+	// come from `display.lap_display`, joined here by `lap_index`.
+	let lapDisplayByIndex = $derived.by(() => {
+		const rows = detail?.display.lap_display ?? [];
+		return new Map(rows.map((row) => [row.lap_index, row]));
 	});
 
 	// ── Time in zones: HR + power zone breakdowns as proportional stacked bars. ──
@@ -548,6 +564,7 @@
 	<PageState {error} {loading} loadingLabel="Loading run…">
 		{#if detail && series}
 			{@const session = detail.session}
+			{@const display = detail.display}
 			<div class="run-header">
 				<a href="/runs" class="back-link">← Runs</a>
 				<div class="run-header-main">
@@ -560,10 +577,10 @@
 			</div>
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-				<StatCard title="Distance" value={fmtKm(session.distance_m)} unit="km" />
+				<StatCard title="Distance" value={fmtMi(display.distance_mi)} unit="mi" />
 				<StatCard title="Time" value={fmtDuration(session.timer_time_s)} />
-				<StatCard title="Avg Pace" value={fmtPace(session.pace_min_per_km)} unit="/km" color={COLORS.pace} />
-				<StatCard title="Total Ascent" value={fmtNum(session.total_ascent_m)} unit="m" color={COLORS.elevation} />
+				<StatCard title="Avg Pace" value={fmtPace(display.pace_min_per_mi)} unit="/mi" color={COLORS.pace} />
+				<StatCard title="Total Ascent" value={fmtFt(display.total_ascent_ft)} unit="ft" color={COLORS.elevation} />
 				<StatCard title="Calories" value={fmtNum(session.total_calories)} />
 				{#if session.avg_heart_rate_bpm != null}
 					<StatCard
@@ -615,9 +632,9 @@
 						<thead>
 							<tr>
 								<th class="left">#</th>
-								<th class="num">distance</th>
+								<th class="num">distance (mi)</th>
 								<th class="num">time</th>
-								<th class="num">pace</th>
+								<th class="num">pace (/mi)</th>
 								{#if lapColumns.hr}<th class="num">avg hr</th>{/if}
 								{#if lapColumns.power}<th class="num">avg power</th>{/if}
 								{#if lapColumns.cadence}<th class="num">cadence</th>{/if}
@@ -627,11 +644,12 @@
 						</thead>
 						<tbody>
 							{#each detail.laps as lap (lap.lap_index)}
+								{@const lapDisplay = lapDisplayByIndex.get(lap.lap_index)}
 								<tr>
 									<td class="left">{lap.lap_index + 1}</td>
-									<td class="num">{fmtKm(lap.distance_m)}</td>
+									<td class="num">{fmtMi(lapDisplay?.distance_mi ?? null)}</td>
 									<td class="num">{fmtDuration(lap.timer_time_s)}</td>
-									<td class="num">{fmtPace(lap.pace_min_per_km)}</td>
+									<td class="num">{fmtPace(lapDisplay?.pace_min_per_mi ?? null)}</td>
 									{#if lapColumns.hr}<td class="num">{fmtNum(lap.avg_heart_rate_bpm)}</td>{/if}
 									{#if lapColumns.power}<td class="num">{fmtNum(lap.avg_power_w)}</td>{/if}
 									{#if lapColumns.cadence}<td class="num">{fmtNum(lap.avg_cadence_spm)}</td>{/if}
