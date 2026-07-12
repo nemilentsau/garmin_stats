@@ -40,6 +40,11 @@ SESSION_MSG = {
     "max_running_cadence": 97,
     "max_fractional_cadence": 0.0,
     "avg_stance_time": 252.1,
+    "avg_stance_time_balance": 49.76,
+    "avg_stance_time_percent": 33.42,
+    "enhanced_avg_respiration_rate": 35.78,
+    "enhanced_max_respiration_rate": 45.44,
+    "enhanced_min_respiration_rate": 23.2,
     "avg_step_length": 1067.2,
     "avg_vertical_oscillation": 80.5,
     "avg_vertical_ratio": 7.55,
@@ -212,6 +217,38 @@ class TestSessionExtraction:
         assert session.has_heart_rate is False
         assert session.time_in_zones is None
 
+    def test_strap_dynamics_fields_mapped_from_fit_to_session(self):
+        """Session strap fields extracted and has_strap_dynamics set when balance is present."""
+        session = _extract_run_session(
+            _messages(), SIDECAR, "2026-07-10/105726_running_generic.fit"
+        )
+        assert session.avg_ground_contact_balance_pct == 49.76
+        assert session.avg_stance_time_pct == 33.42
+        assert session.avg_respiration_rate_brpm == 35.78
+        assert session.max_respiration_rate_brpm == 45.44
+        assert session.min_respiration_rate_brpm == 23.2
+        assert session.has_strap_dynamics is True
+
+    def test_wrist_style_session_lacks_strap_dynamics(self):
+        """Wrist-style session (no balance) → all strap fields None + flag False."""
+        bare = {
+            "session_mesgs": [
+                {
+                    "start_time": START,
+                    "timestamp": START,
+                    "sport": "running",
+                    "avg_heart_rate": 140,
+                }
+            ]
+        }
+        session = _extract_run_session(bare, None, "2026-07-10/x_running_generic.fit")
+        assert session.avg_ground_contact_balance_pct is None
+        assert session.avg_stance_time_pct is None
+        assert session.avg_respiration_rate_brpm is None
+        assert session.max_respiration_rate_brpm is None
+        assert session.min_respiration_rate_brpm is None
+        assert session.has_strap_dynamics is False
+
 
 def _record(ts_offset_s, **overrides):
     base = {
@@ -227,6 +264,9 @@ def _record(ts_offset_s, **overrides):
         "vertical_oscillation": 80.1,
         "vertical_ratio": 7.5,
         "stance_time": 252.0,
+        "stance_time_balance": 49.09,
+        "enhanced_respiration_rate": 23.2,
+        "stance_time_percent": 35.25,
         "temperature": 31,
         "position_lat": 485817669,
         "position_long": -883343073,
@@ -240,7 +280,15 @@ class TestSeriesExtraction:
         messages = {
             "record_mesgs": [
                 _record(0),
-                _record(1, stance_time=None, step_length=None, heart_rate=None),
+                _record(
+                    1,
+                    stance_time=None,
+                    step_length=None,
+                    heart_rate=None,
+                    stance_time_balance=None,
+                    enhanced_respiration_rate=None,
+                    stance_time_percent=None,
+                ),
             ],
             "split_mesgs": [
                 {
@@ -261,6 +309,9 @@ class TestSeriesExtraction:
         assert series.cadence_spm == [177.0, 177.0]  # (88 + 0.5) * 2
         assert series.heart_rate_bpm == [140, None]
         assert series.stance_time_ms == [252.0, None]
+        assert series.stance_time_balance_pct == [49.09, None]
+        assert series.respiration_rate_brpm == [23.2, None]
+        assert series.stance_time_pct == [35.25, None]
         assert series.lat[0] == round(485817669 * (180 / 2**31), 7)
         assert [s.span_type for s in series.run_walk_spans] == ["run", "stand"]
         assert series.run_walk_spans[0].end_s == 90.0
@@ -290,6 +341,27 @@ class TestSeriesExtraction:
         series = _extract_run_series(messages)
         assert len(series.run_walk_spans) == 1
         assert series.run_walk_spans[0].span_type == "run"
+
+    def test_wrist_style_series_has_strap_fields_empty_and_none(self):
+        """Wrist-style records (no strap fields) → strap arrays remain empty."""
+        def _wrist_record(ts_offset_s):
+            """Record without strap fields."""
+            return {
+                "timestamp": START + timedelta(seconds=ts_offset_s),
+                "distance": 0.48,
+                "enhanced_speed": 3.1,
+                "heart_rate": 140,
+            }
+
+        messages = {
+            "record_mesgs": [_wrist_record(0), _wrist_record(1)],
+            "split_mesgs": [],
+        }
+        series = _extract_run_series(messages)
+        assert series.elapsed_s == [0, 1]
+        assert series.stance_time_balance_pct == [None, None]
+        assert series.respiration_rate_brpm == [None, None]
+        assert series.stance_time_pct == [None, None]
 
 
 class TestLapExtraction:
@@ -354,6 +426,52 @@ class TestLapExtraction:
         assert len(laps) == 2
         assert laps[0].lap_index == 0
         assert laps[1].lap_index == 1
+
+    def test_lap_strap_dynamics_fields_mapped(self):
+        """Lap strap fields extracted from FIT lap message."""
+        messages = {
+            "session_mesgs": [SESSION_MSG],
+            "lap_mesgs": [
+                {
+                    "message_index": 0,
+                    "start_time": START,
+                    "total_timer_time": 542.718,
+                    "total_elapsed_time": 584.572,
+                    "total_distance": 1609.34,
+                    "enhanced_avg_speed": 2.965,
+                    "enhanced_max_speed": 3.368,
+                    "avg_heart_rate": 122,
+                    "max_heart_rate": 143,
+                    "avg_power": 383,
+                    "max_power": 470,
+                    "normalized_power": 395,
+                    "avg_running_cadence": 82,
+                    "avg_fractional_cadence": 0.0859375,
+                    "max_running_cadence": 91,
+                    "max_fractional_cadence": 0.0,
+                    "avg_stance_time": 258.8,
+                    "avg_stance_time_balance": 50.5,
+                    "avg_stance_time_percent": 34.2,
+                    "enhanced_avg_respiration_rate": 34.5,
+                    "enhanced_max_respiration_rate": 44.0,
+                    "avg_step_length": 1064.1,
+                    "avg_vertical_oscillation": 82.2,
+                    "avg_vertical_ratio": 7.77,
+                    "total_ascent": 2,
+                    "total_descent": 1,
+                    "total_calories": 132,
+                    "intensity": "interval",
+                    "lap_trigger": "distance",
+                }
+            ],
+        }
+        laps = _extract_run_laps(messages)
+        assert len(laps) == 1
+        lap = laps[0]
+        assert lap.avg_ground_contact_balance_pct == 50.5
+        assert lap.avg_stance_time_pct == 34.2
+        assert lap.avg_respiration_rate_brpm == 34.5
+        assert lap.max_respiration_rate_brpm == 44.0
 
 
 def _write_activity_pair(activities_dir, day, stem, sidecar=SIDECAR):

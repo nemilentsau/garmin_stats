@@ -4,18 +4,24 @@
   "session_mesgs": {
     "status": "parsed",
     "notes": "One per file. Cadence fields are half-cadence: spm = (value + fractional) * 2. Positions are semicircles: deg = raw * 180 / 2^31. training_load_peak is Garmin load scalar.",
-    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "total_ascent", "total_descent", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "total_work", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "avg_temperature", "min_temperature", "max_temperature", "total_calories", "total_strides", "total_training_effect", "total_anaerobic_training_effect", "training_load_peak", "sport", "sub_sport", "sport_profile_name", "start_position_lat", "start_position_long", "end_position_lat", "end_position_long"]
+    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "total_ascent", "total_descent", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "total_work", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_stance_time_balance", "avg_stance_time_percent", "enhanced_avg_respiration_rate", "enhanced_max_respiration_rate", "enhanced_min_respiration_rate", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "avg_temperature", "min_temperature", "max_temperature", "total_calories", "total_strides", "total_training_effect", "total_anaerobic_training_effect", "training_load_peak", "sport", "sub_sport", "sport_profile_name", "start_position_lat", "start_position_long", "end_position_lat", "end_position_long"]
   },
-  "lap_mesgs": {"status": "parsed", "notes": "Same field vocabulary as session at lap grain; message_index is the lap index."},
+  "lap_mesgs": {
+    "status": "parsed",
+    "notes": "Same field vocabulary as session at lap grain; message_index is the lap index. Strap fields (avg_stance_time_balance, avg_stance_time_percent, enhanced_avg/max_respiration_rate) extracted when present.",
+    "fields_extracted": ["start_time", "total_elapsed_time", "total_timer_time", "total_distance", "enhanced_avg_speed", "enhanced_max_speed", "avg_heart_rate", "max_heart_rate", "avg_power", "max_power", "normalized_power", "avg_running_cadence", "avg_fractional_cadence", "max_running_cadence", "max_fractional_cadence", "avg_stance_time", "avg_stance_time_balance", "avg_stance_time_percent", "enhanced_avg_respiration_rate", "enhanced_max_respiration_rate", "avg_step_length", "avg_vertical_oscillation", "avg_vertical_ratio", "total_ascent", "total_descent", "total_calories", "intensity", "lap_trigger"]
+  },
   "record_mesgs": {
     "status": "parsed",
     "notes": "~1/sec. Sparser channels (stance_time, step_length, vertical_*) must preserve positional nulls.",
-    "fields_extracted": ["timestamp", "distance", "enhanced_speed", "enhanced_altitude", "heart_rate", "cadence", "fractional_cadence", "power", "step_length", "vertical_oscillation", "vertical_ratio", "stance_time", "temperature", "position_lat", "position_long"],
+    "fields_extracted": ["timestamp", "distance", "enhanced_speed", "enhanced_altitude", "heart_rate", "cadence", "fractional_cadence", "power", "step_length", "vertical_oscillation", "vertical_ratio", "stance_time", "stance_time_balance", "enhanced_respiration_rate", "stance_time_percent", "temperature", "position_lat", "position_long"],
     "fields_undocumented": {
       "90": "performance-condition candidate (n=2519/3060 in probe)",
+      "134": "strap-era only; unknown (observed in strap runs; 100 in probe)",
       "137": "stamina candidate (starts ~98)",
       "138": "stamina-potential candidate (starts ~98)",
-      "133-136, 140, 143": "unknown; 136 tracked heart_rate in probe"
+      "133-136, 140, 143": "unknown; 136 tracked heart_rate in probe",
+      "144": "strap-era only; unknown (observed in strap runs; 84 in probe)"
     }
   },
   "time_in_zone_mesgs": {"status": "parsed", "notes": "Filter reference_mesg == 'session'. power_zone_high_boundary has trailing nulls to strip."},

@@ -74,6 +74,11 @@ class RunningActivitySession(DefaultsRequired):
     avg_vertical_oscillation_mm: float | None = None
     avg_vertical_ratio_pct: float | None = None
     avg_ground_contact_time_ms: float | None = None
+    avg_ground_contact_balance_pct: float | None = None
+    avg_stance_time_pct: float | None = None
+    avg_respiration_rate_brpm: float | None = None
+    max_respiration_rate_brpm: float | None = None
+    min_respiration_rate_brpm: float | None = None
 
     avg_temperature_c: float | None = None
     min_temperature_c: float | None = None
@@ -105,6 +110,7 @@ class RunningActivitySession(DefaultsRequired):
     has_heart_rate: bool = False
     has_power: bool = False
     has_running_dynamics: bool = False
+    has_strap_dynamics: bool = False
     has_gps_trace: bool = False
 
 
@@ -130,6 +136,10 @@ class RunningActivityLap(DefaultsRequired):
     avg_vertical_oscillation_mm: float | None = None
     avg_vertical_ratio_pct: float | None = None
     avg_ground_contact_time_ms: float | None = None
+    avg_ground_contact_balance_pct: float | None = None
+    avg_stance_time_pct: float | None = None
+    avg_respiration_rate_brpm: float | None = None
+    max_respiration_rate_brpm: float | None = None
     total_ascent_m: int | None = None
     total_descent_m: int | None = None
     total_calories: int | None = None
@@ -159,6 +169,9 @@ class RunningActivitySeries(DefaultsRequired):
     vertical_oscillation_mm: list[float | None] = []
     vertical_ratio_pct: list[float | None] = []
     stance_time_ms: list[float | None] = []
+    stance_time_balance_pct: list[float | None] = []
+    respiration_rate_brpm: list[float | None] = []
+    stance_time_pct: list[float | None] = []
     temperature_c: list[float | None] = []
     lat: list[float | None] = []
     lon: list[float | None] = []
