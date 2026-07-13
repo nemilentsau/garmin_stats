@@ -244,12 +244,17 @@
 
 {#if card.measurement}
 	{@const measurement = card.measurement}
+	{@const measurementHeadingId = `measurement-heading-${card.occurrence_key}`}
 	{@const observations = measurement.observations}
-	<section class="measurement-evidence" data-status={measurement.status}>
-		<h4 class="measurement-heading">
+	<section
+		class="measurement-evidence"
+		data-status={measurement.status}
+		aria-labelledby={measurementHeadingId}
+	>
+		<div id={measurementHeadingId} class="measurement-heading">
 			<span>Measurement</span>
 			<strong>{MEASUREMENT_LABELS[measurement.status]}</strong>
-		</h4>
+		</div>
 		{#if measurement.rationale}
 			<p class="measurement-rationale">{measurement.rationale}</p>
 		{/if}
@@ -279,7 +284,7 @@
 		{/if}
 		{#if measurement.gates.length > 0}
 			<ul class="measurement-rows" aria-label="Measurement quality gates">
-				{#each measurement.gates as gate (gate.signal + ':' + gate.operator + ':' + String(gate.threshold))}
+				{#each measurement.gates as gate, gateIndex (gate.signal + ':' + gate.operator + ':' + String(gate.threshold) + ':' + gateIndex)}
 					<li class="measurement-row">
 						<span>{signalLabel(gate.signal)}</span>
 						<strong>{GATE_RESULT_LABELS[gate.result]}</strong>
@@ -289,7 +294,7 @@
 		{/if}
 		{#if measurement.warnings.length > 0}
 			<ul class="measurement-warnings" aria-label="Measurement observations">
-				{#each measurement.warnings as warning (warning.code)}
+				{#each measurement.warnings as warning, warningIndex (warning.code + ':' + warningIndex)}
 					<li>{warning.message}</li>
 				{/each}
 			</ul>
