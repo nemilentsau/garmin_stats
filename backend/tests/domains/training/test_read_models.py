@@ -185,10 +185,12 @@ class _MappedMeasurementAssessmentPort:
         assessments: dict[tuple[str, str], TrainingMeasurementAssessment],
     ) -> None:
         self.assessments = assessments
+        self.calls: list[tuple[str, str]] = []
 
     def latest_for(
         self, *, run_id: str, occurrence_key: str
     ) -> TrainingMeasurementAssessment | None:
+        self.calls.append((run_id, occurrence_key))
         return self.assessments.get((run_id, occurrence_key))
 
 
@@ -259,8 +261,50 @@ class _SharedCardMeasurementTrainingRepository(SqliteTrainingRepository):
         return adjusted
 
 
+class _TransitioningSharedCardTrainingRepository(SqliteTrainingRepository):
+    """Test overlay whose same-card events have independently evaluable first tries."""
+
+    def active_block(self):
+        stored = super().active_block()
+        assert stored is not None
+        artifact = deepcopy(stored.artifact)
+        second = deepcopy(artifact["measurement_events"][0])
+        second["id"] = "ev_lthr_secondary"
+        second["scheduled_day"] = 2
+        second["on_all_missed"] = "flag"
+        artifact["measurement_events"].append(second)
+        return stored.model_copy(update={"artifact": artifact})
+
+    def bundles_for(self, bundle_ids: str | list[str]) -> list[StoredBundle]:
+        stored_bundles = super().bundles_for(bundle_ids)
+        adjusted = []
+        for stored in stored_bundles:
+            if stored.id != "running.v3":
+                adjusted.append(stored)
+                continue
+            artifact = deepcopy(stored.artifact)
+            scheduled = deepcopy(
+                next(assignment for assignment in artifact["assignments"] if assignment["day"] == 1)
+            )
+            scheduled.update(day=2, slot="evening")
+            backup = deepcopy(
+                next(assignment for assignment in artifact["assignments"] if assignment["day"] == 8)
+            )
+            backup["slot"] = "evening"
+            artifact["assignments"].extend([scheduled, backup])
+            adjusted.append(stored.model_copy(update={"artifact": artifact}))
+        return adjusted
+
+
 def _imported_shared_card_repo() -> _SharedCardMeasurementTrainingRepository:
     repo = _SharedCardMeasurementTrainingRepository()
+    result = import_artifacts(repo, ImportRequest(files=_block1_files()))
+    assert result.activated is True
+    return repo
+
+
+def _imported_transitioning_shared_card_repo() -> _TransitioningSharedCardTrainingRepository:
+    repo = _TransitioningSharedCardTrainingRepository()
     result = import_artifacts(repo, ImportRequest(files=_block1_files()))
     assert result.activated is True
     return repo
@@ -989,6 +1033,84 @@ def test_schedule_window_projects_measurement_with_both_read_ports():
     assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d12")]
 
 
+def test_schedule_window_reuses_visible_elapsed_measurement_snapshot():
+    repo = _imported_block1_repo()
+    evidence = _measurement_evidence(session_date="2026-07-13")
+    run_port = _FakeRunActivityPort(
+        {"2026-07-13": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="One request must see one assessment snapshot.",
+            source_id="review-snapshot",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-13",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+        as_of_date="2026-07-13",
+    )
+
+    card = _card(window.days[0], "running.v3:run.lthr_test:d01")
+    assert card.measurement is not None
+    assert card.measurement.status == "valid"
+    assert run_port.calls == [("2026-07-13", "2026-07-13")]
+    assert run_port.evidence_calls == ["measurement-run"]
+    assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d01")]
+
+
+def test_schedule_window_caches_missing_evidence_for_visible_elapsed_attempt():
+    repo = _imported_block1_repo()
+    summary = _run("missing-evidence", session_date="2026-07-13", distance_mi=7.0)
+    run_port = _FakeRunActivityPort({"2026-07-13": [summary]})
+    assessment_port = _FakeMeasurementAssessmentPort()
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-13",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+        as_of_date="2026-07-13",
+    )
+
+    card = _card(window.days[0], "running.v3:run.lthr_test:d01")
+    assert card.measurement is not None
+    assert run_port.evidence_calls == ["missing-evidence"]
+    assert assessment_port.calls == []
+
+
+def test_schedule_window_caches_missing_assessment_for_visible_elapsed_attempt():
+    repo = _imported_block1_repo()
+    evidence = _measurement_evidence(session_date="2026-07-13")
+    run_port = _FakeRunActivityPort(
+        {"2026-07-13": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort()
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-13",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+        as_of_date="2026-07-13",
+    )
+
+    card = _card(window.days[0], "running.v3:run.lthr_test:d01")
+    assert card.measurement is not None
+    assert card.measurement.status == "awaiting_review"
+    assert run_port.evidence_calls == ["measurement-run"]
+    assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d01")]
+
+
 # ---------- authored measurement backup overlay ----------
 
 
@@ -1204,6 +1326,35 @@ def test_shared_card_backup_slots_keep_distinct_event_keys_and_attempt_state():
         measurement_assessment_port=assessment_port,
     )
 
+    run_port.evidence_calls.clear()
+    assessment_port.calls.clear()
+    visible = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+        as_of_date="2026-07-20",
+    )
+
+    visible_backups = [
+        card for card in visible.days[0].cards if card.measurement_attempt == "backup"
+    ]
+    statuses = [
+        card.measurement.status
+        for card in visible_backups
+        if card.measurement is not None
+    ]
+    assert statuses == [
+        "valid",
+        "failed",
+    ]
+    assert run_port.evidence_calls == ["backup-one", "backup-two"]
+    assert assessment_port.calls == [
+        ("backup-one", first_key),
+        ("backup-two", second_key),
+    ]
+
     after_final = get_training_schedule_window(
         repo,
         start_date="2026-07-21",
@@ -1216,6 +1367,85 @@ def test_shared_card_backup_slots_keep_distinct_event_keys_and_attempt_state():
     assert [action.model_dump() for action in after_final.required_actions] == [
         {"event_id": "ev_lthr_secondary", "action": "flag"}
     ]
+
+
+def test_backup_identity_survives_sibling_activation_becoming_valid():
+    repo = _imported_transitioning_shared_card_repo()
+    scheduled_evidence = _measurement_evidence("scheduled-primary", session_date="2026-07-13")
+    secondary_evidence = _measurement_evidence("backup-secondary", session_date="2026-07-20")
+    run_port = _FakeRunActivityPort(
+        {
+            "2026-07-13": [scheduled_evidence.summary],
+            "2026-07-20": [secondary_evidence.summary],
+        },
+        evidence_by_run={
+            scheduled_evidence.summary.run_id: scheduled_evidence,
+            secondary_evidence.summary.run_id: secondary_evidence,
+        },
+    )
+    secondary_key = "running.v3:run.lthr_test:d08:event:ev_lthr_secondary"
+    assessment_port = _MappedMeasurementAssessmentPort(
+        {
+            ("backup-secondary", secondary_key): TrainingMeasurementAssessment(
+                status="valid",
+                rationale="Secondary backup is valid.",
+                source_id="review-secondary-stable",
+            )
+        }
+    )
+
+    initially_active = get_training_today(
+        repo,
+        date="2026-07-20",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+    initial_backups = [
+        card for card in initially_active.cards if card.measurement_attempt == "backup"
+    ]
+    assert [card.occurrence_key for card in initial_backups] == [
+        "running.v3:run.lthr_test:d08:event:ev_lthr_test",
+        secondary_key,
+    ]
+
+    upsert_training_log(
+        repo,
+        date="2026-07-20",
+        occurrence_key=secondary_key,
+        update=TrainingLogUpdateRequest(
+            linked_run_id="backup-secondary",
+            notes="Keep this event-owned state.",
+        ),
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+    assessment_port.assessments[("scheduled-primary", "running.v3:run.lthr_test:d01")] = (
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Primary scheduled attempt became valid.",
+            source_id="review-primary-transition",
+        )
+    )
+
+    after_sibling_valid = get_training_today(
+        repo,
+        date="2026-07-20",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    remaining = [
+        card for card in after_sibling_valid.cards if card.measurement_attempt == "backup"
+    ]
+    assert len(remaining) == 1
+    secondary = remaining[0]
+    assert secondary.measurement_event_id == "ev_lthr_secondary"
+    assert secondary.occurrence_key == secondary_key
+    assert secondary.notes == "Keep this event-owned state."
+    assert secondary.associated_activity is not None
+    assert secondary.associated_activity.run_id == "backup-secondary"
+    assert secondary.measurement is not None
+    assert secondary.measurement.status == "valid"
 
 
 def test_schedule_window_future_days_do_not_advance_required_actions():
@@ -1232,6 +1462,21 @@ def test_schedule_window_future_days_do_not_advance_required_actions():
 
     assert window.required_actions == []
     assert run_port.calls == [("2026-07-13", "2026-07-21")]
+
+
+def test_future_visible_window_does_not_fetch_attempt_future_relative_to_as_of():
+    repo = _imported_block1_repo()
+    run_port = _FakeRunActivityPort({})
+
+    get_training_schedule_window(
+        repo,
+        start_date="2026-07-21",
+        duration_days=1,
+        run_activity_port=run_port,
+        as_of_date="2026-07-12",
+    )
+
+    assert run_port.calls == [("2026-07-21", "2026-07-21")]
 
 
 def test_required_action_uses_as_of_strictly_after_final_backup_day():
@@ -1305,7 +1550,10 @@ def test_valid_backup_suppresses_required_action_after_final_day():
     assert run_port.calls == [("2026-07-13", "2026-08-01")]
     assert run_port.evidence_calls == ["measurement-run"]
     assert assessment_port.calls == [
-        ("measurement-run", "running.v3:run.lthr_test:d08")
+        (
+            "measurement-run",
+            "running.v3:run.lthr_test:d08:event:ev_lthr_test",
+        )
     ]
 
 

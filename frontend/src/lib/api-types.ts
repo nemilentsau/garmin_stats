@@ -6965,7 +6965,7 @@ export interface components {
          *
          *     `linked_run_id`/`run_link_detached` are the run-card association
          *     controls: setting `linked_run_id` manually links one of the date's
-         *     tracked runs (validated against `RunActivityReadPort.runs_between` —
+         *     tracked runs (validated against the runtime-resolved card's candidates —
          *     a non-null id absent from that date's runs raises `ValueError`, mapped
          *     to 400 by the app-level exception handler); setting `run_link_detached`
          *     (with no `linked_run_id` in the same request) suppresses auto-matching

@@ -107,6 +107,7 @@ from app.domains.training.contracts import (
     TrainingExecutionEvaluation,
     TrainingExerciseDisplay,
     TrainingLastLogged,
+    TrainingMeasurementAssessment,
     TrainingMeasurementEvaluation,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
@@ -534,6 +535,10 @@ def _build_card(
     measurement_event_id: str | None = None,
     measurement_attempt: Literal["scheduled", "backup"] | None = None,
     occurrence_key_override: str | None = None,
+    evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
+    assessment_cache: dict[
+        tuple[str, str], TrainingMeasurementAssessment | None
+    ] | None = None,
 ) -> TrainingTodayCard:
     """Project one compiled schedule entry into a display-ready Today card, log merged in.
 
@@ -546,6 +551,8 @@ def _build_card(
     this day's run-card count. Association (`match_run_to_card`) only runs for a
     `running.v3` card (`_is_run_card`) — every other card gets
     `run_candidates=[]`, `associated_activity=None` unconditionally.
+    The optional caches are request-owned snapshots; they include missing
+    evidence and `None` assessments and never outlive the public read call.
     """
     card = entry.card
     assignment = entry.assignment
@@ -608,12 +615,18 @@ def _build_card(
         and isinstance(card.contract, MeasurementContract)
         and run_activity_port is not None
     ):
-        evidence_available = True
-        try:
-            evidence = run_activity_port.evidence_for_run(associated_activity.run_id)
-            evidence_available = bool(evidence.elapsed_s)
-        except LookupError:
-            evidence_available = False
+        run_id = associated_activity.run_id
+        if evidence_cache is not None and run_id in evidence_cache:
+            evidence = evidence_cache[run_id]
+        else:
+            try:
+                evidence = run_activity_port.evidence_for_run(run_id)
+            except LookupError:
+                evidence = None
+            if evidence_cache is not None:
+                evidence_cache[run_id] = evidence
+        evidence_available = evidence is not None and bool(evidence.elapsed_s)
+        if evidence is None:
             evidence = TrainingRunEvidence(
                 summary=associated_activity,
                 elapsed_s=[],
@@ -630,14 +643,18 @@ def _build_card(
             if not evidence_available:
                 measurement = objective
             else:
-                assessment = (
-                    measurement_assessment_port.latest_for(
-                        run_id=associated_activity.run_id,
+                assessment_key = (run_id, occurrence_key)
+                if measurement_assessment_port is None:
+                    assessment = None
+                elif assessment_cache is not None and assessment_key in assessment_cache:
+                    assessment = assessment_cache[assessment_key]
+                else:
+                    assessment = measurement_assessment_port.latest_for(
+                        run_id=run_id,
                         occurrence_key=occurrence_key,
                     )
-                    if measurement_assessment_port is not None
-                    else None
-                )
+                    if assessment_cache is not None:
+                        assessment_cache[assessment_key] = assessment
                 required_measurement = next(
                     (
                         event.required
@@ -724,13 +741,10 @@ def _occurrence_keys_for_entries(
         index: f"{entry.bundle_id}:{entry.card.id}:d{entry.day:02d}"
         for index, entry in entries
     }
-    counts: dict[str, int] = {}
-    for base_key in base_keys.values():
-        counts[base_key] = counts.get(base_key, 0) + 1
     return {
         index: (
             f"{base_key}:event:{activation_by_index[index]}"
-            if counts[base_key] > 1 and index in activation_by_index
+            if index in activation_by_index
             else base_key
         )
         for index, base_key in base_keys.items()
@@ -752,12 +766,18 @@ def _cards_for_day(
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
     backup_activations: tuple[MeasurementBackupActivation, ...] = (),
+    evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
+    assessment_cache: dict[
+        tuple[str, str], TrainingMeasurementAssessment | None
+    ] | None = None,
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
     The caller bulk-loads run summaries, and every card shares this one date's
     list plus the day's run-card count. A linked measurement card may still
-    read its own full evidence and exact assessment while being projected.
+    read its own full evidence and exact assessment while being projected;
+    request caches keep scheduling-state and visible projections on one
+    evidence/assessment snapshot.
     """
     entries = [(index, entry) for index, entry in enumerate(schedule) if entry.day == day]
     run_cards_today = sum(1 for _index, entry in entries if _is_run_card(entry))
@@ -793,6 +813,8 @@ def _cards_for_day(
                 measurement_event_id=event_id,
                 measurement_attempt=attempt,
                 occurrence_key_override=occurrence_keys[entry_index],
+                evidence_cache=evidence_cache,
+                assessment_cache=assessment_cache,
             )
         )
     cards.sort(key=_card_sort_key)
@@ -837,6 +859,10 @@ def _evaluate_measurement_attempts_before(
     runs_by_date: dict[str, list[TrainingRunActivitySummary]],
     run_activity_port: RunActivityReadPort | None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None,
+    evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
+    assessment_cache: dict[
+        tuple[str, str], TrainingMeasurementAssessment | None
+    ] | None = None,
 ) -> dict[str, dict[int, MeasurementStatus]]:
     """Evaluate authored attempts before a rendered day once, in day order."""
     statuses: dict[str, dict[int, MeasurementStatus]] = {}
@@ -871,6 +897,8 @@ def _evaluate_measurement_attempts_before(
             run_activity_port=run_activity_port,
             measurement_assessment_port=measurement_assessment_port,
             backup_activations=resolution.activations,
+            evidence_cache=evidence_cache,
+            assessment_cache=assessment_cache,
         )
         _record_measurement_attempts(statuses, cards)
     return statuses
@@ -940,6 +968,8 @@ def get_training_today(
         run_activity_port.runs_between(summary_start, date) if run_activity_port is not None else []
     )
     runs_by_date = _runs_grouped_by_date(run_summaries)
+    evidence_cache: dict[str, TrainingRunEvidence | None] = {}
+    assessment_cache: dict[tuple[str, str], TrainingMeasurementAssessment | None] = {}
     attempt_statuses = _evaluate_measurement_attempts_before(
         before_day=day,
         block=block,
@@ -951,6 +981,8 @@ def get_training_today(
         runs_by_date=runs_by_date,
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
+        evidence_cache=evidence_cache,
+        assessment_cache=assessment_cache,
     )
     resolution = resolve_measurement_day(
         block=block,
@@ -972,6 +1004,8 @@ def get_training_today(
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
         backup_activations=resolution.activations,
+        evidence_cache=evidence_cache,
+        assessment_cache=assessment_cache,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -1006,13 +1040,12 @@ def get_training_schedule_window(
     block, bundles, registry, library = context
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
-    start_day = _day_number(block, start_date)
     effective_as_of = as_of_date or date_cls.today().isoformat()
     as_of_day = _day_number(block, effective_as_of)
     summary_start = _summary_horizon_start(
         block,
         start_date,
-        max(start_day, as_of_day + 1),
+        as_of_day + 1,
     )
     summary_end = _summary_horizon_end(block, end.isoformat(), as_of_day)
     run_summaries = (
@@ -1021,6 +1054,8 @@ def get_training_schedule_window(
         else []
     )
     runs_by_date = _runs_grouped_by_date(run_summaries)
+    evidence_cache: dict[str, TrainingRunEvidence | None] = {}
+    assessment_cache: dict[tuple[str, str], TrainingMeasurementAssessment | None] = {}
     attempt_statuses = _evaluate_measurement_attempts_before(
         before_day=as_of_day + 1,
         block=block,
@@ -1032,6 +1067,8 @@ def get_training_schedule_window(
         runs_by_date=runs_by_date,
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
+        evidence_cache=evidence_cache,
+        assessment_cache=assessment_cache,
     )
     action_resolution = resolve_measurement_day(
         block=block,
@@ -1065,6 +1102,8 @@ def get_training_schedule_window(
                 run_activity_port=run_activity_port,
                 measurement_assessment_port=measurement_assessment_port,
                 backup_activations=resolution.activations,
+                evidence_cache=evidence_cache,
+                assessment_cache=assessment_cache,
             )
             if 1 <= day_number <= block.window.days
             else []
