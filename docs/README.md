@@ -14,6 +14,7 @@ Current project documentation only. Implementation plans, working specs, and sup
 | What a domain owns / may import (its boundary contract) | `backend/app/domains/<domain>/CHARTER.md` |
 | Where new code / a shared helper belongs; slice + frontend conventions | [`reference/code-conventions.md`](reference/code-conventions.md) |
 | The training-system rules, v3 schema, roadmap | [`routine-pivot/`](routine-pivot/) (canon) |
+| How tracked runs parse/display and affect training execution, measurement validity, and authored backups | [`reference/run-activities.md`](reference/run-activities.md) |
 | How Coach evidence, memory, jobs, and runtime work | [`reference/coach.md`](reference/coach.md) |
 | How another shipped feature works (recovery score, HRV tab) | [`reference/`](reference/) |
 | What's designed but not built yet | [`future/`](future/) |
@@ -38,7 +39,7 @@ Backend/frontend structure, dependency layering, and the domain index. Per-domai
 ### `reference/` — how shipped things work and why
 
 - [data-and-ingest.md](reference/data-and-ingest.md) — **the two Garmin data trees, ingest/sync, and config paths. Single source of truth for data topology.**
-- [run-activities.md](reference/run-activities.md) — how tracked runs parse, store, and display (running only; strength still unparsed).
+- [run-activities.md](reference/run-activities.md) — how tracked runs parse, store, and display, plus run↔prescription association, measurement evaluation, and authored backup runtime (running only; strength still unparsed).
 - [routes.md](reference/routes.md) — generated route inventory (backend OpenAPI + SvelteKit).
 - [code-conventions.md](reference/code-conventions.md) — `app/utils/` promotion rule, slice boundaries, frontend conventions, doc style.
 - [coach.md](reference/coach.md) — Coach evidence boundary, context, memory, durable jobs, Codex isolation, and API/UI lifecycle.

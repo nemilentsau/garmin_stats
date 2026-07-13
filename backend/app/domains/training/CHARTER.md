@@ -50,14 +50,21 @@ routines feed side by side; neither domain imports the other.
 
 ## May import
 
-- Its own contracts, application helpers, and dependencies.
+- Same-slice contracts, domain/application modules, and dependency protocols.
+- Standard-library and Pydantic primitives, plus shared base/time helpers from
+  `app.contracts.base` and `app.utils.timeutil`.
+- Training-owned persistence boundaries (`adapters.py` and `schema.py`) may
+  use the shared `app.infra.jsonstore` and `app.infra.sqlite` primitives.
+- The route module may import FastAPI and the bootstrap container to bind
+  injected dependencies; bootstrap owns cross-domain adapter composition.
 
 ## Must not import
 
 - routines, experiments, assistant, artifacts, journal, programs, Coach,
   Garmin sync, Garmin analytics, Garmin health, FastAPI from application
   modules, or SQLite helpers from application modules.
-- Persistence goes through `app.infra.jsonstore` only, via `adapters.py`.
+- Application/domain policy must not import bootstrap or infrastructure;
+  persistence remains behind `TrainingRepository`.
 - Tracked-run summaries/full evidence and Coach judgments go through the
   injected training-local ports only. Their concrete adapters and wiring
   live in bootstrap; training never imports either source domain's contract
@@ -94,11 +101,11 @@ routines feed side by side; neither domain imports the other.
   quality-gate, and Coach-finalization policy.
 - `application/measurement_schedule.py` — pure read-time activation of
   authored backup opportunities and exhausted-event actions.
-- `contracts.py` — v3 wire contracts (parse the read-only Block 0 artifacts),
+- `contracts.py` — v3 wire contracts for imported training artifacts,
   the `LintReport` output contract, `Stored{Bundle,Block,Registry,Library}`
   persistence envelopes, the `TrainingCardLog` capture record (incl.
   `linked_run_id`/`run_link_detached`), the training-local
-  training-local run summary/full-evidence and Coach-assessment projections,
+  run summary/full-evidence and Coach-assessment projections,
   and the `Training*` display/response/window view models.
 - `dependencies.py` — `TrainingRepository` protocol (the single persistence
   dependency for import, activation, and capture use cases),

@@ -107,7 +107,7 @@ The resolved summary's `link_source` is `"manual"` for branch 1 or `"auto"` for 
 
 ## Program measurement evaluation
 
-Measurement is separate from execution. A linked run completes the session, but only a valid measurement can become estimator evidence or complete a required measurement event. The current evaluator is selected by the imported measurement contract plus capture id `cap.lthr.final20_hr`; it does not key off a calendar date and does not implement undeclared estimators.
+Measurement is separate from execution. Explicit manual `completed`, `partial`, or `skipped` remains authoritative; a linked run changes execution to `completed` only when the stored status is otherwise `pending`. Measurement evaluation never changes that effective execution status. Only a valid measurement can become estimator evidence or complete a required measurement event. The current evaluator is selected by the imported measurement contract plus capture id `cap.lthr.final20_hr`; it does not key off a calendar date and does not implement undeclared estimators.
 
 For the shipped LTHR card, cumulative prescribed durations define half-open elapsed-time windows:
 
@@ -118,7 +118,7 @@ For the shipped LTHR card, cumulative prescribed durations define half-open elap
 - stand spans are clipped to `[15:00, 45:00)` and summed. Positive stand time produces an `uninterrupted_effort` warning, not an undeclared hard gate;
 - `env.dew_point` remains unavailable because the current FIT/run evidence has no humidity or dew-point source. Its authored gate is therefore `unknown`; no weather value is inferred.
 
-Each imported quality-gate leaf is returned as `pass`, `fail`, or `unknown`. Any known failed hard gate clamps the final status to `failed`, even if Coach says `valid`; otherwise the exact Coach assessment supplies `valid`, `provisional`, or `failed`, and absence of one leaves `awaiting_review`. Missing full series also stays `awaiting_review` and does not apply a Coach verdict. Only final `valid` sets `estimator_eligible=true`. A required measurement sets `retry_required=true` only for final `provisional` or `failed`; execution remains completed in every case.
+Each imported quality-gate leaf is returned as `pass`, `fail`, or `unknown`. Any known failed hard gate clamps the final status to `failed`, even if Coach says `valid`; otherwise the exact Coach assessment supplies `valid`, `provisional`, or `failed`, and absence of one leaves `awaiting_review`. Missing full series also stays `awaiting_review` and does not apply a Coach verdict. Only final `valid` sets `estimator_eligible=true`. A required measurement sets `retry_required=true` only for final `provisional` or `failed`. None of these measurement outcomes changes the effective execution precedence above.
 
 ## Authored backup runtime
 

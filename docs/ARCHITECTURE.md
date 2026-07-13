@@ -64,13 +64,13 @@ Dependency direction (the layering enforced by architecture tests):
 
 ### Domains (index)
 
-Each domain's full boundary contract — **Owns / Does not own / May import / Must not import / Public entrypoints**, plus a code-verified section — lives in its own `CHARTER.md`, updated in the same PR that changes the domain. This table is the map; the charter is the authority.
+Each domain's full boundary contract — **Owns / Does not own / May import / Must not import / Public entrypoints** — lives in its own `CHARTER.md`, updated in the same PR that changes the domain. This table is the map; the charter is the authority.
 
 | Domain / slice | Purpose | Routes | Charter |
 |---|---|---|---|
-| `coach` | Durable run reviews, evidence-grounded chat, hierarchical context, semantic journal/brief, isolated Codex runtime | `/api/coach/*` | [charter](../backend/app/domains/coach/CHARTER.md) |
+| `coach` | Durable run reviews/chat, structured measurement assessments, hierarchical context, semantic journal/brief, isolated Codex runtime | `/api/coach/*` | [charter](../backend/app/domains/coach/CHARTER.md) |
 | `routines` | v2 routine catalog, schedule projection, Today execution (meditation/breath import path) | `/api/routines`, `/api/today` | [charter](../backend/app/domains/routines/CHARTER.md) |
-| `training` | v3 training import, lint-gated activation, Today/schedule feed, capture logs (import-only ingress) | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
+| `training` | v3 training import, lint-gated activation, Today/schedule execution and measurement projection, authored backup runtime, capture logs | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
 | `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (running activities parsed; strength/breathing download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
 | `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
 | `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
@@ -80,7 +80,7 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and compatibility-prefixed `/api/assistant/artifact*` routes are owned by `artifacts`; there is no assistant chat slice. `coach` reuses application read models and owns only descriptive packaging, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` consumes tracked-run summaries for run↔prescription association (Today board only) through an injected `RunActivityReadPort`, never a direct import — the concrete adapter over `garmin_analytics`'s run data lives in `backend/app/bootstrap/run_activity_port.py` (see `training/CHARTER.md`, `reference/run-activities.md`).
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and compatibility-prefixed `/api/assistant/artifact*` routes are owned by `artifacts`; there is no assistant chat slice. `coach` reuses application read models and owns descriptive packaging, structured measurement-assessment validation/persistence, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` projects run association on Today and schedule-window plus measurement evaluation from its injected, training-local `RunActivityReadPort` (range summaries and full run evidence). It reads the newest exact Coach judgment through its separate training-local `MeasurementAssessmentReadPort`. Bootstrap adapts Garmin and Coach storage into those contracts; training directly imports neither source domain (see the [training charter](../backend/app/domains/training/CHARTER.md) and [run reference](reference/run-activities.md)).
 
 ## Conventions
 
