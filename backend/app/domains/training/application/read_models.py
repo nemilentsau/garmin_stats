@@ -48,12 +48,15 @@ windows: `match_run_to_card` is the pure matching-policy
 function (manual link wins; else auto-match only when exactly one
 `running.v3` card is scheduled that day; see its docstring for the full
 precedence), and `_build_card` calls it per run card using the day's tracked
-runs and run-card count. Today loads one single-date range; schedule windows
-load the whole inclusive date range once, group summaries by `session_date`,
-and pass each group into `_cards_for_day`. `training` never imports a Garmin contract or unit
-conversion for this — the port (defined in `dependencies.py`) returns
-already-imperial, training-local `TrainingRunActivitySummary` values; the
-adapter that implements it lives outside the slice
+runs and run-card count. Today and schedule windows each make one bulk summary
+read: when the rendered range starts after a measurement attempt, that read
+begins at the earliest needed scheduled attempt rather than the visible
+start. Summaries are grouped by `session_date`; earlier attempts are evaluated
+in authored order, then `resolve_measurement_day` overlays any due backup into
+an existing running slot without changing the compiled schedule. `training`
+never imports a Garmin contract or unit conversion for this — the port
+(defined in `dependencies.py`) returns already-imperial, training-local
+`TrainingRunActivitySummary` values; the adapter that implements it lives outside the slice
 (`bootstrap/run_activity_port.py`), composed in by `bootstrap/container.py`.
 `upsert_training_log` accepts the same port to validate a manually-set
 `linked_run_id` at write time (`ValueError`, mapped to 400) — a stricter
@@ -76,6 +79,7 @@ from app.domains.training.application.compile import (
     full_variant_prescription,
     week_of,
 )
+from app.domains.training.application.measurement_schedule import resolve_measurement_day
 from app.domains.training.contracts import (
     AllPredicate,
     AnyPredicate,
@@ -84,6 +88,7 @@ from app.domains.training.contracts import (
     ExercisePrescriptionSpec,
     LoadSpec,
     MeasurementContract,
+    MeasurementStatus,
     NotPredicate,
     Predicate,
     SegmentSpec,
@@ -99,6 +104,7 @@ from app.domains.training.contracts import (
     TrainingExerciseDisplay,
     TrainingLastLogged,
     TrainingMeasurementEvaluation,
+    TrainingRequiredAction,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
     TrainingScheduleDay,
@@ -522,6 +528,8 @@ def _build_card(
     run_cards_today: int = 0,
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
+    measurement_event_id: str | None = None,
+    measurement_attempt: Literal["scheduled", "backup"] | None = None,
 ) -> TrainingTodayCard:
     """Project one compiled schedule entry into a display-ready Today card, log merged in.
 
@@ -597,6 +605,7 @@ def _build_card(
         evidence_available = True
         try:
             evidence = run_activity_port.evidence_for_run(associated_activity.run_id)
+            evidence_available = bool(evidence.elapsed_s)
         except LookupError:
             evidence_available = False
             evidence = TrainingRunEvidence(
@@ -627,7 +636,7 @@ def _build_card(
                     (
                         event.required
                         for event in block.measurement_events
-                        if event.card_id == card.id
+                        if event.id == measurement_event_id
                     ),
                     False,
                 )
@@ -665,6 +674,8 @@ def _build_card(
         associated_activity=associated_activity,
         run_candidates=run_candidates,
         measurement=measurement,
+        measurement_event_id=measurement_event_id,
+        measurement_attempt=measurement_attempt,
     )
 
 
@@ -677,6 +688,36 @@ def _card_sort_key(card: TrainingTodayCard) -> tuple[int, int, str]:
     first regardless of the bundles' own assignment order.
     """
     return (SLOT_HOUR.get(card.slot, 99), 0 if card.checkin_rows else 1, card.card.id)
+
+
+def _measurement_attempt_metadata(
+    entry: CompiledEntry,
+    *,
+    block: V3Block,
+    backup_event_ids: frozenset[str],
+) -> tuple[str | None, Literal["scheduled", "backup"] | None]:
+    """Identify only authored scheduled attempts and activated backup copies."""
+    scheduled = next(
+        (
+            event
+            for event in block.measurement_events
+            if event.scheduled_day == entry.day and event.card_id == entry.card.id
+        ),
+        None,
+    )
+    if scheduled is not None:
+        return scheduled.id, "scheduled"
+    backup = next(
+        (
+            event
+            for event in block.measurement_events
+            if event.id in backup_event_ids and event.card_id == entry.card.id
+        ),
+        None,
+    )
+    if backup is not None:
+        return backup.id, "backup"
+    return None, None
 
 
 def _cards_for_day(
@@ -693,6 +734,7 @@ def _cards_for_day(
     runs_today: list[TrainingRunActivitySummary] | None = None,
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
+    backup_event_ids: frozenset[str] = frozenset(),
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
@@ -703,25 +745,122 @@ def _cards_for_day(
     entries = [entry for entry in schedule if entry.day == day]
     run_cards_today = sum(1 for entry in entries if _is_run_card(entry))
     day_runs = runs_today or []
-    cards = [
-        _build_card(
+    cards: list[TrainingTodayCard] = []
+    for entry in entries:
+        event_id, attempt = _measurement_attempt_metadata(
             entry,
-            date=date,
+            block=block,
+            backup_event_ids=backup_event_ids,
+        )
+        cards.append(
+            _build_card(
+                entry,
+                date=date,
+                registry=registry,
+                library=library,
+                bundle_names=bundle_names,
+                block=block,
+                repo=repo,
+                prior_logs=prior_logs,
+                runs_today=day_runs,
+                run_cards_today=run_cards_today,
+                run_activity_port=run_activity_port,
+                measurement_assessment_port=measurement_assessment_port,
+                measurement_event_id=event_id,
+                measurement_attempt=attempt,
+            )
+        )
+    cards.sort(key=_card_sort_key)
+    return cards
+
+
+def _date_for_block_day(block: V3Block, day: int) -> str:
+    start = date_cls.fromisoformat(block.window.start)
+    return (start + timedelta(days=day - 1)).isoformat()
+
+
+def _runs_grouped_by_date(
+    summaries: list[TrainingRunActivitySummary],
+) -> dict[str, list[TrainingRunActivitySummary]]:
+    grouped: dict[str, list[TrainingRunActivitySummary]] = {}
+    for summary in summaries:
+        grouped.setdefault(summary.session_date, []).append(summary)
+    return grouped
+
+
+def _record_measurement_attempts(
+    statuses: dict[str, dict[int, MeasurementStatus]],
+    cards: list[TrainingTodayCard],
+) -> None:
+    for card in cards:
+        if card.measurement_event_id is None or card.measurement_attempt is None:
+            continue
+        if card.measurement is None:
+            continue
+        statuses.setdefault(card.measurement_event_id, {})[card.day] = card.measurement.status
+
+
+def _evaluate_measurement_attempts_before(
+    *,
+    before_day: int,
+    block: V3Block,
+    schedule: list[CompiledEntry],
+    registry: SignalRegistry,
+    library: ExerciseLibrary,
+    bundle_names: dict[str, str],
+    repo: TrainingRepository,
+    runs_by_date: dict[str, list[TrainingRunActivitySummary]],
+    run_activity_port: RunActivityReadPort | None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None,
+) -> dict[str, dict[int, MeasurementStatus]]:
+    """Evaluate authored attempts before a rendered day once, in day order."""
+    statuses: dict[str, dict[int, MeasurementStatus]] = {}
+    if run_activity_port is None:
+        return statuses
+    attempt_days = sorted(
+        {
+            attempt_day
+            for event in block.measurement_events
+            for attempt_day in (event.scheduled_day, *event.backup_days)
+            if attempt_day < before_day
+        }
+    )
+    for attempt_day in attempt_days:
+        resolution = resolve_measurement_day(
+            block=block,
+            schedule=schedule,
+            day=attempt_day,
+            attempt_statuses=statuses,
+        )
+        attempt_date = _date_for_block_day(block, attempt_day)
+        cards = _cards_for_day(
+            list(resolution.entries),
+            attempt_day,
+            date=attempt_date,
             registry=registry,
             library=library,
             bundle_names=bundle_names,
             block=block,
             repo=repo,
-            prior_logs=prior_logs,
-            runs_today=day_runs,
-            run_cards_today=run_cards_today,
+            runs_today=runs_by_date.get(attempt_date, []),
             run_activity_port=run_activity_port,
             measurement_assessment_port=measurement_assessment_port,
+            backup_event_ids=resolution.backup_event_ids,
         )
-        for entry in entries
+        _record_measurement_attempts(statuses, cards)
+    return statuses
+
+
+def _summary_horizon_start(block: V3Block, requested_start: str, before_day: int) -> str:
+    prior_scheduled_days = [
+        event.scheduled_day
+        for event in block.measurement_events
+        if event.scheduled_day < before_day
     ]
-    cards.sort(key=_card_sort_key)
-    return cards
+    if not prior_scheduled_days:
+        return requested_start
+    earliest_attempt = _date_for_block_day(block, min(prior_scheduled_days))
+    return min(requested_start, earliest_attempt)
 
 
 # ---------- public read models ----------
@@ -758,9 +897,31 @@ def get_training_today(
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     prior_logs = repo.card_logs_before(date)
-    runs_today = run_activity_port.runs_between(date, date) if run_activity_port is not None else []
+    summary_start = _summary_horizon_start(block, date, day)
+    run_summaries = (
+        run_activity_port.runs_between(summary_start, date) if run_activity_port is not None else []
+    )
+    runs_by_date = _runs_grouped_by_date(run_summaries)
+    attempt_statuses = _evaluate_measurement_attempts_before(
+        before_day=day,
+        block=block,
+        schedule=schedule,
+        registry=registry,
+        library=library,
+        bundle_names=bundle_names,
+        repo=repo,
+        runs_by_date=runs_by_date,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
+    )
+    resolution = resolve_measurement_day(
+        block=block,
+        schedule=schedule,
+        day=day,
+        attempt_statuses=attempt_statuses,
+    )
     cards = _cards_for_day(
-        schedule,
+        list(resolution.entries),
         day,
         date=date,
         registry=registry,
@@ -769,9 +930,10 @@ def get_training_today(
         bundle_names=bundle_names,
         repo=repo,
         prior_logs=prior_logs,
-        runs_today=runs_today,
+        runs_today=runs_by_date.get(date, []),
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
+        backup_event_ids=resolution.backup_event_ids,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -803,23 +965,44 @@ def get_training_schedule_window(
     block, bundles, registry, library = context
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
+    start_day = _day_number(block, start_date)
+    summary_start = _summary_horizon_start(block, start_date, start_day)
     run_summaries = (
-        run_activity_port.runs_between(start_date, end.isoformat())
+        run_activity_port.runs_between(summary_start, end.isoformat())
         if run_activity_port is not None
         else []
     )
-    runs_by_date: dict[str, list[TrainingRunActivitySummary]] = {}
-    for summary in run_summaries:
-        runs_by_date.setdefault(summary.session_date, []).append(summary)
+    runs_by_date = _runs_grouped_by_date(run_summaries)
+    attempt_statuses = _evaluate_measurement_attempts_before(
+        before_day=start_day,
+        block=block,
+        schedule=schedule,
+        registry=registry,
+        library=library,
+        bundle_names=bundle_names,
+        repo=repo,
+        runs_by_date=runs_by_date,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
+    )
 
     days: list[TrainingScheduleDay] = []
+    required_actions_by_event: dict[str, TrainingRequiredAction] = {}
     for offset in range(duration_days):
         current = start + timedelta(days=offset)
         current_iso = current.isoformat()
         day_number = _day_number(block, current_iso)
+        resolution = resolve_measurement_day(
+            block=block,
+            schedule=schedule,
+            day=day_number,
+            attempt_statuses=attempt_statuses,
+        )
+        for action in resolution.required_actions:
+            required_actions_by_event.setdefault(action.event_id, action)
         cards = (
             _cards_for_day(
-                schedule,
+                list(resolution.entries),
                 day_number,
                 date=current_iso,
                 registry=registry,
@@ -830,13 +1013,20 @@ def get_training_schedule_window(
                 runs_today=runs_by_date.get(current_iso, []),
                 run_activity_port=run_activity_port,
                 measurement_assessment_port=measurement_assessment_port,
+                backup_event_ids=resolution.backup_event_ids,
             )
             if 1 <= day_number <= block.window.days
             else []
         )
+        _record_measurement_attempts(attempt_statuses, cards)
         days.append(TrainingScheduleDay(date=current_iso, day=day_number, cards=cards))
 
-    return TrainingScheduleWindow(start_date=start_date, end_date=end.isoformat(), days=days)
+    return TrainingScheduleWindow(
+        start_date=start_date,
+        end_date=end.isoformat(),
+        days=days,
+        required_actions=list(required_actions_by_event.values()),
+    )
 
 
 def get_block_status(repo: TrainingRepository) -> TrainingBlockStatus | None:

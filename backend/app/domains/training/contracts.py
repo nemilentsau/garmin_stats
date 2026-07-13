@@ -660,6 +660,13 @@ GateResult = Literal["pass", "fail", "unknown"]
 MeasurementGateValue = bool | int | float | str
 
 
+class TrainingRequiredAction(DefaultsRequired):
+    """Authored block action exposed after a required event exhausts its attempts."""
+
+    event_id: str
+    action: Literal["extend_block", "flag"]
+
+
 class TrainingMeasurementAssessment(DefaultsRequired):
     """Training-local projection of the coach's subjective measurement judgment."""
 
@@ -737,6 +744,8 @@ class TrainingTodayCard(DefaultsRequired):
     associated_activity: TrainingRunActivitySummary | None = None  # run cards only
     run_candidates: list[TrainingRunActivitySummary] = []  # run cards only
     measurement: TrainingMeasurementEvaluation | None = None  # measurement runs only
+    measurement_event_id: str | None = None
+    measurement_attempt: Literal["scheduled", "backup"] | None = None
 
     @model_validator(mode="after")
     def _execution_matches_legacy_status(self) -> TrainingTodayCard:
@@ -769,6 +778,7 @@ class TrainingScheduleWindow(DefaultsRequired):
     start_date: str
     end_date: str
     days: list[TrainingScheduleDay] = []
+    required_actions: list[TrainingRequiredAction] = []
 
 
 class TrainingBlockStatus(DefaultsRequired):

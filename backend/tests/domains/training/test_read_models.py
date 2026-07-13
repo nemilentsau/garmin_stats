@@ -57,8 +57,17 @@ from app.domains.training.contracts import (
 from tests._architecture import REPO_ROOT
 
 BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
+BLOCK1 = REPO_ROOT / "docs" / "routine-pivot" / "block1"
 _BLOCK0_FILENAMES = [
     "block0.json",
+    "running_v3.json",
+    "strength_v3.json",
+    "support_v3.json",
+    "registry.json",
+    "exercise_library.json",
+]
+_BLOCK1_FILENAMES = [
+    "block1.json",
     "running_v3.json",
     "strength_v3.json",
     "support_v3.json",
@@ -75,11 +84,28 @@ def _block0_files() -> list[ImportFile]:
     return [ImportFile(filename=name, content=_load(name)) for name in _BLOCK0_FILENAMES]
 
 
+def _block1_files() -> list[ImportFile]:
+    return [
+        ImportFile(
+            filename=name,
+            content=json.loads((BLOCK1 / name).read_text(encoding="utf-8")),
+        )
+        for name in _BLOCK1_FILENAMES
+    ]
+
+
 def _imported_repo(*, include_measurement_event: bool = True) -> SqliteTrainingRepository:
     repo = SqliteTrainingRepository()
     result = import_artifacts(repo, ImportRequest(files=_block0_files()))
     assert result.activated is True
     return repo if include_measurement_event else _NoMeasurementEventTrainingRepository()
+
+
+def _imported_block1_repo() -> SqliteTrainingRepository:
+    repo = SqliteTrainingRepository()
+    result = import_artifacts(repo, ImportRequest(files=_block1_files()))
+    assert result.activated is True
+    return repo
 
 
 def _card(response, occurrence_key: str):
@@ -151,9 +177,13 @@ class _FakeMeasurementAssessmentPort:
         return self.assessment
 
 
-def _measurement_evidence(run_id: str = "measurement-run") -> TrainingRunEvidence:
+def _measurement_evidence(
+    run_id: str = "measurement-run",
+    *,
+    session_date: str = "2026-07-17",
+) -> TrainingRunEvidence:
     elapsed_s = list(range(3301))
-    summary = _run(run_id, session_date="2026-07-17", distance_mi=7.0).model_copy(
+    summary = _run(run_id, session_date=session_date, distance_mi=7.0).model_copy(
         update={"hr_source": "strap"}
     )
     return TrainingRunEvidence(
@@ -298,7 +328,22 @@ def test_today_measurement_card_exposes_gate_display_and_two_variants():
 
 def test_today_rule_uses_event_completed_signal_and_three_variants():
     repo = _imported_repo()
-    response = get_training_today(repo, date="2026-07-21")  # day 16
+    evidence = _measurement_evidence()
+    response = get_training_today(
+        repo,
+        date="2026-07-21",  # day 16
+        run_activity_port=_FakeRunActivityPort(
+            {"2026-07-17": [evidence.summary]},
+            evidence_by_run={evidence.summary.run_id: evidence},
+        ),
+        measurement_assessment_port=_FakeMeasurementAssessmentPort(
+            TrainingMeasurementAssessment(
+                status="valid",
+                rationale="Scheduled attempt was valid.",
+                source_id="review-day-12",
+            )
+        ),
+    )
 
     lthr = _card(response, "running.v3:run.lthr_test:d16")
     assert lthr.variant_options == ["full", "treadmill", "alternate_strides"]
@@ -701,9 +746,9 @@ def test_today_measurement_without_evidence_stays_completed_and_awaiting_review(
 
 def test_today_missing_evidence_cannot_be_upgraded_by_valid_assessment():
     repo = _imported_repo()
-    summary = _run(
-        "missing-evidence", session_date="2026-07-17", distance_mi=7.0
-    ).model_copy(update={"hr_source": "strap"})
+    summary = _run("missing-evidence", session_date="2026-07-17", distance_mi=7.0).model_copy(
+        update={"hr_source": "strap"}
+    )
     run_port = _FakeRunActivityPort({"2026-07-17": [summary]})
     assessment_port = _FakeMeasurementAssessmentPort(
         TrainingMeasurementAssessment(
@@ -890,6 +935,191 @@ def test_schedule_window_projects_measurement_with_both_read_ports():
     assert run_port.calls == [("2026-07-17", "2026-07-17")]
     assert run_port.evidence_calls == ["measurement-run"]
     assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d12")]
+
+
+# ---------- authored measurement backup overlay ----------
+
+
+def test_today_marks_the_original_measurement_attempt_as_scheduled():
+    repo = _imported_block1_repo()
+
+    response = get_training_today(repo, date="2026-07-13")
+
+    card = _card(response, "running.v3:run.lthr_test:d01")
+    assert card.measurement_event_id == "ev_lthr_test"
+    assert card.measurement_attempt == "scheduled"
+
+
+def test_today_activates_backup_in_running_slot_and_preserves_support_cards():
+    repo = _imported_block1_repo()
+    run_port = _FakeRunActivityPort({})
+
+    response = get_training_today(
+        repo,
+        date="2026-07-20",
+        run_activity_port=run_port,
+        measurement_assessment_port=_FakeMeasurementAssessmentPort(),
+    )
+
+    running = [card for card in response.cards if card.bundle_id == "running.v3"]
+    assert [
+        (card.card.id, card.measurement_event_id, card.measurement_attempt) for card in running
+    ] == [("run.lthr_test", "ev_lthr_test", "backup")]
+    assert any(card.card.id == "sup.daily" for card in response.cards)
+    assert any(card.card.id == "str.pull_a" for card in response.cards)
+    assert run_port.calls == [("2026-07-13", "2026-07-20")]
+
+
+def test_today_valid_prior_attempt_keeps_authored_tempo_on_backup_day():
+    repo = _imported_block1_repo()
+    evidence = _measurement_evidence(session_date="2026-07-13")
+    run_port = _FakeRunActivityPort(
+        {"2026-07-13": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Protocol met.",
+            source_id="review-day-1",
+        )
+    )
+
+    response = get_training_today(
+        repo,
+        date="2026-07-20",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    running = [card for card in response.cards if card.bundle_id == "running.v3"]
+    assert [card.card.id for card in running] == ["run.tempo"]
+    assert running[0].measurement_event_id is None
+    assert running[0].measurement_attempt is None
+    assert run_port.calls == [("2026-07-13", "2026-07-20")]
+    assert run_port.evidence_calls == ["measurement-run"]
+
+
+def test_schedule_window_evaluates_attempt_before_visible_window_with_one_bulk_read():
+    repo = _imported_block1_repo()
+    evidence = _measurement_evidence(session_date="2026-07-13")
+    run_port = _FakeRunActivityPort(
+        {"2026-07-13": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Protocol met.",
+            source_id="review-before-window",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    running = [card for card in window.days[0].cards if card.bundle_id == "running.v3"]
+    assert [card.card.id for card in running] == ["run.tempo"]
+    assert run_port.calls == [("2026-07-13", "2026-07-20")]
+    assert run_port.evidence_calls == ["measurement-run"]
+
+
+def test_schedule_window_missing_evidence_keeps_attempt_non_valid_and_activates_backup():
+    repo = _imported_block1_repo()
+    summary = _run("missing-series", session_date="2026-07-13", distance_mi=7.0)
+    run_port = _FakeRunActivityPort({"2026-07-13": [summary]})
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Cannot override absent objective evidence.",
+            source_id="review-without-series",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    running = [card for card in window.days[0].cards if card.bundle_id == "running.v3"]
+    assert [(card.card.id, card.measurement_attempt) for card in running] == [
+        ("run.lthr_test", "backup")
+    ]
+    assert run_port.calls == [("2026-07-13", "2026-07-20")]
+    assert run_port.evidence_calls == ["missing-series"]
+    assert assessment_port.calls == []
+
+
+def test_schedule_window_empty_series_cannot_become_valid_or_suppress_backup():
+    repo = _imported_block1_repo()
+    summary = _run("empty-series", session_date="2026-07-13", distance_mi=7.0)
+    evidence = TrainingRunEvidence(
+        summary=summary,
+        elapsed_s=[],
+        distance_mi=[],
+        heart_rate_bpm=[],
+        run_walk_spans=[],
+    )
+    run_port = _FakeRunActivityPort(
+        {"2026-07-13": [summary]},
+        evidence_by_run={summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="The empty series must not qualify.",
+            source_id="review-empty-series",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    running = [card for card in window.days[0].cards if card.bundle_id == "running.v3"]
+    assert [(card.card.id, card.measurement_attempt) for card in running] == [
+        ("run.lthr_test", "backup")
+    ]
+    assert assessment_port.calls == []
+
+
+def test_schedule_window_exposes_one_required_action_only_after_final_backup_day():
+    repo = _imported_block1_repo()
+    run_port = _FakeRunActivityPort({})
+
+    final_day = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=1,
+        run_activity_port=run_port,
+    )
+    after_final = get_training_schedule_window(
+        repo,
+        start_date="2026-07-20",
+        duration_days=3,
+        run_activity_port=run_port,
+    )
+
+    assert final_day.required_actions == []
+    assert [action.model_dump() for action in after_final.required_actions] == [
+        {"event_id": "ev_lthr_test", "action": "extend_block"}
+    ]
+    assert run_port.calls == [
+        ("2026-07-13", "2026-07-20"),
+        ("2026-07-13", "2026-07-22"),
+    ]
 
 
 # ---------- get_block_status ----------

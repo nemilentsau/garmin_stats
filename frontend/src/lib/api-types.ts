@@ -7069,6 +7069,19 @@ export interface components {
             message: string;
         };
         /**
+         * TrainingRequiredAction
+         * @description Authored block action exposed after a required event exhausts its attempts.
+         */
+        TrainingRequiredAction: {
+            /** Event Id */
+            event_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "extend_block" | "flag";
+        };
+        /**
          * TrainingRunActivitySummary
          * @description Training-local projection of a tracked run; imperial display units.
          *
@@ -7138,6 +7151,11 @@ export interface components {
              * @default []
              */
             days: components["schemas"]["TrainingScheduleDay"][];
+            /**
+             * Required Actions
+             * @default []
+             */
+            required_actions: components["schemas"]["TrainingRequiredAction"][];
         };
         /**
          * TrainingSegmentDisplay
@@ -7264,6 +7282,10 @@ export interface components {
              */
             run_candidates: components["schemas"]["TrainingRunActivitySummary"][];
             measurement: components["schemas"]["TrainingMeasurementEvaluation"] | null;
+            /** Measurement Event Id */
+            measurement_event_id: string | null;
+            /** Measurement Attempt */
+            measurement_attempt: ("scheduled" | "backup") | null;
         };
         /**
          * TrainingTodayResponse
