@@ -17,9 +17,12 @@ class CoachMeasurementAssessmentPort:
         self._coach_repo = coach_repo
 
     def latest_for(
-        self, run_id: str, occurrence_key: str
+        self, *, run_id: str, occurrence_key: str
     ) -> TrainingMeasurementAssessment | None:
-        record = self._coach_repo.latest_measurement_assessment(run_id, occurrence_key)
+        record = self._coach_repo.latest_measurement_assessment(
+            run_id=run_id,
+            occurrence_key=occurrence_key,
+        )
         if record is None:
             return None
         return TrainingMeasurementAssessment(

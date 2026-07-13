@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from inspect import Parameter, signature
+from typing import Any, cast
+
+import pytest
+
 from app.bootstrap.coach_measurement_port import CoachMeasurementAssessmentPort
 from app.bootstrap.container import build_container
 from app.domains.coach.contracts import (
@@ -59,13 +64,31 @@ def test_training_contract_and_read_port_are_training_local():
     assert "latest_for" in MeasurementAssessmentReadPort.__dict__
 
 
+def test_exact_assessment_lookup_requires_named_target_arguments():
+    protocol_parameters = list(
+        signature(MeasurementAssessmentReadPort.latest_for).parameters.values()
+    )[1:]
+    assert [parameter.kind for parameter in protocol_parameters] == [
+        Parameter.KEYWORD_ONLY,
+        Parameter.KEYWORD_ONLY,
+    ]
+
+    build_container.cache_clear()
+    port = CoachMeasurementAssessmentPort(build_container().coach_repo)
+    positional_call = cast(Any, port.latest_for)
+    with pytest.raises(TypeError):
+        positional_call("missing", OCCURRENCE_KEY)
+    assert port.latest_for(run_id="missing", occurrence_key=OCCURRENCE_KEY) is None
+
+
 def test_bootstrap_port_maps_latest_coach_record_without_leaking_coach_contract():
     build_container.cache_clear()
     container = build_container()
     review, coach_assessment = _complete_assessment(container.coach_repo)
 
     mapped = container.training_measurement_assessment_port.latest_for(
-        "run-1", OCCURRENCE_KEY
+        run_id="run-1",
+        occurrence_key=OCCURRENCE_KEY,
     )
 
     assert isinstance(
@@ -84,4 +107,4 @@ def test_bootstrap_port_returns_none_when_exact_target_has_no_assessment():
     container = build_container()
     port = CoachMeasurementAssessmentPort(container.coach_repo)
 
-    assert port.latest_for("missing", OCCURRENCE_KEY) is None
+    assert port.latest_for(run_id="missing", occurrence_key=OCCURRENCE_KEY) is None
