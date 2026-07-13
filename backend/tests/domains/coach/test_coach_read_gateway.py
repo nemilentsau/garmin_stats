@@ -116,9 +116,13 @@ class FakeRunActivityPort:
 
 class FakeMeasurementAssessmentPort:
     def latest_for(
-        self, *, run_id: str, occurrence_key: str
+        self,
+        *,
+        run_id: str,
+        occurrence_key: str,
+        before: str | None = None,
     ) -> TrainingMeasurementAssessment | None:
-        del run_id, occurrence_key
+        del run_id, occurrence_key, before
         return None
 
 

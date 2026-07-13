@@ -8,7 +8,7 @@
 - Strict optional measurement-assessment validation and atomic persistence
   with the successful review or coach message that produced it.
 - Newest-successful assessment reads for one exact
-  `(run_id, occurrence_key)` target.
+  `(run_id, occurrence_key)` target, optionally before an exclusive cutoff.
 
 ## Does not own
 
@@ -34,10 +34,11 @@
 ## Bootstrap boundary
 
 Training never imports Coach persistence. Bootstrap adapts
-`latest_measurement_assessment(run_id, occurrence_key)` into training's
-read-only assessment contract (`status`, `rationale`, `source_id`) and injects
-that port into training reads. Coach does not perform training's hard-gate
-clamp, missing-series policy, or schedule overlay; see
+`latest_measurement_assessment(run_id, occurrence_key, *, before=None)` into
+training's read-only assessment contract (`status`, `rationale`, `source_id`)
+and injects that port into training reads. Coach owns cutoff normalization;
+it does not perform training's hard-gate clamp, missing-series policy, or
+schedule overlay; see
 `docs/reference/run-activities.md`.
 
 ## Public entrypoints

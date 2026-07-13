@@ -24,7 +24,7 @@ from app.domains.coach.contracts import (
     ReviewKind,
     ReviewOutput,
 )
-from app.domains.coach.time import utc_now_iso
+from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
 from app.infra.sqlite import connect
 
 _PRIORITIES: dict[JobKind, int] = {
@@ -232,9 +232,14 @@ class SqliteCoachRepository:
         return None if row is None else _review_from_row(row)
 
     def latest_measurement_assessment(
-        self, run_id: str, occurrence_key: str
+        self,
+        run_id: str,
+        occurrence_key: str,
+        *,
+        before: str | None = None,
     ) -> CoachMeasurementAssessmentRecord | None:
-        """Return the newest successful assessment for one exact run occurrence."""
+        """Return the newest exact successful assessment before an optional cutoff."""
+        cutoff = utc_cutoff_iso(before)
         with connect() as connection:
             row = connection.execute(
                 """
@@ -247,6 +252,7 @@ class SqliteCoachRepository:
                       AND json_extract(
                           data, '$.measurement_assessment.occurrence_key'
                       ) = ?
+                      AND (? IS NULL OR updated_at < ?)
                     UNION ALL
                     SELECT message.id AS source_id, message.created_at,
                            'message' AS source_kind, message.data
@@ -261,11 +267,21 @@ class SqliteCoachRepository:
                       AND json_extract(
                           message.data, '$.measurement_assessment.occurrence_key'
                       ) = ?
+                      AND (? IS NULL OR message.created_at < ?)
                 )
                 ORDER BY created_at DESC, source_id DESC
                 LIMIT 1
                 """,
-                (run_id, occurrence_key, run_id, occurrence_key),
+                (
+                    run_id,
+                    occurrence_key,
+                    cutoff,
+                    cutoff,
+                    run_id,
+                    occurrence_key,
+                    cutoff,
+                    cutoff,
+                ),
             ).fetchone()
         if row is None:
             return None

@@ -96,7 +96,8 @@ routines feed side by side; neither domain imports the other.
   `get_training_schedule_window`, `get_block_status`, and `upsert_training_log`
   (PATCH-semantics capture-log upsert with runtime occurrence validation),
   plus orchestration of association, measurement evidence, exact assessment
-  lookup, request snapshots, and authored-attempt history.
+  lookup with optional historical cutoffs, request snapshots, and frozen
+  authored-opportunity history.
 - `domain/run_evaluation.py` — pure effective-execution, LTHR observation,
   quality-gate, and Coach-finalization policy.
 - `application/measurement_schedule.py` — pure read-time activation of

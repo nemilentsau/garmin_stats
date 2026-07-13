@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, time, timedelta
+
 import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
@@ -316,3 +318,114 @@ def test_latest_assessment_read_prefers_newest_exact_successful_record():
     assert fallback is not None
     assert fallback.assessment == review_assessment
     assert fallback.source_id == review.id
+
+
+def test_assessment_cutoff_selects_newest_exact_success_before_boundary():
+    repo = SqliteCoachRepository()
+    review, review_job = _running_review(repo)
+    review_assessment = _assessment(status="provisional")
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(review_assessment),
+        finished_at="2026-07-19T22:00:00Z",
+    )
+    repo.insert_thread(_thread())
+
+    def complete_chat(*, status: str, finished_at: str, run_id: str = "run-1"):
+        repo.enqueue_chat_message(thread_id="thread-1", content_md="Reassess")
+        job = repo.claim_next_job("9999-01-01T00:00:00Z")
+        assert job is not None
+        assessment = _assessment(status=status, run_id=run_id)
+        message = repo.complete_chat_output(
+            job_id=job.id,
+            thread_id="thread-1",
+            output=ChatOutput(
+                answer_md="Updated assessment",
+                evidence_limits=[],
+                refs=[ArtifactRef(kind="run", value=run_id)],
+                measurement_assessment=assessment,
+            ),
+            session_id=None,
+            finished_at=finished_at,
+        )
+        return job, message, assessment
+
+    _prior_job, prior_message, prior_assessment = complete_chat(
+        status="valid",
+        finished_at="2026-07-19T23:00:00Z",
+    )
+    failed_job, _failed_message, _failed_assessment = complete_chat(
+        status="failed",
+        finished_at="2026-07-19T23:30:00Z",
+    )
+    repo.fail_job(
+        failed_job.id,
+        error="superseded output failed",
+        finished_at="2026-07-19T23:45:00Z",
+    )
+    _boundary_job, _boundary_message, _boundary_assessment = complete_chat(
+        status="failed",
+        finished_at="2026-07-20T00:00:00Z",
+    )
+    complete_chat(
+        status="valid",
+        finished_at="2026-07-19T23:50:00Z",
+        run_id="run-2",
+    )
+
+    before_backup_day = repo.latest_measurement_assessment(
+        "run-1",
+        OCCURRENCE_KEY,
+        before="2026-07-20T00:00:00Z",
+    )
+    before_prior_message = repo.latest_measurement_assessment(
+        "run-1",
+        OCCURRENCE_KEY,
+        before="2026-07-19T23:00:00Z",
+    )
+
+    assert before_backup_day is not None
+    assert before_backup_day.assessment == prior_assessment
+    assert before_backup_day.source_id == prior_message.id
+    assert before_prior_message is not None
+    assert before_prior_message.assessment == review_assessment
+    assert before_prior_message.source_id == review.id
+
+
+def test_local_date_cutoff_excludes_assessment_at_backup_day_start():
+    repo = SqliteCoachRepository()
+    boundary = datetime.combine(date(2026, 7, 20), time.min).astimezone(UTC)
+    prior_instant = (boundary - timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+    boundary_instant = boundary.isoformat().replace("+00:00", "Z")
+    review, review_job = _running_review(repo)
+    review_assessment = _assessment(status="provisional")
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(review_assessment),
+        finished_at=prior_instant,
+    )
+    chat_job = _running_chat(repo)
+    repo.complete_chat_output(
+        job_id=chat_job.id,
+        thread_id="thread-1",
+        output=ChatOutput(
+            answer_md="Assessment at the boundary",
+            evidence_limits=[],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            measurement_assessment=_assessment(status="valid"),
+        ),
+        session_id=None,
+        finished_at=boundary_instant,
+    )
+
+    record = repo.latest_measurement_assessment(
+        "run-1",
+        OCCURRENCE_KEY,
+        before="2026-07-20",
+    )
+
+    assert record is not None
+    assert record.assessment == review_assessment
+    assert record.source_id == review.id

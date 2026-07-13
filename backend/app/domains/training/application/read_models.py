@@ -52,9 +52,11 @@ precedence), and `_build_card` calls it per run card using the day's tracked
 runs and run-card count. Today and schedule windows each make one bulk summary
 read covering the union of the visible range and authored opportunities
 elapsed by the request's as-of date. Summaries are grouped by `session_date`;
-earlier attempts are evaluated in authored order, then
-`resolve_measurement_day` overlays any due backup into an existing running
-slot without changing the compiled schedule. `training`
+authored opportunities are simulated in order and each backup decision is
+frozen against assessments available strictly before that local day. A
+separate as-of pass determines current actions, while visible cards use the
+current latest assessment. `resolve_measurement_day` overlays any due backup
+without changing the compiled schedule. `training`
 never imports a Garmin contract or unit conversion for this — the port
 (defined in `dependencies.py`) returns already-imperial, training-local
 `TrainingRunActivitySummary` values; the adapter that implements it lives outside the slice
@@ -82,6 +84,7 @@ from app.domains.training.application.compile import (
 )
 from app.domains.training.application.measurement_schedule import (
     MeasurementBackupActivation,
+    MeasurementDayResolution,
     resolve_measurement_day,
 )
 from app.domains.training.contracts import (
@@ -129,6 +132,11 @@ from app.domains.training.domain.run_evaluation import (
     evaluate_run_measurement,
     finalize_measurement,
 )
+
+AssessmentCache = dict[
+    tuple[str, str, str | None],
+    TrainingMeasurementAssessment | None,
+]
 
 # ---------- signal short-names + predicate/render helpers ----------
 
@@ -542,10 +550,9 @@ def _build_card(
     measurement_event_id: str | None = None,
     measurement_attempt: Literal["scheduled", "backup"] | None = None,
     occurrence_key_override: str | None = None,
+    assessment_before: str | None = None,
     evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
-    assessment_cache: dict[
-        tuple[str, str], TrainingMeasurementAssessment | None
-    ] | None = None,
+    assessment_cache: AssessmentCache | None = None,
 ) -> TrainingTodayCard:
     """Project one compiled schedule entry into a display-ready Today card, log merged in.
 
@@ -560,6 +567,7 @@ def _build_card(
     `run_candidates=[]`, `associated_activity=None` unconditionally.
     The optional caches are request-owned snapshots; they include missing
     evidence and `None` assessments and never outlive the public read call.
+    Assessment cache identity includes the optional historical cutoff.
     """
     card = entry.card
     assignment = entry.assignment
@@ -650,7 +658,7 @@ def _build_card(
             if not evidence_available:
                 measurement = objective
             else:
-                assessment_key = (run_id, occurrence_key)
+                assessment_key = (run_id, occurrence_key, assessment_before)
                 if measurement_assessment_port is None:
                     assessment = None
                 elif assessment_cache is not None and assessment_key in assessment_cache:
@@ -659,6 +667,7 @@ def _build_card(
                     assessment = measurement_assessment_port.latest_for(
                         run_id=run_id,
                         occurrence_key=occurrence_key,
+                        before=assessment_before,
                     )
                     if assessment_cache is not None:
                         assessment_cache[assessment_key] = assessment
@@ -773,10 +782,9 @@ def _cards_for_day(
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
     backup_activations: tuple[MeasurementBackupActivation, ...] = (),
+    assessment_before: str | None = None,
     evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
-    assessment_cache: dict[
-        tuple[str, str], TrainingMeasurementAssessment | None
-    ] | None = None,
+    assessment_cache: AssessmentCache | None = None,
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
@@ -820,6 +828,7 @@ def _cards_for_day(
                 measurement_event_id=event_id,
                 measurement_attempt=attempt,
                 occurrence_key_override=occurrence_keys[entry_index],
+                assessment_before=assessment_before,
                 evidence_cache=evidence_cache,
                 assessment_cache=assessment_cache,
             )
@@ -854,11 +863,12 @@ def _record_measurement_attempts(
         statuses.setdefault(card.measurement_event_id, {})[card.day] = card.measurement.status
 
 
-def _evaluate_measurement_attempts_before(
+def _evaluate_resolved_measurement_attempts(
     *,
-    before_day: int,
+    resolutions: dict[int, MeasurementDayResolution],
+    through_day: int,
+    assessment_before: str | None,
     block: V3Block,
-    schedule: list[CompiledEntry],
     registry: SignalRegistry,
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
@@ -867,29 +877,15 @@ def _evaluate_measurement_attempts_before(
     run_activity_port: RunActivityReadPort | None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None,
     evidence_cache: dict[str, TrainingRunEvidence | None] | None = None,
-    assessment_cache: dict[
-        tuple[str, str], TrainingMeasurementAssessment | None
-    ] | None = None,
+    assessment_cache: AssessmentCache | None = None,
 ) -> dict[str, dict[int, MeasurementStatus]]:
-    """Evaluate authored attempts before a rendered day once, in day order."""
+    """Evaluate already-frozen active attempts through one block day."""
     statuses: dict[str, dict[int, MeasurementStatus]] = {}
     if run_activity_port is None:
         return statuses
-    attempt_days = sorted(
-        {
-            attempt_day
-            for event in block.measurement_events
-            for attempt_day in (event.scheduled_day, *event.backup_days)
-            if attempt_day < before_day
-        }
-    )
-    for attempt_day in attempt_days:
-        resolution = resolve_measurement_day(
-            block=block,
-            schedule=schedule,
-            day=attempt_day,
-            attempt_statuses=statuses,
-        )
+    for attempt_day, resolution in sorted(resolutions.items()):
+        if attempt_day > through_day:
+            continue
         attempt_date = _date_for_block_day(block, attempt_day)
         cards = _cards_for_day(
             list(resolution.entries),
@@ -904,11 +900,62 @@ def _evaluate_measurement_attempts_before(
             run_activity_port=run_activity_port,
             measurement_assessment_port=measurement_assessment_port,
             backup_activations=resolution.activations,
+            assessment_before=assessment_before,
             evidence_cache=evidence_cache,
             assessment_cache=assessment_cache,
         )
         _record_measurement_attempts(statuses, cards)
     return statuses
+
+
+def _resolve_measurement_history(
+    *,
+    through_day: int,
+    block: V3Block,
+    schedule: list[CompiledEntry],
+    registry: SignalRegistry,
+    library: ExerciseLibrary,
+    bundle_names: dict[str, str],
+    repo: TrainingRepository,
+    runs_by_date: dict[str, list[TrainingRunActivitySummary]],
+    run_activity_port: RunActivityReadPort | None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None,
+    evidence_cache: dict[str, TrainingRunEvidence | None],
+    assessment_cache: AssessmentCache,
+) -> dict[int, MeasurementDayResolution]:
+    """Freeze each authored opportunity using evidence available before that day."""
+    resolutions: dict[int, MeasurementDayResolution] = {}
+    attempt_days = sorted(
+        {
+            attempt_day
+            for event in block.measurement_events
+            for attempt_day in (event.scheduled_day, *event.backup_days)
+            if attempt_day <= through_day
+        }
+    )
+    for attempt_day in attempt_days:
+        prior_statuses = _evaluate_resolved_measurement_attempts(
+            resolutions=resolutions,
+            through_day=attempt_day - 1,
+            assessment_before=_date_for_block_day(block, attempt_day),
+            block=block,
+            registry=registry,
+            library=library,
+            bundle_names=bundle_names,
+            repo=repo,
+            runs_by_date=runs_by_date,
+            run_activity_port=run_activity_port,
+            measurement_assessment_port=measurement_assessment_port,
+            evidence_cache=evidence_cache,
+            assessment_cache=assessment_cache,
+        )
+        resolutions[attempt_day] = resolve_measurement_day(
+            block=block,
+            schedule=schedule,
+            day=attempt_day,
+            attempt_statuses=prior_statuses,
+        )
+    return resolutions
 
 
 def _summary_horizon_start(block: V3Block, requested_start: str, before_day: int) -> str:
@@ -976,9 +1023,9 @@ def get_training_today(
     )
     runs_by_date = _runs_grouped_by_date(run_summaries)
     evidence_cache: dict[str, TrainingRunEvidence | None] = {}
-    assessment_cache: dict[tuple[str, str], TrainingMeasurementAssessment | None] = {}
-    attempt_statuses = _evaluate_measurement_attempts_before(
-        before_day=day,
+    assessment_cache: AssessmentCache = {}
+    resolutions = _resolve_measurement_history(
+        through_day=day,
         block=block,
         schedule=schedule,
         registry=registry,
@@ -991,12 +1038,14 @@ def get_training_today(
         evidence_cache=evidence_cache,
         assessment_cache=assessment_cache,
     )
-    resolution = resolve_measurement_day(
-        block=block,
-        schedule=schedule,
-        day=day,
-        attempt_statuses=attempt_statuses,
-    )
+    resolution = resolutions.get(day)
+    if resolution is None:
+        resolution = resolve_measurement_day(
+            block=block,
+            schedule=schedule,
+            day=day,
+            attempt_statuses={},
+        )
     cards = _cards_for_day(
         list(resolution.entries),
         day,
@@ -1062,11 +1111,27 @@ def get_training_schedule_window(
     )
     runs_by_date = _runs_grouped_by_date(run_summaries)
     evidence_cache: dict[str, TrainingRunEvidence | None] = {}
-    assessment_cache: dict[tuple[str, str], TrainingMeasurementAssessment | None] = {}
-    attempt_statuses = _evaluate_measurement_attempts_before(
-        before_day=as_of_day + 1,
+    assessment_cache: AssessmentCache = {}
+    visible_end_day = _day_number(block, end.isoformat())
+    resolutions = _resolve_measurement_history(
+        through_day=max(as_of_day, visible_end_day),
         block=block,
         schedule=schedule,
+        registry=registry,
+        library=library,
+        bundle_names=bundle_names,
+        repo=repo,
+        runs_by_date=runs_by_date,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
+        evidence_cache=evidence_cache,
+        assessment_cache=assessment_cache,
+    )
+    current_statuses = _evaluate_resolved_measurement_attempts(
+        resolutions=resolutions,
+        through_day=as_of_day,
+        assessment_before=_date_for_block_day(block, as_of_day + 1),
+        block=block,
         registry=registry,
         library=library,
         bundle_names=bundle_names,
@@ -1081,7 +1146,7 @@ def get_training_schedule_window(
         block=block,
         schedule=schedule,
         day=as_of_day,
-        attempt_statuses=attempt_statuses,
+        attempt_statuses=current_statuses,
     )
 
     days: list[TrainingScheduleDay] = []
@@ -1089,12 +1154,14 @@ def get_training_schedule_window(
         current = start + timedelta(days=offset)
         current_iso = current.isoformat()
         day_number = _day_number(block, current_iso)
-        resolution = resolve_measurement_day(
-            block=block,
-            schedule=schedule,
-            day=day_number,
-            attempt_statuses=attempt_statuses,
-        )
+        resolution = resolutions.get(day_number)
+        if resolution is None:
+            resolution = resolve_measurement_day(
+                block=block,
+                schedule=schedule,
+                day=day_number,
+                attempt_statuses=current_statuses,
+            )
         cards = (
             _cards_for_day(
                 list(resolution.entries),

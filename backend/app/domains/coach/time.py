@@ -4,9 +4,22 @@ Run and evidence dates remain local calendar values. Infrastructure instants use
 canonical UTC strings so SQLite text comparisons stay chronological across DST.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 
 def utc_now_iso() -> str:
     """Return the current UTC instant with a stable ``Z`` suffix."""
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def utc_cutoff_iso(value: str | None) -> str | None:
+    """Normalize an exclusive local date or timestamp to canonical UTC."""
+    if value is None:
+        return None
+    if len(value) == 10:
+        instant = datetime.combine(date.fromisoformat(value), time.min).astimezone()
+    else:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            instant = instant.astimezone()
+    return instant.astimezone(UTC).isoformat().replace("+00:00", "Z")

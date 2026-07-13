@@ -101,7 +101,11 @@ class MeasurementAssessmentReadPort(Protocol):
     """Read-only training-local access to subjective measurement judgments."""
 
     def latest_for(
-        self, *, run_id: str, occurrence_key: str
+        self,
+        *,
+        run_id: str,
+        occurrence_key: str,
+        before: str | None = None,
     ) -> TrainingMeasurementAssessment | None:
-        """Return the newest assessment for one exact run occurrence."""
+        """Return the newest exact assessment before an optional exclusive cutoff."""
         ...

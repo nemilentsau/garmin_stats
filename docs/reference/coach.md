@@ -54,7 +54,10 @@ Coach persistence returns the newest successful assessment matching the exact
 The read ignores failed jobs and unrelated or assessment-free newer outputs. At bootstrap,
 a read-only adapter translates that coach-owned record into training's local
 `status`/`rationale`/`source_id` contract; neither domain imports the other's persistence
-adapter.
+adapter. The same exact read accepts an optional exclusive cutoff: a local calendar date
+is normalized to that day's start in canonical UTC before comparison with stored lifecycle
+instants. Training uses this historical view only to freeze authored backup decisions;
+ordinary card display still reads the current latest exact assessment.
 
 Training asks for an assessment only for the run currently associated with the exact
 runtime occurrence. Detaching the run, linking a different run, or activating a different

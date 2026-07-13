@@ -71,6 +71,7 @@ def test_exact_assessment_lookup_requires_named_target_arguments():
     assert [parameter.kind for parameter in protocol_parameters] == [
         Parameter.KEYWORD_ONLY,
         Parameter.KEYWORD_ONLY,
+        Parameter.KEYWORD_ONLY,
     ]
 
     build_container.cache_clear()
@@ -108,3 +109,26 @@ def test_bootstrap_port_returns_none_when_exact_target_has_no_assessment():
     port = CoachMeasurementAssessmentPort(container.coach_repo)
 
     assert port.latest_for(run_id="missing", occurrence_key=OCCURRENCE_KEY) is None
+
+
+def test_bootstrap_port_passes_exclusive_assessment_cutoff():
+    build_container.cache_clear()
+    container = build_container()
+    review, coach_assessment = _complete_assessment(container.coach_repo, status="valid")
+    port = container.training_measurement_assessment_port
+
+    before_completion = port.latest_for(
+        run_id="run-1",
+        occurrence_key=OCCURRENCE_KEY,
+        before="2026-07-12T12:00:00Z",
+    )
+    after_completion = port.latest_for(
+        run_id="run-1",
+        occurrence_key=OCCURRENCE_KEY,
+        before="2026-07-12T12:00:01Z",
+    )
+
+    assert before_completion is None
+    assert after_completion is not None
+    assert after_completion.status == coach_assessment.status
+    assert after_completion.source_id == review.id
