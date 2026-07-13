@@ -43,13 +43,14 @@ recognize for the given date, raising `LookupError` (mapped to 404 by the
 app-level exception handler) rather than persisting a log nothing will ever
 display.
 
-Run<->prescription association follows the same "Today-only, threaded like
-`prior_logs`" shape: `match_run_to_card` is the pure matching-policy
+Run<->prescription association is threaded through both Today and schedule
+windows: `match_run_to_card` is the pure matching-policy
 function (manual link wins; else auto-match only when exactly one
 `running.v3` card is scheduled that day; see its docstring for the full
 precedence), and `_build_card` calls it per run card using the day's tracked
-runs and run-card count that `_cards_for_day` resolved once via the caller's
-`RunActivityReadPort`. `training` never imports a garmin contract or unit
+runs and run-card count. Today loads one single-date range; schedule windows
+load the whole inclusive date range once, group summaries by `session_date`,
+and pass each group into `_cards_for_day`. `training` never imports a Garmin contract or unit
 conversion for this — the port (defined in `dependencies.py`) returns
 already-imperial, training-local `TrainingRunActivitySummary` values; the
 adapter that implements it lives outside the slice
@@ -516,12 +517,8 @@ def _build_card(
     schedule-window path leaves it `None` (planning view, read-only), so
     `last` is always `None` there rather than looked up per rendered day.
 
-    `runs_today`/`run_cards_today` follow the identical pattern for run
-    association: the Today path fetches the date's tracked runs once (via
-    `RunActivityReadPort`) and this day's run-card count in `_cards_for_day`,
-    then passes both down; the schedule-window path leaves them at their
-    defaults, so `associated_activity`/`run_candidates` are always
-    empty/None there. Association (`match_run_to_card`) only ever runs for a
+    `runs_today`/`run_cards_today` carry the caller's preloaded summaries and
+    this day's run-card count. Association (`match_run_to_card`) only runs for a
     `running.v3` card (`_is_run_card`) — every other card gets
     `run_candidates=[]`, `associated_activity=None` unconditionally.
     """
@@ -635,32 +632,21 @@ def _cards_for_day(
     bundle_names: dict[str, str],
     repo: TrainingRepository,
     prior_logs: list[TrainingCardLog] | None = None,
-    run_activity_port: RunActivityReadPort | None = None,
+    runs_today: list[TrainingRunActivitySummary] | None = None,
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
-    `run_activity_port` (Today-path only, `None` from the schedule-window
-    path) is resolved to this date's tracked runs exactly once here — every
-    card the day compiles shares that one list and the day's run-card count,
-    rather than each run card independently re-querying the port. The port
-    is only ever called when the day actually has a `running.v3` card:
-    `runs_for_date` deserializes every tracked-run session for the date, so
-    skipping the call on a run-card-free day avoids that cost on every Today
-    fetch for the (common) days with no running card scheduled — behavior is
-    identical either way, since `_is_run_card` gates association to
-    `run_cards_today` cards regardless of what `runs_today` would have held.
+    The caller owns loading tracked runs. Every card shares this one date's
+    list and the day's run-card count, so this projection never performs I/O
+    per card or per day.
     """
     entries = [entry for entry in schedule if entry.day == day]
     run_cards_today = sum(1 for entry in entries if _is_run_card(entry))
-    runs_today = (
-        run_activity_port.runs_for_date(date)
-        if run_activity_port is not None and run_cards_today > 0
-        else []
-    )
+    day_runs = runs_today or []
     cards = [
         _build_card(
             entry, date=date, registry=registry, library=library, bundle_names=bundle_names,
-            repo=repo, prior_logs=prior_logs, runs_today=runs_today,
+            repo=repo, prior_logs=prior_logs, runs_today=day_runs,
             run_cards_today=run_cards_today,
         )
         for entry in entries
@@ -686,12 +672,8 @@ def get_training_today(
     "block active, but not scheduled for this date" (before it starts or
     after it ends).
 
-    `run_activity_port` drives run<->prescription association
-    (`match_run_to_card`, via `_cards_for_day`/`_build_card`) and is optional
-    only so callers that don't care about association (most tests, and the
-    schedule-window read model, which never passes one) don't need a fake —
-    every real request from `routes.py` supplies the bootstrap-composed
-    adapter.
+    `run_activity_port` drives run<->prescription association and is optional
+    so callers that do not need tracked-run enrichment do not need a fake.
     """
     context = _active_context(repo)
     if context is None:
@@ -706,10 +688,13 @@ def get_training_today(
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     prior_logs = repo.card_logs_before(date)
+    runs_today = (
+        run_activity_port.runs_between(date, date) if run_activity_port is not None else []
+    )
     cards = _cards_for_day(
         schedule, day, date=date, registry=registry, library=library,
         bundle_names=bundle_names, repo=repo, prior_logs=prior_logs,
-        run_activity_port=run_activity_port,
+        runs_today=runs_today,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -717,7 +702,11 @@ def get_training_today(
 
 
 def get_training_schedule_window(
-    repo: TrainingRepository, *, start_date: str, duration_days: int = 14
+    repo: TrainingRepository,
+    *,
+    start_date: str,
+    duration_days: int = 14,
+    run_activity_port: RunActivityReadPort | None = None,
 ) -> TrainingScheduleWindow:
     """Return a multi-day schedule projection starting at `start_date`.
 
@@ -736,6 +725,14 @@ def get_training_schedule_window(
     block, bundles, registry, library = context
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
+    run_summaries = (
+        run_activity_port.runs_between(start_date, end.isoformat())
+        if run_activity_port is not None
+        else []
+    )
+    runs_by_date: dict[str, list[TrainingRunActivitySummary]] = {}
+    for summary in run_summaries:
+        runs_by_date.setdefault(summary.session_date, []).append(summary)
 
     days: list[TrainingScheduleDay] = []
     for offset in range(duration_days):
@@ -746,6 +743,7 @@ def get_training_schedule_window(
             _cards_for_day(
                 schedule, day_number, date=current_iso, registry=registry, library=library,
                 bundle_names=bundle_names, repo=repo,
+                runs_today=runs_by_date.get(current_iso, []),
             )
             if 1 <= day_number <= block.window.days
             else []
@@ -799,7 +797,7 @@ class TrainingLogUpdateRequest(StrictDefaultsRequired):
 
     `linked_run_id`/`run_link_detached` are the run-card association
     controls: setting `linked_run_id` manually links one of the date's
-    tracked runs (validated against `RunActivityReadPort.runs_for_date` —
+    tracked runs (validated against `RunActivityReadPort.runs_between` —
     a non-null id absent from that date's runs raises `ValueError`, mapped
     to 400 by the app-level exception handler); setting `run_link_detached`
     (with no `linked_run_id` in the same request) suppresses auto-matching
@@ -904,7 +902,11 @@ def upsert_training_log(
         else (existing.run_link_detached if existing else False)
     )
     if "linked_run_id" in fields_set and update.linked_run_id is not None:
-        available = run_activity_port.runs_for_date(date) if run_activity_port is not None else []
+        available = (
+            run_activity_port.runs_between(date, date)
+            if run_activity_port is not None
+            else []
+        )
         if not any(run.run_id == update.linked_run_id for run in available):
             raise ValueError(f"run {update.linked_run_id!r} is not a tracked run for {date}")
     log = TrainingCardLog(

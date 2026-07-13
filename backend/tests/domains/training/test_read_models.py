@@ -18,12 +18,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.domains.training.adapters import SqliteTrainingRepository
-from app.domains.training.application.compile import compile_schedule
 from app.domains.training.application.imports import ImportFile, ImportRequest, import_artifacts
 from app.domains.training.application.read_models import (
     TrainingLogUpdateRequest,
-    _active_context,  # pyright: ignore[reportPrivateUsage]
-    _cards_for_day,  # pyright: ignore[reportPrivateUsage]
     checkin_rows,
     get_block_status,
     get_training_schedule_window,
@@ -87,27 +84,45 @@ def _card(response, occurrence_key: str):
     return next(c for c in response.cards if c.occurrence_key == occurrence_key)
 
 
-def _run(run_id: str, *, distance_mi: float | None = None) -> TrainingRunActivitySummary:
+def _run(
+    run_id: str,
+    *,
+    session_date: str = "2026-07-06",
+    distance_mi: float | None = None,
+) -> TrainingRunActivitySummary:
     return TrainingRunActivitySummary(
-        run_id=run_id, start_time_local="2026-07-06T07:00:00", distance_mi=distance_mi
+        run_id=run_id,
+        session_date=session_date,
+        start_time_local=f"{session_date}T07:00:00",
+        distance_mi=distance_mi,
     )
 
 
 class _FakeRunActivityPort:
     """Test double for `RunActivityReadPort` — a fixed date -> runs mapping.
 
-    Records every `runs_for_date` call (date args, in order) in `self.calls`
-    so tests can assert on whether — not just what — the port was queried,
-    e.g. proving `_cards_for_day` skips it entirely on a run-card-free day.
+    Records every inclusive `runs_between` call in `self.calls` so tests can
+    assert Today uses one single-date read and the schedule window uses one
+    bulk read rather than querying once per rendered day.
     """
 
     def __init__(self, runs_by_date: dict[str, list[TrainingRunActivitySummary]]) -> None:
         self._runs_by_date = runs_by_date
-        self.calls: list[str] = []
+        self.calls: list[tuple[str, str]] = []
 
-    def runs_for_date(self, date: str) -> list[TrainingRunActivitySummary]:
-        self.calls.append(date)
-        return self._runs_by_date.get(date, [])
+    def runs_between(
+        self, start_date: str, end_date: str
+    ) -> list[TrainingRunActivitySummary]:
+        self.calls.append((start_date, end_date))
+        return [
+            run
+            for date, runs in self._runs_by_date.items()
+            if start_date <= date <= end_date
+            for run in runs
+        ]
+
+    def evidence_for_run(self, run_id: str):
+        raise LookupError(run_id)
 
 
 class _NoWriteTrainingRepository(SqliteTrainingRepository):
@@ -438,6 +453,7 @@ def test_today_run_card_auto_links_the_days_only_run():
     assert easy.execution.status == "completed"
     assert easy.execution.source == "tracked_run"
     assert easy.execution.run_id == "r1"
+    assert port.calls == [("2026-07-06", "2026-07-06")]
     assert repo.card_log("2026-07-06", "running.v3:run.easy:d01") is None
 
 
@@ -550,43 +566,6 @@ def test_today_without_run_activity_port_leaves_run_cards_unassociated():
     assert easy.run_candidates == []
 
 
-def test_cards_for_day_skips_run_activity_port_when_day_has_no_run_cards():
-    """`_cards_for_day` must not call `runs_for_date` on a day with zero
-    `running.v3` cards — the port deserializes every tracked-run session for
-    the date, so a run-card-free day should be a no-op against it. Block0's
-    canon window schedules a running card every single day, so this drops
-    day 1's `running.v3:run.easy` entry from the real compiled schedule
-    before calling `_cards_for_day` directly, leaving its two non-run cards
-    (`sup.daily`, `str.push_a`) intact — proving the gate keys off the day's
-    run-card *count*, not an empty day.
-    """
-    repo = _imported_repo()
-    context = _active_context(repo)
-    assert context is not None
-    _block, bundles, registry, library = context
-    bundle_names = {bundle.id: bundle.name for bundle in bundles}
-    schedule = compile_schedule(bundles)
-    schedule_without_running = [
-        entry for entry in schedule if not (entry.day == 1 and entry.bundle_id == "running.v3")
-    ]
-    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
-
-    cards = _cards_for_day(
-        schedule_without_running,
-        1,
-        date="2026-07-06",
-        registry=registry,
-        library=library,
-        bundle_names=bundle_names,
-        repo=repo,
-        run_activity_port=port,
-    )
-
-    assert port.calls == []
-    assert [c.bundle_id for c in cards] == ["support.v3", "strength.v3"]
-    assert all(c.associated_activity is None and c.run_candidates == [] for c in cards)
-
-
 # ---------- get_training_schedule_window ----------
 
 
@@ -643,19 +622,33 @@ def test_schedule_window_never_surfaces_a_last_logged_anchor():
     assert bench.last is None
 
 
-def test_schedule_window_never_associates_a_run_even_when_today_would_auto_match():
-    """`get_training_schedule_window` never accepts a `RunActivityReadPort` — its
-    call path leaves `_cards_for_day`'s port parameter at its default, so a run
-    card here always renders unassociated, unlike the identical day read through
-    `get_training_today` with a port supplied (see the Task 8 association tests
-    above, which auto-link this exact day/card/distance combination).
-    """
+def test_schedule_window_bulk_loads_once_and_associates_runs_on_their_session_dates():
     repo = _imported_repo()
-    window = get_training_schedule_window(repo, start_date="2026-07-06", duration_days=1)
+    port = _FakeRunActivityPort(
+        {
+            "2026-07-06": [_run("day-1", distance_mi=6.9)],
+            "2026-07-07": [
+                _run("day-2", session_date="2026-07-07", distance_mi=4.0)
+            ],
+        }
+    )
 
-    easy = _card(window.days[0], "running.v3:run.easy:d01")
-    assert easy.associated_activity is None
-    assert easy.run_candidates == []
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-06",
+        duration_days=2,
+        run_activity_port=port,
+    )
+
+    day_1_run = next(card for card in window.days[0].cards if card.bundle_id == "running.v3")
+    day_2_run = next(card for card in window.days[1].cards if card.bundle_id == "running.v3")
+    assert port.calls == [("2026-07-06", "2026-07-07")]
+    assert day_1_run.associated_activity is not None
+    assert day_1_run.associated_activity.run_id == "day-1"
+    assert day_1_run.execution.status == "completed"
+    assert day_2_run.associated_activity is not None
+    assert day_2_run.associated_activity.run_id == "day-2"
+    assert day_2_run.execution.status == "completed"
 
 
 # ---------- get_block_status ----------

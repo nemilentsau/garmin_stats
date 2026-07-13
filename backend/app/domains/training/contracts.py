@@ -619,11 +619,12 @@ class TrainingRunActivitySummary(DefaultsRequired):
     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
     does the m->mi / min-per-km->min-per-mi conversion once, at the
     composition boundary. `link_source` distinguishes a run picked by the
-    Today read model's auto-matching policy (`"auto"`) from one a person
-    manually linked via the capture-log PATCH (`"manual"`).
+    read models' auto-matching policy (`"auto"`) from one a person manually
+    linked via the capture-log PATCH (`"manual"`).
     """
 
     run_id: str
+    session_date: str
     start_time_local: str
     distance_mi: float | None = None
     timer_time_s: float | None = None
@@ -633,6 +634,25 @@ class TrainingRunActivitySummary(DefaultsRequired):
     training_load: float | None = None
     aerobic_training_effect: float | None = None
     link_source: Literal["auto", "manual"] = "auto"
+
+
+class TrainingRunWalkSpan(DefaultsRequired):
+    """Training-local run/walk/stand span, in seconds from session start."""
+
+    span_type: str
+    start_s: float
+    end_s: float
+
+
+class TrainingRunEvidence(DefaultsRequired):
+    """Training-local session summary plus index-aligned analytical series."""
+
+    summary: TrainingRunActivitySummary
+    elapsed_s: list[int]
+    distance_mi: list[float | None]
+    heart_rate_bpm: list[int | None]
+    run_walk_spans: list[TrainingRunWalkSpan]
+    dew_point_c: float | None = None
 
 
 class TrainingTodayCard(DefaultsRequired):
@@ -661,7 +681,7 @@ class TrainingTodayCard(DefaultsRequired):
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
     associated_activity: TrainingRunActivitySummary | None = None  # run cards only
-    run_candidates: list[TrainingRunActivitySummary] = []  # run cards only, Today path only
+    run_candidates: list[TrainingRunActivitySummary] = []  # run cards only
 
     @model_validator(mode="after")
     def _execution_matches_legacy_status(self) -> TrainingTodayCard:
