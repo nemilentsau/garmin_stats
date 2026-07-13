@@ -108,21 +108,16 @@ class RunDetailResponse(DefaultsRequired):
 
 
 class RunSeriesResponse(DefaultsRequired):
-    """Single-run chart-series endpoint response: metric series plus imperial arrays.
+    """Canonical run series plus index-aligned, display-ready chart arrays.
 
-    `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
-    `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
-    frontend charts bind to. `step_length_m` and `vertical_oscillation_cm` are
-    Garmin-style metric display exceptions. Every projection is index-aligned
-    with `series.elapsed_s`.
-    Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
-    `stance_time_pct` — live inside the embedded `series` object (already in
-    native display units — balance %, brpm, % — no conversion applies); empty
-    on wrist-only runs, same as the imperial arrays above. Stamina/performance-
-    condition arrays (`stamina_pct`/`stamina_potential_pct`/`performance_condition`)
-    likewise live only inside `series` — dimensionless ints, no imperial
-    conversion, no top-level duplicate (see commit 59abb86 for why: duplicating
-    embedded series data at the top level was tried and reverted).
+    `series` is the untouched metric FIT projection. Top-level movement arrays
+    are chart projections: start/resume sensor-settling samples and explicit
+    non-running spans become positional nulls without deleting source records.
+    `altitude_ft` is the smoothed display profile. `step_length_m` and
+    `vertical_oscillation_cm` retain Garmin's metric display exceptions.
+
+    Respiration, stamina, and performance-condition arrays remain only inside
+    `series`: they are not movement-dependent charts and need no display copy.
     """
 
     series: RunningActivitySeries
@@ -130,5 +125,10 @@ class RunSeriesResponse(DefaultsRequired):
     altitude_ft: list[float | None] = []
     temperature_f: list[float | None] = []
     distance_mi: list[float | None] = []
+    cadence_spm: list[float | None] = []
     step_length_m: list[float | None] = []
     vertical_oscillation_cm: list[float | None] = []
+    vertical_ratio_pct: list[float | None] = []
+    ground_contact_time_ms: list[float | None] = []
+    ground_contact_balance_pct: list[float | None] = []
+    stance_time_pct: list[float | None] = []

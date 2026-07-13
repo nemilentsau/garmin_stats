@@ -171,7 +171,10 @@ def test_run_detail_and_series_use_existing_imperial_projections():
         RunningActivityLap(lap_index=1, distance_m=1609.344, pace_min_per_km=5.0)
     ]
     repository.series["run-01"] = RunningActivitySeries(
-        elapsed_s=[0], distance_m=[1609.344], speed_mps=[3.0], altitude_m=[100.0]
+        elapsed_s=list(range(11)),
+        distance_m=cast(list[float | None], [1609.344] * 11),
+        speed_mps=cast(list[float | None], [3.0] * 11),
+        altitude_m=cast(list[float | None], [100.0] * 11),
     )
     gateway = _gateway(runs=repository)
 
@@ -183,9 +186,9 @@ def test_run_detail_and_series_use_existing_imperial_projections():
     assert detail.display.pace_min_per_mi == 8.05
     assert detail.display.lap_display[0].distance_mi == 1.0
     assert isinstance(series, RunSeriesResponse)
-    assert series.distance_mi == [1.0]
-    assert series.altitude_ft == [328.0]
-    assert series.pace_min_per_mi == [8.941]
+    assert series.distance_mi == [1.0] * 11
+    assert series.altitude_ft == [328.0] * 11
+    assert series.pace_min_per_mi == [None] * 10 + [8.941]
 
 
 def test_recovery_overview_returns_none_only_for_no_metrics():

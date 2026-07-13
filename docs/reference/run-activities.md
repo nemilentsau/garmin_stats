@@ -32,16 +32,18 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 
 ### Serve (`garmin_analytics`)
 
-- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above; no derivation beyond backend-owned pace (`pace_min_per_mi`, plus the imperial display projection on `RunDisplayStats`) — the frontend derives nothing.
+- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above. The embedded session/lap/series objects preserve the canonical stored values; separate top-level display fields own pace, unit conversion, chart masking, and elevation smoothing so the frontend derives nothing.
+- **Movement-chart projection:** pace, cadence, stride length, vertical oscillation, vertical ratio, ground contact time, GCT balance, and stance-time display arrays preserve positional alignment but return `null` during explicit walk/stand spans and for the first 10 seconds after recording starts or resumes after a gap. The raw arrays remain unchanged inside `RunSeriesResponse.series`.
+- **Elevation projection:** altitude is median-smoothed in a centered 150 m distance window. Closed-loop routes (GPS endpoints within 100 m) additionally remove linear start-to-finish sensor drift; point-to-point routes do not. Display ascent/descent accumulate excursions of at least 3 m from that corrected profile. When a usable profile is absent, detail totals fall back to the stored FIT values.
 - Routes (`backend/app/domains/garmin_analytics/routes.py`, prefix `/api/activities/runs`, see `routes.md`):
   - `GET /api/activities/runs?from=&to=` — `RunsListResponse`, newest first, optional inclusive date-range filter.
   - `GET /api/activities/runs/{run_id}` — `RunDetailResponse` (full session fields + laps).
-  - `GET /api/activities/runs/{run_id}/series` — `RunSeriesResponse` (per-second column arrays + backend-derived pace array).
+  - `GET /api/activities/runs/{run_id}/series` — `RunSeriesResponse` (canonical per-second column arrays + backend-owned display arrays).
 
 ### Display (frontend)
 
 - `frontend/src/routes/runs/+page.svelte` — list table (Date, Name, Distance, Time, Pace, Avg HR with a CHEST/WRIST badge, Load, TE), date-range filter, whole-row navigation to the detail page. Reached via Training → Runs in the nav.
-- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a 10-channel chart stack (elevation, pace, heart rate, cadence, stride length, power, vertical oscillation, vertical ratio, ground contact time, temperature — each rendered only when its series has data), session-stat definition lists (no card chrome), a laps table, and HR/power time-in-zone bars.
+- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a chart stack (smoothed elevation, transition-safe pace/running dynamics, and the remaining recorded channels — each rendered only when its display series has data), session-stat definition lists (no card chrome), a laps table, and HR/power time-in-zone bars.
 - Shared formatting: `frontend/src/lib/format-run.ts`. Frontend computes no statistics — every displayed number (including pace) comes from the API as-is.
 
 ## `hr_source` semantics
@@ -122,12 +124,11 @@ All fields are canonical backend units; the frontend receives display-ready valu
 | Temperature | °C | |
 | Lat/lon | degrees | FIT stores semicircles; parser converts via `raw × 180 / 2³¹` |
 
-This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Series` — what the parser and tables hold). The read layer (`garmin_analytics/application/runs.py`) additionally projects a subset into US imperial fields for display — miles, min/mi, feet, °F — per the project-wide imperial display rule (`CLAUDE.md`; distance/pace/elevation/temperature only, the Garmin-style exceptions above stay metric/native). `RunDisplayStats`/`RunSeriesResponse`'s `*_mi`/`*_ft`/`*_f`/`pace_min_per_mi` fields are that projection; the embedded `session`/`laps`/`series` stay metric regardless.
+This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Series` — what the parser and tables hold). The read layer (`garmin_analytics/application/runs.py`) additionally projects display fields in US imperial units — miles, min/mi, feet, °F — per the project-wide rule (`CLAUDE.md`; Garmin-style exceptions stay metric/native). `RunDisplayStats` and the top-level `RunSeriesResponse` arrays are the display projection; the embedded `session`/`laps`/`series` stay canonical and unmodified.
 
 ## Known gaps
 
 - **No time↔distance axis toggle.** Chart x-axis is elapsed time only.
 - **Strength and breathing FIT files are not parsed.** Only `*_running_*.fit` is discovered; strength-specific schema remains a design doc (`../future/STRENGTH_ACTIVITY_SCHEMA.md`).
 - **Zone boundaries display backend sentinels verbatim.** E.g. power zone 6's upper boundary can show as `4000` (an open-ended-top-zone sentinel, not a real reading) — the frontend renders whatever the backend sends without inferring intent.
-- **Ascent reads the FIT integer meters (`total_ascent_m`), not the JSON sidecar's float (`elevationGain`) that Connect itself displays** — a ±1 m / ~3 ft delta from Connect on some runs. Switching to the sidecar field is batched with the next parser-field change plus a re-ingest, not done standalone.
 - **Served/stored but not yet charted:** `RunSeriesResponse.distance_mi` (reserved for a time↔distance x-axis toggle) and the stored `stance_time_pct` series (reserved for a dedicated stance-time channel chart).
