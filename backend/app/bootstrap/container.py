@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.bootstrap.coach_measurement_port import CoachMeasurementAssessmentPort
 from app.bootstrap.run_activity_port import GarminRunActivityPort
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.adapters import SqliteProfileRepository
@@ -48,6 +49,7 @@ class AppContainer:
     routines_repo: SqliteRoutineRepository
     training_repo: SqliteTrainingRepository
     training_run_activity_port: GarminRunActivityPort
+    training_measurement_assessment_port: CoachMeasurementAssessmentPort
     experiments_repo: SqliteExperimentRepository
     experiments_read_source: ExperimentReadSource
     experiment_exposure_sync: ExperimentExposureSyncService
@@ -67,6 +69,7 @@ def build_container() -> AppContainer:
     training_repo = SqliteTrainingRepository()
     training_run_activity_port = GarminRunActivityPort(garmin_runs_repo)
     coach_repo = SqliteCoachRepository()
+    training_measurement_assessment_port = CoachMeasurementAssessmentPort(coach_repo)
     coach_gateway = CoachReadGateway(
         runs_repo=garmin_runs_repo,
         biometrics_repo=garmin_biometrics_repo,
@@ -114,6 +117,7 @@ def build_container() -> AppContainer:
         routines_repo=routines_repo,
         training_repo=training_repo,
         training_run_activity_port=training_run_activity_port,
+        training_measurement_assessment_port=training_measurement_assessment_port,
         experiments_repo=experiments_repo,
         experiments_read_source=experiments_read_source,
         experiment_exposure_sync=ExperimentExposureSyncService(

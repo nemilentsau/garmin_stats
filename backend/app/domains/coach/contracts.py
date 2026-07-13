@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.contracts.base import StrictDefaultsRequired
 
@@ -28,6 +28,30 @@ class ArtifactRef(StrictDefaultsRequired):
     value: str
 
 
+class CoachMeasurementAssessment(StrictDefaultsRequired):
+    """Coach judgment for one exact scheduled measurement-run occurrence."""
+
+    run_id: str
+    occurrence_key: str
+    status: Literal["valid", "provisional", "failed"]
+    rationale: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("rationale")
+    @classmethod
+    def _rationale_has_content(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("rationale must contain non-whitespace text")
+        return value
+
+
+class CoachMeasurementAssessmentRecord(StrictDefaultsRequired):
+    """Assessment plus the durable review/message record that supplied it."""
+
+    assessment: CoachMeasurementAssessment
+    source_id: str
+    created_at: str
+
+
 class CoachReview(StrictDefaultsRequired):
     id: str
     date: str
@@ -39,6 +63,7 @@ class CoachReview(StrictDefaultsRequired):
     content_md: str | None = None
     refs: list[ArtifactRef] = []
     plots_viewed: list[str] = []
+    measurement_assessment: CoachMeasurementAssessment | None = None
     job_id: str
     error: str | None = None
     created_at: str
@@ -60,6 +85,7 @@ class CoachMessage(StrictDefaultsRequired):
     role: Literal["user", "coach", "system"]
     content_md: str
     refs: list[ArtifactRef] = []
+    measurement_assessment: CoachMeasurementAssessment | None = None
     job_id: str | None = None
     created_at: str
 
@@ -121,12 +147,14 @@ class ReviewOutput(StrictDefaultsRequired):
     refs: list[ArtifactRef]
     journal_entry_md: str = Field(max_length=1600)
     brief_md: str | None = Field(default=None, max_length=6000)
+    measurement_assessment: CoachMeasurementAssessment | None = None
 
 
 class ChatOutput(StrictDefaultsRequired):
     answer_md: str = Field(max_length=12000)
     evidence_limits: list[str]
     refs: list[ArtifactRef]
+    measurement_assessment: CoachMeasurementAssessment | None = None
 
 
 class DistillOutput(StrictDefaultsRequired):

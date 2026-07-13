@@ -7,7 +7,10 @@ import shutil
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from app.domains.coach.adapters import SqliteCoachRepository
+from app.domains.coach.adapters import (
+    MeasurementAssessmentValidationError,
+    SqliteCoachRepository,
+)
 from app.domains.coach.application.prompts import (
     chat_prompt,
     distill_prompt,
@@ -109,13 +112,21 @@ class CoachHandlers:
                 finished_at=utc_now_iso(),
             )
             return
-        await asyncio.to_thread(
-            self.repo.complete_review_output,
-            review_id=review_id,
-            job_id=job.id,
-            output=result.output,
-            finished_at=utc_now_iso(),
-        )
+        try:
+            await asyncio.to_thread(
+                self.repo.complete_review_output,
+                review_id=review_id,
+                job_id=job.id,
+                output=result.output,
+                finished_at=utc_now_iso(),
+            )
+        except MeasurementAssessmentValidationError as error:
+            await asyncio.to_thread(
+                self.repo.fail_job,
+                job.id,
+                error=f"invalid_output: {error}",
+                finished_at=utc_now_iso(),
+            )
 
     async def _chat(self, job: CoachJob) -> None:
         thread_id = self._payload_text(job, "thread_id")
@@ -159,14 +170,23 @@ class CoachHandlers:
                 finished_at=utc_now_iso(),
             )
             return
-        await asyncio.to_thread(
-            self.repo.complete_chat_output,
-            job_id=job.id,
-            thread_id=thread_id,
-            output=result.output,
-            session_id=result.session_id,
-            finished_at=utc_now_iso(),
-        )
+        try:
+            await asyncio.to_thread(
+                self.repo.complete_chat_output,
+                job_id=job.id,
+                thread_id=thread_id,
+                output=result.output,
+                session_id=result.session_id,
+                finished_at=utc_now_iso(),
+            )
+        except MeasurementAssessmentValidationError as error:
+            await asyncio.to_thread(
+                self.repo.fail_chat_output,
+                job_id=job.id,
+                thread_id=thread_id,
+                error=f"invalid_output: {error}",
+                finished_at=utc_now_iso(),
+            )
 
     async def _distill(self, job: CoachJob) -> None:
         thread_id = self._payload_text(job, "thread_id")

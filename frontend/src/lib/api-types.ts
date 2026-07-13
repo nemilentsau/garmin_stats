@@ -2420,6 +2420,23 @@ export interface components {
              */
             entries: components["schemas"]["JournalEntry"][];
         };
+        /**
+         * CoachMeasurementAssessment
+         * @description Coach judgment for one exact scheduled measurement-run occurrence.
+         */
+        CoachMeasurementAssessment: {
+            /** Run Id */
+            run_id: string;
+            /** Occurrence Key */
+            occurrence_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "valid" | "provisional" | "failed";
+            /** Rationale */
+            rationale: string;
+        };
         /** CoachMessage */
         CoachMessage: {
             /** Id */
@@ -2438,6 +2455,7 @@ export interface components {
              * @default []
              */
             refs: components["schemas"]["ArtifactRef"][];
+            measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
             /** Job Id */
             job_id: string | null;
             /** Created At */
@@ -2490,6 +2508,7 @@ export interface components {
              * @default []
              */
             plots_viewed: string[];
+            measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
             /** Job Id */
             job_id: string;
             /** Error */

@@ -11,6 +11,7 @@ from app.domains.coach.application.workspace import WorkspaceManifest
 from app.domains.coach.contracts import (
     ArtifactRef,
     ChatOutput,
+    CoachMeasurementAssessment,
     CoachThread,
     DistillOutput,
     ReviewOutput,
@@ -133,6 +134,42 @@ def test_review_failure_changes_no_memory_and_supports_same_job_retry(tmp_path, 
     assert retried.id == queued.id
 
 
+def test_review_target_mismatch_fails_job_without_persisting_assessment(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="running:lthr:d08"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "measurement_assessment": CoachMeasurementAssessment(
+                run_id="run-1",
+                occurrence_key="running:lthr:d15",
+                status="valid",
+                rationale="Credible effort.",
+            )
+        }
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "failed"
+    assert saved.measurement_assessment is None
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+    assert repo.list_journal() == []
+
+
 def test_chat_refreshes_each_turn_uses_resume_marker_and_persists_refs(tmp_path, monkeypatch):
     repo = SqliteCoachRepository()
     repo.insert_thread(
@@ -192,6 +229,48 @@ def test_chat_failure_appends_availability_system_message(tmp_path, monkeypatch)
     messages = repo.messages_for("thread-1")
     assert messages[-1].role == "system"
     assert "unavailable" in messages[-1].content_md.lower()
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+
+
+def test_chat_invalid_assessment_context_fails_without_persisting_assessment(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    repo.insert_thread(
+        CoachThread(
+            id="thread-1",
+            title="Training",
+            status="open",
+            created_at=NOW,
+            last_activity_at=NOW,
+        )
+    )
+    repo.enqueue_chat_message(thread_id="thread-1", content_md="Assess the test")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = ChatOutput(
+        answer_md="Assessment",
+        evidence_limits=[],
+        refs=[],
+        measurement_assessment=CoachMeasurementAssessment(
+            run_id="run-1",
+            occurrence_key="running:lthr:d08",
+            status="valid",
+            rationale="Credible effort.",
+        ),
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    messages = repo.messages_for("thread-1")
+    assert [message.role for message in messages] == ["user", "system"]
+    assert all(message.measurement_assessment is None for message in messages)
     assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
 
 

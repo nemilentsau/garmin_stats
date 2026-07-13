@@ -6,14 +6,16 @@ adapter (`adapters.py`) owns the single-active-block/bundle retirement
 invariant and transaction boundaries; this module only describes the shape
 callers depend on.
 
-`RunActivityReadPort` is a second, unrelated dependency: the read-only seam
+`RunActivityReadPort` and `MeasurementAssessmentReadPort` are unrelated
+read-only dependencies: the first is the seam
 `application/read_models.py`'s run<->prescription association policy uses to
 see tracked runs. `training` must never import `garmin_analytics`/
 `garmin_health` (see `CHARTER.md`), so this Protocol is implemented entirely
 outside the slice — `bootstrap/run_activity_port.py` adapts the
 `garmin_analytics` runs repository to it, and `bootstrap/container.py` wires
-the concrete instance in. Today and schedule-window read models accept this
-port and project tracked runs without importing Garmin contracts.
+the concrete instance in. The second exposes coach judgments through a
+training-local projection composed by `bootstrap/coach_measurement_port.py`.
+Neither seam imports the source domain's persistence adapter into training.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from app.domains.training.contracts import (
     StoredLibrary,
     StoredRegistry,
     TrainingCardLog,
+    TrainingMeasurementAssessment,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
 )
@@ -91,4 +94,14 @@ class RunActivityReadPort(Protocol):
 
     def evidence_for_run(self, run_id: str) -> TrainingRunEvidence:
         """Return full training-local evidence; raise LookupError when unknown."""
+        ...
+
+
+class MeasurementAssessmentReadPort(Protocol):
+    """Read-only training-local access to subjective measurement judgments."""
+
+    def latest_for(
+        self, run_id: str, occurrence_key: str
+    ) -> TrainingMeasurementAssessment | None:
+        """Return the newest assessment for one exact run occurrence."""
         ...

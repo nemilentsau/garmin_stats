@@ -660,6 +660,14 @@ GateResult = Literal["pass", "fail", "unknown"]
 MeasurementGateValue = bool | int | float | str
 
 
+class TrainingMeasurementAssessment(DefaultsRequired):
+    """Training-local projection of the coach's subjective measurement judgment."""
+
+    status: Literal["valid", "provisional", "failed"]
+    rationale: str
+    source_id: str
+
+
 class TrainingMeasurementObservations(DefaultsRequired):
     """Objective values extracted from a tracked measurement run."""
 

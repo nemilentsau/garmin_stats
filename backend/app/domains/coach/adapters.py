@@ -12,6 +12,7 @@ from app.domains.coach.contracts import (
     BriefVersion,
     ChatOutput,
     CoachJob,
+    CoachMeasurementAssessmentRecord,
     CoachMessage,
     CoachReconciliationState,
     CoachReview,
@@ -32,6 +33,10 @@ _PRIORITIES: dict[JobKind, int] = {
     "review_skip": 10,
     "distill_thread": 30,
 }
+
+
+class MeasurementAssessmentValidationError(ValueError):
+    """A model assessment does not match the durable job target/context."""
 
 
 def _new_id(prefix: str) -> str:
@@ -226,6 +231,58 @@ class SqliteCoachRepository:
             ).fetchone()
         return None if row is None else _review_from_row(row)
 
+    def latest_measurement_assessment(
+        self, run_id: str, occurrence_key: str
+    ) -> CoachMeasurementAssessmentRecord | None:
+        """Return the newest successful assessment for one exact run occurrence."""
+        with connect() as connection:
+            row = connection.execute(
+                """
+                SELECT source_id, created_at, source_kind, data FROM (
+                    SELECT id AS source_id, updated_at AS created_at,
+                           'review' AS source_kind, data
+                    FROM coach_reviews
+                    WHERE status = 'complete'
+                      AND json_extract(data, '$.measurement_assessment.run_id') = ?
+                      AND json_extract(
+                          data, '$.measurement_assessment.occurrence_key'
+                      ) = ?
+                    UNION ALL
+                    SELECT message.id AS source_id, message.created_at,
+                           'message' AS source_kind, message.data
+                    FROM coach_messages AS message
+                    JOIN coach_jobs AS job
+                      ON job.id = json_extract(message.data, '$.job_id')
+                    WHERE job.status = 'complete'
+                      AND json_extract(message.data, '$.role') = 'coach'
+                      AND json_extract(
+                          message.data, '$.measurement_assessment.run_id'
+                      ) = ?
+                      AND json_extract(
+                          message.data, '$.measurement_assessment.occurrence_key'
+                      ) = ?
+                )
+                ORDER BY created_at DESC, source_id DESC
+                LIMIT 1
+                """,
+                (run_id, occurrence_key, run_id, occurrence_key),
+            ).fetchone()
+        if row is None:
+            return None
+        source = (
+            _model_from_row(CoachReview, row)
+            if row["source_kind"] == "review"
+            else _model_from_row(CoachMessage, row)
+        )
+        assessment = source.measurement_assessment
+        if assessment is None:
+            return None
+        return CoachMeasurementAssessmentRecord(
+            assessment=assessment,
+            source_id=row["source_id"],
+            created_at=row["created_at"],
+        )
+
     def list_reviews(
         self,
         *,
@@ -300,6 +357,17 @@ class SqliteCoachRepository:
             if row is None:
                 raise LookupError(f"Unknown coach review: {review_id}")
             review = _review_from_row(row)
+            assessment = output.measurement_assessment
+            if assessment is not None and (
+                review.kind != "run"
+                or assessment.run_id != review.run_id
+                or assessment.occurrence_key != review.occurrence_key
+                or assessment.run_id != job.payload.get("run_id")
+                or assessment.occurrence_key != job.payload.get("occurrence_key")
+            ):
+                raise MeasurementAssessmentValidationError(
+                    "Measurement assessment does not match queued review target"
+                )
             completed_review = review.model_copy(
                 update={
                     "status": "complete",
@@ -307,6 +375,7 @@ class SqliteCoachRepository:
                     "content_md": output.review_md,
                     "refs": output.refs,
                     "plots_viewed": output.plots_viewed,
+                    "measurement_assessment": assessment,
                     "error": None,
                     "updated_at": finished_at,
                 }
@@ -402,6 +471,14 @@ class SqliteCoachRepository:
             job = self._job_in_connection(connection, job_id)
             if job.status != "running":
                 raise ValueError(f"Coach job {job_id} is not running")
+            assessment = output.measurement_assessment
+            run_refs = [ref for ref in output.refs if ref.kind == "run"]
+            if assessment is not None and (
+                len(run_refs) != 1 or run_refs[0].value != assessment.run_id
+            ):
+                raise MeasurementAssessmentValidationError(
+                    "Measurement assessment requires exactly one matching run reference"
+                )
             row = connection.execute(
                 "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
             ).fetchone()
@@ -414,6 +491,7 @@ class SqliteCoachRepository:
                 role="coach",
                 content_md=output.answer_md,
                 refs=output.refs,
+                measurement_assessment=assessment,
                 job_id=job_id,
                 created_at=finished_at,
             )
