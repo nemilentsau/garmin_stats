@@ -23,8 +23,46 @@ Evidence has three explicit levels:
   any undeclared estimator. The model must label apparent patterns as observations or
   hypotheses rather than facts.
 
-Plan adjustments are advisory text. Coach never changes an imported training block or
-creates training content.
+Plan adjustments are advisory text. Coach never changes an imported training block,
+creates training content, schedules measurement retries, or computes measurement
+observations and hard gates. The training-owned evidence and schedule behavior are
+documented in [run-activities.md](run-activities.md#program-measurement-evaluation).
+
+## Measurement assessments
+
+`ReviewOutput` and `ChatOutput` may include one strict structured
+`measurement_assessment`; completed `CoachReview` and coach `CoachMessage` records retain
+the same field. It targets one `run_id` plus one runtime `occurrence_key`, classifies the
+measurement as `valid`, `provisional`, or `failed`, and requires a non-blank rationale of
+at most 1,000 characters. The field stays absent when the conversation does not support a
+clear judgment.
+
+Assessment validation and persistence share the review/message completion transaction:
+
+- a run review accepts an assessment only when its run and occurrence exactly match the
+  durable run-review target and queued job payload; skip reviews cannot carry one;
+- chat accepts an assessment only when the output cites exactly one `run` reference and
+  that reference matches `assessment.run_id`. Chat refs do not encode an occurrence, so
+  this check cannot independently prove the supplied `occurrence_key`; training's later
+  exact-target lookup is the occurrence safety boundary;
+- an invalid target rejects the whole model completion. No assessment, completed coach
+  review/message, semantic journal entry, or brief is committed. The worker records the
+  job as failed; chat writes only its normal failure system message.
+
+Coach persistence returns the newest successful assessment matching the exact
+`(run_id, occurrence_key)` pair across completed reviews and completed coach messages.
+The read ignores failed jobs and unrelated or assessment-free newer outputs. At bootstrap,
+a read-only adapter translates that coach-owned record into training's local
+`status`/`rationale`/`source_id` contract; neither domain imports the other's persistence
+adapter.
+
+Training asks for an assessment only for the run currently associated with the exact
+runtime occurrence. Detaching the run, linking a different run, or activating a different
+event-qualified backup occurrence therefore leaves the old record auditable in Coach but
+prevents it from being projected. Coach classifies subjective evidence only: training
+computes the observations and gates, clamps any known hard-gate failure to `failed`, and
+does not apply a Coach verdict when the full run series is missing. Coach can never
+override those boundaries or edit imported program/content.
 
 ## Hierarchical evidence workspace
 
