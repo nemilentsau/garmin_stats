@@ -393,11 +393,16 @@ def test_assessment_cutoff_selects_newest_exact_success_before_boundary():
     assert before_prior_message.source_id == review.id
 
 
-def test_local_date_cutoff_excludes_assessment_at_backup_day_start():
+def test_local_date_cutoff_excludes_assessments_at_or_after_backup_day_start():
     repo = SqliteCoachRepository()
     boundary = datetime.combine(date(2026, 7, 20), time.min).astimezone(UTC)
-    prior_instant = (boundary - timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+    prior_instant = (boundary - timedelta(milliseconds=500)).isoformat().replace(
+        "+00:00", "Z"
+    )
     boundary_instant = boundary.isoformat().replace("+00:00", "Z")
+    after_instant = (boundary + timedelta(milliseconds=500)).isoformat().replace(
+        "+00:00", "Z"
+    )
     review, review_job = _running_review(repo)
     review_assessment = _assessment(status="provisional")
     repo.complete_review_output(
@@ -418,6 +423,21 @@ def test_local_date_cutoff_excludes_assessment_at_backup_day_start():
         ),
         session_id=None,
         finished_at=boundary_instant,
+    )
+    repo.enqueue_chat_message(thread_id="thread-1", content_md="Reassess after boundary")
+    after_job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert after_job is not None
+    repo.complete_chat_output(
+        job_id=after_job.id,
+        thread_id="thread-1",
+        output=ChatOutput(
+            answer_md="Assessment after the boundary",
+            evidence_limits=[],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            measurement_assessment=_assessment(status="failed"),
+        ),
+        session_id=None,
+        finished_at=after_instant,
     )
 
     record = repo.latest_measurement_assessment(

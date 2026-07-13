@@ -8,12 +8,12 @@ from datetime import UTC, date, datetime, time
 
 
 def utc_now_iso() -> str:
-    """Return the current UTC instant with a stable ``Z`` suffix."""
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    """Return the current UTC instant with fixed-width microseconds and ``Z``."""
+    return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def utc_cutoff_iso(value: str | None) -> str | None:
-    """Normalize an exclusive local date or timestamp to canonical UTC."""
+    """Normalize an exclusive cutoff to fixed-width canonical UTC."""
     if value is None:
         return None
     if len(value) == 10:
@@ -22,4 +22,8 @@ def utc_cutoff_iso(value: str | None) -> str | None:
         instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if instant.tzinfo is None:
             instant = instant.astimezone()
-    return instant.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    return (
+        instant.astimezone(UTC)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
