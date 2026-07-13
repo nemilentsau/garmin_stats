@@ -31,6 +31,8 @@ from app.domains.garmin_health.contracts import (
 )
 from app.domains.journal.contracts import DailyCheckIn, Note
 from app.domains.training.contracts import (
+    TrainingRunActivitySummary,
+    TrainingRunEvidence,
     TrainingScheduleWindow,
     TrainingTodayResponse,
 )
@@ -99,9 +101,14 @@ class FakeJournalRepository:
 
 
 class FakeRunActivityPort:
-    def runs_for_date(self, date: str):
-        del date
+    def runs_between(
+        self, start_date: str, end_date: str
+    ) -> list[TrainingRunActivitySummary]:
+        del start_date, end_date
         return []
+
+    def evidence_for_run(self, run_id: str) -> TrainingRunEvidence:
+        raise LookupError(f"run evidence not configured for {run_id}")
 
 
 def _session(index: int, session_date: str) -> RunningActivitySession:
@@ -139,13 +146,13 @@ def _gateway(
     biometrics: FakeBiometricsRepository | None = None,
     journal: FakeJournalRepository | None = None,
     training_repo: object | None = None,
-    run_activity_port: object | None = None,
+    run_activity_port: RunActivityReadPort | None = None,
 ) -> CoachReadGateway:
     return CoachReadGateway(
         runs_repo=runs,
         biometrics_repo=cast(BiometricReadRepository, biometrics or FakeBiometricsRepository([])),
         training_repo=cast(TrainingRepository, training_repo or object()),
-        run_activity_port=cast(RunActivityReadPort, run_activity_port or FakeRunActivityPort()),
+        run_activity_port=run_activity_port or FakeRunActivityPort(),
         journal_repo=cast(Any, journal or FakeJournalRepository()),
     )
 

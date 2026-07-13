@@ -6836,6 +6836,28 @@ export interface components {
             label: string;
         };
         /**
+         * TrainingExecutionEvaluation
+         * @description Effective completion state after considering logs and tracked runs.
+         *
+         *     `run_id` identifies tracked-run evidence only, so it is populated only
+         *     when `source` is `tracked_run`; associations remain available separately
+         *     on `TrainingTodayCard.associated_activity`.
+         */
+        TrainingExecutionEvaluation: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual_log" | "tracked_run" | "none";
+            /** Run Id */
+            run_id: string | null;
+        };
+        /**
          * TrainingExerciseDisplay
          * @description One strength exercise's read-only display projection for a scheduled card.
          */
@@ -6924,7 +6946,7 @@ export interface components {
          *
          *     `linked_run_id`/`run_link_detached` are the run-card association
          *     controls: setting `linked_run_id` manually links one of the date's
-         *     tracked runs (validated against `RunActivityReadPort.runs_for_date` —
+         *     tracked runs (validated against `RunActivityReadPort.runs_between` —
          *     a non-null id absent from that date's runs raises `ValueError`, mapped
          *     to 400 by the app-level exception handler); setting `run_link_detached`
          *     (with no `linked_run_id` in the same request) suppresses auto-matching
@@ -6954,12 +6976,14 @@ export interface components {
          *     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
          *     does the m->mi / min-per-km->min-per-mi conversion once, at the
          *     composition boundary. `link_source` distinguishes a run picked by the
-         *     Today read model's auto-matching policy (`"auto"`) from one a person
-         *     manually linked via the capture-log PATCH (`"manual"`).
+         *     read models' auto-matching policy (`"auto"`) from one a person manually
+         *     linked via the capture-log PATCH (`"manual"`).
          */
         TrainingRunActivitySummary: {
             /** Run Id */
             run_id: string;
+            /** Session Date */
+            session_date: string;
             /** Start Time Local */
             start_time_local: string;
             /** Distance Mi */
@@ -7125,6 +7149,7 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "completed" | "partial" | "skipped";
+            execution: components["schemas"]["TrainingExecutionEvaluation"];
             /** Variant Taken */
             variant_taken: string | null;
             /** Notes */
