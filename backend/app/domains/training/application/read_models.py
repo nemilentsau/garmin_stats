@@ -594,9 +594,11 @@ def _build_card(
         and isinstance(card.contract, MeasurementContract)
         and run_activity_port is not None
     ):
+        evidence_available = True
         try:
             evidence = run_activity_port.evidence_for_run(associated_activity.run_id)
         except LookupError:
+            evidence_available = False
             evidence = TrainingRunEvidence(
                 summary=associated_activity,
                 elapsed_s=[],
@@ -610,23 +612,30 @@ def _build_card(
             evidence=evidence,
         )
         if objective is not None:
-            assessment = (
-                measurement_assessment_port.latest_for(
-                    run_id=associated_activity.run_id,
-                    occurrence_key=occurrence_key,
+            if not evidence_available:
+                measurement = objective
+            else:
+                assessment = (
+                    measurement_assessment_port.latest_for(
+                        run_id=associated_activity.run_id,
+                        occurrence_key=occurrence_key,
+                    )
+                    if measurement_assessment_port is not None
+                    else None
                 )
-                if measurement_assessment_port is not None
-                else None
-            )
-            required_measurement = next(
-                (event.required for event in block.measurement_events if event.card_id == card.id),
-                False,
-            )
-            measurement = finalize_measurement(
-                objective,
-                assessment,
-                required_measurement,
-            )
+                required_measurement = next(
+                    (
+                        event.required
+                        for event in block.measurement_events
+                        if event.card_id == card.id
+                    ),
+                    False,
+                )
+                measurement = finalize_measurement(
+                    objective,
+                    assessment,
+                    required_measurement,
+                )
 
     return TrainingTodayCard(
         occurrence_key=occurrence_key,
@@ -687,9 +696,9 @@ def _cards_for_day(
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
-    The caller owns loading tracked runs. Every card shares this one date's
-    list and the day's run-card count, so this projection never performs I/O
-    per card or per day.
+    The caller bulk-loads run summaries, and every card shares this one date's
+    list plus the day's run-card count. A linked measurement card may still
+    read its own full evidence and exact assessment while being projected.
     """
     entries = [entry for entry in schedule if entry.day == day]
     run_cards_today = sum(1 for entry in entries if _is_run_card(entry))

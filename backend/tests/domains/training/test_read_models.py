@@ -699,6 +699,38 @@ def test_today_measurement_without_evidence_stays_completed_and_awaiting_review(
     assert run_port.evidence_calls == ["missing-evidence"]
 
 
+def test_today_missing_evidence_cannot_be_upgraded_by_valid_assessment():
+    repo = _imported_repo()
+    summary = _run(
+        "missing-evidence", session_date="2026-07-17", distance_mi=7.0
+    ).model_copy(update={"hr_source": "strap"})
+    run_port = _FakeRunActivityPort({"2026-07-17": [summary]})
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="A prior review called this attempt valid.",
+            source_id="review-stale-without-series",
+        )
+    )
+
+    response = get_training_today(
+        repo,
+        date="2026-07-17",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(response, "running.v3:run.lthr_test:d12")
+    assert card.execution.status == "completed"
+    assert card.measurement is not None
+    assert card.measurement.status == "awaiting_review"
+    assert card.measurement.estimator_eligible is False
+    assert card.measurement.retry_required is False
+    assert card.measurement.rationale is None
+    assert card.measurement.assessment_source_id is None
+    assert assessment_port.calls == []
+
+
 def test_today_ordinary_run_has_no_measurement_or_evidence_lookup():
     repo = _imported_repo()
     run_port = _FakeRunActivityPort({"2026-07-06": [_run("ordinary-run", distance_mi=7.0)]})
