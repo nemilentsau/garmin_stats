@@ -933,6 +933,8 @@ def _resolve_measurement_history(
             if attempt_day <= through_day
         }
     )
+    # Each opportunity needs prior attempts re-evaluated at its own cutoff.
+    # Imported blocks are small, and request caches prevent identical reads.
     for attempt_day in attempt_days:
         prior_statuses = _evaluate_resolved_measurement_attempts(
             resolutions=resolutions,

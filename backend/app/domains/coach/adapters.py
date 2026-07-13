@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
@@ -53,6 +54,15 @@ def _review_from_row(row: sqlite3.Row) -> CoachReview:
 
 def _job_from_row(row: sqlite3.Row) -> CoachJob:
     return _model_from_row(CoachJob, row)
+
+
+def _lifecycle_instant(value: str) -> datetime:
+    """Parse canonical or legacy Coach lifecycle text as a UTC instant."""
+    instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if instant.tzinfo is None:
+        # Lifecycle fields have always represented UTC, including naive legacy rows.
+        instant = instant.replace(tzinfo=UTC)
+    return instant.astimezone(UTC)
 
 
 def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
@@ -240,8 +250,9 @@ class SqliteCoachRepository:
     ) -> CoachMeasurementAssessmentRecord | None:
         """Return the newest exact successful assessment before an optional cutoff."""
         cutoff = utc_cutoff_iso(before)
+        cutoff_instant = None if cutoff is None else _lifecycle_instant(cutoff)
         with connect() as connection:
-            row = connection.execute(
+            rows = connection.execute(
                 """
                 SELECT source_id, created_at, source_kind, data FROM (
                     SELECT id AS source_id, updated_at AS created_at,
@@ -252,7 +263,6 @@ class SqliteCoachRepository:
                       AND json_extract(
                           data, '$.measurement_assessment.occurrence_key'
                       ) = ?
-                      AND (? IS NULL OR updated_at < ?)
                     UNION ALL
                     SELECT message.id AS source_id, message.created_at,
                            'message' AS source_kind, message.data
@@ -267,24 +277,29 @@ class SqliteCoachRepository:
                       AND json_extract(
                           message.data, '$.measurement_assessment.occurrence_key'
                       ) = ?
-                      AND (? IS NULL OR message.created_at < ?)
                 )
-                ORDER BY created_at DESC, source_id DESC
-                LIMIT 1
                 """,
                 (
                     run_id,
                     occurrence_key,
-                    cutoff,
-                    cutoff,
                     run_id,
                     occurrence_key,
-                    cutoff,
-                    cutoff,
                 ),
-            ).fetchone()
-        if row is None:
+            ).fetchall()
+        candidates: list[tuple[datetime, sqlite3.Row]] = []
+        for row in rows:
+            instant = _lifecycle_instant(row["created_at"])
+            if cutoff_instant is None or instant < cutoff_instant:
+                candidates.append((instant, row))
+        if not candidates:
             return None
+        _, row = max(
+            candidates,
+            key=lambda candidate: (
+                candidate[0],
+                str(candidate[1]["source_id"]),
+            ),
+        )
         source = (
             _model_from_row(CoachReview, row)
             if row["source_kind"] == "review"

@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 
+from app.domains.coach import adapters as coach_adapters
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.contracts import (
     ArtifactRef,
@@ -78,6 +79,31 @@ def _running_chat(repo: SqliteCoachRepository):
     job = repo.claim_next_job("9999-01-01T00:00:00Z")
     assert job is not None
     return job
+
+
+def _complete_chat_assessment(
+    repo: SqliteCoachRepository,
+    *,
+    finished_at: str,
+    status: str,
+):
+    repo.enqueue_chat_message(thread_id="thread-1", content_md="Reassess this run")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    assessment = _assessment(status=status)
+    message = repo.complete_chat_output(
+        job_id=job.id,
+        thread_id="thread-1",
+        output=ChatOutput(
+            answer_md="Updated assessment",
+            evidence_limits=[],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            measurement_assessment=assessment,
+        ),
+        session_id=None,
+        finished_at=finished_at,
+    )
+    return message, assessment
 
 
 def test_review_assessment_persists_in_same_completed_record():
@@ -449,3 +475,94 @@ def test_local_date_cutoff_excludes_assessments_at_or_after_backup_day_start():
     assert record is not None
     assert record.assessment == review_assessment
     assert record.source_id == review.id
+
+
+def test_legacy_whole_second_assessment_obeys_fractional_exclusive_cutoff():
+    repo = SqliteCoachRepository()
+    review, review_job = _running_review(repo)
+    assessment = _assessment(status="provisional")
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(assessment),
+        finished_at="2026-07-20T00:00:00Z",
+    )
+
+    at_exact_second = repo.latest_measurement_assessment(
+        "run-1",
+        OCCURRENCE_KEY,
+        before="2026-07-20T00:00:00Z",
+    )
+    after_half_second = repo.latest_measurement_assessment(
+        "run-1",
+        OCCURRENCE_KEY,
+        before="2026-07-20T00:00:00.500000Z",
+    )
+
+    assert at_exact_second is None
+    assert after_half_second is not None
+    assert after_half_second.assessment == assessment
+    assert after_half_second.source_id == review.id
+
+
+def test_fractional_offset_assessment_sorts_after_legacy_whole_second():
+    repo = SqliteCoachRepository()
+    review, review_job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(_assessment(status="provisional")),
+        finished_at="2026-07-20T00:00:00Z",
+    )
+    repo.insert_thread(_thread())
+    message, assessment = _complete_chat_assessment(
+        repo,
+        finished_at="2026-07-19T20:00:00.500000-04:00",
+        status="valid",
+    )
+
+    record = repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY)
+
+    assert record is not None
+    assert record.assessment == assessment
+    assert record.source_id == message.id
+
+
+def test_equal_review_and_message_instants_use_source_id_tie_break(monkeypatch):
+    id_counts: dict[str, int] = {}
+
+    def deterministic_id(prefix: str) -> str:
+        index = id_counts.get(prefix, 0)
+        id_counts[prefix] = index + 1
+        if prefix == "review":
+            return "a-review"
+        if prefix == "message":
+            return ("user-message", "z-message")[index]
+        return f"{prefix}-{index}"
+
+    monkeypatch.setattr(coach_adapters, "_new_id", deterministic_id)
+    repo = SqliteCoachRepository()
+    review, review_job = _running_review(repo)
+    review_assessment = _assessment(status="provisional")
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(review_assessment),
+        finished_at="2026-07-20T00:00:00.500000Z",
+    )
+    repo.insert_thread(_thread())
+    message, message_assessment = _complete_chat_assessment(
+        repo,
+        finished_at="2026-07-19T20:00:00.500000-04:00",
+        status="valid",
+    )
+    expected_source_id = max(review.id, message.id)
+    expected_assessment = (
+        review_assessment if expected_source_id == review.id else message_assessment
+    )
+
+    record = repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY)
+
+    assert record is not None
+    assert record.assessment == expected_assessment
+    assert record.source_id == expected_source_id
