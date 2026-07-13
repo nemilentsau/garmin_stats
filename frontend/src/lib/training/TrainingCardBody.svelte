@@ -55,6 +55,21 @@
 	} = $props();
 
 	const EMPTY_CAPTURE: TrainingCaptureLog = { set_logs: [], checkin: null, rpe: null };
+	const MEASUREMENT_LABELS = {
+		awaiting_review: 'Awaiting review',
+		valid: 'Valid',
+		provisional: 'Provisional',
+		failed: 'Failed'
+	} as const;
+	const GATE_RESULT_LABELS = {
+		pass: 'Pass',
+		fail: 'Fail',
+		unknown: 'Unknown'
+	} as const;
+	const SIGNAL_LABELS: Record<string, string> = {
+		'env.dew_point': 'Dew point',
+		'strap.validity_pct': 'Strap validity'
+	};
 
 	// ── One-time synchronous init — never re-runs when card.capture changes. The component
 	// is freshly mounted each time a detail panel opens, so reading card.capture once at
@@ -82,6 +97,18 @@
 	function detachRun() {
 		runPickerOpen = false;
 		onRunLink?.({ linked_run_id: null, run_link_detached: true });
+	}
+
+	function fmtBpm(value: number | null): string {
+		return value == null ? '—' : `${Math.round(value)} bpm`;
+	}
+
+	function fmtValidity(value: number | null): string {
+		return value == null ? '—' : `${(value * 100).toFixed(1)}%`;
+	}
+
+	function signalLabel(signal: string): string {
+		return SIGNAL_LABELS[signal] ?? signal;
 	}
 
 	// Human-readable badge for the card's selection rule: the effective variant in plain
@@ -213,6 +240,54 @@
 			</div>
 		{/if}
 	</div>
+{/if}
+
+{#if card.measurement}
+	{@const measurement = card.measurement}
+	{@const observations = measurement.observations}
+	<section class="measurement-evidence" data-status={measurement.status}>
+		<div class="measurement-heading">
+			<span>Measurement</span>
+			<strong>{MEASUREMENT_LABELS[measurement.status]}</strong>
+		</div>
+		{#if measurement.rationale}
+			<p class="measurement-rationale">{measurement.rationale}</p>
+		{/if}
+		<dl class="measurement-observations">
+			<div>
+				<dt>LTHR observation</dt>
+				<dd>{fmtBpm(observations.final20_hr_bpm)}</dd>
+			</div>
+			<div>
+				<dt>Threshold pace</dt>
+				<dd>{fmtPace(observations.threshold_pace_min_per_mi)}</dd>
+			</div>
+			<div>
+				<dt>Strap validity</dt>
+				<dd>{fmtValidity(observations.strap_validity_pct)}</dd>
+			</div>
+		</dl>
+		{#if !measurement.estimator_eligible}
+			<p class="measurement-limit">Not used to update zones.</p>
+		{/if}
+		{#if measurement.gates.length > 0}
+			<div class="measurement-rows" aria-label="Measurement quality gates">
+				{#each measurement.gates as gate}
+					<div class="measurement-row">
+						<span>{signalLabel(gate.signal)}</span>
+						<strong>{GATE_RESULT_LABELS[gate.result]}</strong>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		{#if measurement.warnings.length > 0}
+			<div class="measurement-warnings" aria-label="Measurement observations">
+				{#each measurement.warnings as warning}
+					<p>{warning.message}</p>
+				{/each}
+			</div>
+		{/if}
+	</section>
 {/if}
 
 {#if card.exercises_display.length > 0}
@@ -482,6 +557,104 @@
 
 	.run-picker-dist {
 		color: #6b8292;
+	}
+
+	/* One aligned evidence section for facets of the same measurement result. It stays
+	   visually subordinate to Executed and deliberately has no nested-card chrome. */
+	.measurement-evidence {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+		padding-left: 10px;
+		border-left: 2px solid rgba(91, 181, 166, 0.42);
+		font-size: 12px;
+		color: #a7bac6;
+	}
+
+	.measurement-heading {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: #8fa3b0;
+	}
+
+	.measurement-heading strong {
+		color: #5bb5a6;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+	}
+
+	.measurement-rationale,
+	.measurement-limit,
+	.measurement-warnings p {
+		margin: 0;
+		line-height: 1.45;
+	}
+
+	.measurement-rationale {
+		color: #c5d8e4;
+	}
+
+	.measurement-observations {
+		display: grid;
+		gap: 3px;
+		margin: 0;
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
+	.measurement-observations > div,
+	.measurement-row {
+		display: grid;
+		grid-template-columns: minmax(140px, 1fr) minmax(84px, auto);
+		align-items: baseline;
+		gap: 16px;
+	}
+
+	.measurement-observations dt {
+		color: #8fa3b0;
+	}
+
+	.measurement-observations dd {
+		margin: 0;
+		color: #d7e3e9;
+		text-align: right;
+	}
+
+	.measurement-limit {
+		color: #8fa3b0;
+		font-size: 11px;
+	}
+
+	.measurement-rows {
+		display: grid;
+		gap: 3px;
+		padding-top: 5px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
+	.measurement-row span {
+		color: #8fa3b0;
+	}
+
+	.measurement-row strong {
+		color: #c5d8e4;
+		font-weight: 500;
+		text-align: right;
+	}
+
+	.measurement-warnings {
+		display: grid;
+		gap: 3px;
+		color: #a7bac6;
+		font-size: 11px;
 	}
 
 	.detail-field {

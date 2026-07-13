@@ -134,6 +134,10 @@
 	const shortDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 	const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 	const weekdayLongFormat = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
+	const REQUIRED_ACTION_LABELS = {
+		extend_block: 'Extend block',
+		flag: 'Flag'
+	} as const;
 
 	function formatShortDate(date: string): string {
 		return shortDateFormat.format(parseIsoDate(date));
@@ -349,6 +353,18 @@
 			<div class="error-banner">{error}</div>
 		{/if}
 
+		{#if trainingWindow && trainingWindow.required_actions.length > 0}
+			<div class="required-actions" aria-label="Required program actions">
+				<span class="required-actions-label">Program action</span>
+				{#each trainingWindow.required_actions as action}
+					<span class="required-action">
+						<strong>{REQUIRED_ACTION_LABELS[action.action]}</strong>
+						<span>{action.event_id}</span>
+					</span>
+				{/each}
+			</div>
+		{/if}
+
 		<!-- Routine selector -->
 		<div class="filter-row">
 			<select
@@ -494,7 +510,7 @@
 												<div class="card-content">
 													<span class="card-name">{trCard.card.name}</span>
 													<span class="card-summary">
-														{trCard.bundle_name}{#if trCard.key_session} · key session{/if}
+														{trCard.bundle_name}{#if trCard.key_session} · key session{/if}{#if trCard.measurement_attempt === 'backup'} <span class="backup-test">· Backup test</span>{/if}
 													</span>
 												</div>
 												<span class="card-brief">{trainingCardBrief(trCard)}</span>
@@ -664,6 +680,41 @@
 		color: #f2a399;
 		border-color: rgba(232, 93, 74, 0.3);
 		background: rgba(232, 93, 74, 0.08);
+	}
+
+	.required-actions {
+		display: flex;
+		align-items: baseline;
+		gap: 8px 14px;
+		flex-wrap: wrap;
+		padding: 4px 0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		font-variant-numeric: tabular-nums lining-nums;
+		color: #8fa3b0;
+	}
+
+	.required-actions-label {
+		color: #5bb5a6;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.required-action {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+
+	.required-action strong {
+		color: #c5d8e4;
+		font-weight: 500;
+	}
+
+	.required-action span {
+		color: #6b8292;
 	}
 
 	/* ── Header bar ── */
@@ -912,6 +963,11 @@
 	.timeline-card.skipped { opacity: 0.35; }
 	.timeline-card.skipped:hover { opacity: 0.6; }
 	.timeline-card.partial { opacity: 0.6; }
+
+	.backup-test {
+		margin-left: 0.35em;
+		color: #8fa3b0;
+	}
 
 	.timeline-card.done .card-name {
 		text-decoration: line-through;
