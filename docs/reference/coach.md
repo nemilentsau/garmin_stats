@@ -97,22 +97,27 @@ original occurrence as `target_date` but uses execution-day recovery as `evidenc
 Each attempt starts `codex exec` in a new process session with a read-only sandbox,
 strict structured-output schema, JSON events, and these isolation controls:
 
-- auth-only `CODEX_HOME`;
+- clean `HOME` and auth-only `CODEX_HOME`, preserving only the existing local
+  `auth.json` link;
+- a copied execution workspace under the system temporary root, outside the app
+  repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
 - project documentation budget set to zero, preventing repo `AGENTS.md` and unrelated
   analytical skills from inflating or redirecting the coach call;
 - no fallback schema guessing or automatic model retry.
 
-Review and distillation use ephemeral homes. A chat thread uses one persistent auth-only
-home and the probe-confirmed resume session ID; its workspace is still refreshed before
-every turn, and the prompt requires rereading it. On timeout or cancellation the runner
-sends `SIGTERM` to the whole process group, waits up to five seconds, then sends
-`SIGKILL`; process shutdown awaits that cleanup.
+Review and distillation use ephemeral Codex sessions. A chat thread uses one persistent
+clean home and the probe-confirmed resume session ID; every turn still receives a fresh
+outside-repository copy of the refreshed canonical workspace, and the prompt requires
+rereading it. On timeout or cancellation the runner sends `SIGTERM` to the whole process
+group, waits up to five seconds, then sends `SIGKILL`; process shutdown awaits that
+cleanup.
 
 Runtime files live beside the configured database under `coach/`: workspaces, shared
 plot cache, thread Codex homes, and attempt logs. Attempts are keyed by job ID and attempt
-number, so stale output from another attempt cannot be accepted. Plot filenames include
-a source-content fingerprint and rendering-spec version.
+number, so stale output from another attempt cannot be accepted. Temporary execution
+workspace copies are removed after each call. Plot filenames include a source-content
+fingerprint and rendering-spec version.
 
 `GARMIN_COACH_WORKER_ENABLED` accepts exactly `true` or `false` and defaults to `true`.
 Set it to `false` during reload-heavy development to prevent automatic model spend;

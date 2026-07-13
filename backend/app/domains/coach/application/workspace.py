@@ -406,7 +406,16 @@ def assemble_workspace(
         elif ref.kind == "plot":
             source = plot_cache_dir / safe_value
             if not source.is_file():
-                raise FileNotFoundError(f"Referenced plot not found: {ref.value}")
+                workspaces_root = directory.parents[1]
+                legacy_sources = sorted(
+                    (workspaces_root / "reviews").glob(
+                        f"*/current/*/images/{safe_value}"
+                    )
+                )
+                if not legacy_sources:
+                    raise FileNotFoundError(f"Referenced plot not found: {ref.value}")
+                plot_cache_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(legacy_sources[0], source)
             destination = directory / "refs/plots" / safe_value
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)

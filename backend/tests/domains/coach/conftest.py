@@ -30,6 +30,7 @@ record = Path(os.environ["CODEX_STUB_RECORD"])
 record.write_text(json.dumps({
     "argv": args,
     "cwd": os.getcwd(),
+    "home": os.environ.get("HOME"),
     "codex_home": os.environ.get("CODEX_HOME"),
 }))
 behavior = os.environ.get("CODEX_STUB_BEHAVIOR", "success")

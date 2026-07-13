@@ -72,7 +72,8 @@ async def _run(
 def test_review_command_is_ephemeral_isolated_and_attaches_images(
     tmp_path, codex_stub, monkeypatch
 ):
-    image = tmp_path / "run.png"
+    image = tmp_path / "workspace/current/run.png"
+    image.parent.mkdir(parents=True)
     image.write_bytes(b"png")
     monkeypatch.setenv("CODEX_STUB_OUTPUT", _review_json())
 
@@ -86,10 +87,14 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     assert result.usage == {"input_tokens": 11, "output_tokens": 7}
     for flag in ("--ignore-user-config", "--ignore-rules", "--json", "--skip-git-repo-check"):
         assert flag in argv
+    assert "--ephemeral" in argv
     assert argv[argv.index("--config") + 1] == "project_doc_max_bytes=0"
     assert argv[:1] == ["exec"]
-    assert argv[argv.index("-i") + 1] == str(image)
-    assert record["cwd"] == str(tmp_path / "workspace")
+    staged_image = Path(argv[argv.index("-i") + 1])
+    assert staged_image == Path(record["cwd"]) / "current/run.png"
+    assert record["cwd"] != str(tmp_path / "workspace")
+    assert not Path(record["cwd"]).exists()
+    assert record["home"] == str(Path(record["codex_home"]).parent)
     assert record["codex_home"].endswith("_runtime/job-1/attempt-1/codex-home/.codex")
 
 
@@ -120,8 +125,11 @@ def test_chat_home_first_turn_and_resume_command(tmp_path, codex_stub, monkeypat
 
     assert first.ok and resumed.ok
     assert "resume" not in first_argv
+    assert "--ephemeral" not in first_argv
     assert second["argv"][:2] == ["exec", "resume"]
     assert "session-old" in second["argv"]
+    assert "--ephemeral" not in second["argv"]
+    assert second["home"] == str(home.parent)
     assert second["codex_home"] == str(home)
 
 
@@ -237,3 +245,16 @@ def test_thread_home_creation_is_idempotent_and_symlinks_only_auth(tmp_path, mon
     assert (first / "auth.json").is_symlink()
     assert not (first / "config.toml").exists()
     assert [path.name for path in first.iterdir()] == ["auth.json"]
+
+
+def test_explicit_source_codex_home_supplies_authentication(tmp_path, monkeypatch):
+    source = tmp_path / "source-codex"
+    auth = source / "auth.json"
+    source.mkdir()
+    auth.write_text("auth")
+    monkeypatch.setenv("HOME", str(tmp_path / "ordinary-home"))
+    monkeypatch.setenv("CODEX_HOME", str(source))
+
+    isolated = ensure_thread_codex_home(tmp_path / "threads", "thread-1")
+
+    assert (isolated / "auth.json").resolve() == auth.resolve()

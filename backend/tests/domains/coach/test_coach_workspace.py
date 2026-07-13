@@ -409,3 +409,42 @@ def test_date_review_and_plot_refs_resolve_and_traversal_is_rejected(tmp_path, f
     )
     with pytest.raises(ValueError, match="Unsafe artifact reference"):
         _assemble(tmp_path / "unsafe", FakeCoachGateway(), repo)
+
+
+def test_historical_workspace_plot_ref_backfills_missing_shared_cache(tmp_path, fake_plots):
+    repo = FakeCoachRepository()
+    repo.journal = [
+        JournalEntry(
+            id="legacy-plot-ref",
+            ts=NOW,
+            kind="review",
+            content_md="Retain the plot used by the prior review.",
+            refs=[ArtifactRef(kind="plot", value="legacy-current-p01.png")],
+            source_id="review-old",
+        )
+    ]
+    workspaces = tmp_path / "workspaces"
+    legacy_plot = (
+        workspaces
+        / "reviews/review-old/current/run-21/images/legacy-current-p01.png"
+    )
+    legacy_plot.parent.mkdir(parents=True)
+    legacy_plot.write_bytes(b"legacy plot")
+
+    from app.domains.coach.application.workspace import assemble_workspace
+
+    manifest = assemble_workspace(
+        FakeCoachGateway(),  # type: ignore[arg-type]
+        repo,  # type: ignore[arg-type]
+        directory=workspaces / "reviews/review-new",
+        plot_cache_dir=tmp_path / "cache",
+        evidence_date="2026-07-12",
+        target_date="2026-07-12",
+        question_md="Review run",
+        current_run_id=None,
+        transcript=None,
+    )
+
+    root = Path(manifest.directory)
+    assert (tmp_path / "cache/legacy-current-p01.png").read_bytes() == b"legacy plot"
+    assert (root / "refs/plots/legacy-current-p01.png").read_bytes() == b"legacy plot"

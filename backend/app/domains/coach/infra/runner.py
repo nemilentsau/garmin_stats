@@ -6,7 +6,9 @@ import asyncio
 import contextlib
 import json
 import os
+import shutil
 import signal
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -53,12 +55,18 @@ output_schema = _ExactOutputSchema()
 
 
 def _user_auth_path() -> Path:
+    explicit_codex_home = os.environ.get("CODEX_HOME")
+    if explicit_codex_home:
+        return Path(explicit_codex_home).expanduser() / "auth.json"
     home = Path(os.environ.get("HOME", str(Path.home())))
     return home / ".codex/auth.json"
 
 
 def _ensure_codex_home(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    path.mkdir(mode=0o700, exist_ok=True)
+    path.chmod(0o700)
     auth_link = path / "auth.json"
     if auth_link.exists() or auth_link.is_symlink():
         if not auth_link.is_symlink() or auth_link.resolve() != _user_auth_path().resolve():
@@ -122,6 +130,7 @@ def _failure(kind: ErrorKind, error: str) -> CodexJobResult:
 
 def _command(
     *,
+    kind: JobKind,
     schema_path: Path,
     output_path: Path,
     workspace: Path,
@@ -132,6 +141,8 @@ def _command(
     command = ["codex", "exec"]
     if resume_session_id is not None:
         command.append("resume")
+    if kind != "chat_turn":
+        command.append("--ephemeral")
     command.extend(
         [
             "--ignore-user-config",
@@ -172,7 +183,6 @@ async def run_codex_job(
     timeout_s: float = 900,
 ) -> CodexJobResult:
     """Run one fresh attempt and accept only validated structured output."""
-    del kind
     workspace.mkdir(parents=True, exist_ok=True)
     attempt_dir = workspace / "_runtime" / job_id / f"attempt-{attempt}"
     try:
@@ -192,15 +202,42 @@ async def run_codex_job(
     logs_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = logs_dir / f"{job_id}-attempt-{attempt}.stdout.jsonl"
     stderr_path = logs_dir / f"{job_id}-attempt-{attempt}.stderr.log"
+    execution_workspace: Path | None = None
+    try:
+        execution_workspace = Path(
+            tempfile.mkdtemp(prefix="garmin-coach-workspace-")
+        ).resolve()
+        shutil.copytree(
+            workspace,
+            execution_workspace,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("_runtime"),
+        )
+        staged_images: list[Path] = []
+        for image in images:
+            try:
+                relative = image.resolve().relative_to(workspace.resolve())
+            except ValueError:
+                relative = Path("_attachments") / image.name
+                destination = execution_workspace / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(image, destination)
+            staged_images.append(execution_workspace / relative)
+    except OSError as error:
+        if execution_workspace is not None:
+            shutil.rmtree(execution_workspace, ignore_errors=True)
+        return _failure("spawn", f"Could not stage isolated workspace: {error}")
     command = _command(
+        kind=kind,
         schema_path=schema_path,
         output_path=output_path,
-        workspace=workspace,
+        workspace=execution_workspace,
         prompt=prompt,
-        images=images,
+        images=staged_images,
         resume_session_id=resume_session_id,
     )
     environment = os.environ.copy()
+    environment["HOME"] = str(active_home.parent)
     environment["CODEX_HOME"] = str(active_home)
     process: asyncio.subprocess.Process | None = None
     try:
@@ -208,7 +245,7 @@ async def run_codex_job(
             try:
                 process = await asyncio.create_subprocess_exec(
                     *command,
-                    cwd=workspace,
+                    cwd=execution_workspace,
                     env=environment,
                     stdout=stdout,
                     stderr=stderr,
@@ -228,6 +265,7 @@ async def run_codex_job(
     finally:
         if process is not None and process.returncode is None:
             await _terminate_process_group(process)
+        shutil.rmtree(execution_workspace, ignore_errors=True)
 
     assert process is not None
     stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
