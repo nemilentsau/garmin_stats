@@ -65,7 +65,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from app.contracts.base import DefaultsRequired, StrictDefaultsRequired
 
@@ -538,7 +538,12 @@ TrainingCardStatus = Literal["pending", "completed", "partial", "skipped"]
 
 
 class TrainingExecutionEvaluation(DefaultsRequired):
-    """Effective completion state after considering logs and tracked runs."""
+    """Effective completion state after considering logs and tracked runs.
+
+    `run_id` identifies tracked-run evidence only, so it is populated only
+    when `source` is `tracked_run`; associations remain available separately
+    on `TrainingTodayCard.associated_activity`.
+    """
 
     status: TrainingCardStatus
     source: Literal["manual_log", "tracked_run", "none"]
@@ -651,14 +656,18 @@ class TrainingTodayCard(DefaultsRequired):
     capture_rpe: bool = False  # card captures a numeric RPE
     est_duration_min: float | None = None
     status: TrainingCardStatus = "pending"
-    execution: TrainingExecutionEvaluation = TrainingExecutionEvaluation(
-        status="pending", source="none"
-    )
+    execution: TrainingExecutionEvaluation
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
     associated_activity: TrainingRunActivitySummary | None = None  # run cards only
     run_candidates: list[TrainingRunActivitySummary] = []  # run cards only, Today path only
+
+    @model_validator(mode="after")
+    def _execution_matches_legacy_status(self) -> TrainingTodayCard:
+        if self.execution.status != self.status:
+            raise ValueError("execution status must match legacy status")
+        return self
 
 
 class TrainingTodayResponse(DefaultsRequired):

@@ -23,6 +23,8 @@ from app.domains.garmin_health.contracts import (
     RunningTimeInZones,
 )
 from app.domains.training.contracts import (
+    TrainingCardStatus,
+    TrainingExecutionEvaluation,
     TrainingSegmentDisplay,
     TrainingTodayCard,
     V3Card,
@@ -33,7 +35,7 @@ def _card(
     segments: list[TrainingSegmentDisplay],
     *,
     notes: str | None = None,
-    status: str = "completed",
+    status: TrainingCardStatus = "completed",
     capture_rpe: bool = True,
 ) -> TrainingTodayCard:
     card = V3Card.model_validate(
@@ -65,7 +67,11 @@ def _card(
         card=card,
         segments_display=segments,
         capture_rpe=capture_rpe,
-        status=status,  # type: ignore[arg-type]
+        status=status,
+        execution=TrainingExecutionEvaluation(
+            status=status,
+            source="none" if status == "pending" else "manual_log",
+        ),
         notes=notes,
     )
 

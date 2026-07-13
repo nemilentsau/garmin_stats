@@ -14,7 +14,7 @@ def test_manual_status_remains_authoritative_when_run_is_associated(
 
     assert execution.status == status
     assert execution.source == "manual_log"
-    assert execution.run_id == "r1"
+    assert execution.run_id is None
 
 
 def test_pending_status_becomes_completed_when_run_is_associated():

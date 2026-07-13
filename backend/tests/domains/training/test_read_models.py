@@ -15,6 +15,7 @@ import json
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.domains.training.application.compile import compile_schedule
@@ -47,10 +48,12 @@ from app.domains.training.contracts import (
     SelectionRule,
     SignalRegistry,
     TrainingCaptureLog,
+    TrainingCardLog,
     TrainingCheckinLog,
     TrainingExerciseLog,
     TrainingRunActivitySummary,
     TrainingSetLog,
+    TrainingTodayCard,
 )
 from tests._architecture import REPO_ROOT
 
@@ -105,6 +108,13 @@ class _FakeRunActivityPort:
     def runs_for_date(self, date: str) -> list[TrainingRunActivitySummary]:
         self.calls.append(date)
         return self._runs_by_date.get(date, [])
+
+
+class _NoWriteTrainingRepository(SqliteTrainingRepository):
+    """Repository that turns an accidental read-path write into a test failure."""
+
+    def upsert_card_log(self, log: TrainingCardLog) -> None:
+        raise AssertionError(f"GET attempted to persist card log {log.id}")
 
 
 # ---------- get_training_today: day boundaries ----------
@@ -244,6 +254,26 @@ def test_today_strength_card_projects_exercises_with_scheme_name_and_log_sets():
     assert bench.scheme == "4×5–8 @ RPE 8"
     assert bench.log_sets is True
     assert push_a.segments_display == []
+
+
+def test_today_card_requires_effective_execution():
+    repo = _imported_repo()
+    card = _card(get_training_today(repo, date="2026-07-06"), "running.v3:run.easy:d01")
+    payload = card.model_dump()
+    del payload["execution"]
+
+    with pytest.raises(ValidationError, match="execution"):
+        TrainingTodayCard.model_validate(payload)
+
+
+def test_today_card_rejects_status_that_disagrees_with_execution():
+    repo = _imported_repo()
+    card = _card(get_training_today(repo, date="2026-07-06"), "running.v3:run.easy:d01")
+    payload = card.model_dump()
+    payload["status"] = "completed"
+
+    with pytest.raises(ValidationError, match="execution status must match legacy status"):
+        TrainingTodayCard.model_validate(payload)
 
 
 # ---------- get_training_today: last-logged load anchor (Task 0.3) ----------
@@ -409,6 +439,29 @@ def test_today_run_card_auto_links_the_days_only_run():
     assert easy.execution.source == "tracked_run"
     assert easy.execution.run_id == "r1"
     assert repo.card_log("2026-07-06", "running.v3:run.easy:d01") is None
+
+
+def test_today_run_completion_does_not_modify_existing_pending_log():
+    repo = _imported_repo()
+    occurrence_key = "running.v3:run.easy:d01"
+    upsert_training_log(
+        repo,
+        date="2026-07-06",
+        occurrence_key=occurrence_key,
+        update=TrainingLogUpdateRequest(status="pending", notes="keep me"),
+    )
+    before = repo.card_log("2026-07-06", occurrence_key)
+    assert before is not None
+    port = _FakeRunActivityPort({"2026-07-06": [_run("r1", distance_mi=6.9)]})
+
+    response = get_training_today(
+        _NoWriteTrainingRepository(), date="2026-07-06", run_activity_port=port
+    )
+
+    easy = _card(response, occurrence_key)
+    assert easy.execution.status == "completed"
+    assert easy.execution.source == "tracked_run"
+    assert _NoWriteTrainingRepository().card_log("2026-07-06", occurrence_key) == before
 
 
 def test_today_non_run_cards_never_get_run_association_fields():
