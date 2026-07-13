@@ -48,7 +48,9 @@ from app.domains.training.contracts import (
     TrainingCardLog,
     TrainingCheckinLog,
     TrainingExerciseLog,
+    TrainingMeasurementAssessment,
     TrainingRunActivitySummary,
+    TrainingRunEvidence,
     TrainingSetLog,
     TrainingTodayCard,
 )
@@ -73,11 +75,11 @@ def _block0_files() -> list[ImportFile]:
     return [ImportFile(filename=name, content=_load(name)) for name in _BLOCK0_FILENAMES]
 
 
-def _imported_repo() -> SqliteTrainingRepository:
+def _imported_repo(*, include_measurement_event: bool = True) -> SqliteTrainingRepository:
     repo = SqliteTrainingRepository()
     result = import_artifacts(repo, ImportRequest(files=_block0_files()))
     assert result.activated is True
-    return repo
+    return repo if include_measurement_event else _NoMeasurementEventTrainingRepository()
 
 
 def _card(response, occurrence_key: str):
@@ -106,13 +108,18 @@ class _FakeRunActivityPort:
     bulk read rather than querying once per rendered day.
     """
 
-    def __init__(self, runs_by_date: dict[str, list[TrainingRunActivitySummary]]) -> None:
+    def __init__(
+        self,
+        runs_by_date: dict[str, list[TrainingRunActivitySummary]],
+        *,
+        evidence_by_run: dict[str, TrainingRunEvidence] | None = None,
+    ) -> None:
         self._runs_by_date = runs_by_date
+        self._evidence_by_run = evidence_by_run or {}
         self.calls: list[tuple[str, str]] = []
+        self.evidence_calls: list[str] = []
 
-    def runs_between(
-        self, start_date: str, end_date: str
-    ) -> list[TrainingRunActivitySummary]:
+    def runs_between(self, start_date: str, end_date: str) -> list[TrainingRunActivitySummary]:
         self.calls.append((start_date, end_date))
         return [
             run
@@ -121,8 +128,42 @@ class _FakeRunActivityPort:
             for run in runs
         ]
 
-    def evidence_for_run(self, run_id: str):
-        raise LookupError(run_id)
+    def evidence_for_run(self, run_id: str) -> TrainingRunEvidence:
+        self.evidence_calls.append(run_id)
+        try:
+            return self._evidence_by_run[run_id]
+        except KeyError as exc:
+            raise LookupError(run_id) from exc
+
+
+class _FakeMeasurementAssessmentPort:
+    def __init__(
+        self,
+        assessment: TrainingMeasurementAssessment | None = None,
+    ) -> None:
+        self.assessment = assessment
+        self.calls: list[tuple[str, str]] = []
+
+    def latest_for(
+        self, *, run_id: str, occurrence_key: str
+    ) -> TrainingMeasurementAssessment | None:
+        self.calls.append((run_id, occurrence_key))
+        return self.assessment
+
+
+def _measurement_evidence(run_id: str = "measurement-run") -> TrainingRunEvidence:
+    elapsed_s = list(range(3301))
+    summary = _run(run_id, session_date="2026-07-17", distance_mi=7.0).model_copy(
+        update={"hr_source": "strap"}
+    )
+    return TrainingRunEvidence(
+        summary=summary,
+        elapsed_s=elapsed_s,
+        distance_mi=[second * (4.2 / 1800) for second in elapsed_s],
+        heart_rate_bpm=[160 for _ in elapsed_s],
+        run_walk_spans=[],
+        dew_point_c=20,
+    )
 
 
 class _NoWriteTrainingRepository(SqliteTrainingRepository):
@@ -130,6 +171,17 @@ class _NoWriteTrainingRepository(SqliteTrainingRepository):
 
     def upsert_card_log(self, log: TrainingCardLog) -> None:
         raise AssertionError(f"GET attempted to persist card log {log.id}")
+
+
+class _NoMeasurementEventTrainingRepository(SqliteTrainingRepository):
+    """Present a valid imported block without events to exercise fallback policy."""
+
+    def active_block(self):
+        stored = super().active_block()
+        assert stored is not None
+        artifact = dict(stored.artifact)
+        artifact["measurement_events"] = []
+        return stored.model_copy(update={"artifact": artifact})
 
 
 # ---------- get_training_today: day boundaries ----------
@@ -566,6 +618,134 @@ def test_today_without_run_activity_port_leaves_run_cards_unassociated():
     assert easy.run_candidates == []
 
 
+@pytest.mark.parametrize(
+    ("assessment_status", "expected_status", "eligible", "retry"),
+    [
+        (None, "awaiting_review", False, False),
+        ("valid", "valid", True, False),
+        ("provisional", "provisional", False, True),
+        ("failed", "failed", False, True),
+    ],
+)
+def test_today_measurement_combines_objective_evidence_with_exact_assessment(
+    assessment_status: str | None,
+    expected_status: str,
+    eligible: bool,
+    retry: bool,
+):
+    repo = _imported_repo()
+    evidence = _measurement_evidence()
+    run_port = _FakeRunActivityPort(
+        {"2026-07-17": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment = (
+        None
+        if assessment_status is None
+        else TrainingMeasurementAssessment(
+            status=assessment_status,  # type: ignore[arg-type]
+            rationale="Reviewed this exact scheduled attempt.",
+            source_id="review-17",
+        )
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(assessment)
+
+    response = get_training_today(
+        repo,
+        date="2026-07-17",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(response, "running.v3:run.lthr_test:d12")
+    assert card.execution.status == "completed"
+    assert card.measurement is not None
+    assert card.measurement.status == expected_status
+    assert card.measurement.estimator_eligible is eligible
+    assert card.measurement.retry_required is retry
+    assert card.measurement.observations.final20_hr_bpm == 160
+    assert card.measurement.rationale == (assessment.rationale if assessment else None)
+    assert card.measurement.assessment_source_id == (assessment.source_id if assessment else None)
+    assert run_port.evidence_calls == ["measurement-run"]
+    assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d12")]
+
+
+def test_today_measurement_without_evidence_stays_completed_and_awaiting_review():
+    repo = _imported_repo()
+    summary = _run("missing-evidence", session_date="2026-07-17", distance_mi=7.0).model_copy(
+        update={"hr_source": "strap"}
+    )
+    run_port = _FakeRunActivityPort({"2026-07-17": [summary]})
+    assessment_port = _FakeMeasurementAssessmentPort()
+
+    response = get_training_today(
+        repo,
+        date="2026-07-17",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(response, "running.v3:run.lthr_test:d12")
+    assert card.execution.status == "completed"
+    assert card.execution.run_id == "missing-evidence"
+    assert card.associated_activity is not None
+    assert card.measurement is not None
+    assert card.measurement.status == "awaiting_review"
+    assert card.measurement.run_id == "missing-evidence"
+    assert card.measurement.observations.final20_hr_bpm is None
+    assert card.measurement.observations.threshold_pace_min_per_mi is None
+    assert card.measurement.observations.strap_validity_pct is None
+    assert [gate.result for gate in card.measurement.gates] == ["unknown", "unknown"]
+    assert run_port.evidence_calls == ["missing-evidence"]
+
+
+def test_today_ordinary_run_has_no_measurement_or_evidence_lookup():
+    repo = _imported_repo()
+    run_port = _FakeRunActivityPort({"2026-07-06": [_run("ordinary-run", distance_mi=7.0)]})
+    assessment_port = _FakeMeasurementAssessmentPort()
+
+    response = get_training_today(
+        repo,
+        date="2026-07-06",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(response, "running.v3:run.easy:d01")
+    assert card.execution.status == "completed"
+    assert card.measurement is None
+    assert run_port.evidence_calls == []
+    assert assessment_port.calls == []
+
+
+def test_today_measurement_without_matching_block_event_is_not_retry_required():
+    repo = _imported_repo(include_measurement_event=False)
+    evidence = _measurement_evidence()
+    run_port = _FakeRunActivityPort(
+        {"2026-07-17": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="provisional",
+            rationale="Useful but optional attempt.",
+            source_id="review-optional",
+        )
+    )
+
+    response = get_training_today(
+        repo,
+        date="2026-07-17",
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(response, "running.v3:run.lthr_test:d12")
+    assert card.measurement is not None
+    assert card.measurement.status == "provisional"
+    assert card.measurement.retry_required is False
+
+
 # ---------- get_training_schedule_window ----------
 
 
@@ -627,9 +807,7 @@ def test_schedule_window_bulk_loads_once_and_associates_runs_on_their_session_da
     port = _FakeRunActivityPort(
         {
             "2026-07-06": [_run("day-1", distance_mi=6.9)],
-            "2026-07-07": [
-                _run("day-2", session_date="2026-07-07", distance_mi=4.0)
-            ],
+            "2026-07-07": [_run("day-2", session_date="2026-07-07", distance_mi=4.0)],
         }
     )
 
@@ -649,6 +827,37 @@ def test_schedule_window_bulk_loads_once_and_associates_runs_on_their_session_da
     assert day_2_run.associated_activity is not None
     assert day_2_run.associated_activity.run_id == "day-2"
     assert day_2_run.execution.status == "completed"
+
+
+def test_schedule_window_projects_measurement_with_both_read_ports():
+    repo = _imported_repo()
+    evidence = _measurement_evidence()
+    run_port = _FakeRunActivityPort(
+        {"2026-07-17": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Protocol met.",
+            source_id="review-window",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-07-17",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+    )
+
+    card = _card(window.days[0], "running.v3:run.lthr_test:d12")
+    assert card.measurement is not None
+    assert card.measurement.status == "valid"
+    assert run_port.calls == [("2026-07-17", "2026-07-17")]
+    assert run_port.evidence_calls == ["measurement-run"]
+    assert assessment_port.calls == [("measurement-run", "running.v3:run.lthr_test:d12")]
 
 
 # ---------- get_block_status ----------
@@ -1020,9 +1229,7 @@ def test_render_rule_not_predicate_negates_signal():
         default="full",
         on_missing_signal="select_default",
     )
-    assert render_rule(rule) == (
-        "Full if not (quad flag); otherwise full; missing data → default."
-    )
+    assert render_rule(rule) == ("Full if not (quad flag); otherwise full; missing data → default.")
 
 
 # ---------- render_gate ----------

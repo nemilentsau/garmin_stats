@@ -19,6 +19,11 @@ from app.domains.training.contracts import (
     SegmentPrescription,
     SegmentSpec,
     TrainingCardStatus,
+    TrainingMeasurementAssessment,
+    TrainingMeasurementEvaluation,
+    TrainingMeasurementGate,
+    TrainingMeasurementObservations,
+    TrainingMeasurementWarning,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
     TrainingRunWalkSpan,
@@ -27,6 +32,7 @@ from app.domains.training.contracts import (
 from app.domains.training.domain.run_evaluation import (
     effective_execution,
     evaluate_run_measurement,
+    finalize_measurement,
 )
 
 
@@ -73,9 +79,7 @@ def _card(
             on_fail="retry_backup",
         )
         if measurement
-        else RecoveryContract(
-            kind="recovery", load_ceiling=DoseSpec(duration_min=55)
-        )
+        else RecoveryContract(kind="recovery", load_ceiling=DoseSpec(duration_min=55))
     )
     return V3Card(
         id="not-a-date-or-special-name",
@@ -87,9 +91,7 @@ def _card(
             CaptureField(
                 id=capture_id,
                 type="number",
-                contract=AnalysisContract(
-                    model_id="est.lthr", decision_informed="zone anchoring"
-                ),
+                contract=AnalysisContract(model_id="est.lthr", decision_informed="zone anchoring"),
             )
         ],
     )
@@ -132,6 +134,131 @@ def _not(predicate: Predicate) -> NotPredicate:
     return NotPredicate.model_validate({"not": predicate})
 
 
+def _objective(*, failed_gate: bool = False) -> TrainingMeasurementEvaluation:
+    return TrainingMeasurementEvaluation(
+        status="failed" if failed_gate else "awaiting_review",
+        run_id="r1",
+        observations=TrainingMeasurementObservations(final20_hr_bpm=160),
+        gates=[
+            TrainingMeasurementGate(
+                signal="strap.validity_pct",
+                value=0.94 if failed_gate else 1.0,
+                operator=">=",
+                threshold=0.95,
+                result="fail" if failed_gate else "pass",
+            )
+        ],
+        warnings=[
+            TrainingMeasurementWarning(
+                code="course_note",
+                value="turnaround",
+                message="One turnaround occurred during the effort.",
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("assessment_status", "required", "expected_status", "eligible", "retry"),
+    [
+        (None, True, "awaiting_review", False, False),
+        ("valid", True, "valid", True, False),
+        ("provisional", True, "provisional", False, True),
+        ("provisional", False, "provisional", False, False),
+        ("failed", True, "failed", False, True),
+        ("failed", False, "failed", False, False),
+    ],
+)
+def test_coach_assessment_sets_final_measurement_policy(
+    assessment_status: str | None,
+    required: bool,
+    expected_status: str,
+    eligible: bool,
+    retry: bool,
+):
+    assessment = (
+        None
+        if assessment_status is None
+        else TrainingMeasurementAssessment(
+            status=assessment_status,  # type: ignore[arg-type]
+            rationale="Coach reviewed the exact attempt.",
+            source_id="review-1",
+        )
+    )
+
+    result = finalize_measurement(
+        _objective(),
+        assessment,
+        required_measurement=required,
+    )
+
+    assert result.status == expected_status
+    assert result.estimator_eligible is eligible
+    assert result.retry_required is retry
+    assert result.rationale == (assessment.rationale if assessment else None)
+    assert result.assessment_source_id == (assessment.source_id if assessment else None)
+    assert result.run_id == "r1"
+    assert result.observations.final20_hr_bpm == 160
+    assert result.gates[0].result == "pass"
+    assert result.warnings[0].code == "course_note"
+
+
+def test_failed_hard_gate_clamps_valid_coach_assessment_and_requires_retry():
+    result = finalize_measurement(
+        _objective(failed_gate=True),
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Subjective execution looked credible.",
+            source_id="review-2",
+        ),
+        required_measurement=True,
+    )
+
+    assert result.status == "failed"
+    assert result.estimator_eligible is False
+    assert result.retry_required is True
+    assert result.rationale == "Subjective execution looked credible."
+    assert result.assessment_source_id == "review-2"
+    assert result.gates[0].result == "fail"
+
+
+def test_passing_root_gate_is_not_clamped_by_a_failed_leaf():
+    objective = _objective().model_copy(
+        update={
+            "gates": [
+                TrainingMeasurementGate(
+                    signal="preferred.signal",
+                    value=1,
+                    operator="==",
+                    threshold=1,
+                    result="pass",
+                ),
+                TrainingMeasurementGate(
+                    signal="alternate.signal",
+                    value=0,
+                    operator="==",
+                    threshold=1,
+                    result="fail",
+                ),
+            ]
+        }
+    )
+
+    result = finalize_measurement(
+        objective,
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="The authored any-gate passed.",
+            source_id="review-any",
+        ),
+        required_measurement=True,
+    )
+
+    assert result.status == "valid"
+    assert result.estimator_eligible is True
+    assert result.retry_required is False
+
+
 @pytest.mark.parametrize("status", ["completed", "partial", "skipped"])
 def test_manual_status_remains_authoritative_when_run_is_associated(
     status: TrainingCardStatus,
@@ -160,9 +287,7 @@ def test_pending_status_remains_pending_without_associated_run():
 
 
 def test_declared_lthr_capture_computes_exact_windows_and_stays_awaiting_review():
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=_evidence()
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=_evidence())
 
     assert evaluation is not None
     assert evaluation.observations.final20_hr_bpm == 160
@@ -177,9 +302,7 @@ def test_declared_lthr_capture_computes_exact_windows_and_stays_awaiting_review(
 
 
 def test_lthr_selection_uses_contract_and_capture_instead_of_card_name_or_id():
-    selected = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=_evidence()
-    )
+    selected = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=_evidence())
     wrong_capture = evaluate_run_measurement(
         card=_card(capture_id="cap.run.rpe"),
         segments=_segments(),
@@ -212,9 +335,7 @@ def test_strap_coverage_boundary_controls_authored_gate(
     for second in range(1500 + covered_seconds, 2700):
         evidence.heart_rate_bpm[second] = None
 
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.strap_validity_pct == expected_validity
@@ -234,9 +355,7 @@ def test_strap_coverage_boundary_controls_authored_gate(
 def test_indeterminable_strap_coverage_is_an_unknown_gate(
     evidence: TrainingRunEvidence,
 ):
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.strap_validity_pct is None
@@ -274,9 +393,7 @@ def test_final20_hr_averages_non_null_samples_and_rounds_to_whole_bpm():
     evidence.heart_rate_bpm[1700] = None
     evidence.heart_rate_bpm[2300] = None
 
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.final20_hr_bpm == 160
@@ -287,9 +404,7 @@ def test_exact_effort_boundary_distance_samples_compute_threshold_pace():
     evidence.distance_mi[900] = 2.0
     evidence.distance_mi[2700] = 6.2
 
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.threshold_pace_min_per_mi == 7.14
@@ -300,9 +415,7 @@ def test_effort_boundary_distance_is_linearly_interpolated():
     for second in (899, 901, 2699, 2701):
         evidence.distance_mi[second] = second * (4.2 / 1800)
 
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.threshold_pace_min_per_mi == 7.14
@@ -320,9 +433,7 @@ def test_pace_is_unavailable_without_valid_samples_surrounding_each_boundary(
     if missing_side != "after-end":
         evidence.distance_mi[2701] = 6.3
 
-    evaluation = evaluate_run_measurement(
-        card=_card(), segments=_segments(), evidence=evidence
-    )
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
     assert evaluation is not None
     assert evaluation.observations.threshold_pace_min_per_mi is None
@@ -343,9 +454,7 @@ def test_stand_spans_are_clipped_to_effort_and_exposed_as_a_warning():
 
     assert evaluation is not None
     assert evaluation.observations.effort_stand_time_s == 250
-    assert [warning.code for warning in evaluation.warnings] == [
-        "uninterrupted_effort"
-    ]
+    assert [warning.code for warning in evaluation.warnings] == ["uninterrupted_effort"]
     assert evaluation.warnings[0].value == 250
     assert evaluation.status == "awaiting_review"
 
@@ -373,9 +482,7 @@ def test_authored_comparison_operators_are_evaluated_generically(
     dew_point: int,
     expected: str,
 ):
-    gate = Cmp.model_validate(
-        {"signal": "env.dew_point", "op": operator, "value": threshold}
-    )
+    gate = Cmp.model_validate({"signal": "env.dew_point", "op": operator, "value": threshold})
 
     evaluation = evaluate_run_measurement(
         card=_card(gates=[gate]),

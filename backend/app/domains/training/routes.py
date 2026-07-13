@@ -41,7 +41,10 @@ def get_today(date: str = Query(..., description="Date (YYYY-MM-DD)")):
     """Return one day's compiled training schedule merged with capture logs."""
     container = build_container()
     return get_training_today(
-        container.training_repo, date=date, run_activity_port=container.training_run_activity_port
+        container.training_repo,
+        date=date,
+        run_activity_port=container.training_run_activity_port,
+        measurement_assessment_port=container.training_measurement_assessment_port,
     )
 
 
@@ -51,8 +54,13 @@ def get_schedule_window(
     days: int = Query(14, description="Number of days in the window"),
 ):
     """Return a multi-day training schedule projection starting at `start`."""
+    container = build_container()
     return get_training_schedule_window(
-        build_container().training_repo, start_date=start, duration_days=days
+        container.training_repo,
+        start_date=start,
+        duration_days=days,
+        run_activity_port=container.training_run_activity_port,
+        measurement_assessment_port=container.training_measurement_assessment_port,
     )
 
 

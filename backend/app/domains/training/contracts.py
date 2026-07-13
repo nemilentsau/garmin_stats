@@ -696,7 +696,7 @@ class TrainingMeasurementWarning(DefaultsRequired):
 
 
 class TrainingMeasurementEvaluation(DefaultsRequired):
-    """Objective measurement projection before subjective coach review."""
+    """Objective run evidence composed with the exact coach assessment."""
 
     status: MeasurementStatus
     run_id: str
@@ -736,6 +736,7 @@ class TrainingTodayCard(DefaultsRequired):
     capture: TrainingCaptureLog | None = None
     associated_activity: TrainingRunActivitySummary | None = None  # run cards only
     run_candidates: list[TrainingRunActivitySummary] = []  # run cards only
+    measurement: TrainingMeasurementEvaluation | None = None  # measurement runs only
 
     @model_validator(mode="after")
     def _execution_matches_legacy_status(self) -> TrainingTodayCard:

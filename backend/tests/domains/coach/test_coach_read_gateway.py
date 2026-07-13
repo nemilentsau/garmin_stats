@@ -31,12 +31,17 @@ from app.domains.garmin_health.contracts import (
 )
 from app.domains.journal.contracts import DailyCheckIn, Note
 from app.domains.training.contracts import (
+    TrainingMeasurementAssessment,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
     TrainingScheduleWindow,
     TrainingTodayResponse,
 )
-from app.domains.training.dependencies import RunActivityReadPort, TrainingRepository
+from app.domains.training.dependencies import (
+    MeasurementAssessmentReadPort,
+    RunActivityReadPort,
+    TrainingRepository,
+)
 
 
 class FakeRunsRepository:
@@ -101,14 +106,20 @@ class FakeJournalRepository:
 
 
 class FakeRunActivityPort:
-    def runs_between(
-        self, start_date: str, end_date: str
-    ) -> list[TrainingRunActivitySummary]:
+    def runs_between(self, start_date: str, end_date: str) -> list[TrainingRunActivitySummary]:
         del start_date, end_date
         return []
 
     def evidence_for_run(self, run_id: str) -> TrainingRunEvidence:
         raise LookupError(f"run evidence not configured for {run_id}")
+
+
+class FakeMeasurementAssessmentPort:
+    def latest_for(
+        self, *, run_id: str, occurrence_key: str
+    ) -> TrainingMeasurementAssessment | None:
+        del run_id, occurrence_key
+        return None
 
 
 def _session(index: int, session_date: str) -> RunningActivitySession:
@@ -147,12 +158,16 @@ def _gateway(
     journal: FakeJournalRepository | None = None,
     training_repo: object | None = None,
     run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> CoachReadGateway:
     return CoachReadGateway(
         runs_repo=runs,
         biometrics_repo=cast(BiometricReadRepository, biometrics or FakeBiometricsRepository([])),
         training_repo=cast(TrainingRepository, training_repo or object()),
         run_activity_port=run_activity_port or FakeRunActivityPort(),
+        measurement_assessment_port=(
+            measurement_assessment_port or FakeMeasurementAssessmentPort()
+        ),
         journal_repo=cast(Any, journal or FakeJournalRepository()),
     )
 
@@ -222,10 +237,22 @@ def test_recovery_and_daily_metrics_return_existing_contracts():
 def test_training_today_receives_run_activity_port_for_association(monkeypatch):
     training_repo = object()
     run_activity_port = FakeRunActivityPort()
+    assessment_port = FakeMeasurementAssessmentPort()
     captured: dict[str, object] = {}
 
-    def fake_today(repo, *, date: str, run_activity_port=None):
-        captured.update(repo=repo, date=date, run_activity_port=run_activity_port)
+    def fake_today(
+        repo,
+        *,
+        date: str,
+        run_activity_port=None,
+        measurement_assessment_port=None,
+    ):
+        captured.update(
+            repo=repo,
+            date=date,
+            run_activity_port=run_activity_port,
+            measurement_assessment_port=measurement_assessment_port,
+        )
         return TrainingTodayResponse(date=date, cards=[])
 
     monkeypatch.setattr(gateway_module.training_uc, "get_training_today", fake_today)
@@ -233,6 +260,7 @@ def test_training_today_receives_run_activity_port_for_association(monkeypatch):
         runs=FakeRunsRepository([]),
         training_repo=training_repo,
         run_activity_port=run_activity_port,
+        measurement_assessment_port=assessment_port,
     )
 
     result = gateway.training_today("2026-07-11")
@@ -242,25 +270,48 @@ def test_training_today_receives_run_activity_port_for_association(monkeypatch):
         "repo": training_repo,
         "date": "2026-07-11",
         "run_activity_port": run_activity_port,
+        "measurement_assessment_port": assessment_port,
     }
 
 
 def test_training_window_and_block_status_delegate(monkeypatch):
     training_repo = object()
-    calls: list[tuple[object, str, int]] = []
+    run_activity_port = FakeRunActivityPort()
+    assessment_port = FakeMeasurementAssessmentPort()
+    calls: list[tuple[object, str, int, object, object]] = []
 
-    def fake_window(repo, *, start_date: str, duration_days: int = 14):
-        calls.append((repo, start_date, duration_days))
+    def fake_window(
+        repo,
+        *,
+        start_date: str,
+        duration_days: int = 14,
+        run_activity_port=None,
+        measurement_assessment_port=None,
+    ):
+        calls.append(
+            (
+                repo,
+                start_date,
+                duration_days,
+                run_activity_port,
+                measurement_assessment_port,
+            )
+        )
         return TrainingScheduleWindow(start_date=start_date, end_date="2026-07-17", days=[])
 
     monkeypatch.setattr(gateway_module.training_uc, "get_training_schedule_window", fake_window)
     monkeypatch.setattr(gateway_module.training_uc, "get_block_status", lambda repo: None)
-    gateway = _gateway(runs=FakeRunsRepository([]), training_repo=training_repo)
+    gateway = _gateway(
+        runs=FakeRunsRepository([]),
+        training_repo=training_repo,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=assessment_port,
+    )
 
     window = gateway.training_window("2026-07-11", days=7)
 
     assert window.end_date == "2026-07-17"
-    assert calls == [(training_repo, "2026-07-11", 7)]
+    assert calls == [(training_repo, "2026-07-11", 7, run_activity_port, assessment_port)]
     assert gateway.block_status() is None
 
 

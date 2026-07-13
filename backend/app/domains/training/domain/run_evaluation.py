@@ -11,6 +11,7 @@ from app.domains.training.contracts import (
     SegmentSpec,
     TrainingCardStatus,
     TrainingExecutionEvaluation,
+    TrainingMeasurementAssessment,
     TrainingMeasurementEvaluation,
     TrainingMeasurementGate,
     TrainingMeasurementObservations,
@@ -36,10 +37,38 @@ def effective_execution(
     if log_status != "pending":
         return TrainingExecutionEvaluation(status=log_status, source="manual_log")
     if run_id is not None:
-        return TrainingExecutionEvaluation(
-            status="completed", source="tracked_run", run_id=run_id
-        )
+        return TrainingExecutionEvaluation(status="completed", source="tracked_run", run_id=run_id)
     return TrainingExecutionEvaluation(status="pending", source="none")
+
+
+def finalize_measurement(
+    objective: TrainingMeasurementEvaluation,
+    assessment: TrainingMeasurementAssessment | None,
+    required_measurement: bool,
+) -> TrainingMeasurementEvaluation:
+    """Combine objective hard gates with the exact coach judgment.
+
+    Objective evidence remains immutable in the returned projection. A known
+    failed authored gate is terminal; otherwise the coach judgment supplies
+    validity, while an absent judgment stays awaiting review.
+    """
+    hard_gate_failed = objective.status == "failed"
+    status = (
+        "failed"
+        if hard_gate_failed
+        else "awaiting_review"
+        if assessment is None
+        else assessment.status
+    )
+    return objective.model_copy(
+        update={
+            "status": status,
+            "rationale": assessment.rationale if assessment is not None else None,
+            "assessment_source_id": (assessment.source_id if assessment is not None else None),
+            "estimator_eligible": status == "valid",
+            "retry_required": (required_measurement and status in {"provisional", "failed"}),
+        }
+    )
 
 
 def evaluate_run_measurement(
@@ -65,22 +94,14 @@ def evaluate_run_measurement(
         if effort_window is None
         else (effort_window[1] - _LTHR_FINAL_SECONDS, effort_window[1])
     )
-    final20_hr = (
-        None if final_window is None else _mean_hr(evidence, window=final_window)
-    )
+    final20_hr = None if final_window is None else _mean_hr(evidence, window=final_window)
     strap_validity = (
-        None
-        if final_window is None
-        else _strap_validity(evidence, window=final_window)
+        None if final_window is None else _strap_validity(evidence, window=final_window)
     )
     threshold_pace = (
-        None
-        if effort_window is None
-        else _threshold_pace(evidence, window=effort_window)
+        None if effort_window is None else _threshold_pace(evidence, window=effort_window)
     )
-    stand_time = (
-        0.0 if effort_window is None else _stand_time(evidence, window=effort_window)
-    )
+    stand_time = 0.0 if effort_window is None else _stand_time(evidence, window=effort_window)
     observations = TrainingMeasurementObservations(
         final20_hr_bpm=final20_hr,
         threshold_pace_min_per_mi=threshold_pace,
@@ -92,8 +113,7 @@ def evaluate_run_measurement(
         "strap.validity_pct": strap_validity,
     }
     evaluated_roots = [
-        _evaluate_predicate(predicate, signal_values)
-        for predicate in card.contract.quality_gate
+        _evaluate_predicate(predicate, signal_values) for predicate in card.contract.quality_gate
     ]
     gates = [gate for _, root_gates in evaluated_roots for gate in root_gates]
     warnings = (
@@ -132,44 +152,30 @@ def _lthr_effort_window(segments: list[SegmentSpec]) -> tuple[float, float] | No
     return None
 
 
-def _series_covers(
-    elapsed_s: list[int], *, window: tuple[float, float]
-) -> bool:
+def _series_covers(elapsed_s: list[int], *, window: tuple[float, float]) -> bool:
     """Return whether sample extent covers every second in a half-open window."""
-    return (
-        bool(elapsed_s)
-        and min(elapsed_s) <= window[0]
-        and max(elapsed_s) >= window[1] - 1
-    )
+    return bool(elapsed_s) and min(elapsed_s) <= window[0] and max(elapsed_s) >= window[1] - 1
 
 
-def _mean_hr(
-    evidence: TrainingRunEvidence, *, window: tuple[float, float]
-) -> int | None:
+def _mean_hr(evidence: TrainingRunEvidence, *, window: tuple[float, float]) -> int | None:
     if not _series_covers(evidence.elapsed_s, window=window):
         return None
     values = [
         heart_rate
-        for elapsed, heart_rate in zip(
-            evidence.elapsed_s, evidence.heart_rate_bpm, strict=False
-        )
+        for elapsed, heart_rate in zip(evidence.elapsed_s, evidence.heart_rate_bpm, strict=False)
         if window[0] <= elapsed < window[1] and heart_rate is not None
     ]
     return None if not values else round(fmean(values))
 
 
-def _strap_validity(
-    evidence: TrainingRunEvidence, *, window: tuple[float, float]
-) -> float | None:
+def _strap_validity(evidence: TrainingRunEvidence, *, window: tuple[float, float]) -> float | None:
     if evidence.summary.hr_source != "strap" or not _series_covers(
         evidence.elapsed_s, window=window
     ):
         return None
     covered_seconds = {
         elapsed
-        for elapsed, heart_rate in zip(
-            evidence.elapsed_s, evidence.heart_rate_bpm, strict=False
-        )
+        for elapsed, heart_rate in zip(evidence.elapsed_s, evidence.heart_rate_bpm, strict=False)
         if window[0] <= elapsed < window[1] and heart_rate is not None
     }
     if not covered_seconds:
@@ -177,9 +183,7 @@ def _strap_validity(
     return round(len(covered_seconds) / _LTHR_FINAL_SECONDS, 3)
 
 
-def _threshold_pace(
-    evidence: TrainingRunEvidence, *, window: tuple[float, float]
-) -> float | None:
+def _threshold_pace(evidence: TrainingRunEvidence, *, window: tuple[float, float]) -> float | None:
     start_distance = _distance_at(evidence, target_s=window[0])
     end_distance = _distance_at(evidence, target_s=window[1])
     if start_distance is None or end_distance is None:
@@ -194,14 +198,10 @@ def _threshold_pace(
 def _distance_at(evidence: TrainingRunEvidence, *, target_s: float) -> float | None:
     valid_points = [
         (elapsed, distance)
-        for elapsed, distance in zip(
-            evidence.elapsed_s, evidence.distance_mi, strict=False
-        )
+        for elapsed, distance in zip(evidence.elapsed_s, evidence.distance_mi, strict=False)
         if distance is not None
     ]
-    exact = next(
-        (distance for elapsed, distance in valid_points if elapsed == target_s), None
-    )
+    exact = next((distance for elapsed, distance in valid_points if elapsed == target_s), None)
     if exact is not None:
         return exact
     before = max(
@@ -218,9 +218,7 @@ def _distance_at(evidence: TrainingRunEvidence, *, target_s: float) -> float | N
     return before[1] + fraction * (after[1] - before[1])
 
 
-def _stand_time(
-    evidence: TrainingRunEvidence, *, window: tuple[float, float]
-) -> float:
+def _stand_time(evidence: TrainingRunEvidence, *, window: tuple[float, float]) -> float:
     return sum(
         max(0.0, min(span.end_s, window[1]) - max(span.start_s, window[0]))
         for span in evidence.run_walk_spans
@@ -237,9 +235,7 @@ def _evaluate_predicate(
         return gate.result, [gate]
     if isinstance(predicate, (AllPredicate, AnyPredicate)):
         children = predicate.all if isinstance(predicate, AllPredicate) else predicate.any
-        evaluated_children = [
-            _evaluate_predicate(child, signal_values) for child in children
-        ]
+        evaluated_children = [_evaluate_predicate(child, signal_values) for child in children]
         results = [result for result, _ in evaluated_children]
         gates = [gate for _, child_gates in evaluated_children for gate in child_gates]
         if isinstance(predicate, AllPredicate):

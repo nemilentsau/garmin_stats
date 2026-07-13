@@ -6986,6 +6986,89 @@ export interface components {
             run_link_detached?: boolean | null;
         };
         /**
+         * TrainingMeasurementEvaluation
+         * @description Objective run evidence composed with the exact coach assessment.
+         */
+        TrainingMeasurementEvaluation: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "awaiting_review" | "valid" | "provisional" | "failed";
+            /** Run Id */
+            run_id: string;
+            observations: components["schemas"]["TrainingMeasurementObservations"];
+            /** Gates */
+            gates: components["schemas"]["TrainingMeasurementGate"][];
+            /** Warnings */
+            warnings: components["schemas"]["TrainingMeasurementWarning"][];
+            /** Rationale */
+            rationale: string | null;
+            /** Assessment Source Id */
+            assessment_source_id: string | null;
+            /**
+             * Estimator Eligible
+             * @default false
+             */
+            estimator_eligible: boolean;
+            /**
+             * Retry Required
+             * @default false
+             */
+            retry_required: boolean;
+        };
+        /**
+         * TrainingMeasurementGate
+         * @description One authored quality-gate comparison and its objective result.
+         */
+        TrainingMeasurementGate: {
+            /** Signal */
+            signal: string;
+            /** Value */
+            value: boolean | number | string | null;
+            /**
+             * Operator
+             * @enum {string}
+             */
+            operator: "<" | "<=" | ">" | ">=" | "==" | "in";
+            /** Threshold */
+            threshold: boolean | number | string | (boolean | number | string)[];
+            /**
+             * Result
+             * @enum {string}
+             */
+            result: "pass" | "fail" | "unknown";
+        };
+        /**
+         * TrainingMeasurementObservations
+         * @description Objective values extracted from a tracked measurement run.
+         */
+        TrainingMeasurementObservations: {
+            /** Final20 Hr Bpm */
+            final20_hr_bpm: number | null;
+            /** Threshold Pace Min Per Mi */
+            threshold_pace_min_per_mi: number | null;
+            /** Strap Validity Pct */
+            strap_validity_pct: number | null;
+            /**
+             * Effort Stand Time S
+             * @default 0
+             */
+            effort_stand_time_s: number;
+        };
+        /**
+         * TrainingMeasurementWarning
+         * @description Objective protocol evidence that is not an authored hard gate.
+         */
+        TrainingMeasurementWarning: {
+            /** Code */
+            code: string;
+            /** Value */
+            value: boolean | number | string | null;
+            /** Message */
+            message: string;
+        };
+        /**
          * TrainingRunActivitySummary
          * @description Training-local projection of a tracked run; imperial display units.
          *
@@ -7180,6 +7263,7 @@ export interface components {
              * @default []
              */
             run_candidates: components["schemas"]["TrainingRunActivitySummary"][];
+            measurement: components["schemas"]["TrainingMeasurementEvaluation"] | null;
         };
         /**
          * TrainingTodayResponse

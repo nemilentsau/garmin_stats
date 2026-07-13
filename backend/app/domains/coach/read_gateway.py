@@ -27,7 +27,11 @@ from app.domains.training.contracts import (
     TrainingScheduleWindow,
     TrainingTodayResponse,
 )
-from app.domains.training.dependencies import RunActivityReadPort, TrainingRepository
+from app.domains.training.dependencies import (
+    MeasurementAssessmentReadPort,
+    RunActivityReadPort,
+    TrainingRepository,
+)
 
 
 class CoachReadGateway:
@@ -40,12 +44,14 @@ class CoachReadGateway:
         biometrics_repo: BiometricReadRepository,
         training_repo: TrainingRepository,
         run_activity_port: RunActivityReadPort,
+        measurement_assessment_port: MeasurementAssessmentReadPort,
         journal_repo: JournalRepository,
     ) -> None:
         self._runs_repo = runs_repo
         self._biometrics_repo = biometrics_repo
         self._training_repo = training_repo
         self._run_activity_port = run_activity_port
+        self._measurement_assessment_port = measurement_assessment_port
         self._journal_repo = journal_repo
 
     def recent_runs(self, *, evidence_date: str, limit: int = 20) -> list[RunListItem]:
@@ -72,6 +78,7 @@ class CoachReadGateway:
             self._training_repo,
             date=date,
             run_activity_port=self._run_activity_port,
+            measurement_assessment_port=self._measurement_assessment_port,
         )
 
     def training_window(self, start: str, days: int) -> TrainingScheduleWindow:
@@ -79,6 +86,8 @@ class CoachReadGateway:
             self._training_repo,
             start_date=start,
             duration_days=days,
+            run_activity_port=self._run_activity_port,
+            measurement_assessment_port=self._measurement_assessment_port,
         )
 
     def block_status(self) -> TrainingBlockStatus | None:

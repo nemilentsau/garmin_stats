@@ -75,6 +75,7 @@ def build_container() -> AppContainer:
         biometrics_repo=garmin_biometrics_repo,
         training_repo=training_repo,
         run_activity_port=training_run_activity_port,
+        measurement_assessment_port=training_measurement_assessment_port,
         journal_repo=journal_repo,
     )
     coach_jobs = CoachJobs(repo=coach_repo, gateway=coach_gateway)

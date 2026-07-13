@@ -98,7 +98,9 @@ from app.domains.training.contracts import (
     TrainingExecutionEvaluation,
     TrainingExerciseDisplay,
     TrainingLastLogged,
+    TrainingMeasurementEvaluation,
     TrainingRunActivitySummary,
+    TrainingRunEvidence,
     TrainingScheduleDay,
     TrainingScheduleWindow,
     TrainingSegmentDisplay,
@@ -107,8 +109,16 @@ from app.domains.training.contracts import (
     V3Block,
     V3Bundle,
 )
-from app.domains.training.dependencies import RunActivityReadPort, TrainingRepository
-from app.domains.training.domain.run_evaluation import effective_execution
+from app.domains.training.dependencies import (
+    MeasurementAssessmentReadPort,
+    RunActivityReadPort,
+    TrainingRepository,
+)
+from app.domains.training.domain.run_evaluation import (
+    effective_execution,
+    evaluate_run_measurement,
+    finalize_measurement,
+)
 
 # ---------- signal short-names + predicate/render helpers ----------
 
@@ -505,10 +515,13 @@ def _build_card(
     registry: SignalRegistry,
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
+    block: V3Block,
     repo: TrainingRepository,
     prior_logs: list[TrainingCardLog] | None = None,
     runs_today: list[TrainingRunActivitySummary] | None = None,
     run_cards_today: int = 0,
+    run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> TrainingTodayCard:
     """Project one compiled schedule entry into a display-ready Today card, log merged in.
 
@@ -526,6 +539,7 @@ def _build_card(
     assignment = entry.assignment
     occurrence_key = f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
 
+    segments: list[SegmentSpec] = []
     segments_display: list[TrainingSegmentDisplay] = []
     exercises_display: list[TrainingExerciseDisplay] = []
     log_sets = any(field.type == "set_rep_load[]" for field in card.capture)
@@ -543,12 +557,8 @@ def _build_card(
         ]
     else:
         patched = full_variant_prescription(entry)
-        segments_display = [
-            build_segment_display(segment)
-            for segment in (
-                SegmentSpec.model_validate(raw) for raw in patched.get("segments", [])
-            )
-        ]
+        segments = [SegmentSpec.model_validate(raw) for raw in patched.get("segments", [])]
+        segments_display = [build_segment_display(segment) for segment in segments]
 
     rows = (
         checkin_rows(registry)
@@ -578,6 +588,45 @@ def _build_card(
         log_status=log.status if log else "pending",
         run_id=associated_activity.run_id if associated_activity else None,
     )
+    measurement: TrainingMeasurementEvaluation | None = None
+    if (
+        associated_activity is not None
+        and isinstance(card.contract, MeasurementContract)
+        and run_activity_port is not None
+    ):
+        try:
+            evidence = run_activity_port.evidence_for_run(associated_activity.run_id)
+        except LookupError:
+            evidence = TrainingRunEvidence(
+                summary=associated_activity,
+                elapsed_s=[],
+                distance_mi=[],
+                heart_rate_bpm=[],
+                run_walk_spans=[],
+            )
+        objective = evaluate_run_measurement(
+            card=card,
+            segments=segments,
+            evidence=evidence,
+        )
+        if objective is not None:
+            assessment = (
+                measurement_assessment_port.latest_for(
+                    run_id=associated_activity.run_id,
+                    occurrence_key=occurrence_key,
+                )
+                if measurement_assessment_port is not None
+                else None
+            )
+            required_measurement = next(
+                (event.required for event in block.measurement_events if event.card_id == card.id),
+                False,
+            )
+            measurement = finalize_measurement(
+                objective,
+                assessment,
+                required_measurement,
+            )
 
     return TrainingTodayCard(
         occurrence_key=occurrence_key,
@@ -592,9 +641,7 @@ def _build_card(
         rule_display=render_rule(assignment.selection),
         gate_display=gate_display,
         variant_options=(
-            [variant.id for variant in assignment.variants]
-            if len(assignment.variants) >= 2
-            else []
+            [variant.id for variant in assignment.variants] if len(assignment.variants) >= 2 else []
         ),
         segments_display=segments_display,
         exercises_display=exercises_display,
@@ -608,6 +655,7 @@ def _build_card(
         capture=log.capture if log else None,
         associated_activity=associated_activity,
         run_candidates=run_candidates,
+        measurement=measurement,
     )
 
 
@@ -630,9 +678,12 @@ def _cards_for_day(
     registry: SignalRegistry,
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
+    block: V3Block,
     repo: TrainingRepository,
     prior_logs: list[TrainingCardLog] | None = None,
     runs_today: list[TrainingRunActivitySummary] | None = None,
+    run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
@@ -645,9 +696,18 @@ def _cards_for_day(
     day_runs = runs_today or []
     cards = [
         _build_card(
-            entry, date=date, registry=registry, library=library, bundle_names=bundle_names,
-            repo=repo, prior_logs=prior_logs, runs_today=day_runs,
+            entry,
+            date=date,
+            registry=registry,
+            library=library,
+            bundle_names=bundle_names,
+            block=block,
+            repo=repo,
+            prior_logs=prior_logs,
+            runs_today=day_runs,
             run_cards_today=run_cards_today,
+            run_activity_port=run_activity_port,
+            measurement_assessment_port=measurement_assessment_port,
         )
         for entry in entries
     ]
@@ -663,6 +723,7 @@ def get_training_today(
     *,
     date: str,
     run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> TrainingTodayResponse:
     """Return one day's compiled schedule enriched with any saved capture logs.
 
@@ -688,13 +749,20 @@ def get_training_today(
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     prior_logs = repo.card_logs_before(date)
-    runs_today = (
-        run_activity_port.runs_between(date, date) if run_activity_port is not None else []
-    )
+    runs_today = run_activity_port.runs_between(date, date) if run_activity_port is not None else []
     cards = _cards_for_day(
-        schedule, day, date=date, registry=registry, library=library,
-        bundle_names=bundle_names, repo=repo, prior_logs=prior_logs,
+        schedule,
+        day,
+        date=date,
+        registry=registry,
+        library=library,
+        block=block,
+        bundle_names=bundle_names,
+        repo=repo,
+        prior_logs=prior_logs,
         runs_today=runs_today,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -707,6 +775,7 @@ def get_training_schedule_window(
     start_date: str,
     duration_days: int = 14,
     run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> TrainingScheduleWindow:
     """Return a multi-day schedule projection starting at `start_date`.
 
@@ -741,9 +810,17 @@ def get_training_schedule_window(
         day_number = _day_number(block, current_iso)
         cards = (
             _cards_for_day(
-                schedule, day_number, date=current_iso, registry=registry, library=library,
-                bundle_names=bundle_names, repo=repo,
+                schedule,
+                day_number,
+                date=current_iso,
+                registry=registry,
+                library=library,
+                block=block,
+                bundle_names=bundle_names,
+                repo=repo,
                 runs_today=runs_by_date.get(current_iso, []),
+                run_activity_port=run_activity_port,
+                measurement_assessment_port=measurement_assessment_port,
             )
             if 1 <= day_number <= block.window.days
             else []
@@ -903,9 +980,7 @@ def upsert_training_log(
     )
     if "linked_run_id" in fields_set and update.linked_run_id is not None:
         available = (
-            run_activity_port.runs_between(date, date)
-            if run_activity_port is not None
-            else []
+            run_activity_port.runs_between(date, date) if run_activity_port is not None else []
         )
         if not any(run.run_id == update.linked_run_id for run in available):
             raise ValueError(f"run {update.linked_run_id!r} is not a tracked run for {date}")
