@@ -354,14 +354,16 @@
 		{/if}
 
 		{#if trainingWindow && trainingWindow.required_actions.length > 0}
-			<div class="required-actions" aria-label="Required program actions">
+			<div class="required-actions-row">
 				<span class="required-actions-label">Program action</span>
-				{#each trainingWindow.required_actions as action}
-					<span class="required-action">
-						<strong>{REQUIRED_ACTION_LABELS[action.action]}</strong>
-						<span>{action.event_id}</span>
-					</span>
-				{/each}
+				<ul class="required-actions" aria-label="Required program actions">
+					{#each trainingWindow.required_actions as action (action.event_id)}
+						<li class="required-action">
+							<strong>{REQUIRED_ACTION_LABELS[action.action]}</strong>
+							<span>{action.event_id}</span>
+						</li>
+					{/each}
+				</ul>
 			</div>
 		{/if}
 
@@ -682,16 +684,26 @@
 		background: rgba(232, 93, 74, 0.08);
 	}
 
+	.required-actions-row,
 	.required-actions {
 		display: flex;
 		align-items: baseline;
 		gap: 8px 14px;
 		flex-wrap: wrap;
-		padding: 4px 0;
 		font-family: 'DM Mono', monospace;
 		font-size: 11px;
 		font-variant-numeric: tabular-nums lining-nums;
 		color: #8fa3b0;
+	}
+
+	.required-actions-row {
+		padding: 4px 0;
+	}
+
+	.required-actions {
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 
 	.required-actions-label {

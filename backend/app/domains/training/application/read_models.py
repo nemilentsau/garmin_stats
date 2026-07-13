@@ -136,7 +136,7 @@ _SIGNAL_LABELS: dict[str, str] = {
     "hrv.dev_swc": "HRV (SWC units)",
     "rhr.delta_7d": "RHR delta (bpm)",
     "sleep.score": "sleep score",
-    "env.dew_point": "dew point (°C)",
+    "env.dew_point": "dew point (°F)",
 }
 
 _EVENT_COMPLETED_RE = re.compile(r"^event\.(.+)\.completed$")
@@ -172,6 +172,13 @@ def _num(value: float | int) -> str:
     return str(int(value)) if float(value).is_integer() else str(value)
 
 
+def _display_number(signal: str, value: float | int) -> str:
+    """Render a numeric predicate value in the app's display units."""
+    if signal == "env.dew_point":
+        return f"{value * 9 / 5 + 32:.1f}"
+    return _num(value)
+
+
 def _cmp_phrase(cmp: Cmp) -> str:
     """English phrase for one leaf comparison.
 
@@ -189,7 +196,7 @@ def _cmp_phrase(cmp: Cmp) -> str:
     if isinstance(value, bool):
         value_display = str(value)
     elif isinstance(value, (int, float)):
-        value_display = _num(value)
+        value_display = _display_number(cmp.signal, value)
     else:
         value_display = str(value)
     return f"{label} {cmp.op} {value_display}"

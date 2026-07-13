@@ -411,7 +411,7 @@ def test_today_measurement_card_exposes_gate_display_and_two_variants():
     assert lthr.variant_options == ["full", "skip"]
     assert lthr.gate_display == (
         "Measurement: LTHR (bpm), heat-season conditions; threshold pace secondary. "
-        "Gate: dew point (°C) <= 22; strap.validity_pct >= 0.95."
+        "Gate: dew point (°F) <= 71.6; strap.validity_pct >= 0.95."
     )
     assert lthr.capture_rpe is True
     assert [s.label for s in lthr.segments_display] == [
@@ -445,7 +445,7 @@ def test_today_rule_uses_event_completed_signal_and_three_variants():
     assert lthr.variant_options == ["full", "treadmill", "alternate_strides"]
     assert lthr.rule_display == (
         "Alternate_strides if ev_lthr_test already completed; "
-        "Treadmill if dew point (°C) > 22; "
+        "Treadmill if dew point (°F) > 71.6; "
         "otherwise full; missing data → conservative."
     )
 
@@ -2027,7 +2027,7 @@ def test_render_rule_not_predicate_negates_signal():
 # ---------- render_gate ----------
 
 
-def test_render_gate_formats_estimand_and_quality_gate():
+def test_render_gate_formats_estimand_and_converts_dew_point_to_fahrenheit():
     contract = MeasurementContract(
         kind="measurement",
         estimand="LTHR (bpm)",
@@ -2038,7 +2038,7 @@ def test_render_gate_formats_estimand_and_quality_gate():
         on_fail="retry_backup",
     )
     assert render_gate(contract) == (
-        "Measurement: LTHR (bpm). Gate: dew point (°C) <= 22; RHR delta (bpm) > 5."
+        "Measurement: LTHR (bpm). Gate: dew point (°F) <= 71.6; RHR delta (bpm) > 5."
     )
 
 

@@ -246,10 +246,10 @@
 	{@const measurement = card.measurement}
 	{@const observations = measurement.observations}
 	<section class="measurement-evidence" data-status={measurement.status}>
-		<div class="measurement-heading">
+		<h4 class="measurement-heading">
 			<span>Measurement</span>
 			<strong>{MEASUREMENT_LABELS[measurement.status]}</strong>
-		</div>
+		</h4>
 		{#if measurement.rationale}
 			<p class="measurement-rationale">{measurement.rationale}</p>
 		{/if}
@@ -267,25 +267,32 @@
 				<dd>{fmtValidity(observations.strap_validity_pct)}</dd>
 			</div>
 		</dl>
-		{#if !measurement.estimator_eligible}
-			<p class="measurement-limit">Not used to update zones.</p>
+		{#if !measurement.estimator_eligible || measurement.retry_required}
+			<div class="measurement-limits">
+				{#if !measurement.estimator_eligible}
+					<p>Not used to update zones.</p>
+				{/if}
+				{#if measurement.retry_required}
+					<p>Another measurement attempt is required.</p>
+				{/if}
+			</div>
 		{/if}
 		{#if measurement.gates.length > 0}
-			<div class="measurement-rows" aria-label="Measurement quality gates">
-				{#each measurement.gates as gate}
-					<div class="measurement-row">
+			<ul class="measurement-rows" aria-label="Measurement quality gates">
+				{#each measurement.gates as gate (gate.signal + ':' + gate.operator + ':' + String(gate.threshold))}
+					<li class="measurement-row">
 						<span>{signalLabel(gate.signal)}</span>
 						<strong>{GATE_RESULT_LABELS[gate.result]}</strong>
-					</div>
+					</li>
 				{/each}
-			</div>
+			</ul>
 		{/if}
 		{#if measurement.warnings.length > 0}
-			<div class="measurement-warnings" aria-label="Measurement observations">
-				{#each measurement.warnings as warning}
-					<p>{warning.message}</p>
+			<ul class="measurement-warnings" aria-label="Measurement observations">
+				{#each measurement.warnings as warning (warning.code)}
+					<li>{warning.message}</li>
 				{/each}
-			</div>
+			</ul>
 		{/if}
 	</section>
 {/if}
@@ -564,17 +571,33 @@
 	.measurement-evidence {
 		display: flex;
 		flex-direction: column;
+		align-self: flex-start;
 		gap: 7px;
+		box-sizing: border-box;
+		width: min(100%, 600px);
 		padding-left: 10px;
-		border-left: 2px solid rgba(91, 181, 166, 0.42);
+		border-left: 2px solid rgba(143, 163, 176, 0.5);
 		font-size: 12px;
 		color: #a7bac6;
+	}
+
+	.measurement-evidence[data-status='valid'] {
+		border-left-color: #5bb5a6;
+	}
+
+	.measurement-evidence[data-status='provisional'] {
+		border-left-color: #d4944c;
+	}
+
+	.measurement-evidence[data-status='failed'] {
+		border-left-color: #e85d4a;
 	}
 
 	.measurement-heading {
 		display: flex;
 		align-items: baseline;
 		gap: 8px;
+		margin: 0;
 		font-family: 'DM Mono', monospace;
 		font-size: 10px;
 		letter-spacing: 0.12em;
@@ -583,15 +606,26 @@
 	}
 
 	.measurement-heading strong {
-		color: #5bb5a6;
+		color: #8fa3b0;
 		font-size: 10px;
 		font-weight: 600;
 		letter-spacing: 0.06em;
 	}
 
+	.measurement-evidence[data-status='valid'] .measurement-heading strong {
+		color: #5bb5a6;
+	}
+
+	.measurement-evidence[data-status='provisional'] .measurement-heading strong {
+		color: #d4944c;
+	}
+
+	.measurement-evidence[data-status='failed'] .measurement-heading strong {
+		color: #e85d4a;
+	}
+
 	.measurement-rationale,
-	.measurement-limit,
-	.measurement-warnings p {
+	.measurement-limits p {
 		margin: 0;
 		line-height: 1.45;
 	}
@@ -626,7 +660,10 @@
 		text-align: right;
 	}
 
-	.measurement-limit {
+	.measurement-limits {
+		display: flex;
+		gap: 4px 14px;
+		flex-wrap: wrap;
 		color: #8fa3b0;
 		font-size: 11px;
 	}
@@ -634,6 +671,9 @@
 	.measurement-rows {
 		display: grid;
 		gap: 3px;
+		margin: 0;
+		list-style: none;
+		padding-left: 0;
 		padding-top: 5px;
 		border-top: 1px solid rgba(255, 255, 255, 0.06);
 		font-family: 'DM Mono', monospace;
@@ -653,8 +693,12 @@
 	.measurement-warnings {
 		display: grid;
 		gap: 3px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
 		color: #a7bac6;
 		font-size: 11px;
+		line-height: 1.45;
 	}
 
 	.detail-field {
