@@ -655,6 +655,52 @@ class TrainingRunEvidence(DefaultsRequired):
     dew_point_c: float | None = None
 
 
+MeasurementStatus = Literal["awaiting_review", "valid", "provisional", "failed"]
+GateResult = Literal["pass", "fail", "unknown"]
+MeasurementGateValue = bool | int | float | str
+
+
+class TrainingMeasurementObservations(DefaultsRequired):
+    """Objective values extracted from a tracked measurement run."""
+
+    final20_hr_bpm: int | None = None
+    threshold_pace_min_per_mi: float | None = None
+    strap_validity_pct: float | None = None
+    effort_stand_time_s: float = 0.0
+
+
+class TrainingMeasurementGate(DefaultsRequired):
+    """One authored quality-gate comparison and its objective result."""
+
+    signal: str
+    value: MeasurementGateValue | None = None
+    operator: Literal["<", "<=", ">", ">=", "==", "in"]
+    threshold: MeasurementGateValue | list[MeasurementGateValue]
+    result: GateResult
+
+
+class TrainingMeasurementWarning(DefaultsRequired):
+    """Objective protocol evidence that is not an authored hard gate."""
+
+    code: str
+    value: MeasurementGateValue | None = None
+    message: str
+
+
+class TrainingMeasurementEvaluation(DefaultsRequired):
+    """Objective measurement projection before subjective coach review."""
+
+    status: MeasurementStatus
+    run_id: str
+    observations: TrainingMeasurementObservations
+    gates: list[TrainingMeasurementGate] = Field(default_factory=list)
+    warnings: list[TrainingMeasurementWarning] = Field(default_factory=list)
+    rationale: str | None = None
+    assessment_source_id: str | None = None
+    estimator_eligible: bool = False
+    retry_required: bool = False
+
+
 class TrainingTodayCard(DefaultsRequired):
     """One scheduled card occurrence, fully projected for Today-board display."""
 
