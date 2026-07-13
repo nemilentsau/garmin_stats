@@ -94,6 +94,7 @@ from app.domains.training.contracts import (
     TrainingCardLog,
     TrainingCardStatus,
     TrainingCheckinRow,
+    TrainingExecutionEvaluation,
     TrainingExerciseDisplay,
     TrainingLastLogged,
     TrainingRunActivitySummary,
@@ -106,6 +107,7 @@ from app.domains.training.contracts import (
     V3Bundle,
 )
 from app.domains.training.dependencies import RunActivityReadPort, TrainingRepository
+from app.domains.training.domain.run_evaluation import effective_execution
 
 # ---------- signal short-names + predicate/render helpers ----------
 
@@ -575,6 +577,11 @@ def _build_card(
             run_cards_today=run_cards_today,
         )
 
+    execution: TrainingExecutionEvaluation = effective_execution(
+        log_status=log.status if log else "pending",
+        run_id=associated_activity.run_id if associated_activity else None,
+    )
+
     return TrainingTodayCard(
         occurrence_key=occurrence_key,
         date=date,
@@ -597,7 +604,8 @@ def _build_card(
         checkin_rows=rows,
         capture_rpe=capture_rpe,
         est_duration_min=card.est_duration_min,
-        status=log.status if log else "pending",
+        status=execution.status,
+        execution=execution,
         variant_taken=log.variant_taken if log else None,
         notes=log.notes if log else None,
         capture=log.capture if log else None,

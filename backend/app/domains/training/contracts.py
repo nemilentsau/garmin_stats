@@ -537,6 +537,14 @@ class TrainingCaptureLog(DefaultsRequired):
 TrainingCardStatus = Literal["pending", "completed", "partial", "skipped"]
 
 
+class TrainingExecutionEvaluation(DefaultsRequired):
+    """Effective completion state after considering logs and tracked runs."""
+
+    status: TrainingCardStatus
+    source: Literal["manual_log", "tracked_run", "none"]
+    run_id: str | None = None
+
+
 class TrainingCardLog(DefaultsRequired):
     """One card occurrence's completion state, keyed by `date:occurrence_key`."""
 
@@ -643,6 +651,9 @@ class TrainingTodayCard(DefaultsRequired):
     capture_rpe: bool = False  # card captures a numeric RPE
     est_duration_min: float | None = None
     status: TrainingCardStatus = "pending"
+    execution: TrainingExecutionEvaluation = TrainingExecutionEvaluation(
+        status="pending", source="none"
+    )
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None

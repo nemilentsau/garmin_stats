@@ -404,6 +404,11 @@ def test_today_run_card_auto_links_the_days_only_run():
     assert easy.associated_activity.run_id == "r1"
     assert easy.associated_activity.link_source == "auto"
     assert [r.run_id for r in easy.run_candidates] == ["r1"]
+    assert easy.status == "completed"
+    assert easy.execution.status == "completed"
+    assert easy.execution.source == "tracked_run"
+    assert easy.execution.run_id == "r1"
+    assert repo.card_log("2026-07-06", "running.v3:run.easy:d01") is None
 
 
 def test_today_non_run_cards_never_get_run_association_fields():
@@ -479,6 +484,10 @@ def test_today_run_card_detached_shows_no_association_but_keeps_candidates():
     )
     assert easy.associated_activity is None
     assert [r.run_id for r in easy.run_candidates] == ["r1"]
+    assert easy.status == "pending"
+    assert easy.execution.status == "pending"
+    assert easy.execution.source == "none"
+    assert easy.execution.run_id is None
 
 
 def test_today_without_run_activity_port_leaves_run_cards_unassociated():
