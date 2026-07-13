@@ -5,11 +5,14 @@ from collections.abc import Sequence
 import pytest
 
 from app.domains.training.contracts import (
+    AllPredicate,
     AnalysisContract,
+    AnyPredicate,
     CaptureField,
     Cmp,
     DoseSpec,
     MeasurementContract,
+    NotPredicate,
     Predicate,
     RecoveryContract,
     SegmentIntensity,
@@ -51,7 +54,7 @@ def _card(
     *,
     measurement: bool = True,
     capture_id: str = "cap.lthr.final20_hr",
-    gates: list[Cmp] | None = None,
+    gates: list[Predicate] | None = None,
 ) -> V3Card:
     segments = _segments()
     quality_gate: list[Predicate]
@@ -61,7 +64,7 @@ def _card(
             Cmp(signal="strap.validity_pct", op=">=", value=0.95),
         ]
     else:
-        quality_gate = [gate for gate in gates]
+        quality_gate = list(gates)
     contract = (
         MeasurementContract(
             kind="measurement",
@@ -123,6 +126,10 @@ def _evidence(
 
 def _gate_result(evaluation, signal: str) -> str:
     return next(gate.result for gate in evaluation.gates if gate.signal == signal)
+
+
+def _not(predicate: Predicate) -> NotPredicate:
+    return NotPredicate.model_validate({"not": predicate})
 
 
 @pytest.mark.parametrize("status", ["completed", "partial", "skipped"])
@@ -190,6 +197,7 @@ def test_lthr_selection_uses_contract_and_capture_instead_of_card_name_or_id():
 @pytest.mark.parametrize(
     ("covered_seconds", "expected_validity", "expected_result", "expected_status"),
     [
+        (1141, 0.951, "pass", "awaiting_review"),
         (1140, 0.95, "pass", "awaiting_review"),
         (1139, 0.949, "fail", "failed"),
     ],
@@ -244,6 +252,17 @@ def test_missing_dew_point_is_an_unknown_gate():
     assert evaluation is not None
     assert _gate_result(evaluation, "env.dew_point") == "unknown"
     assert evaluation.status == "awaiting_review"
+
+
+def test_final20_window_is_complete_without_an_out_of_window_sample():
+    evaluation = evaluate_run_measurement(
+        card=_card(), segments=_segments(), evidence=_evidence(end_s=2699)
+    )
+
+    assert evaluation is not None
+    assert evaluation.observations.final20_hr_bpm == 160
+    assert evaluation.observations.strap_validity_pct == 1.0
+    assert _gate_result(evaluation, "strap.validity_pct") == "pass"
 
 
 def test_final20_hr_averages_non_null_samples_and_rounds_to_whole_bpm():
@@ -335,11 +354,17 @@ def test_stand_spans_are_clipped_to_effort_and_exposed_as_a_warning():
     ("operator", "threshold", "dew_point", "expected"),
     [
         ("<", 21, 20, "pass"),
+        ("<", 20, 20, "fail"),
         ("<=", 20, 20, "pass"),
+        ("<=", 19, 20, "fail"),
         (">", 19, 20, "pass"),
+        (">", 20, 20, "fail"),
         (">=", 20, 20, "pass"),
+        (">=", 21, 20, "fail"),
         ("==", 20, 20, "pass"),
+        ("==", 21, 20, "fail"),
         ("in", [19, 20], 20, "pass"),
+        ("in", [18, 19], 20, "fail"),
     ],
 )
 def test_authored_comparison_operators_are_evaluated_generically(
@@ -363,6 +388,102 @@ def test_authored_comparison_operators_are_evaluated_generically(
     assert evaluation.gates[0].threshold == threshold
     assert evaluation.gates[0].value == dew_point
     assert evaluation.gates[0].result == expected
+
+
+@pytest.mark.parametrize(
+    ("predicate", "expected_leaf_results", "expected_status"),
+    [
+        (
+            AllPredicate(
+                all=[
+                    Cmp(signal="env.dew_point", op="<=", value=22),
+                    Cmp(signal="future.signal", op="==", value=1),
+                ]
+            ),
+            ["pass", "unknown"],
+            "awaiting_review",
+        ),
+        (
+            AllPredicate(
+                all=[
+                    Cmp(signal="env.dew_point", op=">", value=22),
+                    Cmp(signal="future.signal", op="==", value=1),
+                ]
+            ),
+            ["fail", "unknown"],
+            "failed",
+        ),
+        (
+            AnyPredicate(
+                any=[
+                    Cmp(signal="env.dew_point", op="<=", value=22),
+                    Cmp(signal="env.dew_point", op=">", value=22),
+                ]
+            ),
+            ["pass", "fail"],
+            "awaiting_review",
+        ),
+        (
+            AnyPredicate(
+                any=[
+                    Cmp(signal="env.dew_point", op=">", value=22),
+                    Cmp(signal="future.signal", op="==", value=1),
+                ]
+            ),
+            ["fail", "unknown"],
+            "awaiting_review",
+        ),
+        (
+            AnyPredicate(
+                any=[
+                    Cmp(signal="env.dew_point", op=">", value=22),
+                    Cmp(signal="env.dew_point", op="==", value=21),
+                ]
+            ),
+            ["fail", "fail"],
+            "failed",
+        ),
+        (
+            _not(Cmp(signal="env.dew_point", op=">", value=22)),
+            ["fail"],
+            "awaiting_review",
+        ),
+        (
+            _not(Cmp(signal="env.dew_point", op="<=", value=22)),
+            ["pass"],
+            "failed",
+        ),
+        (
+            _not(Cmp(signal="future.signal", op="==", value=1)),
+            ["unknown"],
+            "awaiting_review",
+        ),
+    ],
+    ids=[
+        "all-pass-unknown",
+        "all-fail-unknown",
+        "any-pass-fail",
+        "any-fail-unknown",
+        "any-all-fail",
+        "not-fail",
+        "not-pass",
+        "not-unknown",
+    ],
+)
+def test_root_predicate_semantics_control_hard_gate_failure(
+    predicate: Predicate,
+    expected_leaf_results: list[str],
+    expected_status: str,
+):
+    evaluation = evaluate_run_measurement(
+        card=_card(gates=[predicate]),
+        segments=_segments(),
+        evidence=_evidence(),
+    )
+
+    assert evaluation is not None
+    assert [gate.result for gate in evaluation.gates] == expected_leaf_results
+    assert evaluation.status == expected_status
 
 
 def test_unknown_signal_and_missing_series_are_represented_without_failure():

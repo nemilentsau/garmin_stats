@@ -1,6 +1,5 @@
 """Pure execution and tracked-run measurement policy."""
 
-from collections.abc import Iterable
 from statistics import fmean
 
 from app.domains.training.contracts import (
@@ -8,7 +7,6 @@ from app.domains.training.contracts import (
     AnyPredicate,
     Cmp,
     GateResult,
-    NotPredicate,
     Predicate,
     SegmentSpec,
     TrainingCardStatus,
@@ -93,11 +91,11 @@ def evaluate_run_measurement(
         "env.dew_point": evidence.dew_point_c,
         "strap.validity_pct": strap_validity,
     }
-    gates = [
-        _evaluate_gate(comparison, signal_values.get(comparison.signal))
+    evaluated_roots = [
+        _evaluate_predicate(predicate, signal_values)
         for predicate in card.contract.quality_gate
-        for comparison in _comparison_leaves(predicate)
     ]
+    gates = [gate for _, root_gates in evaluated_roots for gate in root_gates]
     warnings = (
         [
             TrainingMeasurementWarning(
@@ -109,7 +107,11 @@ def evaluate_run_measurement(
         if stand_time > 0
         else []
     )
-    status = "failed" if any(gate.result == "fail" for gate in gates) else "awaiting_review"
+    status = (
+        "failed"
+        if any(root_result == "fail" for root_result, _ in evaluated_roots)
+        else "awaiting_review"
+    )
     return TrainingMeasurementEvaluation(
         status=status,
         run_id=evidence.summary.run_id,
@@ -133,7 +135,12 @@ def _lthr_effort_window(segments: list[SegmentSpec]) -> tuple[float, float] | No
 def _series_covers(
     elapsed_s: list[int], *, window: tuple[float, float]
 ) -> bool:
-    return bool(elapsed_s) and min(elapsed_s) <= window[0] and max(elapsed_s) >= window[1]
+    """Return whether sample extent covers every second in a half-open window."""
+    return (
+        bool(elapsed_s)
+        and min(elapsed_s) <= window[0]
+        and max(elapsed_s) >= window[1] - 1
+    )
 
 
 def _mean_hr(
@@ -221,15 +228,34 @@ def _stand_time(
     )
 
 
-def _comparison_leaves(predicate: Predicate) -> Iterable[Cmp]:
+def _evaluate_predicate(
+    predicate: Predicate,
+    signal_values: dict[str, bool | int | float | str | None],
+) -> tuple[GateResult, list[TrainingMeasurementGate]]:
     if isinstance(predicate, Cmp):
-        yield predicate
-    elif isinstance(predicate, (AllPredicate, AnyPredicate)):
+        gate = _evaluate_gate(predicate, signal_values.get(predicate.signal))
+        return gate.result, [gate]
+    if isinstance(predicate, (AllPredicate, AnyPredicate)):
         children = predicate.all if isinstance(predicate, AllPredicate) else predicate.any
-        for child in children:
-            yield from _comparison_leaves(child)
-    elif isinstance(predicate, NotPredicate):
-        yield from _comparison_leaves(predicate.not_)
+        evaluated_children = [
+            _evaluate_predicate(child, signal_values) for child in children
+        ]
+        results = [result for result, _ in evaluated_children]
+        gates = [gate for _, child_gates in evaluated_children for gate in child_gates]
+        if isinstance(predicate, AllPredicate):
+            if "fail" in results:
+                return "fail", gates
+            return ("unknown" if "unknown" in results else "pass"), gates
+        if "pass" in results:
+            return "pass", gates
+        return ("unknown" if "unknown" in results else "fail"), gates
+
+    child_result, gates = _evaluate_predicate(predicate.not_, signal_values)
+    if child_result == "pass":
+        return "fail", gates
+    if child_result == "fail":
+        return "pass", gates
+    return "unknown", gates
 
 
 def _evaluate_gate(
