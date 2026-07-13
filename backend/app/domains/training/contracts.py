@@ -555,7 +555,9 @@ class TrainingCardLog(DefaultsRequired):
 
     id: str  # f"{date}:{occurrence_key}"
     date: str
-    occurrence_key: str  # f"{bundle_id}:{card_id}:d{day:02d}"
+    # Opaque display key; ordinary/base form is bundle:card:dNN, while
+    # colliding activated backups add an event-qualified suffix.
+    occurrence_key: str
     status: TrainingCardStatus = "pending"
     variant_taken: str | None = None
     notes: str | None = None

@@ -38,10 +38,11 @@ the request body keeps the existing log's value, while a field the caller
 included — even as an explicit `null` — is applied, clearing it when the
 value is `None`. This is "PATCH" semantics, not a mirror of the routines
 Today board (that backend always full-replaces a card log on save); it also
-rejects capture PUTs against an occurrence the compiled schedule doesn't
-recognize for the given date, raising `LookupError` (mapped to 404 by the
+rejects capture PUTs against an occurrence the runtime Today overlay does not
+display for the given date, raising `LookupError` (mapped to 404 by the
 app-level exception handler) rather than persisting a log nothing will ever
-display.
+display. This makes active authored backups writable without whitelisting
+inactive backup keys.
 
 Run<->prescription association is threaded through both Today and schedule
 windows: `match_run_to_card` is the pure matching-policy
@@ -49,11 +50,11 @@ function (manual link wins; else auto-match only when exactly one
 `running.v3` card is scheduled that day; see its docstring for the full
 precedence), and `_build_card` calls it per run card using the day's tracked
 runs and run-card count. Today and schedule windows each make one bulk summary
-read: when the rendered range starts after a measurement attempt, that read
-begins at the earliest needed scheduled attempt rather than the visible
-start. Summaries are grouped by `session_date`; earlier attempts are evaluated
-in authored order, then `resolve_measurement_day` overlays any due backup into
-an existing running slot without changing the compiled schedule. `training`
+read covering the union of the visible range and authored opportunities
+elapsed by the request's as-of date. Summaries are grouped by `session_date`;
+earlier attempts are evaluated in authored order, then
+`resolve_measurement_day` overlays any due backup into an existing running
+slot without changing the compiled schedule. `training`
 never imports a Garmin contract or unit conversion for this — the port
 (defined in `dependencies.py`) returns already-imperial, training-local
 `TrainingRunActivitySummary` values; the adapter that implements it lives outside the slice
@@ -79,7 +80,10 @@ from app.domains.training.application.compile import (
     full_variant_prescription,
     week_of,
 )
-from app.domains.training.application.measurement_schedule import resolve_measurement_day
+from app.domains.training.application.measurement_schedule import (
+    MeasurementBackupActivation,
+    resolve_measurement_day,
+)
 from app.domains.training.contracts import (
     AllPredicate,
     AnyPredicate,
@@ -104,7 +108,6 @@ from app.domains.training.contracts import (
     TrainingExerciseDisplay,
     TrainingLastLogged,
     TrainingMeasurementEvaluation,
-    TrainingRequiredAction,
     TrainingRunActivitySummary,
     TrainingRunEvidence,
     TrainingScheduleDay,
@@ -530,6 +533,7 @@ def _build_card(
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
     measurement_event_id: str | None = None,
     measurement_attempt: Literal["scheduled", "backup"] | None = None,
+    occurrence_key_override: str | None = None,
 ) -> TrainingTodayCard:
     """Project one compiled schedule entry into a display-ready Today card, log merged in.
 
@@ -545,7 +549,9 @@ def _build_card(
     """
     card = entry.card
     assignment = entry.assignment
-    occurrence_key = f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
+    occurrence_key = occurrence_key_override or (
+        f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
+    )
 
     segments: list[SegmentSpec] = []
     segments_display: list[TrainingSegmentDisplay] = []
@@ -694,30 +700,41 @@ def _measurement_attempt_metadata(
     entry: CompiledEntry,
     *,
     block: V3Block,
-    backup_event_ids: frozenset[str],
+    activated_event_id: str | None,
 ) -> tuple[str | None, Literal["scheduled", "backup"] | None]:
     """Identify only authored scheduled attempts and activated backup copies."""
-    scheduled = next(
-        (
-            event
-            for event in block.measurement_events
-            if event.scheduled_day == entry.day and event.card_id == entry.card.id
-        ),
-        None,
-    )
-    if scheduled is not None:
-        return scheduled.id, "scheduled"
-    backup = next(
-        (
-            event
-            for event in block.measurement_events
-            if event.id in backup_event_ids and event.card_id == entry.card.id
-        ),
-        None,
-    )
-    if backup is not None:
-        return backup.id, "backup"
+    if activated_event_id is not None:
+        return activated_event_id, "backup"
+    scheduled = [
+        event
+        for event in block.measurement_events
+        if event.scheduled_day == entry.day and event.card_id == entry.card.id
+    ]
+    if len(scheduled) == 1:
+        return scheduled[0].id, "scheduled"
     return None, None
+
+
+def _occurrence_keys_for_entries(
+    entries: list[tuple[int, CompiledEntry]],
+    *,
+    activation_by_index: dict[int, str],
+) -> dict[int, str]:
+    base_keys = {
+        index: f"{entry.bundle_id}:{entry.card.id}:d{entry.day:02d}"
+        for index, entry in entries
+    }
+    counts: dict[str, int] = {}
+    for base_key in base_keys.values():
+        counts[base_key] = counts.get(base_key, 0) + 1
+    return {
+        index: (
+            f"{base_key}:event:{activation_by_index[index]}"
+            if counts[base_key] > 1 and index in activation_by_index
+            else base_key
+        )
+        for index, base_key in base_keys.items()
+    }
 
 
 def _cards_for_day(
@@ -734,7 +751,7 @@ def _cards_for_day(
     runs_today: list[TrainingRunActivitySummary] | None = None,
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
-    backup_event_ids: frozenset[str] = frozenset(),
+    backup_activations: tuple[MeasurementBackupActivation, ...] = (),
 ) -> list[TrainingTodayCard]:
     """Build one day's cards, sorted for display.
 
@@ -742,15 +759,22 @@ def _cards_for_day(
     list plus the day's run-card count. A linked measurement card may still
     read its own full evidence and exact assessment while being projected.
     """
-    entries = [entry for entry in schedule if entry.day == day]
-    run_cards_today = sum(1 for entry in entries if _is_run_card(entry))
+    entries = [(index, entry) for index, entry in enumerate(schedule) if entry.day == day]
+    run_cards_today = sum(1 for _index, entry in entries if _is_run_card(entry))
     day_runs = runs_today or []
+    activation_by_index = {
+        activation.entry_index: activation.event_id for activation in backup_activations
+    }
+    occurrence_keys = _occurrence_keys_for_entries(
+        entries,
+        activation_by_index=activation_by_index,
+    )
     cards: list[TrainingTodayCard] = []
-    for entry in entries:
+    for entry_index, entry in entries:
         event_id, attempt = _measurement_attempt_metadata(
             entry,
             block=block,
-            backup_event_ids=backup_event_ids,
+            activated_event_id=activation_by_index.get(entry_index),
         )
         cards.append(
             _build_card(
@@ -768,6 +792,7 @@ def _cards_for_day(
                 measurement_assessment_port=measurement_assessment_port,
                 measurement_event_id=event_id,
                 measurement_attempt=attempt,
+                occurrence_key_override=occurrence_keys[entry_index],
             )
         )
     cards.sort(key=_card_sort_key)
@@ -845,7 +870,7 @@ def _evaluate_measurement_attempts_before(
             runs_today=runs_by_date.get(attempt_date, []),
             run_activity_port=run_activity_port,
             measurement_assessment_port=measurement_assessment_port,
-            backup_event_ids=resolution.backup_event_ids,
+            backup_activations=resolution.activations,
         )
         _record_measurement_attempts(statuses, cards)
     return statuses
@@ -861,6 +886,19 @@ def _summary_horizon_start(block: V3Block, requested_start: str, before_day: int
         return requested_start
     earliest_attempt = _date_for_block_day(block, min(prior_scheduled_days))
     return min(requested_start, earliest_attempt)
+
+
+def _summary_horizon_end(block: V3Block, requested_end: str, as_of_day: int) -> str:
+    elapsed_attempt_days = [
+        attempt_day
+        for event in block.measurement_events
+        for attempt_day in (event.scheduled_day, *event.backup_days)
+        if attempt_day <= as_of_day
+    ]
+    if not elapsed_attempt_days:
+        return requested_end
+    latest_attempt = _date_for_block_day(block, max(elapsed_attempt_days))
+    return max(requested_end, latest_attempt)
 
 
 # ---------- public read models ----------
@@ -933,7 +971,7 @@ def get_training_today(
         runs_today=runs_by_date.get(date, []),
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
-        backup_event_ids=resolution.backup_event_ids,
+        backup_activations=resolution.activations,
     )
     return TrainingTodayResponse(
         date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
@@ -947,6 +985,7 @@ def get_training_schedule_window(
     duration_days: int = 14,
     run_activity_port: RunActivityReadPort | None = None,
     measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
+    as_of_date: str | None = None,
 ) -> TrainingScheduleWindow:
     """Return a multi-day schedule projection starting at `start_date`.
 
@@ -955,6 +994,8 @@ def get_training_schedule_window(
     or, with no active block, meaningless), and `cards` is simply empty for
     out-of-window days rather than the day being omitted. This keeps the
     window a fixed-length calendar strip a caller can lay out without gaps.
+    `required_actions` reflects elapsed program state as of `as_of_date`
+    (local today by default), never the visible window's end date.
     """
     start = date_cls.fromisoformat(start_date)
     end = start + timedelta(days=duration_days - 1)
@@ -966,15 +1007,22 @@ def get_training_schedule_window(
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     start_day = _day_number(block, start_date)
-    summary_start = _summary_horizon_start(block, start_date, start_day)
+    effective_as_of = as_of_date or date_cls.today().isoformat()
+    as_of_day = _day_number(block, effective_as_of)
+    summary_start = _summary_horizon_start(
+        block,
+        start_date,
+        max(start_day, as_of_day + 1),
+    )
+    summary_end = _summary_horizon_end(block, end.isoformat(), as_of_day)
     run_summaries = (
-        run_activity_port.runs_between(summary_start, end.isoformat())
+        run_activity_port.runs_between(summary_start, summary_end)
         if run_activity_port is not None
         else []
     )
     runs_by_date = _runs_grouped_by_date(run_summaries)
     attempt_statuses = _evaluate_measurement_attempts_before(
-        before_day=start_day,
+        before_day=as_of_day + 1,
         block=block,
         schedule=schedule,
         registry=registry,
@@ -985,9 +1033,14 @@ def get_training_schedule_window(
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
     )
+    action_resolution = resolve_measurement_day(
+        block=block,
+        schedule=schedule,
+        day=as_of_day,
+        attempt_statuses=attempt_statuses,
+    )
 
     days: list[TrainingScheduleDay] = []
-    required_actions_by_event: dict[str, TrainingRequiredAction] = {}
     for offset in range(duration_days):
         current = start + timedelta(days=offset)
         current_iso = current.isoformat()
@@ -998,8 +1051,6 @@ def get_training_schedule_window(
             day=day_number,
             attempt_statuses=attempt_statuses,
         )
-        for action in resolution.required_actions:
-            required_actions_by_event.setdefault(action.event_id, action)
         cards = (
             _cards_for_day(
                 list(resolution.entries),
@@ -1013,19 +1064,18 @@ def get_training_schedule_window(
                 runs_today=runs_by_date.get(current_iso, []),
                 run_activity_port=run_activity_port,
                 measurement_assessment_port=measurement_assessment_port,
-                backup_event_ids=resolution.backup_event_ids,
+                backup_activations=resolution.activations,
             )
             if 1 <= day_number <= block.window.days
             else []
         )
-        _record_measurement_attempts(attempt_statuses, cards)
         days.append(TrainingScheduleDay(date=current_iso, day=day_number, cards=cards))
 
     return TrainingScheduleWindow(
         start_date=start_date,
         end_date=end.isoformat(),
         days=days,
-        required_actions=list(required_actions_by_event.values()),
+        required_actions=list(action_resolution.required_actions),
     )
 
 
@@ -1073,7 +1123,7 @@ class TrainingLogUpdateRequest(StrictDefaultsRequired):
 
     `linked_run_id`/`run_link_detached` are the run-card association
     controls: setting `linked_run_id` manually links one of the date's
-    tracked runs (validated against `RunActivityReadPort.runs_between` —
+    tracked runs (validated against the runtime-resolved card's candidates —
     a non-null id absent from that date's runs raises `ValueError`, mapped
     to 400 by the app-level exception handler); setting `run_link_detached`
     (with no `linked_run_id` in the same request) suppresses auto-matching
@@ -1090,30 +1140,29 @@ class TrainingLogUpdateRequest(StrictDefaultsRequired):
 
 
 def _resolve_occurrence_or_raise(
-    repo: TrainingRepository, *, date: str, occurrence_key: str
-) -> None:
-    """Raise `LookupError` unless `occurrence_key` is really scheduled on `date`.
+    repo: TrainingRepository,
+    *,
+    date: str,
+    occurrence_key: str,
+    run_activity_port: RunActivityReadPort | None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None,
+) -> TrainingTodayCard:
+    """Return the runtime-resolved card or raise `LookupError`.
 
-    Reuses `get_training_today`'s own resolution path — active block, day
-    number, compiled schedule — rather than trusting the caller-supplied
-    key: `date` outside the active block's window, or an `occurrence_key`
-    that doesn't match any compiled entry for that day (including "no
-    active block at all"), both 404 rather than silently persisting a log
-    no Today/schedule view will ever surface.
+    Validation deliberately uses the same Today overlay and injected evidence
+    ports as the read path. That admits an activated authored backup while
+    rejecting the same opaque key when a valid prior result leaves the backup
+    inactive; raw compiled keys alone cannot represent that distinction.
     """
-    context = _active_context(repo)
-    if context is not None:
-        block, bundles, _registry, _library = context
-        day = _day_number(block, date)
-        if 1 <= day <= block.window.days:
-            schedule = compile_schedule(bundles)
-            known_keys = {
-                f"{entry.bundle_id}:{entry.card.id}:d{entry.day:02d}"
-                for entry in schedule
-                if entry.day == day
-            }
-            if occurrence_key in known_keys:
-                return
+    response = get_training_today(
+        repo,
+        date=date,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
+    )
+    match = next((card for card in response.cards if card.occurrence_key == occurrence_key), None)
+    if match is not None:
+        return match
     raise LookupError(f"no scheduled occurrence {occurrence_key} on {date}")
 
 
@@ -1124,12 +1173,13 @@ def upsert_training_log(
     occurrence_key: str,
     update: TrainingLogUpdateRequest,
     run_activity_port: RunActivityReadPort | None = None,
+    measurement_assessment_port: MeasurementAssessmentReadPort | None = None,
 ) -> TrainingCardLog:
     """Apply a partial update to one card occurrence's capture log and persist it.
 
     Raises `LookupError` (404 at the route layer) when `occurrence_key` is
-    not a real scheduled occurrence for `date` under the active block's
-    compiled schedule — see `_resolve_occurrence_or_raise`. Fields absent
+    not a card displayed by the active block's runtime Today overlay for
+    `date` — see `_resolve_occurrence_or_raise`. Fields absent
     from `update.model_fields_set` keep the existing log's value; fields
     present are applied as-is, including an explicit `None` clearing
     `notes`/`variant_taken`/`capture`/`linked_run_id`. `status` is the one
@@ -1150,7 +1200,13 @@ def upsert_training_log(
     missing `run_activity_port` is treated the same as "no runs for this
     date" (any non-null `linked_run_id` is rejected).
     """
-    _resolve_occurrence_or_raise(repo, date=date, occurrence_key=occurrence_key)
+    resolved_card = _resolve_occurrence_or_raise(
+        repo,
+        date=date,
+        occurrence_key=occurrence_key,
+        run_activity_port=run_activity_port,
+        measurement_assessment_port=measurement_assessment_port,
+    )
     existing = repo.card_log(date, occurrence_key)
     fields_set = update.model_fields_set
     status = (
@@ -1177,12 +1233,14 @@ def upsert_training_log(
         if "run_link_detached" in fields_set and update.run_link_detached is not None
         else (existing.run_link_detached if existing else False)
     )
-    if "linked_run_id" in fields_set and update.linked_run_id is not None:
-        available = (
-            run_activity_port.runs_between(date, date) if run_activity_port is not None else []
+    if (
+        "linked_run_id" in fields_set
+        and update.linked_run_id is not None
+        and not any(
+            run.run_id == update.linked_run_id for run in resolved_card.run_candidates
         )
-        if not any(run.run_id == update.linked_run_id for run in available):
-            raise ValueError(f"run {update.linked_run_id!r} is not a tracked run for {date}")
+    ):
+        raise ValueError(f"run {update.linked_run_id!r} is not a tracked run for {date}")
     log = TrainingCardLog(
         id=f"{date}:{occurrence_key}",
         date=date,

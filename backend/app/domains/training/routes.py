@@ -83,4 +83,5 @@ def put_today_card_log(date: str, occurrence_key: str, request: TrainingLogUpdat
         occurrence_key=occurrence_key,
         update=request,
         run_activity_port=container.training_run_activity_port,
+        measurement_assessment_port=container.training_measurement_assessment_port,
     )

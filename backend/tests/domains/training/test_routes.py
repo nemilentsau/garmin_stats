@@ -3,7 +3,12 @@
 from types import SimpleNamespace
 
 import app.domains.training.routes as routes
-from app.domains.training.contracts import TrainingScheduleWindow, TrainingTodayResponse
+from app.domains.training.application.read_models import TrainingLogUpdateRequest
+from app.domains.training.contracts import (
+    TrainingCardLog,
+    TrainingScheduleWindow,
+    TrainingTodayResponse,
+)
 
 
 def test_today_route_propagates_run_and_assessment_ports(monkeypatch):
@@ -94,6 +99,64 @@ def test_schedule_route_propagates_run_and_assessment_ports(monkeypatch):
         "repo": repo,
         "start_date": "2026-07-17",
         "duration_days": 1,
+        "run_activity_port": run_port,
+        "measurement_assessment_port": assessment_port,
+    }
+
+
+def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
+    repo = object()
+    run_port = object()
+    assessment_port = object()
+    captured: dict[str, object] = {}
+
+    def fake_upsert(
+        training_repo,
+        *,
+        date: str,
+        occurrence_key: str,
+        update: TrainingLogUpdateRequest,
+        run_activity_port=None,
+        measurement_assessment_port=None,
+    ):
+        captured.update(
+            repo=training_repo,
+            date=date,
+            occurrence_key=occurrence_key,
+            update=update,
+            run_activity_port=run_activity_port,
+            measurement_assessment_port=measurement_assessment_port,
+        )
+        return TrainingCardLog(
+            id=f"{date}:{occurrence_key}",
+            date=date,
+            occurrence_key=occurrence_key,
+        )
+
+    monkeypatch.setattr(routes, "upsert_training_log", fake_upsert)
+    monkeypatch.setattr(
+        routes,
+        "build_container",
+        lambda: SimpleNamespace(
+            training_repo=repo,
+            training_run_activity_port=run_port,
+            training_measurement_assessment_port=assessment_port,
+        ),
+    )
+    update = TrainingLogUpdateRequest(notes="Saved")
+
+    response = routes.put_today_card_log(
+        date="2026-07-20",
+        occurrence_key="running.v3:run.lthr_test:d08",
+        request=update,
+    )
+
+    assert response.notes is None
+    assert captured == {
+        "repo": repo,
+        "date": "2026-07-20",
+        "occurrence_key": "running.v3:run.lthr_test:d08",
+        "update": update,
         "run_activity_port": run_port,
         "measurement_assessment_port": assessment_port,
     }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
 
@@ -146,6 +147,37 @@ def test_multiple_events_activate_deterministically_on_their_own_backup_days():
     assert first.backup_event_ids == frozenset({"ev_lthr_test"})
     assert _running_card_ids(second_result.entries) == ["run.easy_strides"]
     assert second_result.backup_event_ids == frozenset({"ev_second"})
+
+
+def test_shared_card_events_keep_explicit_identity_across_two_backup_slots():
+    block, schedule = _block_and_schedule()
+    first_event = block.measurement_events[0]
+    second_event = first_event.model_copy(
+        update={"id": "ev_lthr_secondary", "on_all_missed": "flag"}
+    )
+    block = block.model_copy(update={"measurement_events": [first_event, second_event]})
+    day_8_run = next(
+        entry for entry in schedule if entry.day == 8 and entry.bundle_id == "running.v3"
+    )
+    second_slot = replace(
+        day_8_run,
+        slot="evening",
+        assignment=day_8_run.assignment.model_copy(update={"slot": "evening"}),
+    )
+    schedule = [*schedule, second_slot]
+
+    result = resolve_measurement_day(
+        block=block,
+        schedule=schedule,
+        day=8,
+        attempt_statuses={},
+    )
+
+    assert _running_card_ids(result.entries) == ["run.lthr_test", "run.lthr_test"]
+    assert [(activation.event_id, activation.entry_index) for activation in result.activations] == [
+        ("ev_lthr_test", 0),
+        ("ev_lthr_secondary", 3),
+    ]
 
 
 def test_backup_without_running_slot_preserves_other_bundles_and_does_not_substitute():

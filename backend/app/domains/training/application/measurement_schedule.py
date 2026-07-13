@@ -23,11 +23,20 @@ AttemptStatuses = Mapping[str, Mapping[int, MeasurementStatus]]
 
 
 @dataclass(frozen=True)
+class MeasurementBackupActivation:
+    """One event's explicit ownership of an entry in the resolved day."""
+
+    event_id: str
+    entry_index: int
+
+
+@dataclass(frozen=True)
 class MeasurementDayResolution:
     """Immutable schedule overlay and event state for one block day."""
 
     entries: tuple[CompiledEntry, ...]
     backup_event_ids: frozenset[str]
+    activations: tuple[MeasurementBackupActivation, ...]
     required_actions: tuple[TrainingRequiredAction, ...]
 
 
@@ -61,6 +70,7 @@ def resolve_measurement_day(
         index for index, entry in enumerate(entries) if entry.bundle_id == "running.v3"
     ]
     activated: list[str] = []
+    activations: list[MeasurementBackupActivation] = []
 
     for event in block.measurement_events:
         if day not in event.backup_days:
@@ -105,6 +115,9 @@ def resolve_measurement_day(
             assignment=assignment,
         )
         activated.append(event.id)
+        activations.append(
+            MeasurementBackupActivation(event_id=event.id, entry_index=target_index)
+        )
 
     required_actions = tuple(
         TrainingRequiredAction(event_id=event.id, action=event.on_all_missed)
@@ -120,8 +133,13 @@ def resolve_measurement_day(
     return MeasurementDayResolution(
         entries=tuple(entries),
         backup_event_ids=frozenset(activated),
+        activations=tuple(activations),
         required_actions=required_actions,
     )
 
 
-__all__ = ["MeasurementDayResolution", "resolve_measurement_day"]
+__all__ = [
+    "MeasurementBackupActivation",
+    "MeasurementDayResolution",
+    "resolve_measurement_day",
+]
