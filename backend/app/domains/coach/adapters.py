@@ -8,6 +8,11 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
+from app.domains.coach.application.memory import (
+    CURRENT_MEMORY_POLICY_VERSION,
+    active_journal_entries,
+    render_run_journal,
+)
 from app.domains.coach.contracts import (
     ArtifactRef,
     BriefVersion,
@@ -25,11 +30,6 @@ from app.domains.coach.contracts import (
     ReviewKind,
     ReviewOutput,
     RunJournalSummary,
-)
-from app.domains.coach.application.memory import (
-    CURRENT_MEMORY_POLICY_VERSION,
-    active_journal_entries,
-    render_run_journal,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
 from app.infra.sqlite import connect

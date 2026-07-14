@@ -38,8 +38,15 @@ HistoricalRole = Literal[
 
 
 class ArtifactRef(StrictDefaultsRequired):
-    kind: ArtifactKind
-    value: str
+    kind: ArtifactKind = Field(
+        description="Durable reference type: run, plot, persisted review, or ISO date."
+    )
+    value: str = Field(
+        description=(
+            "Identifier only: run id, plot image basename, persisted review id, or ISO "
+            "date. Never a workspace path, filename anchor, plan.md, or recovery.md."
+        )
+    )
 
 
 class HistoricalEvidenceUse(StrictDefaultsRequired):

@@ -1683,10 +1683,14 @@ export interface components {
         ArtifactRef: {
             /**
              * Kind
+             * @description Durable reference type: run, plot, persisted review, or ISO date.
              * @enum {string}
              */
             kind: "run" | "plot" | "review" | "date";
-            /** Value */
+            /**
+             * Value
+             * @description Identifier only: run id, plot image basename, persisted review id, or ISO date. Never a workspace path, filename anchor, plan.md, or recovery.md.
+             */
             value: string;
         };
         /**
