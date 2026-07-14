@@ -644,6 +644,229 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_api_coach_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reviews */
+        get: operations["get_reviews_api_coach_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/run-reviews/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run Review */
+        get: operations["get_run_review_api_coach_run_reviews__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Run Review */
+        post: operations["post_run_review_api_coach_reviews_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review */
+        get: operations["get_review_api_coach_reviews__review_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/{review_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Review Retry */
+        post: operations["post_review_retry_api_coach_reviews__review_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Threads */
+        get: operations["get_threads_api_coach_threads_get"];
+        put?: never;
+        /** Post Thread */
+        post: operations["post_thread_api_coach_threads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Messages */
+        get: operations["get_messages_api_coach_threads__thread_id__messages_get"];
+        put?: never;
+        /** Post Message */
+        post: operations["post_message_api_coach_threads__thread_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Close */
+        post: operations["post_close_api_coach_threads__thread_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/threads/{thread_id}/retry-close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Retry Close */
+        post: operations["post_retry_close_api_coach_threads__thread_id__retry_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_coach_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Brief */
+        get: operations["get_brief_api_coach_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal */
+        get: operations["get_journal_api_coach_journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -658,74 +881,6 @@ export interface paths {
         get: operations["sse_events_api_events_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assistant/threads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Threads
-         * @description Return all assistant threads ordered by recent activity.
-         */
-        get: operations["get_threads_api_assistant_threads_get"];
-        put?: never;
-        /**
-         * Post Thread
-         * @description Create one assistant thread.
-         */
-        post: operations["post_thread_api_assistant_threads_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assistant/threads/{thread_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Thread Detail
-         * @description Return one assistant thread or raise when it is missing.
-         */
-        get: operations["get_thread_detail_api_assistant_threads__thread_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assistant/threads/{thread_id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Thread Messages
-         * @description Return messages for one existing assistant thread.
-         */
-        get: operations["get_thread_messages_api_assistant_threads__thread_id__messages_get"];
-        put?: never;
-        /**
-         * Post Thread Message
-         * @description Persist a user message and stream the assistant reply as NDJSON.
-         */
-        post: operations["post_thread_message_api_assistant_threads__thread_id__messages_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1627,6 +1782,16 @@ export interface components {
              */
             routine_specs: components["schemas"]["RoutineSpec"][];
         };
+        /** ArtifactRef */
+        ArtifactRef: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "plot" | "review" | "date";
+            /** Value */
+            value: string;
+        };
         /**
          * AssistantArtifact
          * @description Persisted assistant-authored artifact with validation state.
@@ -1709,115 +1874,6 @@ export interface components {
              * @default []
              */
             artifacts: components["schemas"]["AssistantArtifact"][];
-        };
-        /** AssistantMessage */
-        AssistantMessage: {
-            /** Id */
-            id: string;
-            /** Thread Id */
-            thread_id: string;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "user" | "assistant" | "system";
-            /** Content Markdown */
-            content_markdown: string;
-            /**
-             * Structured Payload Json
-             * @default {}
-             */
-            structured_payload_json: {
-                [key: string]: unknown;
-            };
-            /**
-             * Evidence Refs Json
-             * @default []
-             */
-            evidence_refs_json: string[];
-            /** Created At */
-            created_at: string | null;
-        };
-        /** AssistantMessageCreateRequest */
-        AssistantMessageCreateRequest: {
-            /** Id */
-            id: string;
-            /** Content */
-            content: string;
-        };
-        /** AssistantMessagesResponse */
-        AssistantMessagesResponse: {
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /**
-             * Messages
-             * @default []
-             */
-            messages: components["schemas"]["AssistantMessage"][];
-        };
-        /** AssistantThread */
-        AssistantThread: {
-            /** Id */
-            id: string;
-            /** Title */
-            title: string;
-            /**
-             * Mode
-             * @default general
-             */
-            mode: string;
-            /**
-             * Model
-             * @default sonnet
-             */
-            model: string;
-            /** Claude Session Id */
-            claude_session_id: string | null;
-            /** Last Context Snapshot Id */
-            last_context_snapshot_id: string | null;
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "archived";
-            /** Last Message At */
-            last_message_at: string | null;
-            /** Created At */
-            created_at: string | null;
-        };
-        /** AssistantThreadCreateRequest */
-        AssistantThreadCreateRequest: {
-            /** Id */
-            id: string;
-            /** Title */
-            title: string;
-            /**
-             * Mode
-             * @default general
-             */
-            mode: string;
-            /**
-             * Model
-             * @default sonnet
-             */
-            model: string;
-        };
-        /** AssistantThreadsResponse */
-        AssistantThreadsResponse: {
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /**
-             * Threads
-             * @default []
-             */
-            threads: components["schemas"]["AssistantThread"][];
         };
         /**
          * BaselineWindow
@@ -1937,6 +1993,17 @@ export interface components {
             pattern_label: string;
             /** Instructions */
             instructions: string | null;
+        };
+        /** BriefVersion */
+        BriefVersion: {
+            /** Id */
+            id: string;
+            /** Content Md */
+            content_md: string;
+            /** Source Id */
+            source_id: string;
+            /** Created At */
+            created_at: string;
         };
         /** CaptureField */
         CaptureField: {
@@ -2292,6 +2359,216 @@ export interface components {
             op: "<" | "<=" | ">" | ">=" | "==" | "in";
             /** Value */
             value: boolean | number | string | (boolean | number | string)[];
+        };
+        /** CoachBriefResponse */
+        CoachBriefResponse: {
+            brief: components["schemas"]["BriefVersion"] | null;
+        };
+        /** CoachEnqueueResponse */
+        CoachEnqueueResponse: {
+            /** Created */
+            created: boolean;
+            job: components["schemas"]["CoachJob"];
+            review: components["schemas"]["CoachReview"] | null;
+            message: components["schemas"]["CoachMessage"] | null;
+        };
+        /** CoachJob */
+        CoachJob: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review_run" | "review_skip" | "chat_turn" | "distill_thread";
+            /** Dedupe Key */
+            dedupe_key: string;
+            /** Priority */
+            priority: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "complete" | "failed";
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /** Available At */
+            available_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Error */
+            error: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** CoachJournalResponse */
+        CoachJournalResponse: {
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["JournalEntry"][];
+        };
+        /**
+         * CoachMeasurementAssessment
+         * @description Coach judgment for one exact scheduled measurement-run occurrence.
+         */
+        CoachMeasurementAssessment: {
+            /** Run Id */
+            run_id: string;
+            /** Occurrence Key */
+            occurrence_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "valid" | "provisional" | "failed";
+            /** Rationale */
+            rationale: string;
+        };
+        /** CoachMessage */
+        CoachMessage: {
+            /** Id */
+            id: string;
+            /** Thread Id */
+            thread_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "coach" | "system";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
+            /** Job Id */
+            job_id: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /** CoachMessageCreateRequest */
+        CoachMessageCreateRequest: {
+            /** Content Md */
+            content_md: string;
+        };
+        /** CoachMessagesResponse */
+        CoachMessagesResponse: {
+            /**
+             * Messages
+             * @default []
+             */
+            messages: components["schemas"]["CoachMessage"][];
+        };
+        /** CoachReview */
+        CoachReview: {
+            /** Id */
+            id: string;
+            /** Date */
+            date: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "skip";
+            /** Run Id */
+            run_id: string | null;
+            /** Occurrence Key */
+            occurrence_key: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "generating" | "complete" | "failed";
+            /** Verdict */
+            verdict: ("compliant" | "partial" | "non_compliant" | "skipped" | "unplanned") | null;
+            /** Content Md */
+            content_md: string | null;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /**
+             * Plots Viewed
+             * @default []
+             */
+            plots_viewed: string[];
+            measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
+            /** Job Id */
+            job_id: string;
+            /** Error */
+            error: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** CoachReviewsResponse */
+        CoachReviewsResponse: {
+            /**
+             * Reviews
+             * @default []
+             */
+            reviews: components["schemas"]["CoachReview"][];
+        };
+        /** CoachRunReviewRequest */
+        CoachRunReviewRequest: {
+            /** Run Id */
+            run_id: string;
+        };
+        /** CoachStatusResponse */
+        CoachStatusResponse: {
+            /** Worker Enabled */
+            worker_enabled: boolean;
+            running_job: components["schemas"]["CoachJob"] | null;
+            /** Queued Count */
+            queued_count: number;
+        };
+        /** CoachThread */
+        CoachThread: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "closing" | "closed" | "close_failed";
+            /** Codex Session Id */
+            codex_session_id: string | null;
+            /** Created At */
+            created_at: string;
+            /** Last Activity At */
+            last_activity_at: string;
+        };
+        /** CoachThreadCreateRequest */
+        CoachThreadCreateRequest: {
+            /** Title */
+            title: string;
+        };
+        /** CoachThreadsResponse */
+        CoachThreadsResponse: {
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["CoachThread"][];
         };
         /** ConfounderCheck */
         ConfounderCheck: {
@@ -3641,6 +3918,27 @@ export interface components {
             /** Min */
             min: number | string;
         };
+        /** JournalEntry */
+        JournalEntry: {
+            /** Id */
+            id: string;
+            /** Ts */
+            ts: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review" | "chat" | "admonish";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Source Id */
+            source_id: string;
+        };
         /**
          * LapDisplayRow
          * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
@@ -4887,19 +5185,16 @@ export interface components {
         };
         /**
          * RunSeriesResponse
-         * @description Single-run chart-series endpoint response: metric series plus imperial arrays.
+         * @description Canonical run series plus index-aligned, display-ready chart arrays.
          *
-         *     `series` stays metric (canonical); `pace_min_per_mi`/`altitude_ft`/
-         *     `temperature_f`/`distance_mi` are the backend-derived imperial arrays the
-         *     frontend charts bind to, index-aligned with `series.elapsed_s`.
-         *     Native strap-dynamics arrays — `stance_time_balance_pct`/`respiration_rate_brpm`/
-         *     `stance_time_pct` — live inside the embedded `series` object (already in
-         *     native display units — balance %, brpm, % — no conversion applies); empty
-         *     on wrist-only runs, same as the imperial arrays above. Stamina/performance-
-         *     condition arrays (`stamina_pct`/`stamina_potential_pct`/`performance_condition`)
-         *     likewise live only inside `series` — dimensionless ints, no imperial
-         *     conversion, no top-level duplicate (see commit 59abb86 for why: duplicating
-         *     embedded series data at the top level was tried and reverted).
+         *     `series` is the untouched metric FIT projection. Top-level movement arrays
+         *     are chart projections: start/resume sensor-settling samples and explicit
+         *     non-running spans become positional nulls without deleting source records.
+         *     `altitude_ft` is the smoothed display profile. `step_length_m` and
+         *     `vertical_oscillation_cm` retain Garmin's metric display exceptions.
+         *
+         *     Respiration, stamina, and performance-condition arrays remain only inside
+         *     `series`: they are not movement-dependent charts and need no display copy.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
@@ -4923,6 +5218,41 @@ export interface components {
              * @default []
              */
             distance_mi: (number | null)[];
+            /**
+             * Cadence Spm
+             * @default []
+             */
+            cadence_spm: (number | null)[];
+            /**
+             * Step Length M
+             * @default []
+             */
+            step_length_m: (number | null)[];
+            /**
+             * Vertical Oscillation Cm
+             * @default []
+             */
+            vertical_oscillation_cm: (number | null)[];
+            /**
+             * Vertical Ratio Pct
+             * @default []
+             */
+            vertical_ratio_pct: (number | null)[];
+            /**
+             * Ground Contact Time Ms
+             * @default []
+             */
+            ground_contact_time_ms: (number | null)[];
+            /**
+             * Ground Contact Balance Pct
+             * @default []
+             */
+            ground_contact_balance_pct: (number | null)[];
+            /**
+             * Stance Time Pct
+             * @default []
+             */
+            stance_time_pct: (number | null)[];
         };
         /**
          * RunWalkSpan
@@ -6525,6 +6855,28 @@ export interface components {
             label: string;
         };
         /**
+         * TrainingExecutionEvaluation
+         * @description Effective completion state after considering logs and tracked runs.
+         *
+         *     `run_id` identifies tracked-run evidence only, so it is populated only
+         *     when `source` is `tracked_run`; associations remain available separately
+         *     on `TrainingTodayCard.associated_activity`.
+         */
+        TrainingExecutionEvaluation: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "partial" | "skipped";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual_log" | "tracked_run" | "none";
+            /** Run Id */
+            run_id: string | null;
+        };
+        /**
          * TrainingExerciseDisplay
          * @description One strength exercise's read-only display projection for a scheduled card.
          */
@@ -6613,7 +6965,7 @@ export interface components {
          *
          *     `linked_run_id`/`run_link_detached` are the run-card association
          *     controls: setting `linked_run_id` manually links one of the date's
-         *     tracked runs (validated against `RunActivityReadPort.runs_for_date` —
+         *     tracked runs (validated against the runtime-resolved card's candidates —
          *     a non-null id absent from that date's runs raises `ValueError`, mapped
          *     to 400 by the app-level exception handler); setting `run_link_detached`
          *     (with no `linked_run_id` in the same request) suppresses auto-matching
@@ -6634,6 +6986,102 @@ export interface components {
             run_link_detached?: boolean | null;
         };
         /**
+         * TrainingMeasurementEvaluation
+         * @description Objective run evidence composed with the exact coach assessment.
+         */
+        TrainingMeasurementEvaluation: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "awaiting_review" | "valid" | "provisional" | "failed";
+            /** Run Id */
+            run_id: string;
+            observations: components["schemas"]["TrainingMeasurementObservations"];
+            /** Gates */
+            gates: components["schemas"]["TrainingMeasurementGate"][];
+            /** Warnings */
+            warnings: components["schemas"]["TrainingMeasurementWarning"][];
+            /** Rationale */
+            rationale: string | null;
+            /** Assessment Source Id */
+            assessment_source_id: string | null;
+            /**
+             * Estimator Eligible
+             * @default false
+             */
+            estimator_eligible: boolean;
+            /**
+             * Retry Required
+             * @default false
+             */
+            retry_required: boolean;
+        };
+        /**
+         * TrainingMeasurementGate
+         * @description One authored quality-gate comparison and its objective result.
+         */
+        TrainingMeasurementGate: {
+            /** Signal */
+            signal: string;
+            /** Value */
+            value: boolean | number | string | null;
+            /**
+             * Operator
+             * @enum {string}
+             */
+            operator: "<" | "<=" | ">" | ">=" | "==" | "in";
+            /** Threshold */
+            threshold: boolean | number | string | (boolean | number | string)[];
+            /**
+             * Result
+             * @enum {string}
+             */
+            result: "pass" | "fail" | "unknown";
+        };
+        /**
+         * TrainingMeasurementObservations
+         * @description Objective values extracted from a tracked measurement run.
+         */
+        TrainingMeasurementObservations: {
+            /** Final20 Hr Bpm */
+            final20_hr_bpm: number | null;
+            /** Threshold Pace Min Per Mi */
+            threshold_pace_min_per_mi: number | null;
+            /** Strap Validity Pct */
+            strap_validity_pct: number | null;
+            /**
+             * Effort Stand Time S
+             * @default 0
+             */
+            effort_stand_time_s: number;
+        };
+        /**
+         * TrainingMeasurementWarning
+         * @description Objective protocol evidence that is not an authored hard gate.
+         */
+        TrainingMeasurementWarning: {
+            /** Code */
+            code: string;
+            /** Value */
+            value: boolean | number | string | null;
+            /** Message */
+            message: string;
+        };
+        /**
+         * TrainingRequiredAction
+         * @description Authored block action exposed after a required event exhausts its attempts.
+         */
+        TrainingRequiredAction: {
+            /** Event Id */
+            event_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "extend_block" | "flag";
+        };
+        /**
          * TrainingRunActivitySummary
          * @description Training-local projection of a tracked run; imperial display units.
          *
@@ -6643,12 +7091,14 @@ export interface components {
          *     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
          *     does the m->mi / min-per-km->min-per-mi conversion once, at the
          *     composition boundary. `link_source` distinguishes a run picked by the
-         *     Today read model's auto-matching policy (`"auto"`) from one a person
-         *     manually linked via the capture-log PATCH (`"manual"`).
+         *     read models' auto-matching policy (`"auto"`) from one a person manually
+         *     linked via the capture-log PATCH (`"manual"`).
          */
         TrainingRunActivitySummary: {
             /** Run Id */
             run_id: string;
+            /** Session Date */
+            session_date: string;
             /** Start Time Local */
             start_time_local: string;
             /** Distance Mi */
@@ -6701,6 +7151,11 @@ export interface components {
              * @default []
              */
             days: components["schemas"]["TrainingScheduleDay"][];
+            /**
+             * Required Actions
+             * @default []
+             */
+            required_actions: components["schemas"]["TrainingRequiredAction"][];
         };
         /**
          * TrainingSegmentDisplay
@@ -6814,6 +7269,7 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "completed" | "partial" | "skipped";
+            execution: components["schemas"]["TrainingExecutionEvaluation"];
             /** Variant Taken */
             variant_taken: string | null;
             /** Notes */
@@ -6825,6 +7281,11 @@ export interface components {
              * @default []
              */
             run_candidates: components["schemas"]["TrainingRunActivitySummary"][];
+            measurement: components["schemas"]["TrainingMeasurementEvaluation"] | null;
+            /** Measurement Event Id */
+            measurement_event_id: string | null;
+            /** Measurement Attempt */
+            measurement_attempt: ("scheduled" | "backup") | null;
         };
         /**
          * TrainingTodayResponse
@@ -8000,6 +8461,448 @@ export interface operations {
             };
         };
     };
+    get_status_api_coach_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachStatusResponse"];
+                };
+            };
+        };
+    };
+    get_reviews_api_coach_reviews_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReviewsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_review_api_coach_run_reviews__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_run_review_api_coach_reviews_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachRunReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_api_coach_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_review_retry_api_coach_reviews__review_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_threads_api_coach_threads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachThreadsResponse"];
+                };
+            };
+        };
+    };
+    post_thread_api_coach_threads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachThreadCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_messages_api_coach_threads__thread_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachMessagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_message_api_coach_threads__thread_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachMessageCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_close_api_coach_threads__thread_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_retry_close_api_coach_threads__thread_id__retry_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_coach_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brief_api_coach_brief_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachBriefResponse"];
+                };
+            };
+        };
+    };
+    get_journal_api_coach_journal_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJournalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     sse_events_api_events_get: {
         parameters: {
             query?: never;
@@ -8016,156 +8919,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_threads_api_assistant_threads_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantThreadsResponse"];
-                };
-            };
-        };
-    };
-    post_thread_api_assistant_threads_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssistantThreadCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantThread"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_thread_detail_api_assistant_threads__thread_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                thread_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantThread"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_thread_messages_api_assistant_threads__thread_id__messages_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                thread_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssistantMessagesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_thread_message_api_assistant_threads__thread_id__messages_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                thread_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssistantMessageCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

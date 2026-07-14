@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 
 from app.bootstrap.container import AppContainer
 from app.domains.experiments.application.analysis_cache import refresh_active_experiments
@@ -32,9 +33,22 @@ class ProcessRuntime:
     def start(self) -> None:
         run_startup_ingest_if_needed(self._container.garmin_sync)
 
+        tasks: list[asyncio.Task[None]] = []
+        if self._container.config.coach_worker_enabled:
+            cutoff = (datetime.now(UTC) - timedelta(minutes=20)).isoformat().replace(
+                "+00:00", "Z"
+            )
+            self._container.coach_repo.recover_stale_jobs(cutoff=cutoff, max_attempts=3)
+            self._container.coach_jobs.reconcile_pending()
+            coach_task = asyncio.create_task(
+                self._container.coach_worker.run(), name="coach-worker"
+            )
+            coach_task.add_done_callback(_task_done_callback)
+            tasks.append(coach_task)
+
         watcher_task = asyncio.create_task(
             self._container.garmin_sync_watcher.watch(
-                refresh_after_ingest=self._refresh_active_experiment_analyses,
+                refresh_after_ingest=self._refresh_after_ingest,
             ),
             name="file-watcher",
         )
@@ -43,14 +57,21 @@ class ProcessRuntime:
         heartbeat_task = asyncio.create_task(heartbeat_loop(), name="sse-heartbeat")
         heartbeat_task.add_done_callback(_task_done_callback)
 
-        self._tasks = [watcher_task, heartbeat_task]
+        self._tasks = [*tasks, watcher_task, heartbeat_task]
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         for task in self._tasks:
             task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
 
     def _refresh_active_experiment_analyses(self) -> int:
         return refresh_active_experiments(
             self._container.experiments_repo,
             self._container.experiments_read_source,
         )
+
+    def _refresh_after_ingest(self) -> int:
+        refreshed = self._refresh_active_experiment_analyses()
+        if self._container.config.coach_worker_enabled:
+            refreshed += len(self._container.coach_jobs.reconcile_pending())
+        return refreshed

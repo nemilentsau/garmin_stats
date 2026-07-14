@@ -7,13 +7,13 @@
 		<p class="eyebrow">Unplugged Surface</p>
 		<h1>Programs are intentionally offline.</h1>
 		<p>
-			The old program import flow is parked while routines move to the assistant artifact pipeline. New
-			plans should enter through structured drafts on <a href="/routines">Routines</a>, then compile into
-			live cards and schedules after review.
+			The old program import flow is parked while training content moves to the structured import pipeline.
+			New plans should enter through <a href="/training/import">Import</a>, then compile into live cards and
+			schedules after review.
 		</p>
 		<div class="link-row">
-			<a href="/routines">Open routine studio</a>
-			<a href="/assistant">Open assistant</a>
+			<a href="/training/import">Open training import</a>
+			<a href="/routines/schedule">Open routine schedule</a>
 		</div>
 	</div>
 </section>

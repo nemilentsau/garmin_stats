@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api, type RunDetail, type RunSeries } from '$lib/api';
+	import { api, type CoachReview, type RunDetail, type RunSeries } from '$lib/api';
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import { fmtSigned } from '$lib/format';
@@ -40,6 +40,28 @@
 	let series: RunSeries | null = $state.raw(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let coachReview: CoachReview | null = $state(null);
+	let reviewBusy = $state(false);
+
+	async function loadCoachReview(id: string) {
+		try {
+			coachReview = await api.getCoachRunReview(id);
+		} catch (e: unknown) {
+			coachReview = errorMessage(e).toLowerCase().includes('no coach review') ? null : null;
+		}
+	}
+
+	async function requestCoachReview(id: string) {
+		reviewBusy = true;
+		try {
+			const result = await api.enqueueCoachRunReview(id);
+			coachReview = result.review;
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			reviewBusy = false;
+		}
+	}
 
 	async function loadRun(id: string) {
 		loading = true;
@@ -47,6 +69,7 @@
 			const [nextDetail, nextSeries] = await Promise.all([api.getRun(id), api.getRunSeries(id)]);
 			detail = nextDetail;
 			series = nextSeries;
+			await loadCoachReview(id);
 			error = null;
 		} catch (e: unknown) {
 			detail = null;
@@ -280,7 +303,7 @@
 			rows.push({
 				key: 'elevation',
 				title: 'Elevation',
-				footnote: `↑ ${fmtFt(d.total_ascent_ft)} · ↓ ${fmtFt(d.total_descent_ft)}`,
+				footnote: `smoothed · ↑ ${fmtFt(d.total_ascent_ft)} · ↓ ${fmtFt(d.total_descent_ft)}`,
 				config: channelConfig('Elevation', series.altitude_ft, COLORS.elevation, {
 					area: true,
 					unit: 'ft',
@@ -315,12 +338,12 @@
 			});
 		}
 
-		if (hasData(s.cadence_spm)) {
+		if (hasData(series.cadence_spm)) {
 			rows.push({
 				key: 'cadence',
 				title: 'Run Cadence',
 				footnote: `avg ${fmtU0(session.avg_cadence_spm, 'spm')}`,
-				config: channelConfig('Cadence', s.cadence_spm, COLORS.cadence, {
+				config: channelConfig('Cadence', series.cadence_spm, COLORS.cadence, {
 					dots: true,
 					unit: 'spm',
 					format: (v) => String(Math.round(v))
@@ -328,15 +351,15 @@
 			});
 		}
 
-		if (hasData(s.step_length_mm)) {
+		if (hasData(series.step_length_m)) {
 			rows.push({
 				key: 'stride',
 				title: 'Stride Length',
 				footnote: `avg ${fmtMeters(session.avg_step_length_mm)}`,
-				config: channelConfig('Stride Length', s.step_length_mm, COLORS.strideLength, {
+				config: channelConfig('Stride Length', series.step_length_m, COLORS.strideLength, {
 					dots: true,
 					unit: 'm',
-					format: (v) => (v / 1000).toFixed(2)
+					format: (v) => v.toFixed(2)
 				})
 			});
 		}
@@ -354,25 +377,25 @@
 			});
 		}
 
-		if (hasData(s.vertical_oscillation_mm)) {
+		if (hasData(series.vertical_oscillation_cm)) {
 			rows.push({
 				key: 'vosc',
 				title: 'Vertical Oscillation',
 				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)}`,
-				config: channelConfig('Vertical Oscillation', s.vertical_oscillation_mm, COLORS.verticalOscillation, {
+				config: channelConfig('Vertical Oscillation', series.vertical_oscillation_cm, COLORS.verticalOscillation, {
 					dots: true,
-					unit: 'mm',
+					unit: 'cm',
 					format: (v) => v.toFixed(1)
 				})
 			});
 		}
 
-		if (hasData(s.vertical_ratio_pct)) {
+		if (hasData(series.vertical_ratio_pct)) {
 			rows.push({
 				key: 'vratio',
 				title: 'Vertical Ratio',
 				footnote: `avg ${fmtU1(session.avg_vertical_ratio_pct, '%')}`,
-				config: channelConfig('Vertical Ratio', s.vertical_ratio_pct, COLORS.verticalRatio, {
+				config: channelConfig('Vertical Ratio', series.vertical_ratio_pct, COLORS.verticalRatio, {
 					dots: true,
 					unit: '%',
 					format: (v) => v.toFixed(1)
@@ -380,12 +403,12 @@
 			});
 		}
 
-		if (hasData(s.stance_time_ms)) {
+		if (hasData(series.ground_contact_time_ms)) {
 			rows.push({
 				key: 'gct',
 				title: 'Ground Contact Time',
 				footnote: `avg ${fmtU0(session.avg_ground_contact_time_ms, 'ms')}`,
-				config: channelConfig('Ground Contact Time', s.stance_time_ms, COLORS.groundContactTime, {
+				config: channelConfig('Ground Contact Time', series.ground_contact_time_ms, COLORS.groundContactTime, {
 					dots: true,
 					unit: 'ms',
 					format: (v) => String(Math.round(v))
@@ -393,12 +416,12 @@
 			});
 		}
 
-		if (hasData(s.stance_time_balance_pct)) {
+		if (hasData(series.ground_contact_balance_pct)) {
 			rows.push({
 				key: 'gctBalance',
 				title: 'GCT Balance',
 				footnote: d.avg_ground_contact_balance_label ?? '—',
-				config: channelConfig('GCT Balance', s.stance_time_balance_pct, COLORS.groundContactBalance, {
+				config: channelConfig('GCT Balance', series.ground_contact_balance_pct, COLORS.groundContactBalance, {
 					dots: true,
 					format: (v) => `${v.toFixed(1)}% L`
 				})
@@ -752,6 +775,13 @@
 						{#if session.location_name}· {session.location_name}{/if}
 					</span>
 				</div>
+				{#if coachReview}
+					<a class="coach-action" href={`/coach?review=${coachReview.id}`}>Open coach review</a>
+				{:else}
+					<button class="coach-action" onclick={() => requestCoachReview(session.id)} disabled={reviewBusy}>
+						{reviewBusy ? 'Queueing…' : 'Review with coach'}
+					</button>
+				{/if}
 			</div>
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
@@ -915,6 +945,19 @@
 		gap: 12px;
 		flex-wrap: wrap;
 	}
+	.coach-action {
+		margin-left: auto;
+		flex-shrink: 0;
+		border: 1px solid rgba(91, 181, 166, 0.28);
+		background: rgba(91, 181, 166, 0.08);
+		color: #7fc9bc;
+		border-radius: 4px;
+		padding: 7px 10px;
+		font: 10px 'DM Mono', monospace;
+		text-decoration: none;
+		cursor: pointer;
+	}
+	.coach-action:disabled { opacity: 0.5; cursor: default; }
 	.run-header-main h1 {
 		margin: 0;
 		font-size: 20px;

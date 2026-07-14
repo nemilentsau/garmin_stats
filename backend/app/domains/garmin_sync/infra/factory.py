@@ -8,6 +8,7 @@ and fingerprint state consistent across startup, manual ingest, and Garmin sync.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -38,6 +39,7 @@ class GarminSyncInfra:
 def build_garmin_sync_infra(
     config: AppConfig | None = None,
     data_dir: Path | None = None,
+    after_successful_sync: Callable[[], object] | None = None,
 ) -> GarminSyncInfra:
     """Wire Garmin sync ports to SQLite, filesystem, Garmin Connect, and SSE."""
 
@@ -64,5 +66,6 @@ def build_garmin_sync_infra(
         activity_files=FilesystemActivityStore(),
         today=date.today,
         monotonic=time.monotonic,
+        after_successful_sync=after_successful_sync or (lambda: None),
     )
     return GarminSyncInfra(dependencies=dependencies, watcher=watcher)

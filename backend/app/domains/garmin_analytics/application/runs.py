@@ -1,4 +1,4 @@
-"""Run read use cases: list, detail, and chart series with derived pace.
+"""Run read use cases: list, detail, and chart-ready display projections.
 
 Owns the display-ready projection of stored run rows: date-window filtering,
 newest-first ordering, unit conversion to the project's imperial display rule
@@ -9,6 +9,8 @@ storage units) — every converted field lives in `RunDisplayStats`/
 `LapDisplayRow`/the series' imperial arrays.
 """
 
+from typing import Protocol
+
 from app.domains.garmin_analytics.application.dependencies import RunsReadRepository
 from app.domains.garmin_analytics.contracts import (
     LapDisplayRow,
@@ -17,6 +19,13 @@ from app.domains.garmin_analytics.contracts import (
     RunListItem,
     RunSeriesResponse,
     RunsListResponse,
+)
+from app.domains.garmin_analytics.domain.run_display import (
+    active_running_display_mask,
+    apply_display_mask,
+    detrend_closed_loop_elevation,
+    elevation_gain_loss_m,
+    smooth_elevation_by_distance,
 )
 
 _MIN_PACE_SPEED_MPS = 0.5
@@ -27,6 +36,28 @@ _M_PER_MI = 1609.344
 _KM_TO_MI = 1.609344
 _M_TO_FT = 3.28084
 _MPS_TO_MPH = 2.2369363
+
+
+class _ElevationSeriesView(Protocol):
+    @property
+    def distance_m(self) -> list[float | None]: ...
+
+    @property
+    def altitude_m(self) -> list[float | None]: ...
+
+
+class _ElevationLocationView(Protocol):
+    @property
+    def start_lat(self) -> float | None: ...
+
+    @property
+    def start_lon(self) -> float | None: ...
+
+    @property
+    def end_lat(self) -> float | None: ...
+
+    @property
+    def end_lon(self) -> float | None: ...
 
 
 def _m_to_mi(value_m: float | None) -> float | None:
@@ -63,6 +94,11 @@ def _mm_to_cm(value_mm: float | None) -> float | None:
     return None if value_mm is None else round(value_mm / 10, 1)
 
 
+def _mm_to_m(value_mm: float | None) -> float | None:
+    """Millimeters -> meters, 3dp. None-preserving."""
+    return None if value_mm is None else round(value_mm / 1000, 3)
+
+
 def _ground_contact_balance_label(value_pct: float | None) -> str | None:
     """Render Garmin's "L / R" stance-time balance split, e.g. "49.8% L / 50.2% R".
 
@@ -86,6 +122,33 @@ def _speed_mps_to_pace_min_per_km(value_mps: float | None) -> float | None:
     if value_mps is None or value_mps < _MIN_PACE_SPEED_MPS:
         return None
     return 1000 / (value_mps * 60)
+
+
+def _display_elevation_profile(
+    series: _ElevationSeriesView | None,
+    session: _ElevationLocationView | None,
+) -> list[float | None] | None:
+    """Build the display profile while leaving stored altitude untouched."""
+    if series is None:
+        return None
+    smoothed = smooth_elevation_by_distance(series.distance_m, series.altitude_m)
+    if smoothed is None:
+        return None
+    if sum(value is not None for value in smoothed) < 2:
+        return None
+
+    start_lat = session.start_lat if session is not None else None
+    start_lon = session.start_lon if session is not None else None
+    end_lat = session.end_lat if session is not None else None
+    end_lon = session.end_lon if session is not None else None
+    return detrend_closed_loop_elevation(
+        series.distance_m,
+        smoothed,
+        start_lat=start_lat,
+        start_lon=start_lon,
+        end_lat=end_lat,
+        end_lon=end_lon,
+    )
 
 
 def list_runs(
@@ -133,6 +196,12 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
     if session is None:
         raise LookupError(f"Run {run_id} not found")
     laps = repo.load_laps(run_id)
+    elevation_profile = _display_elevation_profile(repo.load_series(run_id), session)
+    elevation_totals = (
+        elevation_gain_loss_m(elevation_profile)
+        if elevation_profile is not None
+        else None
+    )
     display = RunDisplayStats(
         distance_mi=_m_to_mi(session.distance_m),
         pace_min_per_mi=_minkm_to_minmi(session.pace_min_per_km),
@@ -141,8 +210,12 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         ),
         avg_speed_mph=_mps_to_mph(session.avg_speed_mps),
         max_speed_mph=_mps_to_mph(session.max_speed_mps),
-        total_ascent_ft=_m_to_ft(session.total_ascent_m),
-        total_descent_ft=_m_to_ft(session.total_descent_m),
+        total_ascent_ft=_m_to_ft(
+            elevation_totals[0] if elevation_totals is not None else session.total_ascent_m
+        ),
+        total_descent_ft=_m_to_ft(
+            elevation_totals[1] if elevation_totals is not None else session.total_descent_m
+        ),
         avg_temperature_f=_c_to_f(session.avg_temperature_c),
         min_temperature_f=_c_to_f(session.min_temperature_c),
         max_temperature_f=_c_to_f(session.max_temperature_c),
@@ -197,10 +270,32 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
     series = repo.load_series(run_id)
     if series is None:
         raise LookupError(f"Run {run_id} not found")
+    session = repo.load_session(run_id)
+    display_mask = active_running_display_mask(series.elapsed_s, series.run_walk_spans)
+    elevation_profile = _display_elevation_profile(series, session)
     return RunSeriesResponse(
         series=series,
-        pace_min_per_mi=_series_pace_min_per_mi(series.speed_mps),
-        altitude_ft=[_m_to_ft(v) for v in series.altitude_m],
+        pace_min_per_mi=apply_display_mask(
+            _series_pace_min_per_mi(series.speed_mps), display_mask
+        ),
+        altitude_ft=(
+            [_m_to_ft(value) for value in elevation_profile]
+            if elevation_profile is not None
+            else [_m_to_ft(value) for value in series.altitude_m]
+        ),
         temperature_f=[_c_to_f(v) for v in series.temperature_c],
         distance_mi=[_m_to_mi(v) for v in series.distance_m],
+        cadence_spm=apply_display_mask(series.cadence_spm, display_mask),
+        step_length_m=apply_display_mask(
+            [_mm_to_m(value) for value in series.step_length_mm], display_mask
+        ),
+        vertical_oscillation_cm=apply_display_mask(
+            [_mm_to_cm(value) for value in series.vertical_oscillation_mm], display_mask
+        ),
+        vertical_ratio_pct=apply_display_mask(series.vertical_ratio_pct, display_mask),
+        ground_contact_time_ms=apply_display_mask(series.stance_time_ms, display_mask),
+        ground_contact_balance_pct=apply_display_mask(
+            series.stance_time_balance_pct, display_mask
+        ),
+        stance_time_pct=apply_display_mask(series.stance_time_pct, display_mask),
     )

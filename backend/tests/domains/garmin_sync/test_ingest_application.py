@@ -175,6 +175,7 @@ def _deps(
     ingest = FakeIngestGateway()
     archive_calls: list[Path] = []
     watcher_calls: list[str] = []
+    reconciliation_calls: list[str] = []
     # An unbounded counter (not a fixed two-item list) because tests that call
     # sync_garmin more than once (e.g. to exercise idempotent activity skips)
     # need the fake clock to keep advancing rather than running dry.
@@ -222,6 +223,7 @@ def _deps(
         activity_files=store,
         today=lambda: today,
         monotonic=lambda: next(monotonic_values),
+        after_successful_sync=lambda: reconciliation_calls.append("reconciled"),
     )
     return deps, ingest, archive_calls, watcher_calls, client, files, store
 
@@ -338,6 +340,28 @@ def test_sync_does_not_mark_watcher_synced_when_ingest_fails(tmp_path: Path):
         sync_garmin(deps)
 
     assert "synced" not in watcher
+
+
+def test_successful_sync_invokes_post_sync_reconciliation(tmp_path: Path):
+    deps, *_ = _deps(tmp_path)
+    calls: list[str] = []
+    object.__setattr__(deps, "after_successful_sync", lambda: calls.append("done"))
+
+    sync_garmin(deps)
+
+    assert calls == ["done"]
+
+
+def test_failed_sync_does_not_invoke_post_sync_reconciliation(tmp_path: Path):
+    deps, ingest, *_ = _deps(tmp_path)
+    calls: list[str] = []
+    object.__setattr__(deps, "after_successful_sync", lambda: calls.append("done"))
+    ingest.ingest_dates_error = RuntimeError("failed")
+
+    with pytest.raises(RuntimeError):
+        sync_garmin(deps)
+
+    assert calls == []
 
 
 def test_plan_with_no_archives_starts_yesterday_and_marks_no_deletion():

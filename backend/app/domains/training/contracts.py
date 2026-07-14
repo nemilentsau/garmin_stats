@@ -65,7 +65,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from app.contracts.base import DefaultsRequired, StrictDefaultsRequired
 
@@ -537,12 +537,27 @@ class TrainingCaptureLog(DefaultsRequired):
 TrainingCardStatus = Literal["pending", "completed", "partial", "skipped"]
 
 
+class TrainingExecutionEvaluation(DefaultsRequired):
+    """Effective completion state after considering logs and tracked runs.
+
+    `run_id` identifies tracked-run evidence only, so it is populated only
+    when `source` is `tracked_run`; associations remain available separately
+    on `TrainingTodayCard.associated_activity`.
+    """
+
+    status: TrainingCardStatus
+    source: Literal["manual_log", "tracked_run", "none"]
+    run_id: str | None = None
+
+
 class TrainingCardLog(DefaultsRequired):
     """One card occurrence's completion state, keyed by `date:occurrence_key`."""
 
     id: str  # f"{date}:{occurrence_key}"
     date: str
-    occurrence_key: str  # f"{bundle_id}:{card_id}:d{day:02d}"
+    # Opaque display key; ordinary/base form is bundle:card:dNN, while every
+    # activated backup adds an event-qualified suffix for stable ownership.
+    occurrence_key: str
     status: TrainingCardStatus = "pending"
     variant_taken: str | None = None
     notes: str | None = None
@@ -606,11 +621,12 @@ class TrainingRunActivitySummary(DefaultsRequired):
     units; the adapter that produces it (`bootstrap/run_activity_port.py`)
     does the m->mi / min-per-km->min-per-mi conversion once, at the
     composition boundary. `link_source` distinguishes a run picked by the
-    Today read model's auto-matching policy (`"auto"`) from one a person
-    manually linked via the capture-log PATCH (`"manual"`).
+    read models' auto-matching policy (`"auto"`) from one a person manually
+    linked via the capture-log PATCH (`"manual"`).
     """
 
     run_id: str
+    session_date: str
     start_time_local: str
     distance_mi: float | None = None
     timer_time_s: float | None = None
@@ -620,6 +636,86 @@ class TrainingRunActivitySummary(DefaultsRequired):
     training_load: float | None = None
     aerobic_training_effect: float | None = None
     link_source: Literal["auto", "manual"] = "auto"
+
+
+class TrainingRunWalkSpan(DefaultsRequired):
+    """Training-local run/walk/stand span, in seconds from session start."""
+
+    span_type: str
+    start_s: float
+    end_s: float
+
+
+class TrainingRunEvidence(DefaultsRequired):
+    """Training-local session summary plus index-aligned analytical series."""
+
+    summary: TrainingRunActivitySummary
+    elapsed_s: list[int]
+    distance_mi: list[float | None]
+    heart_rate_bpm: list[int | None]
+    run_walk_spans: list[TrainingRunWalkSpan]
+    dew_point_c: float | None = None
+
+
+MeasurementStatus = Literal["awaiting_review", "valid", "provisional", "failed"]
+GateResult = Literal["pass", "fail", "unknown"]
+MeasurementGateValue = bool | int | float | str
+
+
+class TrainingRequiredAction(DefaultsRequired):
+    """Authored block action exposed after a required event exhausts its attempts."""
+
+    event_id: str
+    action: Literal["extend_block", "flag"]
+
+
+class TrainingMeasurementAssessment(DefaultsRequired):
+    """Training-local projection of the coach's subjective measurement judgment."""
+
+    status: Literal["valid", "provisional", "failed"]
+    rationale: str
+    source_id: str
+
+
+class TrainingMeasurementObservations(DefaultsRequired):
+    """Objective values extracted from a tracked measurement run."""
+
+    final20_hr_bpm: int | None = None
+    threshold_pace_min_per_mi: float | None = None
+    strap_validity_pct: float | None = None
+    effort_stand_time_s: float = 0.0
+
+
+class TrainingMeasurementGate(DefaultsRequired):
+    """One authored quality-gate comparison and its objective result."""
+
+    signal: str
+    value: MeasurementGateValue | None = None
+    operator: Literal["<", "<=", ">", ">=", "==", "in"]
+    threshold: MeasurementGateValue | list[MeasurementGateValue]
+    result: GateResult
+
+
+class TrainingMeasurementWarning(DefaultsRequired):
+    """Objective protocol evidence that is not an authored hard gate."""
+
+    code: str
+    value: MeasurementGateValue | None = None
+    message: str
+
+
+class TrainingMeasurementEvaluation(DefaultsRequired):
+    """Objective run evidence composed with the exact coach assessment."""
+
+    status: MeasurementStatus
+    run_id: str
+    observations: TrainingMeasurementObservations
+    gates: list[TrainingMeasurementGate] = Field(default_factory=list)
+    warnings: list[TrainingMeasurementWarning] = Field(default_factory=list)
+    rationale: str | None = None
+    assessment_source_id: str | None = None
+    estimator_eligible: bool = False
+    retry_required: bool = False
 
 
 class TrainingTodayCard(DefaultsRequired):
@@ -643,11 +739,21 @@ class TrainingTodayCard(DefaultsRequired):
     capture_rpe: bool = False  # card captures a numeric RPE
     est_duration_min: float | None = None
     status: TrainingCardStatus = "pending"
+    execution: TrainingExecutionEvaluation
     variant_taken: str | None = None
     notes: str | None = None
     capture: TrainingCaptureLog | None = None
     associated_activity: TrainingRunActivitySummary | None = None  # run cards only
-    run_candidates: list[TrainingRunActivitySummary] = []  # run cards only, Today path only
+    run_candidates: list[TrainingRunActivitySummary] = []  # run cards only
+    measurement: TrainingMeasurementEvaluation | None = None  # measurement runs only
+    measurement_event_id: str | None = None
+    measurement_attempt: Literal["scheduled", "backup"] | None = None
+
+    @model_validator(mode="after")
+    def _execution_matches_legacy_status(self) -> TrainingTodayCard:
+        if self.execution.status != self.status:
+            raise ValueError("execution status must match legacy status")
+        return self
 
 
 class TrainingTodayResponse(DefaultsRequired):
@@ -674,6 +780,7 @@ class TrainingScheduleWindow(DefaultsRequired):
     start_date: str
     end_date: str
     days: list[TrainingScheduleDay] = []
+    required_actions: list[TrainingRequiredAction] = []
 
 
 class TrainingBlockStatus(DefaultsRequired):

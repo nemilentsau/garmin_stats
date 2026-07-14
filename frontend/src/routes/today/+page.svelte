@@ -911,7 +911,7 @@
 									<div class="row-content">
 										<span class="row-name">{card.card.name}</span>
 										<span class="row-summary">
-											{card.bundle_name}{#if card.key_session} · key session{/if}
+											{card.bundle_name}{#if card.key_session} · key session{/if}{#if card.measurement_attempt === 'backup'} <span class="backup-test">· Backup test</span>{/if}
 										</span>
 									</div>
 
@@ -1437,6 +1437,11 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.backup-test {
+		margin-left: 0.35em;
+		color: #8fa3b0;
 	}
 
 	.row-brief {

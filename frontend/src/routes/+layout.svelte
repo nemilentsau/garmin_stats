@@ -39,8 +39,8 @@
 			]
 		},
 		{
-			label: 'Assistant',
-			href: '/assistant',
+			label: 'Coach',
+			href: '/coach',
 			subtabs: []
 		}
 	];

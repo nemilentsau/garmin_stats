@@ -68,7 +68,6 @@ def test_garmin_health_does_not_import_feature_domains():
         [
             "app.domains.garmin_analytics",
             "app.domains.experiments",
-            "app.domains.assistant",
             "app.infra.database",
         ],
     )

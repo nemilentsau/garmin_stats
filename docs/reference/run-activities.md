@@ -1,6 +1,6 @@
 # Run Activities
 
-**Status:** shipped (running only) — parse, strap channels, stamina/performance-condition, GPS route map, and run↔prescription association are all live. Strength/breathing activity files still download but are not parsed (see `../routine-pivot/pivot_roadmap.md` next steps).
+**Status:** shipped (running only) — parse, strap channels, stamina/performance-condition, GPS route map, run↔prescription association, and program-aware measurement evaluation are live. Strength/breathing activity files still download but are not parsed (see `../routine-pivot/pivot_roadmap.md` next steps).
 
 How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` UI. For the two-tree data topology, download/sync mechanics, and config paths, see `data-and-ingest.md` — this page only covers the running-specific parse → store → serve → display path.
 
@@ -32,16 +32,18 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 
 ### Serve (`garmin_analytics`)
 
-- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above; no derivation beyond backend-owned pace (`pace_min_per_mi`, plus the imperial display projection on `RunDisplayStats`) — the frontend derives nothing.
+- `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above. The embedded session/lap/series objects preserve the canonical stored values; separate top-level display fields own pace, unit conversion, chart masking, and elevation smoothing so the frontend derives nothing.
+- **Movement-chart projection:** pace, cadence, stride length, vertical oscillation, vertical ratio, ground contact time, GCT balance, and stance-time display arrays preserve positional alignment but return `null` during explicit walk/stand spans and for the first 10 seconds after recording starts or resumes after a gap. The raw arrays remain unchanged inside `RunSeriesResponse.series`.
+- **Elevation projection:** altitude is median-smoothed in a centered 150 m distance window. Closed-loop routes (GPS endpoints within 100 m) additionally remove linear start-to-finish sensor drift; point-to-point routes do not. Display ascent/descent accumulate excursions of at least 3 m from that corrected profile. When a usable profile is absent, detail totals fall back to the stored FIT values.
 - Routes (`backend/app/domains/garmin_analytics/routes.py`, prefix `/api/activities/runs`, see `routes.md`):
   - `GET /api/activities/runs?from=&to=` — `RunsListResponse`, newest first, optional inclusive date-range filter.
   - `GET /api/activities/runs/{run_id}` — `RunDetailResponse` (full session fields + laps).
-  - `GET /api/activities/runs/{run_id}/series` — `RunSeriesResponse` (per-second column arrays + backend-derived pace array).
+  - `GET /api/activities/runs/{run_id}/series` — `RunSeriesResponse` (canonical per-second column arrays + backend-owned display arrays).
 
 ### Display (frontend)
 
 - `frontend/src/routes/runs/+page.svelte` — list table (Date, Name, Distance, Time, Pace, Avg HR with a CHEST/WRIST badge, Load, TE), date-range filter, whole-row navigation to the detail page. Reached via Training → Runs in the nav.
-- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a 10-channel chart stack (elevation, pace, heart rate, cadence, stride length, power, vertical oscillation, vertical ratio, ground contact time, temperature — each rendered only when its series has data), session-stat definition lists (no card chrome), a laps table, and HR/power time-in-zone bars.
+- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a chart stack (smoothed elevation, transition-safe pace/running dynamics, and the remaining recorded channels — each rendered only when its display series has data), session-stat definition lists (no card chrome), a laps table, and HR/power time-in-zone bars.
 - Shared formatting: `frontend/src/lib/format-run.ts`. Frontend computes no statistics — every displayed number (including pace) comes from the API as-is.
 
 ## `hr_source` semantics
@@ -83,9 +85,9 @@ Firstbeat's Stamina, Stamina Potential, and Performance Condition — the same m
 
 ## Association
 
-A tracked run can be linked to the `running.v3` prescription card it satisfies, surfaced on the Today board only. This is a `training`-domain read policy over `garmin_analytics` run data, not a `garmin_analytics`/`run-activities` feature — full ownership, contracts, and route detail live in `backend/app/domains/training/CHARTER.md`; this section covers only what a run-activities reader needs to know about how tracked runs feed it.
+A tracked run can be linked to the `running.v3` prescription card it satisfies. This is a `training`-domain read policy over Garmin run data, not a second association stored by `garmin_analytics`; ownership lives in `backend/app/domains/training/CHARTER.md`.
 
-**Port boundary.** `training` must never import `garmin_analytics`/`garmin_health` (see its charter's "Must not import"). It defines a `RunActivityReadPort` protocol and a `TrainingRunActivitySummary` contract (`backend/app/domains/training/dependencies.py`/`contracts.py`); the concrete adapter, `GarminRunActivityPort`, lives outside the slice in `backend/app/bootstrap/run_activity_port.py` and wraps `garmin_analytics`'s `RunsReadRepository`. It converts to the same imperial display units (`distance_mi`, `pace_min_per_mi`) using the identical constants/rounding as `garmin_analytics/application/runs.py`, so a run's association fields always match what `/api/activities/runs` shows for the same run. Wired into the app container in `backend/app/bootstrap/container.py`.
+**Port boundary.** `training` never imports Garmin contracts or persistence. Its read-only `RunActivityReadPort` supplies summaries for one inclusive date range and full evidence for one selected run. The training-local evidence contains the session summary, index-aligned elapsed-time/distance/heart-rate series, and run/walk/stand spans. `GarminRunActivityPort` is composed in bootstrap and maps the canonical FIT-native Garmin records into this projection: summaries use the same rounded imperial values as `/api/activities/runs`, while the distance series uses unrounded miles so boundary interpolation does not lose precision. Canonical stored session/lap/series values remain unchanged; see [Units policy](#units-policy).
 
 **`running.v3` discriminator.** Association only ever evaluates for cards from the `running.v3` bundle (`training/application/read_models.py::_is_run_card`, mirroring `validation.py`'s own `entry.bundle_id == "running.v3"` check) — every other card, including `support.v3`'s `sup.daily` (which also prescribes `SegmentPrescription`), gets `run_candidates=[]`/`associated_activity=None` unconditionally.
 
@@ -97,9 +99,32 @@ A tracked run can be linked to the `running.v3` prescription card it satisfies, 
 
 The resolved summary's `link_source` is `"manual"` for branch 1 or `"auto"` for branch 3; branch 1's stale-link case and branch 2 both return no association.
 
-**Today-only.** `GET /api/training/today` is the only read model that threads a `run_activity_port` — `run_candidates`/`associated_activity` are always empty/`None` on `GET /api/training/schedule-window` (planning view). `PUT /api/training/today/{date}/cards/{occurrence_key}` also receives the port, but only to validate a manually-set `linked_run_id` against that date's tracked runs (rejects with 400 if the id isn't one of them) — it does not itself resolve `match_run_to_card`.
+**Effective execution.** Stored manual outcomes are authoritative: explicit `completed`, `partial`, or `skipped` remains unchanged even when a run is linked. Otherwise, a resolved manual or automatic run changes an effective `pending` card to `completed` with execution source `tracked_run`; no association leaves it `pending` with source `none`. `TrainingTodayCard.status` mirrors this effective value for compatibility. This is a pure read projection: `GET` never writes a completion log, and detaching an automatic match returns the card to its stored status.
+
+**Read and write paths.** Both `GET /api/training/today` and `GET /api/training/schedule-window` use the same association and effective-execution policy. Each request makes one bulk summary read covering its visible dates plus the authored measurement opportunities needed to resolve program state, then groups the summaries by local session date. A linked measurement card alone requests full evidence for its run; request-local caches keep repeated event evaluation on one evidence snapshot and key assessment reads by exact run, occurrence, and optional cutoff. `PUT /api/training/today/{date}/cards/{occurrence_key}` resolves the same runtime Today projection before writing, so an active authored backup is writable and an inactive backup key is rejected. A non-null manual `linked_run_id` must be one of that resolved date's candidates or the write returns 400.
 
 **PATCH fields** on `TrainingLogUpdateRequest`: `linked_run_id: str | None` and `run_link_detached: bool | None`. Both follow PATCH (only-if-present) semantics — an explicit `null` on `linked_run_id` clears the stored link; omitting the field leaves the existing value untouched. Frontend: the Today card's "Executed" block shows `associated_activity` when resolved, and a `run_candidates` picker (radio list, "Not this run?" to reopen) when a `running.v3` card has candidates but no resolved match — `frontend/src/lib/training/TrainingCardBody.svelte`.
+
+## Program measurement evaluation
+
+Measurement is separate from execution. Explicit manual `completed`, `partial`, or `skipped` remains authoritative; a linked run changes execution to `completed` only when the stored status is otherwise `pending`. Measurement evaluation never changes that effective execution status. Only a valid measurement can become estimator evidence or complete a required measurement event. The current evaluator is selected by the imported measurement contract plus capture id `cap.lthr.final20_hr`; it does not key off a calendar date and does not implement undeclared estimators.
+
+For the shipped LTHR card, cumulative prescribed durations define half-open elapsed-time windows:
+
+- the 30-minute effort is `[15:00, 45:00)`;
+- the final-20 observation is `[25:00, 45:00)`, and `final20_hr_bpm` is the rounded arithmetic mean of its non-null heart-rate samples;
+- `strap.validity_pct` is the number of unique seconds with non-null HR in that final-20 window divided by exactly 1,200, rounded to three decimals. It is available only when `hr_source="strap"`, the series covers the complete window, and at least one covered second exists. The authored `>= 0.95` gate compares that value directly. Wrist HR, no HR, or a series too short to cover the window produces `None`, so the gate result is `unknown`, not pass or fail;
+- threshold pace uses distance gained between exactly 15:00 and 45:00 divided by 30 minutes. An exact boundary sample is preferred; otherwise distance is linearly interpolated only when valid samples surround that boundary. Missing support, a non-positive distance delta, or missing series leaves pace unavailable;
+- stand spans are clipped to `[15:00, 45:00)` and summed. Positive stand time produces an `uninterrupted_effort` warning, not an undeclared hard gate;
+- `env.dew_point` remains unavailable because the current FIT/run evidence has no humidity or dew-point source. Its authored gate is therefore `unknown`; no weather value is inferred.
+
+Each imported quality-gate leaf is returned as `pass`, `fail`, or `unknown`. Any known failed hard gate clamps the final status to `failed`, even if Coach says `valid`; otherwise the exact Coach assessment supplies `valid`, `provisional`, or `failed`, and absence of one leaves `awaiting_review`. Missing full series also stays `awaiting_review` and does not apply a Coach verdict. Only final `valid` sets `estimator_eligible=true`. A required measurement sets `retry_required=true` only for final `provisional` or `failed`. None of these measurement outcomes changes the effective execution precedence above.
+
+## Authored backup runtime
+
+`measurement_events.backup_days` is interpreted at read time. On an authored backup day, if no earlier authored attempt for that event was `valid` according to assessments available strictly before the start of that local backup day, the runtime replaces that day's existing `running.v3` slot with the original measurement card. That opportunity decision is frozen during chronological read-time resolution: an assessment created on or after the backup day cannot later erase the historical backup, its event-qualified key, or its saved log/link. It does not create a slot, move support/strength work, mutate an imported artifact, or persist a derived schedule. If a prior attempt was valid before the opportunity, the day's original run remains.
+
+An activated backup uses an event-qualified occurrence key (`<base-key>:event:<event-id>`), so two events sharing a card or backup day retain stable ownership. The same resolved key is used for display, run association, assessment lookup, and capture-log writes. Each later backup gets its own cutoff, so a late assessment may leave an earlier backup intact while suppressing a later one. Required actions use assessments available through the requested as-of day (the real local current date by default), while the measurement shown on a card may use the current latest assessment. Thus a late valid assessment can prevent extension without rewriting prior opportunities. No extra dates or generated training content are invented.
 
 ## Units policy
 
@@ -122,12 +147,11 @@ All fields are canonical backend units; the frontend receives display-ready valu
 | Temperature | °C | |
 | Lat/lon | degrees | FIT stores semicircles; parser converts via `raw × 180 / 2³¹` |
 
-This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Series` — what the parser and tables hold). The read layer (`garmin_analytics/application/runs.py`) additionally projects a subset into US imperial fields for display — miles, min/mi, feet, °F — per the project-wide imperial display rule (`CLAUDE.md`; distance/pace/elevation/temperature only, the Garmin-style exceptions above stay metric/native). `RunDisplayStats`/`RunSeriesResponse`'s `*_mi`/`*_ft`/`*_f`/`pace_min_per_mi` fields are that projection; the embedded `session`/`laps`/`series` stay metric regardless.
+This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Series` — what the parser and tables hold). The read layer (`garmin_analytics/application/runs.py`) additionally projects display fields in US imperial units — miles, min/mi, feet, °F — per the project-wide rule (`CLAUDE.md`; Garmin-style exceptions stay metric/native). `RunDisplayStats` and the top-level `RunSeriesResponse` arrays are the display projection; the embedded `session`/`laps`/`series` stay canonical and unmodified.
 
 ## Known gaps
 
 - **No time↔distance axis toggle.** Chart x-axis is elapsed time only.
 - **Strength and breathing FIT files are not parsed.** Only `*_running_*.fit` is discovered; strength-specific schema remains a design doc (`../future/STRENGTH_ACTIVITY_SCHEMA.md`).
 - **Zone boundaries display backend sentinels verbatim.** E.g. power zone 6's upper boundary can show as `4000` (an open-ended-top-zone sentinel, not a real reading) — the frontend renders whatever the backend sends without inferring intent.
-- **Ascent reads the FIT integer meters (`total_ascent_m`), not the JSON sidecar's float (`elevationGain`) that Connect itself displays** — a ±1 m / ~3 ft delta from Connect on some runs. Switching to the sidecar field is batched with the next parser-field change plus a re-ingest, not done standalone.
 - **Served/stored but not yet charted:** `RunSeriesResponse.distance_mi` (reserved for a time↔distance x-axis toggle) and the stored `stance_time_pct` series (reserved for a dedicated stance-time channel chart).

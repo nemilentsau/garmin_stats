@@ -25,6 +25,18 @@ class AppConfig:
     data_dir: Path
     activities_dir: Path
     garmin_token_dir: Path
+    coach_worker_enabled: bool
+
+
+def _explicit_bool(env: Mapping[str, str], name: str, *, default: bool) -> bool:
+    raw = env.get(name)
+    if raw is None:
+        return default
+    if raw == "true":
+        return True
+    if raw == "false":
+        return False
+    raise ValueError(f"{name} must be exactly 'true' or 'false'")
 
 
 def get_app_config(environ: Mapping[str, str] | None = None) -> AppConfig:
@@ -44,6 +56,9 @@ def get_app_config(environ: Mapping[str, str] | None = None) -> AppConfig:
         garmin_token_dir=Path(
             env.get("GARMINTOKENS", "~/.garminconnect")
         ).expanduser(),
+        coach_worker_enabled=_explicit_bool(
+            env, "GARMIN_COACH_WORKER_ENABLED", default=True
+        ),
     )
 
 

@@ -61,7 +61,7 @@ here are *discipline* errors (a fluke promoted to a fact, goalposts moved after
 the reveal).
 
 The dependency is one-directional: clean data → honest statistics → disciplined
-study. The assistant loads only the layers a task needs — a "what's a typical
+study. An analyst run loads only the layers a task needs — a "what's a typical
 night's sleep" question pulls in `data-analysis`; "why did recovery crash last
 November" pulls in all three — so the right discipline arrives automatically and
 nothing irrelevant is loaded. `data-analysis` is portable to other projects
@@ -219,5 +219,5 @@ test: changes are driven by observed failure, not speculation.
   is rebuilt on fresh data; disagreements between old and new are themselves
   recorded as findings.
 
-The split isn't ceremony. It's the structure that lets a fast assistant be fast
+The split isn't ceremony. It's the structure that lets a fast analyst be fast
 *and* trustworthy on data that is unusually easy to misread.

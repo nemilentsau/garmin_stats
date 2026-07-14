@@ -3,7 +3,7 @@
 **Status:** shipped
 **Boundary source of truth for this slice. Update in the same PR that changes it.**
 
-The v3-native training runtime. It imports authored v3 training artifacts, lint-gates and single-shot activates them, compiles a schedule from the imported bundles, and serves the Today / schedule-window / block-status read models plus per-occurrence capture logs. The import endpoint is the ONLY ingress for training content: artifacts are stored verbatim, and nothing else in the app may create or derive training rows. On the frontend, the Today and schedule pages compose the training feed and the routines feed side by side; neither domain imports the other.
+The v3-native training runtime. It imports authored v3 training artifacts, lint-gates and single-shot activates them, compiles their schedule, and projects execution, measurement, and authored backup state into Today / schedule-window / block-status read models plus per-occurrence capture logs. The import endpoint is the ONLY ingress for training content: artifacts are stored verbatim, and runtime projections never create or rewrite authored content.
 
 ## Owns
 
@@ -12,6 +12,12 @@ The v3-native training runtime. It imports authored v3 training artifacts, lint-
 - The ported L1-L12 block linter.
 - Schedule compilation from imported bundles.
 - Today / schedule-window / block-status read models.
+- Effective execution and measurement projection from training-local run
+  evidence, including pure quality-gate evaluation, Coach-result
+  finalization, estimator eligibility, and required-retry state.
+- Pure read-time overlay of authored measurement backup days and exhausted
+  event actions. It may substitute the original measurement card into an
+  existing running slot; it never edits the compiled schedule or artifact.
 - Per-occurrence capture-log persistence (set/rep/load logs, RPE, variant
   selection, check-in tissue soreness/flags, and run-card link state
   `linked_run_id`/`run_link_detached`).
@@ -20,10 +26,13 @@ The v3-native training runtime. It imports authored v3 training artifacts, lint-
   rows.
 - The run<->prescription association read policy (`match_run_to_card`):
   which tracked run, if any, a scheduled `running.v3` card displays as
-  executed, on the Today view only. Training defines this policy and the
-  `RunActivityReadPort` Protocol/`TrainingRunActivitySummary` contract it
-  reads through, but never sees a tracked run except via that injected
-  port — see "Must not import".
+  executed on Today and schedule-window. Training defines the
+  `RunActivityReadPort` summary/full-evidence contract and the
+  `MeasurementAssessmentReadPort` projection it reads through, but sees
+  Garmin and Coach data only through those injected ports.
+- Runtime occurrence resolution shared by reads and writes. Activated
+  backups receive stable event-qualified keys; capture writes resolve the
+  same Today overlay so active keys are writable and inactive keys are not.
 
 ## Does not own
 
@@ -32,28 +41,34 @@ The v3-native training runtime. It imports authored v3 training artifacts, lint-
 - Experiment analysis.
 - Program import.
 - Garmin ingest.
-- Garmin analytics.
+- Garmin run persistence or canonical FIT contracts.
+- Coach assessment persistence or model-output validation.
+- Mutation, generation, translation, or rescheduling of imported content.
 
 The frontend Today and schedule pages compose the training feed and the
 routines feed side by side; neither domain imports the other.
 
 ## May import
 
-- Its own contracts, application helpers, and dependencies.
+- Same-slice contracts, domain/application modules, and dependency protocols.
+- Standard-library and Pydantic primitives, plus shared base/time helpers from
+  `app.contracts.base` and `app.utils.timeutil`.
+- Training-owned persistence boundaries (`adapters.py` and `schema.py`) may
+  use the shared `app.infra.jsonstore` and `app.infra.sqlite` primitives.
+- The route module may import FastAPI and the bootstrap container to bind
+  injected dependencies; bootstrap owns cross-domain adapter composition.
 
 ## Must not import
 
-- routines, experiments, assistant, artifacts, journal, programs, Garmin sync,
-  Garmin analytics, FastAPI from application modules, or SQLite helpers from
-  application modules.
-- Persistence goes through `app.infra.jsonstore` only, via `adapters.py`.
-- Tracked-run data for association goes through the injected
-  `RunActivityReadPort` only — never a direct `garmin_analytics`/
-  `garmin_health` import. The concrete adapter (`GarminRunActivityPort`,
-  wrapping `garmin_analytics`'s runs repository) and its wiring live outside
-  this slice, in `backend/app/bootstrap/run_activity_port.py` and
-  `bootstrap/container.py` — bootstrap is not a slice, so this composition
-  needs no cross-slice allowlist entry.
+- routines, experiments, assistant, artifacts, journal, programs, Coach,
+  Garmin sync, Garmin analytics, Garmin health, FastAPI from application
+  modules, or SQLite helpers from application modules.
+- Application/domain policy must not import bootstrap or infrastructure;
+  persistence remains behind `TrainingRepository`.
+- Tracked-run summaries/full evidence and Coach judgments go through the
+  injected training-local ports only. Their concrete adapters and wiring
+  live in bootstrap; training never imports either source domain's contract
+  or persistence adapter.
 
 ## Public entrypoints
 
@@ -79,59 +94,28 @@ routines feed side by side; neither domain imports the other.
   schedule compilation from imported bundles.
 - `application/read_models.py` — `get_training_today`,
   `get_training_schedule_window`, `get_block_status`, and `upsert_training_log`
-  (PATCH-semantics capture-log upsert with occurrence validation), plus the
-  pure `match_run_to_card` run<->prescription association policy that
-  `get_training_today` (only) threads through `_cards_for_day`/`_build_card`
-  when a `RunActivityReadPort` is supplied.
-- `contracts.py` — v3 wire contracts (parse the read-only Block 0 artifacts),
+  (PATCH-semantics capture-log upsert with runtime occurrence validation),
+  plus orchestration of association, measurement evidence, exact assessment
+  lookup with optional historical cutoffs, request snapshots, and frozen
+  authored-opportunity history.
+- `domain/run_evaluation.py` — pure effective-execution, LTHR observation,
+  quality-gate, and Coach-finalization policy.
+- `application/measurement_schedule.py` — pure read-time activation of
+  authored backup opportunities and exhausted-event actions.
+- `contracts.py` — v3 wire contracts for imported training artifacts,
   the `LintReport` output contract, `Stored{Bundle,Block,Registry,Library}`
   persistence envelopes, the `TrainingCardLog` capture record (incl.
   `linked_run_id`/`run_link_detached`), the training-local
-  `TrainingRunActivitySummary` run projection, and the `Training*`
-  display/response/window view models.
+  run summary/full-evidence and Coach-assessment projections,
+  and the `Training*` display/response/window view models.
 - `dependencies.py` — `TrainingRepository` protocol (the single persistence
-  dependency for import, activation, and capture use cases) and
-  `RunActivityReadPort` (read-only tracked-run access for association,
-  implemented outside the slice — see "Must not import").
+  dependency for import, activation, and capture use cases),
+  `RunActivityReadPort`, and `MeasurementAssessmentReadPort`; both read ports
+  are implemented outside the slice.
 - `adapters.py` — `SqliteTrainingRepository`: the persistence boundary; owns the
   single-active-block/bundle retire-then-activate transaction.
 - `schema.py` — five jsonstore tables (`training_bundles`, `training_blocks`,
   `training_registry`, `training_exercise_library`, `training_card_logs`).
 
-## Verified against code (2026-07-10; association re-checked 2026-07-12)
-
-matches — with one clarifying note that is not a violation:
-
-- Owns: confirmed. Import + single-shot activation (`imports.import_artifacts`,
-  `adapters.save_import` retire-then-activate in one transaction); L1-L12 linter
-  (`validation.py` — L1 through L12 codes all present); schedule compilation
-  (`compile.compile_schedule`); Today/schedule-window/block-status read models
-  (`read_models.get_training_today` / `get_training_schedule_window` /
-  `get_block_status`); capture-log persistence (`read_models.upsert_training_log`,
-  `TrainingCardLog`, five jsonstore tables incl. `training_card_logs`).
-- Public entrypoints: all five `/api/training/*` routes present in `routes.py`
-  with the exact paths listed; use cases exported as named above.
-- Must not import: confirmed. No imports of routines, experiments, assistant,
-  artifacts, journal, programs, garmin_sync, or garmin_analytics anywhere in the
-  slice. FastAPI appears only in `routes.py` (route module — allowed by the
-  slice boundary convention), never in `application/`. `sqlite3` /
-  `app.infra.sqlite.connect` appear only in `adapters.py` and `schema.py`
-  (the persistence boundary), never in application modules; application modules
-  depend on the `TrainingRepository` protocol from `dependencies.py`.
-- Clarifying note (not a discrepancy): the charter's "May import" line lists
-  only slice-owned things, but the code also imports the globally-allowed shared
-  primitives — `app.contracts.base` (response bases), `app.utils.timeutil`
-  (`now_iso`), and `app.infra.jsonstore` / `app.infra.sqlite` (persistence, via
-  `adapters.py`/`schema.py`), plus `app.bootstrap.container.build_container` in
-  the route module. These are governed by the global Slice Boundary Convention
-  and the dependency-direction rules in `docs/ARCHITECTURE.md`, and the
-  "Must not import" clause explicitly permits `app.infra.jsonstore`, so they are
-  in-bounds.
-- Association re-check (2026-07-12, after `74bd5a9`/`982fc0c` landed): `match_run_to_card`'s
-  manual-wins/detach/auto-single-card-closest-distance precedence, `_is_run_card`'s
-  `running.v3` discriminator, `GET /today`-only threading of `run_activity_port` (confirmed
-  absent from `get_training_schedule_window`), and the PATCH-only-if-present semantics of
-  `linked_run_id`/`run_link_detached` on `TrainingLogUpdateRequest` all match this charter's
-  "Owns"/"Key files" description exactly — no drift found. Full policy write-up, with the
-  `RunActivityReadPort`/`GarminRunActivityPort` port boundary, lives in
-  `docs/reference/run-activities.md` ("Association").
+The concrete association, LTHR evaluation, and backup semantics live in
+`docs/reference/run-activities.md`; this charter owns only the domain boundary.

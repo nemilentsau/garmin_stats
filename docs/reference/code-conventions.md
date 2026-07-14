@@ -19,7 +19,7 @@ Counter-examples (these belong in a domain, not `app/utils/`):
 
 Forbidden in `app/utils/`:
 - Imports from `app.domains.*`, `app.infra.*`, `app.routers.*`, or `app.bootstrap.*`. Allowed dependencies are stdlib and numpy.
-- Functions whose name or signature names a Garmin metric, routine concept, experiment concept, assistant concept, or persistence detail.
+- Functions whose name or signature names a Garmin metric, routine concept, experiment concept, coach concept, or persistence detail.
 - Re-exports from a domain (use the domain directly).
 
 Adding a helper here is a deliberate promotion, not a default landing spot. When in doubt, keep it domain-local — promotion is cheap to do later, demotion is not.
@@ -33,6 +33,8 @@ Boundary tests guard module intent, not a mandatory folder template. Larger slic
 - `adapters.py` modules are the SQLite or external-system boundary for small flat slices; they should own slice-specific persistence instead of wrapping a shared persistence bucket.
 - Transitional slices must be called out in architecture tests and docs with their allowed boundary violations.
 - Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` or `app.services.*` paths.
+- Cross-domain reactions are injected capabilities composed in `bootstrap/`; a source domain such as `garmin_sync` must not import the reacting domain.
+- Long-running external model calls belong behind a domain runner and durable job state, not inside request routes. Routes enqueue and return; process runtime owns execution and awaited cancellation.
 
 Each domain's Owns / Does-not-own / May-import / Must-not-import contract lives in that domain's `CHARTER.md` (e.g. `backend/app/domains/garmin_sync/CHARTER.md`).
 
@@ -43,6 +45,7 @@ Each domain's Owns / Does-not-own / May-import / Must-not-import contract lives 
 - generated API types in `frontend/src/lib/api-types.ts` (never hand-write — regenerate via `scripts/generate-api-types.sh`)
 - display-only frontend for analytical values: zero statistical computation client-side
 - shared chart/color/format helpers in `frontend/src/lib/`
+- background operations read backend-owned status and refresh from a feature-specific SSE event; the UI does not infer queue state from local arrays
 
 ### Presentation-calibration exception
 

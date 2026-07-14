@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from app.core.config import get_app_config
 
 
@@ -37,3 +39,14 @@ def test_activities_dir_defaults_under_project_data_tree():
 def test_activities_dir_reads_env_override():
     config = get_app_config(environ={"GARMIN_ACTIVITY_DATA_DIR": "/tmp/custom-activities"})
     assert config.activities_dir == Path("/tmp/custom-activities")
+
+
+@pytest.mark.parametrize(("value", "expected"), [(None, True), ("true", True), ("false", False)])
+def test_coach_worker_enabled_parses_explicit_boolean(value, expected):
+    environ = {} if value is None else {"GARMIN_COACH_WORKER_ENABLED": value}
+    assert get_app_config(environ).coach_worker_enabled is expected
+
+
+def test_coach_worker_enabled_rejects_invalid_value():
+    with pytest.raises(ValueError, match="GARMIN_COACH_WORKER_ENABLED"):
+        get_app_config({"GARMIN_COACH_WORKER_ENABLED": "sometimes"})
