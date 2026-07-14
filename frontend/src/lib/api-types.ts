@@ -2419,6 +2419,11 @@ export interface components {
              */
             plots_viewed: string[];
             /**
+             * Plot Observations
+             * @default []
+             */
+            plot_observations: components["schemas"]["PlotObservation"][];
+            /**
              * History Used
              * @default []
              */
@@ -4475,6 +4480,16 @@ export interface components {
             sleep: components["schemas"]["PeriodSleepStats"];
             body_battery: components["schemas"]["PeriodBodyBatteryStats"];
         };
+        /**
+         * PlotObservation
+         * @description Decision-relevant visual evidence actually used by a review.
+         */
+        PlotObservation: {
+            /** Plot */
+            plot: string;
+            /** Observation */
+            observation: string;
+        };
         /** RampSpec */
         RampSpec: {
             /** Weeks */
@@ -4810,7 +4825,7 @@ export interface components {
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
          *
-         *     `session`/`laps` stay metric (canonical); `display` is the imperial
+         *     `session`/`laps` stay metric (canonical); `display` is the user-facing
          *     projection the frontend renders from.
          */
         RunDetailResponse: {
@@ -4824,11 +4839,12 @@ export interface components {
         };
         /**
          * RunDisplayStats
-         * @description Imperial display projection of a run's canonical (metric) session stats.
+         * @description Display projection of a run's canonical FIT session stats.
          *
-         *     Every field is None-preserving from its metric source; see the `_*_to_*`
-         *     conversion helpers in `application/runs.py` for the exact constants and
-         *     rounding rule each field uses. `avg_ground_contact_balance_label` and the
+         *     Scalar unit fields are imperial and None-preserving; see the `_*_to_*`
+         *     conversion helpers in `application/runs.py` for their constants and rounding.
+         *     Zone rows preserve FIT's configured thresholds while normalizing bucket-zero
+         *     semantics for display. `avg_ground_contact_balance_label` and the
          *     respiration fields are strap-only: they render as None when the run has
          *     no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
          *     are watch-level (Firstbeat), not strap-dependent — pass-through, already
@@ -4873,6 +4889,16 @@ export interface components {
             stamina_ending_potential_pct: number | null;
             /** Stamina Min Pct */
             stamina_min_pct: number | null;
+            /**
+             * Heart Rate Zones
+             * @default []
+             */
+            heart_rate_zones: components["schemas"]["RunZoneDisplayRow"][];
+            /**
+             * Power Zones
+             * @default []
+             */
+            power_zones: components["schemas"]["RunZoneDisplayRow"][];
             /**
              * Lap Display
              * @default []
@@ -5026,6 +5052,22 @@ export interface components {
             start_s: number;
             /** End S */
             end_s: number;
+        };
+        /**
+         * RunZoneDisplayRow
+         * @description One user-facing training-zone row projected from FIT bucket arrays.
+         */
+        RunZoneDisplayRow: {
+            /** Zone */
+            zone: number;
+            /** Label */
+            label: string;
+            /** Lower Bound */
+            lower_bound: number | null;
+            /** Upper Bound */
+            upper_bound: number | null;
+            /** Duration S */
+            duration_s: number | null;
         };
         /**
          * RunningActivityLap

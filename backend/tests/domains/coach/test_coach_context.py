@@ -16,6 +16,7 @@ from app.domains.garmin_analytics.contracts import (
     RunDetailResponse,
     RunDisplayStats,
     RunListItem,
+    RunZoneDisplayRow,
 )
 from app.domains.garmin_health.contracts import (
     RunningActivityLap,
@@ -122,6 +123,28 @@ def _detail(
             stamina_beginning_potential_pct=96,
             stamina_ending_potential_pct=78,
             stamina_min_pct=70,
+            heart_rate_zones=[
+                RunZoneDisplayRow(
+                    zone=1,
+                    label="Z1 · 100–119 bpm",
+                    lower_bound=100,
+                    upper_bound=119,
+                    duration_s=1200,
+                ),
+                RunZoneDisplayRow(
+                    zone=2,
+                    label="Z2 · 120–139 bpm",
+                    lower_bound=120,
+                    upper_bound=139,
+                    duration_s=1500,
+                ),
+                RunZoneDisplayRow(
+                    zone=3,
+                    label="Z3 · ≥140 bpm",
+                    lower_bound=140,
+                    duration_s=240,
+                ),
+            ],
             lap_display=[
                 LapDisplayRow(lap_index=1, distance_mi=3.1, pace_min_per_mi=8.0)
             ],
@@ -230,7 +253,7 @@ def test_session_estimate_wins_over_partial_segment_duration_sum():
     assert "prescribed 6 mi / 6 min" not in summary
 
 
-def test_hr_zone_evidence_uses_boundaries_and_readable_labels():
+def test_hr_zone_evidence_uses_shared_display_projection_not_raw_fit_buckets():
     detail = _detail()
     detail = detail.model_copy(
         update={
@@ -241,16 +264,42 @@ def test_hr_zone_evidence_uses_boundaries_and_readable_labels():
                         hr_zone_high_boundary_bpm=[100, 120, 140],
                     )
                 }
-            )
+            ),
+            "display": detail.display.model_copy(
+                update={
+                    "heart_rate_zones": [
+                        RunZoneDisplayRow(
+                            zone=1,
+                            label="Z1 · 100–119 bpm",
+                            lower_bound=100,
+                            upper_bound=119,
+                            duration_s=20,
+                        ),
+                        RunZoneDisplayRow(
+                            zone=2,
+                            label="Z2 · 120–139 bpm",
+                            lower_bound=120,
+                            upper_bound=139,
+                            duration_s=30,
+                        ),
+                        RunZoneDisplayRow(
+                            zone=3,
+                            label="Z3 · ≥140 bpm",
+                            lower_bound=140,
+                            duration_s=40,
+                        ),
+                    ]
+                }
+            ),
         }
     )
 
     summary = run_summary_markdown(_context(card=None, detail=detail))
 
-    assert "Below Z1 (<100 bpm): 10 s" in summary
-    assert "Z1 (100–119 bpm): 20 s" in summary
-    assert "Z2 (120–139 bpm): 30 s" in summary
-    assert "Above Z2 (≥140 bpm): 40 s" in summary
+    assert "Z1 · 100–119 bpm: 20 s" in summary
+    assert "Z2 · 120–139 bpm: 30 s" in summary
+    assert "Z3 · ≥140 bpm: 40 s" in summary
+    assert "Below Z1" not in summary
 
 
 def test_unplanned_run_has_actuals_and_no_prescribed_values():
@@ -325,8 +374,8 @@ def test_run_summary_contains_load_effect_stamina_zones_and_training_notes():
     assert "Training load: 110" in summary
     assert "Aerobic training effect: 3.1" in summary
     assert "Stamina potential: 96% → 78%" in summary
-    assert "Below Z1: 60 s" in summary
-    assert "Above Z2: 240 s" in summary
+    assert "Z1 · 100–119 bpm: 1200 s" in summary
+    assert "Z3 · ≥140 bpm: 240 s" in summary
     assert "Training status: partial" in summary
     assert "Legs felt controlled" in summary
     assert "3.1 mi" in laps

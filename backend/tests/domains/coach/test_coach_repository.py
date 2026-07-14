@@ -57,7 +57,7 @@ def _review_output(takeaway: str = "Purpose achieved") -> ReviewOutput:
         review_md="The run achieved its intended purpose.",
         follow_up_questions=[],
         history_used=[],
-        plots_viewed=[],
+        plot_observations=[],
         refs=[ArtifactRef(kind="run", value="run-1")],
         journal=journal,
         brief_update=BriefUpdate(action="keep", content_md=None),

@@ -11,6 +11,8 @@ from typing import Protocol
 
 import numpy as np
 
+from app.domains.garmin_analytics.contracts.runs import RunZoneDisplayRow
+
 RESUME_SETTLE_SECONDS = 10
 ELEVATION_WINDOW_M = 150.0
 ELEVATION_HYSTERESIS_M = 3.0
@@ -29,6 +31,54 @@ class RunWalkSpanView(Protocol):
 
     @property
     def end_s(self) -> float: ...
+
+
+def zone_display_rows(
+    times_s: Sequence[float | None],
+    boundaries: Sequence[int | None],
+    *,
+    unit: str,
+) -> list[RunZoneDisplayRow]:
+    """Project FIT's below-Z1-first buckets into contiguous user zones.
+
+    FIT bucket zero is time below the first configured boundary, so it is not a
+    numbered Garmin training zone. Boundaries are high-exclusive. Any buckets
+    beyond the final numbered zone are folded into the open-ended last zone.
+    """
+    if len(boundaries) < 2 or any(boundary is None for boundary in boundaries):
+        return []
+
+    complete_boundaries = [int(boundary) for boundary in boundaries if boundary is not None]
+    if any(
+        current <= previous
+        for previous, current in zip(
+            complete_boundaries, complete_boundaries[1:], strict=False
+        )
+    ):
+        return []
+    zone_count = min(5, len(complete_boundaries) - 1)
+    rows: list[RunZoneDisplayRow] = []
+    for zone_index in range(zone_count):
+        zone = zone_index + 1
+        lower = complete_boundaries[zone_index]
+        is_last = zone == zone_count
+        upper = None if is_last else complete_boundaries[zone_index + 1] - 1
+        duration_values = (
+            times_s[zone:] if is_last else times_s[zone : zone + 1]
+        )
+        known_durations = [value for value in duration_values if value is not None]
+        duration = sum(known_durations) if known_durations else None
+        range_label = f"≥{lower}" if upper is None else f"{lower}–{upper}"
+        rows.append(
+            RunZoneDisplayRow(
+                zone=zone,
+                label=f"Z{zone} · {range_label} {unit}",
+                lower_bound=lower,
+                upper_bound=upper,
+                duration_s=duration,
+            )
+        )
+    return rows
 
 
 def active_running_display_mask(

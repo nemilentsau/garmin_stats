@@ -103,6 +103,27 @@ class CoachMeasurementAssessmentRecord(StrictDefaultsRequired):
     created_at: str
 
 
+class PlotObservation(StrictDefaultsRequired):
+    """Decision-relevant visual evidence actually used by a review."""
+
+    plot: str = Field(min_length=1, max_length=255)
+    observation: str = Field(min_length=1, max_length=300)
+
+    @field_validator("plot")
+    @classmethod
+    def _plot_is_basename(cls, value: str) -> str:
+        if value in {".", ".."} or "/" in value or "\\" in value:
+            raise ValueError("plot must be an image basename")
+        return value
+
+    @field_validator("observation")
+    @classmethod
+    def _observation_has_content(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("observation must contain non-whitespace text")
+        return value
+
+
 class CoachReview(StrictDefaultsRequired):
     id: str
     date: str
@@ -116,6 +137,7 @@ class CoachReview(StrictDefaultsRequired):
     content_md: str | None = None
     refs: list[ArtifactRef] = []
     plots_viewed: list[str] = []
+    plot_observations: list[PlotObservation] = []
     history_used: list[HistoricalEvidenceUse] = []
     measurement_assessment: CoachMeasurementAssessment | None = None
     job_id: str
@@ -199,7 +221,7 @@ class ReviewOutput(StrictDefaultsRequired):
     review_md: str = Field(min_length=1, max_length=12000)
     follow_up_questions: list[str] = Field(max_length=2)
     history_used: list[HistoricalEvidenceUse]
-    plots_viewed: list[str]
+    plot_observations: list[PlotObservation]
     refs: list[ArtifactRef]
     journal: RunJournalSummary
     brief_update: BriefUpdate

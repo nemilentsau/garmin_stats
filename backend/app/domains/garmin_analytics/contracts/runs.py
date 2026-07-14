@@ -61,12 +61,23 @@ class LapDisplayRow(DefaultsRequired):
     avg_vertical_oscillation_cm: float | None = None
 
 
-class RunDisplayStats(DefaultsRequired):
-    """Imperial display projection of a run's canonical (metric) session stats.
+class RunZoneDisplayRow(DefaultsRequired):
+    """One user-facing training-zone row projected from FIT bucket arrays."""
 
-    Every field is None-preserving from its metric source; see the `_*_to_*`
-    conversion helpers in `application/runs.py` for the exact constants and
-    rounding rule each field uses. `avg_ground_contact_balance_label` and the
+    zone: int
+    label: str
+    lower_bound: int | None = None
+    upper_bound: int | None = None
+    duration_s: float | None = None
+
+
+class RunDisplayStats(DefaultsRequired):
+    """Display projection of a run's canonical FIT session stats.
+
+    Scalar unit fields are imperial and None-preserving; see the `_*_to_*`
+    conversion helpers in `application/runs.py` for their constants and rounding.
+    Zone rows preserve FIT's configured thresholds while normalizing bucket-zero
+    semantics for display. `avg_ground_contact_balance_label` and the
     respiration fields are strap-only: they render as None when the run has
     no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
     are watch-level (Firstbeat), not strap-dependent — pass-through, already
@@ -92,13 +103,15 @@ class RunDisplayStats(DefaultsRequired):
     stamina_beginning_potential_pct: int | None = None
     stamina_ending_potential_pct: int | None = None
     stamina_min_pct: int | None = None
+    heart_rate_zones: list[RunZoneDisplayRow] = []
+    power_zones: list[RunZoneDisplayRow] = []
     lap_display: list[LapDisplayRow] = []
 
 
 class RunDetailResponse(DefaultsRequired):
     """Single-run detail endpoint response: full session stats plus laps.
 
-    `session`/`laps` stay metric (canonical); `display` is the imperial
+    `session`/`laps` stay metric (canonical); `display` is the user-facing
     projection the frontend renders from.
     """
 

@@ -50,7 +50,16 @@ The model may ask at most two athlete questions, and only when an answer could c
 safety, formal measurement validity, or the next training decision. It must not request
 forensic confirmation of every prescribed detail. Review output stores outcome,
 confidence, direct coaching prose, decision-changing questions, historical evidence used,
-curated refs, structured journal memory, and an explicit brief action. The former
+curated refs, structured journal memory, and an explicit brief action. Visual evidence is
+recorded as bounded `plot_observations`: each entry names an attached image basename and
+the concrete visible pattern that affected the judgment. Unused attachments are omitted,
+and a review may legitimately record no plot observations. The handler rejects any
+observation that names an image outside the current attachment manifest. Completed rows
+retain the observations and derive the legacy `plots_viewed` basename list for backward
+compatibility. A current-run plot ref and observation must correspond in both directions;
+unattached refs, attachment-inventory refs without observations, and observations without
+direct refs fail the attempt. The Coach review surface shows this bounded evidence ledger beneath the
+review so the visual basis of the judgment is inspectable. The former
 `compliant`/`partial`/`non_compliant` verdict remains readable only on legacy review rows.
 
 ## Measurement assessments
@@ -117,6 +126,13 @@ without entering the 20-run digest.
 Run-review workspaces add full current-run summary/laps and plot pages; only those current
 pages are initial image attachments. Current pages are also copied into the shared plot
 cache so a later `plot:<filename>` reference remains resolvable.
+
+FIT time-in-zone arrays remain canonical in the Garmin health record, including bucket
+zero for time below the first configured zone. The analytics read model projects those
+arrays once into numbered, high-exclusive display zones, folds overflow into the final
+open-ended zone, and preserves missing duration separately from zero. The run UI and the
+Coach current-run summary both consume that same projection; neither reinterprets raw FIT
+bucket indexes independently.
 
 Typed refs are `run`, `plot`, `review`, or `date`. IDs use a strict filename allowlist;
 path traversal is rejected. `date` refs materialize training, daily metric, check-in, and

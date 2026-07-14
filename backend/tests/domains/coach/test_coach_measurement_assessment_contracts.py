@@ -49,6 +49,30 @@ def test_measurement_assessment_rejects_unknown_status_and_extra_fields():
         _assessment(confidence="high")
 
 
+def test_plot_observation_requires_basename_and_concrete_observation():
+    observation = contracts.PlotObservation(
+        plot="current-run-p01.png",
+        observation="Pace and power rise together in six short late-run efforts.",
+    )
+
+    assert observation.plot == "current-run-p01.png"
+    with pytest.raises(ValidationError):
+        contracts.PlotObservation(plot="current/current-run-p01.png", observation="Used")
+    with pytest.raises(ValidationError):
+        contracts.PlotObservation(plot="current-run-p01.png", observation="   ")
+
+
+def test_plot_observation_enforces_bounded_evidence_statement():
+    assert len(
+        contracts.PlotObservation(plot="current-run-p01.png", observation="x" * 300)
+        .observation
+    ) == 300
+    with pytest.raises(ValidationError):
+        contracts.PlotObservation(
+            plot="current-run-p01.png", observation="x" * 301
+        )
+
+
 def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility():
     review_output = contracts.ReviewOutput(
         outcome="completed_as_intended",
@@ -56,7 +80,7 @@ def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility(
         review_md="Review",
         follow_up_questions=[],
         history_used=[],
-        plots_viewed=[],
+        plot_observations=[],
         refs=[contracts.ArtifactRef(kind="run", value="run-1")],
         journal=contracts.RunJournalSummary(
             purpose="Measurement run",
@@ -107,7 +131,12 @@ def test_new_review_output_separates_outcome_confidence_and_history():
             "review_md": "The run achieved its easy aerobic purpose.",
             "follow_up_questions": [],
             "history_used": [],
-            "plots_viewed": ["current-run-p01.png"],
+            "plot_observations": [
+                {
+                    "plot": "current-run-p01.png",
+                    "observation": "Six controlled pace surges are visible late in the run.",
+                }
+            ],
             "refs": [{"kind": "run", "value": "run-1"}],
             "journal": {
                 "purpose": "Easy aerobic maintenance with strides",
@@ -128,6 +157,7 @@ def test_new_review_output_separates_outcome_confidence_and_history():
     assert output.outcome == "completed_as_intended"
     assert output.confidence == "moderate"
     assert output.brief_update.action == "keep"
+    assert output.plot_observations[0].plot == "current-run-p01.png"
     assert not hasattr(output, "concerns")
     assert not hasattr(output, "evidence_limits")
 
@@ -165,3 +195,4 @@ def test_existing_review_with_legacy_verdict_remains_readable():
 
     assert review.verdict == "partial"
     assert review.outcome is None
+    assert review.plot_observations == []

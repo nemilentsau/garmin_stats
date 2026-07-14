@@ -32,7 +32,7 @@ def _review_json(**updates) -> str:
         review_md="Sound run.",
         follow_up_questions=[],
         history_used=[],
-        plots_viewed=[],
+        plot_observations=[],
         refs=[ArtifactRef(kind="run", value="run-1")],
         journal=RunJournalSummary(
             purpose="Easy aerobic maintenance",

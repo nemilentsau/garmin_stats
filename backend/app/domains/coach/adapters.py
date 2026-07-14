@@ -371,7 +371,17 @@ class SqliteCoachRepository:
         finished_at: str,
     ) -> None:
         """Persist review, semantic memory, optional brief, and job atomically."""
-        self._validate_artifact_refs(output.refs)
+        self._validate_artifact_refs(
+            [
+                *output.refs,
+                *output.journal.refs,
+                *[
+                    ref
+                    for historical_use in output.history_used
+                    for ref in historical_use.refs
+                ],
+            ]
+        )
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             job = self._job_in_connection(connection, job_id)
@@ -401,7 +411,10 @@ class SqliteCoachRepository:
                     "confidence": output.confidence,
                     "content_md": output.review_md,
                     "refs": output.refs,
-                    "plots_viewed": output.plots_viewed,
+                    "plots_viewed": [
+                        observation.plot for observation in output.plot_observations
+                    ],
+                    "plot_observations": output.plot_observations,
                     "history_used": output.history_used,
                     "measurement_assessment": assessment,
                     "error": None,

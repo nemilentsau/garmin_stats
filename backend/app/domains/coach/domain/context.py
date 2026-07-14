@@ -88,30 +88,6 @@ def _comparison_text(comparison: WholeSessionComparison) -> str:
     return f"{distance}; {duration}; {target}"
 
 
-def _hr_zone_lines(
-    seconds: list[float | None], boundaries: list[int | None]
-) -> list[str]:
-    lines: list[str] = []
-    for index, value in enumerate(seconds):
-        if index == 0:
-            high = boundaries[0] if boundaries else None
-            label = "Below Z1" if high is None else f"Below Z1 (<{high} bpm)"
-        elif index < len(seconds) - 1:
-            low = boundaries[index - 1] if index - 1 < len(boundaries) else None
-            high = boundaries[index] if index < len(boundaries) else None
-            bpm = "" if low is None or high is None else f" ({low}–{high - 1} bpm)"
-            label = f"Z{index}{bpm}"
-        else:
-            low = boundaries[-1] if boundaries else None
-            label = (
-                f"Above Z{index - 1}"
-                if low is None
-                else f"Above Z{index - 1} (≥{low} bpm)"
-            )
-        lines.append(f"- {label}: {_number(value)} s")
-    return lines
-
-
 def _cap(text: str, maximum: int) -> str:
     if len(text) <= maximum:
         return text
@@ -165,12 +141,6 @@ def run_summary_markdown(context: HistoricalRunContext) -> str:
     """Render medium-detail run evidence with imperial display values first."""
     session = context.detail.session
     display = context.detail.display
-    zones = None if session.time_in_zones is None else session.time_in_zones.time_in_hr_zone_s
-    zone_boundaries = (
-        []
-        if session.time_in_zones is None
-        else session.time_in_zones.hr_zone_high_boundary_bpm
-    )
     lines = [
         f"# {session.activity_name or 'Run'} — {session.session_date}",
         "",
@@ -196,8 +166,11 @@ def run_summary_markdown(context: HistoricalRunContext) -> str:
         "## Heart-rate zones",
         *(
             ["- Unknown"]
-            if zones is None
-            else _hr_zone_lines(zones, zone_boundaries)
+            if not display.heart_rate_zones
+            else [
+                f"- {zone.label}: {_number(zone.duration_s)} s"
+                for zone in display.heart_rate_zones
+            ]
         ),
         "",
         "## Whole-session comparison",

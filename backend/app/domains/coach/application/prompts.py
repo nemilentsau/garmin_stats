@@ -44,9 +44,15 @@ counterexample when one appears in the digest; otherwise state that no relevant
 counterexample exists.
 8. Do not carry an unresolved issue from the brief into this review unless it can
 change the interpretation or next decision for this run.
-9. Lead review_md with what happened, what it means, and what to do. Mention
+9. Use plot_observations as an evidence ledger, not an attachment checklist. Include
+only plots that materially affected the judgment, name each image by basename, and
+state the concrete visible pattern used. Omit unused attachments; an empty list is
+valid when no plot changes the judgment. Every current-run plot ref must have a matching
+observation, and every observation must also appear as a direct plot ref. Record older
+comparison evidence under history_used rather than listing available images speculatively.
+10. Lead review_md with what happened, what it means, and what to do. Mention
 limitations only when decision-relevant.
-10. Journal memory must state the durable takeaway and expiry/follow-up trigger.
+11. Journal memory must state the durable takeaway and expiry/follow-up trigger.
 Choose brief_update=keep unless the durable coaching model actually changed.
 """
 

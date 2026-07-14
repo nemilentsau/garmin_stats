@@ -26,6 +26,7 @@ from app.domains.garmin_analytics.domain.run_display import (
     detrend_closed_loop_elevation,
     elevation_gain_loss_m,
     smooth_elevation_by_distance,
+    zone_display_rows,
 )
 
 _MIN_PACE_SPEED_MPS = 0.5
@@ -230,6 +231,24 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         stamina_beginning_potential_pct=session.stamina_beginning_potential_pct,
         stamina_ending_potential_pct=session.stamina_ending_potential_pct,
         stamina_min_pct=session.stamina_min_pct,
+        heart_rate_zones=(
+            zone_display_rows(
+                session.time_in_zones.time_in_hr_zone_s,
+                session.time_in_zones.hr_zone_high_boundary_bpm,
+                unit="bpm",
+            )
+            if session.time_in_zones is not None
+            else []
+        ),
+        power_zones=(
+            zone_display_rows(
+                session.time_in_zones.time_in_power_zone_s,
+                session.time_in_zones.power_zone_high_boundary_w,
+                unit="W",
+            )
+            if session.time_in_zones is not None
+            else []
+        ),
         lap_display=[
             LapDisplayRow(
                 lap_index=lap.lap_index,

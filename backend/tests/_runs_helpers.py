@@ -6,6 +6,7 @@ from app.domains.garmin_health.contracts import (
     RunningActivityLap,
     RunningActivitySeries,
     RunningActivitySession,
+    RunningTimeInZones,
 )
 from app.infra.sqlite import connect
 
@@ -40,6 +41,7 @@ def insert_run(
     lap_avg_ground_contact_balance_pct: float | None = None,
     lap_avg_respiration_rate_brpm: float | None = None,
     lap_avg_vertical_oscillation_mm: float | None = None,
+    time_in_zones: RunningTimeInZones | None = None,
 ) -> None:
     """Insert one running-activity session (+ optional laps + fixed series).
 
@@ -92,6 +94,7 @@ def insert_run(
         stamina_beginning_potential_pct=stamina_beginning_potential_pct,
         stamina_ending_potential_pct=stamina_ending_potential_pct,
         stamina_min_pct=stamina_min_pct,
+        time_in_zones=time_in_zones,
     )
     series_kwargs = {
         "elapsed_s": [0, 1, 2],

@@ -52,7 +52,7 @@ def _complete_review(repo: SqliteCoachRepository):
             review_md="Purpose achieved.",
             follow_up_questions=[],
             history_used=[],
-            plots_viewed=[],
+            plot_observations=[],
             refs=[run_ref],
             journal=RunJournalSummary(
                 purpose="Easy aerobic maintenance",

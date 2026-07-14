@@ -218,6 +218,19 @@
 				{#if activeReview.refs.length > 0}
 					<p class="refs">Evidence: {activeReview.refs.map((ref) => `${ref.kind}:${ref.value}`).join(' · ')}</p>
 				{/if}
+				{#if activeReview.plot_observations.length > 0}
+					<section class="plot-evidence" aria-labelledby="plot-evidence-heading">
+						<h3 id="plot-evidence-heading">Plot evidence used</h3>
+						<ul>
+							{#each activeReview.plot_observations as observation (`${observation.plot}:${observation.observation}`)}
+								<li>
+									<span class="plot-name">{observation.plot}</span>
+									<span>{observation.observation}</span>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
 				{#if activeReview.status === 'failed'}
 					<button class="text-action" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
 				{:else if activeReview.status === 'complete'}
@@ -340,6 +353,11 @@
 	.markdown-body :global(p:first-child) { margin-top: 0; }
 	.markdown-body :global(a) { color: #75b5e5; }
 	.refs, .thinking, .thread-state { color: #6e8391; font-size: 10px; }
+	.plot-evidence { margin: 16px 0 12px; }
+	.plot-evidence h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+	.plot-evidence ul { list-style: none; margin: 0; padding: 0; }
+	.plot-evidence li { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 14px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); color: #aebec8; font-size: 12px; line-height: 1.45; }
+	.plot-name { color: #75b5e5; font-family: 'DM Mono', monospace; font-size: 10px; overflow-wrap: anywhere; }
 	.empty-line, .loading-line { color: #617481; font-size: 13px; }
 	.error-line { color: #f08a78; border-left: 2px solid #e85d4a; padding: 8px 12px; }
 	.text-action { background: transparent; border: 0; padding: 2px 0; }
