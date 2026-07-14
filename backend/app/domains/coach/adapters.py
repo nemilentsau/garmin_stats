@@ -391,10 +391,12 @@ class SqliteCoachRepository:
             completed_review = review.model_copy(
                 update={
                     "status": "complete",
-                    "verdict": output.verdict,
+                    "outcome": output.outcome,
+                    "confidence": output.confidence,
                     "content_md": output.review_md,
                     "refs": output.refs,
                     "plots_viewed": output.plots_viewed,
+                    "history_used": output.history_used,
                     "measurement_assessment": assessment,
                     "error": None,
                     "updated_at": finished_at,
@@ -403,16 +405,16 @@ class SqliteCoachRepository:
             _save_review(connection, completed_review)
             self._insert_journal_output(
                 connection,
-                content_md=output.journal_entry_md,
-                refs=output.refs,
+                content_md=output.journal.takeaway,
+                refs=output.journal.refs,
                 kind="review",
                 source_id=review_id,
                 created_at=finished_at,
             )
-            if output.brief_md is not None:
+            if output.brief_update.action == "replace":
                 self._insert_brief_output(
                     connection,
-                    content_md=output.brief_md,
+                    content_md=output.brief_update.content_md or "",
                     source_id=review_id,
                     created_at=finished_at,
                 )
@@ -594,10 +596,10 @@ class SqliteCoachRepository:
                 source_id=thread_id,
                 created_at=finished_at,
             )
-            if output.brief_md is not None:
+            if output.brief_update.action == "replace":
                 self._insert_brief_output(
                     connection,
-                    content_md=output.brief_md,
+                    content_md=output.brief_update.content_md or "",
                     source_id=thread_id,
                     created_at=finished_at,
                 )

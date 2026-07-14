@@ -10,11 +10,13 @@ from app.domains.coach.application.handlers import CoachHandlers
 from app.domains.coach.application.workspace import WorkspaceManifest
 from app.domains.coach.contracts import (
     ArtifactRef,
+    BriefUpdate,
     ChatOutput,
     CoachMeasurementAssessment,
     CoachThread,
     DistillOutput,
     ReviewOutput,
+    RunJournalSummary,
 )
 from app.domains.coach.infra.runner import CodexJobResult
 
@@ -77,17 +79,26 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
 
 def _review_output() -> ReviewOutput:
     return ReviewOutput(
-        verdict="compliant",
+        outcome="completed_as_intended",
+        confidence="high",
         review_md="The session met the intended easy-day purpose.",
-        observations=["Effort stayed controlled."],
-        concerns=[],
-        suggestions=[],
-        plan_adjustments=[],
-        evidence_limits=[],
+        follow_up_questions=[],
+        history_used=[],
         plots_viewed=["current-1.png"],
         refs=[ArtifactRef(kind="run", value="run-1")],
-        journal_entry_md="Easy-day execution was controlled; compare recovery tomorrow.",
-        brief_md="Current approach: protect easy days and compare next-day recovery.",
+        journal=RunJournalSummary(
+            purpose="Easy aerobic maintenance",
+            outcome="completed_as_intended",
+            takeaway="Easy-day execution was controlled; compare recovery tomorrow.",
+            decision_relevant_uncertainties=[],
+            follow_up_triggers=["Compare next-day recovery."],
+            comparison_tags=["easy"],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+        ),
+        brief_update=BriefUpdate(
+            action="replace",
+            content_md="Current approach: protect easy days and compare next-day recovery.",
+        ),
     )
 
 
@@ -108,7 +119,7 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     saved = repo.review(review.id)
     assert saved is not None
     assert saved.status == "complete"
-    assert saved.verdict == "compliant"
+    assert saved.outcome == "completed_as_intended"
     assert saved.refs == [ArtifactRef(kind="run", value="run-1")]
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
     assert repo.list_journal()[0].content_md.startswith("Easy-day execution")
@@ -187,7 +198,6 @@ def test_chat_refreshes_each_turn_uses_resume_marker_and_persists_refs(tmp_path,
     assert job is not None
     output = ChatOutput(
         answer_md="Keep tomorrow easy.",
-        evidence_limits=[],
         refs=[ArtifactRef(kind="date", value="2026-07-12")],
     )
     runner = FakeRunner([CodexJobResult(ok=True, session_id="session-new", output=output)])
@@ -250,7 +260,6 @@ def test_chat_invalid_assessment_context_fails_without_persisting_assessment(
     assert job is not None
     output = ChatOutput(
         answer_md="Assessment",
-        evidence_limits=[],
         refs=[],
         measurement_assessment=CoachMeasurementAssessment(
             run_id="run-1",
@@ -295,6 +304,7 @@ def test_distill_success_closes_thread_persists_memory_then_deletes_home(
     output = DistillOutput(
         journal_entry_md="The thread decided to keep the next run easy.",
         refs=[ArtifactRef(kind="date", value="2026-07-12")],
+        brief_update=BriefUpdate(action="keep", content_md=None),
     )
     handlers = _handlers(
         tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])
