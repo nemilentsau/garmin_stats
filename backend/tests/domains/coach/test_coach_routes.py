@@ -173,7 +173,7 @@ def test_thread_message_listing_close_and_closed_conflicts(coach_client):
     assert client.post(f"/api/coach/threads/{thread_id}/close").status_code == 409
 
 
-def test_unknown_resources_strict_requests_and_artifact_routes(coach_client):
+def test_unknown_resources_strict_requests_and_removed_artifact_routes(coach_client):
     client, _repo = coach_client
 
     assert client.get("/api/coach/reviews/missing").status_code == 404
@@ -184,4 +184,4 @@ def test_unknown_resources_strict_requests_and_artifact_routes(coach_client):
         "/api/coach/reviews/run", json={"run_id": "x", "date": "bad"}
     )
     assert strict.status_code == 422
-    assert client.get("/api/assistant/artifacts").status_code == 200
+    assert client.get("/api/assistant/artifacts").status_code == 404

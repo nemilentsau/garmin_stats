@@ -35,9 +35,8 @@ so every exercise's `last` is `None` there — a future day's card has no
 `TrainingLogUpdateRequest.model_fields_set`: a field the caller omitted from
 the request body keeps the existing log's value, while a field the caller
 included — even as an explicit `null` — is applied, clearing it when the
-value is `None`. This is "PATCH" semantics, not a mirror of the routines
-Today board (that backend always full-replaces a card log on save); it also
-rejects capture PUTs against an occurrence the runtime Today overlay does not
+value is `None`. It also
+rejects capture PUTs against an occurrence the Today projection does not
 display for the given date, raising `LookupError` (mapped to 404 by the
 app-level exception handler) rather than persisting a log nothing will ever
 display. This makes active authored backups writable without whitelisting

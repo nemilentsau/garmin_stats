@@ -25,7 +25,6 @@ class ExperimentDesign(DefaultsRequired):
     baseline_end_date: str | None = None
     treatment_start_date: str | None = None
     treatment_end_date: str | None = None
-    baseline_duration_days: int | None = None
     expected_lag_days: list[int] = [0]
     min_adherence_pct: float = 0.70
 
@@ -37,7 +36,6 @@ class Experiment(DefaultsRequired):
     goal: str | None = None
     hypothesis: str | None = None
     design: ExperimentDesign | None = None
-    linked_routine_ids: list[str] = []
     outcome_metrics: list[OutcomeMetric] = []
     confounder_watch: list[str] = []
     confounder_notes: str | None = None
@@ -51,13 +49,7 @@ class ExperimentExposure(DefaultsRequired):
     date: str
     exposure_score: float | None = None
     adherence_state: ExperimentAdherenceState = "unknown"
-    linked_routine_entry_ids: list[str] = []
     notes: str | None = None
-
-    @staticmethod
-    def auto_id(experiment_id: str, date: str) -> str:
-        return f"exposure:auto:{experiment_id}:{date}"
-
 
 class MetricLagResult(DefaultsRequired):
     lag_days: int

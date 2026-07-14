@@ -1,7 +1,7 @@
 """Experiment design preview and validation use cases.
 
-Preview resolves optional routine-derived design dates, validates date windows
-and metric paths, and returns issues without persisting the experiment. Import
+Preview validates explicit design dates and metric paths, and returns issues
+without persisting the experiment. Import
 uses this same path before saving an active experiment.
 """
 
@@ -12,10 +12,7 @@ from app.domains.experiments.contracts import (
     ExperimentPreviewIssue,
     ExperimentPreviewResponse,
 )
-from app.domains.experiments.domain.design_dates import (
-    resolve_design_dates,
-    validate_design_date_window,
-)
+from app.domains.experiments.domain.design_dates import validate_design_date_window
 from app.domains.experiments.domain.preview_validation import (
     resolve_metric_validation_end,
     validate_baseline_coverage,
@@ -25,17 +22,14 @@ from app.domains.experiments.domain.preview_validation import (
     validate_experiment_name,
     validate_outcome_metrics,
 )
-from app.domains.routines.dependencies import RoutineRepository
 
-from ..dependencies import ExperimentPreviewReadSource, ExperimentRepository
+from ..dependencies import ExperimentPreviewReadSource, ExperimentPreviewRepository
 
 
 def preview_experiment(
-    repo: ExperimentRepository,
+    repo: ExperimentPreviewRepository,
     read_source: ExperimentPreviewReadSource,
     experiment: Experiment,
-    *,
-    routine_repo: RoutineRepository,
 ) -> ExperimentPreviewResponse:
     """Validate an experiment spec and return issues without writing."""
     issues: list[ExperimentPreviewIssue] = []
@@ -48,31 +42,13 @@ def preview_experiment(
         ))
         return ExperimentPreviewResponse(valid=False, issues=issues, experiment=experiment)
 
-    date_resolution = resolve_design_dates(
-        design,
-        experiment.linked_routine_ids,
-        routine_repo.get_routine,
-    )
-    design = date_resolution.design
-    previewed_experiment = (
-        experiment if design is experiment.design
-        else experiment.model_copy(update={"design": design})
-    )
-    issues.extend(date_resolution.issues)
-    if any(i.level == "error" for i in date_resolution.issues):
-        return ExperimentPreviewResponse(
-            valid=False,
-            issues=issues,
-            experiment=previewed_experiment,
-        )
-
     date_validation = validate_design_date_window(design)
     issues.extend(date_validation.issues)
     if date_validation.window is None:
         return ExperimentPreviewResponse(
             valid=False,
             issues=issues,
-            experiment=previewed_experiment,
+            experiment=experiment,
         )
 
     window = date_validation.window
@@ -112,5 +88,5 @@ def preview_experiment(
     return ExperimentPreviewResponse(
         valid=not has_errors,
         issues=issues,
-        experiment=previewed_experiment,
+        experiment=experiment,
     )

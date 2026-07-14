@@ -1,38 +1,11 @@
-"""Experiment design date resolution and validation.
-
-This module owns the pure date policy for experiment previews and imports:
-explicit baseline/treatment windows, routine-derived windows, and ordering
-validation. Preview orchestration supplies routine lookup and read models, but
-date mutation stays isolated here by returning copied design contracts.
-"""
+"""Experiment design date validation for explicit baseline/treatment windows."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date as date_type
-from datetime import timedelta
-from typing import Protocol
 
 from app.domains.experiments.contracts import ExperimentDesign, ExperimentPreviewIssue
-
-
-class RoutineDateWindow(Protocol):
-    """Minimal routine schedule shape needed to derive treatment dates."""
-
-    start_date: str
-    end_date: str | None
-
-
-RoutineLookup = Callable[[str], RoutineDateWindow | None]
-
-
-@dataclass(frozen=True)
-class DesignDateResolution:
-    """Result of resolving missing design dates without mutating the caller."""
-
-    design: ExperimentDesign
-    issues: list[ExperimentPreviewIssue]
 
 
 @dataclass(frozen=True)
@@ -51,75 +24,6 @@ class DesignDateValidation:
 
     window: DesignDateWindow | None
     issues: list[ExperimentPreviewIssue]
-
-
-def resolve_design_dates(
-    design: ExperimentDesign,
-    linked_routine_ids: Sequence[str],
-    routine_lookup: RoutineLookup,
-) -> DesignDateResolution:
-    """Return the design (copied with routine-derived dates) and any issues.
-
-    Returns the input ``design`` unchanged when no resolution is needed or when
-    a validation error blocks resolution.
-    """
-    issues: list[ExperimentPreviewIssue] = []
-
-    has_dates = (
-        design.baseline_start_date
-        and design.baseline_end_date
-        and design.treatment_start_date
-    )
-    if has_dates:
-        return DesignDateResolution(design=design, issues=issues)
-
-    if design.baseline_duration_days is None:
-        issues.append(ExperimentPreviewIssue(
-            level="error",
-            message="Either provide explicit dates or baseline_duration_days.",
-        ))
-        return DesignDateResolution(design=design, issues=issues)
-
-    if design.baseline_duration_days < 1:
-        issues.append(ExperimentPreviewIssue(
-            level="error",
-            message="baseline_duration_days must be at least 1.",
-        ))
-        return DesignDateResolution(design=design, issues=issues)
-
-    if not linked_routine_ids:
-        issues.append(ExperimentPreviewIssue(
-            level="error",
-            message="baseline_duration_days requires a linked routine to derive dates.",
-        ))
-        return DesignDateResolution(design=design, issues=issues)
-
-    routine_id = linked_routine_ids[0]
-    routine = routine_lookup(routine_id)
-    if routine is None:
-        issues.append(ExperimentPreviewIssue(
-            level="error",
-            message=f"Linked routine '{routine_id}' not found. "
-                    "Import and activate the routine before the experiment.",
-        ))
-        return DesignDateResolution(design=design, issues=issues)
-
-    treatment_start = date_type.fromisoformat(routine.start_date)
-    baseline_end = treatment_start - timedelta(days=1)
-    baseline_start = baseline_end - timedelta(days=design.baseline_duration_days - 1)
-
-    updates = {
-        "baseline_start_date": baseline_start.isoformat(),
-        "baseline_end_date": baseline_end.isoformat(),
-        "treatment_start_date": treatment_start.isoformat(),
-    }
-    if routine.end_date and design.treatment_end_date is None:
-        updates["treatment_end_date"] = routine.end_date
-
-    return DesignDateResolution(
-        design=design.model_copy(update=updates),
-        issues=issues,
-    )
 
 
 def validate_design_date_window(design: ExperimentDesign) -> DesignDateValidation:

@@ -1,6 +1,6 @@
 # Garmin Health Coach
 
-Garmin Health Coach is a local-first training and health application. It ingests Garmin wellness and tracked-activity FIT files, computes deterministic backend analytics, executes imported training/routine content, and gives a local Coach bounded evidence for reviews and chat.
+Garmin Health Coach is a local-first training and health application. It ingests Garmin wellness and tracked-activity FIT files, computes deterministic backend analytics, executes imported training content, and gives a local Coach bounded evidence for reviews and chat.
 
 The active product has five centers:
 
@@ -8,9 +8,9 @@ The active product has five centers:
 2. tracked running activities;
 3. the imported v3 training block on Today and Schedule;
 4. Coach reviews/chat with durable evidence and memory;
-5. v2 routine and experiment execution for non-training content such as meditation and breathwork.
+5. explicit-date N=1 experiments with manually recorded day-grain exposures.
 
-All routine, experiment, and training content enters through import/upload. The app does not generate, translate, seed, or derive content bundles.
+All experiment and training content enters through import/upload. The app does not generate, translate, seed, or derive content bundles.
 
 ## What is shipped
 
@@ -19,7 +19,7 @@ All routine, experiment, and training content enters through import/upload. The 
 - Running session/lap/series parsing, imperial read models, Runs list/detail pages, strap dynamics, stamina/performance condition, route display, and training-prescription association.
 - Native v3 training import, strict contract validation, L1-L12 activation linting, schedule projection, strength/check-in/RPE capture, tracked-run execution evidence, LTHR measurement evaluation, authored backups, and Coach assessment composition.
 - Coach queued run reviews and chat, hierarchical evidence workspaces, semantic journal/brief memory, durable jobs, and isolated Codex execution.
-- v2 routine bundle preview/import/activation, Schedule/Today execution, experiment-day exposure derivation, and N=1 analysis.
+- Experiment preview/import, manual day-grain exposures, and cached N=1 analysis.
 
 Strength and breathing activities download but are not parsed. The v3 registry validates and is stored, but most declared estimators/signals and automated selection rules are not yet executed. Current training work is tracked in [the training roadmap](docs/routine-pivot/pivot_roadmap.md).
 
@@ -55,9 +55,7 @@ The FastAPI backend is organized into explicit slices:
 - `garmin_analytics` owns Garmin-derived read models, recovery/dashboard analytics, period summaries, and tracked-run reads.
 - `training` owns v3 artifact import, activation linting, schedule/capture, run association policy, and measurement/backup evaluation.
 - `coach` owns reviews, conversations, evidence packaging, memory, durable jobs, and model execution.
-- `routines` owns the supported v2 non-training routine catalog, schedule projection, activation, and Today logs.
-- `artifacts` owns authored v2 artifact staging and bundle preview/import before routine activation.
-- `experiments` owns experiment definitions, day-grain exposure, target metrics, and analysis.
+- `experiments` owns explicit-date experiment definitions, manual day-grain exposures, target metrics, and analysis.
 - `journal` owns check-ins and notes.
 - `core/profile` owns app-level profile configuration.
 
@@ -80,24 +78,9 @@ Import is atomic: strict wire validation, completeness checks, schedule compilat
 
 `docs/routine-pivot/block1/` is the active authored set. `block0/` is retired and retained only as the frozen schema/validator fixture.
 
-### v2 routines and experiments
+### Experiments
 
-The v2 routine path remains for meditation, breathwork, and checklists:
-
-```text
-authored bundle JSON -> preview -> import -> auto-activate -> Schedule and Today
-```
-
-The supported routine card payloads are `breath_timer`, `meditation_timer`, and `checklist`. The exact contract and checked-in authored routine bundles live in [docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md](docs/routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md).
-
-To preview and import the checked-in routine bundles into the configured local database:
-
-```bash
-cd backend
-uv run python ../scripts/import_bundles.py
-```
-
-Experiment definitions are imported separately through `/experiments`; their executable schema and day-grain exposure semantics are owned by `backend/app/domains/experiments/contracts.py` and the experiments charter.
+Experiment definitions are imported through `/experiments`. Designs provide explicit baseline and treatment dates; experiment-day exposures are recorded directly rather than inferred from a separate runtime. The executable schema and day-grain semantics are owned by `backend/app/domains/experiments/contracts.py` and the experiments charter.
 
 ## Running locally
 

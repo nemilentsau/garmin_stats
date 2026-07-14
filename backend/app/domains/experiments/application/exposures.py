@@ -1,8 +1,7 @@
 """Manual experiment exposure use cases.
 
-Manual exposure rows are user-authored overrides or corrections. Saving one
-immediately refreshes the cached analysis for the owning experiment so reads
-reflect the override.
+Exposure rows are user-authored experiment-day records. Saving one immediately
+refreshes the cached analysis for the owning experiment.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ def list_experiment_exposures(
     repo: ExperimentRepository,
     experiment_id: str,
 ) -> list[ExperimentExposure]:
-    """Return manual and derived exposure rows for one experiment."""
+    """Return recorded exposure rows for one experiment."""
     return repo.list_experiment_exposures(experiment_id=experiment_id)
 
 

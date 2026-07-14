@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (72 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -22,17 +22,6 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 | GET | `/api/activities/runs/{run_id}` | Get Run Route |
 | GET | `/api/activities/runs/{run_id}/series` | Get Run Series Route |
 
-### `assistant`
-
-| Method | Path | Summary |
-|---|---|---|
-| POST | `/api/assistant/artifact-bundles/import` | Post Import Bundle |
-| POST | `/api/assistant/artifact-bundles/preview` | Post Preview Bundle |
-| GET | `/api/assistant/artifacts` | Get Artifacts |
-| POST | `/api/assistant/artifacts` | Post Artifact |
-| GET | `/api/assistant/artifacts/{artifact_id}` | Get Artifact Detail |
-| POST | `/api/assistant/artifacts/{artifact_id}/activate` | Post Activate Artifact |
-
 ### `body-battery`
 
 | Method | Path | Summary |
@@ -40,12 +29,6 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 | GET | `/api/body-battery/analysis` | Get Body Battery Analysis |
 | GET | `/api/body-battery/daily` | Get Body Battery Daily |
 | GET | `/api/body-battery/raw` | Get Body Battery Raw |
-
-### `cards`
-
-| Method | Path | Summary |
-|---|---|---|
-| GET | `/api/cards` | Get Cards |
 
 ### `checkins`
 
@@ -163,15 +146,6 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 | GET | `/api/respiration/daily` | Get Respiration Daily |
 | GET | `/api/respiration/raw` | Get Respiration Raw |
 
-### `routines`
-
-| Method | Path | Summary |
-|---|---|---|
-| GET | `/api/routines` | Get Routines |
-| GET | `/api/routines/schedule-window` | Get Routine Schedule Window |
-| GET | `/api/routines/{routine_id}` | Get Routine Detail |
-| GET | `/api/routines/{routine_id}/assignments` | Get Assignments |
-
 ### `skin-temp`
 
 | Method | Path | Summary |
@@ -201,14 +175,6 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 |---|---|---|
 | GET | `/api/target-metrics` | List Target Metrics Route |
 
-### `today`
-
-| Method | Path | Summary |
-|---|---|---|
-| GET | `/api/today` | Get Today View |
-| GET | `/api/today/card-logs` | Get Card Logs Range |
-| PUT | `/api/today/{date}/cards/{occurrence_key}` | Put Today Card Log |
-
 ### `training`
 
 | Method | Path | Summary |
@@ -231,7 +197,6 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 | `/hrv` | page |
 | `/pulse-ox` | page |
 | `/respiration` | page |
-| `/routines/schedule` | page |
 | `/runs` | page |
 | `/runs/[id]` | page |
 | `/skin-temp` | page |
@@ -239,4 +204,5 @@ Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend
 | `/stress` | page |
 | `/today` | page |
 | `/training/import` | page |
+| `/training/schedule` | page |
 

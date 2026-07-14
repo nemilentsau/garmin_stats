@@ -5,28 +5,6 @@ from tests._architecture import assert_cross_slice_imports_are_allowlisted
 GARMIN_HEALTH_CONTRACTS = "app.domains.garmin_health.contracts"
 
 ALLOWLISTED_CROSS_SLICE_IMPORTS = {
-    "backend/app/domains/artifacts/application/activation.py": {
-        "app.domains.routines.application.activation",
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/artifacts/application/bundles.py": {
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/artifacts/application/staging.py": {
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/artifacts/application/validation.py": {
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/artifacts/routes.py": {
-        "app.domains.routines.contracts",
-    },
-    "backend/app/domains/artifacts/contracts.py": {
-        "app.domains.routines.contracts",
-    },
     "backend/app/domains/coach/read_gateway.py": {
         "app.domains.garmin_analytics.application",
         "app.domains.garmin_analytics.application.dependencies",
@@ -51,9 +29,6 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/coach/infra/plots.py": {
         "app.domains.garmin_analytics.contracts",
     },
-    "backend/app/domains/experiments/application/management.py": {
-        "app.domains.routines.dependencies",
-    },
     "backend/app/domains/experiments/domain/analysis.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
@@ -72,20 +47,9 @@ ALLOWLISTED_CROSS_SLICE_IMPORTS = {
     "backend/app/domains/experiments/domain/preview_validation.py": {
         GARMIN_HEALTH_CONTRACTS,
     },
-    "backend/app/domains/experiments/domain/exposures.py": {
-        "app.domains.routines.contracts",
-    },
     "backend/app/domains/experiments/dependencies.py": {
         GARMIN_HEALTH_CONTRACTS,
         "app.domains.journal.contracts",
-    },
-    "backend/app/domains/experiments/application/preview.py": {
-        "app.domains.routines.dependencies",
-    },
-    "backend/app/domains/experiments/application/exposure_sync.py": {
-        "app.domains.routines.contracts",
-        "app.domains.routines.dependencies",
-        "app.domains.routines.application.schedule_window",
     },
     "backend/app/domains/experiments/adapters.py": {
     },

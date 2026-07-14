@@ -11,7 +11,6 @@ from app.domains.experiments.contracts import (
     ExperimentsResponse,
     ExperimentWithAnalysis,
 )
-from app.domains.routines.dependencies import RoutineRepository
 
 from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import (
@@ -90,15 +89,12 @@ def import_experiment(
     repo: ExperimentRepository,
     read_source: ExperimentAnalysisReadSource,
     experiment: Experiment,
-    *,
-    routine_repo: RoutineRepository,
 ) -> ExperimentWithAnalysis:
     """Validate a spec, persist it as active, and create initial analysis."""
     preview = preview_experiment(
         repo,
         read_source,
         experiment,
-        routine_repo=routine_repo,
     )
     if not preview.valid:
         msg = "; ".join(i.message for i in preview.issues if i.level == "error")

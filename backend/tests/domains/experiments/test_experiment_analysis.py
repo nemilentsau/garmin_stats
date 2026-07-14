@@ -26,7 +26,6 @@ from app.domains.garmin_health.contracts import (
     DailySleepStats,
 )
 from app.domains.journal.contracts import DailyCheckIn
-from app.domains.routines.adapters import SqliteRoutineRepository
 from tests._experiments_helpers import make_experiment_read_source as _read_source
 
 
@@ -298,7 +297,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
         assert not result.valid
         error_msgs = [i.message for i in result.issues if i.level == "error"]
@@ -323,7 +321,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
         assert not result.valid
 
@@ -349,7 +346,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
         assert result.experiment.status == "active"
         assert result.analysis is not None
@@ -359,43 +355,6 @@ class TestExperimentPreviewAndImport:
         loaded = SqliteExperimentRepository().get_experiment("import-test")
         assert loaded is not None
         assert loaded.status == "active"
-
-    def test_import_persists_routine_derived_dates(self):
-        """Import must save the routine-derived baseline/treatment dates, not None."""
-        from app.domains.experiments.application.management import import_experiment
-        from app.domains.routines.adapters import save_routine_schedule
-        from app.domains.routines.contracts import RoutineSchedule
-
-        _seed_metrics([40.0] * 14, [50.0] * 14)
-        save_routine_schedule(RoutineSchedule(
-            id="routine-import",
-            name="Routine Import",
-            start_date="2026-01-15",
-            end_date="2026-01-28",
-        ))
-
-        exp = Experiment(
-            id="routine-derived-import",
-            name="Routine Derived",
-            status="draft",
-            design=ExperimentDesign(baseline_duration_days=14),
-            linked_routine_ids=["routine-import"],
-            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
-        )
-        import_experiment(
-            SqliteExperimentRepository(),
-            _read_source(),
-            exp,
-            routine_repo=SqliteRoutineRepository(),
-        )
-
-        loaded = SqliteExperimentRepository().get_experiment("routine-derived-import")
-        assert loaded is not None
-        assert loaded.design is not None
-        assert loaded.design.baseline_start_date == "2026-01-01"
-        assert loaded.design.baseline_end_date == "2026-01-14"
-        assert loaded.design.treatment_start_date == "2026-01-15"
-        assert loaded.design.treatment_end_date == "2026-01-28"
 
     def test_imported_analysis_with_flat_windows_round_trips_from_storage(self):
         """Persisted analyses should remain loadable for constant windows."""
@@ -419,7 +378,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
 
         loaded = SqliteExperimentRepository().get_experiment_analysis("flat-series")
@@ -459,7 +417,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
 
         updated = Experiment(
@@ -973,7 +930,6 @@ class TestExperimentPreviewAndImport:
             SqliteExperimentRepository(),
             _read_source(),
             exp,
-            routine_repo=SqliteRoutineRepository(),
         )
 
         assert result.valid is True

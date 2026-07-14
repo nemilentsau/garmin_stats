@@ -1,4 +1,4 @@
-"""Guard rails for retiring assistant chat while preserving artifact ingress."""
+"""Guard rails for retired assistant chat and artifact surfaces."""
 
 from pathlib import Path
 
@@ -28,15 +28,13 @@ def test_assistant_domain_is_not_importable_from_active_application_code():
     assert_no_repo_imports_of(["app.domains.assistant"], caller_file=Path(__file__))
 
 
-def test_assistant_artifact_routes_remain_registered():
+def test_assistant_artifact_routes_are_not_registered():
     paths = _route_paths()
 
-    assert "/api/assistant/artifacts" in paths
-    assert "/api/assistant/artifact-bundles/preview" in paths
-    assert "/api/assistant/artifact-bundles/import" in paths
+    assert not any(path.startswith("/api/assistant/artifact") for path in paths)
 
 
-def test_storage_initialization_drops_only_preexisting_retired_chat_tables():
+def test_storage_initialization_drops_preexisting_retired_assistant_tables():
     with sqlite.connect() as connection:
         connection.execute("DROP TABLE IF EXISTS assistant_threads")
         connection.execute(
@@ -59,7 +57,7 @@ def test_storage_initialization_drops_only_preexisting_retired_chat_tables():
         }
     assert "assistant_threads" not in tables
     assert "coach_reviews" in tables
-    assert "assistant_artifacts" in tables
+    assert "assistant_artifacts" not in tables
 
 
 def test_coach_routes_remain_registered_after_assistant_retirement():

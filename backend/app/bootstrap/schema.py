@@ -9,16 +9,22 @@ initializer under one connection.
 import sqlite3
 
 from app.core.profile.schema import init_profile_schema
-from app.domains.artifacts.schema import init_artifact_schema
 from app.domains.coach.schema import init_coach_schema
 from app.domains.experiments.schema import init_experiment_schema
 from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
-from app.domains.routines.schema import init_routine_schema
 from app.domains.training.schema import init_training_schema
 from app.infra import sqlite
 
 _RETIRED_TABLES = (
+    "assistant_artifacts",
+    "card_templates",
+    "routines",
+    "routine_entries",
+    "routine_schedules",
+    "routine_assignments",
+    "card_logs",
+    "card_overrides",
     "assistant_threads",
     "assistant_messages",
     "assistant_runs",
@@ -46,9 +52,7 @@ def init_storage() -> None:
         con.execute("PRAGMA journal_mode=WAL")
         init_garmin_sync_schema(con)
         init_profile_schema(con)
-        init_artifact_schema(con)
         init_coach_schema(con)
-        init_routine_schema(con)
         init_journal_schema(con)
         init_experiment_schema(con)
         init_training_schema(con)

@@ -10,9 +10,9 @@ The shipped app has five active product centers:
 2. Runs: tracked running sessions, detail/series views, and prescription evidence
 3. Coach: queued run reviews, evidence-grounded chat, and bounded semantic memory
 4. Training block runtime (v3): artifact import, lint-gated activation, and the Today/schedule training feed
-5. Routine + experiment runtime: supported v2 import, Schedule/Today execution, day-grain exposure, and analysis for non-training content
+5. Experiment runtime: explicit-date designs, manual day-grain exposures, and N=1 analysis
 
-Routine, experiment, and training content enters the app only through import/upload of authored artifacts. There are no generators, translators, seeders, or derived content artifacts; runtime projections never rewrite imported content.
+Experiment and training content enters the app only through import/upload of authored artifacts. There are no generators, translators, seeders, or derived content artifacts; runtime projections never rewrite imported content.
 
 ## Project Layout
 
@@ -39,7 +39,7 @@ Dependency direction (the layering enforced by architecture tests):
 
 - `garmin_sync` ingest adapters → `garmin_health`, `app.utils`
 - `garmin_analytics` → `garmin_health`, `app.utils`
-- `experiments` → routine projection contracts, Garmin health and journal contracts, and injected analytics/journal read sources
+- `experiments` → Garmin health and journal contracts plus injected analytics/journal read sources
 - `coach` → existing `garmin_analytics`, `training`, `journal`, and `garmin_health` read contracts through one gateway; it does not own estimator computation
 - `garmin_health` → `app.contracts.base`, `app.utils`
 - `app.utils` → stdlib and numpy only
@@ -68,17 +68,15 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | Domain / slice | Purpose | Routes | Charter |
 |---|---|---|---|
 | `coach` | Durable run reviews/chat, structured measurement assessments, hierarchical context, semantic journal/brief, isolated Codex runtime | `/api/coach/*` | [charter](../backend/app/domains/coach/CHARTER.md) |
-| `routines` | Supported v2 routine catalog, activation, schedule projection, and Today execution | `/api/routines`, `/api/today` | [charter](../backend/app/domains/routines/CHARTER.md) |
 | `training` | v3 training import, lint-gated activation, Today/schedule execution and measurement projection, authored backup runtime, capture logs | `/api/training/*` | [charter](../backend/app/domains/training/CHARTER.md) |
 | `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (running activities parsed; strength/breathing download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
 | `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
 | `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score, tracked runs | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*`, `/api/activities/runs*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
 | `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
-| `artifacts` | Authored v2 staging + bundle publish; delegates activation to `routines` | `/api/cards`, compatibility `/api/assistant/artifacts*` | [charter](../backend/app/domains/artifacts/CHARTER.md) |
 | `journal` | Daily check-ins + freeform notes (subjective context) | `/api/checkins`, `/api/notes` | [charter](../backend/app/domains/journal/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
-Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The compatibility-prefixed `/api/assistant/artifact*` routes belong to `artifacts`; Coach is the only assistant/chat surface. `coach` reuses application read models and owns descriptive packaging, structured measurement-assessment validation/persistence, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`). `training` projects run association on Today and schedule-window plus measurement evaluation from its injected, training-local `RunActivityReadPort`; it reads exact Coach judgments through a separate `MeasurementAssessmentReadPort`. Bootstrap adapts Garmin and Coach storage into those contracts, so Training imports neither source domain (see the [training charter](../backend/app/domains/training/CHARTER.md) and [run reference](reference/run-activities.md)).
+Notes: `garmin_sync` is a data-acquisition capability, not a business domain. `coach` reuses application read models and owns descriptive packaging, structured measurement-assessment validation/persistence, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`). `training` projects run association on Today and schedule-window plus measurement evaluation from its injected, training-local `RunActivityReadPort`; it reads exact Coach judgments through a separate `MeasurementAssessmentReadPort`. Bootstrap adapts Garmin and Coach storage into those contracts, so Training imports neither source domain (see the [training charter](../backend/app/domains/training/CHARTER.md) and [run reference](reference/run-activities.md)).
 
 ## Conventions
 
@@ -88,7 +86,7 @@ Architecture tests guard route/service boundaries and prevent new imports of rem
 
 ## Experiment Semantics
 
-Full day-grain exposure semantics live in `backend/app/domains/experiments/CHARTER.md`. In short: one `ExperimentExposure` per `experiment_id + date`, derived from whether the planned daily intervention dose was met — never collapsed to a "best card status", and multiple same-day cards are expected, not ambiguity.
+Full day-grain exposure semantics live in `backend/app/domains/experiments/CHARTER.md`. In short: one manually recorded `ExperimentExposure` per `experiment_id + date`, representing whether the planned daily intervention dose was met.
 
 ## Route Inventory
 
@@ -96,7 +94,7 @@ Generated from the FastAPI OpenAPI schema + SvelteKit routes: **`reference/route
 
 ## Frontend
 
-Route list is in `reference/routes.md`. Notable composition: `/today` and `/routines/schedule` render two feeds side by side — the training block's cards (`/api/training/*`) and v2 routine cards (`/api/today`) — and neither domain imports the other. Frontend conventions (runes, typed API client, generated types, display-only): `reference/code-conventions.md`.
+Route list is in `reference/routes.md`. `/today` and `/training/schedule` render the v3 training read models from `/api/training/*`. Frontend conventions (runes, typed API client, generated types, display-only): `reference/code-conventions.md`.
 
 ## Storage and Runtime Config
 

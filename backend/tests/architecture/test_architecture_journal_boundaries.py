@@ -73,11 +73,9 @@ def test_journal_application_does_not_import_other_domains():
             "backend/app/domains/journal/adapters.py",
         ],
         [
-            "app.domains.artifacts",
             "app.domains.experiments",
             "app.domains.garmin_analytics",
             "app.domains.garmin_sync",
-            "app.domains.routines",
         ],
     )
 
