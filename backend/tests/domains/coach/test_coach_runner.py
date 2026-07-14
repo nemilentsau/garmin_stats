@@ -97,7 +97,14 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     for flag in ("--ignore-user-config", "--ignore-rules", "--json", "--skip-git-repo-check"):
         assert flag in argv
     assert "--ephemeral" in argv
-    assert argv[argv.index("--config") + 1] == "project_doc_max_bytes=0"
+    configs = [
+        argv[index + 1]
+        for index, value in enumerate(argv[:-1])
+        if value == "--config"
+    ]
+    assert "project_doc_max_bytes=0" in configs
+    assert 'model_reasoning_effort="xhigh"' in configs
+    assert argv[argv.index("--model") + 1] == "gpt-5.6-sol"
     assert argv[:1] == ["exec"]
     staged_image = Path(argv[argv.index("-i") + 1])
     assert staged_image == Path(record["cwd"]) / "current/run.png"

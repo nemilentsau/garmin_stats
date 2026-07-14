@@ -143,6 +143,8 @@ strict structured-output schema, JSON events, and these isolation controls:
 - a copied execution workspace under the system temporary root, outside the app
   repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
+- model pinned explicitly to `gpt-5.6-sol` with `xhigh` reasoning; lowering the
+  production reasoning effort requires a code change rather than a user-config override;
 - project documentation budget set to zero, preventing repo `AGENTS.md` and unrelated
   analytical skills from inflating or redirecting the coach call;
 - no fallback schema guessing or automatic model retry.
