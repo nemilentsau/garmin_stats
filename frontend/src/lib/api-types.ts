@@ -1335,126 +1335,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/programs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Programs
-         * @description Return imported programs, optionally filtered by lifecycle status.
-         */
-        get: operations["get_programs_api_programs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{program_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Program Detail
-         * @description Return one imported program with its full spec snapshot.
-         */
-        get: operations["get_program_detail_api_programs__program_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Post Import Program
-         * @description Import a program spec snapshot without activating child records.
-         */
-        post: operations["post_import_program_api_programs_import_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{program_id}/retire": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Put Retire Program
-         * @description Mark a program retired while preserving its spec and history.
-         */
-        put: operations["put_retire_program_api_programs__program_id__retire_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{program_id}/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Put Activate Program
-         * @description Reactivate a retired program without changing version history.
-         */
-        put: operations["put_activate_program_api_programs__program_id__activate_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{program_id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Versions
-         * @description Return prior imported versions for one program.
-         */
-        get: operations["get_versions_api_programs__program_id__versions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/today": {
         parameters: {
             query?: never;
@@ -2042,7 +1922,7 @@ export interface components {
              */
             status: "pending" | "completed" | "partial" | "skipped";
             /** Actual Json */
-            actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
+            actual_json: (components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
             /** Variant Taken */
@@ -2104,7 +1984,7 @@ export interface components {
              */
             tags: string[];
             /** Payload Json */
-            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
+            payload_json: components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
             /** Source Artifact Id */
             source_artifact_id: string | null;
         };
@@ -2130,7 +2010,7 @@ export interface components {
              */
             tags: string[];
             /** Payload */
-            payload: components["schemas"]["RunningWorkoutPayload-Input"] | components["schemas"]["StrengthSessionPayload-Input"] | components["schemas"]["BreathTimerPayload-Input"] | components["schemas"]["MeditationTimerPayload-Input"] | components["schemas"]["ChecklistPayload-Input"];
+            payload: components["schemas"]["BreathTimerPayload-Input"] | components["schemas"]["MeditationTimerPayload-Input"] | components["schemas"]["ChecklistPayload-Input"];
         };
         /**
          * CardTemplatesResponse
@@ -4003,46 +3883,6 @@ export interface components {
             /** Absolute Kg */
             absolute_kg: number | null;
         };
-        /**
-         * LoggedStrengthExercise
-         * @description One logged exercise; extras carry a free-text label and is_extra=True.
-         */
-        "LoggedStrengthExercise-Input": {
-            /** Exercise Id */
-            exercise_id?: string | null;
-            /** Label */
-            label?: string | null;
-            /**
-             * Is Extra
-             * @default false
-             */
-            is_extra: boolean;
-            /**
-             * Sets
-             * @default []
-             */
-            sets: components["schemas"]["StrengthSetLog-Input"][];
-        };
-        /**
-         * LoggedStrengthExercise
-         * @description One logged exercise; extras carry a free-text label and is_extra=True.
-         */
-        "LoggedStrengthExercise-Output": {
-            /** Exercise Id */
-            exercise_id: string | null;
-            /** Label */
-            label: string | null;
-            /**
-             * Is Extra
-             * @default false
-             */
-            is_extra: boolean;
-            /**
-             * Sets
-             * @default []
-             */
-            sets: components["schemas"]["StrengthSetLog-Output"][];
-        };
         /** MaintenanceContract */
         MaintenanceContract: {
             /**
@@ -4578,88 +4418,6 @@ export interface components {
             sleep: components["schemas"]["PeriodSleepStats"];
             body_battery: components["schemas"]["PeriodBodyBatteryStats"];
         };
-        /**
-         * Program
-         * @description Current imported program spec and lifecycle state.
-         */
-        Program: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Version */
-            version: number;
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "retired";
-            /**
-             * Spec
-             * @default {}
-             */
-            spec: {
-                [key: string]: unknown;
-            };
-            /** Imported At */
-            imported_at: string | null;
-            /** Updated At */
-            updated_at: string | null;
-            /** Retired At */
-            retired_at: string | null;
-        };
-        /**
-         * ProgramVersion
-         * @description Archived spec snapshot superseded by a later import.
-         */
-        ProgramVersion: {
-            /** Program Id */
-            program_id: string;
-            /** Version */
-            version: number;
-            /**
-             * Spec
-             * @default {}
-             */
-            spec: {
-                [key: string]: unknown;
-            };
-            /** Imported At */
-            imported_at: string | null;
-        };
-        /**
-         * ProgramVersionsResponse
-         * @description List response for prior imported program versions.
-         */
-        ProgramVersionsResponse: {
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /**
-             * Versions
-             * @default []
-             */
-            versions: components["schemas"]["ProgramVersion"][];
-        };
-        /**
-         * ProgramsResponse
-         * @description List response for imported programs.
-         */
-        ProgramsResponse: {
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /**
-             * Programs
-             * @default []
-             */
-            programs: components["schemas"]["Program"][];
-        };
         /** RampSpec */
         RampSpec: {
             /** Weeks */
@@ -4992,42 +4750,6 @@ export interface components {
             assignments: components["schemas"]["RoutineActivationAssignment"][];
         };
         /**
-         * RunCustomField
-         * @description A custom per-run data field to collect after a run (e.g. weather confounders).
-         */
-        "RunCustomField-Input": {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /**
-             * Field Type
-             * @default number
-             * @enum {string}
-             */
-            field_type: "number" | "text";
-            /** Unit */
-            unit?: string | null;
-        };
-        /**
-         * RunCustomField
-         * @description A custom per-run data field to collect after a run (e.g. weather confounders).
-         */
-        "RunCustomField-Output": {
-            /** Key */
-            key: string;
-            /** Label */
-            label: string;
-            /**
-             * Field Type
-             * @default number
-             * @enum {string}
-             */
-            field_type: "number" | "text";
-            /** Unit */
-            unit: string | null;
-        };
-        /**
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
          *
@@ -5144,44 +4866,6 @@ export interface components {
              * @default false
              */
             has_running_dynamics: boolean;
-        };
-        /**
-         * RunSegment
-         * @description One segment of a running workout; prescription is a range string.
-         */
-        "RunSegment-Input": {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "warmup" | "main" | "strides" | "cooldown" | "intervals";
-            /** Detail */
-            detail?: string | null;
-            /** Prescription */
-            prescription: string;
-        };
-        /**
-         * RunSegment
-         * @description One segment of a running workout; prescription is a range string.
-         */
-        "RunSegment-Output": {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "warmup" | "main" | "strides" | "cooldown" | "intervals";
-            /** Detail */
-            detail: string | null;
-            /** Prescription */
-            prescription: string;
         };
         /**
          * RunSeriesResponse
@@ -5613,78 +5297,6 @@ export interface components {
             has_gps_trace: boolean;
         };
         /**
-         * RunningActual
-         * @description Logged actuals for a completed running workout.
-         *
-         *     Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
-         *     occurrence), not inside the actual.
-         */
-        "RunningActual-Input": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "running_workout";
-            /** Distance Km */
-            distance_km?: number | null;
-            /** Duration Min */
-            duration_min?: number | null;
-            /** Avg Hr */
-            avg_hr?: number | null;
-            /** Hr Drift Pct */
-            hr_drift_pct?: number | null;
-            /**
-             * Calibration Quality
-             * @default false
-             */
-            calibration_quality: boolean;
-            /** Rpe */
-            rpe?: number | null;
-            /**
-             * Post Run
-             * @default {}
-             */
-            post_run: {
-                [key: string]: number | string | null;
-            };
-        };
-        /**
-         * RunningActual
-         * @description Logged actuals for a completed running workout.
-         *
-         *     Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
-         *     occurrence), not inside the actual.
-         */
-        "RunningActual-Output": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "running_workout";
-            /** Distance Km */
-            distance_km: number | null;
-            /** Duration Min */
-            duration_min: number | null;
-            /** Avg Hr */
-            avg_hr: number | null;
-            /** Hr Drift Pct */
-            hr_drift_pct: number | null;
-            /**
-             * Calibration Quality
-             * @default false
-             */
-            calibration_quality: boolean;
-            /** Rpe */
-            rpe: number | null;
-            /**
-             * Post Run
-             * @default {}
-             */
-            post_run: {
-                [key: string]: number | string | null;
-            };
-        };
-        /**
          * RunningTimeInZones
          * @description Session-scope HR/power zone times and boundaries.
          *
@@ -5718,92 +5330,6 @@ export interface components {
             threshold_heart_rate_bpm: number | null;
             /** Max Heart Rate Bpm */
             max_heart_rate_bpm: number | null;
-        };
-        /**
-         * RunningWorkoutPayload
-         * @description Typed prescription for a running workout card.
-         */
-        "RunningWorkoutPayload-Input": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "running_workout";
-            /** Workout Type */
-            workout_type: string;
-            /** Rpe */
-            rpe?: string | null;
-            /** Talk Test */
-            talk_test?: string | null;
-            /** Hr Guidance */
-            hr_guidance?: string | null;
-            /**
-             * Calibration Quality
-             * @default false
-             */
-            calibration_quality: boolean;
-            /** Instructions */
-            instructions?: string | null;
-            /**
-             * Segments
-             * @default []
-             */
-            segments: components["schemas"]["RunSegment-Input"][];
-            /**
-             * Post Run Fields
-             * @default []
-             */
-            post_run_fields: components["schemas"]["RunCustomField-Input"][];
-            /**
-             * Variant Options
-             * @default []
-             */
-            variant_options: string[];
-            /** Selection Rule */
-            selection_rule?: string | null;
-        };
-        /**
-         * RunningWorkoutPayload
-         * @description Typed prescription for a running workout card.
-         */
-        "RunningWorkoutPayload-Output": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "running_workout";
-            /** Workout Type */
-            workout_type: string;
-            /** Rpe */
-            rpe: string | null;
-            /** Talk Test */
-            talk_test: string | null;
-            /** Hr Guidance */
-            hr_guidance: string | null;
-            /**
-             * Calibration Quality
-             * @default false
-             */
-            calibration_quality: boolean;
-            /** Instructions */
-            instructions: string | null;
-            /**
-             * Segments
-             * @default []
-             */
-            segments: components["schemas"]["RunSegment-Output"][];
-            /**
-             * Post Run Fields
-             * @default []
-             */
-            post_run_fields: components["schemas"]["RunCustomField-Output"][];
-            /**
-             * Variant Options
-             * @default []
-             */
-            variant_options: string[];
-            /** Selection Rule */
-            selection_rule: string | null;
         };
         /**
          * RunsListResponse
@@ -5880,7 +5406,7 @@ export interface components {
              */
             tags: string[];
             /** Payload Json */
-            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
+            payload_json: components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
         };
         /**
          * ScheduleWindow
@@ -6175,184 +5701,10 @@ export interface components {
              */
             held_constant: string[];
         };
-        /**
-         * StrengthActual
-         * @description Logged actuals for a strength session, including off-script extras.
-         */
-        "StrengthActual-Input": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "strength_session";
-            /**
-             * Exercises
-             * @default []
-             */
-            exercises: components["schemas"]["LoggedStrengthExercise-Input"][];
-            /**
-             * Ratings
-             * @default {}
-             */
-            ratings: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * StrengthActual
-         * @description Logged actuals for a strength session, including off-script extras.
-         */
-        "StrengthActual-Output": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "strength_session";
-            /**
-             * Exercises
-             * @default []
-             */
-            exercises: components["schemas"]["LoggedStrengthExercise-Output"][];
-            /**
-             * Ratings
-             * @default {}
-             */
-            ratings: {
-                [key: string]: number;
-            };
-        };
-        /**
-         * StrengthExercise
-         * @description One prescribed strength exercise; set_scheme is a range string.
-         */
-        "StrengthExercise-Input": {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /** Detail */
-            detail?: string | null;
-            /** Set Scheme */
-            set_scheme: string;
-        };
-        /**
-         * StrengthExercise
-         * @description One prescribed strength exercise; set_scheme is a range string.
-         */
-        "StrengthExercise-Output": {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /** Detail */
-            detail: string | null;
-            /** Set Scheme */
-            set_scheme: string;
-        };
         /** StrengthPrescription */
         StrengthPrescription: {
             /** Exercises */
             exercises: components["schemas"]["ExercisePrescriptionSpec"][];
-        };
-        /**
-         * StrengthSessionPayload
-         * @description Typed prescription for a strength session card.
-         */
-        "StrengthSessionPayload-Input": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "strength_session";
-            /** Session Focus */
-            session_focus?: string | null;
-            /** Duration Minutes */
-            duration_minutes?: number | null;
-            /** Rir Guidance */
-            rir_guidance?: string | null;
-            /** Instructions */
-            instructions?: string | null;
-            /**
-             * Exercises
-             * @default []
-             */
-            exercises: components["schemas"]["StrengthExercise-Input"][];
-            /**
-             * Rating Prompts
-             * @default []
-             */
-            rating_prompts: components["schemas"]["RatingPrompt-Input"][];
-            /**
-             * Variant Options
-             * @default []
-             */
-            variant_options: string[];
-            /** Selection Rule */
-            selection_rule?: string | null;
-        };
-        /**
-         * StrengthSessionPayload
-         * @description Typed prescription for a strength session card.
-         */
-        "StrengthSessionPayload-Output": {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            card_type: "strength_session";
-            /** Session Focus */
-            session_focus: string | null;
-            /** Duration Minutes */
-            duration_minutes: number | null;
-            /** Rir Guidance */
-            rir_guidance: string | null;
-            /** Instructions */
-            instructions: string | null;
-            /**
-             * Exercises
-             * @default []
-             */
-            exercises: components["schemas"]["StrengthExercise-Output"][];
-            /**
-             * Rating Prompts
-             * @default []
-             */
-            rating_prompts: components["schemas"]["RatingPrompt-Output"][];
-            /**
-             * Variant Options
-             * @default []
-             */
-            variant_options: string[];
-            /** Selection Rule */
-            selection_rule: string | null;
-        };
-        /**
-         * StrengthSetLog
-         * @description One logged set of a strength exercise.
-         */
-        "StrengthSetLog-Input": {
-            /** Set Index */
-            set_index: number;
-            /** Weight */
-            weight?: number | null;
-            /** Reps */
-            reps?: number | null;
-            /** Rir */
-            rir?: number | null;
-        };
-        /**
-         * StrengthSetLog
-         * @description One logged set of a strength exercise.
-         */
-        "StrengthSetLog-Output": {
-            /** Set Index */
-            set_index: number;
-            /** Weight */
-            weight: number | null;
-            /** Reps */
-            reps: number | null;
-            /** Rir */
-            rir: number | null;
         };
         /**
          * StressAnalysisResponse
@@ -6624,7 +5976,7 @@ export interface components {
              */
             tags: string[];
             /** Payload Json */
-            payload_json: components["schemas"]["RunningWorkoutPayload-Output"] | components["schemas"]["StrengthSessionPayload-Output"] | components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
+            payload_json: components["schemas"]["BreathTimerPayload-Output"] | components["schemas"]["MeditationTimerPayload-Output"] | components["schemas"]["ChecklistPayload-Output"];
             /**
              * Status
              * @default pending
@@ -6632,7 +5984,7 @@ export interface components {
              */
             status: "pending" | "completed" | "partial" | "skipped";
             /** Actual Json */
-            actual_json: (components["schemas"]["RunningActual-Output"] | components["schemas"]["StrengthActual-Output"] | components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
+            actual_json: (components["schemas"]["TimerActual-Output"] | components["schemas"]["ChecklistActual-Output"]) | null;
             /** Notes */
             notes: string | null;
             /** Variant Taken */
@@ -6654,7 +6006,7 @@ export interface components {
              */
             status: "pending" | "completed" | "partial" | "skipped";
             /** Actual Json */
-            actual_json?: (components["schemas"]["RunningActual-Input"] | components["schemas"]["StrengthActual-Input"] | components["schemas"]["TimerActual-Input"] | components["schemas"]["ChecklistActual-Input"]) | null;
+            actual_json?: (components["schemas"]["TimerActual-Input"] | components["schemas"]["ChecklistActual-Input"]) | null;
             /** Notes */
             notes?: string | null;
             /** Variant Taken */
@@ -7221,6 +6573,8 @@ export interface components {
             bundle_id: string;
             /** Bundle Name */
             bundle_name: string;
+            /** Is Running */
+            is_running: boolean;
             card: components["schemas"]["V3Card"];
             /**
              * Key Session
@@ -9773,196 +9127,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TargetMetricsResponse"];
-                };
-            };
-        };
-    };
-    get_programs_api_programs_get: {
-        parameters: {
-            query?: {
-                status?: ("active" | "retired") | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_program_detail_api_programs__program_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Program"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_import_program_api_programs_import_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Program"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_retire_program_api_programs__program_id__retire_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Program"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    put_activate_program_api_programs__program_id__activate_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Program"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_versions_api_programs__program_id__versions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                program_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramVersionsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -18,7 +18,6 @@ MODULE_CHARTERS = {
     "experiments": "backend/app/domains/experiments/CHARTER.md",
     "artifacts": "backend/app/domains/artifacts/CHARTER.md",
     "journal": "backend/app/domains/journal/CHARTER.md",
-    "programs": "backend/app/domains/programs/CHARTER.md",
     "training": "backend/app/domains/training/CHARTER.md",
     "core/profile": "backend/app/core/profile/CHARTER.md",
 }

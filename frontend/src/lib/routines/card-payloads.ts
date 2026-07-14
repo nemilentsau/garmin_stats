@@ -5,25 +5,22 @@ export type SlotAccent = { color: string; shadow: string };
 export type SlotName = ScheduleOccurrence['slot'];
 
 export type CardPayload = ScheduleOccurrence['payload_json'];
-export type CardType = CardPayload['card_type'];
-export type Domain = 'running' | 'strength' | 'breathwork' | 'meditation';
+type CardType = CardPayload['card_type'];
+type Domain = 'strength' | 'breathwork' | 'meditation';
 
 const CARD_TYPE_DOMAIN: Record<CardType, Domain | null> = {
-	running_workout: 'running',
-	strength_session: 'strength',
 	breath_timer: 'breathwork',
 	meditation_timer: 'meditation',
 	checklist: null
 };
 
-export const DOMAIN_THEME: Record<Domain, { accent: string; icon: string }> = {
-	running: { accent: COLORS.heartRate, icon: '🏃' },
+const DOMAIN_THEME: Record<Domain, { accent: string; icon: string }> = {
 	strength: { accent: COLORS.skinTemp, icon: '🏋' },
 	breathwork: { accent: COLORS.spo2, icon: '🫁' },
 	meditation: { accent: COLORS.hrv, icon: '🧘' }
 };
 
-export function domainOf(payload: CardPayload): Domain | null {
+function domainOf(payload: CardPayload): Domain | null {
 	if (payload.card_type === 'checklist') {
 		// The backend allows any string here; only recognized domains map to a theme.
 		const domain = payload.domain;
@@ -54,14 +51,14 @@ export const SLOT_LABELS: Record<SlotName, string> = {
 	anytime: 'Anytime'
 };
 
-export const SLOT_ACCENTS: Record<SlotName, SlotAccent> = {
+const SLOT_ACCENTS: Record<SlotName, SlotAccent> = {
 	morning: { color: COLORS.respiration, shadow: withAlpha(COLORS.respiration, '30') },
 	midday: { color: COLORS.spo2, shadow: withAlpha(COLORS.spo2, '30') },
 	evening: { color: COLORS.hrv, shadow: withAlpha(COLORS.hrv, '30') },
 	anytime: { color: COLORS.stress, shadow: withAlpha(COLORS.stress, '30') }
 };
 
-export const DEFAULT_SLOT_ACCENT: SlotAccent = {
+const DEFAULT_SLOT_ACCENT: SlotAccent = {
 	color: DARK_MUTED_TEXT,
 	shadow: withAlpha(DARK_MUTED_TEXT, '30')
 };
@@ -76,10 +73,6 @@ export function cardBrief(card: { payload_json: CardPayload }): string {
 		case 'breath_timer':
 		case 'meditation_timer':
 			return p.duration_minutes ? `${p.duration_minutes} min` : '';
-		case 'strength_session':
-			return p.exercises?.length ? `${p.exercises.length} exercises` : '';
-		case 'running_workout':
-			return p.segments?.length ? `${p.segments.length} segments` : '';
 		case 'checklist':
 			return p.items?.length ? `${p.items.length} items` : '';
 	}

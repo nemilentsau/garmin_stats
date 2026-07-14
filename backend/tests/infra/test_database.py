@@ -74,8 +74,34 @@ class TestInit:
             "experiment_exposures",
             "assistant_artifacts",
             "daily_checkins",
-            "program_versions",
         }.issubset(tables)
+        assert "program_versions" not in tables
+
+    def test_bootstrap_storage_removes_retired_program_tables_from_existing_database(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "upgraded-storage.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+        with sqlite.connect() as con:
+            con.execute("CREATE TABLE programs (id TEXT PRIMARY KEY)")
+            con.execute("CREATE TABLE program_versions (id TEXT PRIMARY KEY)")
+
+        storage_schema.init_storage()
+        storage_schema.init_storage()
+
+        with sqlite.connect() as con:
+            tables = {
+                row["name"]
+                for row in con.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+        assert "programs" not in tables
+        assert "program_versions" not in tables
 
 
 # ---------------------------------------------------------------------------

@@ -1,69 +1,11 @@
-"""L1-L12 block validator ported from `docs/routine-pivot/block0/linter.py`.
+"""L1-L12 activation policy for authored v3 training blocks.
 
-Owns the rule set that judges a compiled v3 block: tissue ownership (L2),
-weekly time budgets (L3), prose-conditional prescriptions (L4), scheduling
-constraints (L5), signal-closure and measurement integrity (L6), state-vector
-capture coverage (L7), load-unit resolvability (L8), measurement-block
-identity coherence (L9), anti-theater variant checks (L10), week-1 novelty
-(L11), and exit-criteria presence (L12) — plus the residual part of L1 that
-Task 1's typed contracts don't already enforce. `lint()` is the single entry
-point; it never mutates its inputs and never touches the filesystem.
-
-Three deltas from `linter.py`, each intentional:
-
-1. **L7 (hardened).** The shipped linter marks a state component "covered"
-   the instant its estimator has any non-`cap.*` input, even if that input is
-   itself an unresolved derived signal (e.g. `S4`'s `est.physique` takes
-   `tonnage.upper.7d` and `bodyweight` — neither starts with `cap.`, so the
-   original marks `S4` covered without ever checking whether a card actually
-   captures the tonnage inputs). This port instead walks the estimator DAG
-   transitively: a state is covered only if a `cap.*` field is *reachable*
-   from its estimator's inputs (following signal-producing estimators, e.g.
-   `tonnage.upper.7d` -> `est.upper_tonnage` -> `cap.set_log.push_a`) and that
-   field is captured by a card in the compiled schedule. A visited-estimator
-   set bounds the walk against cyclic DAGs. On the shipped block0 artifacts
-   every state component is reachable this way, so the stricter rule still
-   reports zero L7 errors — the hardening only changes behavior on content
-   that relied on the bug.
-2. **L11 (computed).** The shipped linter hardcodes `novel = 3` with a
-   comment listing three novel elements. This port counts the actual number
-   of distinct overload `adaptation` kinds among week-1 scheduled overload
-   cards, so the warning tracks real content instead of a stale comment.
-3. **Message prefixes preserved.** Every error/warning keeps the linter's
-   `[L#][ERROR]`/`[L#][WARN ]` prefix so a report reads identically to the
-   shipped `lint_report.json`, even though the rule bodies are now typed.
-
-Beyond those three, several of the linter's field-presence checks are
-structurally impossible once content is parsed through Task 1's typed
-contracts and are dropped rather than kept as permanently-dead branches — the
-same reasoning the brief applies to L1's per-kind `REQ` dict (a card that
-lacks a contract-required field, e.g. `RampSpec.endpoint` or
-`IntensityFloor.metric`, fails to parse into a `V3Card` at all, so the check
-can never fire on validated input):
-
-- L1: the `REQ` per-contract-kind field-presence table (Pydantic's
-  discriminated `Contract` union already enforces it). The residual L1 checks
-  kept here are the two genuinely cross-referential ones: unknown
-  `state_ref`/`preserves` against the registry's state-vector ids, and
-  unknown `card_id` references from assignments.
-- L6: the "capture field missing `AnalysisContract`" check (`CaptureField.
-  contract: AnalysisContract` is required). The cross-referential "capture
-  references unknown estimator" check is kept.
-- L8: the strength-prescription branch's `sets`/`reps`/`load` presence check
-  (`ExercisePrescriptionSpec` requires all three). The segment-prescription
-  branch's `duration_min`/`distance_mi` presence check is kept, since both
-  fields are optional on `SegmentSpec`.
-- L10: the "ramp without endpoint" and "maintenance intensity_floor missing
-  metric" checks (`RampSpec.endpoint` and `IntensityFloor.metric` are
-  required fields).
-- L12: the "extension rule missing cap" check (`ExtensionRule.
-  cap_total_extension_days` is required).
-
-The linter also carries a few module-level names it defines but never
-reads (`orphan_signals`, the unused `AMBIENT` tuple, `INTENSITY_KEYS`) — dead
-code with no effect on `errors`/`warnings`. They are not ported; keeping them
-would trip this project's ruff `F841`/unused-name checks for no behavioral
-gain.
+Typed contracts own object shape and required fields. This module owns the
+cross-object and compiled-schedule invariants: reference closure, tissue
+ownership, budgets, scheduling constraints, measurement integrity,
+transitive capture coverage, load resolvability, block identity, variant
+adequacy, novelty warnings, and exit criteria. ``lint`` is pure: it does not
+mutate its inputs or touch the filesystem.
 """
 
 from __future__ import annotations
@@ -80,6 +22,7 @@ from app.domains.training.application.compile import (
     compile_schedule,
     entry_minutes,
     full_variant_prescription,
+    is_running_bundle,
     seg_miles,
     week_of,
 )
@@ -106,8 +49,8 @@ from app.domains.training.contracts import (
 
 _BAD_NOTE = re_compile(r"\b(if|unless|only if|skip|instead|optional|coordinate)\b", IGNORECASE)
 
-# Checks from the source linter that are structurally subsumed by the typed
-# contracts (non-optional fields; validation fails before lint() is reachable):
+# Checks structurally subsumed by typed contracts (validation fails before
+# lint() is reachable):
 #   L1 REQ per-kind contract fields  -> Contract union discriminates + requires them
 #   L6 capture missing AnalysisContract -> CaptureField.contract is required
 #   L8 strength sets/reps/load presence -> ExercisePrescriptionSpec requires them
@@ -152,11 +95,10 @@ def _walk_predicate(predicate: Predicate, consumed: set[str]) -> None:
 def lint(
     block: V3Block, bundles: list[V3Bundle], registry: SignalRegistry, library: ExerciseLibrary
 ) -> LintReport:
-    """Compile `bundles` against `block`/`registry` and run L1-L12.
+    """Compile ``bundles`` against ``block``/``registry`` and run L1-L12.
 
-    `library` mirrors the linter's `exlib` global: no L1-L12 rule reads it
-    (the shipped linter never references `exlib` either), so it is accepted
-    for interface symmetry with the other three artifacts and left unused.
+    The exercise library is accepted as part of the complete import contract;
+    current L1-L12 rules do not need its descriptive metadata.
     """
     del library
     errors: list[str] = []
@@ -201,7 +143,7 @@ def lint(
         wk = week_of(day)
         for entry in (e for e in schedule if e.day == day):
             pres = full_variant_prescription(entry)
-            if "segments" in pres and entry.bundle_id == "running.v3":
+            if "segments" in pres and is_running_bundle(entry.bundle_id):
                 run_mi += seg_miles(pres)
             week_minutes_raw[wk][entry.bundle_id] += entry_minutes(entry)
         week_run_miles_raw[wk] += run_mi

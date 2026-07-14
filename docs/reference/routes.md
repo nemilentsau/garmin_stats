@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (91 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (85 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -148,17 +148,6 @@ Backend from the FastAPI OpenAPI schema (91 operations); frontend from `frontend
 | GET | `/api/profile` | Get Profile |
 | PUT | `/api/profile` | Put Profile |
 
-### `programs`
-
-| Method | Path | Summary |
-|---|---|---|
-| GET | `/api/programs` | Get Programs |
-| POST | `/api/programs/import` | Post Import Program |
-| GET | `/api/programs/{program_id}` | Get Program Detail |
-| PUT | `/api/programs/{program_id}/activate` | Put Activate Program |
-| PUT | `/api/programs/{program_id}/retire` | Put Retire Program |
-| GET | `/api/programs/{program_id}/versions` | Get Versions |
-
 ### `pulse-ox`
 
 | Method | Path | Summary |
@@ -239,7 +228,6 @@ Backend from the FastAPI OpenAPI schema (91 operations); frontend from `frontend
 | `/experiments` | page |
 | `/heart-rate` | page |
 | `/hrv` | page |
-| `/programs` | page |
 | `/pulse-ox` | page |
 | `/respiration` | page |
 | `/routines/schedule` | page |

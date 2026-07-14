@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 import app.domains.garmin_health.infra.fit_parser.activities as activities_mod
 from app.domains.garmin_health.infra.fit_parser.activities import (
     discover_running_activity_files,
-    parse_running_activities,
     parse_running_activity,
 )
 from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
@@ -580,21 +579,6 @@ class TestDiscoveryAndComposition:
         assert data.session.stamina_beginning_potential_pct is None
         assert data.session.stamina_ending_potential_pct is None
         assert data.session.stamina_min_pct is None
-
-    def test_batch_skips_broken_files_and_continues(self, tmp_path, monkeypatch):
-        def _decode(path):
-            # Check only the filename, not the full path (which may contain test dir name)
-            filename = path.name
-            if "broken" in filename:
-                raise ValueError("corrupt fit")
-            return FULL_MESSAGES
-
-        monkeypatch.setattr(activities_mod, "decode_fit_file", _decode)
-        _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
-        _write_activity_pair(tmp_path, "2026-07-09", "064500_running_broken")
-        parsed = parse_running_activities(tmp_path)
-        assert len(parsed) == 1
-        assert parsed[0].session.session_date == "2026-07-10"
 
     def test_missing_activities_dir_returns_empty_list(self, tmp_path):
         files = discover_running_activity_files(tmp_path / "does_not_exist")

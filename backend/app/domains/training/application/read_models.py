@@ -1,8 +1,7 @@
 """Today/schedule-window/block-status read models plus capture-log upsert.
 
-Owns the projection from Task 1's typed v3 wire contracts (`V3Block`,
-`V3Bundle`, `V3Card`, ...) and Task 2's compiled schedule (`compile_schedule`,
-`full_variant_prescription`) into the display-ready `Training*` view models
+Owns the projection from typed v3 wire contracts and the compiled schedule
+into the display-ready `Training*` view models
 in `contracts.py`, merged with any saved `TrainingCardLog`. This module never
 mutates a v3 artifact and never lints — `application/validation.py` already
 ran (and blocked activation on failure) before anything here can observe an
@@ -80,6 +79,7 @@ from app.domains.training.application.compile import (
     CompiledEntry,
     compile_schedule,
     full_variant_prescription,
+    is_running_bundle,
     week_of,
 )
 from app.domains.training.application.measurement_schedule import (
@@ -270,10 +270,9 @@ def build_exercise_display(
 ) -> TrainingExerciseDisplay:
     """Project one prescribed exercise into its read-only display projection.
 
-    `scheme` (via `render_scheme`) stays alongside the new structured
-    `reps_low`/`reps_high`/`load_kind`/`load_value` fields for this phase's
-    back-compat; `last` is always the caller's value verbatim — this task
-    never looks one up (Task 0.3's `last_logged_for` does).
+    ``scheme`` stays alongside the structured repetition/load fields for
+    compatibility. ``last`` is supplied by the caller; this helper performs
+    no history lookup.
     """
     lo, hi = exercise.reps
     kind, value = structured_load(exercise.load)
@@ -356,8 +355,8 @@ def render_segment(segment: SegmentSpec) -> str:
 def build_segment_display(segment: SegmentSpec) -> TrainingSegmentDisplay:
     """Project one prescribed run/support segment into its display projection.
 
-    `detail` (via `render_segment`) stays alongside the new structured
-    `distance_mi`/`duration_min`/`zone` fields for this phase's back-compat.
+    ``detail`` stays alongside structured distance/duration/zone fields for
+    API compatibility.
     `zone` is `None` for rpe-only or hr_range-only segments (e.g. drills,
     strides, primers) — the frontend falls back to `detail` for those.
     """
@@ -452,19 +451,6 @@ def _exercise_name(library: ExerciseLibrary, exercise_id: str) -> str:
 
 
 # ---------- run<->prescription association ----------
-
-_RUNNING_BUNDLE_ID = "running.v3"
-"""The one bundle whose cards are tracked-run candidates for association.
-
-Mirrors `application/validation.py`'s own `entry.bundle_id == "running.v3"`
-check (its weekly-run-mileage rollup) — the same test already distinguishes
-`running.v3`'s segment-based cards from `support.v3`'s (e.g. `sup.daily`),
-which also prescribe `SegmentPrescription` but are never tracked runs.
-"""
-
-
-def _is_run_card(entry: CompiledEntry) -> bool:
-    return entry.bundle_id == _RUNNING_BUNDLE_ID
 
 
 def _prescribed_distance_mi(segments: list[TrainingSegmentDisplay]) -> float | None:
@@ -563,7 +549,7 @@ def _build_card(
 
     `runs_today`/`run_cards_today` carry the caller's preloaded summaries and
     this day's run-card count. Association (`match_run_to_card`) only runs for a
-    `running.v3` card (`_is_run_card`) — every other card gets
+    training-classified running card — every other card gets
     `run_candidates=[]`, `associated_activity=None` unconditionally.
     The optional caches are request-owned snapshots; they include missing
     evidence and `None` assessments and never outlive the public read call.
@@ -610,7 +596,7 @@ def _build_card(
 
     associated_activity: TrainingRunActivitySummary | None = None
     run_candidates: list[TrainingRunActivitySummary] = []
-    if _is_run_card(entry):
+    if is_running_bundle(entry.bundle_id):
         run_candidates = runs_today or []
         associated_activity = match_run_to_card(
             linked_run_id=log.linked_run_id if log else None,
@@ -692,6 +678,7 @@ def _build_card(
         slot=entry.slot,
         bundle_id=entry.bundle_id,
         bundle_name=bundle_names.get(entry.bundle_id, entry.bundle_id),
+        is_running=is_running_bundle(entry.bundle_id),
         card=card,
         key_session=assignment.key_session,
         variants=assignment.variants,
@@ -795,7 +782,9 @@ def _cards_for_day(
     evidence/assessment snapshot.
     """
     entries = [(index, entry) for index, entry in enumerate(schedule) if entry.day == day]
-    run_cards_today = sum(1 for _index, entry in entries if _is_run_card(entry))
+    run_cards_today = sum(
+        1 for _index, entry in entries if is_running_bundle(entry.bundle_id)
+    )
     day_runs = runs_today or []
     activation_by_index = {
         activation.entry_index: activation.event_id for activation in backup_activations

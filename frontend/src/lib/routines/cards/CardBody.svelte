@@ -2,12 +2,10 @@
 	/**
 	 * CardBody — dispatches to the card-type-specific component for a single occurrence.
 	 *
-	 * All five card types are now wired to dedicated components:
+	 * The legacy v2 runtime supports the non-training card types that remain importable:
 	 *   checklist        → ChecklistCard        (Phase 2)
 	 *   breath_timer     → BreathTimerCard       (Phase 3)
 	 *   meditation_timer → MeditationTimerCard   (Phase 3)
-	 *   strength_session → StrengthSessionCard   (Phase 4)
-	 *   running_workout  → RunningWorkoutCard     (Phase 5)
 	 *
 	 * Props:
 	 *   card   — ScheduleOccurrence or TodayCard shape (both have payload_json; TodayCard adds
@@ -17,16 +15,13 @@
 	 *              The parent is responsible for stashing + persisting the emitted value.
 	 *
 	 * Also renders a display-only "Rule: …" line under the card header (both modes) when the
-	 * occurrence's payload carries a non-null `selection_rule` — the v3 assignment's rendered
-	 * variant-selection predicate (running_workout / strength_session / checklist payloads
-	 * only). No logic here: this is a pass-through of a backend-generated string.
+	 * occurrence's checklist payload carries a non-null `selection_rule`. No logic here:
+	 * this is a pass-through of a backend-generated string.
 	 */
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
 	import ChecklistCard from './ChecklistCard.svelte';
 	import BreathTimerCard from './BreathTimerCard.svelte';
 	import MeditationTimerCard from './MeditationTimerCard.svelte';
-	import StrengthSessionCard from './StrengthSessionCard.svelte';
-	import RunningWorkoutCard from './RunningWorkoutCard.svelte';
 
 	type CardPayload = ScheduleOccurrence['payload_json'];
 	type CardActual = NonNullable<TodayCard['actual_json']>;
@@ -46,7 +41,7 @@
 		onActual?: (actual: CardActual) => void;
 	} = $props();
 
-	// Only running_workout / strength_session / checklist payloads carry selection_rule.
+	// Only checklist payloads carry selection_rule in the retained v2 contract.
 	const selectionRule = $derived(
 		'selection_rule' in card.payload_json ? card.payload_json.selection_rule : null
 	);
@@ -82,26 +77,6 @@
 		payload_json is narrowed to MeditationTimerPayload by the type guard above.
 	-->
 	<MeditationTimerCard
-		card={{ payload_json: card.payload_json, actual_json: card.actual_json }}
-		{mode}
-		{onActual}
-	/>
-{:else if card.payload_json.card_type === 'strength_session'}
-	<!--
-		StrengthSessionCard is fully implemented (Phase 4).
-		payload_json is narrowed to StrengthSessionPayload by the type guard above.
-	-->
-	<StrengthSessionCard
-		card={{ payload_json: card.payload_json, actual_json: card.actual_json }}
-		{mode}
-		{onActual}
-	/>
-{:else if card.payload_json.card_type === 'running_workout'}
-	<!--
-		RunningWorkoutCard is fully implemented (Phase 5).
-		payload_json is narrowed to RunningWorkoutPayload by the type guard above.
-	-->
-	<RunningWorkoutCard
 		card={{ payload_json: card.payload_json, actual_json: card.actual_json }}
 		{mode}
 		{onActual}

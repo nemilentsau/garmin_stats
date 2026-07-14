@@ -23,7 +23,11 @@ from app.domains.coach.infra.plots import (
     render_library_panel,
 )
 from app.domains.coach.read_gateway import CoachReadGateway
-from app.domains.garmin_analytics.contracts import DashboardOverviewResponse, RunListItem
+from app.domains.garmin_analytics.contracts import (
+    DashboardOverviewResponse,
+    RunDetailResponse,
+    RunListItem,
+)
 from app.domains.garmin_health.contracts import DailyMetric
 from app.domains.training.contracts import TrainingTodayCard
 
@@ -77,6 +81,21 @@ def _run_context(
         training_card=card,
         morning_metric=metric_by_date.get(run.session_date),
         comparison=compare_whole_session(detail=detail, training_card=card),
+    )
+
+
+def _run_list_item(detail: RunDetailResponse) -> RunListItem:
+    """Project a detail response onto the list shape used by coach context helpers."""
+    return RunListItem(
+        id=detail.session.id,
+        session_date=detail.session.session_date,
+        start_time_local=detail.session.start_time_local,
+        activity_name=detail.session.activity_name,
+        distance_mi=detail.display.distance_mi,
+        timer_time_s=detail.session.timer_time_s,
+        pace_min_per_mi=detail.display.pace_min_per_mi,
+        avg_heart_rate_bpm=detail.session.avg_heart_rate_bpm,
+        hr_source=detail.session.hr_source,
     )
 
 
@@ -355,17 +374,7 @@ def assemble_workspace(
                 for run in gateway.recent_runs(evidence_date=evidence_date, limit=1000)
                 if run.id == current_run_id
             ),
-            RunListItem(
-                id=detail.session.id,
-                session_date=detail.session.session_date,
-                start_time_local=detail.session.start_time_local,
-                activity_name=detail.session.activity_name,
-                distance_mi=detail.display.distance_mi,
-                timer_time_s=detail.session.timer_time_s,
-                pace_min_per_mi=detail.display.pace_min_per_mi,
-                avg_heart_rate_bpm=detail.session.avg_heart_rate_bpm,
-                hr_source=detail.session.hr_source,
-            ),
+            _run_list_item(detail),
         )
         context = _run_context(gateway, current_run, metric_by_date)
         current_dir = directory / "current" / safe_current
@@ -385,17 +394,7 @@ def assemble_workspace(
         safe_value = _safe(ref.value)
         if ref.kind == "run":
             detail = gateway.run_detail(ref.value)
-            run = RunListItem(
-                id=detail.session.id,
-                session_date=detail.session.session_date,
-                start_time_local=detail.session.start_time_local,
-                activity_name=detail.session.activity_name,
-                distance_mi=detail.display.distance_mi,
-                timer_time_s=detail.session.timer_time_s,
-                pace_min_per_mi=detail.display.pace_min_per_mi,
-                avg_heart_rate_bpm=detail.session.avg_heart_rate_bpm,
-                hr_source=detail.session.hr_source,
-            )
+            run = _run_list_item(detail)
             _export_run(
                 gateway,
                 run=run,

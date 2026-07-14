@@ -1,170 +1,63 @@
-# Recovery Dashboard — Design Reference
+# Recovery Dashboard
 
-**Status:** built and shipped (2026-06-12). This is the durable reference for how the recovery
-score, health flags, and the dashboard overview work. The implementation is the source of truth;
-this document explains *what* the pieces are and *why*, so a maintainer does not have to
-reverse-engineer them from code.
+**Status:** shipped.
 
-The numbers below were validated on the pinned snapshot **2026-06-11 (373 days, Garmin Epix Gen 2
-Pro)**. The supporting analyst runs live in `.claude/finding-runs/2026-06-11-*` (local-only) and
-the promoted evidence in `FINDINGS.md` (local-only). Each design choice cites the run that earned
-it.
+The overview presents one validated physiological-recovery axis plus two independent health-context flags. It is not a workout-readiness, training-load, adaptation, sleep-opportunity, or overall-health score.
 
----
+## Recovery score
 
-## 1. The recovery score (the central object)
+The score combines seven daily signals that co-move on the user's recovery axis:
 
-**A single daily index of overall autonomic recovery state, on the user's personal scale.**
+- recovery-positive: nightly HRV, Body Battery, sleep score;
+- recovery-negative after sign reversal: resting heart rate, daily average heart rate, stress, respiration.
 
-- **Inputs (7 daily aggregates):** resting HR, HR avg, stress, respiration (the *stress pole* —
-  recovery-negative); body battery, nightly HRV, sleep score (the *recovery pole* —
-  recovery-positive). These seven are **one axis**, not independent metrics: they co-move at
-  pairwise |r| 0.5–0.84, and PC1 explains ~74% of their variance, stably across regimes and
-  seasons (run `2026-06-11-multi-axis-loading-stability`).
-- **Construction:**
-  1. **Normalize** each metric to a robust z-score against the user's *own expanding history*
-     (median/MAD×1.4826, current day excluded, ≥30 prior present days). Trailing 30–60-day
-     baselines were rejected — they absorb sustained regimes (run
-     `2026-06-11-recovery-normalization-baseline`).
-  2. **Sign** each so higher = better recovery (the stress pole is negated).
-  3. **Weight** with correlation-deflated weights, which land ≈ equal because redundancy is
-     uniform (RHR .142, HRavg .148, stress .139, resp .137, BB .135, HRV .140, sleep .159);
-     renormalized per day over whatever inputs are present (≥5 of 7 required). Weighting is
-     practically immaterial — equal / deflated / PC1 agree at r ≥ 0.9996 (run
-     `2026-06-11-recovery-score-weighting`).
-  4. **Smooth** the displayed trend with a seeded trailing 7-day moving average (run
-     `2026-06-11-recovery-score-smoothing-spec`).
-- **Output:** a robust-z value, roughly [−3, +3]. 0 = the user's typical recovery; negative =
-  suppressed; positive = strong. **Read it as level-vs-baseline and trend, never as a raw
-  number.** The display keeps the z scale (no 0–100 mapping — that is a deferred UX decision).
-- **What it is / isn't:** a recovery/autonomic-state summary, validated to track real regimes
-  out-of-sample (§5). It is **not** a training/performance score — there is no activity, training
-  load, steps, or sleep duration in the mart.
+For each day, the backend:
 
-## 2. Meaningful change, band, and trend
+1. normalizes each available input against the user's expanding prior history with robust median/MAD z-scores, excluding the current day and requiring at least 30 prior present values;
+2. reverses the negative-recovery signals so higher consistently means stronger recovery;
+3. applies the correlation-deflated weights in `domain/recovery_score/weighting.py`, renormalized across available inputs, and requires at least five of seven;
+4. computes the seeded trailing 7-day average used as the displayed trend.
 
-- **Default comparison:** the 7-day mean vs the prior 7-day mean. A change is *meaningful* when
-  **|Δ7| ≥ 0.97 z**; a single-day move is *acute* when **|Δ1| ≥ 1.86 z** (run
-  `2026-06-11-recovery-score-meaningful-change`). Single-night events are surfaced as an acute
-  note (and the day's raw value on hover), never as the headline.
-- **Band:** the score is cut at **±0.5 z** into `suppressed` / `typical` / `strong`.
-- **Trend:** from Δ7 against the 0.97 threshold → `improving` / `steady` / `declining`.
-- **State label:** the "state before score" banner composes **band × trend** ("Typical recovery,
-  improving"). Days do **not** cluster into discrete physiological archetypes — the recovery
-  dimension is a continuum (PC1 74%, no separable clusters; run `2026-06-11-recovery-day-states`),
-  so there are no invented "deep suppression / clean recovery" states.
+The raw output is a personal z-score: zero is typical, negative is suppressed, and positive is stronger than usual. The frontend does not recompute any part of it.
 
-## 3. Regime detection (data-driven, not hard-coded)
+## State, change, and regimes
 
-Sustained excursions of the MA7 score outside the typical band are detected and annotated on the
-trajectory: a run of **≥14 days** where MA7 stays **≤ −0.5** (`low recovery`) or **≥ +0.5**
-(`elevated recovery`), merging brief (≤3-day) returns into the band. These are *computed each
-render* (`recovery_score/regimes.py`), so they generalize to any data, user, or future period —
-they are not pinned dates. On the validated snapshot this finds the Nov–Dec low-recovery regime
-and the Jan–Mar elevated plateau. This is presentation annotation derived from the score, carrying
-no causal claim.
+- Band: `suppressed` below -0.5 z, `typical` from -0.5 through +0.5 z, and `strong` above +0.5 z.
+- Trend: the latest 7-day mean versus the previous 7-day mean; a change of at least 0.97 z is meaningful.
+- Acute event: a one-day move of at least 1.86 z is reported separately and never replaces the trend.
+- Regime: at least 14 days with the 7-day average outside the typical band, merging returns of at most three days.
 
-## 4. Health flags (oxygen, thermoregulation)
+The state sentence composes band and trend. These labels describe position on a continuum; they are not physiological archetypes.
 
-Two **flags**, not gauges — point-in-time health context, off the recovery axis (run
-`2026-06-11-spo2-skintemp-flag-thresholds`):
+## Health flags
 
-- **Low-oxygen:** nightly `spo2_avg` < personal **median − 2.5·MAD (≈ 90.5%)**. `spo2_avg` beats
-  `spo2_min` (which is integer-coarse) as the flag metric; `spo2_min` is supporting nadir detail.
-  Absolute cutoffs are useless here (this user's nightly minimum runs ~80%), so the threshold is
-  personal. **A missing reading is a distinct `unknown` status, never `normal`** — the ~18% SpO₂
-  gaps are two structural device-coverage blocks, surfaced as `spo2_gaps`, not health events.
-- **Skin temp:** skin-temp deviation outside personal **median ± 2.5·MAD (≈ ±0.9 °C)**,
-  two-sided. Independent of the oxygen flag.
+Oxygen and thermoregulation remain outside the recovery score:
 
-## 5. Validation (the shipping gate)
+- oxygen compares nightly average SpO2 with the personal median minus 2.5 MAD;
+- skin temperature compares deviation with the personal median plus/minus 2.5 MAD;
+- missing readings are `unknown`, never `normal`;
+- structural SpO2 coverage gaps are returned explicitly.
 
-The score passed three pre-registered construct-validity tests (run
-`2026-06-11-recovery-score-validation`):
+The two flags have independent status vocabularies and no blended severity score.
 
-- **T1 — temporal structure:** raw lag-1 autocorrelation 0.457, exceeds a block-permutation null
-  at p < 1e-4 (trend-worthy, not noise).
-- **T2 — leave-event-out:** with baselines frozen the day before each event, MA7 stays below the
-  pre-Nov 10th percentile for 36 consecutive days and above the pre-plateau 90th percentile on 93%
-  of the Feb best-window days.
-- **T3 — clean holdout:** on Apr–Jun 2026 (postdates all parameter-setting), autocorrelation holds
-  and the meaningful-change flag rate is a sane 8.3%.
+## API and implementation
 
-**Caveat:** the dataset has one severe regime and one plateau — validation is strong for this data
-and honest about its n-of-1 events.
+`GET /api/dashboard` returns `DashboardOverviewResponse`:
 
-## 6. The overview (anti-card; the synthesis + hub)
-
-The overview (`frontend/src/routes/+page.svelte`) replaced the old readiness ring + four sparkline
-cards + four hard-coded 0–25 components. It is organized by the data's actual structure — *one
-state, read as trajectory + evidence* — not a card grid (the seven inputs are one axis; isolating
-them in tiles hides the co-movement that is the point). Top to bottom:
-
-- **State line** — the band × trend sentence + the score (small, in z). A sentence, not a gauge.
-- **Recovery trajectory (the hero)** — one shared-axis time series: the bold seeded MA7 line over
-  a shaded typical band, with the detected-regime annotations. The raw daily series is **not
-  drawn** — it dominated the axis and competed with the trend as visual noise. Instead each day's
-  **dispersion (±1 SD of the daily score over a trailing 14 days)** is surfaced in the hover
-  tooltip as a `±X.XX z` figure. (A filled dispersion band was prototyped and rejected: a 14-day
-  SD is near-constant-width, so it just parallels the average and visually swallowed the typical
-  band; as a per-day number the spread does vary meaningfully, so it lives in the tooltip.) Range
-  toggles **7d / 30d / 90d / 180d / 360d** (default 90d), with the x-axis unit adapting (day ≤31d,
-  month otherwise). The y-axis **hugs the data** (`frontend/src/lib/chart-scale.ts`) — scaled to
-  the MA7 and the ±0.5 typical band so the trend fills the plot, with tight bounds and round-only
-  ticks, never auto-overshooting to round extremes that flatten the signal. **Hover-brushing:**
-  hovering a day re-points the evidence table to that day.
-- **Evidence table ("what moved it")** — the seven inputs as aligned rows (value / personal
-  baseline / Δz with direction / a comparable inline sparkline / source-type), **sorted by impact
-  (|Δz|)**, each metric linking into its detail tab. Hovering the trajectory repopulates these to
-  the hovered day via the per-metric `driver_series`.
-- **Flag strip** — two named health-exception chips, linking to `/pulse-ox` and `/skin-temp`.
-  Oxygen uses `normal` / `low` / `unknown`; skin temp uses `normal` / `below_usual` /
-  `above_usual` / `unknown`. The shared amber color is only a UI warning
-  tone, not a shared reason or severity. It follows trajectory hover just like the evidence table,
-  so a historical low-SpO₂ or temperature exception is shown for the hovered day, rather than
-  staying pinned to the latest day.
-
-The eight per-metric detail tabs (`/heart-rate`, `/hrv`, `/sleep`, `/stress`, `/body-battery`,
-`/respiration`, `/skin-temp`, `/pulse-ox`) are **kept as-is** — they carry intraday curves,
-distributions, sleep stages, HR zones, and circadian profiles a daily score cannot encode. The
-overview is the entry point; the evidence rows and flags link into them.
-
-> **Forcing rule (encoded in the `ux-design` and `analytical-dashboard` skills):** before any card
-> grid, ask "does this data need to be compared across items, or read as a trend?" If yes, cards
-> are the wrong container — use an aligned table or a shared-axis series. Cards are for independent
-> entities (a routine, an experiment, one metric's own detail page).
-
-## 7. API contract & where it is computed
-
-`GET /api/dashboard` → `DashboardOverviewResponse`
-(`backend/app/domains/garmin_analytics/contracts/dashboard.py`):
-
-| Field | Purpose |
+| Field | Meaning |
 |---|---|
-| `state` | band / trend / score_z |
-| `score[]` | trajectory points (raw, seeded ma7, ±1 SD dispersion-band bounds `band_lo`/`band_hi` — tooltip spread only, typical-band bounds) |
-| `change` | Δ7 / Δ1 + meaningful/acute flags |
-| `evidence[]` | latest-day per-input rows (value, baseline, Δz, source, tab link, sparkline) |
-| `driver_series[]` | per-metric value/baseline/Δz aligned to `score` dates — powers hover-brushing |
-| `flags` | grouped latest health-exception objects: `oxygen` + `thermoregulation` with their own status vocabularies and tab links |
-| `flag_series` | grouped dated oxygen + thermoregulation statuses aligned to `score` dates — powers historical flag hover |
-| `spo2_gaps[]` | structural SpO₂ coverage gaps |
-| `events[]` | detected low/elevated regimes |
-| `correlations[]` | nightly-HRV-vs-sleep/resting-HR scatters — **not shown on the overview**; retained for the HRV detail tab |
+| `state` | current band, trend, and score |
+| `score` | daily raw score, seeded 7-day trend, typical band, and display dispersion values |
+| `change` | week-over-week and acute comparisons |
+| `evidence` | latest per-input value, baseline, signed delta, source, and drill-down link |
+| `driver_series` | dated evidence values aligned to the score series for hover inspection |
+| `flags` / `flag_series` | current and dated oxygen/temperature context |
+| `spo2_gaps` | explicit structural coverage gaps |
+| `events` | detected recovery regimes |
+| `correlations` | HRV detail-page association context; not an overview lane |
 
-Computation lives in `domains/garmin_analytics/domain/dashboard.py` + the
-`domains/garmin_analytics/domain/recovery_score/` package (`normalization`, `weighting`,
-`smoothing`, `thresholds`, `flags`, `regimes`, `evidence`), each unit-tested. The frontend is
-display-only: it formats and renders, computing no statistics.
+Computation lives in `backend/app/domains/garmin_analytics/domain/recovery_score/` and `domain/dashboard.py`. `application/dashboard.py` loads the data and owns cache behavior. The overview renders the shared-axis trajectory, evidence table, and flag strip; metric pages remain drill-downs.
 
-## 8. Deliberately out of scope
+## Product boundary
 
-- **No readiness score / arbitrary 0–25 components** — the scaffold this refactor removed.
-- **No experiment-response number** — blocked on data: the only experiment has 5 logged exposure
-  days in one block, below the noise floor, and the score shares its HRV input with the
-  experiment's target (run `2026-06-11-experiment-response-detectability`). The causal question
-  stays in the experiment's own analysis pipeline.
-- **No load / strain / progress axis** — no activity or training-load data in the mart; see
-  `docs/future/ACTIVITY_ANALYTICS_DESIGN.md` for what would unlock it.
-- **No 0–100 display scaling yet** — the z scale ships as-is; a friendlier surface is a deferred
-  UX decision.
+Running activity data now exists, but it is deliberately not folded into this score. The training-state overview described in [`../routine-pivot/pivot_roadmap.md`](../routine-pivot/pivot_roadmap.md) must present progress, load, and constraints as distinct backend-owned lanes instead of stretching the recovery construct.

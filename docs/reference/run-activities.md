@@ -1,6 +1,6 @@
 # Run Activities
 
-**Status:** shipped (running only) — parse, strap channels, stamina/performance-condition, GPS route map, run↔prescription association, and program-aware measurement evaluation are live. Strength/breathing activity files still download but are not parsed (see `../routine-pivot/pivot_roadmap.md` next steps).
+**Status:** shipped (running only) — parse, strap channels, stamina/performance-condition, GPS route map, run↔prescription association, and imported-block measurement evaluation are live. Strength/breathing activity files still download but are not parsed (see `../future/strength-activities.md`).
 
 How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` UI. For the two-tree data topology, download/sync mechanics, and config paths, see `data-and-ingest.md` — this page only covers the running-specific parse → store → serve → display path.
 
@@ -12,7 +12,7 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 
 ### Parse (`garmin_health`)
 
-- `backend/app/domains/garmin_health/infra/fit_parser/activities.py` — `discover_running_activity_files(activities_dir)` globs `*/*_running_*.fit` (running only; strength/breathing files are never discovered here). `parse_running_activity(fit_path, activities_dir)` decodes one FIT, loads its `.json` Connect sidecar if present, and returns a `RunningActivityData` (session + laps + series). `parse_running_activities(activities_dir)` parses every discovered file, logging and skipping any file that raises rather than aborting the batch.
+- `backend/app/domains/garmin_health/infra/fit_parser/activities.py` — `discover_running_activity_files(activities_dir)` globs `*/*_running_*.fit` (running only; strength/breathing files are never discovered here). `parse_running_activity(fit_path, activities_dir)` decodes one FIT, loads its `.json` Connect sidecar if present, and returns a `RunningActivityData` (session + laps + series). The sync ingest layer owns the per-file loop and its log-and-skip failure policy; the parser exposes only single-file decoding.
 - `backend/app/domains/garmin_health/infra/fit_parser/activity_extractors.py` — pure field extraction from decoded FIT message dicts (no I/O): session/lap summaries, the per-second record series, HR-source detection, and the unit conversions below.
 - Contracts (`backend/app/domains/garmin_health/contracts/activities.py`): `RunningActivitySession`, `RunningActivityLap`, `RunningTimeInZones`, `RunWalkSpan`, `RunningActivitySeries`, `RunningActivityData`.
 - Schema/field reference for the FIT message types involved (including unmapped record fields): `.claude/skills/garmin-data/references/activity-messages.json`, owned by the `garmin-data` skill.
@@ -70,8 +70,8 @@ Firstbeat's Stamina, Stamina Potential, and Performance Condition — the same m
 
 - **Series** (`RunningActivitySeries`): `stamina_pct`, `stamina_potential_pct`, `performance_condition` — per-record, positional nulls (field 90 in particular has a leading gap while Garmin's model baselines).
 - **Session scalars** (`RunningActivitySession`, derived at parse time from the series — `activities.py::_stamina_scalars`): `stamina_beginning_potential_pct`/`stamina_ending_potential_pct` (first/last non-null `stamina_potential_pct` sample), `stamina_min_pct` (minimum non-null `stamina_pct` sample — the dip, matching Connect's Stats-panel semantics). None-safe: old watch firmware without stamina channels yields `(None, None, None)`, not a `KeyError`/`min()`-on-empty.
-- **Provenance/validation:** field-ID mapping validated 2026-07-11 against 3 real Garmin Connect activities — 9/9 anchor values (begin/end/min stamina) matched exactly (commit `49898ab`). Frontend chart values additionally cross-checked visually against Connect's own Stamina and Performance Condition charts and Stats panel — exact match.
-- **Display:** dimensionless ints/percents, no unit conversion, pass-through on `RunDisplayStats`/`RunSeriesResponse`. No top-level array duplicates on the series response — the arrays live only inside the embedded `series` object (see commit `59abb86`: duplicating embedded series data at the top level was tried and reverted). `/runs/[id]` renders a two-dataset Stamina chart (stamina + potential ceiling, fixed 0-100 y-axis), a Performance Condition chart with a zero-line annotation, and a Stamina stats group.
+- **Validation:** the field-ID mapping's beginning/ending/min anchors match Garmin Connect values on representative real activities. Frontend series were also checked against Connect's Stamina and Performance Condition charts.
+- **Display:** dimensionless ints/percents, no unit conversion, pass-through on `RunDisplayStats`/`RunSeriesResponse`. Arrays live only inside the embedded `series` object. `/runs/[id]` renders a two-dataset Stamina chart (stamina + potential ceiling, fixed 0-100 y-axis), a Performance Condition chart with a zero-line annotation, and a Stamina stats group.
 
 ## Route map
 
@@ -101,11 +101,11 @@ The resolved summary's `link_source` is `"manual"` for branch 1 or `"auto"` for 
 
 **Effective execution.** Stored manual outcomes are authoritative: explicit `completed`, `partial`, or `skipped` remains unchanged even when a run is linked. Otherwise, a resolved manual or automatic run changes an effective `pending` card to `completed` with execution source `tracked_run`; no association leaves it `pending` with source `none`. `TrainingTodayCard.status` mirrors this effective value for compatibility. This is a pure read projection: `GET` never writes a completion log, and detaching an automatic match returns the card to its stored status.
 
-**Read and write paths.** Both `GET /api/training/today` and `GET /api/training/schedule-window` use the same association and effective-execution policy. Each request makes one bulk summary read covering its visible dates plus the authored measurement opportunities needed to resolve program state, then groups the summaries by local session date. A linked measurement card alone requests full evidence for its run; request-local caches keep repeated event evaluation on one evidence snapshot and key assessment reads by exact run, occurrence, and optional cutoff. `PUT /api/training/today/{date}/cards/{occurrence_key}` resolves the same runtime Today projection before writing, so an active authored backup is writable and an inactive backup key is rejected. A non-null manual `linked_run_id` must be one of that resolved date's candidates or the write returns 400.
+**Read and write paths.** Both `GET /api/training/today` and `GET /api/training/schedule-window` use the same association and effective-execution policy. Each request makes one bulk summary read covering its visible dates plus the authored measurement opportunities needed to resolve imported-block state, then groups the summaries by local session date. A linked measurement card alone requests full evidence for its run; request-local caches keep repeated event evaluation on one evidence snapshot and key assessment reads by exact run, occurrence, and optional cutoff. `PUT /api/training/today/{date}/cards/{occurrence_key}` resolves the same runtime Today projection before writing, so an active authored backup is writable and an inactive backup key is rejected. A non-null manual `linked_run_id` must be one of that resolved date's candidates or the write returns 400.
 
 **PATCH fields** on `TrainingLogUpdateRequest`: `linked_run_id: str | None` and `run_link_detached: bool | None`. Both follow PATCH (only-if-present) semantics — an explicit `null` on `linked_run_id` clears the stored link; omitting the field leaves the existing value untouched. Frontend: the Today card's "Executed" block shows `associated_activity` when resolved, and a `run_candidates` picker (radio list, "Not this run?" to reopen) when a `running.v3` card has candidates but no resolved match — `frontend/src/lib/training/TrainingCardBody.svelte`.
 
-## Program measurement evaluation
+## Imported-block measurement evaluation
 
 Measurement is separate from execution. Explicit manual `completed`, `partial`, or `skipped` remains authoritative; a linked run changes execution to `completed` only when the stored status is otherwise `pending`. Measurement evaluation never changes that effective execution status. Only a valid measurement can become estimator evidence or complete a required measurement event. The current evaluator is selected by the imported measurement contract plus capture id `cap.lthr.final20_hr`; it does not key off a calendar date and does not implement undeclared estimators.
 
@@ -152,6 +152,6 @@ This table is **storage/canonical units** (`RunningActivitySession`/`Lap`/`Serie
 ## Known gaps
 
 - **No time↔distance axis toggle.** Chart x-axis is elapsed time only.
-- **Strength and breathing FIT files are not parsed.** Only `*_running_*.fit` is discovered; strength-specific schema remains a design doc (`../future/STRENGTH_ACTIVITY_SCHEMA.md`).
+- **Strength and breathing FIT files are not parsed.** Only `*_running_*.fit` is discovered; the strength implementation contract is `../future/strength-activities.md`.
 - **Zone boundaries display backend sentinels verbatim.** E.g. power zone 6's upper boundary can show as `4000` (an open-ended-top-zone sentinel, not a real reading) — the frontend renders whatever the backend sends without inferring intent.
 - **Served/stored but not yet charted:** `RunSeriesResponse.distance_mi` (reserved for a time↔distance x-axis toggle) and the stored `stance_time_pct` series (reserved for a dedicated stance-time channel chart).

@@ -14,12 +14,11 @@ from app.domains.coach.schema import init_coach_schema
 from app.domains.experiments.schema import init_experiment_schema
 from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
-from app.domains.programs.schema import init_program_schema
 from app.domains.routines.schema import init_routine_schema
 from app.domains.training.schema import init_training_schema
 from app.infra import sqlite
 
-_RETIRED_ASSISTANT_TABLES = (
+_RETIRED_TABLES = (
     "assistant_threads",
     "assistant_messages",
     "assistant_runs",
@@ -29,12 +28,14 @@ _RETIRED_ASSISTANT_TABLES = (
     "evidence_cards",
     "plans",
     "plan_items",
+    "program_versions",
+    "programs",
 )
 
 
-def _drop_retired_assistant_tables(connection: sqlite3.Connection) -> None:
-    """Remove the backed-up chat implementation without touching artifact ingress."""
-    for table in _RETIRED_ASSISTANT_TABLES:
+def _drop_retired_tables(connection: sqlite3.Connection) -> None:
+    """Remove tables whose product surfaces and storage owners have been retired."""
+    for table in _RETIRED_TABLES:
         connection.execute(f'DROP TABLE IF EXISTS "{table}"')
 
 
@@ -50,7 +51,6 @@ def init_storage() -> None:
         init_routine_schema(con)
         init_journal_schema(con)
         init_experiment_schema(con)
-        init_program_schema(con)
         init_training_schema(con)
-        _drop_retired_assistant_tables(con)
+        _drop_retired_tables(con)
         con.commit()

@@ -1,22 +1,8 @@
-"""Schedule compiler ported from the block0 linter's compile section.
+"""Compile authored v3 assignments into a day/slot-ordered schedule.
 
-Owns the part of `docs/routine-pivot/block0/linter.py` (lines 29-89) that
-turns a set of v3 bundles into a flat, day/slot-ordered schedule and resolves
-the per-entry "full" variant prescription used to estimate run mileage and
-scheduled minutes. This module works from Task 1's typed contracts
-(`V3Bundle`, `V3Card`, `V3Assignment`) instead of raw dicts, but the merge and
-scaling arithmetic is a verbatim port: `apply_patch` mirrors the linter's
-`apply_full_patch` index-merge semantics, and `entry_minutes` mirrors its
-distance-based minute-scaling heuristic exactly.
-
-This module deliberately does not evaluate any L1-L12 rule and never raises or
-records a lint diagnostic. `compile_schedule` silently drops assignments that
-reference an unknown `card_id` — the same outcome as the linter's `err(...);
-continue` — but leaves emitting that error to `validation.py`, which has its
-own unknown-card-reference check (the residual part of L1 not already
-subsumed by Task 1's typed contracts). Keeping compilation diagnostic-free
-lets `validation.py` be the single place that decides what is an error versus
-a warning.
+The compiler resolves the ``full`` prescription used for static mileage and
+time budgets. It emits no diagnostics: unknown card references are omitted
+from the projection and reported by the L1 rule in ``validation.py``.
 """
 
 from __future__ import annotations
@@ -33,6 +19,12 @@ from app.domains.training.contracts import (
 )
 
 SLOT_HOUR: dict[str, int] = {"morning": 7, "midday": 13, "evening": 19}
+_RUNNING_BUNDLE_ID = "running.v3"
+
+
+def is_running_bundle(bundle_id: str) -> bool:
+    """Return whether an authored bundle owns tracked-running cards."""
+    return bundle_id == _RUNNING_BUNDLE_ID
 
 
 @dataclass(frozen=True)
@@ -49,9 +41,8 @@ class CompiledEntry:
 def cards_by_id(bundles: list[V3Bundle]) -> dict[str, V3Card]:
     """Merge every bundle's cards into one id-keyed lookup.
 
-    Card ids are unique across the bundle set in valid v3 content (each card
-    belongs to exactly one bundle); this mirrors the linter's single global
-    `cards` dict built by iterating all bundles.
+    Card ids are unique across a valid bundle set and each card belongs to
+    exactly one bundle.
     """
     return {card.id: card for bundle in bundles for card in bundle.cards}
 
@@ -59,10 +50,9 @@ def cards_by_id(bundles: list[V3Bundle]) -> dict[str, V3Card]:
 def compile_schedule(bundles: list[V3Bundle]) -> list[CompiledEntry]:
     """Flatten every bundle's assignments into one day/slot-ordered schedule.
 
-    Assignments referencing an unknown `card_id` are silently excluded (the
-    linter's `err("L1", ...); continue`, minus the error emission — see the
-    module docstring). Sort key matches the linter: `(day, SLOT_HOUR[slot])`,
-    with unrecognized slots sorted last via the `99` fallback.
+    Assignments referencing an unknown ``card_id`` are excluded here and
+    reported by validation. Unrecognized slots sort last via the ``99``
+    fallback, though typed input rejects them before compilation.
     """
     cards = cards_by_id(bundles)
     entries = [
@@ -84,13 +74,10 @@ def seg_miles(prescription: dict[str, Any]) -> float:
 def apply_patch(prescription: dict[str, Any], patch: dict[str, Any] | None) -> dict[str, Any]:
     """Index-merge a variant's `prescription_patch` onto a base prescription dict.
 
-    Verbatim port of the linter's `apply_full_patch` merge step: only the
-    `segments` key is patched, patch segment `i` is `dict.update`-merged onto
-    base segment `i`, and patch segments beyond the base segment count are
-    ignored. `prescription` is deep-copied first (matching the linter's
-    `json.loads(json.dumps(...))` round trip) so a base lacking a `segments`
-    key at all — a strength card's `{"exercises": [...]}` — comes back
-    unchanged rather than gaining a spurious empty one.
+    Only ``segments`` is patchable. Patch segment ``i`` is update-merged onto
+    base segment ``i``; extra patch segments are ignored. Deep-copying keeps
+    the authored prescription immutable and leaves strength prescriptions
+    unchanged.
     """
     merged: dict[str, Any] = copy.deepcopy(prescription)
     base_segments = merged.get("segments", [])
@@ -104,12 +91,9 @@ def apply_patch(prescription: dict[str, Any], patch: dict[str, Any] | None) -> d
 def full_variant_prescription(entry: CompiledEntry) -> dict[str, Any]:
     """Resolve `entry`'s prescription as patched by its assignment's "full" variant.
 
-    Mirrors the linter's `apply_full_patch(card, assign)`: block0 lint always
-    validates the schedule at the "full" variant's volume, since day-to-day
-    variant selection is a runtime concern outside the block's static
-    contract. Raises `StopIteration` if the assignment has no "full" variant —
-    the same failure the linter's `next(...)` would raise, and L10 already
-    checks every assignment declares one.
+    Static linting evaluates the full-volume path; runtime selection may choose
+    another authored variant. L10 requires every assignment to declare
+    ``full`` before this helper is used on valid content.
     """
     full = next(v for v in entry.assignment.variants if v.id == "full")
     base = entry.card.prescription.model_dump(exclude_none=True)
@@ -119,8 +103,7 @@ def full_variant_prescription(entry: CompiledEntry) -> dict[str, Any]:
 def entry_minutes(entry: CompiledEntry) -> float:
     """Estimate an entry's scheduled minutes, scaling run cards by distance.
 
-    Verbatim port of the linter's `entry_minutes`: cards with no
-    `est_duration_min` contribute zero. Run cards (segment prescriptions with
+    Cards with no `est_duration_min` contribute zero. Run cards (segment prescriptions with
     a positive base distance) scale their estimated duration by
     `full_mi / base_mi`, since the card's base prescription is a template and
     the "full" variant patch carries the day's actual distance.

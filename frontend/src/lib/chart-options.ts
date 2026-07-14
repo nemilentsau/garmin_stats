@@ -2,11 +2,11 @@ import type { ChartConfiguration } from 'chart.js';
 import { chartTooltip, DARK_BORDER, DARK_GRID, DARK_GRID_Y, DARK_TICK } from '$lib/chart-setup';
 import { DARK_MUTED_TEXT, withAlpha } from '$lib/colors';
 
-export const darkLegend = {
+const darkLegend = {
 	labels: { boxWidth: 12, font: { size: 11 }, color: DARK_MUTED_TEXT }
 } as const;
 
-export function categoryXAxis(maxTicksLimit?: number) {
+function categoryXAxis(maxTicksLimit?: number) {
 	return {
 		ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK, ...(maxTicksLimit ? { maxTicksLimit } : {}) },
 		grid: DARK_GRID,
@@ -14,7 +14,7 @@ export function categoryXAxis(maxTicksLimit?: number) {
 	} as const;
 }
 
-export function timeXAxis() {
+function timeXAxis() {
 	return {
 		type: 'time' as const,
 		time: { unit: 'hour' as const, displayFormats: { hour: 'HH:mm' } },
@@ -24,7 +24,7 @@ export function timeXAxis() {
 	} as const;
 }
 
-export function metricYAxis(title: string, options: { beginAtZero?: boolean; min?: number; max?: number } = {}) {
+function metricYAxis(title: string, options: { beginAtZero?: boolean; min?: number; max?: number } = {}) {
 	return {
 		...options,
 		title: { display: true, text: title, ...DARK_TICK },
@@ -101,4 +101,3 @@ export function simpleIntradayLineConfig(args: {
 		})
 	};
 }
-

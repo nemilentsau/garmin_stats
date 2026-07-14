@@ -18,10 +18,9 @@ persistence boundary and imports no product domain.
 - Garmin data.
 - Routine runtime.
 - Experiments.
-- Assistant behavior.
+- Coach behavior.
 - Artifacts.
 - Journal content.
-- Programs.
 - Analytics.
 
 ## May import
@@ -54,27 +53,3 @@ persistence boundary and imports no product domain.
 - `adapters.py` — `SqliteProfileRepository`: the persistence boundary, backed by
   the shared `app.infra.jsonstore` over the `user_profile` table.
 - `schema.py` — the `user_profile` jsonstore table definition.
-
-## Verified against code (2026-07-10)
-
-matches — with one clarifying note that is not a violation:
-
-- Owns: confirmed. `UserProfile` + `DEFAULT_PROFILE_ID` in `contracts.py`,
-  `ProfileRepository` port in `ports.py`, `get_user_profile` /
-  `update_user_profile` use cases in `application.py`,
-  `SqliteProfileRepository` adapter in `adapters.py`, and the `user_profile`
-  table in `schema.py`.
-- Public entrypoints: `api.py` router prefix is `/api/profile` with GET and PUT
-  handlers; the two use cases are exported as named.
-- Must not import: confirmed. No `app.domains.*` import anywhere in the slice.
-  FastAPI appears only in `api.py` (route module — allowed), never in
-  `application.py`. No `sqlite3` or per-domain SQLite helper is imported by an
-  application module; persistence goes through the shared `app.infra.jsonstore`
-  in `adapters.py` / `schema.py`.
-- Clarifying note (not a discrepancy): beyond "ports and profile-owned
-  contracts," the code also imports the globally-allowed shared primitives —
-  `app.contracts.base.DefaultsRequired` (response base) in `contracts.py`,
-  `app.infra.jsonstore` in `adapters.py`/`schema.py`, and
-  `app.bootstrap.container.build_container` + FastAPI in the `api.py` route
-  module. These are governed by the global Slice Boundary Convention in
-  `docs/ARCHITECTURE.md`, not re-listed per slice, and are in-bounds.

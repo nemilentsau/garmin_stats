@@ -15,10 +15,11 @@
 	 * component that seeds a sibling capture kind once and replays it unchanged on every emit
 	 * would silently revert that sibling's staged edits if a card ever combined capture kinds,
 	 * even though the shipped v3 bundles don't do so today (see
-	 * `docs/routine-pivot/block0/support_v3.json`).
+	 * `docs/routine-pivot/block1/support_v3.json`).
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingCheckinRow } from '$lib/api';
+	import TissueCheckRow from '$lib/today/TissueCheckRow.svelte';
 
 	let {
 		card,
@@ -47,8 +48,6 @@
 	);
 	let coreDone = $state<boolean>(initialCheckin?.core_done ?? false);
 
-	const SCALE_LEVELS = [0, 1, 2, 3] as const;
-
 	function emit() {
 		onCheckin?.({
 			soreness: Object.fromEntries(rows.map((row) => [row.tissue, scaleMap[row.tissue] ?? 0])),
@@ -57,7 +56,7 @@
 		});
 	}
 
-	function selectScale(tissue: string, level: (typeof SCALE_LEVELS)[number]) {
+	function selectScale(tissue: string, level: number) {
 		scaleMap[tissue] = level;
 		emit();
 	}
@@ -78,14 +77,7 @@
 		{#each rows as row}
 			{@const scale = initialCheckin && row.tissue in initialCheckin.soreness ? initialCheckin.soreness[row.tissue] : null}
 			{@const flagged = initialCheckin?.flags[row.tissue] ?? false}
-			<div class="detail-row tissue-view-row">
-				<div class="detail-row-content"><strong>{row.label}</strong></div>
-				{#if scale !== null}
-					<span class="tissue-summary">{scale}{#if flagged}&nbsp;⚑{/if}</span>
-				{:else}
-					<span class="tissue-summary unanswered">–</span>
-				{/if}
-			</div>
+			<TissueCheckRow label={row.label} mode="view" {scale} {flagged} />
 		{/each}
 		{#if rows.length > 0}
 			{@const coreVal = initialCheckin?.core_done ?? null}
@@ -102,43 +94,14 @@
 {:else}
 	<div class="checklist">
 		{#each rows as row}
-			<div class="tissue-row">
-				<div class="tissue-label-wrap"><strong>{row.label}</strong></div>
-				<div class="tissue-controls">
-					<div class="scale-chips" role="group" aria-label={`${row.label} soreness level`}>
-						{#each SCALE_LEVELS as level}
-							<button
-								type="button"
-								class="chip"
-								class:selected={scaleMap[row.tissue] === level}
-								aria-pressed={scaleMap[row.tissue] === level}
-								onclick={() => selectScale(row.tissue, level)}
-							>
-								{level}
-							</button>
-						{/each}
-					</div>
-					<button
-						type="button"
-						class="flag-btn"
-						class:flagged={flaggedMap[row.tissue]}
-						aria-pressed={flaggedMap[row.tissue]}
-						title="pain above background noise"
-						onclick={() => toggleFlag(row.tissue)}
-					>
-						<svg viewBox="0 0 16 16" width="12" height="12" fill="none" aria-hidden="true">
-							<path d="M4 1.5v13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-							<path
-								d="M4 2.2c1.5-0.9 3-0.9 4.5 0s3 0.9 4.5 0v6.2c-1.5 0.9-3 0.9-4.5 0s-3-0.9-4.5 0V2.2z"
-								stroke="currentColor"
-								stroke-width="1.2"
-								stroke-linejoin="round"
-								stroke-linecap="round"
-							/>
-						</svg>
-					</button>
-				</div>
-			</div>
+			<TissueCheckRow
+				label={row.label}
+				mode="log"
+				scale={scaleMap[row.tissue] ?? 0}
+				flagged={flaggedMap[row.tissue] ?? false}
+				onSelectScale={(level) => selectScale(row.tissue, level)}
+				onToggleFlag={() => toggleFlag(row.tissue)}
+			/>
 		{/each}
 		{#if rows.length > 0}
 			<label class="core-check">
@@ -194,101 +157,6 @@
 	.checklist {
 		display: grid;
 		gap: 6px;
-	}
-
-	.tissue-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding: 8px 10px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.03);
-	}
-
-	.tissue-label-wrap {
-		min-width: 0;
-	}
-
-	.tissue-label-wrap strong {
-		display: block;
-		font-size: 13px;
-	}
-
-	.tissue-controls {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-shrink: 0;
-	}
-
-	/* 0-3 soreness chips — fixed width so selecting one never shifts layout */
-	.scale-chips {
-		display: flex;
-		gap: 0;
-		border-radius: 7px;
-		overflow: hidden;
-		border: 1px solid rgba(74, 144, 217, 0.25);
-	}
-
-	.chip {
-		width: 26px;
-		height: 26px;
-		border: none;
-		border-right: 1px solid rgba(74, 144, 217, 0.2);
-		background: rgba(74, 144, 217, 0.05);
-		color: #6b8292;
-		font: inherit;
-		font-size: 12px;
-		font-family: 'DM Mono', monospace;
-		font-variant-numeric: tabular-nums;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			color 0.15s;
-	}
-
-	.chip:last-child {
-		border-right: none;
-	}
-
-	.chip:hover:not(.selected) {
-		background: rgba(74, 144, 217, 0.12);
-		color: #a7bac6;
-	}
-
-	.chip.selected {
-		background: rgba(74, 144, 217, 0.22);
-		color: #4a90d9;
-	}
-
-	.flag-btn {
-		flex-shrink: 0;
-		width: 26px;
-		height: 26px;
-		border-radius: 7px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: transparent;
-		color: #4a5568;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition:
-			background 0.15s,
-			color 0.15s,
-			border-color 0.15s;
-	}
-
-	.flag-btn:hover {
-		color: #f2a399;
-		border-color: rgba(232, 93, 74, 0.3);
-	}
-
-	.flag-btn.flagged {
-		background: rgba(232, 93, 74, 0.15);
-		border-color: rgba(232, 93, 74, 0.4);
-		color: #f2a399;
 	}
 
 	.core-check {

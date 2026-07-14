@@ -1,7 +1,6 @@
 # Routine Artifact Bundle Spec
 
-This is the current high-level import contract for assistant-authored routine
-content.
+This is the current import contract for authored non-training routine content.
 
 The app does not ingest arbitrary markdown. It accepts deterministic JSON,
 previews it without writes, imports validated artifacts, and auto-activates
@@ -10,12 +9,11 @@ them into the live routine runtime.
 ## Canonical Flow
 
 ```text
-source material -> bundle JSON -> preview -> import -> auto-activate -> schedule/today
+authored bundle JSON -> preview -> import -> auto-activate -> schedule/today
 ```
 
 Important implications:
 
-- markdown-to-bundle conversion happens outside the runtime
 - preview performs no writes
 - import persists validated artifacts before activation
 - card templates activate before routines because routines reference cards
@@ -64,57 +62,7 @@ Optional fields:
 (This spec covers v2 routine bundles only. Training content uses the separate
 v3 schema in `docs/routine-pivot/schema_v3_spec.md` and its own import pipeline
 at `/training/import` — v3 artifacts never pass through this format.)
-The five supported card types are:
-
-### `running_workout`
-
-```json
-{
-  "card_type": "running_workout",
-  "workout_type": "easy",
-  "rpe": "4-5 / 10",
-  "talk_test": "full sentences",
-  "hr_guidance": "Z2, below 145 bpm",
-  "calibration_quality": false,
-  "instructions": "...",
-  "segments": [
-    { "id": "warmup", "label": "Warm-up", "kind": "warmup", "prescription": "10 min" }
-  ],
-  "post_run_fields": [
-    { "key": "temp_c", "label": "Temperature (°C)", "field_type": "number" }
-  ]
-}
-```
-
-- `workout_type` — string label for the run type (e.g. `easy`, `long_easy`,
-  `steady`, `progression`, `lthr_test`).
-- `segments` — ordered list; `kind` is one of `warmup`, `main`, `strides`,
-  `cooldown`, `intervals`; `prescription` is a flexible range string
-  (e.g. `"35-50 min"`).
-- `post_run_fields` — optional per-run confounder fields collected after the
-  run (weather, terrain, gear). Each carries `key`, `label`, `field_type`
-  (`number` or `text`), and optional `unit`.
-
-### `strength_session`
-
-```json
-{
-  "card_type": "strength_session",
-  "session_focus": "Chest + Side Delts",
-  "duration_minutes": 50,
-  "rir_guidance": "1-3 reps in reserve",
-  "instructions": "...",
-  "exercises": [
-    { "id": "bench", "label": "Bench Press", "set_scheme": "3x5-8" }
-  ],
-  "rating_prompts": [
-    { "key": "pump", "label": "Pump quality", "scale_min": 1, "scale_max": 5 }
-  ]
-}
-```
-
-- `set_scheme` is a range string such as `"3x5-8"` (sets × rep-range).
-- `rating_prompts` replace the old fake `post_session_ratings` exercise row.
+The three supported card types are:
 
 ### `breath_timer`
 
@@ -186,11 +134,10 @@ Logged `ChecklistActual.answers[]` entries carry `checked`/`text` for
 
 ### Session variants (`variant_options`, `selection_rule`)
 
-`running_workout`, `strength_session`, and `checklist` payloads may carry
-`variant_options` (plain-language names of alternate versions of the
-session) and `selection_rule` (a plain-language sentence describing when to
-pick which variant). Both default to empty (`[]` / `null`) — most cards have
-no variants.
+`checklist` payloads may carry `variant_options` (plain-language names of
+alternate versions of the session) and `selection_rule` (a plain-language
+sentence describing when to pick which variant). Both default to empty
+(`[]` / `null`) — most cards have no variants.
 
 ```json
 {
@@ -314,12 +261,14 @@ If preview is clean, import should:
 4. Leave the live result visible in `/routines/schedule` and `/today`.
 
 The normal bundle flow does not require a separate manual activation step.
-Low-level assistant-artifact APIs may still expose manual activation for
+Compatibility-prefixed artifact APIs may still expose manual activation for
 debugging or one-off flows, but that is not the canonical path.
 
-## Checked-In Examples
+## Checked-in routine bundles
 
-- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
-- [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
-- [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
-- [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
+- [four_weeks_breathwork.json](four_weeks_breathwork.json)
+- [four_weeks_meditation.json](four_weeks_meditation.json)
+- [two_week_meditation_bundle.json](two_week_meditation_bundle.json)
+
+Experiment definitions are separate imports validated by the `experiments`
+domain; they do not use this bundle schema.

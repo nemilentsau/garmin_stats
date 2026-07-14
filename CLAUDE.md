@@ -80,7 +80,7 @@ Six skills support this project. Each owns specific code layers:
 **Owns:** Frontend UX aesthetics, visual styling, project-specific dashboard rules
 **Trigger:** choosing fonts/colors/spacing, creating or modifying UI prototypes, visual polish
 - **MUST be invoked** before designing pages or making dashboard layout changes — no exceptions
-- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, assistant, Today board, and routine schedule surfaces. Includes the **"Cards Are a Last Resort" forcing rule** — apply it before any card/grid layout; the per-metric detail tabs are exempt.
+- Skill docs: `.claude/skills/ux-design/SKILL.md` — project-specific UX rules for the Garmin dashboard, Coach, Today board, and routine schedule surfaces. Includes the **"Cards Are a Last Resort" forcing rule** — apply it before any card/grid layout; the per-metric detail tabs are exempt.
 - Always validate frontend changes with `cd frontend && npm run check`; visually inspect every changed page with browser MCP tools at the desktop web viewport unless mobile/responsive behavior is explicitly in scope
 
 ### `testing` — test discipline
@@ -105,4 +105,4 @@ Each fact has exactly one authoritative home; every other mention links to it. U
 
 Docs hygiene rules:
 - **Implementation plans and working specs are never committed to `docs/`.** Write them to the gitignored `.superpowers/` scratch area (or the session scratchpad); they are working artifacts, deleted with the work. Git history is the archive.
-- `docs/` follows the taxonomy in `docs/README.md`: `routine-pivot/` (canon) · `ARCHITECTURE.md` (code map) · `reference/` (how shipped things work) · `future/` (specs for unbuilt work) · `routine_bundles/` (legacy v2 content) · `findings/`. A doc whose subject stops existing is deleted in the same change.
+- `docs/` follows the taxonomy in `docs/README.md`: `routine-pivot/` (canon) · `ARCHITECTURE.md` (code map) · `reference/` (how shipped things work) · `future/` (specs for unbuilt work) · `routine_bundles/` (supported v2 non-training content) · `findings/`. A doc whose subject stops existing is deleted in the same change.

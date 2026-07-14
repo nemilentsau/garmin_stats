@@ -1,77 +1,48 @@
-# Routine Pivot — Roadmap
+# Training System — Current State and Next Work
 
-**Status:** Active. This file answers two questions: *where are we* and *what happens next.* History lives in the changelog at the bottom, not inline.
-**Governed by:** `general_principles.md` (P1–P13), `schema_v3_spec.md`, and the `block0/` artifacts — those are canonical; this roadmap bends to them, never the reverse.
+**Status:** current implementation boundary and remaining objectives.
 
----
+This file contains only current state and work that still changes the product. Git history records how the pivot arrived here. [`general_principles.md`](general_principles.md) governs training decisions; [`schema_v3_spec.md`](schema_v3_spec.md) describes the shipped artifact contract.
 
-## Where things stand (2026-07-09)
+## Current state
 
-- **Block 0 is live in the app** (window 2026-07-06 → 2026-08-02, currently week 1 burn-in; baselines compute from day 8 = 07-13). The six canonical artifacts were uploaded through `Training → Import`, linted 0/0, stored verbatim, and execute on the Today board.
-- **Capture is flowing**: per-set strength logs, tissue check-in (soreness 0–3 + flags), run RPE, and `variant_taken` branch logging. Selection rules display in English; the human selects (accepted for this block).
-- **Card surface redesigned (2026-07-11)**: the training API now emits structured prescription fields (`reps_low/high`, `load_kind/value`, segment `distance/duration/zone`) + a last-logged load anchor instead of pre-flattened strings ("prescription seam", merged to `main`), and the Today execution card is a read-primary whole-session table — collapsible per-exercise logging, a plain variant badge, "next-move" faces, structured run segments (frontend on branch `feat/workout-card-redesign`, unpushed). This is UI/capture polish adjacent to — not a substitute for — the estimator work below.
-- **Import is the only ingress** — enforced in code and CLAUDE.md. Everything v2 was deleted from the DB; meditation/breath bundle files remain in `docs/routine_bundles/` for re-import whenever wanted.
-- **Activity FIT files download** from Garmin Connect on every sync into `data/garmin_activities/`. **The running track is complete**: session/lap/series ingest (fingerprint-gated on sync + startup), strap channels (GCT balance, respiration, stance time), stamina/performance-condition, imperial display units, a GPS route map, and run↔prescription association (a tracked run links to the `running.v3` card it satisfies, surfaced on Today) — served at `/api/activities/runs*` + `/api/training/today`, displayed at `/runs`, `/runs/[id]`, and the Today board (`docs/reference/run-activities.md`). Strength and breathing files still just download.
-- **The app computes no training signals yet.** It collects; it does not yet estimate. That is the next step.
+- **Block 1 is the active authored block.** `block1/` contains the six import artifacts for a 28-day threshold-development block beginning 2026-07-13. `block0/` is retired and retained only as the frozen schema exemplar and validator/import test fixture.
+- **v3 import and execution are shipped.** A six-file upload is strictly parsed, compiled, linted L1-L12, and activated atomically. The Today and schedule-window reads project the active block; logs capture status, variant, notes, set/rep/load, run RPE, and tissue check-ins.
+- **Running activity evidence is shipped.** Running FIT files parse into session/lap/series storage, display in Runs, associate with `running.v3` cards, and can establish effective execution.
+- **Imported-block measurement handling is shipped.** Training evaluates the authored LTHR protocol from tracked run evidence, applies hard quality gates, composes the exact Coach assessment, activates authored backup opportunities at read time, and exposes estimator eligibility without mutating the imported schedule.
+- **Coach v1 is shipped.** Coach owns queued reviews/chat, bounded evidence workspaces, semantic memory, and subjective measurement assessments. It does not create or edit training content and does not replace the general estimator engine.
+- **Selection is still human-driven.** The app displays authored variants and rules and records the chosen branch, but it does not yet evaluate the registry's morning selection rules.
+- **The signal registry is declarative only.** The active `block1/registry.json` validates and is stored verbatim; most estimators and materialized training-state signals it declares are not yet computed.
+- **Strength and breathing activity files remain download-only.** Strength set/rep/load capture exists in training logs, but Garmin strength FIT sessions are not parsed or associated.
 
-## Next steps — in this order
+## Remaining implementation objectives
 
-1. **Parse the workout files** (running + strength, session grain first). **Running half complete (2026-07-11 → 2026-07-12)**: parse + `/runs` UI + `hr_source`/strap-validity detection, strap channels, stamina/performance-condition, GPS route map, imperial display units, and run↔prescription association (`docs/reference/run-activities.md`). **Strength half remains** — spec: `docs/future/STRENGTH_ACTIVITY_SCHEMA.md`; association is running-only until it does.
-2. **Compute the signals and estimators** — the ACTIVE block's `registry.json` implemented verbatim (currently `block1/registry.json`; `block0/`'s frozen copy remains the schema exemplar): HRV/RHR/sleep baselines with SWC bands (from the 400 days of wellness already in the DB), e1RM per lift + tonnage + planned-vs-executed (from the set logs capturing since day 1), easy-pace HR with first heat-correction fit, zone minutes, `load.day.total`. Nightly batch after sync; estimators backfill from stored capture — nothing is lost by building this in week 2. **Deliverable that matters: the weekly review (interference check, HSR tolerance, tonnage ratio) computes itself.**
-3. **Dashboard reframe** — the training-state lane (S1–S5 trends) plus the constraint strip becomes the primary surface; recovery demotes to guardrails; metric tabs become drill-downs (the §2 demotions). Deliberately AFTER step 2: the lanes render the signals step 2 creates.
-4. **Selection runtime + event log** — the app evaluates the morning rules itself (check-in + signals → full/reduced/skip, branch logged). **Deadline-bound: Block 1 needs the full engine when Block 0 exits (~2026-08-02).** Block 1 ships as v3 bundles into the same import pipeline.
-5. **Calmness track (Phase 3)** — after Block 1 adopts the engine: the morning-after 1–5 report becomes a real capture field with an analysis contract (calmness trend conditioned on training load), promoted to a first-class experiment outcome; only then is meditation/breath content redesigned.
+### 1. Materialize the active registry
 
-Detailed execution plans are working artifacts (gitignored scratch), deleted when the work ships — this list is the plan of record, and each step lands here as a changelog entry when done.
+Implement the estimators and signals declared by `block1/registry.json`, starting with the inputs already captured or ingested: HRV/RHR baselines, LTHR evidence, set-log e1RM and tonnage, planned-versus-executed work, tissue check-ins, and daily load. Persist outputs so weekly reviews and selection rules consume one auditable source.
 
----
+This engine is separate from Coach. Coach may explain its outputs, but deterministic estimators own the values.
 
-## Two standing objectives
+### 2. Parse and associate strength activities
 
-**O1 — Training progression.** Maximize weighted dS/dt over the state vector (S1 threshold pace at LTHR, S2 squat-pattern e1RM, S3 calf/soleus HSR e1RM, S4 upper physique proxy, S5 hip-hinge e1RM — weights and bands per the ACTIVE block's `registry.json`, currently `block1/registry.json`; `block0/`'s frozen copy remains the schema exemplar), subject to recovery constraints — HRV band, RHR band, tissue flags, sleep. Recovery metrics are constraints, never the objective (P1). Green constraint dashboards with flat S remain a failure state.
+Implement the session-first parser and read model in [`../future/strength-activities.md`](../future/strength-activities.md). Join a tracked strength session to its prescribed training occurrence without using Garmin's unreliable inferred exercise/set labels as the source of set, rep, load, or tonnage truth; the training capture log remains authoritative for those fields.
 
-**O2 — Mind calmness.** Reduce rumination and adversarial internal dialogue. Primary outcome is subjective: a morning-after self-report (one 1–5 scale rating yesterday's mind) on the same morning check-in surface as soreness. Physiology (daytime stress, nightly HRV, RHR) is corroborating evidence only and must be conditioned on training load — an unconditioned calmness metric would report "meditation stopped working" every hard block.
+### 3. Evaluate selection rules
 
-**Why the machinery differs.** Training dose-response is well characterized → O1 runs on continuous state estimation (estimators, signals, selection rules). Calmness interventions are genuinely uncertain → O2 runs on the A/B experiments engine, with the morning-after report as a first-class outcome metric.
+Once required signals are materialized, evaluate the authored decision list with staleness handling, expose the selected variant and evidence snapshot, preserve manual override, and log the executed branch. Missing inputs must follow each assignment's explicit `on_missing_signal` policy.
 
-## The surface-survival rule (P7, generalized)
+### 4. Reframe the overview around training state
 
-Every surface, score, card, and metric names (a) the objective it serves and (b) the decision its output informs. Anything that cannot answer both is demoted or deleted.
+After the state signals exist, add progress lanes for the active state vector and a compact constraint strip. The existing recovery dashboard remains the shipped recovery view; do not imply that it already measures load, adaptation, or workout readiness.
 
-| Surface | Verdict |
-|---|---|
-| Recovery score | Demoted to the O1 constraint strip (band status + which constraint fired). Not the home page. |
-| Per-metric tabs (HR, HRV, sleep, …) | Drill-downs entered from a fired constraint or flag, not primary navigation. |
-| SpO2 / skin temp / respiration tabs | Health flags only; standalone surfaces demoted. |
-| Card ratings no model reads | Deleted. |
-| Experiments engine | Retained and promoted: O2's measurement layer. |
-| Training domain (v3) | The execution layer for O1; import-only ingress. |
-| v2 routines engine | Legacy import path for meditation/breath bundles until Phase 3; then retired wholesale. |
+### 5. Calmness remains gated
 
-## Standing rules (binding on all future work)
+Do not redesign meditation/breathwork or make response claims until a morning-after calmness capture with an analysis contract exists. The v2 routine/experiment path remains available for authored non-training bundles in the meantime.
 
-- **Import is the only ingress.** Routine/experiment/training content enters exclusively by importing an authored bundle. No generators, translators, seeders, or derived artifacts — ever. (Origin: the 2026-07-08 retraction; see changelog.)
-- **The app adapts to the v3 schema, never the reverse.** Artifacts are stored verbatim; where the markdown spec and shipped artifacts disagree, artifacts win.
-- **Capture cannot be backfilled; analysis can.** Capture ships before analysis whenever a block clock is running.
-- **Morning-after calmness report** (banked for step 5): one 1–5 scale rating yesterday's internal dialogue, on the morning check-in — chosen over evening reports and episode logging.
-- **Baselines carry condition tags** (`heat-season`, `chronic-load`, `protocol-change`); missing check-in data sends rules conservative, and "missing" means *no card log for the date* — an untouched tissue on a saved check-in is an attested 0.
+## Standing rules
 
-## Non-goals
-
-- No v2 salvage beyond the salvage list in `general_principles.md` §3.4.
-- No calmness-side routine redesign before its sensor exists (P6: unsensed values get traded away silently).
-- No new metric surfaces "while we're at it": every addition goes through the survival rule above.
-
----
-
-## Changelog
-
-- **2026-07-05 — adopted.** Two-objective reframe, survival rule, sequencing decisions (training first; Block 0 before the engine; audit in lieu of runtime linter for Block 0; calmness report banked).
-- **2026-07-07 — revised to the artifacts.** `block0/` extracted from the authoring session: three v3 bundles, block definition, `registry.json` (5-component state vector incl. S5 hip-hinge), exercise library, reference linter with 0/0 report (reproduced byte-identically). Block 0 window pinned 2026-07-06 → 2026-08-02.
-- **2026-07-08 — Phase 0 shipped and RETRACTED same day.** A v3→v2 translation pipeline ran Block 0 on the old engine for one day; rejected as a second ingress and a schema shoehorn. Translator, derived bundle, and retire script deleted; DB wiped of all routine/experiment/artifact content. The import-only and app-adapts-to-schema rules date from here. Kept from that day's work: typed tissue check-in, `variant_taken` branch logging, rule display — v3-semantics adaptations, not shoehorns.
-- **2026-07-09 — v3-native import shipped** (next-steps list item 0, formerly "Phase 1 first deliverable"). New standalone `training` domain: upload → strict contract validation → ported L1–L12 linter (parity 0/0) → verbatim storage → single-shot activation; Today/schedule/block read models with backend-side display projections; native capture with occurrence-validated ingest. Block 0 re-activated through the real UI. Open minor follow-up: typed 404 discrimination for block status on the import page.
-- **2026-07-11 — docs restructure, prescription seam, card redesign.** (1) Docs restructured — single-home data topology (`docs/reference/data-and-ingest.md`), colocated per-domain `CHARTER.md`, generated route inventory, thinned `ARCHITECTURE.md`, question-router `docs/README.md` (merged; fixed the blind spot where the activity-download pipeline was undiscoverable). (2) Backend "prescription seam": the training API emits structured prescription fields + a `last`-logged load anchor instead of pre-flattened strings, via a new `card_logs_before` read (merged; 829 tests green). (3) Today execution card rebuilt read-primary — whole-session table, collapse-to-log, human variant badge, next-move faces, structured run segments (branch `feat/workout-card-redesign`, unpushed). Deferred: two-card-system de-dup (waits for a v2 import to verify against). Next: run→activity parse (= next-steps #1) then the PPL×2 strength block.
-- **2026-07-11 (later) — Block 0 retired, Block 1 (threshold development) shipped & imported.** The calibration block was cut short — the athlete found the all-easy measurement block un-useful, and his ultra base means the sub-3 gap is *threshold*, not endurance. Replaced by an integrated **threshold-development** block: 2 quality runs by HR (week-1 LTHR test + tempo/LT-intervals), long run, PPL×2 lifting (barbell squat + machine quad, upper physique), tendon HSR, one coordinated week, load-gated for overtraining risk (design: `.superpowers/specs/2026-07-11-block1-threshold-development-design.md`). Hand-authored under `block1/`, **lint 0/0** (reference + ported linter), imported via single-shot activation (retired Block 0), window Mon 2026-07-13 → 28 days. **Sequence deviation (honest):** shipped ahead of the estimator engine — the block still uses **manual variant selection** (like Block 0); next-steps #1–4 (parse workout files → estimators/signals → dashboard → selection runtime) remain the automation to build. The block's registry/estimators are declared for that engine to consume.
-- **2026-07-11 (still later) — next-steps #1 running half shipped: run-activity parse + Runs UI.** Running FIT files (`*_running_*.fit`) now parse into `running_activity_sessions`/`_laps`/`_series` via a fingerprint-gated, idempotent ingest wired into both `sync_garmin` and startup reconciliation — the same idempotence discipline as wellness archives, including a no-op second pass proven against real data (283 sessions, unchanged fingerprint, zero re-parses). Served by three new `/api/activities/runs*` routes and a new `/runs` list + `/runs/[id]` detail page (10-channel chart stack, laps table, HR/power time-in-zone bars). Includes `hr_source` detection (chest strap vs wrist, with strap serial/battery) validated against real strap swaps in the data. Real-tree smoke: 283 running FIT files on disk, 283 sessions/283 series ingested, zero parse failures; spot-checked one session's full field set against its Garmin Connect sidecar (exact match). Full writeup: `docs/reference/run-activities.md` (supersedes the now-deleted `docs/future/RUNNING_ACTIVITY_SCHEMA.md`). **Strength half of next-steps #1 remains** (spec: `docs/future/STRENGTH_ACTIVITY_SCHEMA.md`), as does association between a prescribed card and its actual activity for either sport.
-- **2026-07-12 — run track complete: imperial units, strap channels, stamina/PC, route map, and prescription association.** Closes the running half of next-steps #1 (`docs/reference/run-activities.md` — full detail; `../reference/data-and-ingest.md` status line updated). Shipped in sequence: (1) US imperial display units end to end (mi, min/mi, ft, °F) via a backend read-layer conversion, storage/contracts stay metric. (2) Strap channels — GCT balance (%L/%R), respiration rate (brpm), stance-time % — parsed from strap-only FIT fields, gated by `has_strap_dynamics`, through tables/API/charts. (3) `scripts/reingest_activities.py` rebuild path for re-parsing already-downloaded files after a parser field addition. (4) Stamina / stamina-potential / performance-condition, decoded from undocumented positional FIT record field IDs 137/138/90 — validated 2026-07-11 against 3 real Garmin Connect activities, 9/9 anchor values exact, plus a visual cross-check against Connect's own Stamina/Performance-Condition charts. (5) A GPS route map (Leaflet) on `/runs/[id]`, pace colored by quantile bins of that run's own pace distribution (presentation-only order statistics — see the calibration exception in `reference/code-conventions.md`), gap-safe segmentation that never bridges lost-GPS stretches. (6) Run↔prescription association: a training-local `RunActivityReadPort` protocol + bootstrap-injected `GarminRunActivityPort` adapter (keeps `training` from importing Garmin code per its charter), a pure `match_run_to_card` policy — manual link always wins, then explicit detach, then auto-match only when exactly one `running.v3` card is scheduled that day (closest-distance, or longest run if the card prescribes no distance) — surfaced on the Today board only (`GET /api/training/today`; `schedule-window` never resolves it), with `linked_run_id`/`run_link_detached` PATCH fields on the card-log endpoint and an executed-run block + re-pick UI on the Today card. **Effect:** manual objective run capture (self-reporting distance/time on a card) is now dead weight — the actual tracked run supplies that automatically; `cap.run.rpe` (subjective effort) is the only capture field `running.v3` cards still need, and stays. **Next, per explicit user sequencing:** the estimator/signals engine (next-steps #2, "the coach") before finishing next-steps #1's strength half — deliberate deviation from the numbered list above, recorded here rather than resequencing it.
-- *(retirement)* This doc retires when Block 1 adopts the full engine (next-steps items 1–4 done): from then on the principles and schema specs govern and this file is history.
+- Import/upload is the only content ingress. Do not add generators, translators, seeders, or derived bundle artifacts.
+- Store uploaded artifacts verbatim. Runtime views may overlay evidence and authored backup behavior but never rewrite content.
+- Capture ships before analysis when data cannot be recovered later; analysis may backfill from stored capture.
+- The frontend formats and renders backend-owned values; it does not compute training or health statistics.
+- Baselines and measurements preserve local-date and condition-tag semantics.

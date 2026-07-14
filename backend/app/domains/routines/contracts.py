@@ -23,13 +23,10 @@ log = logging.getLogger(__name__)
 
 SlotName = Literal["morning", "midday", "evening", "anytime"]
 CardType = Literal[
-    "running_workout",
-    "strength_session",
     "breath_timer",
     "meditation_timer",
     "checklist",
 ]
-RunSegmentKind = Literal["warmup", "main", "strides", "cooldown", "intervals"]
 
 
 class RatingPrompt(StrictDefaultsRequired):
@@ -39,64 +36,6 @@ class RatingPrompt(StrictDefaultsRequired):
     label: str
     scale_min: int = 1
     scale_max: int = 5
-
-
-class RunSegment(StrictDefaultsRequired):
-    """One segment of a running workout; prescription is a range string."""
-
-    id: str
-    label: str
-    kind: RunSegmentKind
-    detail: str | None = None
-    prescription: str
-
-
-class RunCustomField(StrictDefaultsRequired):
-    """A custom per-run data field to collect after a run (e.g. weather confounders)."""
-
-    key: str
-    label: str
-    field_type: Literal["number", "text"] = "number"
-    unit: str | None = None
-
-
-class RunningWorkoutPayload(StrictDefaultsRequired):
-    """Typed prescription for a running workout card."""
-
-    card_type: Literal["running_workout"] = "running_workout"
-    workout_type: str
-    rpe: str | None = None
-    talk_test: str | None = None
-    hr_guidance: str | None = None
-    calibration_quality: bool = False
-    instructions: str | None = None
-    segments: list[RunSegment] = []
-    post_run_fields: list[RunCustomField] = []
-    variant_options: list[str] = []
-    selection_rule: str | None = None
-
-
-class StrengthExercise(StrictDefaultsRequired):
-    """One prescribed strength exercise; set_scheme is a range string."""
-
-    id: str
-    label: str
-    detail: str | None = None
-    set_scheme: str
-
-
-class StrengthSessionPayload(StrictDefaultsRequired):
-    """Typed prescription for a strength session card."""
-
-    card_type: Literal["strength_session"] = "strength_session"
-    session_focus: str | None = None
-    duration_minutes: int | None = None
-    rir_guidance: str | None = None
-    instructions: str | None = None
-    exercises: list[StrengthExercise] = []
-    rating_prompts: list[RatingPrompt] = []
-    variant_options: list[str] = []
-    selection_rule: str | None = None
 
 
 class BreathTimerPayload(StrictDefaultsRequired):
@@ -146,56 +85,9 @@ class ChecklistPayload(StrictDefaultsRequired):
 
 
 CardPayload = Annotated[
-    RunningWorkoutPayload
-    | StrengthSessionPayload
-    | BreathTimerPayload
-    | MeditationTimerPayload
-    | ChecklistPayload,
+    BreathTimerPayload | MeditationTimerPayload | ChecklistPayload,
     Field(discriminator="card_type"),
 ]
-
-
-class RunningActual(StrictDefaultsRequired):
-    """Logged actuals for a completed running workout.
-
-    Free-text notes deliberately live on ``CardLog.notes`` (one notes field per
-    occurrence), not inside the actual.
-    """
-
-    card_type: Literal["running_workout"] = "running_workout"
-    distance_km: float | None = None
-    duration_min: float | None = None
-    avg_hr: int | None = None
-    hr_drift_pct: float | None = None
-    calibration_quality: bool = False
-    rpe: int | None = None
-    post_run: dict[str, float | str | None] = {}  # keyed by RunCustomField.key → logged value
-
-
-class StrengthSetLog(StrictDefaultsRequired):
-    """One logged set of a strength exercise."""
-
-    set_index: int
-    weight: float | None = None
-    reps: int | None = None
-    rir: int | None = None
-
-
-class LoggedStrengthExercise(StrictDefaultsRequired):
-    """One logged exercise; extras carry a free-text label and is_extra=True."""
-
-    exercise_id: str | None = None
-    label: str | None = None
-    is_extra: bool = False
-    sets: list[StrengthSetLog] = []
-
-
-class StrengthActual(StrictDefaultsRequired):
-    """Logged actuals for a strength session, including off-script extras."""
-
-    card_type: Literal["strength_session"] = "strength_session"
-    exercises: list[LoggedStrengthExercise] = []
-    ratings: dict[str, int] = {}
 
 
 class TimerActual(StrictDefaultsRequired):
@@ -227,10 +119,7 @@ class ChecklistActual(StrictDefaultsRequired):
 
 
 CardActual = Annotated[
-    RunningActual
-    | StrengthActual
-    | TimerActual
-    | ChecklistActual,
+    TimerActual | ChecklistActual,
     Field(discriminator="card_type"),
 ]
 
@@ -330,8 +219,6 @@ class RoutineAssignmentsResponse(AutoTotalResponse, items_field="assignments"):
 
 
 _ACTUAL_MODELS: dict[str, type[BaseModel]] = {
-    "running_workout": RunningActual,
-    "strength_session": StrengthActual,
     "breath_timer": TimerActual,
     "meditation_timer": TimerActual,
     "checklist": ChecklistActual,
