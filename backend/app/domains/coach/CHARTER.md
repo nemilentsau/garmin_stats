@@ -1,5 +1,8 @@
 # Coach Domain Charter
 
+**Status:** shipped
+**Boundary source of truth for this domain. Update in the same PR that changes it.**
+
 ## Owns
 
 - Durable coach reviews, conversations, semantic journal entries, briefs, and jobs.
@@ -12,12 +15,12 @@
 
 ## Does not own
 
-- Garmin parsing, measurement observations/gates, analytical calculations,
-  program scheduling, training prescriptions, or artifact import.
+- Garmin parsing, measurement observations/gates, deterministic estimators,
+  training scheduling/prescriptions, or artifact import.
 - Authoritative run, recovery, routine, experiment, check-in, or note storage.
 - Training-content creation, editing, activation, backup substitution, or
   estimator eligibility. Coach classifies evidence; it does not change the
-  imported program.
+  imported training content.
 
 ## May import
 

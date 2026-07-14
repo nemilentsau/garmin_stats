@@ -3,15 +3,14 @@
 **Status:** shipped
 **Boundary source of truth for this domain. Update in the same PR that changes the domain.**
 
-Assistant-authored artifact staging and publishing. Artifacts is the staging
-and publishing layer for assistant-authored objects; validated artifacts and
-bundles are activated into live routine/card data. It uses a flat
+Authored v2 artifact staging and publishing. Validated artifacts and bundles
+are activated into live routine/card data. It uses a flat
 small-capability layout and delegates live routine activation writes to
 `domains/routines`.
 
 ## Owns
 
-- Assistant-authored artifact staging.
+- Authored artifact staging.
 - Card template persistence before activation.
 - Bundle preview/import.
 - Bundle revision tracking.
@@ -21,7 +20,7 @@ small-capability layout and delegates live routine activation writes to
 
 - Live routine schedule semantics after activation.
 - Experiment protocol semantics.
-- Assistant chat runtime.
+- Coach runtime.
 - Garmin data.
 
 ## May import
@@ -37,7 +36,7 @@ small-capability layout and delegates live routine activation writes to
 - Garmin analytics.
 - Journal.
 - Experiments application internals.
-- Assistant runtime internals.
+- Coach runtime internals.
 - FastAPI from application modules.
 - SQLite helpers from application modules.
 
@@ -64,27 +63,6 @@ small-capability layout and delegates live routine activation writes to
 
 Normal artifact flow:
 
-`assistant/generated JSON -> staged artifact or bundle import -> validated
-artifact -> activation -> live domain record`
+`authored JSON -> staged artifact or bundle import -> validation -> activation -> live routine record`
 
 Activated cards/routines become live runtime data owned by `domains/routines`.
-Future experiment artifacts should enter through this domain, then delegate
-final writes to `domains/experiments`.
-
-## Verified against code (2026-07-10)
-
-Matches. Route prefixes (`/api/cards`, `/api/assistant/artifacts`,
-`/api/assistant/artifact-bundles`), Owns, and the "May/Must not import"
-boundaries all hold:
-
-- The only cross-domain imports in `application/` are to `routines`
-  (`routines.dependencies.RoutineRepository`,
-  `routines.application.activation.compile_routine_activation`,
-  `routines.contracts`), matching the allowlisted routine activation exception.
-- No imports of Garmin sync/analytics, journal, experiments, or
-  assistant runtime were found. `adapters.py` imports `app.infra` SQLite/JSON
-  store helpers (adapter layer, allowed); application modules import no FastAPI
-  or SQLite helpers.
-- The `/api/cards` catalog read is served directly in `routes.py` via
-  `routines_repo.list_card_templates` rather than a dedicated `application/`
-  module; the other four routes delegate to application use cases.

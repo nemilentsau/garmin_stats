@@ -6,8 +6,8 @@
 `garmin_health` is the canonical Garmin health data slice. It owns the canonical
 Garmin health contracts, deterministic FIT parsing, timestamp normalization into
 local time, and pure day-to-daily-metric composition. It is consumed by ingest
-persistence, analytics, experiments, and assistant. It has no routes,
-repositories, sync workflows, dashboard reads, experiment analysis, or assistant
+persistence, analytics, experiments, and Coach. It has no routes,
+repositories, sync workflows, dashboard reads, experiment analysis, or Coach
 retrieval logic — those live in the domains that depend on it. Full data topology
 and config paths: `docs/reference/data-and-ingest.md`.
 
@@ -27,7 +27,7 @@ and config paths: `docs/reference/data-and-ingest.md`.
 - Archive acquisition, watcher/startup ingest orchestration.
 - SQLite persistence.
 - Dashboard reads, period summaries.
-- Experiment analysis, assistant retrieval.
+- Experiment analysis or Coach retrieval.
 - Frontend presentation or API routing.
 
 ## May import
@@ -36,7 +36,7 @@ and config paths: `docs/reference/data-and-ingest.md`.
 - Its own contracts/domain modules.
 
 ## Must not import
-- Garmin sync, Garmin analytics, experiments, assistant, routines, artifacts,
+- Garmin sync, Garmin analytics, experiments, coach, routines, artifacts,
   journal.
 - Infrastructure adapters.
 - FastAPI from application (non-route) modules.
@@ -59,21 +59,6 @@ and config paths: `docs/reference/data-and-ingest.md`.
 - `domain/daily_metrics/` — per-metric calculators (`compute_daily_*`) plus
   Garmin-vocabulary helpers (`compute_hr_zones`, `normalize_hrv_status`,
   `classify_hrv_recovery`, `HR_ZONE_THRESHOLDS`).
-- `infra/fit_parser/` — `decode.py`, `days.py`, `extractors.py`, `files.py`,
-  `timestamps.py`; FIT decode + local-time normalization.
-
-## Verified against code (2026-07-10)
-- Public entrypoints match: `contracts/__init__.py` re-exports the reading and
-  daily contracts; `domain/daily.py` exposes `compute_daily_metric[s]`;
-  `domain/daily_metrics/__init__.py` exposes the `compute_daily_*` calculators.
-- Import boundaries match: application/domain modules import only
-  `garmin_health.contracts`, `garmin_health.domain.*`, `app.contracts.base`, and
-  `app.utils`; no imports of sync/analytics/other domains or FastAPI/SQLite.
-- Note vs. ARCHITECTURE.md: the "Owns" bullet in the central Module Ownership
-  Charter does not itemize FIT parsing, but the domain description, Project Layout,
-  Core Modules (`app/parser.py` facade → `garmin_health/infra/fit_parser/`), and
-  the actual `infra/fit_parser/` package confirm the parser is owned here. It is
-  listed under Owns above so this charter is not narrower than the code.
-- Note: `domain/daily_metrics` intentionally exports domain-bound helper names
-  (`normalize_hrv_status`, `compute_hr_zones`, `classify_hrv_recovery`), which per
-  the `app/utils/` rule stay domain-local rather than being promoted to utils.
+- `infra/fit_parser/` — wellness/day decode (`decode.py`, `days.py`,
+  `extractors.py`, `files.py`, `timestamps.py`) plus running activity decode
+  (`activities.py`, `activity_extractors.py`).

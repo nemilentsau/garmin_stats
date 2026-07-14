@@ -1,8 +1,7 @@
 """Today/schedule-window/block-status read models plus capture-log upsert.
 
-Owns the projection from Task 1's typed v3 wire contracts (`V3Block`,
-`V3Bundle`, `V3Card`, ...) and Task 2's compiled schedule (`compile_schedule`,
-`full_variant_prescription`) into the display-ready `Training*` view models
+Owns the projection from typed v3 wire contracts and the compiled schedule
+into the display-ready `Training*` view models
 in `contracts.py`, merged with any saved `TrainingCardLog`. This module never
 mutates a v3 artifact and never lints — `application/validation.py` already
 ran (and blocked activation on failure) before anything here can observe an
@@ -271,10 +270,9 @@ def build_exercise_display(
 ) -> TrainingExerciseDisplay:
     """Project one prescribed exercise into its read-only display projection.
 
-    `scheme` (via `render_scheme`) stays alongside the new structured
-    `reps_low`/`reps_high`/`load_kind`/`load_value` fields for this phase's
-    back-compat; `last` is always the caller's value verbatim — this task
-    never looks one up (Task 0.3's `last_logged_for` does).
+    ``scheme`` stays alongside the structured repetition/load fields for
+    compatibility. ``last`` is supplied by the caller; this helper performs
+    no history lookup.
     """
     lo, hi = exercise.reps
     kind, value = structured_load(exercise.load)
@@ -357,8 +355,8 @@ def render_segment(segment: SegmentSpec) -> str:
 def build_segment_display(segment: SegmentSpec) -> TrainingSegmentDisplay:
     """Project one prescribed run/support segment into its display projection.
 
-    `detail` (via `render_segment`) stays alongside the new structured
-    `distance_mi`/`duration_min`/`zone` fields for this phase's back-compat.
+    ``detail`` stays alongside structured distance/duration/zone fields for
+    API compatibility.
     `zone` is `None` for rpe-only or hr_range-only segments (e.g. drills,
     strides, primers) — the frontend falls back to `detail` for those.
     """

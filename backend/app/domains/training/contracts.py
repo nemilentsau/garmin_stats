@@ -1,64 +1,20 @@
-"""V3 wire contracts for the training domain.
+"""Training-domain wire, persistence, and read-model contracts.
 
-Owns the strict Pydantic models that parse the v3 artifacts under
-`docs/routine-pivot/block0/` — three content bundles (`running_v3.json`,
-`strength_v3.json`, `support_v3.json`), the block definition (`block0.json`),
-the signal registry (`registry.json`), and the exercise library
-(`exercise_library.json`). These models mirror `docs/routine-pivot/
-schema_v3_spec.md` §1-§8, but the shipped artifacts are the actual contract:
-where a field in an artifact would fail to parse against the markdown spec,
-the model here is adjusted to fit the artifact, never the other way around.
-The artifacts are read-only canon and are never reformatted.
+The strict v3 models parse the six-file import set documented in
+``docs/routine-pivot/schema_v3_spec.md``. Uploaded block, bundle, registry,
+and exercise-library JSON is stored verbatim; these models validate the wire
+shape but never translate or re-author it. ``block1`` is the active authored
+set, while ``block0`` remains the read-only schema and test-fixture canon.
 
-Fields present in the artifacts but absent from `schema_v3_spec.md` (kept
-here rather than in the spec doc, since the spec is descriptive and the
-artifacts are authoritative):
+``Variant.prescription_patch`` and ``ExtensionRule.action`` remain opaque
+dictionaries because they are structural partials whose valid shape depends
+on the target prescription/event. Cross-object and compiled-schedule policy
+belongs to ``application/validation.py``.
 
-- `V3Card.est_duration_min: float | None` — every card in all three bundles
-  carries this field; the markdown spec's `Card` interface doesn't declare
-  it.
-
-Two fields the spec *does* declare are deliberately typed looser than a
-literal reading, because Pydantic can't express the spec's shape and the
-artifacts don't need it to:
-
-- `Variant.prescription_patch: dict[str, Any] | None` — the spec types this
-  `Partial<Prescription>` (TS structural partial, no Pydantic equivalent).
-  Bundle authors only ever populate a subset of `SegmentSpec` keys inside it
-  (e.g. `label`/`intensity` without `duration_min`), so it stays an
-  unvalidated opaque dict, merged by index at read time by a later task.
-- `ExtensionRule.action: dict[str, Any]` — exactly as specified in the schema
-  (`{ extend_days: number; insert?: MeasurementEvent }`), stored as an
-  unvalidated opaque dict since all shipped artifacts only use
-  `{"extend_days": <int>}`.
-
-The `NotPredicate` serializes with `not_` by default (model_dump); pass
-`by_alias=True` to serialize as `not`. Both spellings validate due to
-`populate_by_name=True` in `NotPredicate.model_config`.
-
-Every model here parsed the six shipped artifacts on the first pass with no
-adjustments beyond what's listed above — no field in any artifact failed to
-parse against this contract set.
-
-This module intentionally does not parse `lint_report.json` — that is a
-derived/reporting artifact, not part of the v3 wire contract surface.
-
-Everything below `ExerciseLibrary` is a different kind of contract: computed
-or persisted domain shapes rather than parsed upload artifacts. `LintReport`
-is the linter's (`application/validation.py`) output contract, kept here —
-not in `application/validation.py` — purely to break an import cycle: the
-storage wrapper records below embed a `LintReport`, and `contracts.py` must
-stay a leaf module the application layer imports from, never the reverse.
-`StoredBundle`/`StoredBlock`/`StoredRegistry`/`StoredLibrary` are the
-persistence envelopes around one verbatim uploaded artifact (see
-`application/imports.py`), and the `TrainingCardLog` family is the
-per-occurrence capture record `application/read_models.py` reads and writes.
-
-The `Training*Display`/`Training*Card`/`Training*Response`/`Training*Window`/
-`TrainingBlockStatus` classes at the bottom are `application/read_models.py`'s
-view-model and response contracts: read-only projections of the wire
-contracts above (plus any saved `TrainingCardLog`), never persisted
-themselves and never round-tripped back through the v3 artifact models.
+Models through ``ExerciseLibrary`` describe authored upload content.
+``LintReport`` and ``Stored*`` describe activation output and persistence;
+``TrainingCardLog`` describes per-occurrence capture; the ``Training*``
+response models are read-only projections assembled by the application layer.
 """
 
 from __future__ import annotations
@@ -237,7 +193,7 @@ class V3Card(StrictDefaultsRequired):
     prescription: Prescription
     capture: list[CaptureField] = []
     display_notes: str | None = None
-    est_duration_min: float | None = None  # artifact field, not in the markdown spec
+    est_duration_min: float | None = None
 
 
 class Variant(StrictDefaultsRequired):
@@ -352,10 +308,10 @@ class V3Block(StrictDefaultsRequired):
     window: BlockWindow
     bundle_ids: list[str]
     baseline_tags: list[str] = []
-    flat_weeks: list[int] = []  # artifact field
-    step_response: StepResponse | None = None  # artifact field
+    flat_weeks: list[int] = []
+    step_response: StepResponse | None = None
     measurement_events: list[MeasurementEvent] = []
-    scheduling_constraints: list[SchedulingConstraint] = []  # artifact field
+    scheduling_constraints: list[SchedulingConstraint] = []
     exit_criteria: list[Criterion] = []
     extension_rules: list[ExtensionRule] = []
     review_specs: list[ReviewSpec] = []

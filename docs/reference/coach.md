@@ -26,7 +26,7 @@ Evidence has three explicit levels:
 Plan adjustments are advisory text. Coach never changes an imported training block,
 creates training content, schedules measurement retries, or computes measurement
 observations and hard gates. The training-owned evidence and schedule behavior are
-documented in [run-activities.md](run-activities.md#program-measurement-evaluation).
+documented in [run-activities.md](run-activities.md#imported-block-measurement-evaluation).
 
 ## Measurement assessments
 
@@ -65,7 +65,7 @@ event-qualified backup occurrence therefore leaves the old record auditable in C
 prevents it from being projected. Coach classifies subjective evidence only: training
 computes the observations and gates, clamps any known hard-gate failure to `failed`, and
 does not apply a Coach verdict when the full run series is missing. Coach can never
-override those boundaries or edit imported program/content.
+override those boundaries or edit imported training content.
 
 ## Hierarchical evidence workspace
 

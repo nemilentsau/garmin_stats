@@ -1,7 +1,6 @@
 # Routine Artifact Bundle Spec
 
-This is the current high-level import contract for assistant-authored routine
-content.
+This is the current import contract for authored non-training routine content.
 
 The app does not ingest arbitrary markdown. It accepts deterministic JSON,
 previews it without writes, imports validated artifacts, and auto-activates
@@ -10,12 +9,11 @@ them into the live routine runtime.
 ## Canonical Flow
 
 ```text
-source material -> bundle JSON -> preview -> import -> auto-activate -> schedule/today
+authored bundle JSON -> preview -> import -> auto-activate -> schedule/today
 ```
 
 Important implications:
 
-- markdown-to-bundle conversion happens outside the runtime
 - preview performs no writes
 - import persists validated artifacts before activation
 - card templates activate before routines because routines reference cards
@@ -263,12 +261,14 @@ If preview is clean, import should:
 4. Leave the live result visible in `/routines/schedule` and `/today`.
 
 The normal bundle flow does not require a separate manual activation step.
-Low-level assistant-artifact APIs may still expose manual activation for
+Compatibility-prefixed artifact APIs may still expose manual activation for
 debugging or one-off flows, but that is not the canonical path.
 
-## Checked-In Examples
+## Checked-in routine bundles
 
-- [routine_bundles/meditation_hrv_experiment.json](routine_bundles/meditation_hrv_experiment.json)
-- [routine_bundles/four_weeks_breathwork.json](routine_bundles/four_weeks_breathwork.json)
-- [routine_bundles/four_weeks_meditation.json](routine_bundles/four_weeks_meditation.json)
-- [routine_bundles/two_week_meditation_bundle.json](routine_bundles/two_week_meditation_bundle.json)
+- [four_weeks_breathwork.json](four_weeks_breathwork.json)
+- [four_weeks_meditation.json](four_weeks_meditation.json)
+- [two_week_meditation_bundle.json](two_week_meditation_bundle.json)
+
+Experiment definitions are separate imports validated by the `experiments`
+domain; they do not use this bundle schema.

@@ -6,9 +6,8 @@
 	 * log mode: same reference + a single 3-level segmented "How much did you downshift?"
 	 * control (Barely / Somewhat / Strongly → 1 / 2 / 3). Emits TimerActual on every tap.
 	 *
-	 * No animation, no timer, no phase countdown, no cycle tracking — those were removed
-	 * in the breath-card simplification (Task 2). The backend payload no longer carries
-	 * phases, rating_prompts, or completed_cycles; this card matches that contract exactly.
+	 * No animation, timer, phase countdown, or cycle tracking. The backend payload carries
+	 * no phases, rating_prompts, or completed_cycles; this card matches that contract exactly.
 	 */
 	import { untrack } from 'svelte';
 	import type { ScheduleOccurrence, TodayCard } from '$lib/api';
