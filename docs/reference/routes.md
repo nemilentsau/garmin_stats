@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (85 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (86 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -64,6 +64,7 @@ Backend from the FastAPI OpenAPI schema (85 operations); frontend from `frontend
 | GET | `/api/coach/reviews` | Get Reviews |
 | POST | `/api/coach/reviews/run` | Post Run Review |
 | GET | `/api/coach/reviews/{review_id}` | Get Review |
+| POST | `/api/coach/reviews/{review_id}/regenerate` | Post Review Regenerate |
 | POST | `/api/coach/reviews/{review_id}/retry` | Post Review Retry |
 | GET | `/api/coach/run-reviews/{run_id}` | Get Run Review |
 | GET | `/api/coach/status` | Get Status |
