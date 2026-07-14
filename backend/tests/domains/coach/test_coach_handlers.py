@@ -122,8 +122,37 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     assert saved.outcome == "completed_as_intended"
     assert saved.refs == [ArtifactRef(kind="run", value="run-1")]
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
-    assert repo.list_journal()[0].content_md.startswith("Easy-day execution")
-    assert repo.current_brief().content_md.startswith("Current approach")  # type: ignore[union-attr]
+    journal = repo.list_journal(policy_version=2)
+    assert journal[0].content_md.startswith("Purpose: Easy aerobic maintenance")
+    assert journal[0].run_summary == _review_output().journal
+    brief = repo.current_brief(policy_version=2)
+    assert brief is not None
+    assert brief.content_md.startswith("Current approach")
+    assert brief.policy_version == 2
+
+
+def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-keep", date="2026-07-14", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={"brief_update": BriefUpdate(action="keep", content_md=None)}
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    assert repo.review(review.id).status == "complete"  # type: ignore[union-attr]
+    assert len(repo.list_journal(policy_version=2)) == 1
+    assert repo.current_brief(policy_version=2) is None
 
 
 def test_review_failure_changes_no_memory_and_supports_same_job_retry(tmp_path, monkeypatch):

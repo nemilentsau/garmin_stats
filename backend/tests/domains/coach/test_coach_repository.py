@@ -5,7 +5,17 @@ from __future__ import annotations
 import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
-from app.domains.coach.contracts import CoachThread, InitialReviewCandidate
+from app.domains.coach.application.memory import (
+    active_journal_entries,
+    render_run_journal,
+)
+from app.domains.coach.contracts import (
+    ArtifactRef,
+    CoachThread,
+    InitialReviewCandidate,
+    JournalEntry,
+    RunJournalSummary,
+)
 from app.domains.coach.schema import init_coach_schema
 from app.infra import sqlite
 
@@ -21,6 +31,43 @@ def _thread(thread_id: str = "thread-1") -> CoachThread:
         created_at=NOW,
         last_activity_at=NOW,
     )
+
+
+def _run_journal_summary() -> RunJournalSummary:
+    return RunJournalSummary(
+        purpose="Easy aerobic maintenance",
+        outcome="completed_as_intended",
+        takeaway="The intended maintenance stimulus was achieved.",
+        decision_relevant_uncertainties=[],
+        follow_up_triggers=[
+            "Revisit only if delayed tissue response is abnormal."
+        ],
+        comparison_tags=["easy", "strides", "strap_hr"],
+        refs=[ArtifactRef(kind="run", value="run-1")],
+    )
+
+
+def test_legacy_memory_remains_readable_but_is_not_current_policy_memory():
+    legacy = JournalEntry(
+        id="journal-v1",
+        ts=NOW,
+        kind="review",
+        content_md="Legacy forensic compliance language.",
+        refs=[],
+        source_id="review-old",
+    )
+
+    assert legacy.policy_version == 1
+    assert active_journal_entries([legacy], policy_version=2) == []
+
+
+def test_run_memory_render_keeps_interpretation_and_refs_without_telemetry_table():
+    rendered = render_run_journal(_run_journal_summary())
+
+    assert "Purpose: Easy aerobic maintenance" in rendered
+    assert "Outcome: completed as intended" in rendered
+    assert "6.03 mi" not in rendered
+    assert "run: run-1" in rendered
 
 
 def test_schema_init_second_call_is_noop():

@@ -144,6 +144,9 @@ class JournalEntry(StrictDefaultsRequired):
     content_md: str = Field(max_length=1600)
     refs: list[ArtifactRef] = []
     source_id: str
+    policy_version: int = 1
+    supersedes_id: str | None = None
+    run_summary: RunJournalSummary | None = None
 
 
 class BriefVersion(StrictDefaultsRequired):
@@ -151,6 +154,7 @@ class BriefVersion(StrictDefaultsRequired):
     content_md: str = Field(max_length=6000)
     source_id: str
     created_at: str
+    policy_version: int = 1
 
 
 class CoachJob(StrictDefaultsRequired):

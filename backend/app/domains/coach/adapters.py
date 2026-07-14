@@ -24,6 +24,11 @@ from app.domains.coach.contracts import (
     JournalEntry,
     ReviewKind,
     ReviewOutput,
+    RunJournalSummary,
+)
+from app.domains.coach.application.memory import (
+    CURRENT_MEMORY_POLICY_VERSION,
+    render_run_journal,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
 from app.infra.sqlite import connect
@@ -405,11 +410,13 @@ class SqliteCoachRepository:
             _save_review(connection, completed_review)
             self._insert_journal_output(
                 connection,
-                content_md=output.journal.takeaway,
+                content_md=render_run_journal(output.journal),
                 refs=output.journal.refs,
                 kind="review",
                 source_id=review_id,
                 created_at=finished_at,
+                policy_version=CURRENT_MEMORY_POLICY_VERSION,
+                run_summary=output.journal,
             )
             if output.brief_update.action == "replace":
                 self._insert_brief_output(
@@ -417,6 +424,7 @@ class SqliteCoachRepository:
                     content_md=output.brief_update.content_md or "",
                     source_id=review_id,
                     created_at=finished_at,
+                    policy_version=CURRENT_MEMORY_POLICY_VERSION,
                 )
             _save_job(
                 connection,
@@ -595,6 +603,7 @@ class SqliteCoachRepository:
                 kind="chat",
                 source_id=thread_id,
                 created_at=finished_at,
+                policy_version=CURRENT_MEMORY_POLICY_VERSION,
             )
             if output.brief_update.action == "replace":
                 self._insert_brief_output(
@@ -602,6 +611,7 @@ class SqliteCoachRepository:
                     content_md=output.brief_update.content_md or "",
                     source_id=thread_id,
                     created_at=finished_at,
+                    policy_version=CURRENT_MEMORY_POLICY_VERSION,
                 )
             changed_thread = thread.model_copy(
                 update={"status": "closed", "last_activity_at": finished_at}
@@ -927,31 +937,52 @@ class SqliteCoachRepository:
             connection.commit()
         return changed
 
-    def list_journal(self, *, limit: int | None = None) -> list[JournalEntry]:
+    def list_journal(
+        self,
+        *,
+        limit: int | None = None,
+        policy_version: int | None = None,
+    ) -> list[JournalEntry]:
+        where = ""
+        params: list[object] = []
+        if policy_version is not None:
+            where = "WHERE COALESCE(json_extract(data, '$.policy_version'), 1) = ?"
+            params.append(policy_version)
         with connect() as connection:
             if limit is None:
                 rows = connection.execute(
-                    "SELECT data FROM coach_journal ORDER BY ts, id"
+                    f"SELECT data FROM coach_journal {where} ORDER BY ts, id",
+                    params,
                 ).fetchall()
             else:
                 rows = connection.execute(
-                    """
+                    f"""
                     SELECT data FROM (
                         SELECT id, ts, data FROM coach_journal
+                        {where}
                         ORDER BY ts DESC, id DESC LIMIT ?
                     ) ORDER BY ts, id
                     """,
-                    (limit,),
+                    [*params, limit],
                 ).fetchall()
         return [_model_from_row(JournalEntry, row) for row in rows]
 
-    def current_brief(self) -> BriefVersion | None:
+    def current_brief(
+        self, *, policy_version: int | None = None
+    ) -> BriefVersion | None:
+        where = ""
+        params: list[object] = []
+        if policy_version is not None:
+            where = "WHERE COALESCE(json_extract(data, '$.policy_version'), 1) = ?"
+            params.append(policy_version)
         with connect() as connection:
             row = connection.execute(
-                """
+                f"""
                 SELECT data FROM coach_brief_versions
+                {where}
                 ORDER BY created_at DESC, id DESC LIMIT 1
-                """
+                """,
+                params,
             ).fetchone()
         return None if row is None else _model_from_row(BriefVersion, row)
 
@@ -971,6 +1002,9 @@ class SqliteCoachRepository:
         kind: Literal["review", "chat", "admonish"],
         source_id: str,
         created_at: str,
+        policy_version: int,
+        run_summary: RunJournalSummary | None = None,
+        supersedes_id: str | None = None,
     ) -> None:
         entry = JournalEntry(
             id=_new_id("journal"),
@@ -979,6 +1013,9 @@ class SqliteCoachRepository:
             content_md=content_md,
             refs=refs,
             source_id=source_id,
+            policy_version=policy_version,
+            supersedes_id=supersedes_id,
+            run_summary=run_summary,
         )
         connection.execute(
             "INSERT INTO coach_journal (id, ts, data) VALUES (?, ?, ?)",
@@ -992,12 +1029,14 @@ class SqliteCoachRepository:
         content_md: str,
         source_id: str,
         created_at: str,
+        policy_version: int,
     ) -> None:
         brief = BriefVersion(
             id=_new_id("brief"),
             content_md=content_md,
             source_id=source_id,
             created_at=created_at,
+            policy_version=policy_version,
         )
         connection.execute(
             "INSERT INTO coach_brief_versions (id, created_at, data) VALUES (?, ?, ?)",
