@@ -11,10 +11,12 @@ import pytest
 
 from app.domains.coach.contracts import (
     ArtifactRef,
+    BriefUpdate,
     ChatOutput,
     DistillOutput,
     JobKind,
     ReviewOutput,
+    RunJournalSummary,
 )
 from app.domains.coach.infra.runner import (
     ensure_thread_codex_home,
@@ -25,23 +27,30 @@ from app.domains.coach.infra.runner import (
 
 def _review_json(**updates) -> str:
     value = ReviewOutput(
-        verdict="compliant",
+        outcome="completed_as_intended",
+        confidence="high",
         review_md="Sound run.",
-        observations=[],
-        concerns=[],
-        suggestions=[],
-        plan_adjustments=[],
-        evidence_limits=[],
-        plots_viewed=[],
+        follow_up_questions=[],
+        history_used=[],
+        plot_observations=[],
         refs=[ArtifactRef(kind="run", value="run-1")],
-        journal_entry_md="Repeat the same comparison next week.",
+        journal=RunJournalSummary(
+            purpose="Easy aerobic maintenance",
+            outcome="completed_as_intended",
+            takeaway="Repeat the same comparison next week.",
+            decision_relevant_uncertainties=[],
+            follow_up_triggers=[],
+            comparison_tags=["easy"],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+        ),
+        brief_update=BriefUpdate(action="keep", content_md=None),
     ).model_dump()
     value.update(updates)
     return json.dumps(value)
 
 
 def _chat_json() -> str:
-    return ChatOutput(answer_md="Take an easy day.", evidence_limits=[], refs=[]).model_dump_json()
+    return ChatOutput(answer_md="Take an easy day.", refs=[]).model_dump_json()
 
 
 async def _run(
@@ -88,7 +97,14 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     for flag in ("--ignore-user-config", "--ignore-rules", "--json", "--skip-git-repo-check"):
         assert flag in argv
     assert "--ephemeral" in argv
-    assert argv[argv.index("--config") + 1] == "project_doc_max_bytes=0"
+    configs = [
+        argv[index + 1]
+        for index, value in enumerate(argv[:-1])
+        if value == "--config"
+    ]
+    assert "project_doc_max_bytes=0" in configs
+    assert 'model_reasoning_effort="xhigh"' in configs
+    assert argv[argv.index("--model") + 1] == "gpt-5.6-sol"
     assert argv[:1] == ["exec"]
     staged_image = Path(argv[argv.index("-i") + 1])
     assert staged_image == Path(record["cwd"]) / "current/run.png"
@@ -159,14 +175,14 @@ def test_exit_missing_malformed_and_schema_invalid_are_distinct(
 
 def test_overlength_output_is_not_truncated(tmp_path, codex_stub, monkeypatch):
     del codex_stub
-    raw = _review_json(journal_entry_md="x" * 1601)
+    raw = _review_json(review_md="x" * 12001)
     monkeypatch.setenv("CODEX_STUB_OUTPUT", raw)
 
     result = asyncio.run(_run(tmp_path))
 
     assert result.error_kind == "output_too_large"
     output_path = tmp_path / "workspace/_runtime/job-1/attempt-1/output.json"
-    assert json.loads(output_path.read_text())["journal_entry_md"] == "x" * 1601
+    assert json.loads(output_path.read_text())["review_md"] == "x" * 12001
 
 
 def test_stale_output_cannot_be_read_by_new_attempt(tmp_path, codex_stub, monkeypatch):

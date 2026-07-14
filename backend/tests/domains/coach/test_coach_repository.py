@@ -5,7 +5,19 @@ from __future__ import annotations
 import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
-from app.domains.coach.contracts import CoachThread, InitialReviewCandidate
+from app.domains.coach.application.memory import (
+    active_journal_entries,
+    render_run_journal,
+)
+from app.domains.coach.contracts import (
+    ArtifactRef,
+    BriefUpdate,
+    CoachThread,
+    InitialReviewCandidate,
+    JournalEntry,
+    ReviewOutput,
+    RunJournalSummary,
+)
 from app.domains.coach.schema import init_coach_schema
 from app.infra import sqlite
 
@@ -21,6 +33,133 @@ def _thread(thread_id: str = "thread-1") -> CoachThread:
         created_at=NOW,
         last_activity_at=NOW,
     )
+
+
+def _run_journal_summary() -> RunJournalSummary:
+    return RunJournalSummary(
+        purpose="Easy aerobic maintenance",
+        outcome="completed_as_intended",
+        takeaway="The intended maintenance stimulus was achieved.",
+        decision_relevant_uncertainties=[],
+        follow_up_triggers=[
+            "Revisit only if delayed tissue response is abnormal."
+        ],
+        comparison_tags=["easy", "strides", "strap_hr"],
+        refs=[ArtifactRef(kind="run", value="run-1")],
+    )
+
+
+def _review_output(takeaway: str = "Purpose achieved") -> ReviewOutput:
+    journal = _run_journal_summary().model_copy(update={"takeaway": takeaway})
+    return ReviewOutput(
+        outcome="completed_as_intended",
+        confidence="high",
+        review_md="The run achieved its intended purpose.",
+        follow_up_questions=[],
+        history_used=[],
+        plot_observations=[],
+        refs=[ArtifactRef(kind="run", value="run-1")],
+        journal=journal,
+        brief_update=BriefUpdate(action="keep", content_md=None),
+    )
+
+
+def _complete_review(
+    repository: SqliteCoachRepository,
+    *,
+    finished_at: str = NOW,
+    takeaway: str = "Purpose achieved",
+):
+    review, _, _ = repository.enqueue_run_review(
+        run_id="run-1", date="2026-07-14", occurrence_key="run-am"
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    repository.mark_review_generating(review.id, updated_at=NOW)
+    repository.complete_review_output(
+        review_id=review.id,
+        job_id=claimed.id,
+        output=_review_output(takeaway),
+        finished_at=finished_at,
+    )
+    return review, claimed
+
+
+def test_legacy_memory_remains_readable_but_is_not_current_policy_memory():
+    legacy = JournalEntry(
+        id="journal-v1",
+        ts=NOW,
+        kind="review",
+        content_md="Legacy forensic compliance language.",
+        refs=[],
+        source_id="review-old",
+    )
+
+    assert legacy.policy_version == 1
+    assert active_journal_entries([legacy], policy_version=2) == []
+
+
+def test_run_memory_render_keeps_interpretation_and_refs_without_telemetry_table():
+    rendered = render_run_journal(_run_journal_summary())
+
+    assert "Purpose: Easy aerobic maintenance" in rendered
+    assert "Outcome: completed as intended" in rendered
+    assert "6.03 mi" not in rendered
+    assert "run: run-1" in rendered
+
+
+def test_complete_review_can_be_requeued_without_reusing_attempt_directory():
+    repository = SqliteCoachRepository()
+    review, job = _complete_review(repository)
+
+    regenerated = repository.regenerate_complete_review(
+        review.id, available_at="2026-07-14T15:00:00Z"
+    )
+
+    assert regenerated.id == job.id
+    assert regenerated.status == "queued"
+    assert regenerated.attempt_count == 1
+    assert repository.review(review.id).status == "queued"  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize("status", ["queued", "running", "failed"])
+def test_only_complete_review_can_be_regenerated(status: str):
+    repository = SqliteCoachRepository()
+    review, job, _ = repository.enqueue_run_review(
+        run_id=f"run-{status}", date="2026-07-14", occurrence_key="run-am"
+    )
+    if status in {"running", "failed"}:
+        claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+        assert claimed is not None
+        repository.mark_review_generating(review.id, updated_at=NOW)
+        if status == "failed":
+            repository.fail_job(claimed.id, error="model failure", finished_at=NOW)
+    with pytest.raises(ValueError, match="complete"):
+        repository.regenerate_complete_review(review.id, available_at=NOW)
+    assert repository.job(job.id) is not None
+
+
+def test_regenerated_review_supersedes_prior_active_journal_entry():
+    repository = SqliteCoachRepository()
+    review, _ = _complete_review(repository, takeaway="First judgment")
+    repository.regenerate_complete_review(review.id, available_at=LATER)
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    repository.mark_review_generating(review.id, updated_at=LATER)
+    repository.complete_review_output(
+        review_id=review.id,
+        job_id=claimed.id,
+        output=_review_output("Corrected judgment"),
+        finished_at="2026-07-14T16:00:00Z",
+    )
+
+    all_entries = repository.list_journal(policy_version=2)
+    active = active_journal_entries(all_entries)
+
+    assert len(all_entries) == 2
+    assert len(active) == 1
+    assert "Corrected judgment" in active[0].content_md
+    assert active[0].supersedes_id == all_entries[0].id
 
 
 def test_schema_init_second_call_is_noop():

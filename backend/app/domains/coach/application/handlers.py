@@ -112,6 +112,62 @@ class CoachHandlers:
                 finished_at=utc_now_iso(),
             )
             return
+        attached_plots = {Path(path).name for path in manifest.current_images}
+        available_plot_refs = attached_plots | {
+            ref.value for ref in manifest.resolved_refs if ref.kind == "plot"
+        }
+        all_output_refs = [
+            *result.output.refs,
+            *result.output.journal.refs,
+            *[
+                ref
+                for historical_use in result.output.history_used
+                for ref in historical_use.refs
+            ],
+        ]
+        output_plot_refs = {
+            ref.value for ref in all_output_refs if ref.kind == "plot"
+        }
+        direct_plot_refs = {
+            ref.value for ref in result.output.refs if ref.kind == "plot"
+        }
+        observation_plots = {
+            observation.plot for observation in result.output.plot_observations
+        }
+        unknown_plots = sorted(
+            (observation_plots - attached_plots)
+            | (output_plot_refs - available_plot_refs)
+        )
+        unobserved_current_refs = sorted(
+            (output_plot_refs & attached_plots) - observation_plots
+        )
+        uncited_observations = sorted(observation_plots - direct_plot_refs)
+        validation_errors: list[str] = []
+        if unknown_plots:
+            validation_errors.append(
+                "unavailable plot names: " + ", ".join(unknown_plots)
+            )
+        if unobserved_current_refs:
+            validation_errors.append(
+                "current plot refs without observations: "
+                + ", ".join(unobserved_current_refs)
+            )
+        if uncited_observations:
+            validation_errors.append(
+                "plot observations missing direct refs: "
+                + ", ".join(uncited_observations)
+            )
+        if validation_errors:
+            await asyncio.to_thread(
+                self.repo.fail_job,
+                job.id,
+                error=(
+                    "invalid_output: inconsistent plot evidence: "
+                    + "; ".join(validation_errors)
+                ),
+                finished_at=utc_now_iso(),
+            )
+            return
         try:
             await asyncio.to_thread(
                 self.repo.complete_review_output,

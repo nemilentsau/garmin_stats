@@ -151,6 +151,8 @@ def _command(
             "--skip-git-repo-check",
             "--config",
             "project_doc_max_bytes=0",
+            "--config",
+            'model_reasoning_effort="xhigh"',
             "--model",
             os.environ.get("COACH_CODEX_MODEL", "gpt-5.6-sol"),
             "--output-schema",

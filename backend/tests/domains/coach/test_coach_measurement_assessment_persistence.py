@@ -10,10 +10,12 @@ from app.domains.coach import adapters as coach_adapters
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.contracts import (
     ArtifactRef,
+    BriefUpdate,
     ChatOutput,
     CoachMeasurementAssessment,
     CoachThread,
     ReviewOutput,
+    RunJournalSummary,
 )
 
 NOW = "2026-07-12T12:00:00Z"
@@ -39,16 +41,23 @@ def _review_output(
     assessment: CoachMeasurementAssessment | None,
 ) -> ReviewOutput:
     return ReviewOutput(
-        verdict="compliant",
+        outcome="completed_as_intended",
+        confidence="high",
         review_md="Review",
-        observations=[],
-        concerns=[],
-        suggestions=[],
-        plan_adjustments=[],
-        evidence_limits=[],
-        plots_viewed=[],
+        follow_up_questions=[],
+        history_used=[],
+        plot_observations=[],
         refs=[ArtifactRef(kind="run", value="run-1")],
-        journal_entry_md="Journal",
+        journal=RunJournalSummary(
+            purpose="Measurement run",
+            outcome="completed_as_intended",
+            takeaway="The training purpose was achieved.",
+            decision_relevant_uncertainties=[],
+            follow_up_triggers=[],
+            comparison_tags=["measurement"],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+        ),
+        brief_update=BriefUpdate(action="keep", content_md=None),
         measurement_assessment=assessment,
     )
 
@@ -96,7 +105,6 @@ def _complete_chat_assessment(
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Updated assessment",
-            evidence_limits=[],
             refs=[ArtifactRef(kind="run", value="run-1")],
             measurement_assessment=assessment,
         ),
@@ -203,7 +211,6 @@ def test_chat_assessment_invalid_run_context_rejects_entire_completion(
     job = _running_chat(repo)
     output = ChatOutput(
         answer_md="Assessment",
-        evidence_limits=[],
         refs=refs,
         measurement_assessment=_assessment(run_id=assessment_run_id),
     )
@@ -231,7 +238,6 @@ def test_chat_assessment_persists_with_one_matching_run_reference():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Assessment",
-            evidence_limits=[],
             refs=[
                 ArtifactRef(kind="date", value="2026-07-12"),
                 ArtifactRef(kind="run", value="run-1"),
@@ -294,7 +300,6 @@ def test_latest_assessment_read_prefers_newest_exact_successful_record():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Updated assessment",
-            evidence_limits=[],
             refs=[ArtifactRef(kind="run", value="run-1")],
             measurement_assessment=chat_assessment,
         ),
@@ -309,7 +314,6 @@ def test_latest_assessment_read_prefers_newest_exact_successful_record():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="No assessment",
-            evidence_limits=[],
             refs=[],
         ),
         session_id=None,
@@ -323,7 +327,6 @@ def test_latest_assessment_read_prefers_newest_exact_successful_record():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Other run",
-            evidence_limits=[],
             refs=[ArtifactRef(kind="run", value="run-2")],
             measurement_assessment=_assessment(run_id="run-2"),
         ),
@@ -368,7 +371,6 @@ def test_assessment_cutoff_selects_newest_exact_success_before_boundary():
             thread_id="thread-1",
             output=ChatOutput(
                 answer_md="Updated assessment",
-                evidence_limits=[],
                 refs=[ArtifactRef(kind="run", value=run_id)],
                 measurement_assessment=assessment,
             ),
@@ -443,7 +445,6 @@ def test_local_date_cutoff_excludes_assessments_at_or_after_backup_day_start():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Assessment at the boundary",
-            evidence_limits=[],
             refs=[ArtifactRef(kind="run", value="run-1")],
             measurement_assessment=_assessment(status="valid"),
         ),
@@ -458,7 +459,6 @@ def test_local_date_cutoff_excludes_assessments_at_or_after_backup_day_start():
         thread_id="thread-1",
         output=ChatOutput(
             answer_md="Assessment after the boundary",
-            evidence_limits=[],
             refs=[ArtifactRef(kind="run", value="run-1")],
             measurement_assessment=_assessment(status="failed"),
         ),

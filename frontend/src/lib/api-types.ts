@@ -746,6 +746,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/reviews/{review_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Review Regenerate */
+        post: operations["post_review_regenerate_api_coach_reviews__review_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/threads": {
         parameters: {
             query?: never;
@@ -1666,10 +1683,14 @@ export interface components {
         ArtifactRef: {
             /**
              * Kind
+             * @description Durable reference type: run, plot, persisted review, or ISO date.
              * @enum {string}
              */
             kind: "run" | "plot" | "review" | "date";
-            /** Value */
+            /**
+             * Value
+             * @description Identifier only: run id, plot image basename, persisted review id, or ISO date. Never a workspace path, filename anchor, plan.md, or recovery.md.
+             */
             value: string;
         };
         /**
@@ -1884,6 +1905,11 @@ export interface components {
             source_id: string;
             /** Created At */
             created_at: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
         };
         /** CaptureField */
         CaptureField: {
@@ -2376,6 +2402,10 @@ export interface components {
             status: "queued" | "generating" | "complete" | "failed";
             /** Verdict */
             verdict: ("compliant" | "partial" | "non_compliant" | "skipped" | "unplanned") | null;
+            /** Outcome */
+            outcome: ("completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned") | null;
+            /** Confidence */
+            confidence: ("low" | "moderate" | "high") | null;
             /** Content Md */
             content_md: string | null;
             /**
@@ -2388,6 +2418,16 @@ export interface components {
              * @default []
              */
             plots_viewed: string[];
+            /**
+             * Plot Observations
+             * @default []
+             */
+            plot_observations: components["schemas"]["PlotObservation"][];
+            /**
+             * History Used
+             * @default []
+             */
+            history_used: components["schemas"]["HistoricalEvidenceUse"][];
             measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
             /** Job Id */
             job_id: string;
@@ -3512,6 +3552,20 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** HistoricalEvidenceUse */
+        HistoricalEvidenceUse: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "same_purpose" | "recent_clean" | "counterexample" | "plan_anchor";
+            /** Reason */
+            reason: string;
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
+        };
         /**
          * HrvAnalysisResponse
          * @description HRV chart and pattern analysis response.
@@ -3818,6 +3872,14 @@ export interface components {
             refs: components["schemas"]["ArtifactRef"][];
             /** Source Id */
             source_id: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
+            /** Supersedes Id */
+            supersedes_id: string | null;
+            run_summary: components["schemas"]["RunJournalSummary"] | null;
         };
         /**
          * LapDisplayRow
@@ -4418,6 +4480,16 @@ export interface components {
             sleep: components["schemas"]["PeriodSleepStats"];
             body_battery: components["schemas"]["PeriodBodyBatteryStats"];
         };
+        /**
+         * PlotObservation
+         * @description Decision-relevant visual evidence actually used by a review.
+         */
+        PlotObservation: {
+            /** Plot */
+            plot: string;
+            /** Observation */
+            observation: string;
+        };
         /** RampSpec */
         RampSpec: {
             /** Weeks */
@@ -4753,7 +4825,7 @@ export interface components {
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
          *
-         *     `session`/`laps` stay metric (canonical); `display` is the imperial
+         *     `session`/`laps` stay metric (canonical); `display` is the user-facing
          *     projection the frontend renders from.
          */
         RunDetailResponse: {
@@ -4767,11 +4839,12 @@ export interface components {
         };
         /**
          * RunDisplayStats
-         * @description Imperial display projection of a run's canonical (metric) session stats.
+         * @description Display projection of a run's canonical FIT session stats.
          *
-         *     Every field is None-preserving from its metric source; see the `_*_to_*`
-         *     conversion helpers in `application/runs.py` for the exact constants and
-         *     rounding rule each field uses. `avg_ground_contact_balance_label` and the
+         *     Scalar unit fields are imperial and None-preserving; see the `_*_to_*`
+         *     conversion helpers in `application/runs.py` for their constants and rounding.
+         *     Zone rows preserve FIT's configured thresholds while normalizing bucket-zero
+         *     semantics for display. `avg_ground_contact_balance_label` and the
          *     respiration fields are strap-only: they render as None when the run has
          *     no chest-strap running dynamics (wrist-only runs). The `stamina_*` fields
          *     are watch-level (Firstbeat), not strap-dependent — pass-through, already
@@ -4817,10 +4890,40 @@ export interface components {
             /** Stamina Min Pct */
             stamina_min_pct: number | null;
             /**
+             * Heart Rate Zones
+             * @default []
+             */
+            heart_rate_zones: components["schemas"]["RunZoneDisplayRow"][];
+            /**
+             * Power Zones
+             * @default []
+             */
+            power_zones: components["schemas"]["RunZoneDisplayRow"][];
+            /**
              * Lap Display
              * @default []
              */
             lap_display: components["schemas"]["LapDisplayRow"][];
+        };
+        /** RunJournalSummary */
+        RunJournalSummary: {
+            /** Purpose */
+            purpose: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
+            /** Takeaway */
+            takeaway: string;
+            /** Decision Relevant Uncertainties */
+            decision_relevant_uncertainties: string[];
+            /** Follow Up Triggers */
+            follow_up_triggers: string[];
+            /** Comparison Tags */
+            comparison_tags: string[];
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
         };
         /**
          * RunListItem
@@ -4949,6 +5052,22 @@ export interface components {
             start_s: number;
             /** End S */
             end_s: number;
+        };
+        /**
+         * RunZoneDisplayRow
+         * @description One user-facing training-zone row projected from FIT bucket arrays.
+         */
+        RunZoneDisplayRow: {
+            /** Zone */
+            zone: number;
+            /** Label */
+            label: string;
+            /** Lower Bound */
+            lower_bound: number | null;
+            /** Upper Bound */
+            upper_bound: number | null;
+            /** Duration S */
+            duration_s: number | null;
         };
         /**
          * RunningActivityLap
@@ -7964,6 +8083,37 @@ export interface operations {
         };
     };
     post_review_retry_api_coach_reviews__review_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_review_regenerate_api_coach_reviews__review_id__regenerate_post: {
         parameters: {
             query?: never;
             header?: never;

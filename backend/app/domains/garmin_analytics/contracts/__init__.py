@@ -106,6 +106,7 @@ from .runs import (
     RunListItem,
     RunSeriesResponse,
     RunsListResponse,
+    RunZoneDisplayRow,
 )
 
 __all__ = [
@@ -173,6 +174,7 @@ __all__ = [
     "RunDisplayStats",
     "RunListItem",
     "RunSeriesResponse",
+    "RunZoneDisplayRow",
     "RunsListResponse",
     "SkinTempDailyPoint",
     "SkinTempDailyResponse",

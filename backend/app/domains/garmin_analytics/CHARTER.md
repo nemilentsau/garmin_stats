@@ -21,8 +21,10 @@ Strength sessions are not yet parsed; their retained implementation contract is
 - Metric drill-down insights and recovery analysis responses.
 - The validated single-axis recovery score and its health flags
   (`domain/recovery_score/`).
-- The runs activity mart: run list/detail/series reads with backend-derived pace
-  (`application/runs.py`, `contracts/runs.py`, `SqliteRunsRepository`).
+- The runs activity mart: run list/detail/series reads with backend-derived pace,
+  imperial values, chart-valid series, and user-facing FIT zone projections
+  (`application/runs.py`, `domain/run_display.py`, `contracts/runs.py`,
+  `SqliteRunsRepository`).
 
 ## Does not own
 - Archive acquisition (owned by `garmin_sync`).
@@ -70,7 +72,7 @@ Application files are named by concern:
 - `metric_analysis.py` — loads cached chart/trend analysis read models.
 - `metric_insights.py` — loads selected-day insight read models.
 - `runs.py` — run list/detail/series reads with date-window filtering and
-  pace derivation.
+  display projection.
 
 ## Key files
 - `routes.py` — HTTP only; binds request/response to application use cases.

@@ -23,10 +23,44 @@ Evidence has three explicit levels:
   any undeclared estimator. The model must label apparent patterns as observations or
   hypotheses rather than facts.
 
-Plan adjustments are advisory text. Coach never changes an imported training block,
+Training recommendations are advisory text. Coach never changes an imported training block,
 creates training content, schedules measurement retries, or computes measurement
 observations and hard gates. The training-owned evidence and schedule behavior are
 documented in [run-activities.md](run-activities.md#imported-block-measurement-evaluation).
+
+## Review judgment
+
+Coach judges the purpose of the workout rather than auditing every prescription field.
+New reviews use these outcomes:
+
+- `completed_as_intended`: the intended training stimulus was materially achieved;
+- `completed_with_material_deviation`: the session was completed, but a deviation changes
+  its training meaning or next decision;
+- `not_completed`, `skipped`, and `unplanned`: explicit execution states.
+
+Confidence (`low`, `moderate`, or `high`) is independent of outcome. Missing notes, RPE,
+variant capture, or exact segment markers can lower confidence when they could change a
+decision; they do not automatically downgrade a run. Exact values become hard validity
+boundaries only when the imported contract declares a measurement quality gate or another
+explicit hard gate. Thus a plausible controlled stride near a 20-second target is judged
+by its neuromuscular purpose, while an LTHR measurement gate retains exact validity
+semantics.
+
+The model may ask at most two athlete questions, and only when an answer could change
+safety, formal measurement validity, or the next training decision. It must not request
+forensic confirmation of every prescribed detail. Review output stores outcome,
+confidence, direct coaching prose, decision-changing questions, historical evidence used,
+curated refs, structured journal memory, and an explicit brief action. Visual evidence is
+recorded as bounded `plot_observations`: each entry names an attached image basename and
+the concrete visible pattern that affected the judgment. Unused attachments are omitted,
+and a review may legitimately record no plot observations. The handler rejects any
+observation that names an image outside the current attachment manifest. Completed rows
+retain the observations and derive the legacy `plots_viewed` basename list for backward
+compatibility. A current-run plot ref and observation must correspond in both directions;
+unattached refs, attachment-inventory refs without observations, and observations without
+direct refs fail the attempt. The Coach review surface shows this bounded evidence ledger beneath the
+review so the visual basis of the judgment is inspectable. The former
+`compliant`/`partial`/`non_compliant` verdict remains readable only on legacy review rows.
 
 ## Measurement assessments
 
@@ -64,7 +98,7 @@ runtime occurrence. Detaching the run, linking a different run, or activating a 
 event-qualified backup occurrence therefore leaves the old record auditable in Coach but
 prevents it from being projected. Coach classifies subjective evidence only: training
 computes the observations and gates, clamps any known hard-gate failure to `failed`, and
-does not apply a Coach verdict when the full run series is missing. Coach can never
+does not apply a Coach assessment when the full run series is missing. Coach can never
 override those boundaries or edit imported training content.
 
 ## Hierarchical evidence workspace
@@ -73,8 +107,8 @@ Every model call gets a freshly assembled, deterministic workspace rather than a
 database dump or one giant prompt:
 
 1. evidence capabilities;
-2. latest complete brief;
-3. recent semantic journal plus compact archive index;
+2. latest active policy-v2 brief;
+3. active policy-v2 semantic journal plus compact archive index;
 4. current training plan and seven-day target-date window;
 5. current recovery overview;
 6. a chronological digest of exactly the latest 20 eligible runs;
@@ -82,10 +116,23 @@ database dump or one giant prompt:
 
 Each of the 20 digest runs also has on-demand summary, lap, and cached plot files. Those
 files are a library: the digest is a menu, and the model opens detail only when it needs
-it. An older typed reference can be materialized without entering the 20-run digest.
+it. The journal and brief are retrieval guides, not source evidence. Before making a
+historical claim, the model opens the selected run's summary and relevant laps or plot,
+then records a bounded selection reason and one of `same_purpose`, `recent_clean`,
+`counterexample`, or `plan_anchor`. A routine local judgment may use no comparator; a
+longitudinal claim requires relevant history, and a plan change seeks both support and a
+counterexample when the digest contains one. An older typed reference can be materialized
+without entering the 20-run digest.
 Run-review workspaces add full current-run summary/laps and plot pages; only those current
 pages are initial image attachments. Current pages are also copied into the shared plot
 cache so a later `plot:<filename>` reference remains resolvable.
+
+FIT time-in-zone arrays remain canonical in the Garmin health record, including bucket
+zero for time below the first configured zone. The analytics read model projects those
+arrays once into numbered, high-exclusive display zones, folds overflow into the final
+open-ended zone, and preserves missing duration separately from zero. The run UI and the
+Coach current-run summary both consume that same projection; neither reinterprets raw FIT
+bucket indexes independently.
 
 Typed refs are `run`, `plot`, `review`, or `date`. IDs use a strict filename allowlist;
 path traversal is rejected. `date` refs materialize training, daily metric, check-in, and
@@ -96,12 +143,21 @@ note context. Runtime attempt directories are never deleted during workspace ref
 These are different memory layers:
 
 - **Digest:** deterministic telemetry index rebuilt from the current latest 20 runs.
-- **Journal:** append-only semantic decisions, conclusions, unresolved hypotheses, and
-  what to compare next. The newest 10 are included in full; older entries remain archived
-  with a compact index. Journal entries are limited to 1,600 characters and must not copy
-  run tables or numeric summaries already owned by the digest.
+- **Journal:** append-only structured interpretation: workout purpose, outcome, durable
+  takeaway, decision-relevant uncertainties, follow-up/expiry triggers, comparison tags,
+  and curated refs. The newest 10 are included in full; older entries remain archived
+  with a compact purpose/outcome/tag/ref index. Journal entries are limited to 1,600
+  characters and must not copy run tables or numeric summaries already owned by the
+  digest.
 - **Brief:** latest complete model of the training approach and open questions, limited to
-  6,000 characters. A new version replaces the prior brief as a whole; it is not patched.
+  6,000 characters. Every review and distillation explicitly chooses `keep` or `replace`;
+  routine sessions normally keep the current brief. A replacement is a complete version,
+  not a patch.
+
+Current semantic memory uses policy version 2. Legacy records default to version 1 and
+remain stored and individually readable for audit, but they do not enter new workspaces or
+the current journal/brief API. Regenerating a review appends a policy-v2 journal revision
+whose `supersedes_id` retires the prior active interpretation without deleting it.
 
 Review and answer Markdown are limited to 12,000 characters. Over-length model output is
 failed intact—never truncated—and changes no review, journal, or brief state.
@@ -112,7 +168,10 @@ SQLite owns reviews, threads, messages, journal entries, brief versions, jobs, a
 reconciliation marker. Enqueue, dedupe, claim, success persistence, and failure
 persistence are transaction boundaries. A successful review atomically completes its
 review/job and appends semantic memory; a failed runner changes no memory. Manual retry
-requeues the same durable job and preserves the original review or user message.
+requeues a failed durable job and preserves the original review or user message. Explicit
+regeneration requeues only a completed review, retains its prior judgment while the new
+attempt is pending, preserves all prior attempt directories and logs, and increments the
+attempt number on the next claim.
 
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
@@ -143,6 +202,8 @@ strict structured-output schema, JSON events, and these isolation controls:
 - a copied execution workspace under the system temporary root, outside the app
   repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
+- model pinned explicitly to `gpt-5.6-sol` with `xhigh` reasoning; lowering the
+  production reasoning effort requires a code change rather than a user-config override;
 - project documentation budget set to zero, preventing repo `AGENTS.md` and unrelated
   analytical skills from inflating or redirecting the coach call;
 - no fallback schema guessing or automatic model retry.
@@ -167,11 +228,14 @@ paused state.
 
 ## API and UI
 
-The `/api/coach/*` API exposes status, review history/manual run enqueue/retry, durable
-jobs, threads/messages/close/retry-close, journal, and brief. Model operations return
+The `/api/coach/*` API exposes status, review history/manual run enqueue/retry/regenerate,
+durable jobs, threads/messages/close/retry-close, current-policy journal, and current-policy
+brief. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
-`close_failed`, `closed`) rather than relying on color. `/runs/[id]` resolves one review
+`close_failed`, `closed`) rather than relying on color. It displays outcome and confidence
+separately, falls back to the legacy verdict when needed, and labels a preserved judgment
+as previous while regeneration is queued or generating. `/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
 
 The `/api/assistant/artifacts*` prefix remains for compatibility, but those routes belong

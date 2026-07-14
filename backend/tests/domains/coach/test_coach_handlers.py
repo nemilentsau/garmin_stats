@@ -10,11 +10,14 @@ from app.domains.coach.application.handlers import CoachHandlers
 from app.domains.coach.application.workspace import WorkspaceManifest
 from app.domains.coach.contracts import (
     ArtifactRef,
+    BriefUpdate,
     ChatOutput,
     CoachMeasurementAssessment,
     CoachThread,
     DistillOutput,
+    PlotObservation,
     ReviewOutput,
+    RunJournalSummary,
 )
 from app.domains.coach.infra.runner import CodexJobResult
 
@@ -54,7 +57,10 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
     def assemble(*args, directory: Path, **kwargs):
         del args, kwargs
         calls["count"] += 1
-        return _manifest(directory)
+        return _manifest(
+            directory,
+            images=[str(directory / "current" / "images" / "current-1.png")],
+        )
 
     monkeypatch.setattr("app.domains.coach.application.handlers.assemble_workspace", assemble)
     monkeypatch.setattr(
@@ -77,17 +83,34 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
 
 def _review_output() -> ReviewOutput:
     return ReviewOutput(
-        verdict="compliant",
+        outcome="completed_as_intended",
+        confidence="high",
         review_md="The session met the intended easy-day purpose.",
-        observations=["Effort stayed controlled."],
-        concerns=[],
-        suggestions=[],
-        plan_adjustments=[],
-        evidence_limits=[],
-        plots_viewed=["current-1.png"],
-        refs=[ArtifactRef(kind="run", value="run-1")],
-        journal_entry_md="Easy-day execution was controlled; compare recovery tomorrow.",
-        brief_md="Current approach: protect easy days and compare next-day recovery.",
+        follow_up_questions=[],
+        history_used=[],
+        plot_observations=[
+            PlotObservation(
+                plot="current-1.png",
+                observation="The visible trace stays controlled across the run.",
+            )
+        ],
+        refs=[
+            ArtifactRef(kind="run", value="run-1"),
+            ArtifactRef(kind="plot", value="current-1.png"),
+        ],
+        journal=RunJournalSummary(
+            purpose="Easy aerobic maintenance",
+            outcome="completed_as_intended",
+            takeaway="Easy-day execution was controlled; compare recovery tomorrow.",
+            decision_relevant_uncertainties=[],
+            follow_up_triggers=["Compare next-day recovery."],
+            comparison_tags=["easy"],
+            refs=[ArtifactRef(kind="run", value="run-1")],
+        ),
+        brief_update=BriefUpdate(
+            action="replace",
+            content_md="Current approach: protect easy days and compare next-day recovery.",
+        ),
     )
 
 
@@ -108,11 +131,156 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     saved = repo.review(review.id)
     assert saved is not None
     assert saved.status == "complete"
-    assert saved.verdict == "compliant"
-    assert saved.refs == [ArtifactRef(kind="run", value="run-1")]
+    assert saved.outcome == "completed_as_intended"
+    assert saved.refs == [
+        ArtifactRef(kind="run", value="run-1"),
+        ArtifactRef(kind="plot", value="current-1.png"),
+    ]
+    assert saved.plot_observations == _review_output().plot_observations
+    assert saved.plots_viewed == ["current-1.png"]
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
-    assert repo.list_journal()[0].content_md.startswith("Easy-day execution")
-    assert repo.current_brief().content_md.startswith("Current approach")  # type: ignore[union-attr]
+    journal = repo.list_journal(policy_version=2)
+    assert journal[0].content_md.startswith("Purpose: Easy aerobic maintenance")
+    assert journal[0].run_summary == _review_output().journal
+    brief = repo.current_brief(policy_version=2)
+    assert brief is not None
+    assert brief.content_md.startswith("Current approach")
+    assert brief.policy_version == 2
+
+
+def test_review_rejects_observation_for_plot_that_was_not_attached(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "plot_observations": [
+                PlotObservation(
+                    plot="not-attached.png",
+                    observation="A pattern allegedly appears in this image.",
+                )
+            ]
+        }
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "failed"
+    assert saved.plot_observations == []
+    assert repo.list_journal() == []
+    assert "not-attached.png" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+
+
+def test_review_rejects_unattached_plot_ref_even_without_observation(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "refs": [
+                ArtifactRef(kind="run", value="run-1"),
+                ArtifactRef(kind="plot", value="not-attached.png"),
+            ],
+            "plot_observations": [],
+        }
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    assert repo.review(review.id).status == "failed"  # type: ignore[union-attr]
+    assert "not-attached.png" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+
+
+def test_review_rejects_current_plot_ref_without_observation(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(update={"plot_observations": []})
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    assert repo.review(review.id).status == "failed"  # type: ignore[union-attr]
+    assert "current-1.png" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+
+
+def test_review_rejects_plot_observation_without_direct_plot_ref(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={"refs": [ArtifactRef(kind="run", value="run-1")]}
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    assert repo.review(review.id).status == "failed"  # type: ignore[union-attr]
+    assert "missing direct refs" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+
+
+def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-keep", date="2026-07-14", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={"brief_update": BriefUpdate(action="keep", content_md=None)}
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    assert repo.review(review.id).status == "complete"  # type: ignore[union-attr]
+    assert len(repo.list_journal(policy_version=2)) == 1
+    assert repo.current_brief(policy_version=2) is None
 
 
 def test_review_failure_changes_no_memory_and_supports_same_job_retry(tmp_path, monkeypatch):
@@ -187,7 +355,6 @@ def test_chat_refreshes_each_turn_uses_resume_marker_and_persists_refs(tmp_path,
     assert job is not None
     output = ChatOutput(
         answer_md="Keep tomorrow easy.",
-        evidence_limits=[],
         refs=[ArtifactRef(kind="date", value="2026-07-12")],
     )
     runner = FakeRunner([CodexJobResult(ok=True, session_id="session-new", output=output)])
@@ -250,7 +417,6 @@ def test_chat_invalid_assessment_context_fails_without_persisting_assessment(
     assert job is not None
     output = ChatOutput(
         answer_md="Assessment",
-        evidence_limits=[],
         refs=[],
         measurement_assessment=CoachMeasurementAssessment(
             run_id="run-1",
@@ -295,6 +461,7 @@ def test_distill_success_closes_thread_persists_memory_then_deletes_home(
     output = DistillOutput(
         journal_entry_md="The thread decided to keep the next run easy.",
         refs=[ArtifactRef(kind="date", value="2026-07-12")],
+        brief_update=BriefUpdate(action="keep", content_md=None),
     )
     handlers = _handlers(
         tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])

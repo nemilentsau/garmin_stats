@@ -4,6 +4,7 @@ from app.domains.garmin_analytics.domain.run_display import (
     detrend_closed_loop_elevation,
     elevation_gain_loss_m,
     smooth_elevation_by_distance,
+    zone_display_rows,
 )
 from app.domains.garmin_health.contracts import RunWalkSpan
 
@@ -158,3 +159,55 @@ def test_elevation_drift_correction_requires_complete_endpoint_coordinates():
     )
 
     assert corrected == [0.0, -2.0]
+
+
+def test_zone_display_omits_fit_below_bucket_and_uses_exclusive_boundaries():
+    rows = zone_display_rows(
+        times_s=[16.686, 22.001, 780.962, 2216.783, 0.0, 0.0, 7.5],
+        boundaries=[94, 110, 130, 148, 161, 181],
+        unit="bpm",
+    )
+
+    assert [
+        (row.zone, row.label, row.lower_bound, row.upper_bound, row.duration_s)
+        for row in rows
+    ] == [
+        (1, "Z1 · 94–109 bpm", 94, 109, 22.001),
+        (2, "Z2 · 110–129 bpm", 110, 129, 780.962),
+        (3, "Z3 · 130–147 bpm", 130, 147, 2216.783),
+        (4, "Z4 · 148–160 bpm", 148, 160, 0.0),
+        (5, "Z5 · ≥161 bpm", 161, None, 7.5),
+    ]
+
+
+def test_zone_display_preserves_missing_durations_instead_of_zero_filling():
+    rows = zone_display_rows(
+        times_s=[1.0, None, 2.0, 3.0, 4.0, None, None],
+        boundaries=[94, 110, 130, 148, 161, 181],
+        unit="bpm",
+    )
+
+    assert rows[0].duration_s is None
+    assert rows[-1].duration_s is None
+
+
+def test_zone_display_requires_complete_contiguous_boundaries():
+    assert zone_display_rows([1.0, 2.0], [94], unit="bpm") == []
+    assert zone_display_rows([1.0, 2.0, 3.0], [94, None, 130], unit="bpm") == []
+
+
+def test_zone_display_caps_numbered_zones_at_five_and_folds_all_overflow():
+    rows = zone_display_rows(
+        times_s=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        boundaries=[94, 110, 130, 148, 161, 181, 200],
+        unit="bpm",
+    )
+
+    assert [row.zone for row in rows] == [1, 2, 3, 4, 5]
+    assert rows[-1].label == "Z5 · ≥161 bpm"
+    assert rows[-1].duration_s == 21.0
+
+
+def test_zone_display_rejects_duplicate_or_decreasing_boundaries():
+    assert zone_display_rows([1.0, 2.0, 3.0], [94, 94, 130], unit="bpm") == []
+    assert zone_display_rows([1.0, 2.0, 3.0], [110, 100, 130], unit="bpm") == []

@@ -16,7 +16,7 @@ _NOTE_EXCERPT_MAX = 160
 
 class WholeSessionComparison(StrictDefaultsRequired):
     prescribed_distance_mi: float | None = None
-    prescribed_duration_min: float | None = None
+    estimated_duration_min: float | None = None
     actual_distance_mi: float | None = None
     actual_duration_min: float | None = None
 
@@ -46,8 +46,12 @@ def compare_whole_session(
         prescribed_distance_mi=_sum_present(
             [segment.distance_mi for segment in segments]
         ),
-        prescribed_duration_min=_sum_present(
-            [segment.duration_min for segment in segments]
+        estimated_duration_min=(
+            None
+            if training_card is None
+            else training_card.est_duration_min
+            if training_card.est_duration_min is not None
+            else _sum_present([segment.duration_min for segment in segments])
         ),
         actual_distance_mi=detail.display.distance_mi,
         actual_duration_min=(
@@ -75,12 +79,12 @@ def _comparison_text(comparison: WholeSessionComparison) -> str:
         if comparison.actual_duration_min is not None
         else "duration unknown"
     )
-    prescribed: list[str] = []
+    target_parts: list[str] = []
     if comparison.prescribed_distance_mi is not None:
-        prescribed.append(f"{_number(comparison.prescribed_distance_mi)} mi")
-    if comparison.prescribed_duration_min is not None:
-        prescribed.append(f"{_number(comparison.prescribed_duration_min)} min")
-    target = "unplanned" if not prescribed else f"prescribed {' / '.join(prescribed)}"
+        target_parts.append(f"prescribed {_number(comparison.prescribed_distance_mi)} mi")
+    if comparison.estimated_duration_min is not None:
+        target_parts.append(f"estimated {_number(comparison.estimated_duration_min)} min")
+    target = "unplanned" if not target_parts else " / ".join(target_parts)
     return f"{distance}; {duration}; {target}"
 
 
@@ -137,7 +141,6 @@ def run_summary_markdown(context: HistoricalRunContext) -> str:
     """Render medium-detail run evidence with imperial display values first."""
     session = context.detail.session
     display = context.detail.display
-    zones = None if session.time_in_zones is None else session.time_in_zones.time_in_hr_zone_s
     lines = [
         f"# {session.activity_name or 'Run'} — {session.session_date}",
         "",
@@ -159,10 +162,15 @@ def run_summary_markdown(context: HistoricalRunContext) -> str:
             f"{_number(display.stamina_ending_potential_pct)}%"
         ),
         f"- Stamina minimum: {_number(display.stamina_min_pct)}%",
-        (
-            "- HR zone seconds: unknown"
-            if zones is None
-            else "- HR zone seconds: " + ", ".join(_number(value) for value in zones)
+        "",
+        "## Heart-rate zones",
+        *(
+            ["- Unknown"]
+            if not display.heart_rate_zones
+            else [
+                f"- {zone.label}: {_number(zone.duration_s)} s"
+                for zone in display.heart_rate_zones
+            ]
         ),
         "",
         "## Whole-session comparison",

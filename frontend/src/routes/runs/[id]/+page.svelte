@@ -705,35 +705,15 @@
 	});
 
 	// ── Time in zones: HR + power zone breakdowns as proportional stacked bars. ──
-	const ZONE_COLORS = ['#5e7282', '#4A90D9', '#4CAF82', '#D4944C', '#E85D4A', '#9B6BCD', '#C15FA0', '#5BC8C8'];
-	type ZoneRow = { label: string; timeS: number; color: string };
+	const ZONE_COLORS = ['#5e7282', '#4A90D9', '#4CAF82', '#D4944C', '#E85D4A'];
+	type ZoneRow = RunDetail['display']['heart_rate_zones'][number];
 
-	function buildZoneRows(times: (number | null)[], boundaries: (number | null)[]): ZoneRow[] {
-		const rows: ZoneRow[] = [];
-		times.forEach((t, i) => {
-			const timeS = t ?? 0;
-			const hasBoundary = i < boundaries.length && boundaries[i] != null;
-			if (!hasBoundary && timeS <= 0) return; // trailing open-ended bucket with no data — no signal
-			const lo = i === 0 ? null : (boundaries[i - 1] ?? null);
-			const hi = hasBoundary ? boundaries[i] : null;
-			let label = `Z${i + 1}`;
-			if (lo != null && hi != null) label += ` · ${lo}–${hi}`;
-			else if (hi != null) label += ` · ≤${hi}`;
-			else if (lo != null) label += ` · >${lo}`;
-			rows.push({ label, timeS, color: ZONE_COLORS[i % ZONE_COLORS.length] });
-		});
-		return rows;
+	function zoneColor(zone: number): string {
+		return ZONE_COLORS[zone - 1] ?? ZONE_COLORS[0];
 	}
 
-	let hrZoneRows = $derived.by<ZoneRow[]>(() => {
-		const z = detail?.session.time_in_zones;
-		return z ? buildZoneRows(z.time_in_hr_zone_s, z.hr_zone_high_boundary_bpm) : [];
-	});
-
-	let powerZoneRows = $derived.by<ZoneRow[]>(() => {
-		const z = detail?.session.time_in_zones;
-		return z ? buildZoneRows(z.time_in_power_zone_s, z.power_zone_high_boundary_w) : [];
-	});
+	let hrZoneRows = $derived.by<ZoneRow[]>(() => detail?.display.heart_rate_zones ?? []);
+	let powerZoneRows = $derived.by<ZoneRow[]>(() => detail?.display.power_zones ?? []);
 </script>
 
 <svelte:head>
@@ -745,17 +725,17 @@
 		{#each rows as z (z.label)}
 			<div
 				class="zone-seg"
-				style="flex-grow: {Math.max(z.timeS, 1)}; background: {z.color};"
-				title="{z.label}: {fmtDuration(z.timeS)}"
+				style="flex-grow: {z.duration_s ?? 0}; background: {zoneColor(z.zone)};"
+				title="{z.label}: {fmtDuration(z.duration_s)}"
 			></div>
 		{/each}
 	</div>
 	<div class="zone-legend">
 		{#each rows as z (z.label)}
 			<div class="zone-legend-row">
-				<i class="zone-dot" style="background: {z.color};"></i>
+				<i class="zone-dot" style="background: {zoneColor(z.zone)};"></i>
 				<span class="zone-label">{z.label}</span>
-				<span class="zone-time">{fmtDuration(z.timeS)}</span>
+				<span class="zone-time">{fmtDuration(z.duration_s)}</span>
 			</div>
 		{/each}
 	</div>
@@ -1090,7 +1070,7 @@
 		margin-bottom: 10px;
 	}
 	.zone-seg {
-		min-width: 2px;
+		min-width: 0;
 		transition: opacity 0.12s;
 	}
 	.zone-seg:hover {

@@ -69,6 +69,11 @@ class CoachJobs:
     def retry_job(self, job_id: str) -> CoachJob:
         return self.repo.retry_failed_job(job_id, available_at=utc_now_iso())
 
+    def regenerate_review(self, review_id: str) -> CoachJob:
+        return self.repo.regenerate_complete_review(
+            review_id, available_at=utc_now_iso()
+        )
+
     def retry_close(self, thread_id: str) -> CoachJob:
         thread = self.repo.thread(thread_id)
         if thread is None:

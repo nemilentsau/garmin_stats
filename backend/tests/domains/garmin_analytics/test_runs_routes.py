@@ -6,6 +6,7 @@ from app.domains.garmin_health.contracts import (
     RunningActivityLap,
     RunningActivitySeries,
     RunningActivitySession,
+    RunningTimeInZones,
 )
 from app.infra.sqlite import connect
 from app.main import app
@@ -202,6 +203,50 @@ def test_run_detail_display_includes_stamina_scalars_when_present():
     assert display["stamina_beginning_potential_pct"] == 98
     assert display["stamina_ending_potential_pct"] == 77
     assert display["stamina_min_pct"] == 77
+
+
+def test_run_detail_display_normalizes_fit_hr_and_power_zone_buckets():
+    insert_run(
+        "2026-07-14",
+        "zone-run",
+        time_in_zones=RunningTimeInZones(
+            time_in_hr_zone_s=[16.686, 22.001, 780.962, 2216.783, 0.0, 0.0],
+            hr_zone_high_boundary_bpm=[94, 110, 130, 148, 161, 181],
+            time_in_power_zone_s=[17.97, 1400.047, 1217.459, 330.953, 62.001, 8.002],
+            power_zone_high_boundary_w=[318, 389, 437, 486, 557, 4000],
+        ),
+    )
+
+    display = client.get("/api/activities/runs/zone-run").json()["display"]
+
+    assert [row["label"] for row in display["heart_rate_zones"]] == [
+        "Z1 · 94–109 bpm",
+        "Z2 · 110–129 bpm",
+        "Z3 · 130–147 bpm",
+        "Z4 · 148–160 bpm",
+        "Z5 · ≥161 bpm",
+    ]
+    assert [row["duration_s"] for row in display["heart_rate_zones"]] == [
+        22.001,
+        780.962,
+        2216.783,
+        0.0,
+        0.0,
+    ]
+    assert [row["label"] for row in display["power_zones"]] == [
+        "Z1 · 318–388 W",
+        "Z2 · 389–436 W",
+        "Z3 · 437–485 W",
+        "Z4 · 486–556 W",
+        "Z5 · ≥557 W",
+    ]
+    assert [row["duration_s"] for row in display["power_zones"]] == [
+        1400.047,
+        1217.459,
+        330.953,
+        62.001,
+        8.002,
+    ]
 
 
 def test_missing_run_is_404():

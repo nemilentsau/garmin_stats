@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.contracts.base import StrictDefaultsRequired
 
@@ -14,18 +14,69 @@ ReviewStatus = Literal["queued", "generating", "complete", "failed"]
 ThreadStatus = Literal["open", "closing", "closed", "close_failed"]
 JobKind = Literal["review_run", "review_skip", "chat_turn", "distill_thread"]
 JobStatus = Literal["queued", "running", "complete", "failed"]
-ReviewVerdict = Literal[
+LegacyReviewVerdict = Literal[
     "compliant",
     "partial",
     "non_compliant",
     "skipped",
     "unplanned",
 ]
+ReviewOutcome = Literal[
+    "completed_as_intended",
+    "completed_with_material_deviation",
+    "not_completed",
+    "skipped",
+    "unplanned",
+]
+ReviewConfidence = Literal["low", "moderate", "high"]
+HistoricalRole = Literal[
+    "same_purpose",
+    "recent_clean",
+    "counterexample",
+    "plan_anchor",
+]
 
 
 class ArtifactRef(StrictDefaultsRequired):
-    kind: ArtifactKind
-    value: str
+    kind: ArtifactKind = Field(
+        description="Durable reference type: run, plot, persisted review, or ISO date."
+    )
+    value: str = Field(
+        description=(
+            "Identifier only: run id, plot image basename, persisted review id, or ISO "
+            "date. Never a workspace path, filename anchor, plan.md, or recovery.md."
+        )
+    )
+
+
+class HistoricalEvidenceUse(StrictDefaultsRequired):
+    run_id: str
+    role: HistoricalRole
+    reason: str = Field(min_length=1, max_length=300)
+    refs: list[ArtifactRef] = Field(min_length=1, max_length=4)
+
+
+class RunJournalSummary(StrictDefaultsRequired):
+    purpose: str = Field(min_length=1, max_length=240)
+    outcome: ReviewOutcome
+    takeaway: str = Field(min_length=1, max_length=600)
+    decision_relevant_uncertainties: list[str] = Field(max_length=3)
+    follow_up_triggers: list[str] = Field(max_length=2)
+    comparison_tags: list[str] = Field(max_length=6)
+    refs: list[ArtifactRef] = Field(min_length=1, max_length=8)
+
+
+class BriefUpdate(StrictDefaultsRequired):
+    action: Literal["keep", "replace"]
+    content_md: str | None = Field(default=None, max_length=6000)
+
+    @model_validator(mode="after")
+    def _content_matches_action(self) -> BriefUpdate:
+        if self.action == "keep" and self.content_md is not None:
+            raise ValueError("keep brief updates cannot contain content")
+        if self.action == "replace" and not (self.content_md or "").strip():
+            raise ValueError("replace brief updates require non-blank content")
+        return self
 
 
 class CoachMeasurementAssessment(StrictDefaultsRequired):
@@ -52,6 +103,27 @@ class CoachMeasurementAssessmentRecord(StrictDefaultsRequired):
     created_at: str
 
 
+class PlotObservation(StrictDefaultsRequired):
+    """Decision-relevant visual evidence actually used by a review."""
+
+    plot: str = Field(min_length=1, max_length=255)
+    observation: str = Field(min_length=1, max_length=300)
+
+    @field_validator("plot")
+    @classmethod
+    def _plot_is_basename(cls, value: str) -> str:
+        if value in {".", ".."} or "/" in value or "\\" in value:
+            raise ValueError("plot must be an image basename")
+        return value
+
+    @field_validator("observation")
+    @classmethod
+    def _observation_has_content(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("observation must contain non-whitespace text")
+        return value
+
+
 class CoachReview(StrictDefaultsRequired):
     id: str
     date: str
@@ -59,10 +131,14 @@ class CoachReview(StrictDefaultsRequired):
     run_id: str | None = None
     occurrence_key: str | None = None
     status: ReviewStatus
-    verdict: ReviewVerdict | None = None
+    verdict: LegacyReviewVerdict | None = None
+    outcome: ReviewOutcome | None = None
+    confidence: ReviewConfidence | None = None
     content_md: str | None = None
     refs: list[ArtifactRef] = []
     plots_viewed: list[str] = []
+    plot_observations: list[PlotObservation] = []
+    history_used: list[HistoricalEvidenceUse] = []
     measurement_assessment: CoachMeasurementAssessment | None = None
     job_id: str
     error: str | None = None
@@ -97,6 +173,9 @@ class JournalEntry(StrictDefaultsRequired):
     content_md: str = Field(max_length=1600)
     refs: list[ArtifactRef] = []
     source_id: str
+    policy_version: int = 1
+    supersedes_id: str | None = None
+    run_summary: RunJournalSummary | None = None
 
 
 class BriefVersion(StrictDefaultsRequired):
@@ -104,6 +183,7 @@ class BriefVersion(StrictDefaultsRequired):
     content_md: str = Field(max_length=6000)
     source_id: str
     created_at: str
+    policy_version: int = 1
 
 
 class CoachJob(StrictDefaultsRequired):
@@ -136,31 +216,28 @@ class InitialReviewCandidate(StrictDefaultsRequired):
 
 
 class ReviewOutput(StrictDefaultsRequired):
-    verdict: ReviewVerdict
-    review_md: str = Field(max_length=12000)
-    observations: list[str]
-    concerns: list[str]
-    suggestions: list[str]
-    plan_adjustments: list[str]
-    evidence_limits: list[str]
-    plots_viewed: list[str]
+    outcome: ReviewOutcome
+    confidence: ReviewConfidence
+    review_md: str = Field(min_length=1, max_length=12000)
+    follow_up_questions: list[str] = Field(max_length=2)
+    history_used: list[HistoricalEvidenceUse]
+    plot_observations: list[PlotObservation]
     refs: list[ArtifactRef]
-    journal_entry_md: str = Field(max_length=1600)
-    brief_md: str | None = Field(default=None, max_length=6000)
+    journal: RunJournalSummary
+    brief_update: BriefUpdate
     measurement_assessment: CoachMeasurementAssessment | None = None
 
 
 class ChatOutput(StrictDefaultsRequired):
-    answer_md: str = Field(max_length=12000)
-    evidence_limits: list[str]
+    answer_md: str = Field(min_length=1, max_length=12000)
     refs: list[ArtifactRef]
     measurement_assessment: CoachMeasurementAssessment | None = None
 
 
 class DistillOutput(StrictDefaultsRequired):
-    journal_entry_md: str = Field(max_length=1600)
+    journal_entry_md: str = Field(min_length=1, max_length=1600)
     refs: list[ArtifactRef]
-    brief_md: str | None = Field(default=None, max_length=6000)
+    brief_update: BriefUpdate
 
 
 class CoachEnqueueResponse(StrictDefaultsRequired):

@@ -16,6 +16,7 @@ from app.domains.garmin_analytics.contracts import (
     RunDetailResponse,
     RunDisplayStats,
     RunListItem,
+    RunZoneDisplayRow,
 )
 from app.domains.garmin_health.contracts import (
     RunningActivityLap,
@@ -37,6 +38,7 @@ def _card(
     notes: str | None = None,
     status: TrainingCardStatus = "completed",
     capture_rpe: bool = True,
+    est_duration_min: float | None = None,
 ) -> TrainingTodayCard:
     card = V3Card.model_validate(
         {
@@ -68,6 +70,7 @@ def _card(
         card=card,
         segments_display=segments,
         capture_rpe=capture_rpe,
+        est_duration_min=est_duration_min,
         status=status,
         execution=TrainingExecutionEvaluation(
             status=status,
@@ -120,6 +123,28 @@ def _detail(
             stamina_beginning_potential_pct=96,
             stamina_ending_potential_pct=78,
             stamina_min_pct=70,
+            heart_rate_zones=[
+                RunZoneDisplayRow(
+                    zone=1,
+                    label="Z1 · 100–119 bpm",
+                    lower_bound=100,
+                    upper_bound=119,
+                    duration_s=1200,
+                ),
+                RunZoneDisplayRow(
+                    zone=2,
+                    label="Z2 · 120–139 bpm",
+                    lower_bound=120,
+                    upper_bound=139,
+                    duration_s=1500,
+                ),
+                RunZoneDisplayRow(
+                    zone=3,
+                    label="Z3 · ≥140 bpm",
+                    lower_bound=140,
+                    duration_s=240,
+                ),
+            ],
             lap_display=[
                 LapDisplayRow(lap_index=1, distance_mi=3.1, pace_min_per_mi=8.0)
             ],
@@ -170,7 +195,7 @@ def test_single_segment_distance_and_duration_are_compared_without_verdict():
     comparison = compare_whole_session(detail=_detail(), training_card=card)
 
     assert comparison.prescribed_distance_mi == 6
-    assert comparison.prescribed_duration_min == 48
+    assert comparison.estimated_duration_min == 48
     assert comparison.actual_distance_mi == 6.2
     assert comparison.actual_duration_min == 50
     assert not hasattr(comparison, "verdict")
@@ -202,11 +227,86 @@ def test_multi_segment_intensity_is_described_without_whole_run_range_score():
     assert "% compliant" not in line
 
 
+def test_session_estimate_wins_over_partial_segment_duration_sum():
+    card = _card(
+        [
+            TrainingSegmentDisplay(
+                label="easy", detail="5.4 mi · Z1-Z2", distance_mi=5.4, zone="Z1-Z2"
+            ),
+            TrainingSegmentDisplay(
+                label="primer", detail="6 min · RPE 5", duration_min=6
+            ),
+            TrainingSegmentDisplay(
+                label="strides", detail="0.6 mi · RPE 7", distance_mi=0.6
+            ),
+        ],
+        est_duration_min=52,
+    )
+
+    comparison = compare_whole_session(
+        detail=_detail(timer_time_s=3036), training_card=card
+    )
+    summary = run_summary_markdown(_context(card=card))
+
+    assert comparison.estimated_duration_min == 52
+    assert "estimated 52 min" in summary
+    assert "prescribed 6 mi / 6 min" not in summary
+
+
+def test_hr_zone_evidence_uses_shared_display_projection_not_raw_fit_buckets():
+    detail = _detail()
+    detail = detail.model_copy(
+        update={
+            "session": detail.session.model_copy(
+                update={
+                    "time_in_zones": RunningTimeInZones(
+                        time_in_hr_zone_s=[10, 20, 30, 40],
+                        hr_zone_high_boundary_bpm=[100, 120, 140],
+                    )
+                }
+            ),
+            "display": detail.display.model_copy(
+                update={
+                    "heart_rate_zones": [
+                        RunZoneDisplayRow(
+                            zone=1,
+                            label="Z1 · 100–119 bpm",
+                            lower_bound=100,
+                            upper_bound=119,
+                            duration_s=20,
+                        ),
+                        RunZoneDisplayRow(
+                            zone=2,
+                            label="Z2 · 120–139 bpm",
+                            lower_bound=120,
+                            upper_bound=139,
+                            duration_s=30,
+                        ),
+                        RunZoneDisplayRow(
+                            zone=3,
+                            label="Z3 · ≥140 bpm",
+                            lower_bound=140,
+                            duration_s=40,
+                        ),
+                    ]
+                }
+            ),
+        }
+    )
+
+    summary = run_summary_markdown(_context(card=None, detail=detail))
+
+    assert "Z1 · 100–119 bpm: 20 s" in summary
+    assert "Z2 · 120–139 bpm: 30 s" in summary
+    assert "Z3 · ≥140 bpm: 40 s" in summary
+    assert "Below Z1" not in summary
+
+
 def test_unplanned_run_has_actuals_and_no_prescribed_values():
     comparison = compare_whole_session(detail=_detail(), training_card=None)
 
     assert comparison.prescribed_distance_mi is None
-    assert comparison.prescribed_duration_min is None
+    assert comparison.estimated_duration_min is None
     assert comparison.actual_distance_mi == 6.2
     assert comparison.actual_duration_min == 50
 
@@ -274,7 +374,8 @@ def test_run_summary_contains_load_effect_stamina_zones_and_training_notes():
     assert "Training load: 110" in summary
     assert "Aerobic training effect: 3.1" in summary
     assert "Stamina potential: 96% → 78%" in summary
-    assert "HR zone seconds: 60, 1200, 1500, 240" in summary
+    assert "Z1 · 100–119 bpm: 1200 s" in summary
+    assert "Z3 · ≥140 bpm: 240 s" in summary
     assert "Training status: partial" in summary
     assert "Legs felt controlled" in summary
     assert "3.1 mi" in laps
