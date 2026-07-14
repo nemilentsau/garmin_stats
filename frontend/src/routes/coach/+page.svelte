@@ -33,6 +33,13 @@
 	);
 	let awaitingCoach = $derived(messages.length > 0 && messages[messages.length - 1]?.role === 'user');
 
+	function reviewOutcome(review: CoachReview): string {
+		const outcome = (review.outcome ?? review.verdict ?? 'not assessed').replaceAll('_', ' ');
+		return review.outcome && (review.status === 'queued' || review.status === 'generating')
+			? `previous: ${outcome}`
+			: outcome;
+	}
+
 	async function refreshMessages(threadId: string | null): Promise<void> {
 		messages = threadId ? (await api.getCoachMessages(threadId)).messages : [];
 	}
@@ -113,6 +120,19 @@
 		}
 	}
 
+	async function regenerateReview(reviewId: string): Promise<void> {
+		if (busy) return;
+		busy = true;
+		try {
+			await api.regenerateCoachReview(reviewId);
+			await refreshAll();
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function closeThread(): Promise<void> {
 		if (!activeThreadId) return;
 		busy = true;
@@ -184,9 +204,13 @@
 				<div class="review-meta">
 					<span class="tabular">{activeReview.date}</span>
 					<span>{activeReview.kind === 'run' ? 'Run review' : 'Missed-run review'}</span>
-					{#if activeReview.verdict}<span>{activeReview.verdict.replaceAll('_', ' ')}</span>{/if}
+					<span>{reviewOutcome(activeReview)}</span>
+					{#if activeReview.confidence}<span>{activeReview.confidence} confidence</span>{/if}
 				</div>
 				{#if activeReview.content_md}
+					{#if activeReview.status === 'queued' || activeReview.status === 'generating'}
+						<p class="muted">Previous completed review shown while regeneration is {activeReview.status}.</p>
+					{/if}
 					<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
 			{:else}
 					<p class="muted">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
@@ -196,6 +220,8 @@
 				{/if}
 				{#if activeReview.status === 'failed'}
 					<button class="text-action" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
+				{:else if activeReview.status === 'complete'}
+					<button class="text-action" onclick={() => regenerateReview(activeReview.id)} disabled={busy}>Regenerate review</button>
 				{/if}
 			{:else}
 				<p class="empty-line">No reviews yet. Open a run and choose “Review with coach.”</p>
@@ -258,7 +284,7 @@
 				<h2>Review history</h2>
 				{#each reviews as review (review.id)}
 					<button class:active={review.id === activeReview?.id} class="review-row" onclick={() => (activeReviewId = review.id)}>
-						<span class="tabular">{review.date}</span><span>{review.kind}</span><span>{review.status.replaceAll('_', ' ')}</span><span>{review.verdict?.replaceAll('_', ' ') ?? '—'}</span>
+						<span class="tabular">{review.date}</span><span>{review.kind}</span><span>{review.status.replaceAll('_', ' ')}</span><span>{reviewOutcome(review)}{review.confidence ? ` · ${review.confidence} confidence` : ''}</span>
 					</button>
 				{:else}<p class="empty-line">No review history.</p>{/each}
 			</section>

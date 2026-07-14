@@ -11,8 +11,10 @@ from app.bootstrap.coach_measurement_port import CoachMeasurementAssessmentPort
 from app.bootstrap.container import build_container
 from app.domains.coach.contracts import (
     ArtifactRef,
+    BriefUpdate,
     CoachMeasurementAssessment,
     ReviewOutput,
+    RunJournalSummary,
 )
 from app.domains.training.contracts import TrainingMeasurementAssessment
 from app.domains.training.dependencies import MeasurementAssessmentReadPort
@@ -38,16 +40,23 @@ def _complete_assessment(repo, *, status: str = "provisional"):
         review_id=review.id,
         job_id=job.id,
         output=ReviewOutput(
-            verdict="compliant",
+            outcome="completed_as_intended",
+            confidence="high",
             review_md="Review",
-            observations=[],
-            concerns=[],
-            suggestions=[],
-            plan_adjustments=[],
-            evidence_limits=[],
+            follow_up_questions=[],
+            history_used=[],
             plots_viewed=[],
             refs=[ArtifactRef(kind="run", value="run-1")],
-            journal_entry_md="Journal",
+            journal=RunJournalSummary(
+                purpose="Measurement run",
+                outcome="completed_as_intended",
+                takeaway="The training purpose was achieved.",
+                decision_relevant_uncertainties=[],
+                follow_up_triggers=[],
+                comparison_tags=["measurement"],
+                refs=[ArtifactRef(kind="run", value="run-1")],
+            ),
+            brief_update=BriefUpdate(action="keep", content_md=None),
             measurement_assessment=assessment,
         ),
         finished_at="2026-07-12T12:00:00Z",

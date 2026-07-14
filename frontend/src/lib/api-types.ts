@@ -746,6 +746,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/reviews/{review_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Review Regenerate */
+        post: operations["post_review_regenerate_api_coach_reviews__review_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/threads": {
         parameters: {
             query?: never;
@@ -1666,10 +1683,14 @@ export interface components {
         ArtifactRef: {
             /**
              * Kind
+             * @description Durable reference type: run, plot, persisted review, or ISO date.
              * @enum {string}
              */
             kind: "run" | "plot" | "review" | "date";
-            /** Value */
+            /**
+             * Value
+             * @description Identifier only: run id, plot image basename, persisted review id, or ISO date. Never a workspace path, filename anchor, plan.md, or recovery.md.
+             */
             value: string;
         };
         /**
@@ -1884,6 +1905,11 @@ export interface components {
             source_id: string;
             /** Created At */
             created_at: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
         };
         /** CaptureField */
         CaptureField: {
@@ -2376,6 +2402,10 @@ export interface components {
             status: "queued" | "generating" | "complete" | "failed";
             /** Verdict */
             verdict: ("compliant" | "partial" | "non_compliant" | "skipped" | "unplanned") | null;
+            /** Outcome */
+            outcome: ("completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned") | null;
+            /** Confidence */
+            confidence: ("low" | "moderate" | "high") | null;
             /** Content Md */
             content_md: string | null;
             /**
@@ -2388,6 +2418,11 @@ export interface components {
              * @default []
              */
             plots_viewed: string[];
+            /**
+             * History Used
+             * @default []
+             */
+            history_used: components["schemas"]["HistoricalEvidenceUse"][];
             measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
             /** Job Id */
             job_id: string;
@@ -3512,6 +3547,20 @@ export interface components {
             /** Status */
             status: string | null;
         };
+        /** HistoricalEvidenceUse */
+        HistoricalEvidenceUse: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "same_purpose" | "recent_clean" | "counterexample" | "plan_anchor";
+            /** Reason */
+            reason: string;
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
+        };
         /**
          * HrvAnalysisResponse
          * @description HRV chart and pattern analysis response.
@@ -3818,6 +3867,14 @@ export interface components {
             refs: components["schemas"]["ArtifactRef"][];
             /** Source Id */
             source_id: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
+            /** Supersedes Id */
+            supersedes_id: string | null;
+            run_summary: components["schemas"]["RunJournalSummary"] | null;
         };
         /**
          * LapDisplayRow
@@ -4821,6 +4878,26 @@ export interface components {
              * @default []
              */
             lap_display: components["schemas"]["LapDisplayRow"][];
+        };
+        /** RunJournalSummary */
+        RunJournalSummary: {
+            /** Purpose */
+            purpose: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
+            /** Takeaway */
+            takeaway: string;
+            /** Decision Relevant Uncertainties */
+            decision_relevant_uncertainties: string[];
+            /** Follow Up Triggers */
+            follow_up_triggers: string[];
+            /** Comparison Tags */
+            comparison_tags: string[];
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
         };
         /**
          * RunListItem
@@ -7964,6 +8041,37 @@ export interface operations {
         };
     };
     post_review_retry_api_coach_reviews__review_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_review_regenerate_api_coach_reviews__review_id__regenerate_post: {
         parameters: {
             query?: never;
             header?: never;
