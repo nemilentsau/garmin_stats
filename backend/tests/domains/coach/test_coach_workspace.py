@@ -7,12 +7,14 @@ from pathlib import Path
 
 import pytest
 
+from app.domains.coach.application.memory import render_run_journal
 from app.domains.coach.contracts import (
     ArtifactRef,
     BriefVersion,
     CoachMessage,
     CoachReview,
     JournalEntry,
+    RunJournalSummary,
 )
 from app.domains.garmin_analytics.contracts import (
     DashboardOverviewResponse,
@@ -49,10 +51,26 @@ class FakeCoachRepository:
         self.brief: BriefVersion | None = None
         self.reviews: dict[str, CoachReview] = {}
 
-    def list_journal(self, *, limit: int | None = None) -> list[JournalEntry]:
-        return self.journal if limit is None else self.journal[-limit:]
+    def list_journal(
+        self,
+        *,
+        limit: int | None = None,
+        policy_version: int | None = None,
+    ) -> list[JournalEntry]:
+        entries = self.journal
+        if policy_version is not None:
+            entries = [
+                entry for entry in entries if entry.policy_version == policy_version
+            ]
+        return entries if limit is None else entries[-limit:]
 
-    def current_brief(self) -> BriefVersion | None:
+    def current_brief(
+        self, *, policy_version: int | None = None
+    ) -> BriefVersion | None:
+        if self.brief is None:
+            return None
+        if policy_version is not None and self.brief.policy_version != policy_version:
+            return None
         return self.brief
 
     def review(self, review_id: str) -> CoachReview | None:
@@ -217,6 +235,66 @@ def _assemble(tmp_path: Path, gateway: FakeCoachGateway, repo: FakeCoachReposito
     )
 
 
+def _journal(
+    entry_id: str,
+    *,
+    policy_version: int,
+    takeaway: str = "Maintenance purpose achieved",
+) -> JournalEntry:
+    summary = RunJournalSummary(
+        purpose="easy aerobic maintenance",
+        outcome="completed_as_intended",
+        takeaway=takeaway,
+        decision_relevant_uncertainties=[],
+        follow_up_triggers=[],
+        comparison_tags=["easy", "strides", "strap_hr"],
+        refs=[ArtifactRef(kind="run", value="run-00")],
+    )
+    return JournalEntry(
+        id=entry_id,
+        ts=NOW,
+        kind="review",
+        content_md=render_run_journal(summary),
+        refs=summary.refs,
+        source_id=f"review-{entry_id}",
+        policy_version=policy_version,
+        run_summary=summary,
+    )
+
+
+def test_workspace_excludes_legacy_memory_and_exports_active_v2_memory(
+    tmp_path, fake_plots
+):
+    repo = FakeCoachRepository()
+    repo.journal = [
+        _journal("legacy", policy_version=1, takeaway="Exact timing unresolved"),
+        _journal("current", policy_version=2),
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    recent = (Path(manifest.directory) / "journal/recent.md").read_text()
+
+    assert "Maintenance purpose achieved" in recent
+    assert "Exact timing unresolved" not in recent
+
+
+def test_older_journal_index_exposes_purpose_outcome_tags_and_refs(
+    tmp_path, fake_plots
+):
+    repo = FakeCoachRepository()
+    repo.journal = [
+        _journal(f"entry-{index}", policy_version=2) for index in range(12)
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    index = (Path(manifest.directory) / "journal/index.md").read_text()
+
+    assert "easy aerobic maintenance" in index
+    assert "completed as intended" in index
+    assert "easy,strides,strap_hr" in index
+    assert "run:run-00" in index
+
+
 def test_workspace_contains_twenty_run_digest_and_all_on_demand_files(tmp_path, fake_plots):
     manifest = _assemble(tmp_path, FakeCoachGateway(), FakeCoachRepository())
     root = Path(manifest.directory)
@@ -241,6 +319,7 @@ def test_twenty_run_boundary_and_referenced_older_run(tmp_path, fake_plots):
             content_md="Compare with the earliest run.",
             refs=[ArtifactRef(kind="run", value="run-00")],
             source_id="message-1",
+            policy_version=2,
         )
     ]
     manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
@@ -262,6 +341,7 @@ def test_recent_journal_is_full_archive_index_is_compact_and_semantic(tmp_path, 
             kind="chat",
             content_md=f"Semantic observation {index}. A second sentence with detail.",
             source_id=f"message-{index}",
+            policy_version=2,
         )
         for index in range(12)
     ]
@@ -395,6 +475,7 @@ def test_date_review_and_plot_refs_resolve_and_traversal_is_rejected(tmp_path, f
                 ArtifactRef(kind="plot", value="run-21-panel.png"),
             ],
             source_id="message-1",
+            policy_version=2,
         )
     ]
     manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
@@ -421,6 +502,7 @@ def test_historical_workspace_plot_ref_backfills_missing_shared_cache(tmp_path, 
             content_md="Retain the plot used by the prior review.",
             refs=[ArtifactRef(kind="plot", value="legacy-current-p01.png")],
             source_id="review-old",
+            policy_version=2,
         )
     ]
     workspaces = tmp_path / "workspaces"

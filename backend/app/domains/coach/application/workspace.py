@@ -9,6 +9,10 @@ from pathlib import Path
 
 from app.contracts.base import StrictDefaultsRequired
 from app.domains.coach.adapters import SqliteCoachRepository
+from app.domains.coach.application.memory import (
+    CURRENT_MEMORY_POLICY_VERSION,
+    active_journal_entries,
+)
 from app.domains.coach.contracts import ArtifactRef, CoachMessage, JournalEntry
 from app.domains.coach.domain.context import (
     HistoricalRunContext,
@@ -126,6 +130,21 @@ def _journal_markdown(entry: JournalEntry) -> str:
     )
 
 
+def _journal_index_line(entry: JournalEntry) -> str:
+    summary = entry.run_summary
+    if summary is None:
+        return (
+            f"- {entry.ts} | {entry.kind} | {entry.id} | "
+            f"{_first_sentence(entry.content_md)}"
+        )
+    tags = ",".join(summary.comparison_tags) or "none"
+    refs = ",".join(f"{ref.kind}:{ref.value}" for ref in summary.refs) or "none"
+    return (
+        f"- {entry.ts} | {entry.id} | {summary.purpose} | "
+        f"{summary.outcome.replace('_', ' ')} | tags={tags} | refs={refs}"
+    )
+
+
 def _export_journal(
     directory: Path, entries: list[JournalEntry], *, recent_limit: int
 ) -> None:
@@ -141,10 +160,7 @@ def _export_journal(
     )
     index_lines = ["# Older coach journal index", ""]
     if older:
-        index_lines.extend(
-            f"- {entry.ts} | {entry.kind} | {entry.id} | {_first_sentence(entry.content_md)}"
-            for entry in older
-        )
+        index_lines.extend(_journal_index_line(entry) for entry in older)
     else:
         index_lines.append("No older coach journal entries.")
     _write(directory / "journal/recent.md", recent_text + "\n")
@@ -328,7 +344,7 @@ def assemble_workspace(
             shutil.rmtree(path)
 
     _write(directory / "evidence-capabilities.md", capabilities_markdown())
-    brief = repo.current_brief()
+    brief = repo.current_brief(policy_version=CURRENT_MEMORY_POLICY_VERSION)
     _write(
         directory / "brief.md",
         (
@@ -337,7 +353,9 @@ def assemble_workspace(
             else "No durable coach brief yet; this is a first-use context.\n"
         ),
     )
-    journal = repo.list_journal()
+    journal = active_journal_entries(
+        repo.list_journal(policy_version=CURRENT_MEMORY_POLICY_VERSION)
+    )
     _export_journal(directory, journal, recent_limit=recent_journal_limit)
     _write(directory / "plan.md", _plan_markdown(gateway, target_date))
     _write(directory / "recovery.md", _recovery_markdown(gateway.recovery_overview()))
