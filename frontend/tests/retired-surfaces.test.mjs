@@ -2,15 +2,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('legacy routine runtime excludes retired v2 training renderers', () => {
-	const dispatcher = readFileSync('src/lib/routines/cards/CardBody.svelte', 'utf8');
-
-	assert.equal(dispatcher.includes('RunningWorkoutCard'), false);
-	assert.equal(dispatcher.includes('StrengthSessionCard'), false);
-	assert.equal(existsSync('src/lib/routines/cards/RunningWorkoutCard.svelte'), false);
-	assert.equal(existsSync('src/lib/routines/cards/StrengthSessionCard.svelte'), false);
-});
-
 test('unreferenced frontend scaffolding and helpers stay removed', () => {
 	const format = readFileSync('src/lib/format.ts', 'utf8');
 	const utils = readFileSync('src/lib/utils.ts', 'utf8');
@@ -53,5 +44,30 @@ test('API client exposes only methods used by the shipped frontend', () => {
 
 	for (const method of retiredMethods) {
 		assert.equal(source.includes(`${method}:`), false, method);
+	}
+});
+
+test('v2 routine and artifact frontend surfaces stay retired', () => {
+	const api = readFileSync('src/lib/api.ts', 'utf8');
+	const layout = readFileSync('src/routes/+layout.svelte', 'utf8');
+	const today = readFileSync('src/routes/today/+page.svelte', 'utf8');
+
+	assert.equal(existsSync('src/lib/routines'), false);
+	assert.equal(existsSync('src/routes/routines'), false);
+	assert.equal(existsSync('src/routes/training/schedule/+page.svelte'), true);
+	assert.equal(layout.includes("href: '/training/schedule'"), true);
+	assert.equal(layout.includes("href: '/routines"), false);
+	assert.equal(today.includes('routine-select'), false);
+
+	for (const retiredMethod of [
+		'getToday',
+		'updateTodayCard',
+		'getCardLogsRange',
+		'getRoutines',
+		'getRoutineScheduleWindow',
+		'previewAssistantArtifactBundle',
+		'importAssistantArtifactBundle'
+	]) {
+		assert.equal(api.includes(`${retiredMethod}:`), false, retiredMethod);
 	}
 });

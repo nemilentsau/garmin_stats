@@ -27,11 +27,66 @@ CREATE TABLE IF NOT EXISTS experiment_analyses (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_experiment_exposures_experiment_date
-    ON experiment_exposures (experiment_id, entry_date);
 """
+
+_AUTO_EXPOSURE_ID_PATTERN = "exposure:auto:%"
+_UNIQUE_EXPOSURE_INDEX = "uq_experiment_exposures_experiment_date"
+
+
+def _migrate_manual_exposures(con: sqlite3.Connection) -> None:
+    """Purge derived rows and enforce one manual exposure per experiment-day."""
+    con.execute(
+        """
+        WITH affected_experiments AS (
+            SELECT experiment_id
+            FROM experiment_exposures
+            WHERE id LIKE ?
+            UNION
+            SELECT experiment_id
+            FROM experiment_exposures
+            GROUP BY experiment_id, entry_date
+            HAVING COUNT(*) > 1
+        )
+        DELETE FROM experiment_analyses
+        WHERE experiment_id IN (SELECT experiment_id FROM affected_experiments)
+        """,
+        (_AUTO_EXPOSURE_ID_PATTERN,),
+    )
+    con.execute(
+        "DELETE FROM experiment_exposures WHERE id LIKE ?",
+        (_AUTO_EXPOSURE_ID_PATTERN,),
+    )
+    con.execute(
+        """
+        DELETE FROM experiment_exposures AS candidate
+        WHERE EXISTS (
+            SELECT 1
+            FROM experiment_exposures AS newer
+            WHERE newer.experiment_id = candidate.experiment_id
+              AND newer.entry_date = candidate.entry_date
+              AND (
+                  newer.updated_at > candidate.updated_at
+                  OR (
+                      newer.updated_at = candidate.updated_at
+                      AND newer.created_at > candidate.created_at
+                  )
+                  OR (
+                      newer.updated_at = candidate.updated_at
+                      AND newer.created_at = candidate.created_at
+                      AND newer.id > candidate.id
+                  )
+              )
+        )
+        """
+    )
+    con.execute("DROP INDEX IF EXISTS idx_experiment_exposures_experiment_date")
+    con.execute(
+        f"CREATE UNIQUE INDEX IF NOT EXISTS {_UNIQUE_EXPOSURE_INDEX} "
+        "ON experiment_exposures (experiment_id, entry_date)"
+    )
 
 
 def init_experiment_schema(con: sqlite3.Connection) -> None:
     """Create experiment-owned tables and indexes using a caller-managed connection."""
     con.executescript(_SCHEMA)
+    _migrate_manual_exposures(con)

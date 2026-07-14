@@ -37,7 +37,7 @@ After the state signals exist, add progress lanes for the active state vector an
 
 ### 5. Calmness remains gated
 
-Do not redesign meditation/breathwork or make response claims until a morning-after calmness capture with an analysis contract exists. The v2 routine/experiment path remains available for authored non-training bundles in the meantime.
+Do not add meditation/breathwork content or make response claims until a morning-after calmness capture with an analysis contract exists. Any future implementation must enter through the current authored import contracts rather than reviving a parallel runtime.
 
 ## Standing rules
 

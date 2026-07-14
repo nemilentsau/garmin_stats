@@ -1,7 +1,7 @@
 """Experiment adherence summaries derived from exposure rows.
 
 Adherence is calculated at experiment-day grain from exposure records, not from
-individual routine cards. Missing days remain explicit as unknown calendar
+individual activity records. Missing days remain explicit as unknown calendar
 entries so the UI can distinguish no exposure from no scheduled treatment.
 """
 

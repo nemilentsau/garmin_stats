@@ -64,12 +64,9 @@ test('Today page uses one feed action path and one shared row component', () => 
 	assert.equal(source.includes('TodayActivityRow'), true);
 });
 
-test('routine and training tissue check-ins share one row component', () => {
-	const routineSource = readFileSync('src/lib/routines/cards/ChecklistCard.svelte', 'utf8');
+test('training tissue check-ins use the shared row component', () => {
 	const trainingSource = readFileSync('src/lib/training/TrainingCheckinGrid.svelte', 'utf8');
 
-	for (const source of [routineSource, trainingSource]) {
-		assert.equal(source.includes('TissueCheckRow'), true);
-		assert.equal(source.includes('class="scale-chips"'), false);
-	}
+	assert.equal(trainingSource.includes('TissueCheckRow'), true);
+	assert.equal(trainingSource.includes('class="scale-chips"'), false);
 });

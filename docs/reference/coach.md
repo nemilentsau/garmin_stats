@@ -238,6 +238,5 @@ separately, falls back to the legacy verdict when needed, and labels a preserved
 as previous while regeneration is queued or generating. `/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
 
-The `/api/assistant/artifacts*` prefix remains for compatibility, but those routes belong
-to the independent `artifacts` domain. There is no assistant chat domain, route, UI, or
-data model.
+There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
+only model-backed product surface.

@@ -47,10 +47,6 @@ Reference docs explain the durable contract and ownership of a shipped feature. 
 
 This folder is intentionally small. Analysis wish lists, shipped behavior, and superseded designs do not belong here.
 
-## `routine_bundles/` — supported v2 non-training content
-
-[`ROUTINE_ARTIFACT_BUNDLE_SPEC.md`](routine_bundles/ROUTINE_ARTIFACT_BUNDLE_SPEC.md) defines the supported v2 routine import format for meditation, breathwork, and checklists. The checked-in JSON files are authored content and test fixtures, not generated history. Experiment definitions use a separate import contract, and training content never uses this path.
-
 ## `findings/` — published analysis presentation
 
 The HTML pages and their referenced assets are the current human-facing findings presentation. The durable evidence record and open analytical questions live in `FINDINGS.md`.

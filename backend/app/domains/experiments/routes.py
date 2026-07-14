@@ -60,7 +60,6 @@ def post_preview(experiment: Experiment):
         container.experiments_repo,
         container.experiments_read_source,
         experiment,
-        routine_repo=container.routines_repo,
     )
 
 
@@ -73,7 +72,6 @@ def post_import(experiment: Experiment):
             container.experiments_repo,
             container.experiments_read_source,
             experiment,
-            routine_repo=container.routines_repo,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -147,7 +145,7 @@ def get_analysis(experiment_id: str):
 
 @experiments_router.get("/{experiment_id}/exposures", response_model=list[ExperimentExposure])
 def get_exposures(experiment_id: str):
-    """Return manual and derived exposure rows for one experiment."""
+    """Return recorded exposure rows for one experiment."""
     return list_experiment_exposures(build_container().experiments_repo, experiment_id)
 
 

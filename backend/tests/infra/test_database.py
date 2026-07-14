@@ -1,6 +1,5 @@
 """Tests for SQLite storage initialization and shared JSON persistence behavior."""
 
-import app.domains.routines.adapters as routine_db
 import app.infra.sqlite as sqlite
 from app.core.profile.adapters import SqliteProfileRepository
 from app.core.profile.contracts import UserProfile
@@ -13,15 +12,6 @@ from app.domains.garmin_health.contracts import (
     DailySkinTempStats,
     DailySleepStats,
 )
-from app.domains.routines.contracts import (
-    CardLog,
-    CardOverride,
-    CardTemplate,
-    MeditationTimerPayload,
-    RoutineAssignment,
-    RoutineSchedule,
-)
-from tests._routines_helpers import persist_card_override
 
 # ---------------------------------------------------------------------------
 # init & schema
@@ -37,12 +27,9 @@ class TestInit:
         assert "daily_metrics" in tables
         assert "ingest_meta" in tables
         assert "user_profile" in tables
-        assert "assistant_artifacts" in tables
-        assert "card_templates" in tables
-        assert "routine_schedules" in tables
-        assert "routine_assignments" in tables
-        assert "card_logs" in tables
-        assert "card_overrides" in tables
+        assert "training_blocks" in tables
+        assert "training_bundles" in tables
+        assert "training_card_logs" in tables
 
     def test_enables_wal_journal_mode(self, tmp_db):
         with sqlite.connect() as con:
@@ -70,14 +57,12 @@ class TestInit:
             "wellness_data",
             "ingest_meta",
             "user_profile",
-            "routine_assignments",
             "experiment_exposures",
-            "assistant_artifacts",
             "daily_checkins",
         }.issubset(tables)
         assert "program_versions" not in tables
 
-    def test_bootstrap_storage_removes_retired_program_tables_from_existing_database(
+    def test_bootstrap_storage_removes_retired_product_tables_from_existing_database(
         self,
         tmp_path,
         monkeypatch,
@@ -87,8 +72,8 @@ class TestInit:
         test_db = tmp_path / "upgraded-storage.db"
         monkeypatch.setattr(sqlite, "DB_PATH", test_db)
         with sqlite.connect() as con:
-            con.execute("CREATE TABLE programs (id TEXT PRIMARY KEY)")
-            con.execute("CREATE TABLE program_versions (id TEXT PRIMARY KEY)")
+            for table in storage_schema._RETIRED_TABLES:
+                con.execute(f'CREATE TABLE "{table}" (id TEXT PRIMARY KEY)')
 
         storage_schema.init_storage()
         storage_schema.init_storage()
@@ -100,8 +85,97 @@ class TestInit:
                     "SELECT name FROM sqlite_master WHERE type='table'"
                 ).fetchall()
             }
-        assert "programs" not in tables
-        assert "program_versions" not in tables
+        assert set(storage_schema._RETIRED_TABLES).isdisjoint(tables)
+
+    def test_bootstrap_storage_retires_derived_exposures_and_deduplicates_manual_days(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "exposure-upgrade.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+        with sqlite.connect() as con:
+            con.executescript(
+                """
+                CREATE TABLE experiment_exposures (
+                    id TEXT PRIMARY KEY,
+                    experiment_id TEXT NOT NULL,
+                    entry_date TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE experiment_analyses (
+                    experiment_id TEXT PRIMARY KEY,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
+            con.executemany(
+                "INSERT INTO experiment_exposures VALUES (?, ?, ?, '{}', ?, ?)",
+                [
+                    (
+                        "exposure:auto:auto-exp:2026-01-01",
+                        "auto-exp",
+                        "2026-01-01",
+                        "2026-01-01T00:00:00Z",
+                        "2026-01-01T00:00:00Z",
+                    ),
+                    (
+                        "manual-old",
+                        "manual-exp",
+                        "2026-01-02",
+                        "2026-01-02T00:00:00Z",
+                        "2026-01-02T01:00:00Z",
+                    ),
+                    (
+                        "manual-new",
+                        "manual-exp",
+                        "2026-01-02",
+                        "2026-01-02T00:00:00Z",
+                        "2026-01-02T02:00:00Z",
+                    ),
+                ],
+            )
+            con.executemany(
+                "INSERT INTO experiment_analyses VALUES (?, '{}', ?, ?)",
+                [
+                    ("auto-exp", "2026-01-03T00:00:00Z", "2026-01-03T00:00:00Z"),
+                    ("manual-exp", "2026-01-03T00:00:00Z", "2026-01-03T00:00:00Z"),
+                    ("untouched-exp", "2026-01-03T00:00:00Z", "2026-01-03T00:00:00Z"),
+                ],
+            )
+            con.commit()
+
+        storage_schema.init_storage()
+        storage_schema.init_storage()
+
+        with sqlite.connect() as con:
+            exposure_ids = [
+                row["id"]
+                for row in con.execute(
+                    "SELECT id FROM experiment_exposures ORDER BY id"
+                ).fetchall()
+            ]
+            analysis_ids = [
+                row["experiment_id"]
+                for row in con.execute(
+                    "SELECT experiment_id FROM experiment_analyses ORDER BY experiment_id"
+                ).fetchall()
+            ]
+            unique_indexes = [
+                row["name"]
+                for row in con.execute("PRAGMA index_list('experiment_exposures')")
+                if row["unique"] == 1
+            ]
+
+        assert exposure_ids == ["manual-new"]
+        assert analysis_ids == ["untouched-exp"]
+        assert "uq_experiment_exposures_experiment_date" in unique_indexes
 
 
 # ---------------------------------------------------------------------------
@@ -160,84 +234,3 @@ class TestStoreAndLoad:
         assert second is not None
         assert second["created_at"] == first["created_at"]
         assert second["updated_at"] >= first["updated_at"]
-
-    def test_routine_runtime_records_survive_round_trip(self):
-        card = CardTemplate(
-            id="card-1",
-            name="Open Monitoring",
-            slot_default="evening",
-            payload_json=MeditationTimerPayload(
-                duration_minutes=15,
-                technique="focused_attention",
-            ),
-        )
-        routine = RoutineSchedule(
-            id="routine-1",
-            name="Mindfulness",
-            start_date="2026-03-02",
-        )
-        assignment = RoutineAssignment(
-            id="assignment-1",
-            routine_id="routine-1",
-            card_template_id="card-1",
-            date="2026-03-02",
-            slot="evening",
-        )
-        log = CardLog(
-            id="log-1",
-            date="2026-03-02",
-            occurrence_key="scheduled:assignment-1:2026-03-02",
-            card_template_id="card-1",
-            assignment_id="assignment-1",
-            status="completed",
-        )
-        override = CardOverride(
-            id="override-1",
-            date="2026-03-02",
-            action="hide",
-            target_occurrence_key="scheduled:assignment-1:2026-03-02",
-        )
-
-        routine_db.save_card_template(card)
-        routine_db.save_routine_schedule_with_assignments(routine, [assignment])
-        routine_db.save_card_log(log)
-        persist_card_override(override)
-
-        assert [entry.id for entry in routine_db.load_card_templates()] == ["card-1"]
-        assert [entry.id for entry in routine_db.load_routine_schedules()] == ["routine-1"]
-        assert [entry.id for entry in routine_db.load_routine_assignments("routine-1")] == [
-            "assignment-1"
-        ]
-        assert [entry.id for entry in routine_db.load_card_logs("2026-03-02")] == ["log-1"]
-        assert [
-            entry.id
-            for entry in routine_db.load_card_overrides_range("2026-03-02", "2026-03-02")
-        ] == [
-            "override-1"
-        ]
-
-# ---------------------------------------------------------------------------
-# Period summary storage
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Card override range query (Task 3)
-# ---------------------------------------------------------------------------
-
-class TestCardOverridesRange:
-    def test_range_query_matches_individual_date_queries(self):
-        dates = ["2026-03-02", "2026-03-03", "2026-03-04"]
-        for i, date in enumerate(dates):
-            persist_card_override(CardOverride(
-                id=f"override-{i}",
-                date=date,
-                action="hide",
-                target_occurrence_key=f"key-{i}",
-            ))
-
-        range_result = routine_db.load_card_overrides_range("2026-03-02", "2026-03-04")
-        individual_results = []
-        for date in dates:
-            individual_results.extend(routine_db.load_card_overrides_range(date, date))
-
-        assert [o.id for o in range_result] == [o.id for o in individual_results]

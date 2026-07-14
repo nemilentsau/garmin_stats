@@ -9,14 +9,12 @@ from app.bootstrap.coach_measurement_port import CoachMeasurementAssessmentPort
 from app.bootstrap.run_activity_port import GarminRunActivityPort
 from app.core.config import AppConfig, get_app_config
 from app.core.profile.adapters import SqliteProfileRepository
-from app.domains.artifacts.adapters import SqliteArtifactRepository
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.application.handlers import CoachHandlers
 from app.domains.coach.application.jobs import CoachJobs
 from app.domains.coach.application.worker import CoachWorker
 from app.domains.coach.read_gateway import CoachReadGateway
 from app.domains.experiments.adapters import SqliteExperimentRepository
-from app.domains.experiments.application.exposure_sync import ExperimentExposureSyncService
 from app.domains.experiments.read_sources import ExperimentReadSource
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
@@ -26,7 +24,6 @@ from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.adapters import SqliteJournalRepository
-from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.realtime.events import event_bus
 
@@ -34,7 +31,6 @@ from app.realtime.events import event_bus
 @dataclass(frozen=True)
 class AppContainer:
     config: AppConfig
-    artifacts_repo: SqliteArtifactRepository
     coach_repo: SqliteCoachRepository
     coach_gateway: CoachReadGateway
     coach_jobs: CoachJobs
@@ -44,13 +40,11 @@ class AppContainer:
     garmin_runs_repo: SqliteRunsRepository
     journal_repo: SqliteJournalRepository
     profile_repo: SqliteProfileRepository
-    routines_repo: SqliteRoutineRepository
     training_repo: SqliteTrainingRepository
     training_run_activity_port: GarminRunActivityPort
     training_measurement_assessment_port: CoachMeasurementAssessmentPort
     experiments_repo: SqliteExperimentRepository
     experiments_read_source: ExperimentReadSource
-    experiment_exposure_sync: ExperimentExposureSyncService
     garmin_sync: GarminSyncDependencies
     garmin_sync_watcher: DataDirectoryWatcher
 
@@ -59,7 +53,6 @@ class AppContainer:
 def build_container() -> AppContainer:
     config = get_app_config()
     experiments_repo = SqliteExperimentRepository()
-    routines_repo = SqliteRoutineRepository()
     profile_repo = SqliteProfileRepository()
     garmin_biometrics_repo = SqliteBiometricRepository()
     garmin_runs_repo = SqliteRunsRepository()
@@ -102,7 +95,6 @@ def build_container() -> AppContainer:
     )
     return AppContainer(
         config=config,
-        artifacts_repo=SqliteArtifactRepository(),
         coach_repo=coach_repo,
         coach_gateway=coach_gateway,
         coach_jobs=coach_jobs,
@@ -112,17 +104,11 @@ def build_container() -> AppContainer:
         garmin_runs_repo=garmin_runs_repo,
         journal_repo=journal_repo,
         profile_repo=profile_repo,
-        routines_repo=routines_repo,
         training_repo=training_repo,
         training_run_activity_port=training_run_activity_port,
         training_measurement_assessment_port=training_measurement_assessment_port,
         experiments_repo=experiments_repo,
         experiments_read_source=experiments_read_source,
-        experiment_exposure_sync=ExperimentExposureSyncService(
-            experiments_repo,
-            experiments_read_source,
-            routines_repo,
-        ),
         garmin_sync=garmin_sync_infra.dependencies,
         garmin_sync_watcher=garmin_sync_infra.watcher,
     )

@@ -334,13 +334,11 @@
 						<div class="preview-dates">
 							{#if importSpec.design.baseline_start_date && importSpec.design.baseline_end_date}
 								<span>Baseline: {importSpec.design.baseline_start_date} to {importSpec.design.baseline_end_date}</span>
-							{:else if importSpec.design.baseline_duration_days}
-								<span>Baseline: {importSpec.design.baseline_duration_days} days before routine start</span>
 							{/if}
 							{#if importSpec.design.treatment_start_date}
 								<span>Treatment: {importSpec.design.treatment_start_date}{importSpec.design.treatment_end_date ? ` to ${importSpec.design.treatment_end_date}` : ' (ongoing)'}</span>
 							{:else}
-								<span>Treatment: starts with linked routine</span>
+								<span>Treatment: explicit dates required</span>
 							{/if}
 						</div>
 					{/if}

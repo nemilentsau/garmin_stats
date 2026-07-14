@@ -56,15 +56,6 @@ export type MetricAnalysis = Schemas['MetricAnalysis'];
 export type MetricLagResult = Schemas['MetricLagResult'];
 export type ConfounderCheck = Schemas['ConfounderCheck'];
 export type AdherenceDayEntry = Schemas['AdherenceDayEntry'];
-export type ArtifactBundleSpec = Schemas['ArtifactBundleSpec'];
-export type ArtifactBundlePreviewResponse = Schemas['ArtifactBundlePreviewResponse'];
-export type ArtifactBundleImportResponse = Schemas['ArtifactBundleImportResponse'];
-export type RoutineSchedule = Schemas['RoutineSchedule'];
-export type ScheduleOccurrence = Schemas['ScheduleOccurrence'];
-export type ScheduleWindow = Schemas['ScheduleWindow'];
-export type TodayCard = Schemas['TodayCard'];
-export type TodayCardLogUpdate = Schemas['TodayCardLogUpdateRequest'];
-export type TodayResponse = Schemas['TodayResponse'];
 export type ImportRequest = Schemas['ImportRequest'];
 export type ImportResult = Schemas['ImportResult'];
 export type TrainingBlockStatus = Schemas['TrainingBlockStatus'];
@@ -186,32 +177,6 @@ export const api = {
 	getBodyBatteryAnalysis: async () => {
 		return unwrapResponse(client.GET('/api/body-battery/analysis'));
 	},
-	getRoutines: async (status?: string) => {
-		return unwrapResponse(client.GET('/api/routines', {
-			params: { query: status ? { status } : {} }
-		}));
-	},
-	getRoutineScheduleWindow: async (startDate: string) => {
-		return unwrapResponse(client.GET('/api/routines/schedule-window', {
-			params: { query: { start_date: startDate } }
-		}));
-	},
-	getToday: async (date: string) => {
-		return unwrapResponse(client.GET('/api/today', {
-			params: { query: { date } }
-		}));
-	},
-	updateTodayCard: async (date: string, occurrenceKey: string, payload: TodayCardLogUpdate) => {
-		return unwrapResponse(client.PUT('/api/today/{date}/cards/{occurrence_key}', {
-			params: { path: { date, occurrence_key: occurrenceKey } },
-			body: payload
-		}));
-	},
-	getCardLogsRange: async (startDate: string, endDate: string) => {
-		return unwrapResponse(client.GET('/api/today/card-logs', {
-			params: { query: { start_date: startDate, end_date: endDate } }
-		}));
-	},
 	getExperiments: async () => {
 		return unwrapResponse(client.GET('/api/experiments'));
 	},
@@ -225,16 +190,6 @@ export const api = {
 	},
 	importExperiment: async (experiment: ExperimentInput) => {
 		return unwrapResponse(client.POST('/api/experiments/import', { body: experiment }));
-	},
-	previewAssistantArtifactBundle: async (bundle: ArtifactBundleSpec) => {
-		return unwrapResponse(client.POST('/api/assistant/artifact-bundles/preview', {
-			body: bundle
-		}));
-	},
-	importAssistantArtifactBundle: async (bundle: ArtifactBundleSpec) => {
-		return unwrapResponse(client.POST('/api/assistant/artifact-bundles/import', {
-			body: bundle
-		}));
 	},
 	importTraining: async (body: ImportRequest) => {
 		return unwrapResponse(client.POST('/api/training/import', { body }));

@@ -13,7 +13,6 @@ def test_experiment_family_survives_adapter_round_trip():
     experiment = Experiment(
         id="exp-1",
         name="Evening meditation",
-        linked_routine_ids=["routine-1"],
         outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
     )
     exposure = ExperimentExposure(
@@ -40,7 +39,6 @@ def test_list_experiments_filters_by_statuses():
             id="draft-exp",
             name="Draft meditation",
             status="draft",
-            linked_routine_ids=["routine-1"],
             outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
         )
     )
@@ -49,7 +47,6 @@ def test_list_experiments_filters_by_statuses():
             id="active-exp",
             name="Active meditation",
             status="active",
-            linked_routine_ids=["routine-1"],
             outcome_metrics=[OutcomeMetric(path="hrv_nightly")],
         )
     )
@@ -57,3 +54,31 @@ def test_list_experiments_filters_by_statuses():
     experiments = repo.list_experiments(statuses=("active",))
 
     assert [item.id for item in experiments] == ["active-exp"]
+
+
+def test_saving_exposure_replaces_existing_record_for_experiment_date():
+    repo = SqliteExperimentRepository()
+    repo.save_experiment_exposure(
+        ExperimentExposure(
+            id="first-record",
+            experiment_id="exp-1",
+            date="2026-01-15",
+            exposure_score=0.5,
+            adherence_state="partial",
+        )
+    )
+    repo.save_experiment_exposure(
+        ExperimentExposure(
+            id="corrected-record",
+            experiment_id="exp-1",
+            date="2026-01-15",
+            exposure_score=1.0,
+            adherence_state="full",
+        )
+    )
+
+    exposures = repo.list_experiment_exposures(experiment_id="exp-1")
+
+    assert [(item.id, item.adherence_state) for item in exposures] == [
+        ("corrected-record", "full")
+    ]

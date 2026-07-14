@@ -2,7 +2,7 @@
 
 **Status:** shipped as schema version `3.0`.
 
-This document is the semantic authoring contract. The executable wire models live in `backend/app/domains/training/contracts.py`, the L1-L12 activation policy lives in `backend/app/domains/training/application/validation.py`, and imported JSON is stored verbatim. The app adapts to authored v3 artifacts; artifacts are never translated into the legacy routine format.
+This document is the semantic authoring contract. The executable wire models live in `backend/app/domains/training/contracts.py`, the L1-L12 activation policy lives in `backend/app/domains/training/application/validation.py`, and imported JSON is stored verbatim. The app adapts directly to authored v3 artifacts; uploaded content is never translated into another runtime format.
 
 The governing behavior is in [`general_principles.md`](general_principles.md). Current implementation gaps belong in [`pivot_roadmap.md`](pivot_roadmap.md), not in this schema reference.
 

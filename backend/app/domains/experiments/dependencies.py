@@ -54,12 +54,11 @@ class ExperimentRepository(Protocol):
 
     def save_experiment_exposure(self, exposure: ExperimentExposure) -> None: ...
 
-    def replace_experiment_exposure_for_date(
-        self,
-        experiment_id: str,
-        date: str,
-        exposure: ExperimentExposure | None,
-    ) -> None: ...
+
+class ExperimentPreviewRepository(Protocol):
+    """Minimal persistence port needed to detect duplicate imports."""
+
+    def experiment_exists(self, experiment_id: str) -> bool: ...
 
 
 class ExperimentPreviewReadSource(Protocol):

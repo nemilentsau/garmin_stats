@@ -120,7 +120,7 @@ class SqliteExperimentRepository:
         )
 
     def save_experiment_exposure(self, exposure: ExperimentExposure) -> None:
-        """Persist one manual or derived experiment-day exposure row."""
+        """Upsert the single manual exposure for one experiment-day."""
         _STORE.save(
             "experiment_exposures",
             exposure.id,
@@ -130,47 +130,3 @@ class SqliteExperimentRepository:
                 "entry_date": exposure.date,
             },
         )
-
-    def replace_experiment_exposure_for_date(
-        self,
-        experiment_id: str,
-        date: str,
-        exposure: ExperimentExposure | None,
-    ) -> None:
-        """Replace the derived exposure row for one experiment-day.
-
-        Manual same-day exposure rows are preserved and take precedence over any
-        derived exposure the sync service would otherwise write. The caller must
-        pass either None or the canonical auto-id exposure for the target date.
-        """
-        auto_id = ExperimentExposure.auto_id(experiment_id, date)
-        if exposure is not None and (
-            exposure.experiment_id != experiment_id
-            or exposure.date != date
-            or exposure.id != auto_id
-        ):
-            raise ValueError("Exposure does not match experiment_id/date replacement target")
-
-        with connect() as con, con:
-            manual_exists = con.execute(
-                """
-                SELECT 1
-                FROM experiment_exposures
-                WHERE experiment_id = ? AND entry_date = ? AND id != ?
-                LIMIT 1
-                """,
-                (experiment_id, date, auto_id),
-            ).fetchone() is not None
-            con.execute("DELETE FROM experiment_exposures WHERE id = ?", (auto_id,))
-            if exposure is None or manual_exists:
-                return
-            _STORE.save_in_connection(
-                con,
-                "experiment_exposures",
-                exposure.id,
-                exposure.model_dump_json(),
-                extra_columns={
-                    "experiment_id": exposure.experiment_id,
-                    "entry_date": exposure.date,
-                },
-            )

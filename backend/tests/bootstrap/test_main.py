@@ -104,14 +104,14 @@ class TestExceptionHandlers:
 
     def test_value_error_returns_400(self, monkeypatch):
         monkeypatch.setattr(
-            "app.domains.routines.routes.get_schedule_window",
+            "app.domains.training.routes.get_training_schedule_window",
             lambda *_args, **_kwargs: (
                 _ for _ in ()
             ).throw(ValueError("duration_days must be > 0")),
         )
 
         status, _headers, body = asyncio.run(
-            _asgi_request("/api/routines/schedule-window?start_date=2026-03-02")
+            _asgi_request("/api/training/schedule-window?start=2026-03-02&days=0")
         )
 
         assert status == 400

@@ -40,15 +40,15 @@ test('api client uses a shared unwrap helper instead of per-method boilerplate',
 	assert.doesNotMatch(source, /const \{ data, error \} = await client\.(GET|POST|PUT)/);
 });
 
-test('routine surfaces share card payload helpers', () => {
+test('training boards share training display helpers', () => {
 	const todaySource = readFileSync(join('src/routes', 'today', '+page.svelte'), 'utf8');
 	const scheduleSource = readFileSync(
-		join('src/routes', 'routines', 'schedule', '+page.svelte'),
+		join('src/routes', 'training', 'schedule', '+page.svelte'),
 		'utf8'
 	);
 
 	for (const source of [todaySource, scheduleSource]) {
-		assert.match(source, /\$lib\/routines\/card-payloads/);
+		assert.match(source, /\$lib\/training\/training-display/);
 		assert.doesNotMatch(source, /type TimerPayload/);
 		assert.doesNotMatch(source, /type ChecklistPayload/);
 		assert.doesNotMatch(source, /type ExercisePayload/);
@@ -60,11 +60,11 @@ test('routine surfaces share card payload helpers', () => {
 	assert.doesNotMatch(todaySource, /const slotAccent/);
 	assert.doesNotMatch(todaySource, /const rendererIcon/);
 	assert.doesNotMatch(todaySource, /const rendererLabel/);
-	assert.doesNotMatch(todaySource, /function cardBrief/);
+	assert.doesNotMatch(todaySource, /function trainingCardBrief/);
 	assert.doesNotMatch(scheduleSource, /const SLOT_ORDER/);
 	assert.doesNotMatch(scheduleSource, /const SLOT_LABELS/);
 	assert.doesNotMatch(scheduleSource, /const SLOT_ACCENTS/);
 	assert.doesNotMatch(scheduleSource, /const SLOT_INDEX/);
 	assert.doesNotMatch(scheduleSource, /const RENDERER_ICONS/);
-	assert.doesNotMatch(scheduleSource, /function cardBrief/);
+	assert.doesNotMatch(scheduleSource, /function trainingCardBrief/);
 });
