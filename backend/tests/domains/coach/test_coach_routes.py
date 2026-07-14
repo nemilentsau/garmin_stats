@@ -12,6 +12,12 @@ import app.domains.coach.routes as routes
 from app.bootstrap.app import create_app
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.application.jobs import CoachJobs
+from app.domains.coach.contracts import (
+    ArtifactRef,
+    BriefUpdate,
+    ReviewOutput,
+    RunJournalSummary,
+)
 from app.domains.coach.read_gateway import CoachReadGateway
 from app.domains.training.contracts import TrainingTodayResponse
 
@@ -27,6 +33,41 @@ class FakeGateway:
 
     def training_today(self, target: str) -> TrainingTodayResponse:
         return TrainingTodayResponse(date=target, cards=[])
+
+
+def _complete_review(repo: SqliteCoachRepository):
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-complete", date="2026-07-12", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    repo.mark_review_generating(review.id, updated_at="2026-07-12T12:00:00Z")
+    run_ref = ArtifactRef(kind="run", value="run-complete")
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=ReviewOutput(
+            outcome="completed_as_intended",
+            confidence="high",
+            review_md="Purpose achieved.",
+            follow_up_questions=[],
+            history_used=[],
+            plots_viewed=[],
+            refs=[run_ref],
+            journal=RunJournalSummary(
+                purpose="Easy aerobic maintenance",
+                outcome="completed_as_intended",
+                takeaway="Purpose achieved.",
+                decision_relevant_uncertainties=[],
+                follow_up_triggers=[],
+                comparison_tags=["easy"],
+                refs=[run_ref],
+            ),
+            brief_update=BriefUpdate(action="keep", content_md=None),
+        ),
+        finished_at="2026-07-12T12:01:00Z",
+    )
+    return review, job
 
 
 @pytest.fixture
@@ -87,6 +128,24 @@ def test_failed_review_retry_and_conflict_for_nonfailed(coach_client):
     assert retried.status_code == 202
     assert retried.json()["id"] == claimed.id
     assert retried.json()["status"] == "queued"
+
+
+def test_complete_review_regenerates_and_noncomplete_conflicts(coach_client):
+    client, repo = coach_client
+    review, job = _complete_review(repo)
+    queued = client.post("/api/coach/reviews/run", json={"run_id": "run-queued"}).json()
+    assert (
+        client.post(
+            f"/api/coach/reviews/{queued['review']['id']}/regenerate"
+        ).status_code
+        == 409
+    )
+    regenerated = client.post(f"/api/coach/reviews/{review.id}/regenerate")
+
+    assert regenerated.status_code == 202
+    assert regenerated.json()["id"] == job.id
+    assert regenerated.json()["status"] == "queued"
+    assert regenerated.json()["attempt_count"] == 1
 
 
 def test_thread_message_listing_close_and_closed_conflicts(coach_client):

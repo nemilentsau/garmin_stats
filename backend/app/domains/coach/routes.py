@@ -7,6 +7,10 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.bootstrap.container import build_container
+from app.domains.coach.application.memory import (
+    CURRENT_MEMORY_POLICY_VERSION,
+    active_journal_entries,
+)
 from app.domains.coach.contracts import (
     CoachBriefResponse,
     CoachEnqueueResponse,
@@ -90,6 +94,24 @@ def post_review_retry(review_id: str) -> CoachJob:
     return container.coach_jobs.retry_job(review.job_id)
 
 
+@router.post(
+    "/reviews/{review_id}/regenerate",
+    response_model=CoachJob,
+    status_code=202,
+)
+def post_review_regenerate(review_id: str) -> CoachJob:
+    container = build_container()
+    review = container.coach_repo.review(review_id)
+    if review is None:
+        raise LookupError(f"Unknown coach review: {review_id}")
+    if review.status != "complete":
+        raise HTTPException(
+            status_code=409,
+            detail="Only complete reviews can be regenerated",
+        )
+    return container.coach_jobs.regenerate_review(review_id)
+
+
 @router.get("/threads", response_model=CoachThreadsResponse)
 def get_threads() -> CoachThreadsResponse:
     return CoachThreadsResponse(threads=build_container().coach_repo.list_threads())
@@ -155,9 +177,16 @@ def get_job(job_id: str) -> CoachJob:
 
 @router.get("/brief", response_model=CoachBriefResponse)
 def get_brief() -> CoachBriefResponse:
-    return CoachBriefResponse(brief=build_container().coach_repo.current_brief())
+    brief = build_container().coach_repo.current_brief(
+        policy_version=CURRENT_MEMORY_POLICY_VERSION
+    )
+    return CoachBriefResponse(brief=brief)
 
 
 @router.get("/journal", response_model=CoachJournalResponse)
 def get_journal(limit: int = Query(30, ge=1, le=200)) -> CoachJournalResponse:
-    return CoachJournalResponse(entries=build_container().coach_repo.list_journal(limit=limit))
+    entries = build_container().coach_repo.list_journal(
+        limit=limit,
+        policy_version=CURRENT_MEMORY_POLICY_VERSION,
+    )
+    return CoachJournalResponse(entries=active_journal_entries(entries))

@@ -28,6 +28,7 @@ from app.domains.coach.contracts import (
 )
 from app.domains.coach.application.memory import (
     CURRENT_MEMORY_POLICY_VERSION,
+    active_journal_entries,
     render_run_journal,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
@@ -408,6 +409,18 @@ class SqliteCoachRepository:
                 }
             )
             _save_review(connection, completed_review)
+            prior_rows = connection.execute(
+                """
+                SELECT data FROM coach_journal
+                WHERE json_extract(data, '$.source_id') = ?
+                  AND COALESCE(json_extract(data, '$.policy_version'), 1) = ?
+                ORDER BY ts, id
+                """,
+                (review_id, CURRENT_MEMORY_POLICY_VERSION),
+            ).fetchall()
+            prior_entries = active_journal_entries(
+                [_model_from_row(JournalEntry, row) for row in prior_rows]
+            )
             self._insert_journal_output(
                 connection,
                 content_md=render_run_journal(output.journal),
@@ -417,6 +430,7 @@ class SqliteCoachRepository:
                 created_at=finished_at,
                 policy_version=CURRENT_MEMORY_POLICY_VERSION,
                 run_summary=output.journal,
+                supersedes_id=(prior_entries[-1].id if prior_entries else None),
             )
             if output.brief_update.action == "replace":
                 self._insert_brief_output(
@@ -889,6 +903,45 @@ class SqliteCoachRepository:
             self._update_associated_review(connection, retried, "queued", None)
             connection.commit()
         return retried
+
+    def regenerate_complete_review(
+        self, review_id: str, *, available_at: str
+    ) -> CoachJob:
+        """Requeue a completed review while preserving its attempt count and evidence."""
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(row)
+            job = self._job_in_connection(connection, review.job_id)
+            if review.status != "complete" or job.status != "complete":
+                raise ValueError("Only complete reviews can be regenerated")
+            queued = job.model_copy(
+                update={
+                    "status": "queued",
+                    "available_at": available_at,
+                    "started_at": None,
+                    "finished_at": None,
+                    "error": None,
+                    "updated_at": available_at,
+                }
+            )
+            _save_job(connection, queued)
+            _save_review(
+                connection,
+                review.model_copy(
+                    update={
+                        "status": "queued",
+                        "error": None,
+                        "updated_at": available_at,
+                    }
+                ),
+            )
+            connection.commit()
+        return queued
 
     def recover_stale_jobs(
         self,
