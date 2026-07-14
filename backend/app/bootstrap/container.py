@@ -26,7 +26,6 @@ from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.adapters import SqliteJournalRepository
-from app.domains.programs.adapters import SqliteProgramRepository
 from app.domains.routines.adapters import SqliteRoutineRepository
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.realtime.events import event_bus
@@ -45,7 +44,6 @@ class AppContainer:
     garmin_runs_repo: SqliteRunsRepository
     journal_repo: SqliteJournalRepository
     profile_repo: SqliteProfileRepository
-    programs_repo: SqliteProgramRepository
     routines_repo: SqliteRoutineRepository
     training_repo: SqliteTrainingRepository
     training_run_activity_port: GarminRunActivityPort
@@ -114,7 +112,6 @@ def build_container() -> AppContainer:
         garmin_runs_repo=garmin_runs_repo,
         journal_repo=journal_repo,
         profile_repo=profile_repo,
-        programs_repo=SqliteProgramRepository(),
         routines_repo=routines_repo,
         training_repo=training_repo,
         training_run_activity_port=training_run_activity_port,

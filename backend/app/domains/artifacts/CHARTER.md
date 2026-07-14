@@ -21,7 +21,6 @@ small-capability layout and delegates live routine activation writes to
 
 - Live routine schedule semantics after activation.
 - Experiment protocol semantics.
-- Program lifecycle semantics.
 - Assistant chat runtime.
 - Garmin data.
 
@@ -37,7 +36,6 @@ small-capability layout and delegates live routine activation writes to
 - Garmin sync.
 - Garmin analytics.
 - Journal.
-- Programs.
 - Experiments application internals.
 - Assistant runtime internals.
 - FastAPI from application modules.
@@ -70,8 +68,8 @@ Normal artifact flow:
 artifact -> activation -> live domain record`
 
 Activated cards/routines become live runtime data owned by `domains/routines`.
-Future experiment/program artifacts should enter through this domain, then
-delegate final writes to `domains/experiments` or `domains/programs`.
+Future experiment artifacts should enter through this domain, then delegate
+final writes to `domains/experiments`.
 
 ## Verified against code (2026-07-10)
 
@@ -83,7 +81,7 @@ boundaries all hold:
   (`routines.dependencies.RoutineRepository`,
   `routines.application.activation.compile_routine_activation`,
   `routines.contracts`), matching the allowlisted routine activation exception.
-- No imports of Garmin sync/analytics, journal, programs, experiments, or
+- No imports of Garmin sync/analytics, journal, experiments, or
   assistant runtime were found. `adapters.py` imports `app.infra` SQLite/JSON
   store helpers (adapter layer, allowed); application modules import no FastAPI
   or SQLite helpers.

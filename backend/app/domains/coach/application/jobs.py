@@ -153,7 +153,7 @@ class CoachJobs:
             if day < today:
                 for card in self.gateway.training_today(day.isoformat()).cards:
                     if (
-                        card.bundle_id == "running.v3"
+                        card.is_running
                         and card.associated_activity is None
                         and not card.run_candidates
                         and card.status != "completed"

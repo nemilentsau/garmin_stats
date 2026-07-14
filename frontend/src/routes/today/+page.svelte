@@ -13,6 +13,15 @@
 	import { isIsoDateString, localDateIso } from '$lib/date';
 	import { cardBrief, domainThemeOf, slotAccent } from '$lib/routines/card-payloads';
 	import CardBody from '$lib/routines/cards/CardBody.svelte';
+	import {
+		deriveChecklistStatus,
+		effectiveStatus as resolveEffectiveStatus,
+		statusForVariant,
+		toggledCompletionStatus,
+		type CardStatus
+	} from '$lib/today-state';
+	import TodayActivityRow from '$lib/today/TodayActivityRow.svelte';
+	import TodayCardDetails from '$lib/today/TodayCardDetails.svelte';
 	import TrainingCardBody from '$lib/training/TrainingCardBody.svelte';
 	import { trainingCardBrief, trainingCardTheme } from '$lib/training/training-display';
 	import { errorMessage } from '$lib/utils';
@@ -27,6 +36,10 @@
 
 	type CardType = NonNullable<TodayResponse>['slots'][number]['cards'][number];
 	type CardActual = NonNullable<CardType['actual_json']>;
+	type FeedCard =
+		| { kind: 'routine'; card: CardType }
+		| { kind: 'training'; card: TrainingTodayCard };
+	type DetailValue = CardActual | TrainingCaptureLog | null;
 
 	/** Which feed's row is currently expanded — null when nothing is expanded. */
 	type ExpandedKind = 'routine' | 'training';
@@ -35,7 +48,7 @@
 	let detailNote = $state('');
 	/** Actual emitted by the active CardBody; stashed here for schedulePersistDetail. */
 	let stagedActual = $state<CardActual | null>(null);
-	/** Capture emitted by the active TrainingCardBody; stashed here for scheduleTrainingPersistDetail. */
+	/** Capture emitted by the active TrainingCardBody; stashed until the shared detail save runs. */
 	let stagedCapture = $state<TrainingCaptureLog | null>(null);
 	/** Selected value of the log panel's Variant control, seeded from card.variant_taken. */
 	let variantTaken = $state<string | null>(null);
@@ -70,11 +83,17 @@
 		[...new Set(allCards.map((c) => c.routine_name).filter(Boolean))].sort() as string[]
 	);
 
-	type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
-
 	/** Works for both legacy CardType and TrainingTodayCard — both carry occurrence_key + status. */
 	function effectiveStatus(card: { occurrence_key: string; status: CardStatus }): CardStatus {
-		return (localStatus[card.occurrence_key] ?? card.status) as CardStatus;
+		return resolveEffectiveStatus(card, localStatus);
+	}
+
+	function routineFeed(card: CardType): FeedCard {
+		return { kind: 'routine', card };
+	}
+
+	function trainingFeed(card: TrainingTodayCard): FeedCard {
+		return { kind: 'training', card };
 	}
 
 	function trainingCardsForSlot(slotName: string): TrainingTodayCard[] {
@@ -161,17 +180,15 @@
 		});
 	});
 
-	function initializeDetailState(card: CardType) {
-		detailNote = card.notes ?? '';
-		// Seed from the card's persisted actual so that a notes-only change persists the
-		// existing actual correctly (before CardBody has emitted its first onActual).
-		stagedActual = card.actual_json;
-		variantTaken = card.variant_taken;
+	function isExpanded(feed: FeedCard): boolean {
+		return expandedKind === feed.kind && expandedOccurrenceKey === feed.card.occurrence_key;
 	}
 
-	/** Return the payload's variant_options, or [] for payload types that don't carry any. */
-	function variantOptionsFor(card: CardType): string[] {
-		return 'variant_options' in card.payload_json ? (card.payload_json.variant_options ?? []) : [];
+	function variantOptionsFor(feed: FeedCard): string[] {
+		if (feed.kind === 'training') return feed.card.variant_options ?? [];
+		return 'variant_options' in feed.card.payload_json
+			? (feed.card.payload_json.variant_options ?? [])
+			: [];
 	}
 
 	/** item_id → kind lookup for a checklist card's items; {} for non-checklist payloads. */
@@ -188,45 +205,27 @@
 		return null;
 	}
 
-	function toggleDetails(card: CardType) {
+	function toggleDetails(feed: FeedCard) {
 		// Persist any pending edit for the previously expanded card BEFORE the
 		// shared staged state is re-seeded — otherwise the timer fires later and
 		// writes the newly expanded card's data onto the old card's log.
 		flushPendingPersist();
-		if (expandedKind === 'routine' && expandedOccurrenceKey === card.occurrence_key) {
+		if (isExpanded(feed)) {
 			expandedOccurrenceKey = null;
 			expandedKind = null;
 			return;
 		}
-		expandedOccurrenceKey = card.occurrence_key;
-		expandedKind = 'routine';
-		initializeDetailState(card);
-	}
-
-	function initializeTrainingDetailState(card: TrainingTodayCard) {
-		detailNote = card.notes ?? '';
-		// Seed from the card's persisted capture so that a notes-only change persists the
-		// existing capture correctly (before TrainingCardBody has emitted its first onCapture).
-		stagedCapture = card.capture;
-		variantTaken = card.variant_taken;
-	}
-
-	function trainingVariantOptionsFor(card: TrainingTodayCard): string[] {
-		return card.variant_options ?? [];
-	}
-
-	function toggleTrainingDetails(card: TrainingTodayCard) {
-		// Mirrors toggleDetails — see that function's comment for why the flush happens
-		// before the shared staged state is re-seeded.
-		flushPendingPersist();
-		if (expandedKind === 'training' && expandedOccurrenceKey === card.occurrence_key) {
-			expandedOccurrenceKey = null;
-			expandedKind = null;
-			return;
+		expandedOccurrenceKey = feed.card.occurrence_key;
+		expandedKind = feed.kind;
+		detailNote = feed.card.notes ?? '';
+		variantTaken = feed.card.variant_taken;
+		if (feed.kind === 'routine') {
+			stagedActual = feed.card.actual_json;
+			stagedCapture = null;
+		} else {
+			stagedCapture = feed.card.capture;
+			stagedActual = null;
 		}
-		expandedOccurrenceKey = card.occurrence_key;
-		expandedKind = 'training';
-		initializeTrainingDetailState(card);
 	}
 
 	/**
@@ -238,49 +237,8 @@
 	 * check-in rows + a habitual "core done" checkbox) only reaches 'completed' once every
 	 * item — of either kind — has an answer, not just the checkbox ones.
 	 */
-	function deriveStatusFromAnswers(
-		answers: { item_id: string; checked: boolean; scale: number | null }[],
-		itemKinds: Record<string, 'checkbox' | 'tissue_check'>
-	): CardStatus {
-		if (answers.length === 0) return 'pending';
-		const answered = answers.filter((a) =>
-			itemKinds[a.item_id] === 'tissue_check' ? a.scale !== null : a.checked
-		).length;
-		if (answered === answers.length) return 'completed';
-		if (answered > 0) return 'partial';
-		return 'pending';
-	}
-
-	const STATUS_RANK: Record<CardStatus, number> = {
-		pending: 0,
-		skipped: 0,
-		partial: 1,
-		completed: 2
-	};
-
-	type StrengthActual = Extract<CardActual, { card_type: 'strength_session' }>;
-
-	function setHasData(set: StrengthActual['exercises'][number]['sets'][number]): boolean {
-		return set.weight != null || set.reps != null || set.rir != null;
-	}
-
-	/**
-	 * Derive completion from logged strength sets: every prescribed exercise has
-	 * at least one set with data → completed; any data at all → partial.
-	 */
-	function deriveStatusFromStrength(actual: StrengthActual, prescribedCount: number): CardStatus {
-		const loggedPrescribed = new Set(
-			actual.exercises
-				.filter((ex) => !ex.is_extra && ex.exercise_id && ex.sets.some(setHasData))
-				.map((ex) => ex.exercise_id)
-		);
-		if (prescribedCount > 0 && loggedPrescribed.size >= prescribedCount) return 'completed';
-		if (actual.exercises.some((ex) => ex.sets.some(setHasData))) return 'partial';
-		return 'pending';
-	}
-
 	/** Fire-and-forget persist to backend. No data refresh. */
-	async function persistToBackend(
+	async function persistRoutineBackend(
 		card: CardType,
 		status: CardStatus,
 		actual_json?: CardActual | null,
@@ -305,16 +263,16 @@
 	}
 
 	/** Row checkbox toggle — instant local update + background persist. */
-	function toggleComplete(card: CardType) {
-		const current = effectiveStatus(card);
-		const newStatus = current === 'completed' ? 'pending' : 'completed';
+	function toggleComplete(feed: FeedCard) {
+		const card = feed.card;
+		const newStatus = toggledCompletionStatus(effectiveStatus(card));
 		localStatus[card.occurrence_key] = newStatus;
 		statusVersion++;
 
-		if (expandedOccurrenceKey === card.occurrence_key) {
+		if (isExpanded(feed)) {
 			// This explicit persist supersedes any pending debounced one for the card.
 			cancelPendingPersist(card.occurrence_key);
-			if (card.payload_json.card_type === 'checklist') {
+			if (feed.kind === 'routine' && feed.card.payload_json.card_type === 'checklist') {
 				// The row toggle is authoritative: sync every answer to match so the
 				// persisted status and checklist answers can't contradict each other.
 				// Build answers from the payload items — stagedActual is null until
@@ -329,7 +287,7 @@
 				const staged = stagedActual?.card_type === 'checklist' ? stagedActual : null;
 				stagedActual = {
 					card_type: 'checklist',
-					answers: (card.payload_json.items ?? []).map((item) => {
+					answers: (feed.card.payload_json.items ?? []).map((item) => {
 						const existing = staged?.answers.find((a) => a.item_id === item.id);
 						return {
 							item_id: item.id,
@@ -342,22 +300,20 @@
 				};
 				detailRemountToken++;
 			}
-			const actual = stagedActual;
+			const detail = feed.kind === 'routine' ? stagedActual : stagedCapture;
 			const notes = detailNote.trim() || null;
-			if (actual !== null) card.actual_json = actual;
-			card.notes = notes;
-			card.variant_taken = variantTaken;
-			void persistToBackend(card, newStatus, actual, notes, selectedDate, variantTaken);
+			applyDetailSnapshot(feed, detail, notes, variantTaken);
+			void persistFeed(feed, newStatus, detail, notes, selectedDate, variantTaken);
 		} else {
-			void persistToBackend(card, newStatus);
+			void persistFeed(feed, newStatus);
 		}
 	}
 
 	/** Row skip button — instant local update + background persist. */
-	function quickSkip(card: CardType) {
-		localStatus[card.occurrence_key] = 'skipped';
+	function quickSkip(feed: FeedCard) {
+		localStatus[feed.card.occurrence_key] = 'skipped';
 		statusVersion++;
-		void persistToBackend(card, 'skipped');
+		void persistFeed(feed, 'skipped');
 	}
 
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -365,25 +321,23 @@
 	let pendingPersist: { key: string; run: () => void } | null = null;
 
 	/** Debounced persist for detail panel changes (notes blur, CardBody onActual, variant tap). */
-	function schedulePersistDetail(card: CardType, delay = 500) {
+	function schedulePersistDetail(feed: FeedCard, delay = 500) {
 		if (saveTimeout) clearTimeout(saveTimeout);
 		// Snapshot everything the persist needs NOW: the shared staged state is
 		// re-seeded when another card expands, and selectedDate can change before
 		// the timer fires. Status is resolved at fire time so instant local
 		// derivation (checklist/strength) is included.
-		const actual = stagedActual;
+		const detail = feed.kind === 'routine' ? stagedActual : stagedCapture;
 		const notes = detailNote.trim() || null;
 		const date = selectedDate;
 		const variant = variantTaken;
 		const run = () => {
 			saveTimeout = null;
 			pendingPersist = null;
-			if (actual !== null) card.actual_json = actual;
-			card.notes = notes;
-			card.variant_taken = variant;
-			void persistToBackend(card, effectiveStatus(card), actual, notes, date, variant);
+			applyDetailSnapshot(feed, detail, notes, variant);
+			void persistFeed(feed, effectiveStatus(feed.card), detail, notes, date, variant);
 		};
-		pendingPersist = { key: card.occurrence_key, run };
+		pendingPersist = { key: feed.card.occurrence_key, run };
 		saveTimeout = setTimeout(run, delay);
 	}
 
@@ -404,8 +358,8 @@
 	}
 
 	/** Notes textarea blur — debounced persist. */
-	function onDetailBlur(card: CardType) {
-		schedulePersistDetail(card, 400);
+	function onDetailBlur(feed: FeedCard) {
+		schedulePersistDetail(feed, 400);
 	}
 
 	/**
@@ -414,19 +368,16 @@
 	 * skipped — the row checkbox/skip controls remain fully editable afterward. Any other
 	 * option only records which variant was taken; it never touches status.
 	 */
-	function selectVariant(card: CardType, option: string) {
+	function selectVariant(feed: FeedCard, option: string) {
 		variantTaken = option;
-		if (option === 'skip') {
-			localStatus[card.occurrence_key] = 'skipped';
+		const current = effectiveStatus(feed.card);
+		const next = statusForVariant(option, current);
+		if (next !== current) {
+			localStatus[feed.card.occurrence_key] = next;
 			statusVersion++;
 		}
-		schedulePersistDetail(card);
+		schedulePersistDetail(feed);
 	}
-
-	// ── Training feed (v3) — mirrors the legacy routine functions above 1:1. The training
-	// PUT endpoint has PARTIAL-KEEP semantics server-side, but this page always sends every
-	// field it knows (status/variant_taken/notes/capture) rather than relying on that —
-	// PARTIAL-KEEP is a safety net, not the protocol.
 
 	/** Fire-and-forget persist to backend for a training card. No data refresh. */
 	async function persistTrainingBackend(
@@ -451,6 +402,51 @@
 		}
 	}
 
+	function applyDetailSnapshot(
+		feed: FeedCard,
+		detail: DetailValue,
+		notes: string | null,
+		variant: string | null
+	) {
+		if (feed.kind === 'routine') {
+			const actual = detail as CardActual | null;
+			if (actual !== null) feed.card.actual_json = actual;
+		} else {
+			const capture = detail as TrainingCaptureLog | null;
+			if (capture !== null) feed.card.capture = capture;
+		}
+		feed.card.notes = notes;
+		feed.card.variant_taken = variant;
+	}
+
+	async function persistFeed(
+		feed: FeedCard,
+		status: CardStatus,
+		detail?: DetailValue,
+		notes?: string | null,
+		date: string = selectedDate,
+		variant?: string | null
+	) {
+		if (feed.kind === 'routine') {
+			return persistRoutineBackend(
+				feed.card,
+				status,
+				detail as CardActual | null | undefined,
+				notes,
+				date,
+				variant
+			);
+		}
+		return persistTrainingBackend(
+			feed.card,
+			status,
+			detail as TrainingCaptureLog | null | undefined,
+			notes,
+			date,
+			variant
+		);
+	}
+
 	/**
 	 * Persist a run-link change (candidate pick or detach) for a training card, then refetch
 	 * the Today feed. Unlike `persistTrainingBackend`'s optimistic local-merge-and-move-on,
@@ -472,73 +468,6 @@
 		} catch (e: unknown) {
 			error = errorMessage(e);
 		}
-	}
-
-	/** Row checkbox toggle for a training card — instant local update + background persist. */
-	function toggleTrainingComplete(card: TrainingTodayCard) {
-		const current = effectiveStatus(card);
-		const newStatus = current === 'completed' ? 'pending' : 'completed';
-		localStatus[card.occurrence_key] = newStatus;
-		statusVersion++;
-
-		if (expandedKind === 'training' && expandedOccurrenceKey === card.occurrence_key) {
-			// This explicit persist supersedes any pending debounced one for the card.
-			cancelPendingPersist(card.occurrence_key);
-			const capture = stagedCapture;
-			const notes = detailNote.trim() || null;
-			if (capture !== null) card.capture = capture;
-			card.notes = notes;
-			card.variant_taken = variantTaken;
-			void persistTrainingBackend(card, newStatus, capture, notes, selectedDate, variantTaken);
-		} else {
-			void persistTrainingBackend(card, newStatus);
-		}
-	}
-
-	/** Row skip button for a training card — instant local update + background persist. */
-	function quickTrainingSkip(card: TrainingTodayCard) {
-		localStatus[card.occurrence_key] = 'skipped';
-		statusVersion++;
-		void persistTrainingBackend(card, 'skipped');
-	}
-
-	/**
-	 * Debounced persist for a training card's detail panel changes (notes blur,
-	 * TrainingCardBody onCapture, variant tap). Shares the page's single saveTimeout /
-	 * pendingPersist slot with schedulePersistDetail, so scheduling one supersedes the
-	 * other — correct, since only one detail panel (routine or training) is ever open.
-	 */
-	function scheduleTrainingPersistDetail(card: TrainingTodayCard, delay = 500) {
-		if (saveTimeout) clearTimeout(saveTimeout);
-		const capture = stagedCapture;
-		const notes = detailNote.trim() || null;
-		const date = selectedDate;
-		const variant = variantTaken;
-		const run = () => {
-			saveTimeout = null;
-			pendingPersist = null;
-			if (capture !== null) card.capture = capture;
-			card.notes = notes;
-			card.variant_taken = variant;
-			void persistTrainingBackend(card, effectiveStatus(card), capture, notes, date, variant);
-		};
-		pendingPersist = { key: card.occurrence_key, run };
-		saveTimeout = setTimeout(run, delay);
-	}
-
-	/** Notes textarea blur for a training card — debounced persist. */
-	function onTrainingDetailBlur(card: TrainingTodayCard) {
-		scheduleTrainingPersistDetail(card, 400);
-	}
-
-	/** Variant segmented control tap for a training card — same skip→status coupling as selectVariant. */
-	function selectTrainingVariant(card: TrainingTodayCard, option: string) {
-		variantTaken = option;
-		if (option === 'skip') {
-			localStatus[card.occurrence_key] = 'skipped';
-			statusVersion++;
-		}
-		scheduleTrainingPersistDetail(card);
 	}
 
 	function formatSeconds(totalSeconds: number): string {
@@ -652,131 +581,29 @@
 						{#if routineGroups.length > 1}
 							<div class="routine-group-label">{group.routine}</div>
 						{/if}
-					{#each group.cards as card}
-						{@const isExpanded = expandedOccurrenceKey === card.occurrence_key}
-						{@const status = effectiveStatus(card)}
-						{@const isDone = status === 'completed'}
-						{@const isSkipped = status === 'skipped'}
-						{@const isPartial = status === 'partial'}
-						{@const dt = domainThemeOf(card.payload_json)}
-						<div
-							class="activity-row"
-							class:done={isDone}
-							class:skipped={isSkipped}
-							class:partial={isPartial}
-							class:expanded={isExpanded}
-							style={`--dr-color: ${dt.accent}`}
-						>
-							<div class="row-main">
-								<!-- Checkbox -->
-								<button
-									class="check-toggle"
-									class:checked={isDone}
-									class:partial-check={isPartial}
-									class:skipped-check={isSkipped}
-									onclick={() => toggleComplete(card)}
-									title={isDone ? 'Mark pending' : 'Mark done'}
+						{#each group.cards as card}
+							{@const feed = routineFeed(card)}
+							{@const theme = domainThemeOf(card.payload_json)}
+							<TodayActivityRow
+								status={effectiveStatus(card)}
+								expanded={isExpanded(feed)}
+								accent={theme.accent}
+								icon={theme.icon}
+								name={card.name}
+								summary={card.summary}
+								brief={cardBrief(card)}
+								tags={card.tags}
+								onToggleComplete={() => toggleComplete(feed)}
+								onSkip={() => quickSkip(feed)}
+								onToggleDetails={() => toggleDetails(feed)}
+							>
+								<TodayCardDetails
+									variantOptions={variantOptionsFor(feed)}
+									selectedVariant={variantTaken}
+									bind:note={detailNote}
+									onSelectVariant={(option) => selectVariant(feed, option)}
+									onNoteBlur={() => onDetailBlur(feed)}
 								>
-									{#if isDone}
-										<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-											<path
-												d="M3.5 8.5L6.5 11.5L12.5 4.5"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											/>
-										</svg>
-									{:else if isSkipped}
-										<svg viewBox="0 0 16 16" width="12" height="12" fill="none">
-											<path
-												d="M4 4L12 12M12 4L4 12"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-											/>
-										</svg>
-									{:else if isPartial}
-										<svg viewBox="0 0 16 16" width="12" height="12" fill="none">
-											<path
-												d="M3 8H13"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-											/>
-										</svg>
-									{/if}
-								</button>
-
-								<!-- Domain icon -->
-								{#if dt.icon}
-									<span class="domain-icon">{dt.icon}</span>
-								{/if}
-
-								<!-- Name + summary -->
-								<div class="row-content">
-									<span class="row-name">{card.name}</span>
-									{#if card.summary}
-										<span class="row-summary">{card.summary}</span>
-									{/if}
-								</div>
-
-								<!-- Brief metadata -->
-								<span class="row-brief">{cardBrief(card)}</span>
-
-								<!-- Tags (compact, first 2 only) -->
-								<div class="row-tags">
-									{#each card.tags.slice(0, 2) as tag}
-										<span class="mini-tag">{tag}</span>
-									{/each}
-								</div>
-
-								<!-- Actions -->
-								<div class="row-actions">
-									{#if !isDone}
-										<button
-											class="skip-btn"
-											onclick={() => quickSkip(card)}
-											title="Skip"
-										>
-											<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-												<path
-													d="M4 4L12 12M12 4L4 12"
-													stroke="currentColor"
-													stroke-width="1.5"
-													stroke-linecap="round"
-												/>
-											</svg>
-										</button>
-									{/if}
-									<button
-										class="expand-btn"
-										class:active={isExpanded}
-										onclick={() => toggleDetails(card)}
-										title="Details"
-									>
-										<svg
-											viewBox="0 0 16 16"
-											width="14"
-											height="14"
-											fill="none"
-											style={`transform: rotate(${isExpanded ? 180 : 0}deg); transition: transform 0.2s`}
-										>
-											<path
-												d="M4 6L8 10L12 6"
-												stroke="currentColor"
-												stroke-width="1.5"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											/>
-										</svg>
-									</button>
-								</div>
-							</div>
-
-							<!-- Expanded detail panel -->
-							{#if isExpanded}
-								<div class="detail-panel">
 									{#key detailRemountToken}
 										<CardBody
 											{card}
@@ -784,226 +611,58 @@
 											onActual={(actual) => {
 												stagedActual = actual;
 												if (actual.card_type === 'checklist') {
-													// Answers are the ground truth; derive status from them directly.
-													const status = deriveStatusFromAnswers(
+													localStatus[card.occurrence_key] = deriveChecklistStatus(
 														actual.answers,
 														checklistItemKinds(card)
 													);
-													localStatus[card.occurrence_key] = status;
 													statusVersion++;
-												} else if (
-													actual.card_type === 'strength_session' &&
-													card.payload_json.card_type === 'strength_session'
-												) {
-													// Logged sets are evidence, not the full story — only upgrade,
-													// never downgrade an explicitly set completed/skipped status.
-													const derived = deriveStatusFromStrength(
-														actual,
-														(card.payload_json.exercises ?? []).length
-													);
-													if (STATUS_RANK[derived] > STATUS_RANK[effectiveStatus(card)]) {
-														localStatus[card.occurrence_key] = derived;
-														statusVersion++;
-													}
 												}
-												schedulePersistDetail(card);
+												schedulePersistDetail(feed);
 											}}
 										/>
 									{/key}
-									{#if variantOptionsFor(card).length > 0}
-										<div class="detail-field variant-field">
-											<span>Variant</span>
-											<div class="segment-row" role="group" aria-label="Variant taken">
-												{#each variantOptionsFor(card) as opt}
-													<button
-														type="button"
-														class="seg-btn"
-														class:selected={variantTaken === opt}
-														aria-pressed={variantTaken === opt}
-														onclick={() => selectVariant(card, opt)}
-													>
-														{opt}
-													</button>
-												{/each}
-											</div>
-										</div>
-									{/if}
-									<label class="detail-field">
-										<span>Notes</span>
-										<textarea
-											bind:value={detailNote}
-											rows="2"
-											placeholder="Only record what matters."
-											onblur={() => onDetailBlur(card)}
-										></textarea>
-									</label>
-								</div>
-							{/if}
-						</div>
-					{/each}
+								</TodayCardDetails>
+							</TodayActivityRow>
+						{/each}
 					{/each}
 
-					{#if trainingCards.length > 0}
-						<div class="routine-group-label">{trainingToday?.block_name ?? 'Training'}</div>
-						{#each trainingCards as card}
-							{@const isExpanded =
-								expandedKind === 'training' && expandedOccurrenceKey === card.occurrence_key}
-							{@const status = effectiveStatus(card)}
-							{@const isDone = status === 'completed'}
-							{@const isSkipped = status === 'skipped'}
-							{@const isPartial = status === 'partial'}
-							{@const theme = trainingCardTheme(card)}
-							<div
-								class="activity-row"
-								class:done={isDone}
-								class:skipped={isSkipped}
-								class:partial={isPartial}
-								class:expanded={isExpanded}
-								style={`--dr-color: ${theme.accent}`}
-							>
-								<div class="row-main">
-									<!-- Checkbox -->
-									<button
-										class="check-toggle"
-										class:checked={isDone}
-										class:partial-check={isPartial}
-										class:skipped-check={isSkipped}
-										onclick={() => toggleTrainingComplete(card)}
-										title={isDone ? 'Mark pending' : 'Mark done'}
+						{#if trainingCards.length > 0}
+							<div class="routine-group-label">{trainingToday?.block_name ?? 'Training'}</div>
+							{#each trainingCards as card}
+								{@const feed = trainingFeed(card)}
+								{@const theme = trainingCardTheme(card)}
+								<TodayActivityRow
+									status={effectiveStatus(card)}
+									expanded={isExpanded(feed)}
+									accent={theme.accent}
+									icon={theme.icon}
+									name={card.card.name}
+									summary={`${card.bundle_name}${card.key_session ? ' · key session' : ''}`}
+									brief={trainingCardBrief(card)}
+									backup={card.measurement_attempt === 'backup'}
+									onToggleComplete={() => toggleComplete(feed)}
+									onSkip={() => quickSkip(feed)}
+									onToggleDetails={() => toggleDetails(feed)}
+								>
+									<TodayCardDetails
+										variantOptions={variantOptionsFor(feed)}
+										selectedVariant={variantTaken}
+										bind:note={detailNote}
+										onSelectVariant={(option) => selectVariant(feed, option)}
+										onNoteBlur={() => onDetailBlur(feed)}
 									>
-										{#if isDone}
-											<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-												<path
-													d="M3.5 8.5L6.5 11.5L12.5 4.5"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												/>
-											</svg>
-										{:else if isSkipped}
-											<svg viewBox="0 0 16 16" width="12" height="12" fill="none">
-												<path
-													d="M4 4L12 12M12 4L4 12"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-												/>
-											</svg>
-										{:else if isPartial}
-											<svg viewBox="0 0 16 16" width="12" height="12" fill="none">
-												<path
-													d="M3 8H13"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-												/>
-											</svg>
-										{/if}
-									</button>
-
-									<!-- Domain icon -->
-									{#if theme.icon}
-										<span class="domain-icon">{theme.icon}</span>
-									{/if}
-
-									<!-- Name + summary -->
-									<div class="row-content">
-										<span class="row-name">{card.card.name}</span>
-										<span class="row-summary">
-											{card.bundle_name}{#if card.key_session} · key session{/if}{#if card.measurement_attempt === 'backup'} <span class="backup-test">· Backup test</span>{/if}
-										</span>
-									</div>
-
-									<!-- Brief metadata -->
-									<span class="row-brief">{trainingCardBrief(card)}</span>
-
-									<!-- Actions -->
-									<div class="row-actions">
-										{#if !isDone}
-											<button
-												class="skip-btn"
-												onclick={() => quickTrainingSkip(card)}
-												title="Skip"
-											>
-												<svg viewBox="0 0 16 16" width="14" height="14" fill="none">
-													<path
-														d="M4 4L12 12M12 4L4 12"
-														stroke="currentColor"
-														stroke-width="1.5"
-														stroke-linecap="round"
-													/>
-												</svg>
-											</button>
-										{/if}
-										<button
-											class="expand-btn"
-											class:active={isExpanded}
-											onclick={() => toggleTrainingDetails(card)}
-											title="Details"
-										>
-											<svg
-												viewBox="0 0 16 16"
-												width="14"
-												height="14"
-												fill="none"
-												style={`transform: rotate(${isExpanded ? 180 : 0}deg); transition: transform 0.2s`}
-											>
-												<path
-													d="M4 6L8 10L12 6"
-													stroke="currentColor"
-													stroke-width="1.5"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												/>
-											</svg>
-										</button>
-									</div>
-								</div>
-
-								<!-- Expanded detail panel -->
-								{#if isExpanded}
-									<div class="detail-panel">
-										{#if trainingVariantOptionsFor(card).length > 0}
-											<div class="detail-field variant-field">
-												<span>Variant</span>
-												<div class="segment-row" role="group" aria-label="Variant taken">
-													{#each trainingVariantOptionsFor(card) as opt}
-														<button
-															type="button"
-															class="seg-btn"
-															class:selected={variantTaken === opt}
-															aria-pressed={variantTaken === opt}
-															onclick={() => selectTrainingVariant(card, opt)}
-														>
-															{opt}
-														</button>
-													{/each}
-												</div>
-											</div>
-										{/if}
 										<TrainingCardBody
 											{card}
 											mode="log"
 											onCapture={(capture) => {
 												stagedCapture = capture;
-												scheduleTrainingPersistDetail(card);
+												schedulePersistDetail(feed);
 											}}
 											onRunLink={(patch) => persistRunLink(card, patch)}
 										/>
-										<label class="detail-field">
-											<span>Notes</span>
-											<textarea
-												bind:value={detailNote}
-												rows="2"
-												placeholder="Only record what matters."
-												onblur={() => onTrainingDetailBlur(card)}
-											></textarea>
-										</label>
-									</div>
-								{/if}
-							</div>
-						{/each}
+									</TodayCardDetails>
+								</TodayActivityRow>
+							{/each}
 					{/if}
 				{/if}
 			{/each}
@@ -1312,279 +971,6 @@
 		opacity: 0.5;
 	}
 
-	/* ── Activity row ── */
-	.activity-row {
-		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.025);
-		border: 1px solid rgba(255, 255, 255, 0.05);
-		border-left: 3px solid var(--dr-color, #5e7282);
-		transition:
-			background 0.15s,
-			opacity 0.2s;
-	}
-
-	.activity-row:hover {
-		background: rgba(255, 255, 255, 0.045);
-	}
-
-	.activity-row.done {
-		opacity: 0.45;
-	}
-
-	.activity-row.done:hover {
-		opacity: 0.7;
-	}
-
-	.activity-row.skipped {
-		opacity: 0.35;
-	}
-
-	.activity-row.skipped:hover {
-		opacity: 0.6;
-	}
-
-	.activity-row.partial {
-		opacity: 0.6;
-	}
-
-	.activity-row.expanded {
-		opacity: 1;
-		background: rgba(255, 255, 255, 0.04);
-		border-color: rgba(255, 255, 255, 0.1);
-		border-left-color: var(--dr-color, #5e7282);
-	}
-
-	.row-main {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 10px 14px;
-		min-height: 48px;
-	}
-
-	/* ── Checkbox toggle ── */
-	.check-toggle {
-		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
-		border-radius: 6px;
-		border: 2px solid rgba(255, 255, 255, 0.15);
-		background: transparent;
-		color: transparent;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition:
-			border-color 0.15s,
-			background 0.15s,
-			color 0.15s;
-	}
-
-	.check-toggle:hover {
-		border-color: rgba(91, 181, 166, 0.5);
-	}
-
-	.check-toggle.checked {
-		background: rgba(91, 181, 166, 0.2);
-		border-color: #5bb5a6;
-		color: #7be0d0;
-	}
-
-	.check-toggle.partial-check {
-		background: rgba(212, 148, 76, 0.15);
-		border-color: #d4944c;
-		color: #f3bf81;
-	}
-
-	.check-toggle.skipped-check {
-		background: rgba(232, 93, 74, 0.12);
-		border-color: rgba(232, 93, 74, 0.4);
-		color: #f2a399;
-	}
-
-	.row-content {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
-	.row-name {
-		font-family: 'Instrument Sans', sans-serif;
-		font-size: 14px;
-		font-weight: 600;
-		color: #eef5f8;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.activity-row.done .row-name {
-		text-decoration: line-through;
-		text-decoration-color: rgba(91, 181, 166, 0.5);
-	}
-
-	.activity-row.skipped .row-name {
-		text-decoration: line-through;
-		text-decoration-color: rgba(232, 93, 74, 0.4);
-	}
-
-	.row-summary {
-		font-size: 12px;
-		color: #8fa3b0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.backup-test {
-		margin-left: 0.35em;
-		color: #8fa3b0;
-	}
-
-	.row-brief {
-		flex-shrink: 0;
-		font-family: 'DM Mono', monospace;
-		font-size: 11px;
-		color: #6b8292;
-	}
-
-	.row-tags {
-		display: flex;
-		gap: 4px;
-		flex-shrink: 0;
-	}
-
-	.mini-tag {
-		padding: 2px 7px;
-		border-radius: 4px;
-		background: rgba(255, 255, 255, 0.05);
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		color: #8fa3b0;
-	}
-
-	.domain-icon {
-		flex-shrink: 0;
-		font-size: 14px;
-		line-height: 1;
-		opacity: 0.8;
-	}
-
-	.row-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		flex-shrink: 0;
-	}
-
-	.skip-btn,
-	.expand-btn {
-		width: 30px;
-		height: 30px;
-		border-radius: 6px;
-		border: 1px solid rgba(255, 255, 255, 0.06);
-		background: transparent;
-		color: #6b8292;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition:
-			background 0.15s,
-			color 0.15s;
-	}
-
-	.skip-btn:hover {
-		background: rgba(232, 93, 74, 0.1);
-		color: #f2a399;
-	}
-
-	.expand-btn:hover,
-	.expand-btn.active {
-		background: rgba(255, 255, 255, 0.06);
-		color: #c3d3dd;
-	}
-
-	/* ── Detail panel ── */
-	.detail-panel {
-		padding: 12px 14px 14px;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	/* Notes textarea label — detail-field is still used here; card-specific styles live in
-	   ChecklistCard.svelte and CardBody.svelte. */
-	.detail-field {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.detail-field span {
-		font-family: 'DM Mono', monospace;
-		font-size: 10px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: #8fa3b0;
-	}
-
-	textarea {
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(8, 15, 24, 0.7);
-		color: #eef5f8;
-		border-radius: 8px;
-		padding: 8px 10px;
-		font: inherit;
-		font-size: 13px;
-		resize: vertical;
-	}
-
-	/* ── Variant control ── */
-	.variant-field .segment-row {
-		display: flex;
-		gap: 0;
-		border-radius: 8px;
-		overflow: hidden;
-		border: 1px solid rgba(91, 181, 166, 0.3);
-		width: fit-content;
-	}
-
-	.variant-field .seg-btn {
-		padding: 6px 14px;
-		border: none;
-		border-right: 1px solid rgba(91, 181, 166, 0.2);
-		background: rgba(91, 181, 166, 0.05);
-		color: #8fa3b0;
-		font: inherit;
-		font-size: 12px;
-		font-family: 'DM Mono', monospace;
-		letter-spacing: 0.04em;
-		cursor: pointer;
-		transition:
-			background 0.15s,
-			color 0.15s;
-		white-space: nowrap;
-	}
-
-	.variant-field .seg-btn:last-child {
-		border-right: none;
-	}
-
-	.variant-field .seg-btn:hover:not(.selected) {
-		background: rgba(91, 181, 166, 0.12);
-		color: #c3d3dd;
-	}
-
-	.variant-field .seg-btn.selected {
-		background: rgba(91, 181, 166, 0.22);
-		color: #7be0d0;
-	}
-
 @media (max-width: 768px) {
 		.header-bar {
 			flex-direction: column;
@@ -1595,19 +981,6 @@
 		.header-left,
 		.header-right {
 			justify-content: space-between;
-		}
-
-		.row-main {
-			flex-wrap: wrap;
-			gap: 8px;
-		}
-
-		.row-tags {
-			display: none;
-		}
-
-		.row-brief {
-			display: none;
 		}
 
 	}

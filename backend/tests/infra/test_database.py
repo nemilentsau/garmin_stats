@@ -74,8 +74,8 @@ class TestInit:
             "experiment_exposures",
             "assistant_artifacts",
             "daily_checkins",
-            "program_versions",
         }.issubset(tables)
+        assert "program_versions" not in tables
 
 
 # ---------------------------------------------------------------------------

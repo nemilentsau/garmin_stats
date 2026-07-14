@@ -80,6 +80,7 @@ from app.domains.training.application.compile import (
     CompiledEntry,
     compile_schedule,
     full_variant_prescription,
+    is_running_bundle,
     week_of,
 )
 from app.domains.training.application.measurement_schedule import (
@@ -453,19 +454,6 @@ def _exercise_name(library: ExerciseLibrary, exercise_id: str) -> str:
 
 # ---------- run<->prescription association ----------
 
-_RUNNING_BUNDLE_ID = "running.v3"
-"""The one bundle whose cards are tracked-run candidates for association.
-
-Mirrors `application/validation.py`'s own `entry.bundle_id == "running.v3"`
-check (its weekly-run-mileage rollup) — the same test already distinguishes
-`running.v3`'s segment-based cards from `support.v3`'s (e.g. `sup.daily`),
-which also prescribe `SegmentPrescription` but are never tracked runs.
-"""
-
-
-def _is_run_card(entry: CompiledEntry) -> bool:
-    return entry.bundle_id == _RUNNING_BUNDLE_ID
-
 
 def _prescribed_distance_mi(segments: list[TrainingSegmentDisplay]) -> float | None:
     """Sum of a run card's segment distances, or None when none prescribe one.
@@ -563,7 +551,7 @@ def _build_card(
 
     `runs_today`/`run_cards_today` carry the caller's preloaded summaries and
     this day's run-card count. Association (`match_run_to_card`) only runs for a
-    `running.v3` card (`_is_run_card`) — every other card gets
+    training-classified running card — every other card gets
     `run_candidates=[]`, `associated_activity=None` unconditionally.
     The optional caches are request-owned snapshots; they include missing
     evidence and `None` assessments and never outlive the public read call.
@@ -610,7 +598,7 @@ def _build_card(
 
     associated_activity: TrainingRunActivitySummary | None = None
     run_candidates: list[TrainingRunActivitySummary] = []
-    if _is_run_card(entry):
+    if is_running_bundle(entry.bundle_id):
         run_candidates = runs_today or []
         associated_activity = match_run_to_card(
             linked_run_id=log.linked_run_id if log else None,
@@ -692,6 +680,7 @@ def _build_card(
         slot=entry.slot,
         bundle_id=entry.bundle_id,
         bundle_name=bundle_names.get(entry.bundle_id, entry.bundle_id),
+        is_running=is_running_bundle(entry.bundle_id),
         card=card,
         key_session=assignment.key_session,
         variants=assignment.variants,
@@ -795,7 +784,9 @@ def _cards_for_day(
     evidence/assessment snapshot.
     """
     entries = [(index, entry) for index, entry in enumerate(schedule) if entry.day == day]
-    run_cards_today = sum(1 for _index, entry in entries if _is_run_card(entry))
+    run_cards_today = sum(
+        1 for _index, entry in entries if is_running_bundle(entry.bundle_id)
+    )
     day_runs = runs_today or []
     activation_by_index = {
         activation.entry_index: activation.event_id for activation in backup_activations

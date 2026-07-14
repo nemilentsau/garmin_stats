@@ -21,7 +21,6 @@ persistence boundary and imports no product domain.
 - Assistant behavior.
 - Artifacts.
 - Journal content.
-- Programs.
 - Analytics.
 
 ## May import

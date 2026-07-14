@@ -64,7 +64,7 @@ class TestMergeSchedulePayloadOverrideRobustness:
     def test_override_card_type_key_is_ignored(self):
         """card_type in an override must never swap the payload discriminator."""
         card = _checklist_card()
-        assignment = _assignment({"card_type": "running_workout"})
+        assignment = _assignment({"card_type": "breath_timer"})
 
         result = merge_schedule_payload(card, assignment)
 

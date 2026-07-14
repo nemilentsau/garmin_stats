@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
-from app.domains.training.application.compile import CompiledEntry
+from app.domains.training.application.compile import CompiledEntry, is_running_bundle
 from app.domains.training.contracts import (
     MeasurementStatus,
     TrainingRequiredAction,
@@ -67,7 +67,7 @@ def resolve_measurement_day(
     """
     entries = [entry for entry in schedule if entry.day == day]
     available_running_indexes = [
-        index for index, entry in enumerate(entries) if entry.bundle_id == "running.v3"
+        index for index, entry in enumerate(entries) if is_running_bundle(entry.bundle_id)
     ]
     activated: list[str] = []
     activations: list[MeasurementBackupActivation] = []
@@ -92,7 +92,7 @@ def resolve_measurement_day(
                 for entry in schedule
                 if entry.day == event.scheduled_day
                 and entry.card.id == event.card_id
-                and entry.bundle_id == "running.v3"
+                and is_running_bundle(entry.bundle_id)
             ),
             None,
         )

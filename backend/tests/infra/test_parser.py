@@ -14,15 +14,16 @@ from app.domains.garmin_health.contracts import (
     SkinTempOvernight,
     SleepLevel,
 )
-from app.parser import (
-    _GARMIN_EPOCH_UNIX,
+from app.domains.garmin_health.infra.fit_parser.days import _parse_day
+from app.domains.garmin_health.infra.fit_parser.extractors import (
     _extract_hrv,
-    _extract_utc_offset_hours,
     _extract_wellness,
-    _parse_day,
+)
+from app.domains.garmin_health.infra.fit_parser.files import get_files_by_day
+from app.domains.garmin_health.infra.fit_parser.timestamps import (
+    _GARMIN_EPOCH_UNIX,
+    _extract_utc_offset_hours,
     _shift_timestamps,
-    get_available_days,
-    get_files_by_day,
 )
 
 
@@ -221,12 +222,6 @@ class TestShiftTimestamps:
 
 
 class TestDayDirectoryDiscovery:
-    def test_available_days_ignores_copy_and_malformed_directories(self, tmp_path: Path):
-        for dirname in ["2026-03-01", "2026-03-01 copy", "2026-13-01", "notes"]:
-            (tmp_path / dirname).mkdir()
-
-        assert get_available_days(tmp_path) == ["2026-03-01"]
-
     def test_files_by_day_ignores_fit_files_under_noncanonical_top_level_dirs(self, tmp_path: Path):
         canonical_fit = tmp_path / "2026-03-01" / "001_WELLNESS.fit"
         canonical_fit.parent.mkdir(parents=True)

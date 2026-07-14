@@ -15,9 +15,3 @@ export function fmtSigned(n: number | null | undefined, digits = 1): string {
 	const text = rounded.toFixed(digits);
 	return rounded > 0 ? `+${text}` : text;
 }
-
-/** Format a time window from two ISO timestamps as HH:MM–HH:MM. */
-export function fmtTimeWindow(start: string | null | undefined, end: string | null | undefined): string {
-	if (!start || !end) return '-';
-	return `${start.slice(11, 16)}–${end.slice(11, 16)}`;
-}

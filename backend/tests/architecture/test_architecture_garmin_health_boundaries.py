@@ -74,9 +74,20 @@ def test_garmin_health_does_not_import_feature_domains():
 
 
 def test_root_parser_is_only_a_compatibility_facade_for_active_ingest_api():
+    from app import parser
+    from app.domains.garmin_health.infra import fit_parser
+
     source = read_repo_file("backend/app/parser.py")
 
     assert "from app.domains.garmin_health.infra.fit_parser import" in source
+    assert parser.__all__ == ["get_files_by_day", "parse_all_days", "parse_day"]
+    assert fit_parser.__all__ == [
+        "discover_running_activity_files",
+        "get_files_by_day",
+        "parse_all_days",
+        "parse_day",
+        "parse_running_activity",
+    ]
     assert "def _extract_wellness" not in source
     assert "def parse_wellness(" not in source
     assert "def parse_sleep(" not in source

@@ -11,7 +11,7 @@ The shipped app has four active product centers:
 3. Training block runtime (v3): artifact import, lint-gated activation, and the Today/schedule training feed
 4. Routine runtime shared by Creation, Schedule, and Today — the import path for non-training bundles (meditation, breathwork)
 
-Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Programs remain a secondary backend area. Standing rule from the pivot (`routine-pivot/pivot_roadmap.md`): routine/experiment/training content enters the app **only** by importing an authored bundle — no generators, translators, seeders, or derived artifacts.
+Experiments remain backend-supported and domain-owned, but the frontend experiment screens are intentionally parked. Standing rule from the pivot (`routine-pivot/pivot_roadmap.md`): routine/experiment/training content enters the app **only** by importing an authored bundle — no generators, translators, seeders, or derived artifacts.
 
 ## Project Layout
 
@@ -77,7 +77,6 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
 | `artifacts` | Authored staging + bundle publish; delegates activation to `routines` | `/api/cards`, `/api/assistant/artifacts`, `/api/assistant/artifact-bundles` | [charter](../backend/app/domains/artifacts/CHARTER.md) |
 | `journal` | Daily check-ins + freeform notes (subjective context) | `/api/checkins`, `/api/notes` | [charter](../backend/app/domains/journal/CHARTER.md) |
-| `programs` | Program spec import + version history (secondary; child activation unbuilt) | `/api/programs` | [charter](../backend/app/domains/programs/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 
 Notes: `garmin_sync` is a data-acquisition capability, not a business domain. The `/api/cards` and compatibility-prefixed `/api/assistant/artifact*` routes are owned by `artifacts`; there is no assistant chat slice. `coach` reuses application read models and owns descriptive packaging, structured measurement-assessment validation/persistence, memory, and runtime lifecycle ([reference/coach.md](reference/coach.md)). `garmin_analytics` owns the session-grain run mart (`/api/activities/runs*`) and reserves equivalents for future strength/meditation. `training` projects run association on Today and schedule-window plus measurement evaluation from its injected, training-local `RunActivityReadPort` (range summaries and full run evidence). It reads the newest exact Coach judgment through its separate training-local `MeasurementAssessmentReadPort`. Bootstrap adapts Garmin and Coach storage into those contracts; training directly imports neither source domain (see the [training charter](../backend/app/domains/training/CHARTER.md) and [run reference](reference/run-activities.md)).
@@ -120,5 +119,5 @@ Data roots, ingest, and Garmin config paths are documented in full in **`referen
 - `backend/app/domains/<domain>/CHARTER.md` — per-domain boundary contracts.
 - [README.md](../README.md) — product overview, setup, high-level data-flow narrative.
 - [future/ACTIVITY_ANALYTICS_DESIGN.md](future/ACTIVITY_ANALYTICS_DESIGN.md) — planned activity/session analytics.
-- [routine-pivot/](routine-pivot/) — training-system canon (principles, v3 schema, roadmap, block0).
+- [routine-pivot/](routine-pivot/) — training-system canon (principles, v3 schema, roadmap, frozen block0 exemplar, active block1).
 - [FINDINGS.md](../FINDINGS.md) — current dataset observations.

@@ -159,11 +159,7 @@ def test_upsert_today_card_log_rejects_actual_card_type_mismatch():
                     "card_template_id": scheduled_card.card_template_id,
                     "assignment_id": scheduled_card.assignment_id,
                     "status": "completed",
-                    "actual_json": {
-                        "card_type": "strength_session",
-                        "exercises": [],
-                        "ratings": {},
-                    },
+                    "actual_json": {"card_type": "checklist", "answers": []},
                 }
             ),
         )

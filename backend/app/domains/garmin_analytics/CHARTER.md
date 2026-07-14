@@ -44,7 +44,7 @@ work (see `docs/future/ACTIVITY_ANALYTICS_DESIGN.md`).
   boundary.)
 
 ## Must not import
-- Garmin sync, routines, experiments, assistant, artifacts, journal, programs.
+- Garmin sync, routines, experiments, assistant, artifacts, journal.
 - FastAPI from application (non-route) modules.
 - SQLite helpers from application (non-adapter) modules.
 

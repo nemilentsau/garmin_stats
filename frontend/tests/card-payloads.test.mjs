@@ -27,14 +27,6 @@ test('cardBrief summarizes a breath timer by duration', () => {
 	assert.equal(cardBrief({ payload_json: { card_type: 'breath_timer', duration_minutes: 5 } }), '5 min');
 });
 
-test('cardBrief counts strength exercises', () => {
-	const { cardBrief } = mod;
-	assert.equal(
-		cardBrief({ payload_json: { card_type: 'strength_session', exercises: [{}, {}] } }),
-		'2 exercises'
-	);
-});
-
 test('cardBrief summarizes a checklist as N items', () => {
 	const { cardBrief } = mod;
 	assert.equal(
@@ -43,22 +35,21 @@ test('cardBrief summarizes a checklist as N items', () => {
 	);
 });
 
-test('domainOf maps card_type to a domain key', () => {
-	const { domainOf } = mod;
-	assert.equal(domainOf({ card_type: 'running_workout' }), 'running');
-	assert.equal(domainOf({ card_type: 'checklist', domain: 'strength' }), 'strength');
+test('domainThemeOf maps a recognized checklist domain to its theme', () => {
+	const { domainThemeOf } = mod;
+	assert.equal(domainThemeOf({ card_type: 'checklist', domain: 'strength' }).icon, '🏋');
 });
 
-test('domainOf returns null for a checklist with no domain', () => {
-	const { domainOf } = mod;
-	assert.equal(domainOf({ card_type: 'checklist', domain: null }), null);
-	assert.equal(domainOf({ card_type: 'checklist' }), null);
+test('domainThemeOf uses the neutral theme for a checklist with no domain', () => {
+	const { domainThemeOf } = mod;
+	assert.equal(domainThemeOf({ card_type: 'checklist', domain: null }).icon, '');
+	assert.equal(domainThemeOf({ card_type: 'checklist' }).icon, '');
 });
 
-test('domainOf returns null for an unknown checklist domain string', () => {
-	const { domainOf } = mod;
+test('domainThemeOf uses the neutral theme for an unknown checklist domain string', () => {
+	const { domainThemeOf } = mod;
 	// Backend allows any string; the theme lookup must not treat it as a Domain.
-	assert.equal(domainOf({ card_type: 'checklist', domain: 'recovery' }), null);
+	assert.equal(domainThemeOf({ card_type: 'checklist', domain: 'recovery' }).icon, '');
 });
 
 test('domainThemeOf falls back to the neutral theme for an unknown checklist domain', () => {

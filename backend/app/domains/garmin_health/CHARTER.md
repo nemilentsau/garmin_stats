@@ -37,7 +37,7 @@ and config paths: `docs/reference/data-and-ingest.md`.
 
 ## Must not import
 - Garmin sync, Garmin analytics, experiments, assistant, routines, artifacts,
-  journal, programs.
+  journal.
 - Infrastructure adapters.
 - FastAPI from application (non-route) modules.
 - SQLite helpers from application modules.

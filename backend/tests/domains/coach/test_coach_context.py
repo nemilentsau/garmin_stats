@@ -64,6 +64,7 @@ def _card(
         slot="morning",
         bundle_id="running.v3",
         bundle_name="Running",
+        is_running=True,
         card=card,
         segments_display=segments,
         capture_rpe=capture_rpe,

@@ -3,9 +3,9 @@
 Owns the file-level workflow for ``data/garmin_activities`` running files:
 find ``*_running_*.fit`` pairs, decode via the shared SDK adapter, hand the
 messages to the pure extractors, and assemble ``RunningActivityData``.
-Deliberately tolerant per file — a corrupt FIT logs a warning and is skipped
-so one bad download never blocks ingest (same policy as ``days.py``). Reads
-the activities tree only; acquisition and persistence belong to garmin_sync.
+Single-file parsing raises on corrupt input; garmin_sync owns the tolerant
+per-file ingest loop. Reads the activities tree only; acquisition and
+persistence belong to garmin_sync.
 """
 
 import json
@@ -78,14 +78,3 @@ def parse_running_activity(fit_path: Path, activities_dir: Path) -> RunningActiv
         session.stamina_min_pct,
     ) = _stamina_scalars(series)
     return RunningActivityData(session=session, laps=laps, series=series)
-
-
-def parse_running_activities(activities_dir: Path) -> list[RunningActivityData]:
-    """Parse every running activity on disk; a failing file is skipped with a warning."""
-    parsed: list[RunningActivityData] = []
-    for fit_path in discover_running_activity_files(activities_dir):
-        try:
-            parsed.append(parse_running_activity(fit_path, activities_dir))
-        except Exception as e:
-            log.warning("Error parsing activity %s: %s", fit_path, e)
-    return parsed

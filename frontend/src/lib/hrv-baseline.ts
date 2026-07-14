@@ -12,7 +12,7 @@ export const HRV_BASELINE_WINDOWS = [30, 60, 90] as const satisfies readonly Hrv
 
 export const DEFAULT_HRV_BASELINE_WINDOW: HrvBaselineWindow = 60;
 
-export function isHrvBaselineWindow(value: number): value is HrvBaselineWindow {
+function isHrvBaselineWindow(value: number): value is HrvBaselineWindow {
 	return (HRV_BASELINE_WINDOWS as readonly number[]).includes(value);
 }
 

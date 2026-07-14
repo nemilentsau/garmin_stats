@@ -21,7 +21,6 @@ routine API/persistence/activation command shapes.
 ## Does not own
 - Assistant artifact staging.
 - Experiment analysis.
-- Program import.
 - Garmin ingest.
 - Garmin analytics.
 

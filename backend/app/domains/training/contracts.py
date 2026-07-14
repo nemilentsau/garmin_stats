@@ -727,6 +727,7 @@ class TrainingTodayCard(DefaultsRequired):
     slot: SlotName3
     bundle_id: str
     bundle_name: str
+    is_running: bool
     card: V3Card  # verbatim
     key_session: bool = False
     variants: list[Variant] = []

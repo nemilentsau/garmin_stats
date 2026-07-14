@@ -64,7 +64,7 @@ config paths: `docs/reference/data-and-ingest.md`.
   the infra factory).
 
 ## Must not import
-- routines, experiments, assistant, artifacts, journal, programs.
+- routines, experiments, assistant, artifacts, journal.
 - Garmin analytics application modules.
 - FastAPI from application (non-route) modules.
 - SQLite helpers from application (non-adapter) modules.

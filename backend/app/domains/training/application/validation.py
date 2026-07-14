@@ -80,6 +80,7 @@ from app.domains.training.application.compile import (
     compile_schedule,
     entry_minutes,
     full_variant_prescription,
+    is_running_bundle,
     seg_miles,
     week_of,
 )
@@ -201,7 +202,7 @@ def lint(
         wk = week_of(day)
         for entry in (e for e in schedule if e.day == day):
             pres = full_variant_prescription(entry)
-            if "segments" in pres and entry.bundle_id == "running.v3":
+            if "segments" in pres and is_running_bundle(entry.bundle_id):
                 run_mi += seg_miles(pres)
             week_minutes_raw[wk][entry.bundle_id] += entry_minutes(entry)
         week_run_miles_raw[wk] += run_mi

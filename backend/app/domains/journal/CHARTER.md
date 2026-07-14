@@ -35,7 +35,6 @@ check-in caching.
 - experiments.
 - assistant.
 - artifacts.
-- programs.
 - FastAPI from application modules.
 - SQLite helpers from application modules.
 

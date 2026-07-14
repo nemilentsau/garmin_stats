@@ -2,19 +2,10 @@
 
 from __future__ import annotations
 
-import sqlite3
-
 import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
-from app.domains.coach.contracts import (
-    ArtifactRef,
-    BriefVersion,
-    CoachMessage,
-    CoachThread,
-    InitialReviewCandidate,
-    JournalEntry,
-)
+from app.domains.coach.contracts import CoachThread, InitialReviewCandidate
 from app.domains.coach.schema import init_coach_schema
 from app.infra import sqlite
 
@@ -29,16 +20,6 @@ def _thread(thread_id: str = "thread-1") -> CoachThread:
         status="open",
         created_at=NOW,
         last_activity_at=NOW,
-    )
-
-
-def _message(message_id: str, *, created_at: str = NOW) -> CoachMessage:
-    return CoachMessage(
-        id=message_id,
-        thread_id="thread-1",
-        role="user",
-        content_md=f"message {message_id}",
-        created_at=created_at,
     )
 
 
@@ -62,6 +43,17 @@ def test_schema_init_second_call_is_noop():
         "coach_jobs",
         "coach_reconciliation_state",
     }.issubset(tables)
+
+
+def test_repository_exposes_only_atomic_output_mutators():
+    for method_name in [
+        "update_review",
+        "insert_message",
+        "complete_job",
+        "append_journal",
+        "append_brief",
+    ]:
+        assert not hasattr(SqliteCoachRepository, method_name)
 
 
 def test_run_review_and_job_are_created_in_one_transaction():
@@ -149,7 +141,6 @@ def test_claim_ignores_future_and_nonqueued_jobs():
 
     claimed = repository.claim_next_job(LATER)
     assert claimed is not None
-    repository.complete_job(claimed.id, finished_at=LATER)
     assert repository.claim_next_job("9999-01-01T00:00:00Z") is None
 
 
@@ -205,11 +196,6 @@ def test_retry_rejects_complete_or_running_job():
     with pytest.raises(ValueError, match="failed"):
         repository.retry_failed_job(running_job.id, available_at=NOW)
 
-    repository.complete_job(running_job.id, finished_at=NOW)
-    with pytest.raises(ValueError, match="failed"):
-        repository.retry_failed_job(running_job.id, available_at=NOW)
-
-
 def test_stale_running_job_below_attempt_limit_requeues():
     repository = SqliteCoachRepository()
     _, job, _ = repository.enqueue_run_review(
@@ -239,52 +225,6 @@ def test_stale_running_job_at_attempt_limit_fails():
     assert [item.id for item in changed] == [job.id]
     assert changed[0].status == "failed"
     assert changed[0].attempt_count == 3
-
-
-def test_thread_messages_preserve_refs_and_order():
-    repository = SqliteCoachRepository()
-    repository.insert_thread(_thread())
-    later = _message("message-2", created_at=LATER).model_copy(
-        update={"refs": [ArtifactRef(kind="run", value="run-2")]}
-    )
-    earlier = _message("message-1", created_at=NOW)
-    repository.insert_message(later)
-    repository.insert_message(earlier)
-
-    messages = repository.messages_for("thread-1")
-
-    assert [message.id for message in messages] == ["message-1", "message-2"]
-    assert messages[1].refs == [ArtifactRef(kind="run", value="run-2")]
-
-
-def test_journal_and_brief_are_append_only_and_latest_brief_wins():
-    repository = SqliteCoachRepository()
-    first_entry = JournalEntry(
-        id="journal-1",
-        ts=NOW,
-        kind="review",
-        content_md="Compare recovery after the next easy run.",
-        source_id="review-1",
-    )
-    repository.append_journal(first_entry)
-    repository.append_journal(first_entry.model_copy(update={"id": "journal-2", "ts": LATER}))
-    first_brief = BriefVersion(
-        id="brief-1", content_md="Initial model", source_id="review-1", created_at=NOW
-    )
-    latest_brief = first_brief.model_copy(
-        update={"id": "brief-2", "content_md": "Updated model", "created_at": LATER}
-    )
-    repository.append_brief(first_brief)
-    repository.append_brief(latest_brief)
-
-    assert [entry.id for entry in repository.list_journal()] == [
-        "journal-1",
-        "journal-2",
-    ]
-    assert repository.list_journal(limit=1) == [repository.list_journal()[1]]
-    assert repository.current_brief() == latest_brief
-    with pytest.raises(sqlite3.IntegrityError):
-        repository.append_brief(latest_brief)
 
 
 def test_initial_backfill_and_marker_commit_atomically_oldest_first():

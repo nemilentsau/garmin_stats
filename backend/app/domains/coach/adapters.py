@@ -338,17 +338,6 @@ class SqliteCoachRepository:
             rows = connection.execute(query, params).fetchall()
         return [_review_from_row(row) for row in rows]
 
-    def update_review(self, review: CoachReview) -> None:
-        with connect() as connection, connection:
-            if (
-                connection.execute(
-                    "SELECT 1 FROM coach_reviews WHERE id = ?", (review.id,)
-                ).fetchone()
-                is None
-            ):
-                raise LookupError(f"Unknown coach review: {review.id}")
-            _save_review(connection, review)
-
     def mark_review_generating(self, review_id: str, *, updated_at: str) -> None:
         """Mark a claimed review as generating before external execution."""
         with connect() as connection:
@@ -775,10 +764,6 @@ class SqliteCoachRepository:
             ),
         )
 
-    def insert_message(self, message: CoachMessage) -> None:
-        with connect() as connection, connection:
-            self._insert_message(connection, message)
-
     def messages_for(self, thread_id: str) -> list[CoachMessage]:
         with connect() as connection:
             rows = connection.execute(
@@ -855,18 +840,6 @@ class SqliteCoachRepository:
             _save_job(connection, claimed)
             connection.commit()
         return claimed
-
-    def complete_job(self, job_id: str, finished_at: str) -> None:
-        self._replace_job_state(
-            job_id,
-            allowed={"running"},
-            update={
-                "status": "complete",
-                "finished_at": finished_at,
-                "updated_at": finished_at,
-                "error": None,
-            },
-        )
 
     def fail_job(self, job_id: str, *, error: str, finished_at: str) -> None:
         with connect() as connection:
@@ -952,13 +925,6 @@ class SqliteCoachRepository:
             connection.commit()
         return changed
 
-    def append_journal(self, entry: JournalEntry) -> None:
-        with connect() as connection, connection:
-            connection.execute(
-                "INSERT INTO coach_journal (id, ts, data) VALUES (?, ?, ?)",
-                (entry.id, entry.ts, entry.model_dump_json()),
-            )
-
     def list_journal(self, *, limit: int | None = None) -> list[JournalEntry]:
         with connect() as connection:
             if limit is None:
@@ -976,16 +942,6 @@ class SqliteCoachRepository:
                     (limit,),
                 ).fetchall()
         return [_model_from_row(JournalEntry, row) for row in rows]
-
-    def append_brief(self, version: BriefVersion) -> None:
-        with connect() as connection, connection:
-            connection.execute(
-                """
-                INSERT INTO coach_brief_versions (id, created_at, data)
-                VALUES (?, ?, ?)
-                """,
-                (version.id, version.created_at, version.model_dump_json()),
-            )
 
     def current_brief(self) -> BriefVersion | None:
         with connect() as connection:
@@ -1125,25 +1081,6 @@ class SqliteCoachRepository:
         if row is None:
             raise LookupError(f"Unknown coach job: {job_id}")
         return _job_from_row(row)
-
-    def _replace_job_state(
-        self,
-        job_id: str,
-        *,
-        allowed: set[str],
-        update: dict[str, object],
-    ) -> CoachJob:
-        with connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            job = self._job_in_connection(connection, job_id)
-            if job.status not in allowed:
-                raise ValueError(
-                    f"Coach job {job_id} has status {job.status}; expected {sorted(allowed)}"
-                )
-            changed = job.model_copy(update=update)
-            _save_job(connection, changed)
-            connection.commit()
-        return changed
 
     @staticmethod
     def _update_associated_review(

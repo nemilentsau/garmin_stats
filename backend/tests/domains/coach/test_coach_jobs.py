@@ -94,6 +94,22 @@ def test_initial_window_includes_exact_fourteen_day_boundary_only():
     assert repo.review_for_run("older") is None
 
 
+def test_reconcile_uses_training_run_classification_not_bundle_literal():
+    from tests.domains.coach.test_coach_context import _card
+
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    semantic_non_run = _card([], status="pending").model_copy(update={"is_running": False})
+    gateway.days["2026-07-11"] = TrainingTodayResponse(
+        date="2026-07-11",
+        cards=[semantic_non_run],
+    )
+
+    created = _jobs(repo, gateway).reconcile_pending()
+
+    assert created == []
+
+
 def test_ongoing_reconcile_queues_only_post_activation_runs_once():
     repo = SqliteCoachRepository()
     gateway = ReconcileGateway()

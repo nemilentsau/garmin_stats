@@ -77,7 +77,6 @@ def test_journal_application_does_not_import_other_domains():
             "app.domains.experiments",
             "app.domains.garmin_analytics",
             "app.domains.garmin_sync",
-            "app.domains.programs",
             "app.domains.routines",
         ],
     )

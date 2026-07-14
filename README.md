@@ -107,15 +107,12 @@ models; the boundary rules matter more than the package label:
 - `domains/experiments/` owns experiment definitions, target metrics, exposure
   derivation, and N=1 analysis with flat routes/adapters/dependencies and pure
   experiment rules in `domain/`.
-- `domains/programs/` owns placeholder program spec import, lifecycle, and
-  version history. Imports store program specs only; protocol, routine, and
-  experiment activation is intentionally not implemented yet.
 - `domains/journal/` owns daily check-ins and notes.
 - `domains/training/` owns v3 training artifact import/activation, the ported
   L1-L12 block linter, schedule compilation, and Today/schedule-window/
-  block-status read models for imported training content. It is a standalone
-  slice today: it imports nothing from `domains/routines` and nothing imports
-  from it; the frontend composes the training and routine feeds side by side.
+  block-status read models for imported training content. It stays independent
+  from `domains/routines`; the frontend composes both feeds, while Coach reads
+  training through its explicit gateway/contracts.
 - `core/profile/` owns app-level profile configuration.
 
 Current strict-boundary slices follow the same convention: route/API modules
@@ -191,7 +188,8 @@ Example bundles live in `docs/routine_bundles/`.
 
 Importing a bundle is the only way routine or experiment content enters the
 app — there is no generation, translation, or seeding path. The v3 training
-artifacts in `docs/routine-pivot/block0/` are the authoring source and spec.
+artifacts in `docs/routine-pivot/block1/` are the active authored block;
+`block0/` remains the frozen schema exemplar and test-fixture canon.
 
 ### Training import
 
@@ -199,7 +197,7 @@ artifacts in `docs/routine-pivot/block0/` are the authoring source and spec.
 artifacts natively — it does not go through the `domains/routines` bundle
 pipeline above. The frontend route is `/training/import`: select the six
 artifact files (`running_v3.json`, `strength_v3.json`, `support_v3.json`,
-`block0.json`, `registry.json`, `exercise_library.json`) and import. Import is
+`block1.json`, `registry.json`, `exercise_library.json`) and import. Import is
 single-shot and all-or-nothing — every file must be independently
 contract-valid, the set must be complete relative to the block's own
 `bundle_ids`, the ported L1-L12 block linter must report zero errors, and any

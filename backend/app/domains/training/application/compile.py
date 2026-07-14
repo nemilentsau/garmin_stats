@@ -33,6 +33,12 @@ from app.domains.training.contracts import (
 )
 
 SLOT_HOUR: dict[str, int] = {"morning": 7, "midday": 13, "evening": 19}
+_RUNNING_BUNDLE_ID = "running.v3"
+
+
+def is_running_bundle(bundle_id: str) -> bool:
+    """Return whether an authored bundle owns tracked-running cards."""
+    return bundle_id == _RUNNING_BUNDLE_ID
 
 
 @dataclass(frozen=True)
