@@ -185,8 +185,12 @@ The first enabled reconciliation inspects the inclusive local-date window from t
 minus 14 days through today, selects at most the three most recent eligible run/skip
 items, then enqueues those selected items oldest-to-newest so journal chronology is
 readable. The remaining pre-activation history is manual-only. Later reconciliation
-considers only target dates strictly after the saved activation date. Unresolved run
-association candidates are not treated as skips.
+considers target dates from the saved activation date (inclusive) through today,
+bounded to at most the last 30 days even if activation is older — runs sync at least
+daily, so a wider lookback is never needed outside the initial-backfill era. Per-run
+and per-day training-schedule projections are computed at most once per target date
+per reconciliation pass. Unresolved run association candidates are not treated as
+skips.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,
 attempt, message, review, and thread lifecycle instants are canonical UTC strings so
