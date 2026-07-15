@@ -220,6 +220,17 @@ def test_review_blob_migration_strips_plots_viewed_and_second_init_is_noop():
 
         init_coach_schema(connection)
         connection.commit()
+        stripped = connection.execute(
+            "SELECT data FROM coach_reviews WHERE id = 'review-legacy'"
+        ).fetchone()["data"]
+
+        init_coach_schema(connection)
+        connection.commit()
+        rerun = connection.execute(
+            "SELECT data FROM coach_reviews WHERE id = 'review-legacy'"
+        ).fetchone()["data"]
+
+    assert rerun == stripped
 
     repository = SqliteCoachRepository()
     loaded = repository.review("review-legacy")
