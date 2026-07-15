@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from app.bootstrap.container import AppContainer
 from app.domains.experiments.application.analysis_cache import refresh_active_experiments
@@ -35,10 +35,12 @@ class ProcessRuntime:
 
         tasks: list[asyncio.Task[None]] = []
         if self._container.config.coach_worker_enabled:
-            cutoff = (datetime.now(UTC) - timedelta(minutes=20)).isoformat().replace(
-                "+00:00", "Z"
+            # A single-process deployment cannot have a legitimately running
+            # job at startup; recover everything still marked running.
+            self._container.coach_repo.recover_stale_jobs(
+                cutoff=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                max_attempts=3,
             )
-            self._container.coach_repo.recover_stale_jobs(cutoff=cutoff, max_attempts=3)
             self._container.coach_jobs.reconcile_pending()
             coach_task = asyncio.create_task(
                 self._container.coach_worker.run(), name="coach-worker"
