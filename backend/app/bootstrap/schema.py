@@ -7,6 +7,7 @@ initializer under one connection.
 """
 
 import sqlite3
+from datetime import UTC, datetime
 
 from app.core.profile.schema import init_profile_schema
 from app.domains.coach.schema import init_coach_schema
@@ -45,9 +46,47 @@ def _drop_retired_tables(connection: sqlite3.Connection) -> None:
         connection.execute(f'DROP TABLE IF EXISTS "{table}"')
 
 
+def _destructive_migration_pending(connection: sqlite3.Connection) -> bool:
+    """True when startup migrations would delete existing user data."""
+    tables = {
+        row[0]
+        for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    for table in _RETIRED_TABLES:
+        if table in tables:
+            count = connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+            if count:
+                return True
+    if "experiment_exposures" in tables:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM experiment_exposures WHERE id LIKE 'exposure:auto:%'"
+        ).fetchone()[0]
+        if count:
+            return True
+    return False
+
+
+def _backup_database() -> None:
+    """Copy the DB file aside before a destructive migration; keeps history recoverable."""
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    backup_dir = sqlite.DB_PATH.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    destination = backup_dir / f"pre-migration-{stamp}.db"
+    with sqlite.connect() as source:
+        target = sqlite3.connect(str(destination))
+        try:
+            source.backup(target)
+        finally:
+            target.close()
+
+
 def init_storage() -> None:
     """Ensure the SQLite file exists, enable WAL, and create every owned schema."""
     sqlite.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if sqlite.DB_PATH.exists():
+        with sqlite.connect() as con:
+            if _destructive_migration_pending(con):
+                _backup_database()
     with sqlite.connect() as con:
         con.execute("PRAGMA journal_mode=WAL")
         init_garmin_sync_schema(con)
