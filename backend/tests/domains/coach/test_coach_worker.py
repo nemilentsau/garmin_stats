@@ -178,6 +178,50 @@ def test_worker_survives_claim_and_reconcile_failures():
     assert handled == ["one"]
 
 
+def test_persistently_failing_reconcile_does_not_starve_job_claiming():
+    """A reconcile that always raises must not block claim_next_job forever."""
+    handled: list[str] = []
+
+    class AlwaysFailingJobs:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def reconcile_pending(self):
+            self.calls += 1
+            raise RuntimeError("database is locked")
+
+        def reconcile_idle_threads(self):
+            raise AssertionError("should not be reached when reconcile_pending fails")
+
+    class Handlers:
+        async def execute(self, job):
+            handled.append(job.id)
+
+        def fail_unexpected(self, job, error):
+            raise AssertionError((job, error))
+
+    async def exercise():
+        worker = CoachWorker(
+            repo=FakeRepo([_job("one")]),  # type: ignore[arg-type]
+            handlers=Handlers(),  # type: ignore[arg-type]
+            jobs=AlwaysFailingJobs(),  # type: ignore[arg-type]
+            broadcast=lambda event, data: asyncio.sleep(0),
+            poll_interval_s=0.01,
+            reconcile_interval_s=0,
+        )
+        task = asyncio.create_task(worker.run())
+        try:
+            async with asyncio.timeout(2):
+                while len(handled) < 1:
+                    await asyncio.sleep(0.01)
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(exercise())
+    assert handled == ["one"]
+
+
 def test_worker_survives_failing_fail_path():
     """A handler failure whose own fail_unexpected also raises must not kill the loop."""
     handled: list[str] = []

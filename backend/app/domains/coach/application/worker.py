@@ -39,11 +39,18 @@ class CoachWorker:
         """Claim and execute exactly one job at a time until cancelled."""
         next_reconcile = time.monotonic() + self.reconcile_interval_s
         while True:
-            try:
-                if time.monotonic() >= next_reconcile:
+            if time.monotonic() >= next_reconcile:
+                # Advance the deadline before attempting reconcile so a persistently
+                # failing reconcile cannot retry in a tight loop or block claiming.
+                next_reconcile = time.monotonic() + self.reconcile_interval_s
+                try:
                     await asyncio.to_thread(self.jobs.reconcile_pending)
                     await asyncio.to_thread(self.jobs.reconcile_idle_threads)
-                    next_reconcile = time.monotonic() + self.reconcile_interval_s
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.exception("Coach worker reconcile failed")
+            try:
                 job = await asyncio.to_thread(self.repo.claim_next_job, utc_now_iso())
             except asyncio.CancelledError:
                 raise
