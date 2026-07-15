@@ -707,10 +707,10 @@ def _build_card(
 def _card_sort_key(card: TrainingTodayCard) -> tuple[int, int, str]:
     """Sort key within one day: slot order, then check-in cards first, then card id.
 
-    Block0 never schedules two check-in cards in the same slot, so the
-    checkin-first tie-break only ever matters for `sup.daily` sharing the
-    morning slot with a running card — this keeps the daily check-in visually
-    first regardless of the bundles' own assignment order.
+    No imported block so far schedules two check-in cards in one slot, so the
+    checkin-first tie-break only matters for a check-in sharing a slot with a
+    training card — this keeps the daily check-in visually first regardless of
+    the bundles' own assignment order.
     """
     return (SLOT_HOUR.get(card.slot, 99), 0 if card.checkin_rows else 1, card.card.id)
 

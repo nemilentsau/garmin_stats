@@ -100,13 +100,14 @@ def _card(
 def _evidence(
     *,
     end_s: int = 3300,
+    elapsed_s: Sequence[int] | None = None,
     hr_source: str | None = "strap",
     dew_point_c: float | None = 20,
     heart_rate_bpm: Sequence[int | None] | None = None,
     distance_mi: Sequence[float | None] | None = None,
     spans: list[TrainingRunWalkSpan] | None = None,
 ) -> TrainingRunEvidence:
-    elapsed_s = list(range(end_s + 1))
+    resolved_elapsed_s = list(elapsed_s) if elapsed_s is not None else list(range(end_s + 1))
     return TrainingRunEvidence(
         summary=TrainingRunActivitySummary(
             run_id="r1",
@@ -114,13 +115,13 @@ def _evidence(
             start_time_local="2026-07-13T06:00:00",
             hr_source=hr_source,
         ),
-        elapsed_s=elapsed_s,
+        elapsed_s=resolved_elapsed_s,
         distance_mi=list(distance_mi)
         if distance_mi is not None
-        else [second * (4.2 / 1800) for second in elapsed_s],
+        else [second * (4.2 / 1800) for second in resolved_elapsed_s],
         heart_rate_bpm=list(heart_rate_bpm)
         if heart_rate_bpm is not None
-        else [160 for _ in elapsed_s],
+        else [160 for _ in resolved_elapsed_s],
         run_walk_spans=spans or [],
         dew_point_c=dew_point_c,
     )
@@ -343,14 +344,43 @@ def test_strap_coverage_boundary_controls_authored_gate(
     assert evaluation.status == expected_status
 
 
+def test_recording_pause_does_not_fail_strap_validity():
+    """A 90 s auto-pause (recording gap) inside the final-20 window removes those
+    seconds from the timeline entirely rather than counting as strap dropout."""
+    gap_start, gap_end = 1800, 1890
+    elapsed_s = [second for second in range(3301) if not gap_start <= second < gap_end]
+
+    evaluation = evaluate_run_measurement(
+        card=_card(), segments=_segments(), evidence=_evidence(elapsed_s=elapsed_s)
+    )
+
+    assert evaluation is not None
+    assert evaluation.observations.strap_validity_pct == 1.0
+    assert _gate_result(evaluation, "strap.validity_pct") == "pass"
+    assert evaluation.status == "awaiting_review"
+
+
+def test_sensor_dropout_still_lowers_strap_validity():
+    """Null HR among fully-recorded seconds (no pause) is real dropout, not a gap,
+    and now resolves to a determinate low ratio rather than an unknown gate."""
+    evaluation = evaluate_run_measurement(
+        card=_card(), segments=_segments(), evidence=_evidence(heart_rate_bpm=[None] * 3301)
+    )
+
+    assert evaluation is not None
+    assert evaluation.observations.strap_validity_pct == 0.0
+    assert _gate_result(evaluation, "strap.validity_pct") == "fail"
+    assert evaluation.status == "failed"
+
+
 @pytest.mark.parametrize(
     "evidence",
     [
         _evidence(hr_source="wrist"),
-        _evidence(heart_rate_bpm=[None] * 3301),
         _evidence(end_s=2600),
+        _evidence(elapsed_s=[0, 1499, 2700, 3300]),
     ],
-    ids=["wrist-hr", "no-hr", "short-stream"],
+    ids=["wrist-hr", "short-stream", "gap-spans-final20-window"],
 )
 def test_indeterminable_strap_coverage_is_an_unknown_gate(
     evidence: TrainingRunEvidence,
@@ -421,17 +451,35 @@ def test_effort_boundary_distance_is_linearly_interpolated():
     assert evaluation.observations.threshold_pace_min_per_mi == 7.14
 
 
+def test_threshold_pace_available_when_run_stops_at_effort_end():
+    """A run stopped exactly at the effort end has no sample after window[1]; the
+    last in-tolerance sample at window[1] - 1 (mirroring `_series_covers`) still
+    yields a threshold-pace estimand instead of silently going unavailable."""
+    evidence = _evidence(end_s=2699, distance_mi=[None] * 2700)
+    evidence.distance_mi[900] = 2.0
+    evidence.distance_mi[2699] = 6.2
+
+    evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
+
+    assert evaluation is not None
+    assert evaluation.observations.threshold_pace_min_per_mi == 7.14
+
+
 @pytest.mark.parametrize("missing_side", ["before-start", "after-end"])
 def test_pace_is_unavailable_without_valid_samples_surrounding_each_boundary(
     missing_side: str,
 ):
+    # The end-side bracket points sit at 2698/2702 (not 2699/2701) so the
+    # "after-end" case has no sample at or after window[1] - 1 either — it
+    # must stay genuinely unavailable, not accidentally rescued by the
+    # window[1] - 1 end-boundary fallback.
     evidence = _evidence(distance_mi=[None] * 3301)
     evidence.distance_mi[901] = 2.1
-    evidence.distance_mi[2699] = 6.1
+    evidence.distance_mi[2698] = 6.1
     if missing_side != "before-start":
         evidence.distance_mi[899] = 1.9
     if missing_side != "after-end":
-        evidence.distance_mi[2701] = 6.3
+        evidence.distance_mi[2702] = 6.3
 
     evaluation = evaluate_run_measurement(card=_card(), segments=_segments(), evidence=evidence)
 
@@ -456,6 +504,20 @@ def test_stand_spans_are_clipped_to_effort_and_exposed_as_a_warning():
     assert evaluation.observations.effort_stand_time_s == 250
     assert [warning.code for warning in evaluation.warnings] == ["uninterrupted_effort"]
     assert evaluation.warnings[0].value == 250
+    assert evaluation.status == "awaiting_review"
+
+
+def test_unavailable_gate_signal_emits_warning():
+    """An authored gate whose signal no production source populates (e.g.
+    `env.dew_point`) must surface, not evaluate 'unknown' silently."""
+    evaluation = evaluate_run_measurement(
+        card=_card(), segments=_segments(), evidence=_evidence(dew_point_c=None)
+    )
+
+    assert evaluation is not None
+    signal_warnings = [w for w in evaluation.warnings if w.code == "signal_unavailable"]
+    assert len(signal_warnings) == 1
+    assert "env.dew_point" in signal_warnings[0].message
     assert evaluation.status == "awaiting_review"
 
 
