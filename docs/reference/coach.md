@@ -175,7 +175,8 @@ attempt number on the next claim.
 
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
-the row `running` for startup recovery. Startup requeues work older than 20 minutes up to
+the row `running` for startup recovery. Startup requeues every job still marked `running`
+(a single-process deployment cannot have one legitimately running at boot) up to
 three interruption attempts. Open threads idle for six hours queue distillation; success
 closes the thread and deletes its Codex home, while failure retains both and becomes
 `close_failed` with an explicit retry.
