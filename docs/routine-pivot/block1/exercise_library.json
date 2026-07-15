@@ -197,6 +197,39 @@
         "tibialis_foot"
       ],
       "involves": []
+    },
+    {
+      "id": "romanian_deadlift",
+      "name": "Romanian Deadlift (RDL)",
+      "targets": [
+        "hamstring",
+        "glute"
+      ],
+      "involves": [
+        "trunk_core"
+      ]
+    },
+    {
+      "id": "barbell_hip_thrust",
+      "name": "Barbell Hip Thrust",
+      "targets": [
+        "glute"
+      ],
+      "involves": [
+        "hamstring"
+      ]
+    },
+    {
+      "id": "bulgarian_split_squat",
+      "name": "Bulgarian Split Squat (unilateral)",
+      "targets": [
+        "quad",
+        "glute"
+      ],
+      "involves": [
+        "adductor",
+        "trunk_core"
+      ]
     }
   ]
 }

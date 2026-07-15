@@ -74,6 +74,24 @@
       "staleness_hours": 336
     },
     {
+      "id": "e1rm.squat_pattern.dev_swc",
+      "units": "swc_units",
+      "source": "derived",
+      "staleness_hours": 336
+    },
+    {
+      "id": "e1rm.hip_hinge.dev_swc",
+      "units": "swc_units",
+      "source": "derived",
+      "staleness_hours": 336
+    },
+    {
+      "id": "e1rm.calf_soleus_hsr.dev_swc",
+      "units": "swc_units",
+      "source": "derived",
+      "staleness_hours": 336
+    },
+    {
       "id": "tonnage.upper.7d",
       "units": "kg",
       "source": "derived",
@@ -207,7 +225,8 @@
     {
       "id": "est.e1rm.hip_hinge",
       "inputs": [
-        "cap.set_log.legs_posterior"
+        "cap.set_log.legs_posterior",
+        "cap.set_log.legs_rdl"
       ],
       "output_signal": "e1rm.hip_hinge"
     },
@@ -218,6 +237,27 @@
         "cap.set_log.hsr_b"
       ],
       "output_signal": "e1rm.calf_soleus_hsr"
+    },
+    {
+      "id": "est.swc_dev.squat_pattern",
+      "inputs": [
+        "e1rm.squat_pattern"
+      ],
+      "output_signal": "e1rm.squat_pattern.dev_swc"
+    },
+    {
+      "id": "est.swc_dev.hip_hinge",
+      "inputs": [
+        "e1rm.hip_hinge"
+      ],
+      "output_signal": "e1rm.hip_hinge.dev_swc"
+    },
+    {
+      "id": "est.swc_dev.calf_soleus",
+      "inputs": [
+        "e1rm.calf_soleus_hsr"
+      ],
+      "output_signal": "e1rm.calf_soleus_hsr.dev_swc"
     },
     {
       "id": "est.pacehr",
@@ -271,6 +311,7 @@
         "cap.set_log.legs_barbell",
         "cap.set_log.legs_posterior",
         "cap.set_log.legs_machine",
+        "cap.set_log.legs_rdl",
         "cap.set_log.hsr_a",
         "cap.set_log.hsr_b"
       ],
