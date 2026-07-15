@@ -6,17 +6,14 @@ import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-
-import matplotlib
-
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.axes import Axes  # noqa: E402
-from matplotlib.figure import Figure  # noqa: E402
+from typing import TYPE_CHECKING
 
 from app.domains.coach.infra.paths import library_panel_path
 from app.domains.garmin_analytics.contracts import RunDetailResponse, RunSeriesResponse
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 PANEL_SPEC_VERSION = 3
 
@@ -24,6 +21,16 @@ _LINE_COLOR = "#2166ac"
 _SECONDARY_COLOR = "#b2182b"
 _TERTIARY_COLOR = "#5a8f29"
 _SPAN_COLORS = {"run": "#d9edf7", "walk": "#fff0c2", "stand": "#eeeeee"}
+
+
+def _pyplot():
+    """Import pyplot on first render; startup must not pay the matplotlib cost."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    return plt
 
 
 @dataclass(frozen=True)
@@ -83,11 +90,6 @@ def available_current_channels(series: RunSeriesResponse) -> list[str]:
     return [channel.label for channel in _current_channels(series)]
 
 
-def series_has_data(series: RunSeriesResponse) -> bool:
-    """Whether the compact historical panel has any plottable series."""
-    return bool(series.series.elapsed_s) and bool(_current_channels(series))
-
-
 def break_elapsed_gaps(
     elapsed: Sequence[int],
     values: Sequence[float | int | None],
@@ -138,6 +140,7 @@ def _annotate_timeline(
 
 
 def _new_figure(strip_count: int) -> tuple[Figure, list[Axes]]:
+    plt = _pyplot()
     figure, raw_axes = plt.subplots(
         strip_count,
         1,
@@ -151,6 +154,7 @@ def _new_figure(strip_count: int) -> tuple[Figure, list[Axes]]:
 
 
 def _save_no_series(path: Path, detail: RunDetailResponse) -> None:
+    plt = _pyplot()
     figure, axis = plt.subplots(figsize=(10, 2.4), constrained_layout=True)
     figure.patch.set_facecolor("white")
     axis.axis("off")
@@ -182,6 +186,7 @@ def render_library_panel(
     series: RunSeriesResponse,
 ) -> Path:
     """Render or reuse the three-strip historical triage panel."""
+    plt = _pyplot()
     cache_dir.mkdir(parents=True, exist_ok=True)
     fingerprint = run_content_fingerprint(detail, series)
     path = library_panel_path(
@@ -225,6 +230,7 @@ def render_current_run_stack(
     series: RunSeriesResponse,
 ) -> list[Path]:
     """Render all present measured channels in pages of at most four strips."""
+    plt = _pyplot()
     output_dir.mkdir(parents=True, exist_ok=True)
     fingerprint = run_content_fingerprint(detail, series)
     channels = _current_channels(series)

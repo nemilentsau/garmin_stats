@@ -39,7 +39,6 @@ class CodexJobResult(StrictDefaultsRequired):
     ok: bool
     session_id: str | None = None
     output: OutputValue | None = None
-    usage: dict[str, int] | None = None
     error_kind: ErrorKind | None = None
     error: str | None = None
 
@@ -101,9 +100,8 @@ async def _terminate_process_group(process: asyncio.subprocess.Process) -> None:
         await process.wait()
 
 
-def _events(path: Path) -> tuple[str | None, dict[str, int] | None]:
+def _events(path: Path) -> str | None:
     session_id: str | None = None
-    usage: dict[str, int] | None = None
     for line in path.read_text(encoding="utf-8").splitlines():
         try:
             event = json.loads(line)
@@ -114,13 +112,7 @@ def _events(path: Path) -> tuple[str | None, dict[str, int] | None]:
         candidate = event.get("thread_id") or event.get("session_id")
         if session_id is None and isinstance(candidate, str):
             session_id = candidate
-        raw_usage = event.get("usage")
-        if isinstance(raw_usage, dict) and all(
-            isinstance(key, str) and isinstance(value, int)
-            for key, value in raw_usage.items()
-        ):
-            usage = dict(raw_usage)
-    return session_id, usage
+    return session_id
 
 
 def _failure(kind: ErrorKind, error: str) -> CodexJobResult:
@@ -289,10 +281,9 @@ async def run_codex_job(
         return _failure(error_kind, str(error))
     except ValueError as error:
         return _failure("invalid_output", str(error))
-    session_id, usage = _events(stdout_path)
+    session_id = _events(stdout_path)
     return CodexJobResult(
         ok=True,
         session_id=session_id,
         output=output,
-        usage=usage,
     )
