@@ -137,6 +137,10 @@ bucket indexes independently.
 Typed refs are `run`, `plot`, `review`, or `date`. IDs use a strict filename allowlist;
 path traversal is rejected. `date` refs materialize training, daily metric, check-in, and
 note context. Runtime attempt directories are never deleted during workspace refresh.
+Each stored ref resolves independently: a ref that no longer resolves (a deleted run, an
+evicted plot cache entry, a rejected unsafe ID) is skipped and listed in
+`refs/unavailable.md` rather than failing the whole assembly, so one stale persisted
+reference cannot block every future coach job.
 
 ## Digest, journal, and brief
 

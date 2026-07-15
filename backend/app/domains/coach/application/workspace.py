@@ -100,6 +100,8 @@ def _run_list_item(detail: RunDetailResponse) -> RunListItem:
         pace_min_per_mi=detail.display.pace_min_per_mi,
         avg_heart_rate_bpm=detail.session.avg_heart_rate_bpm,
         hr_source=detail.session.hr_source,
+        training_load=detail.session.training_load,
+        aerobic_training_effect=detail.session.aerobic_training_effect,
     )
 
 
@@ -321,6 +323,61 @@ def _write_date_ref(gateway: CoachReadGateway, destination: Path, value: str) ->
     _write(destination, content)
 
 
+def _resolve_ref(
+    gateway: CoachReadGateway,
+    repo: SqliteCoachRepository,
+    *,
+    ref: ArtifactRef,
+    directory: Path,
+    plot_cache_dir: Path,
+    metric_by_date: dict[str, DailyMetric],
+) -> None:
+    """Materialize one journal/transcript reference into its evidence file(s).
+
+    Raises `LookupError`, `FileNotFoundError`, `OSError`, or `ValueError` (from
+    `_safe`) when the reference no longer resolves. Callers must catch those
+    per ref so one stale reference cannot fail an entire workspace assembly.
+    """
+    safe_value = _safe(ref.value)
+    if ref.kind == "run":
+        detail = gateway.run_detail(ref.value)
+        run = _run_list_item(detail)
+        _export_run(
+            gateway,
+            run=run,
+            destination=directory / "refs/runs" / safe_value,
+            plot_cache_dir=plot_cache_dir,
+            metric_by_date=metric_by_date,
+        )
+    elif ref.kind == "plot":
+        source = plot_cache_dir / safe_value
+        if not source.is_file():
+            workspaces_root = directory.parents[1]
+            legacy_sources = sorted(
+                (workspaces_root / "reviews").glob(f"*/current/*/images/{safe_value}")
+            )
+            if not legacy_sources:
+                raise FileNotFoundError(f"Referenced plot not found: {ref.value}")
+            plot_cache_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(legacy_sources[0], source)
+        destination = directory / "refs/plots" / safe_value
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    elif ref.kind == "review":
+        review = repo.review(ref.value)
+        content = (
+            f"# Review {ref.value}\n\nReview not found.\n"
+            if review is None
+            else (
+                f"# Review {review.id}\n\n"
+                f"{review.content_md or 'Review has no completed content.'}\n"
+            )
+        )
+        _write(directory / "refs/reviews" / f"{safe_value}.md", content)
+    elif ref.kind == "date":
+        _write_date_ref(gateway, directory / "refs/dates" / f"{safe_value}.md", ref.value)
+
+
 def assemble_workspace(
     gateway: CoachReadGateway,
     repo: SqliteCoachRepository,
@@ -386,14 +443,7 @@ def assemble_workspace(
         safe_current = _safe(current_run_id)
         detail = gateway.run_detail(current_run_id)
         series = gateway.run_series(current_run_id)
-        current_run = next(
-            (
-                run
-                for run in gateway.recent_runs(evidence_date=evidence_date, limit=1000)
-                if run.id == current_run_id
-            ),
-            _run_list_item(detail),
-        )
+        current_run = _run_list_item(detail)
         context = _run_context(gateway, current_run, metric_by_date)
         current_dir = directory / "current" / safe_current
         _write(current_dir / "summary.md", run_summary_markdown(context))
@@ -408,48 +458,27 @@ def assemble_workspace(
             current_images.append(str(destination.resolve()))
 
     resolved: list[ArtifactRef] = []
+    unavailable: list[str] = []
     for ref in _refs(journal, transcript):
-        safe_value = _safe(ref.value)
-        if ref.kind == "run":
-            detail = gateway.run_detail(ref.value)
-            run = _run_list_item(detail)
-            _export_run(
+        try:
+            _resolve_ref(
                 gateway,
-                run=run,
-                destination=directory / "refs/runs" / safe_value,
+                repo,
+                ref=ref,
+                directory=directory,
                 plot_cache_dir=plot_cache_dir,
                 metric_by_date=metric_by_date,
             )
-        elif ref.kind == "plot":
-            source = plot_cache_dir / safe_value
-            if not source.is_file():
-                workspaces_root = directory.parents[1]
-                legacy_sources = sorted(
-                    (workspaces_root / "reviews").glob(
-                        f"*/current/*/images/{safe_value}"
-                    )
-                )
-                if not legacy_sources:
-                    raise FileNotFoundError(f"Referenced plot not found: {ref.value}")
-                plot_cache_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(legacy_sources[0], source)
-            destination = directory / "refs/plots" / safe_value
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
-        elif ref.kind == "review":
-            review = repo.review(ref.value)
-            content = (
-                f"# Review {ref.value}\n\nReview not found.\n"
-                if review is None
-                else (
-                    f"# Review {review.id}\n\n"
-                    f"{review.content_md or 'Review has no completed content.'}\n"
-                )
-            )
-            _write(directory / "refs/reviews" / f"{safe_value}.md", content)
-        elif ref.kind == "date":
-            _write_date_ref(gateway, directory / "refs/dates" / f"{safe_value}.md", ref.value)
+        except (LookupError, FileNotFoundError, OSError, ValueError) as error:
+            unavailable.append(f"- `{ref.kind}:{ref.value}` — {error}")
+            continue
         resolved.append(ref)
+    if unavailable:
+        _write(
+            directory / "refs/unavailable.md",
+            "# Unavailable references\n\nThese journal references no longer resolve"
+            " and were skipped:\n\n" + "\n".join(unavailable) + "\n",
+        )
 
     if transcript is not None:
         _write(directory / "transcript.md", _transcript_markdown(transcript))
