@@ -14,6 +14,7 @@
 		type AdherenceDayEntry
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
+	import { localDateIso } from '$lib/date';
 	import { errorMessage } from '$lib/utils';
 	import ConfidenceBadge from '$lib/components/experiments/ConfidenceBadge.svelte';
 	import ExperimentTimeline from '$lib/components/experiments/ExperimentTimeline.svelte';
@@ -27,7 +28,7 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = localDateIso();
 
 	async function fetchData() {
 		data = await api.getExperiments();
@@ -74,9 +75,24 @@
 		exposureDate = today;
 		exposureState = 'full';
 		exposureError = null;
+		exposureSaving = false;
 	}
 
-	async function saveExposure(experimentId: string): Promise<void> {
+	function validateExposureDate(treatmentStartDate?: string | null): string | null {
+		if (!exposureDate) return 'Select a date.';
+		if (exposureDate > today) return 'Date cannot be after today.';
+		if (treatmentStartDate && exposureDate < treatmentStartDate) {
+			return 'Date cannot be before treatment start.';
+		}
+		return null;
+	}
+
+	async function saveExposure(experimentId: string, treatmentStartDate?: string | null): Promise<void> {
+		const validationError = validateExposureDate(treatmentStartDate);
+		if (validationError) {
+			exposureError = validationError;
+			return;
+		}
 		exposureError = null;
 		exposureSaving = true;
 		try {
@@ -88,11 +104,19 @@
 				exposure_score: null,
 				notes: null
 			});
-			detail = await api.getExperiment(experimentId); // POST already refreshed analysis server-side
+			// The user may have switched to a different experiment while this save
+			// was in flight — don't clobber the freshly-selected experiment's state.
+			if (selectedId !== experimentId) return;
+			const refreshed = await api.getExperiment(experimentId); // POST already refreshed analysis server-side
+			if (selectedId !== experimentId) return;
+			detail = refreshed;
 		} catch (e: unknown) {
+			if (selectedId !== experimentId) return;
 			exposureError = errorMessage(e);
 		} finally {
-			exposureSaving = false;
+			if (selectedId === experimentId) {
+				exposureSaving = false;
+			}
 		}
 	}
 
@@ -253,21 +277,23 @@
 			/>
 
 			{#if exp.status !== 'draft'}
-				<div class="flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-5 py-3">
+				<div class="flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-5 py-4">
 					<span class="font-['DM_Mono',monospace] text-[11px] uppercase tracking-wider text-[#5e7282]">Log exposure</span>
 					<input
 						type="date"
+						aria-label="Exposure date"
 						class="rounded-md border border-[rgba(255,255,255,0.1)] bg-transparent px-2 py-1 font-['DM_Mono',monospace] text-[12px] text-[#c8d6e0] [color-scheme:dark]"
 						bind:value={exposureDate}
 						min={exp.design?.treatment_start_date ?? undefined}
 						max={today}
 					/>
-					<div class="flex gap-1">
+					<div class="flex gap-1" role="group" aria-label="Adherence state">
 						{#each EXPOSURE_STATES as s}
 							<button
 								type="button"
 								class="rounded-md border px-2.5 py-1 font-['DM_Mono',monospace] text-[11px] transition-colors"
 								style="border-color: {exposureState === s.value ? s.color : 'rgba(255,255,255,0.1)'}; color: {exposureState === s.value ? s.color : '#6b7d8e'}; background: {exposureState === s.value ? s.color + '1a' : 'transparent'};"
+								aria-pressed={exposureState === s.value}
 								onclick={() => (exposureState = s.value)}
 							>
 								{s.label}
@@ -278,7 +304,7 @@
 						type="button"
 						class="rounded-md border border-[rgba(91,181,166,0.3)] bg-[rgba(91,181,166,0.12)] px-3 py-1 font-['DM_Mono',monospace] text-[11px] text-[#5bb5a6] transition-colors hover:bg-[rgba(91,181,166,0.22)] disabled:cursor-default disabled:opacity-40"
 						disabled={exposureSaving}
-						onclick={() => void saveExposure(exp.id)}
+						onclick={() => void saveExposure(exp.id, exp.design?.treatment_start_date)}
 					>
 						{exposureSaving ? 'Saving…' : 'Save'}
 					</button>
