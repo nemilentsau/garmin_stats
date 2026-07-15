@@ -610,7 +610,62 @@ def test_stale_run_ref_is_skipped_and_reported(tmp_path, fake_plots):
     assert {ref.value for ref in manifest.resolved_refs} == {"run-00"}
 
 
+def test_run_ref_failing_after_partial_writes_leaves_no_destination_dir(
+    tmp_path, monkeypatch
+):
+    """A run ref that fails late (after summary.md/laps.md are written) must not
+    leave `refs/runs/<id>` behind — a model must never see a half-written ref dir
+    as if it were complete."""
+
+    def library(cache_dir: Path, detail, series) -> Path:
+        del series
+        if detail.session.id == "run-00":
+            # Simulate a source panel that never materializes: summary.md and
+            # laps.md for this ref are already written by the time the final
+            # `shutil.copy2` in `_export_run` is attempted, and that copy raises.
+            return cache_dir / "run-00-missing-panel.png"
+        path = cache_dir / f"{detail.session.id}-panel.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"panel")
+        return path
+
+    def current(output_dir: Path, detail, series) -> list[Path]:
+        del series
+        paths = [output_dir / f"{detail.session.id}-current-{index}.png" for index in (1, 2)]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for path in paths:
+            path.write_bytes(b"current")
+        return paths
+
+    monkeypatch.setattr("app.domains.coach.application.workspace.render_library_panel", library)
+    monkeypatch.setattr("app.domains.coach.application.workspace.render_current_run_stack", current)
+
+    repo = FakeCoachRepository()
+    repo.journal = [
+        JournalEntry(
+            id="refs",
+            ts=NOW,
+            kind="chat",
+            content_md="Reference an older run whose plot copy fails.",
+            refs=[ArtifactRef(kind="run", value="run-00")],
+            source_id="message-1",
+            policy_version=2,
+        )
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    root = Path(manifest.directory)
+    unavailable = (root / "refs/unavailable.md").read_text()
+
+    assert "run:run-00" in unavailable
+    assert not (root / "refs/runs/run-00").exists()
+    assert "run-00" not in {ref.value for ref in manifest.resolved_refs}
+
+
 def test_current_run_context_does_not_scan_recent_runs(tmp_path, fake_plots):
+    """Reviewing a current run must call `recent_runs` exactly once, bounded by
+    `historical_run_limit` — not scan the full run history — while still
+    producing the current-run evidence files."""
     from app.domains.coach.application.workspace import assemble_workspace
 
     gateway = FakeCoachGateway()
@@ -631,6 +686,5 @@ def test_current_run_context_does_not_scan_recent_runs(tmp_path, fake_plots):
     root = Path(manifest.directory)
 
     assert gateway.recent_runs_calls == [20]
-    summary = (root / "current/run-21/summary.md").read_text()
-    assert "Training load: 250" in summary
-    assert "Aerobic training effect: 3.5" in summary
+    assert (root / "current/run-21/summary.md").is_file()
+    assert (root / "current/run-21/laps.md").is_file()

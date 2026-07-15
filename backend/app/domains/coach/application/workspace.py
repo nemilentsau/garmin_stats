@@ -378,6 +378,33 @@ def _resolve_ref(
         _write_date_ref(gateway, directory / "refs/dates" / f"{safe_value}.md", ref.value)
 
 
+def _cleanup_partial_ref(directory: Path, ref: ArtifactRef) -> None:
+    """Best-effort remove a ref's workspace destination after failed resolution.
+
+    `_resolve_ref` can fail after partially writing files (e.g. an `OSError`
+    during the final copy in `_export_run`, once `summary.md`/`laps.md` are
+    already on disk). Leaving those partial writes behind would let a model
+    browsing the workspace mistake a half-written ref dir for a complete one,
+    so callers must remove the destination before recording the ref
+    unavailable. Does not touch the plot cache (`plot_cache_dir / safe_value`)
+    — a healed cache copy is legitimate to keep.
+    """
+    try:
+        safe_value = _safe(ref.value)
+    except ValueError:
+        # `_safe` itself raised (unsafe value); there is no deterministic
+        # destination under `directory / "refs"` to clean up.
+        return
+    if ref.kind == "run":
+        shutil.rmtree(directory / "refs/runs" / safe_value, ignore_errors=True)
+    elif ref.kind == "plot":
+        (directory / "refs/plots" / safe_value).unlink(missing_ok=True)
+    elif ref.kind == "review":
+        (directory / "refs/reviews" / f"{safe_value}.md").unlink(missing_ok=True)
+    elif ref.kind == "date":
+        (directory / "refs/dates" / f"{safe_value}.md").unlink(missing_ok=True)
+
+
 def assemble_workspace(
     gateway: CoachReadGateway,
     repo: SqliteCoachRepository,
@@ -470,6 +497,7 @@ def assemble_workspace(
                 metric_by_date=metric_by_date,
             )
         except (LookupError, FileNotFoundError, OSError, ValueError) as error:
+            _cleanup_partial_ref(directory, ref)
             unavailable.append(f"- `{ref.kind}:{ref.value}` — {error}")
             continue
         resolved.append(ref)
