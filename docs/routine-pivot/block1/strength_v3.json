@@ -512,12 +512,12 @@
     {
       "id": "str.legs_machine",
       "bundle_id": "strength.v3",
-      "name": "Legs 2 \u2014 Machine Quad",
+      "name": "Legs 2 \u2014 Hip Hinge + Glute + Quad",
       "contract": {
         "kind": "overload",
         "adaptation": "hypertrophy",
         "progression_driver": "load",
-        "state_ref": "S2"
+        "state_ref": "S5"
       },
       "prescription": {
         "exercises": [
@@ -527,7 +527,7 @@
               "quad",
               "glute"
             ],
-            "sets": 4,
+            "sets": 3,
             "reps": [
               8,
               12
@@ -539,23 +539,68 @@
             "involves": [
               "trunk_core"
             ],
-            "tempo": "last set to failure permitted"
+            "tempo": "controlled; keep 1-2 reps in reserve to leave capacity for the hinge"
           },
           {
-            "exercise_id": "leg_extension",
+            "exercise_id": "romanian_deadlift",
             "targets": [
-              "quad"
+              "hamstring",
+              "glute"
+            ],
+            "sets": 4,
+            "reps": [
+              5,
+              8
+            ],
+            "load": {
+              "pct_e1rm": 0.75,
+              "rpe": 8
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "trunk_core"
+            ],
+            "tempo": "3s eccentric, hips back, flat back; top set at RPE 8 then 3 back-offs at minus 5-8 percent"
+          },
+          {
+            "exercise_id": "barbell_hip_thrust",
+            "targets": [
+              "glute"
             ],
             "sets": 3,
             "reps": [
-              12,
-              15
+              8,
+              12
             ],
             "load": {
-              "rpe": 10
+              "rpe": 9
             },
             "logging": "set_rep_load",
-            "tempo": "final set myo-reps"
+            "involves": [
+              "hamstring"
+            ],
+            "tempo": "1s pause at full hip extension"
+          },
+          {
+            "exercise_id": "bulgarian_split_squat",
+            "targets": [
+              "quad",
+              "glute"
+            ],
+            "sets": 2,
+            "reps": [
+              8,
+              12
+            ],
+            "load": {
+              "rpe": 9
+            },
+            "logging": "set_rep_load",
+            "involves": [
+              "adductor",
+              "trunk_core"
+            ],
+            "tempo": "per leg; controlled; own the frontal-plane balance"
           }
         ]
       },
@@ -565,12 +610,20 @@
           "type": "set_rep_load[]",
           "contract": {
             "model_id": "est.planned_vs_executed",
-            "decision_informed": "quad hypertrophy volume; planned-vs-executed"
+            "decision_informed": "quad + glute hypertrophy volume; planned-vs-executed"
+          }
+        },
+        {
+          "id": "cap.set_log.legs_rdl",
+          "type": "set_rep_load[]",
+          "contract": {
+            "model_id": "est.e1rm.hip_hinge",
+            "decision_informed": "hip-hinge e1RM trend; S5 posterior-chain progression; planned-vs-executed"
           }
         }
       ],
-      "est_duration_min": 30,
-      "display_notes": "Machine quad focus; last set may go to failure. No PR tracking here; axial-free the day after the long run."
+      "est_duration_min": 50,
+      "display_notes": "Posterior-chain and hip day the day after the long run: RDL top set plus back-offs drives the S5 hinge e1RM, hip thrust loads glute-max horizontal force, split squat covers unilateral and frontal-plane control. Pendulum squat retains the machine-quad stimulus."
     }
   ],
   "assignments": [
@@ -867,6 +920,11 @@
                   "value": true
                 },
                 {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
                   "signal": "hrv.dev_swc",
                   "op": "<",
                   "value": -1.5
@@ -885,6 +943,16 @@
                 },
                 {
                   "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
                   "op": ">=",
                   "value": 2
                 }
@@ -1190,6 +1258,11 @@
                   "value": true
                 },
                 {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
                   "signal": "hrv.dev_swc",
                   "op": "<",
                   "value": -1.5
@@ -1208,6 +1281,16 @@
                 },
                 {
                   "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
                   "op": ">=",
                   "value": 2
                 }
@@ -1513,6 +1596,11 @@
                   "value": true
                 },
                 {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
                   "signal": "hrv.dev_swc",
                   "op": "<",
                   "value": -1.5
@@ -1531,6 +1619,16 @@
                 },
                 {
                   "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
                   "op": ">=",
                   "value": 2
                 }
@@ -1836,6 +1934,11 @@
                   "value": true
                 },
                 {
+                  "signal": "flag.tissue.hamstring",
+                  "op": "==",
+                  "value": true
+                },
+                {
                   "signal": "hrv.dev_swc",
                   "op": "<",
                   "value": -1.5
@@ -1854,6 +1957,16 @@
                 },
                 {
                   "signal": "soreness.quad",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.glute",
+                  "op": ">=",
+                  "value": 2
+                },
+                {
+                  "signal": "soreness.hamstring",
                   "op": ">=",
                   "value": 2
                 }

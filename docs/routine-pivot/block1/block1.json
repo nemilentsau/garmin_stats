@@ -101,19 +101,19 @@
       "predicate": {
         "all": [
           {
-            "signal": "e1rm.squat_pattern",
-            "op": ">",
-            "value": 0
+            "signal": "e1rm.squat_pattern.dev_swc",
+            "op": ">=",
+            "value": -1.0
           },
           {
-            "signal": "e1rm.hip_hinge",
-            "op": ">",
-            "value": 0
+            "signal": "e1rm.hip_hinge.dev_swc",
+            "op": ">=",
+            "value": -1.0
           },
           {
-            "signal": "e1rm.calf_soleus_hsr",
-            "op": ">",
-            "value": 0
+            "signal": "e1rm.calf_soleus_hsr.dev_swc",
+            "op": ">=",
+            "value": -1.0
           }
         ]
       }
