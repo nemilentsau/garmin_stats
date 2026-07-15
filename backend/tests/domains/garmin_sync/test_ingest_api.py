@@ -65,7 +65,6 @@ class TestIngestRoutes:
             downloaded=1,
             skipped=2,
             failed=0,
-            deleted_latest="2026-03-14",
             days_ingested=1,
             duration_ms=123,
             activities_downloaded=3,

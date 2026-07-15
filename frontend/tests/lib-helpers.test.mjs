@@ -11,11 +11,13 @@ let format;
 let errors;
 let hrvAsync;
 let hrvStatus;
+let realtimePage;
 
 test.before(async () => {
 	server = await createServer({
 		configFile: 'vite.config.ts',
-		server: { middlewareMode: true },
+		optimizeDeps: { noDiscovery: true },
+		server: { middlewareMode: true, hmr: false },
 		appType: 'custom',
 		logLevel: 'error'
 	});
@@ -23,6 +25,7 @@ test.before(async () => {
 	errors = await server.ssrLoadModule('/src/lib/errors.ts');
 	hrvAsync = await server.ssrLoadModule('/src/lib/hrv-async.ts');
 	hrvStatus = await server.ssrLoadModule('/src/lib/hrv-status.ts');
+	realtimePage = await server.ssrLoadModule('/src/lib/realtime-page.ts');
 });
 
 test.after(async () => {
@@ -93,4 +96,17 @@ test('garminStatusKey title-cases a present status and hides absent / Unknown', 
 	assert.equal(garminStatusKey(undefined), null);
 	// The backend normalizes an absent Garmin status to the literal "Unknown" → no chip.
 	assert.equal(garminStatusKey('unknown'), null);
+});
+
+test('latest request gate invalidates stale selected-date refreshes', () => {
+	const gate = realtimePage.createLatestRequestGate();
+	const first = gate.issue();
+	assert.equal(gate.isCurrent(first), true);
+
+	gate.invalidate();
+	assert.equal(gate.isCurrent(first), false);
+
+	const second = gate.issue();
+	assert.equal(gate.isCurrent(second), true);
+	assert.equal(gate.isCurrent(first), false);
 });

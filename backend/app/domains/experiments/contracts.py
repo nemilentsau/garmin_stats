@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import date
+from typing import Annotated, Literal
 
-from app.contracts.base import AutoTotalResponse, ConfidenceLevel, DefaultsRequired
+from pydantic import Field
+
+from app.contracts.base import (
+    AutoTotalResponse,
+    ConfidenceLevel,
+    DefaultsRequired,
+    StrictDefaultsRequired,
+)
 
 ExperimentStatus = Literal["draft", "active", "completed"]
 ExperimentAdherenceState = Literal["full", "partial", "missed", "unknown"]
@@ -16,7 +24,6 @@ ExperimentDesignType = Literal["ab_intervention"]
 class OutcomeMetric(DefaultsRequired):
     path: str
     direction: OutcomeMetricDirection = "higher_is_better"
-    min_effect_size: float = 0.2
 
 
 class ExperimentDesign(DefaultsRequired):
@@ -25,8 +32,8 @@ class ExperimentDesign(DefaultsRequired):
     baseline_end_date: str | None = None
     treatment_start_date: str | None = None
     treatment_end_date: str | None = None
-    expected_lag_days: list[int] = [0]
-    min_adherence_pct: float = 0.70
+    expected_lag_days: list[Annotated[int, Field(ge=0)]] = [0]
+    min_adherence_pct: Annotated[float, Field(ge=0, le=1)] = 0.70
 
 
 class Experiment(DefaultsRequired):
@@ -39,7 +46,6 @@ class Experiment(DefaultsRequired):
     outcome_metrics: list[OutcomeMetric] = []
     confounder_watch: list[str] = []
     confounder_notes: str | None = None
-    expected_lag_days: list[int] = []
     priority: int = 0
 
 
@@ -48,6 +54,15 @@ class ExperimentExposure(DefaultsRequired):
     experiment_id: str
     date: str
     exposure_score: float | None = None
+    adherence_state: ExperimentAdherenceState = "unknown"
+    notes: str | None = None
+
+
+class ExperimentExposureCreate(StrictDefaultsRequired):
+    """Client-authored fields for one manual experiment-day exposure."""
+
+    date: date
+    exposure_score: float | None = Field(default=None, ge=0, le=1)
     adherence_state: ExperimentAdherenceState = "unknown"
     notes: str | None = None
 

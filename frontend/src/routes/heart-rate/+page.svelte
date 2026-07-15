@@ -386,12 +386,12 @@
 			{
 				label: 'Daily Avg', data: t.map((p) => p.avg_bpm),
 				borderColor: withAlpha(COLORS.heartRate, '50'), borderWidth: 1, pointRadius: 2,
-				pointBackgroundColor: COLORS.heartRate, tension: 0, spanGaps: true
+				pointBackgroundColor: COLORS.heartRate, tension: 0, spanGaps: false
 			},
 			{
 				label: '7-Day MA', data: t.map((p) => p.ma7_bpm),
 				borderColor: COLORS.heartRate, borderWidth: 2.5,
-				pointRadius: 0, tension: 0.3, spanGaps: true
+				pointRadius: 0, tension: 0.3, spanGaps: false
 			}
 		);
 		return {
@@ -418,12 +418,12 @@
 					{
 						label: 'Resting HR', data: t.map((p) => p.resting_bpm),
 						borderColor: withAlpha(COLORS.heartRateResting, '50'), borderWidth: 1,
-						pointRadius: 2, pointBackgroundColor: COLORS.heartRateResting, tension: 0, spanGaps: true
+						pointRadius: 2, pointBackgroundColor: COLORS.heartRateResting, tension: 0, spanGaps: false
 					},
 					{
 						label: '7-Day MA', data: t.map((p) => p.ma7_bpm),
 						borderColor: COLORS.heartRateResting, borderWidth: 2.5,
-						pointRadius: 0, tension: 0.3, spanGaps: true
+						pointRadius: 0, tension: 0.3, spanGaps: false
 					}
 				]
 			},
@@ -448,12 +448,12 @@
 					{
 						label: 'Sleeping HR', data: trend.map((p) => p.avg_sleeping_bpm),
 						borderColor: withAlpha(COLORS.sleep, '73'), borderWidth: 1, pointRadius: 2,
-						pointBackgroundColor: COLORS.sleep, tension: 0, spanGaps: true
+						pointBackgroundColor: COLORS.sleep, tension: 0, spanGaps: false
 					},
 					{
 						label: '7-Day MA', data: trend.map((p) => p.ma7_bpm),
 						borderColor: COLORS.sleep, borderWidth: 2.5,
-						pointRadius: 0, tension: 0.3, spanGaps: true,
+						pointRadius: 0, tension: 0.3, spanGaps: false,
 						fill: { target: 'origin', above: withAlpha(COLORS.sleep, '1f') }
 					}
 				]

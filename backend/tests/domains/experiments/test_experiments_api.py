@@ -1,7 +1,5 @@
 """Experiment API tests."""
 
-from types import SimpleNamespace
-
 import pytest
 from fastapi import HTTPException
 
@@ -10,6 +8,7 @@ from app.domains.experiments.contracts import (
     Experiment,
     OutcomeMetric,
 )
+from app.main import app
 
 
 def _experiment() -> Experiment:
@@ -21,32 +20,13 @@ def _experiment() -> Experiment:
 
 
 class TestExperimentApi:
-    def test_put_experiment_passes_repository_and_read_source(self, monkeypatch):
-        experiment = _experiment()
-        repo = object()
-        read_source = object()
+    def test_experiment_content_can_only_enter_through_preview_and_import(self):
+        paths = app.openapi()["paths"]
 
-        monkeypatch.setattr(
-            experiments_mod,
-            "build_container",
-            lambda: SimpleNamespace(
-                experiments_repo=repo,
-                experiments_read_source=read_source,
-            ),
-        )
-
-        def fake_update(candidate_repo, candidate_read_source, experiment_id, candidate):
-            assert candidate_repo is repo
-            assert candidate_read_source is read_source
-            assert experiment_id == "exp-1"
-            assert candidate is experiment
-            return experiment
-
-        monkeypatch.setattr(experiments_mod, "update_experiment", fake_update)
-
-        result = experiments_mod.put_experiment("exp-1", experiment)
-
-        assert result is experiment
+        assert "post" not in paths["/api/experiments"]
+        assert "put" not in paths["/api/experiments/{experiment_id}"]
+        assert "post" in paths["/api/experiments/preview"]
+        assert "post" in paths["/api/experiments/import"]
 
     def test_get_experiment_detail_raises_404_when_missing(self, monkeypatch):
         monkeypatch.setattr(
@@ -58,33 +38,3 @@ class TestExperimentApi:
         with pytest.raises(HTTPException) as exc_info:
             experiments_mod.get_experiment_detail("exp-1")
         assert exc_info.value.status_code == 404
-
-    def test_put_experiment_returns_updated_experiment(self, monkeypatch):
-        experiment = _experiment()
-        monkeypatch.setattr(experiments_mod, "update_experiment", lambda *_args: experiment)
-
-        result = experiments_mod.put_experiment("exp-1", experiment)
-
-        assert result.id == "exp-1"
-
-    def test_put_experiment_raises_404_when_missing(self, monkeypatch):
-        monkeypatch.setattr(
-            experiments_mod,
-            "update_experiment",
-            lambda *_args: (_ for _ in ()).throw(LookupError("Experiment exp-1 not found")),
-        )
-
-        with pytest.raises(HTTPException) as exc_info:
-            experiments_mod.put_experiment("exp-1", _experiment())
-        assert exc_info.value.status_code == 404
-
-    def test_put_experiment_raises_400_on_invalid_payload(self, monkeypatch):
-        monkeypatch.setattr(
-            experiments_mod,
-            "update_experiment",
-            lambda *_args: (_ for _ in ()).throw(ValueError("outcome_metrics must be non-empty")),
-        )
-
-        with pytest.raises(HTTPException) as exc_info:
-            experiments_mod.put_experiment("exp-1", _experiment())
-        assert exc_info.value.status_code == 400

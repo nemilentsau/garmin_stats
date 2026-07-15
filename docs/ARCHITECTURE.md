@@ -72,7 +72,7 @@ Each domain's full boundary contract — **Owns / Does not own / May import / Mu
 | `garmin_sync` | Garmin archive + tracked-activity acquisition, ingest/sync (running activities parsed; strength/breathing download-only) | `/api/ingest`, `/api/ingest/status`, `/api/ingest/sync` | [charter](../backend/app/domains/garmin_sync/CHARTER.md) |
 | `garmin_health` | Canonical FIT parsing, timestamp normalization, daily-metric composition | *(no routes)* | [charter](../backend/app/domains/garmin_health/CHARTER.md) |
 | `garmin_analytics` | Read models: dashboard, biometrics, period summaries, analysis, insights, recovery score, tracked runs | `/api/dashboard`, `/api/daily-aggregates`, `/api/{metric}/*`, `/api/activities/runs*` | [charter](../backend/app/domains/garmin_analytics/CHARTER.md) |
-| `experiments` | Experiment CRUD, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
+| `experiments` | Imported experiment definitions, day-grain exposures, cached N=1 analysis | `/api/experiments`, `/api/target-metrics` | [charter](../backend/app/domains/experiments/CHARTER.md) |
 | `journal` | Daily check-ins + freeform notes (subjective context) | `/api/checkins`, `/api/notes` | [charter](../backend/app/domains/journal/CHARTER.md) |
 | `core/profile` | App-level profile configuration | `/api/profile` | [charter](../backend/app/core/profile/CHARTER.md) |
 

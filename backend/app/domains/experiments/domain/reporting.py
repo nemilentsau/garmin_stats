@@ -17,7 +17,6 @@ from app.domains.experiments.contracts import (
 from .statistics import NAP_LARGE, NAP_MEDIUM, P_HIGH, P_MODERATE
 
 _MIN_DAYS_INSUFFICIENT = 7
-_MIN_ADHERENCE_INSUFFICIENT = 0.50
 _ADHERENCE_HIGH = 0.85
 _ADHERENCE_MODERATE = 0.70
 _BASELINE_HIGH = 21
@@ -29,11 +28,13 @@ def classify_confidence(
     adherence_rate: float,
     baseline_n: int,
     treatment_n: int,
+    *,
+    min_adherence_pct: float,
 ) -> ExperimentReportConfidence:
     """Classify report confidence from samples, adherence, effects, and confounders."""
     if baseline_n < _MIN_DAYS_INSUFFICIENT or treatment_n < _MIN_DAYS_INSUFFICIENT:
         return "insufficient"
-    if adherence_rate < _MIN_ADHERENCE_INSUFFICIENT:
+    if adherence_rate < min_adherence_pct:
         return "insufficient"
 
     best_results = [metric.best_result for metric in metrics]

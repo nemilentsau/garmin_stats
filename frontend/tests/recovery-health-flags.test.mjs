@@ -8,7 +8,8 @@ let recoveryFormat;
 test.before(async () => {
 	server = await createServer({
 		configFile: 'vite.config.ts',
-		server: { middlewareMode: true },
+		optimizeDeps: { noDiscovery: true },
+		server: { middlewareMode: true, hmr: false },
 		appType: 'custom',
 		logLevel: 'error'
 	});

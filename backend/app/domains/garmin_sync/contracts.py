@@ -19,7 +19,6 @@ class SyncResult(DefaultsRequired):
     downloaded: int
     skipped: int
     failed: int
-    deleted_latest: str | None = None
     days_ingested: int
     duration_ms: int
     activities_downloaded: int

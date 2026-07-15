@@ -37,11 +37,17 @@ class ProcessRuntime:
         if self._container.config.coach_worker_enabled:
             # A single-process deployment cannot have a legitimately running
             # job at startup; recover everything still marked running.
-            self._container.coach_repo.recover_stale_jobs(
-                cutoff=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                max_attempts=3,
-            )
-            self._container.coach_jobs.reconcile_pending()
+            try:
+                self._container.coach_repo.recover_stale_jobs(
+                    cutoff=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    max_attempts=3,
+                )
+            except Exception:
+                log.exception("Coach stale-job recovery failed; startup will continue")
+            try:
+                self._container.coach_jobs.reconcile_pending()
+            except Exception:
+                log.exception("Coach pending-job reconciliation failed; startup will continue")
             coach_task = asyncio.create_task(
                 self._container.coach_worker.run(), name="coach-worker"
             )

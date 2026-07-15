@@ -17,11 +17,9 @@ from app.domains.experiments.application.exposures import (
     list_experiment_exposures,
 )
 from app.domains.experiments.application.management import (
-    create_experiment,
     get_experiment_with_analysis,
     import_experiment,
     list_experiments,
-    update_experiment,
 )
 from app.domains.experiments.application.preview import preview_experiment
 from app.domains.experiments.application.target_metrics import get_target_metrics
@@ -30,6 +28,7 @@ from app.domains.experiments.contracts import (
     ExperimentAnalysis,
     ExperimentAnalysisRefreshResponse,
     ExperimentExposure,
+    ExperimentExposureCreate,
     ExperimentPreviewResponse,
     ExperimentsResponse,
     ExperimentWithAnalysis,
@@ -91,12 +90,6 @@ def post_refresh():
     return ExperimentAnalysisRefreshResponse(refreshed=count)
 
 
-@experiments_router.post("", response_model=Experiment)
-def post_experiment(experiment: Experiment):
-    """Create an experiment definition without preview validation or analysis."""
-    return create_experiment(build_container().experiments_repo, experiment)
-
-
 # Dynamic-path routes below.
 
 @experiments_router.get("/{experiment_id}", response_model=ExperimentWithAnalysis)
@@ -111,22 +104,6 @@ def get_experiment_detail(experiment_id: str):
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-
-
-@experiments_router.put("/{experiment_id}", response_model=Experiment)
-def put_experiment(experiment_id: str, experiment: Experiment):
-    """Replace an existing experiment definition and refresh analysis."""
-    container = build_container()
-    try:
-        return update_experiment(
-            container.experiments_repo,
-            container.experiments_read_source,
-            experiment_id,
-            experiment,
-        )
-    except (LookupError, ValueError) as e:
-        status = 404 if isinstance(e, LookupError) else 400
-        raise HTTPException(status_code=status, detail=str(e)) from e
 
 
 @experiments_router.get("/{experiment_id}/analysis", response_model=ExperimentAnalysis | None)
@@ -146,11 +123,14 @@ def get_analysis(experiment_id: str):
 @experiments_router.get("/{experiment_id}/exposures", response_model=list[ExperimentExposure])
 def get_exposures(experiment_id: str):
     """Return recorded exposure rows for one experiment."""
-    return list_experiment_exposures(build_container().experiments_repo, experiment_id)
+    try:
+        return list_experiment_exposures(build_container().experiments_repo, experiment_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @experiments_router.post("/{experiment_id}/exposures", response_model=ExperimentExposure)
-def post_exposure(experiment_id: str, exposure: ExperimentExposure):
+def post_exposure(experiment_id: str, exposure: ExperimentExposureCreate):
     """Persist a manual exposure row and refresh the experiment analysis."""
     container = build_container()
     try:

@@ -14,6 +14,11 @@ Pipeline:
 
 `garmin_sync` owns acquisition, extraction, persistence, status, watcher behavior, and affected-date decisions. `garmin_health` owns decoding, timestamp normalization, and daily composition.
 
+Downloaded wellness archives are staged and validated before they replace the
+current ZIP and extracted day directory. A missing, malformed, or unsafe
+replacement leaves the last known-good day intact and is reported as a failed
+download; only successfully installed days enter incremental ingest.
+
 ## Tracked-activity tree
 
 `data/garmin_activities/` contains one directory per local date. Each tracked activity is stored as `HHMMSS_{sport}_{sub_sport}.fit` plus a JSON Connect sidecar, for example `154911_running_generic.fit` or `104600_training_strength_training.fit`.
@@ -58,4 +63,8 @@ Watcher-driven successful wellness ingest invokes a separate bootstrap-composed 
 - Period statistics come from raw readings, never averages of daily aggregates.
 - Startup/watcher/ingest changes require `missing`, `already in sync`, and `changed` tests, including a second unchanged run that performs no work, plus a real-tree smoke check.
 - Cache invalidation occurs only when owned persisted data changes.
+- A running-activity tree fingerprint is persisted only after every newly
+  discovered running FIT parses successfully. A partial failure leaves the
+  previous fingerprint in place so the unchanged tree is retried at the next
+  startup or sync.
 - Cross-domain reactions remain injected, idempotent, and composed in bootstrap.

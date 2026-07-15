@@ -64,8 +64,6 @@ class TrainingRepository(Protocol):
 
     def card_log(self, date: str, occurrence_key: str) -> TrainingCardLog | None: ...
 
-    def card_logs_for(self, date: str) -> list[TrainingCardLog]: ...
-
     def card_logs_before(self, date: str) -> list[TrainingCardLog]:
         """Load every capture log recorded strictly before `date`.
 

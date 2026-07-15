@@ -458,36 +458,36 @@ class StoredLibrary(DefaultsRequired):
     artifact: dict[str, Any]
 
 
-class TrainingSetLog(DefaultsRequired):
+class TrainingSetLog(StrictDefaultsRequired):
     """One logged set within a strength card's capture."""
 
-    set_index: int
-    weight: float | None = None
-    reps: int | None = None
-    rir: int | None = None
+    set_index: Annotated[int, Field(ge=0)]
+    weight: Annotated[float, Field(ge=0)] | None = None
+    reps: Annotated[int, Field(ge=0)] | None = None
+    rir: Annotated[int, Field(ge=0, le=10)] | None = None
 
 
-class TrainingExerciseLog(DefaultsRequired):
+class TrainingExerciseLog(StrictDefaultsRequired):
     """Logged sets for one exercise within a card's capture."""
 
     exercise_id: str
     sets: list[TrainingSetLog] = []
 
 
-class TrainingCheckinLog(DefaultsRequired):
+class TrainingCheckinLog(StrictDefaultsRequired):
     """Logged tissue soreness/flags/core-done for a check-in card."""
 
-    soreness: dict[str, int] = {}  # tissue -> 0..3 (attested)
+    soreness: dict[str, Annotated[int, Field(ge=0, le=3)]] = {}
     flags: dict[str, bool] = {}
     core_done: bool | None = None
 
 
-class TrainingCaptureLog(DefaultsRequired):
+class TrainingCaptureLog(StrictDefaultsRequired):
     """Everything a card's capture fields recorded for one occurrence."""
 
     set_logs: list[TrainingExerciseLog] = []
     checkin: TrainingCheckinLog | None = None
-    rpe: float | None = None
+    rpe: Annotated[float, Field(ge=1, le=10)] | None = None
 
 
 TrainingCardStatus = Literal["pending", "completed", "partial", "skipped"]

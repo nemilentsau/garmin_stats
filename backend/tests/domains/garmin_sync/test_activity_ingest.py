@@ -120,6 +120,29 @@ class TestActivityIngest:
         assert result.sessions_ingested == 1
         assert result.files_failed == 1
 
+    def test_unchanged_tree_retries_a_file_that_failed_on_the_previous_pass(
+        self, tmp_path, monkeypatch
+    ):
+        attempts = 0
+
+        def _fails_once(fit_path: Path, activities_dir: Path) -> RunningActivityData:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ValueError("temporary parse failure")
+            return _fake_parse(fit_path, activities_dir)
+
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _fails_once)
+        _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+
+        first = ingest_running_activities(tmp_path)
+        second = ingest_running_activities(tmp_path)
+
+        assert first.files_failed == 1
+        assert second.skipped is False
+        assert second.sessions_ingested == 1
+        assert attempts == 2
+
     def test_force_true_bypasses_fingerprint_skip_on_unchanged_tree(self, tmp_path, monkeypatch):
         monkeypatch.setattr(ingest_mod, "parse_running_activity", _fake_parse)
         _write_fit(tmp_path, "2026-07-10", "105726_running_generic")

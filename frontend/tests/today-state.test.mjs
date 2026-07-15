@@ -9,7 +9,8 @@ let state;
 test.before(async () => {
 	server = await createServer({
 		configFile: 'vite.config.ts',
-		server: { middlewareMode: true },
+		optimizeDeps: { noDiscovery: true },
+		server: { middlewareMode: true, hmr: false },
 		appType: 'custom',
 		logLevel: 'error'
 	});
@@ -35,23 +36,37 @@ test('only the authored skip variant changes status', () => {
 	assert.equal(state.statusForVariant('reduced volume', 'partial'), 'partial');
 });
 
-test('checklist status distinguishes untouched, partial, and complete answers', () => {
-	const kinds = { core: 'checkbox', quad: 'tissue_check' };
-	assert.equal(state.deriveChecklistStatus([], kinds), 'pending');
-	assert.equal(
-		state.deriveChecklistStatus(
-			[{ item_id: 'core', checked: true, scale: null }, { item_id: 'quad', checked: false, scale: null }],
-			kinds
-		),
-		'partial'
-	);
-	assert.equal(
-		state.deriveChecklistStatus(
-			[{ item_id: 'core', checked: true, scale: null }, { item_id: 'quad', checked: false, scale: 0 }],
-			kinds
-		),
-		'completed'
-	);
+test('rapid optimistic writes serialize and roll back to the last confirmed status', async () => {
+	const events = [];
+	let current = 'completed';
+	const queue = state.createStatusPersistQueue();
+
+	queue.enqueue({
+		key: '2026-07-15:card',
+		attempted: 'completed',
+		initialConfirmed: 'pending',
+		persist: async () => {
+			events.push('completed');
+			return false;
+		},
+		isCurrent: () => current === 'completed',
+		rollback: (confirmed) => { current = confirmed; }
+	});
+	current = 'skipped';
+	await queue.enqueue({
+		key: '2026-07-15:card',
+		attempted: 'skipped',
+		initialConfirmed: 'completed',
+		persist: async () => {
+			events.push('skipped');
+			return false;
+		},
+		isCurrent: () => current === 'skipped',
+		rollback: (confirmed) => { current = confirmed; }
+	});
+
+	assert.deepEqual(events, ['completed', 'skipped']);
+	assert.equal(current, 'pending');
 });
 
 test('Today page uses one feed action path and one shared row component', () => {

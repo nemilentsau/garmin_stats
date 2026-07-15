@@ -2016,7 +2016,7 @@ def test_upsert_training_log_is_idempotent_and_does_not_duplicate_rows():
     )
 
     assert first == second
-    assert len(repo.card_logs_for("2026-07-06")) == 1
+    assert len(repo.card_logs_before("2026-07-07")) == 1
 
 
 # ---------- upsert_training_log: occurrence validation (Fix 2) ----------

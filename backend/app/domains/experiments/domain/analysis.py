@@ -108,7 +108,7 @@ def compute_experiment_analysis(
     treatment_end = current_treatment_window_end(design)
     assert treatment_end is not None
     phase = expected_experiment_phase(experiment)
-    lag_days_list = design.expected_lag_days or experiment.expected_lag_days or [0]
+    lag_days_list = design.expected_lag_days or [0]
 
     metric_analyses: list[MetricAnalysis] = [
         analyse_metric(
@@ -145,7 +145,12 @@ def compute_experiment_analysis(
         treatment_n = 0
 
     confidence = classify_confidence(
-        metric_analyses, confounders, adherence_rate, baseline_n, treatment_n,
+        metric_analyses,
+        confounders,
+        adherence_rate,
+        baseline_n,
+        treatment_n,
+        min_adherence_pct=design.min_adherence_pct,
     )
     summary = generate_summary(experiment, confidence, metric_analyses, phase)
 

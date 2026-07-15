@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
+
 import app.bootstrap.process_runtime as runtime_module
 from app.bootstrap.container import AppContainer
 from app.bootstrap.process_runtime import ProcessRuntime
@@ -112,3 +114,35 @@ def test_disabled_runtime_skips_coach_recovery_reconciliation_and_worker(monkeyp
     assert reconciled == []
     assert not worker.started.is_set()
     assert watcher.refresh is not None
+
+
+@pytest.mark.parametrize("failing_stage", ["recovery", "reconcile"])
+def test_coach_startup_reconciliation_failure_does_not_block_process_tasks(
+    monkeypatch, failing_stage: str
+):
+    container, worker, watcher, _recovered, _reconciled = _container(enabled=True)
+    heartbeat = BlockingLoop()
+    monkeypatch.setattr(runtime_module, "run_startup_ingest_if_needed", lambda deps: None)
+    monkeypatch.setattr(runtime_module, "heartbeat_loop", heartbeat.run)
+
+    def fail(*_args, **_kwargs):
+        raise RuntimeError(f"{failing_stage} unavailable")
+
+    if failing_stage == "recovery":
+        container.coach_repo.recover_stale_jobs = fail
+    else:
+        container.coach_jobs.reconcile_pending = fail
+
+    async def exercise():
+        runtime = ProcessRuntime(container)
+        runtime.start()
+        await worker.started.wait()
+        await watcher.loop.started.wait()
+        await heartbeat.started.wait()
+        await runtime.stop()
+
+    asyncio.run(exercise())
+
+    assert worker.stopped.is_set()
+    assert watcher.loop.stopped.is_set()
+    assert heartbeat.stopped.is_set()

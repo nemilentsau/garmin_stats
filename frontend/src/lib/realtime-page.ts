@@ -1,5 +1,20 @@
 import { createDataUpdateListener } from './sse';
 
+export type LatestRequestGate = {
+	issue: () => number;
+	invalidate: () => void;
+	isCurrent: (request: number) => boolean;
+};
+
+export function createLatestRequestGate(): LatestRequestGate {
+	let latestRequest = 0;
+	return {
+		issue: () => ++latestRequest,
+		invalidate: () => { latestRequest += 1; },
+		isCurrent: (request) => request === latestRequest
+	};
+}
+
 type RealtimeInitOptions = {
 	fetchData: () => Promise<void>;
 	setError: (message: string) => void;

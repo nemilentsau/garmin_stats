@@ -6,7 +6,11 @@
 		type SleepData,
 		type SleepAnalysis
 	} from '$lib/api';
-	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
+	import {
+		createDateLoader,
+		createLatestRequestGate,
+		startRealtimePage
+	} from '$lib/realtime-page';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
@@ -26,17 +30,22 @@
 	let trendRange: TrendRange = $state('3M');
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	const sleepRefreshGate = createLatestRequestGate();
 
 	async function fetchData() {
+		const refreshRequest = sleepRefreshGate.issue();
+		const date = selectedDate;
 		const [nextAgg, nextAnalysis] = await Promise.all([
 			api.getSleepDaily(),
 			api.getSleepAnalysis()
 		]);
 		agg = nextAgg;
 		analysis = nextAnalysis;
-		if (selectedDate) {
-			const data = await api.getSleepRaw(selectedDate);
-			intradayData = data;
+		if (date) {
+			const data = await api.getSleepRaw(date);
+			if (sleepRefreshGate.isCurrent(refreshRequest) && selectedDate === date) {
+				intradayData = data;
+			}
 		}
 	}
 
@@ -49,7 +58,10 @@
 	});
 
 	const onDateChange = createDateLoader<SleepData>({
-		setSelectedDate: (date) => { selectedDate = date; },
+		setSelectedDate: (date) => {
+			sleepRefreshGate.invalidate();
+			selectedDate = date;
+		},
 		clearData: () => { intradayData = null; },
 		fetchByDate: (date) => api.getSleepRaw(date),
 		setData: (data) => { intradayData = data; },
@@ -73,7 +85,7 @@
 						pointRadius: 1.5,
 						pointBackgroundColor: withAlpha(COLORS.sleep, '60'),
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: '7d Avg',
@@ -82,7 +94,7 @@
 						borderWidth: 2.5,
 						pointRadius: 0,
 						tension: 0.35,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: 'Deep Score',
@@ -92,7 +104,7 @@
 						borderDash: [4, 4],
 						pointRadius: 0,
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					}
 				]
 			},

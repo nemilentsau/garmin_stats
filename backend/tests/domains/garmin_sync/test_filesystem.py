@@ -2,11 +2,13 @@
 
 import os
 import zipfile
+from datetime import date
 
 import pytest
 
 from app.domains.garmin_sync.infra.filesystem import (
     _ARCHIVE_STAMP_NAME,
+    FilesystemSyncFileStore,
     _safe_extract_all,
     compute_data_fingerprint,
     ensure_data_dir,
@@ -38,6 +40,52 @@ class TestFingerprint:
 
 
 class TestSafeExtract:
+    def test_install_archive_replaces_zip_and_extracted_day_only_after_validation(
+        self, tmp_path
+    ):
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        old_zip = data_dir / "2026-01-15.zip"
+        with zipfile.ZipFile(old_zip, "w") as zf:
+            zf.writestr("nested/old.fit", "old")
+        extract_existing_archives(data_dir)
+
+        replacement = tmp_path / "replacement.zip"
+        with zipfile.ZipFile(replacement, "w") as zf:
+            zf.writestr("nested/new.fit", "new")
+
+        FilesystemSyncFileStore().install_archive(
+            data_dir,
+            date(2026, 1, 15),
+            replacement.read_bytes(),
+        )
+
+        assert not (data_dir / "2026-01-15" / "nested" / "old.fit").exists()
+        assert (data_dir / "2026-01-15" / "nested" / "new.fit").read_text() == "new"
+        with zipfile.ZipFile(old_zip) as zf:
+            assert zf.namelist() == ["nested/new.fit"]
+
+    def test_install_archive_preserves_existing_day_when_replacement_is_invalid(
+        self, tmp_path
+    ):
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        old_zip = data_dir / "2026-01-15.zip"
+        with zipfile.ZipFile(old_zip, "w") as zf:
+            zf.writestr("nested/old.fit", "old")
+        extract_existing_archives(data_dir)
+        old_bytes = old_zip.read_bytes()
+
+        with pytest.raises(zipfile.BadZipFile):
+            FilesystemSyncFileStore().install_archive(
+                data_dir,
+                date(2026, 1, 15),
+                b"not-a-zip",
+            )
+
+        assert old_zip.read_bytes() == old_bytes
+        assert (data_dir / "2026-01-15" / "nested" / "old.fit").read_text() == "old"
+
     def test_creates_missing_data_directory_before_watching(self, tmp_path):
         data_dir = tmp_path / "missing-data"
 

@@ -4,7 +4,6 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-EntityStatus = Literal["active", "retired", "paused"]
 ConfidenceLevel = Literal["insufficient", "low", "moderate", "high"]
 
 

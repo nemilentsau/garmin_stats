@@ -1,7 +1,7 @@
 """Experiment definition management use cases.
 
-This module owns CRUD-style experiment workflows plus the import path that
-validates a spec, activates it, and creates the initial cached analysis.
+This module owns experiment reads plus the import path that validates a spec,
+activates it, and creates the initial cached analysis.
 """
 
 from __future__ import annotations
@@ -60,29 +60,6 @@ def get_experiment_with_analysis(
     experiment = get_experiment(repo, experiment_id)
     analysis = load_current_analysis(repo, read_source, experiment)
     return ExperimentWithAnalysis(experiment=experiment, analysis=analysis)
-
-
-def create_experiment(repo: ExperimentRepository, experiment: Experiment) -> Experiment:
-    """Create an experiment definition without validation or analysis."""
-    repo.save_experiment(experiment)
-    return experiment
-
-
-def update_experiment(
-    repo: ExperimentRepository,
-    read_source: ExperimentAnalysisReadSource,
-    experiment_id: str,
-    experiment: Experiment,
-) -> Experiment:
-    """Replace an existing experiment and refresh its cached analysis."""
-    if experiment.id != experiment_id:
-        raise ValueError("Experiment id does not match path id")
-    if not repo.experiment_exists(experiment_id):
-        raise LookupError(f"Experiment {experiment_id} not found")
-
-    repo.save_experiment(experiment)
-    persist_experiment_analysis(repo, read_source, experiment)
-    return experiment
 
 
 def import_experiment(
