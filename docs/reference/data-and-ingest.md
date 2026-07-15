@@ -48,7 +48,7 @@ Normal running ingest never re-parses an existing `source_file`; use the rebuild
 
 ## Post-ingest reactions
 
-After both wellness and running ingest succeed, manual Sync invokes an injected no-argument completion callback. Bootstrap wires it to idempotent Coach review reconciliation; it still runs after a source no-op because local-date eligibility can change independently of file changes.
+After both wellness and running ingest succeed, manual Sync invokes an injected no-argument completion callback. When `GARMIN_COACH_WORKER_ENABLED=true`, bootstrap wires it to idempotent Coach review reconciliation (it still runs after a source no-op because local-date eligibility can change independently of file changes); when the flag is `false`, bootstrap wires a noop so disabled deployments never enqueue durable coach jobs nobody consumes. A callback exception is logged and does not fail the sync — `POST /api/ingest/sync` reports the ingest outcome regardless of the callback's own success.
 
 Watcher-driven successful wellness ingest invokes a separate bootstrap-composed reaction that refreshes active experiment analyses and, when `GARMIN_COACH_WORKER_ENABLED=true`, reconciles Coach review work. `garmin_sync` imports neither consumer.
 

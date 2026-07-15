@@ -364,6 +364,25 @@ def test_failed_sync_does_not_invoke_post_sync_reconciliation(tmp_path: Path):
     assert calls == []
 
 
+def test_sync_survives_post_sync_reconciliation_failure(tmp_path: Path):
+    deps, *_ = _deps(tmp_path)
+
+    def _raise_after_sync() -> None:
+        raise RuntimeError("coach reconcile boom")
+
+    object.__setattr__(deps, "after_successful_sync", _raise_after_sync)
+
+    result = sync_garmin(deps)
+
+    assert result.downloaded == 1
+    assert result.skipped == 1
+    assert result.failed == 0
+    assert result.days_ingested == 1
+    assert result.duration_ms > 0
+    assert result.runs_ingested == 2
+    assert result.runs_ingest_failed == 0
+
+
 def test_plan_with_no_archives_starts_yesterday_and_marks_no_deletion():
     plan = _plan_sync_dates(latest=None, today=date(2026, 3, 15))
 
