@@ -41,18 +41,25 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let coachReview: CoachReview | null = $state(null);
+	let coachReviewError: string | null = $state(null);
 	let reviewBusy = $state(false);
 
 	async function loadCoachReview(id: string) {
+		coachReviewError = null;
 		try {
 			coachReview = await api.getCoachRunReview(id);
 		} catch (e: unknown) {
-			coachReview = errorMessage(e).toLowerCase().includes('no coach review') ? null : null;
+			coachReview = null;
+			const message = errorMessage(e);
+			if (!message.toLowerCase().includes('no coach review')) {
+				coachReviewError = message;
+			}
 		}
 	}
 
 	async function requestCoachReview(id: string) {
 		reviewBusy = true;
+		coachReviewError = null;
 		try {
 			const result = await api.enqueueCoachRunReview(id);
 			coachReview = result.review;
@@ -763,6 +770,9 @@
 					</button>
 				{/if}
 			</div>
+			{#if coachReviewError}
+				<p class="coach-error">Coach review unavailable: {coachReviewError}</p>
+			{/if}
 
 			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
 				<StatCard title="Distance" value={fmtMiBare(display.distance_mi)} unit="mi" />
@@ -938,6 +948,12 @@
 		cursor: pointer;
 	}
 	.coach-action:disabled { opacity: 0.5; cursor: default; }
+	.coach-error {
+		margin: 6px 0 16px;
+		color: #8a9baa;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+	}
 	.run-header-main h1 {
 		margin: 0;
 		font-size: 20px;
