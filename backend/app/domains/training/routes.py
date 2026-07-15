@@ -51,7 +51,7 @@ def get_today(date: str = Query(..., description="Date (YYYY-MM-DD)")):
 @training_router.get("/schedule-window", response_model=TrainingScheduleWindow)
 def get_schedule_window(
     start: str = Query(..., description="Start date (YYYY-MM-DD)"),
-    days: int = Query(14, description="Number of days in the window"),
+    days: int = Query(14, ge=1, le=60, description="Number of days in the window (1-60)"),
 ):
     """Return a multi-day training schedule projection starting at `start`."""
     container = build_container()

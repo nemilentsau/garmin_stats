@@ -101,13 +101,13 @@ def test_status_lookup_and_review_filters(coach_client):
     created = client.post("/api/coach/reviews/run", json={"run_id": "run-1"}).json()
 
     status = client.get("/api/coach/status")
-    lookup = client.get(f"/api/coach/reviews/{created['review']['id']}")
     by_run = client.get("/api/coach/run-reviews/run-1")
     listed = client.get("/api/coach/reviews?from=2026-07-11&to=2026-07-11&limit=1")
 
     assert status.json() == {"worker_enabled": False, "running_job": None, "queued_count": 1}
-    assert lookup.status_code == 200
+    assert by_run.status_code == 200
     assert by_run.json()["run_id"] == "run-1"
+    assert by_run.json()["id"] == created["review"]["id"]
     assert len(listed.json()["reviews"]) == 1
     assert client.get("/api/coach/reviews?from=2026-07-12&to=2026-07-11").status_code == 422
     assert client.get("/api/coach/reviews?limit=201").status_code == 422
@@ -176,12 +176,27 @@ def test_thread_message_listing_close_and_closed_conflicts(coach_client):
 def test_unknown_resources_strict_requests_and_removed_artifact_routes(coach_client):
     client, _repo = coach_client
 
-    assert client.get("/api/coach/reviews/missing").status_code == 404
     assert client.get("/api/coach/run-reviews/missing").status_code == 404
-    assert client.get("/api/coach/jobs/missing").status_code == 404
     assert client.get("/api/coach/threads/missing/messages").status_code == 404
     strict = client.post(
         "/api/coach/reviews/run", json={"run_id": "x", "date": "bad"}
     )
     assert strict.status_code == 422
     assert client.get("/api/assistant/artifacts").status_code == 404
+
+
+def test_orphan_read_routes_are_removed_not_just_missing_ids(coach_client):
+    """GET journal/jobs/{id}/reviews/{id} must be gone entirely (404 by route absence,
+    not by a handler-level LookupError for an unknown id)."""
+    client, _repo = coach_client
+
+    journal = client.get("/api/coach/journal")
+    job = client.get("/api/coach/jobs/missing")
+    review = client.get("/api/coach/reviews/missing")
+
+    assert journal.status_code == 404
+    assert journal.json() == {"detail": "Not Found"}
+    assert job.status_code == 404
+    assert job.json() == {"detail": "Not Found"}
+    assert review.status_code == 404
+    assert review.json() == {"detail": "Not Found"}

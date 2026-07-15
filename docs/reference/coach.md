@@ -49,14 +49,18 @@ semantics.
 The model may ask at most two athlete questions, and only when an answer could change
 safety, formal measurement validity, or the next training decision. It must not request
 forensic confirmation of every prescribed detail. Review output stores outcome,
-confidence, direct coaching prose, decision-changing questions, historical evidence used,
-curated refs, structured journal memory, and an explicit brief action. Visual evidence is
-recorded as bounded `plot_observations`: each entry names an attached image basename and
-the concrete visible pattern that affected the judgment. Unused attachments are omitted,
-and a review may legitimately record no plot observations. The handler rejects any
-observation that names an image outside the current attachment manifest. Completed rows
-retain the observations and derive the legacy `plots_viewed` basename list for backward
-compatibility. A current-run plot ref and observation must correspond in both directions;
+confidence, direct coaching prose, up to two decision-changing `follow_up_questions`,
+historical evidence used, curated refs, structured journal memory, and an explicit brief
+action. The completed `CoachReview` persists those `follow_up_questions` verbatim and the
+`/api/coach/reviews*` endpoints surface them so the UI can show what the model still wants
+resolved. Visual evidence is recorded as bounded `plot_observations`: each entry names an
+attached image basename and the concrete visible pattern that affected the judgment.
+Unused attachments are omitted, and a review may legitimately record no plot observations.
+The handler rejects any observation that names an image outside the current attachment
+manifest. Completed rows retain only the observations; the legacy `plots_viewed` basename
+list has been retired, and a startup migration strips the key from any older persisted
+row so strict validation continues to accept it. A current-run plot ref and observation
+must correspond in both directions;
 unattached refs, attachment-inventory refs without observations, and observations without
 direct refs fail the attempt. The Coach review surface shows this bounded evidence ledger beneath the
 review so the visual basis of the judgment is inspectable. The former
@@ -238,8 +242,10 @@ paused state.
 ## API and UI
 
 The `/api/coach/*` API exposes status, review history/manual run enqueue/retry/regenerate,
-durable jobs, threads/messages/close/retry-close, current-policy journal, and current-policy
-brief. Model operations return
+threads/messages/close/retry-close, and current-policy brief. Jobs and the semantic journal
+stay durable SQLite records with no standalone read route; a job's lifecycle rides along on
+its owning review/message/status response instead, and no product surface reads the journal
+directly. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence

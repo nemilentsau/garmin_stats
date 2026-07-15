@@ -2,7 +2,10 @@
 
 from types import SimpleNamespace
 
+from fastapi.testclient import TestClient
+
 import app.domains.training.routes as routes
+from app.bootstrap.app import create_app
 from app.domains.training.application.read_models import TrainingLogUpdateRequest
 from app.domains.training.contracts import (
     TrainingCardLog,
@@ -160,3 +163,38 @@ def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
         "run_activity_port": run_port,
         "measurement_assessment_port": assessment_port,
     }
+
+
+def test_schedule_window_days_query_is_bounded_to_60(monkeypatch):
+    def fake_window(
+        training_repo,
+        *,
+        start_date: str,
+        duration_days: int,
+        run_activity_port=None,
+        measurement_assessment_port=None,
+    ):
+        del training_repo, run_activity_port, measurement_assessment_port
+        return TrainingScheduleWindow(start_date=start_date, end_date=start_date, days=[])
+
+    monkeypatch.setattr(routes, "get_training_schedule_window", fake_window)
+    monkeypatch.setattr(
+        routes,
+        "build_container",
+        lambda: SimpleNamespace(
+            training_repo=object(),
+            training_run_activity_port=object(),
+            training_measurement_assessment_port=object(),
+        ),
+    )
+    client = TestClient(create_app())
+
+    over_limit = client.get(
+        "/api/training/schedule-window", params={"start": "2026-07-17", "days": 100000}
+    )
+    at_limit = client.get(
+        "/api/training/schedule-window", params={"start": "2026-07-17", "days": 60}
+    )
+
+    assert over_limit.status_code == 422
+    assert at_limit.status_code == 200

@@ -412,9 +412,7 @@ class SqliteCoachRepository:
                     "confidence": output.confidence,
                     "content_md": output.review_md,
                     "refs": output.refs,
-                    "plots_viewed": [
-                        observation.plot for observation in output.plot_observations
-                    ],
+                    "follow_up_questions": list(output.follow_up_questions),
                     "plot_observations": output.plot_observations,
                     "history_used": output.history_used,
                     "measurement_assessment": assessment,

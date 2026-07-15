@@ -153,7 +153,7 @@ class CoachReview(StrictDefaultsRequired):
     confidence: ReviewConfidence | None = None
     content_md: str | None = None
     refs: list[ArtifactRef] = []
-    plots_viewed: list[str] = []
+    follow_up_questions: list[str] = []
     plot_observations: list[PlotObservation] = []
     history_used: list[HistoricalEvidenceUse] = []
     measurement_assessment: CoachMeasurementAssessment | None = None
@@ -274,10 +274,6 @@ class CoachThreadsResponse(StrictDefaultsRequired):
 
 class CoachMessagesResponse(StrictDefaultsRequired):
     messages: list[CoachMessage] = []
-
-
-class CoachJournalResponse(StrictDefaultsRequired):
-    entries: list[JournalEntry] = []
 
 
 class CoachBriefResponse(StrictDefaultsRequired):

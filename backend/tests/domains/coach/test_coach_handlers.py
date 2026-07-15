@@ -138,7 +138,7 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
         ArtifactRef(kind="plot", value="current-1.png"),
     ]
     assert saved.plot_observations == _review_output().plot_observations
-    assert saved.plots_viewed == ["current-1.png"]
+    assert saved.follow_up_questions == []
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
     journal = repo.list_journal(policy_version=2)
     assert journal[0].content_md.startswith("Purpose: Easy aerobic maintenance")

@@ -71,3 +71,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_reviews_skip
 def init_coach_schema(connection: sqlite3.Connection) -> None:
     """Create coach-owned tables and indexes in a caller-managed connection."""
     connection.executescript(_SCHEMA)
+    # `CoachReview` dropped the legacy `plots_viewed` field (superseded by persisted
+    # `follow_up_questions`). Strict `extra="forbid"` validation would otherwise reject
+    # any pre-existing row that still carries the key. Idempotent by construction: a
+    # second run finds no matching rows and updates nothing.
+    connection.execute(
+        """
+        UPDATE coach_reviews
+        SET data = json_remove(data, '$.plots_viewed')
+        WHERE json_extract(data, '$.plots_viewed') IS NOT NULL
+        """
+    )
