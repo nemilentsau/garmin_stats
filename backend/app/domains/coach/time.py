@@ -12,6 +12,11 @@ def utc_now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
+def local_today_iso() -> str:
+    """Local calendar day used for coach evidence and reconciliation dates."""
+    return datetime.now().astimezone().date().isoformat()
+
+
 def utc_cutoff_iso(value: str | None) -> str | None:
     """Normalize an exclusive cutoff to fixed-width canonical UTC."""
     if value is None:

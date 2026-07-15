@@ -17,6 +17,7 @@ from app.domains.coach.contracts import (
     JournalEntry,
     ReviewOutput,
     RunJournalSummary,
+    safe_artifact_id,
 )
 from app.domains.coach.schema import init_coach_schema
 from app.infra import sqlite
@@ -433,3 +434,20 @@ def test_status_queries_report_running_job_and_queued_count():
     assert claimed is not None
     assert repository.running_job() == claimed
     assert repository.queued_count() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["run-1", "review_42.md", "2026-07-12", "A1"],
+)
+def test_safe_artifact_id_accepts_charset_safe_values(value: str):
+    assert safe_artifact_id(value) == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", ".", "..", "a/b", "a\\b", "run 1", "run$1", "run!"],
+)
+def test_safe_artifact_id_rejects_empty_dot_slash_and_non_charset_values(value: str):
+    with pytest.raises(ValueError, match="Unsafe artifact reference"):
+        safe_artifact_id(value)

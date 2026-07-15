@@ -20,6 +20,7 @@ from app.domains.coach.contracts import (
     DistillOutput,
     JobKind,
     ReviewOutput,
+    safe_artifact_id,
 )
 
 OutputModel = type[ReviewOutput] | type[ChatOutput] | type[DistillOutput]
@@ -81,9 +82,7 @@ def _ensure_codex_home(path: Path) -> Path:
 
 def ensure_thread_codex_home(threads_dir: Path, thread_id: str) -> Path:
     """Create one persistent, config-free Codex home for a coach thread."""
-    allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
-    if not thread_id or any(character not in allowed for character in thread_id):
-        raise ValueError(f"Unsafe thread id: {thread_id}")
+    safe_artifact_id(thread_id)
     return _ensure_codex_home(threads_dir / thread_id / "codex-home/.codex")
 
 

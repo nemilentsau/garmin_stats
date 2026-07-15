@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
 from app.contracts.base import StrictDefaultsRequired
+
+_SAFE_ARTIFACT_ID = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def safe_artifact_id(value: str) -> str:
+    """Validate an artifact/thread identifier used in paths and refs.
+
+    The single, strictest-union charset policy for every place coach code
+    turns an id into a filesystem path segment or artifact reference:
+    non-empty, charset-restricted to `[A-Za-z0-9._-]`, and never exactly `.`
+    or `..` (which would otherwise resolve to a directory traversal).
+    """
+    if not value or value in {".", ".."} or _SAFE_ARTIFACT_ID.fullmatch(value) is None:
+        raise ValueError(f"Unsafe artifact reference: {value}")
+    return value
+
 
 ArtifactKind = Literal["run", "plot", "review", "date"]
 ReviewKind = Literal["run", "skip"]

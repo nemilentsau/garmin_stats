@@ -29,7 +29,7 @@ from app.domains.coach.infra.runner import (
     run_codex_job,
 )
 from app.domains.coach.read_gateway import CoachReadGateway
-from app.domains.coach.time import utc_now_iso
+from app.domains.coach.time import local_today_iso, utc_now_iso
 
 Runner = Callable[..., Awaitable[CodexJobResult]]
 
@@ -54,9 +54,7 @@ class CoachHandlers:
         self.threads_dir = threads_dir
         self.logs_dir = logs_dir
         self.runner = runner
-        self.local_today = local_today or (
-            lambda: __import__("datetime").datetime.now().astimezone().date().isoformat()
-        )
+        self.local_today = local_today or local_today_iso
 
     async def execute(self, job: CoachJob) -> None:
         handlers = {

@@ -28,13 +28,14 @@ from app.domains.garmin_analytics.domain.run_display import (
     smooth_elevation_by_distance,
     zone_display_rows,
 )
+from app.utils.units import KM_TO_MI, m_to_mi, min_per_km_to_min_per_mi
 
 _MIN_PACE_SPEED_MPS = 0.5
 
-# Imperial conversion constants (CLAUDE.md imperial display rule). Exact, not
-# approximated, so repeated conversions stay consistent across call sites.
-_M_PER_MI = 1609.344
-_KM_TO_MI = 1.609344
+# Imperial conversion constants for the single-consumer helpers below (CLAUDE.md
+# imperial display rule); the multi-consumer mi/pace constants live in
+# `app.utils.units`. Exact, not approximated, so repeated conversions stay
+# consistent across call sites.
 _M_TO_FT = 3.28084
 _MPS_TO_MPH = 2.2369363
 
@@ -59,16 +60,6 @@ class _ElevationLocationView(Protocol):
 
     @property
     def end_lon(self) -> float | None: ...
-
-
-def _m_to_mi(value_m: float | None) -> float | None:
-    """Meters -> miles, 2dp. None-preserving."""
-    return None if value_m is None else round(value_m / _M_PER_MI, 2)
-
-
-def _minkm_to_minmi(value_min_per_km: float | None) -> float | None:
-    """min/km -> min/mi, 2dp. None-preserving."""
-    return None if value_min_per_km is None else round(value_min_per_km * _KM_TO_MI, 2)
 
 
 def _m_to_ft(value_m: float | None) -> float | None:
@@ -117,7 +108,7 @@ def _ground_contact_balance_label(value_pct: float | None) -> str | None:
 def _speed_mps_to_pace_min_per_km(value_mps: float | None) -> float | None:
     """m/s -> min/km pace; None below `_MIN_PACE_SPEED_MPS` or when speed is None.
 
-    Deliberately unrounded: callers multiply by `_KM_TO_MI` before rounding so
+    Deliberately unrounded: callers multiply by `KM_TO_MI` before rounding so
     a mile-pace value never loses precision to an intermediate km-pace round.
     """
     if value_mps is None or value_mps < _MIN_PACE_SPEED_MPS:
@@ -170,9 +161,9 @@ def list_runs(
                 start_time_local=s.start_time_local,
                 activity_name=s.activity_name,
                 sub_sport=s.sub_sport,
-                distance_mi=_m_to_mi(s.distance_m),
+                distance_mi=m_to_mi(s.distance_m),
                 timer_time_s=s.timer_time_s,
-                pace_min_per_mi=_minkm_to_minmi(s.pace_min_per_km),
+                pace_min_per_mi=min_per_km_to_min_per_mi(s.pace_min_per_km),
                 avg_heart_rate_bpm=s.avg_heart_rate_bpm,
                 hr_source=s.hr_source,
                 training_load=s.training_load,
@@ -204,9 +195,9 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         else None
     )
     display = RunDisplayStats(
-        distance_mi=_m_to_mi(session.distance_m),
-        pace_min_per_mi=_minkm_to_minmi(session.pace_min_per_km),
-        gap_min_per_mi=_minkm_to_minmi(
+        distance_mi=m_to_mi(session.distance_m),
+        pace_min_per_mi=min_per_km_to_min_per_mi(session.pace_min_per_km),
+        gap_min_per_mi=min_per_km_to_min_per_mi(
             _speed_mps_to_pace_min_per_km(session.grade_adjusted_avg_speed_mps)
         ),
         avg_speed_mph=_mps_to_mph(session.avg_speed_mps),
@@ -252,8 +243,8 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         lap_display=[
             LapDisplayRow(
                 lap_index=lap.lap_index,
-                distance_mi=_m_to_mi(lap.distance_m),
-                pace_min_per_mi=_minkm_to_minmi(lap.pace_min_per_km),
+                distance_mi=m_to_mi(lap.distance_m),
+                pace_min_per_mi=min_per_km_to_min_per_mi(lap.pace_min_per_km),
                 avg_ground_contact_balance_label=_ground_contact_balance_label(
                     lap.avg_ground_contact_balance_pct
                 ),
@@ -276,7 +267,7 @@ def _series_pace_min_per_mi(speed_mps: list[float | None]) -> list[float | None]
     paces: list[float | None] = []
     for v in speed_mps:
         pace_min_per_km = _speed_mps_to_pace_min_per_km(v)
-        paces.append(None if pace_min_per_km is None else round(pace_min_per_km * _KM_TO_MI, 3))
+        paces.append(None if pace_min_per_km is None else round(pace_min_per_km * KM_TO_MI, 3))
     return paces
 
 
@@ -303,7 +294,7 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
             else [_m_to_ft(value) for value in series.altitude_m]
         ),
         temperature_f=[_c_to_f(v) for v in series.temperature_c],
-        distance_mi=[_m_to_mi(v) for v in series.distance_m],
+        distance_mi=[m_to_mi(v) for v in series.distance_m],
         cadence_spm=apply_display_mask(series.cadence_spm, display_mask),
         step_length_m=apply_display_mask(
             [_mm_to_m(value) for value in series.step_length_mm], display_mask

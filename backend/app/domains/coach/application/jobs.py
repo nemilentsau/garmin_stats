@@ -12,8 +12,12 @@ from app.domains.coach.contracts import (
     CoachThread,
     InitialReviewCandidate,
 )
-from app.domains.coach.read_gateway import CoachReadGateway, TrainingTodayResponse
-from app.domains.coach.time import utc_now_iso
+from app.domains.coach.read_gateway import (
+    CoachReadGateway,
+    TrainingTodayResponse,
+    training_card_for_run,
+)
+from app.domains.coach.time import local_today_iso, utc_now_iso
 
 # Ongoing reconciliation scans at most this many days back from today, even if the
 # saved activation date is older. Runs sync at least daily, so a healthy deployment
@@ -32,16 +36,14 @@ class CoachJobs:
     ) -> None:
         self.repo = repo
         self.gateway = gateway
-        self.local_today = local_today or (lambda: datetime.now().astimezone().date().isoformat())
+        self.local_today = local_today or local_today_iso
 
     def enqueue_run_review(self, run_id: str) -> CoachEnqueueResponse:
         detail = self.gateway.run_detail(run_id)
-        occurrence_key = None
-        for card in self.gateway.training_today(detail.session.session_date).cards:
-            activity = card.associated_activity
-            if activity is not None and activity.run_id == run_id:
-                occurrence_key = card.occurrence_key
-                break
+        card = training_card_for_run(
+            self.gateway, run_id=run_id, session_date=detail.session.session_date
+        )
+        occurrence_key = card.occurrence_key if card is not None else None
         review, job, created = self.repo.enqueue_run_review(
             run_id=run_id,
             date=detail.session.session_date,
@@ -157,6 +159,9 @@ class CoachJobs:
             if lower <= run_date <= upper and run.id not in seen_runs:
                 seen_runs.add(run.id)
                 occurrence_key = None
+                # Same association policy as `read_gateway.training_card_for_run`,
+                # inlined here (rather than calling it) to reuse the `cards_for`
+                # memoization above across every run/day in this scan.
                 for card in cards_for(run.session_date).cards:
                     activity = card.associated_activity
                     if activity is not None and activity.run_id == run.id:

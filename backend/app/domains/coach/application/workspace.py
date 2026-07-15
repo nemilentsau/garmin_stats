@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import shutil
 from datetime import date, timedelta
 from pathlib import Path
@@ -14,6 +13,7 @@ from app.domains.coach.application.memory import (
     active_journal_entries,
 )
 from app.domains.coach.contracts import ArtifactRef, CoachMessage, JournalEntry
+from app.domains.coach.contracts import safe_artifact_id as _safe
 from app.domains.coach.domain.context import (
     HistoricalRunContext,
     capabilities_markdown,
@@ -26,16 +26,13 @@ from app.domains.coach.infra.plots import (
     render_current_run_stack,
     render_library_panel,
 )
-from app.domains.coach.read_gateway import CoachReadGateway
+from app.domains.coach.read_gateway import CoachReadGateway, training_card_for_run
 from app.domains.garmin_analytics.contracts import (
     DashboardOverviewResponse,
     RunDetailResponse,
     RunListItem,
 )
 from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.training.contracts import TrainingTodayCard
-
-_SAFE_ID = re.compile(r"[A-Za-z0-9._-]+")
 
 
 class WorkspaceManifest(StrictDefaultsRequired):
@@ -50,26 +47,10 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _safe(value: str) -> str:
-    if not value or _SAFE_ID.fullmatch(value) is None or value in {".", ".."}:
-        raise ValueError(f"Unsafe artifact reference: {value}")
-    return value
-
-
 def _first_sentence(text: str) -> str:
     stripped = " ".join(text.split())
     stop = stripped.find(".")
     return stripped if stop < 0 else stripped[: stop + 1]
-
-
-def _training_card_for_run(
-    gateway: CoachReadGateway, run: RunListItem
-) -> TrainingTodayCard | None:
-    for card in gateway.training_today(run.session_date).cards:
-        activity = card.associated_activity
-        if activity is not None and activity.run_id == run.id:
-            return card
-    return None
 
 
 def _run_context(
@@ -78,7 +59,7 @@ def _run_context(
     metric_by_date: dict[str, DailyMetric],
 ) -> HistoricalRunContext:
     detail = gateway.run_detail(run.id)
-    card = _training_card_for_run(gateway, run)
+    card = training_card_for_run(gateway, run_id=run.id, session_date=run.session_date)
     return HistoricalRunContext(
         run=run,
         detail=detail,

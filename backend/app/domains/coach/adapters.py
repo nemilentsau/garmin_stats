@@ -30,6 +30,7 @@ from app.domains.coach.contracts import (
     ReviewKind,
     ReviewOutput,
     RunJournalSummary,
+    safe_artifact_id,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
 from app.infra.sqlite import connect
@@ -1054,10 +1055,8 @@ class SqliteCoachRepository:
 
     @staticmethod
     def _validate_artifact_refs(refs: list[ArtifactRef]) -> None:
-        allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
         for ref in refs:
-            if not ref.value or any(character not in allowed for character in ref.value):
-                raise ValueError(f"Unsafe artifact reference: {ref.value}")
+            safe_artifact_id(ref.value)
 
     @staticmethod
     def _insert_journal_output(
