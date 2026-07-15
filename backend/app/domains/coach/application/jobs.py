@@ -12,9 +12,8 @@ from app.domains.coach.contracts import (
     CoachThread,
     InitialReviewCandidate,
 )
-from app.domains.coach.read_gateway import CoachReadGateway
+from app.domains.coach.read_gateway import CoachReadGateway, TrainingTodayResponse
 from app.domains.coach.time import utc_now_iso
-from app.domains.training.contracts import TrainingTodayResponse
 
 # Ongoing reconciliation scans at most this many days back from today, even if the
 # saved activation date is older. Runs sync at least daily, so a healthy deployment
