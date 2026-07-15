@@ -10,7 +10,8 @@
 		type ExperimentWithAnalysis,
 		type ExperimentAnalysis,
 		type ExperimentInput,
-		type ExperimentPreviewResponse
+		type ExperimentPreviewResponse,
+		type AdherenceDayEntry
 	} from '$lib/api';
 	import { startRealtimePage } from '$lib/realtime-page';
 	import { errorMessage } from '$lib/utils';
@@ -48,11 +49,51 @@
 	async function selectExperiment(id: string) {
 		selectedId = id;
 		detail = await api.getExperiment(id);
+		resetExposureForm();
 	}
 
 	function backToList() {
 		selectedId = null;
 		detail = null;
+	}
+
+	/* ── Exposure logger ── */
+	type AdherenceState = AdherenceDayEntry['state'];
+	const EXPOSURE_STATES: { value: AdherenceState; label: string; color: string }[] = [
+		{ value: 'full', label: 'Done', color: '#4CAF82' },
+		{ value: 'partial', label: 'Partial', color: '#D4944C' },
+		{ value: 'missed', label: 'Missed', color: '#E85D4A' },
+		{ value: 'unknown', label: 'No data', color: '#8a9baa' }
+	];
+	let exposureDate = $state(today);
+	let exposureState = $state<AdherenceState>('full');
+	let exposureSaving = $state(false);
+	let exposureError: string | null = $state(null);
+
+	function resetExposureForm(): void {
+		exposureDate = today;
+		exposureState = 'full';
+		exposureError = null;
+	}
+
+	async function saveExposure(experimentId: string): Promise<void> {
+		exposureError = null;
+		exposureSaving = true;
+		try {
+			await api.recordExperimentExposure(experimentId, {
+				id: `exposure:manual:${experimentId}:${exposureDate}`,
+				experiment_id: experimentId,
+				date: exposureDate,
+				adherence_state: exposureState,
+				exposure_score: null,
+				notes: null
+			});
+			detail = await api.getExperiment(experimentId); // POST already refreshed analysis server-side
+		} catch (e: unknown) {
+			exposureError = errorMessage(e);
+		} finally {
+			exposureSaving = false;
+		}
 	}
 
 	function statusColor(status: string): string {
@@ -210,6 +251,42 @@
 				treatmentEnd={exp.design?.treatment_end_date ?? null}
 				currentDate={today}
 			/>
+
+			{#if exp.status !== 'draft'}
+				<div class="flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-5 py-3">
+					<span class="font-['DM_Mono',monospace] text-[11px] uppercase tracking-wider text-[#5e7282]">Log exposure</span>
+					<input
+						type="date"
+						class="rounded-md border border-[rgba(255,255,255,0.1)] bg-transparent px-2 py-1 font-['DM_Mono',monospace] text-[12px] text-[#c8d6e0] [color-scheme:dark]"
+						bind:value={exposureDate}
+						min={exp.design?.treatment_start_date ?? undefined}
+						max={today}
+					/>
+					<div class="flex gap-1">
+						{#each EXPOSURE_STATES as s}
+							<button
+								type="button"
+								class="rounded-md border px-2.5 py-1 font-['DM_Mono',monospace] text-[11px] transition-colors"
+								style="border-color: {exposureState === s.value ? s.color : 'rgba(255,255,255,0.1)'}; color: {exposureState === s.value ? s.color : '#6b7d8e'}; background: {exposureState === s.value ? s.color + '1a' : 'transparent'};"
+								onclick={() => (exposureState = s.value)}
+							>
+								{s.label}
+							</button>
+						{/each}
+					</div>
+					<button
+						type="button"
+						class="rounded-md border border-[rgba(91,181,166,0.3)] bg-[rgba(91,181,166,0.12)] px-3 py-1 font-['DM_Mono',monospace] text-[11px] text-[#5bb5a6] transition-colors hover:bg-[rgba(91,181,166,0.22)] disabled:cursor-default disabled:opacity-40"
+						disabled={exposureSaving}
+						onclick={() => void saveExposure(exp.id)}
+					>
+						{exposureSaving ? 'Saving…' : 'Save'}
+					</button>
+					{#if exposureError}
+						<span class="text-[11px] text-[#E85D4A]">{exposureError}</span>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="space-y-4">
 				{#each analysis.metrics as metric}
