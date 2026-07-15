@@ -12,6 +12,7 @@ from app.domains.coach.contracts import (
     ArtifactRef,
     BriefUpdate,
     ChatOutput,
+    CoachJob,
     CoachMeasurementAssessment,
     CoachThread,
     DistillOutput,
@@ -438,6 +439,51 @@ def test_chat_invalid_assessment_context_fails_without_persisting_assessment(
     assert [message.role for message in messages] == ["user", "system"]
     assert all(message.measurement_assessment is None for message in messages)
     assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+
+
+def test_fail_unexpected_without_thread_id_falls_back_to_fail_job(tmp_path):
+    class RecordingRepo:
+        def __init__(self) -> None:
+            self.fail_job_calls: list[str] = []
+
+        def fail_job(self, job_id: str, *, error: str, finished_at: str) -> None:
+            del error, finished_at
+            self.fail_job_calls.append(job_id)
+
+        def fail_chat_output(self, **kwargs) -> None:
+            raise AssertionError(kwargs)
+
+        def fail_distill_output(self, **kwargs) -> None:
+            raise AssertionError(kwargs)
+
+    repo = RecordingRepo()
+    handlers = CoachHandlers(
+        repo=repo,  # type: ignore[arg-type]
+        gateway=FakeGateway(),  # type: ignore[arg-type]
+        workspace_root=tmp_path / "workspaces",
+        plot_cache_dir=tmp_path / "plots",
+        threads_dir=tmp_path / "threads",
+        logs_dir=tmp_path / "logs",
+        runner=FakeRunner([]),
+        local_today=lambda: "2026-07-12",
+    )
+    job = CoachJob(
+        id="job-1",
+        kind="chat_turn",
+        dedupe_key="job-1",
+        priority=0,
+        status="running",
+        payload={},
+        attempt_count=1,
+        available_at=NOW,
+        started_at=NOW,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+    handlers.fail_unexpected(job, ValueError("boom"))
+
+    assert repo.fail_job_calls == ["job-1"]
 
 
 def test_distill_success_closes_thread_persists_memory_then_deletes_home(

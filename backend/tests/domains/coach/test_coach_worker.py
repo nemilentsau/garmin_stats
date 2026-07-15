@@ -123,6 +123,92 @@ def test_worker_survives_unexpected_handler_failure():
     assert failed == ["one"]
 
 
+def test_worker_survives_claim_and_reconcile_failures():
+    """A locked-database error from reconcile or claim must not kill the loop."""
+    handled: list[str] = []
+
+    class FlakyJobs:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def reconcile_pending(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("database is locked")
+            return []
+
+        def reconcile_idle_threads(self):
+            return []
+
+    class FlakyRepo:
+        def __init__(self, jobs: list[CoachJob]) -> None:
+            self.jobs = jobs
+            self.calls = 0
+
+        def claim_next_job(self, now: str):
+            del now
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("database is locked")
+            return self.jobs.pop(0) if self.jobs else None
+
+    class Handlers:
+        async def execute(self, job):
+            handled.append(job.id)
+
+        def fail_unexpected(self, job, error):
+            raise AssertionError((job, error))
+
+    async def exercise():
+        worker = CoachWorker(
+            repo=FlakyRepo([_job("one")]),  # type: ignore[arg-type]
+            handlers=Handlers(),  # type: ignore[arg-type]
+            jobs=FlakyJobs(),  # type: ignore[arg-type]
+            broadcast=lambda event, data: asyncio.sleep(0),
+            poll_interval_s=0.01,
+            reconcile_interval_s=0,
+        )
+        task = asyncio.create_task(worker.run())
+        while len(handled) < 1:
+            await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(exercise())
+    assert handled == ["one"]
+
+
+def test_worker_survives_failing_fail_path():
+    """A handler failure whose own fail_unexpected also raises must not kill the loop."""
+    handled: list[str] = []
+
+    class Handlers:
+        async def execute(self, job):
+            handled.append(job.id)
+            raise RuntimeError("boom")
+
+        def fail_unexpected(self, job, error):
+            del error
+            raise ValueError(f"malformed payload for job {job.id}")
+
+    async def exercise():
+        worker = CoachWorker(
+            repo=FakeRepo([_job("one"), _job("two")]),  # type: ignore[arg-type]
+            handlers=Handlers(),  # type: ignore[arg-type]
+            jobs=FakeJobs(),  # type: ignore[arg-type]
+            broadcast=lambda event, data: asyncio.sleep(0),
+            poll_interval_s=0.01,
+        )
+        task = asyncio.create_task(worker.run())
+        while len(handled) < 2:
+            await asyncio.sleep(0.01)
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(exercise())
+    assert handled == ["one", "two"]
+
+
 def test_worker_cancellation_propagates_from_running_handler():
     started = asyncio.Event()
 
