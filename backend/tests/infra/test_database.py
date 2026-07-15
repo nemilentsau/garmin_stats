@@ -281,6 +281,57 @@ class TestPreMigrationBackup:
         backups = list(backup_dir.glob("pre-migration-*.db"))
         assert len(backups) == 1
 
+    def test_duplicate_manual_exposures_trigger_backup(self, tmp_path, monkeypatch):
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "backup-duplicate-manual.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+        with sqlite.connect() as con:
+            con.executescript(
+                """
+                CREATE TABLE experiment_exposures (
+                    id TEXT PRIMARY KEY,
+                    experiment_id TEXT NOT NULL,
+                    entry_date TEXT NOT NULL,
+                    data TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
+            con.execute(
+                "INSERT INTO experiment_exposures VALUES "
+                "('exposure:manual:dup-exp:2026-01-01:a', 'dup-exp', '2026-01-01', "
+                "'{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
+            )
+            con.execute(
+                "INSERT INTO experiment_exposures VALUES "
+                "('exposure:manual:dup-exp:2026-01-01:b', 'dup-exp', '2026-01-01', "
+                "'{}', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z')"
+            )
+            con.commit()
+
+        storage_schema.init_storage()
+
+        backup_dir = test_db.parent / "backups"
+        backups = list(backup_dir.glob("pre-migration-*.db"))
+        assert len(backups) == 1
+
+        with sqlite.connect(str(backups[0])) as con:
+            backed_up_ids = {
+                row["id"] for row in con.execute("SELECT id FROM experiment_exposures")
+            }
+        assert backed_up_ids == {
+            "exposure:manual:dup-exp:2026-01-01:a",
+            "exposure:manual:dup-exp:2026-01-01:b",
+        }
+
+        with sqlite.connect() as con:
+            live_ids = [
+                row["id"] for row in con.execute("SELECT id FROM experiment_exposures")
+            ]
+        assert live_ids == ["exposure:manual:dup-exp:2026-01-01:b"]
+
 
 # ---------------------------------------------------------------------------
 # Store and load round-trips

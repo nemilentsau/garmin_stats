@@ -47,7 +47,11 @@ def _drop_retired_tables(connection: sqlite3.Connection) -> None:
 
 
 def _destructive_migration_pending(connection: sqlite3.Connection) -> bool:
-    """True when startup migrations would delete existing user data."""
+    """True when startup migrations would delete existing user data.
+
+    Does not cover the coach `json_remove` blob rewrite in ``init_coach_schema``:
+    that migration only strips redundant derived data and is judged non-destructive.
+    """
     tables = {
         row[0]
         for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -62,6 +66,12 @@ def _destructive_migration_pending(connection: sqlite3.Connection) -> bool:
             "SELECT COUNT(*) FROM experiment_exposures WHERE id LIKE 'exposure:auto:%'"
         ).fetchone()[0]
         if count:
+            return True
+        duplicate = connection.execute(
+            "SELECT 1 FROM experiment_exposures "
+            "GROUP BY experiment_id, entry_date HAVING COUNT(*) > 1 LIMIT 1"
+        ).fetchone()
+        if duplicate:
             return True
     return False
 

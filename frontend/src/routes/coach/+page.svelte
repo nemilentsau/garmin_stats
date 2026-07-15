@@ -235,7 +235,7 @@
 					<section class="coach-questions" aria-labelledby="coach-questions-heading">
 						<h3 id="coach-questions-heading">Coach questions</h3>
 						<ul>
-							{#each activeReview.follow_up_questions as question (question)}
+							{#each activeReview.follow_up_questions as question, index (index)}
 								<li>{question}</li>
 							{/each}
 						</ul>
