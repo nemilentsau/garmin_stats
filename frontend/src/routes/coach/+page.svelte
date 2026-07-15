@@ -231,6 +231,16 @@
 						</ul>
 					</section>
 				{/if}
+				{#if activeReview.follow_up_questions.length > 0}
+					<section class="coach-questions" aria-labelledby="coach-questions-heading">
+						<h3 id="coach-questions-heading">Coach questions</h3>
+						<ul>
+							{#each activeReview.follow_up_questions as question, index (index)}
+								<li>{question}</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
 				{#if activeReview.status === 'failed'}
 					<button class="text-action" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
 				{:else if activeReview.status === 'complete'}
@@ -358,6 +368,10 @@
 	.plot-evidence ul { list-style: none; margin: 0; padding: 0; }
 	.plot-evidence li { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 14px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); color: #aebec8; font-size: 12px; line-height: 1.45; }
 	.plot-name { color: #75b5e5; font-family: 'DM Mono', monospace; font-size: 10px; overflow-wrap: anywhere; }
+	.coach-questions { margin: 16px 0 12px; }
+	.coach-questions h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+	.coach-questions ul { list-style: none; margin: 0; padding: 0; }
+	.coach-questions li { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); color: #aebec8; font-size: 12px; line-height: 1.45; }
 	.empty-line, .loading-line { color: #617481; font-size: 13px; }
 	.error-line { color: #f08a78; border-left: 2px solid #e85d4a; padding: 8px 12px; }
 	.text-action { background: transparent; border: 0; padding: 2px 0; }

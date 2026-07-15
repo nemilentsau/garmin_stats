@@ -52,8 +52,12 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
     File watching is suspended while the workflow mutates the data directory.
     The watcher fingerprint is marked synced only after incremental ingest
     succeeds, so failed syncs still leave changed disk state detectable. The
-    activity sweep runs after watcher resumption, unguarded, because the
-    activities tree is neither watched nor ingested.
+    activity sweep runs after watcher resumption because the activities tree
+    is neither watched nor ingested. The post-sync completion hook runs last
+    and is isolated: bootstrap gates what it is wired to (real reconciliation
+    vs. a noop) on the coach-worker flag, and any exception it raises is
+    logged and swallowed here so a coach-side failure never turns a
+    successful sync into a reported failure.
     """
     t0 = deps.monotonic()
     client = deps.clients.create()
@@ -97,7 +101,10 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deps, client, activity_days
     )
     runs_result = deps.ingest.ingest_running_activities(deps.activities_dir)
-    deps.after_successful_sync()
+    try:
+        deps.after_successful_sync()
+    except Exception:
+        log.exception("Post-sync reconciliation failed; sync result is unaffected")
 
     duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(

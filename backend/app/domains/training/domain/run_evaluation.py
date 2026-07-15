@@ -116,16 +116,27 @@ def evaluate_run_measurement(
         _evaluate_predicate(predicate, signal_values) for predicate in card.contract.quality_gate
     ]
     gates = [gate for _, root_gates in evaluated_roots for gate in root_gates]
-    warnings = (
-        [
+    warnings: list[TrainingMeasurementWarning] = []
+    if stand_time > 0:
+        warnings.append(
             TrainingMeasurementWarning(
                 code="uninterrupted_effort",
                 value=stand_time,
                 message=f"{stand_time:g} seconds standing during the 30-minute effort.",
             )
-        ]
-        if stand_time > 0
-        else []
+        )
+    unavailable_signals = sorted(
+        {gate.signal for gate in gates if gate.result == "unknown" and gate.value is None}
+    )
+    warnings.extend(
+        TrainingMeasurementWarning(
+            code="signal_unavailable",
+            message=(
+                f"{signal} is not available from tracked data;"
+                " assess this gate manually before accepting the measurement."
+            ),
+        )
+        for signal in unavailable_signals
     )
     status = (
         "failed"
@@ -173,19 +184,28 @@ def _strap_validity(evidence: TrainingRunEvidence, *, window: tuple[float, float
         evidence.elapsed_s, window=window
     ):
         return None
-    covered_seconds = {
-        elapsed
-        for elapsed, heart_rate in zip(evidence.elapsed_s, evidence.heart_rate_bpm, strict=False)
-        if window[0] <= elapsed < window[1] and heart_rate is not None
-    }
-    if not covered_seconds:
+    recorded: set[int] = set()
+    with_hr: set[int] = set()
+    for elapsed, heart_rate in zip(evidence.elapsed_s, evidence.heart_rate_bpm, strict=False):
+        if window[0] <= elapsed < window[1]:
+            recorded.add(elapsed)
+            if heart_rate is not None:
+                with_hr.add(elapsed)
+    if not recorded:
         return None
-    return round(len(covered_seconds) / _LTHR_FINAL_SECONDS, 3)
+    # Recording pauses remove seconds from the timeline entirely; strap quality
+    # is dropout among the seconds the device actually recorded.
+    return round(len(with_hr) / len(recorded), 3)
 
 
 def _threshold_pace(evidence: TrainingRunEvidence, *, window: tuple[float, float]) -> float | None:
     start_distance = _distance_at(evidence, target_s=window[0])
     end_distance = _distance_at(evidence, target_s=window[1])
+    if end_distance is None:
+        # A run stopped exactly at the effort end has no sample after the
+        # boundary; accept the last sample inside the same one-second
+        # tolerance _series_covers already applies to coverage.
+        end_distance = _distance_at(evidence, target_s=window[1] - 1)
     if start_distance is None or end_distance is None:
         return None
     effort_distance = end_distance - start_distance

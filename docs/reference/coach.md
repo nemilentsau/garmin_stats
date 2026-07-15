@@ -49,14 +49,18 @@ semantics.
 The model may ask at most two athlete questions, and only when an answer could change
 safety, formal measurement validity, or the next training decision. It must not request
 forensic confirmation of every prescribed detail. Review output stores outcome,
-confidence, direct coaching prose, decision-changing questions, historical evidence used,
-curated refs, structured journal memory, and an explicit brief action. Visual evidence is
-recorded as bounded `plot_observations`: each entry names an attached image basename and
-the concrete visible pattern that affected the judgment. Unused attachments are omitted,
-and a review may legitimately record no plot observations. The handler rejects any
-observation that names an image outside the current attachment manifest. Completed rows
-retain the observations and derive the legacy `plots_viewed` basename list for backward
-compatibility. A current-run plot ref and observation must correspond in both directions;
+confidence, direct coaching prose, up to two decision-changing `follow_up_questions`,
+historical evidence used, curated refs, structured journal memory, and an explicit brief
+action. The completed `CoachReview` persists those `follow_up_questions` verbatim and the
+`/api/coach/reviews*` endpoints surface them so the UI can show what the model still wants
+resolved. Visual evidence is recorded as bounded `plot_observations`: each entry names an
+attached image basename and the concrete visible pattern that affected the judgment.
+Unused attachments are omitted, and a review may legitimately record no plot observations.
+The handler rejects any observation that names an image outside the current attachment
+manifest. Completed rows retain only the observations; the legacy `plots_viewed` basename
+list has been retired, and a startup migration strips the key from any older persisted
+row so strict validation continues to accept it. A current-run plot ref and observation
+must correspond in both directions;
 unattached refs, attachment-inventory refs without observations, and observations without
 direct refs fail the attempt. The Coach review surface shows this bounded evidence ledger beneath the
 review so the visual basis of the judgment is inspectable. The former
@@ -137,6 +141,10 @@ bucket indexes independently.
 Typed refs are `run`, `plot`, `review`, or `date`. IDs use a strict filename allowlist;
 path traversal is rejected. `date` refs materialize training, daily metric, check-in, and
 note context. Runtime attempt directories are never deleted during workspace refresh.
+Each stored ref resolves independently: a ref that no longer resolves (a deleted run, an
+evicted plot cache entry, a rejected unsafe ID) is skipped and listed in
+`refs/unavailable.md` rather than failing the whole assembly, so one stale persisted
+reference cannot block every future coach job.
 
 ## Digest, journal, and brief
 
@@ -175,7 +183,8 @@ attempt number on the next claim.
 
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
-the row `running` for startup recovery. Startup requeues work older than 20 minutes up to
+the row `running` for startup recovery. Startup requeues every job still marked `running`
+(a single-process deployment cannot have one legitimately running at boot) up to
 three interruption attempts. Open threads idle for six hours queue distillation; success
 closes the thread and deletes its Codex home, while failure retains both and becomes
 `close_failed` with an explicit retry.
@@ -184,8 +193,12 @@ The first enabled reconciliation inspects the inclusive local-date window from t
 minus 14 days through today, selects at most the three most recent eligible run/skip
 items, then enqueues those selected items oldest-to-newest so journal chronology is
 readable. The remaining pre-activation history is manual-only. Later reconciliation
-considers only target dates strictly after the saved activation date. Unresolved run
-association candidates are not treated as skips.
+considers target dates from the saved activation date (inclusive) through today,
+bounded to at most the last 30 days even if activation is older — runs sync at least
+daily, so a wider lookback is never needed outside the initial-backfill era. Per-run
+and per-day training-schedule projections are computed at most once per target date
+per reconciliation pass. Unresolved run association candidates are not treated as
+skips.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,
 attempt, message, review, and thread lifecycle instants are canonical UTC strings so
@@ -229,8 +242,10 @@ paused state.
 ## API and UI
 
 The `/api/coach/*` API exposes status, review history/manual run enqueue/retry/regenerate,
-durable jobs, threads/messages/close/retry-close, current-policy journal, and current-policy
-brief. Model operations return
+threads/messages/close/retry-close, and current-policy brief. Jobs and the semantic journal
+stay durable SQLite records with no standalone read route; a job's lifecycle rides along on
+its owning review/message/status response instead, and no product surface reads the journal
+directly. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence

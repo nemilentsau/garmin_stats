@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
@@ -17,6 +19,7 @@ from app.domains.coach.contracts import (
     JournalEntry,
     ReviewOutput,
     RunJournalSummary,
+    safe_artifact_id,
 )
 from app.domains.coach.schema import init_coach_schema
 from app.infra import sqlite
@@ -49,13 +52,17 @@ def _run_journal_summary() -> RunJournalSummary:
     )
 
 
-def _review_output(takeaway: str = "Purpose achieved") -> ReviewOutput:
+def _review_output(
+    takeaway: str = "Purpose achieved",
+    *,
+    follow_up_questions: list[str] | None = None,
+) -> ReviewOutput:
     journal = _run_journal_summary().model_copy(update={"takeaway": takeaway})
     return ReviewOutput(
         outcome="completed_as_intended",
         confidence="high",
         review_md="The run achieved its intended purpose.",
-        follow_up_questions=[],
+        follow_up_questions=follow_up_questions or [],
         history_used=[],
         plot_observations=[],
         refs=[ArtifactRef(kind="run", value="run-1")],
@@ -69,6 +76,7 @@ def _complete_review(
     *,
     finished_at: str = NOW,
     takeaway: str = "Purpose achieved",
+    follow_up_questions: list[str] | None = None,
 ):
     review, _, _ = repository.enqueue_run_review(
         run_id="run-1", date="2026-07-14", occurrence_key="run-am"
@@ -79,7 +87,7 @@ def _complete_review(
     repository.complete_review_output(
         review_id=review.id,
         job_id=claimed.id,
-        output=_review_output(takeaway),
+        output=_review_output(takeaway, follow_up_questions=follow_up_questions),
         finished_at=finished_at,
     )
     return review, claimed
@@ -160,6 +168,76 @@ def test_regenerated_review_supersedes_prior_active_journal_entry():
     assert len(active) == 1
     assert "Corrected judgment" in active[0].content_md
     assert active[0].supersedes_id == all_entries[0].id
+
+
+def test_follow_up_questions_persist_on_completed_review():
+    repository = SqliteCoachRepository()
+
+    review, _ = _complete_review(
+        repository, follow_up_questions=["Was the course flat?"]
+    )
+
+    saved = repository.review(review.id)
+    assert saved is not None
+    assert saved.follow_up_questions == ["Was the course flat?"]
+
+
+def test_review_blob_migration_strips_plots_viewed_and_second_init_is_noop():
+    legacy_data = json.dumps(
+        {
+            "id": "review-legacy",
+            "date": "2026-07-10",
+            "kind": "run",
+            "run_id": "run-legacy",
+            "occurrence_key": None,
+            "status": "complete",
+            "job_id": "job-legacy",
+            "created_at": NOW,
+            "updated_at": NOW,
+            "plots_viewed": ["a.png"],
+        }
+    )
+    with sqlite.connect() as connection:
+        init_coach_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO coach_reviews
+                (id, date, kind, run_id, occurrence_key, status, updated_at, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "review-legacy",
+                "2026-07-10",
+                "run",
+                "run-legacy",
+                None,
+                "complete",
+                NOW,
+                legacy_data,
+            ),
+        )
+        connection.commit()
+
+        init_coach_schema(connection)
+        connection.commit()
+        stripped = connection.execute(
+            "SELECT data FROM coach_reviews WHERE id = 'review-legacy'"
+        ).fetchone()["data"]
+
+        init_coach_schema(connection)
+        connection.commit()
+        rerun = connection.execute(
+            "SELECT data FROM coach_reviews WHERE id = 'review-legacy'"
+        ).fetchone()["data"]
+
+    assert rerun == stripped
+
+    repository = SqliteCoachRepository()
+    loaded = repository.review("review-legacy")
+
+    assert loaded is not None
+    assert loaded.id == "review-legacy"
+    assert loaded.follow_up_questions == []
 
 
 def test_schema_init_second_call_is_noop():
@@ -433,3 +511,20 @@ def test_status_queries_report_running_job_and_queued_count():
     assert claimed is not None
     assert repository.running_job() == claimed
     assert repository.queued_count() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["run-1", "review_42.md", "2026-07-12", "A1"],
+)
+def test_safe_artifact_id_accepts_charset_safe_values(value: str):
+    assert safe_artifact_id(value) == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", ".", "..", "a/b", "a\\b", "run 1", "run$1", "run!"],
+)
+def test_safe_artifact_id_rejects_empty_dot_slash_and_non_charset_values(value: str):
+    with pytest.raises(ValueError, match="Unsafe artifact reference"):
+        safe_artifact_id(value)

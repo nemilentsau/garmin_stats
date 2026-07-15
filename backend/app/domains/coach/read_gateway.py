@@ -25,6 +25,7 @@ from app.domains.training.application import read_models as training_uc
 from app.domains.training.contracts import (
     TrainingBlockStatus,
     TrainingScheduleWindow,
+    TrainingTodayCard,
     TrainingTodayResponse,
 )
 from app.domains.training.dependencies import (
@@ -98,3 +99,14 @@ class CoachReadGateway:
 
     def notes(self, *, last_n: int | None = None) -> list[Note]:
         return self._journal_repo.list_notes(last_n=last_n)
+
+
+def training_card_for_run(
+    gateway: CoachReadGateway, *, run_id: str, session_date: str
+) -> TrainingTodayCard | None:
+    """The single association policy: which training card claims a tracked run."""
+    for card in gateway.training_today(session_date).cards:
+        activity = card.associated_activity
+        if activity is not None and activity.run_id == run_id:
+            return card
+    return None

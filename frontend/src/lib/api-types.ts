@@ -712,23 +712,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/coach/reviews/{review_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Review */
-        get: operations["get_review_api_coach_reviews__review_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/coach/reviews/{review_id}/retry": {
         parameters: {
             query?: never;
@@ -833,23 +816,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/coach/jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Job */
-        get: operations["get_job_api_coach_jobs__job_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/coach/brief": {
         parameters: {
             query?: never;
@@ -859,23 +825,6 @@ export interface paths {
         };
         /** Get Brief */
         get: operations["get_brief_api_coach_brief_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/coach/journal": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Journal */
-        get: operations["get_journal_api_coach_journal_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1513,14 +1462,6 @@ export interface components {
             /** Updated At */
             updated_at: string;
         };
-        /** CoachJournalResponse */
-        CoachJournalResponse: {
-            /**
-             * Entries
-             * @default []
-             */
-            entries: components["schemas"]["JournalEntry"][];
-        };
         /**
          * CoachMeasurementAssessment
          * @description Coach judgment for one exact scheduled measurement-run occurrence.
@@ -1609,10 +1550,10 @@ export interface components {
              */
             refs: components["schemas"]["ArtifactRef"][];
             /**
-             * Plots Viewed
+             * Follow Up Questions
              * @default []
              */
-            plots_viewed: string[];
+            follow_up_questions: string[];
             /**
              * Plot Observations
              * @default []
@@ -3023,35 +2964,6 @@ export interface components {
             /** Min */
             min: number | string;
         };
-        /** JournalEntry */
-        JournalEntry: {
-            /** Id */
-            id: string;
-            /** Ts */
-            ts: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "review" | "chat" | "admonish";
-            /** Content Md */
-            content_md: string;
-            /**
-             * Refs
-             * @default []
-             */
-            refs: components["schemas"]["ArtifactRef"][];
-            /** Source Id */
-            source_id: string;
-            /**
-             * Policy Version
-             * @default 1
-             */
-            policy_version: number;
-            /** Supersedes Id */
-            supersedes_id: string | null;
-            run_summary: components["schemas"]["RunJournalSummary"] | null;
-        };
         /**
          * LapDisplayRow
          * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
@@ -3834,26 +3746,6 @@ export interface components {
              * @default []
              */
             lap_display: components["schemas"]["LapDisplayRow"][];
-        };
-        /** RunJournalSummary */
-        RunJournalSummary: {
-            /** Purpose */
-            purpose: string;
-            /**
-             * Outcome
-             * @enum {string}
-             */
-            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
-            /** Takeaway */
-            takeaway: string;
-            /** Decision Relevant Uncertainties */
-            decision_relevant_uncertainties: string[];
-            /** Follow Up Triggers */
-            follow_up_triggers: string[];
-            /** Comparison Tags */
-            comparison_tags: string[];
-            /** Refs */
-            refs: components["schemas"]["ArtifactRef"][];
         };
         /**
          * RunListItem
@@ -6719,37 +6611,6 @@ export interface operations {
             };
         };
     };
-    get_review_api_coach_reviews__review_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                review_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CoachReview"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     post_review_retry_api_coach_reviews__review_id__retry_post: {
         parameters: {
             query?: never;
@@ -6993,37 +6854,6 @@ export interface operations {
             };
         };
     };
-    get_job_api_coach_jobs__job_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CoachJob"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_brief_api_coach_brief_get: {
         parameters: {
             query?: never;
@@ -7040,37 +6870,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachBriefResponse"];
-                };
-            };
-        };
-    };
-    get_journal_api_coach_journal_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CoachJournalResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7670,7 +7469,7 @@ export interface operations {
             query: {
                 /** @description Start date (YYYY-MM-DD) */
                 start: string;
-                /** @description Number of days in the window */
+                /** @description Number of days in the window (1-60) */
                 days?: number;
             };
             header?: never;

@@ -27,7 +27,8 @@ MonotonicClock = Callable[[], float]
 AfterSuccessfulSync = Callable[[], object]
 
 
-def _noop_after_sync() -> None:
+def noop_after_sync() -> None:
+    """Do nothing; the default post-sync hook when no reaction is wired."""
     return None
 
 
@@ -117,4 +118,4 @@ class GarminSyncDependencies:
     activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock
-    after_successful_sync: AfterSuccessfulSync = _noop_after_sync
+    after_successful_sync: AfterSuccessfulSync = noop_after_sync

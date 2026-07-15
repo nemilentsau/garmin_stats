@@ -19,11 +19,13 @@ class ReconcileGateway:
     def __init__(self) -> None:
         self.runs: list[RunListItem] = []
         self.days: dict[str, TrainingTodayResponse] = {}
+        self.training_today_calls: dict[str, int] = {}
 
     def recent_runs(self, *, evidence_date: str, limit: int = 20):
         return [run for run in reversed(self.runs) if run.session_date <= evidence_date][:limit]
 
     def training_today(self, target: str) -> TrainingTodayResponse:
+        self.training_today_calls[target] = self.training_today_calls.get(target, 0) + 1
         return self.days.get(target, TrainingTodayResponse(date=target, cards=[]))
 
     def run_detail(self, run_id: str):
@@ -110,7 +112,7 @@ def test_reconcile_uses_training_run_classification_not_bundle_literal():
     assert created == []
 
 
-def test_ongoing_reconcile_queues_only_post_activation_runs_once():
+def test_ongoing_reconcile_includes_activation_day_run_and_dedupes_repeat_calls():
     repo = SqliteCoachRepository()
     gateway = ReconcileGateway()
     jobs = _jobs(repo, gateway)
@@ -121,10 +123,54 @@ def test_ongoing_reconcile_queues_only_post_activation_runs_once():
     first = jobs.reconcile_pending()
     second = jobs.reconcile_pending()
 
-    assert len(first) == 1
-    assert first[0].payload["run_id"] == "new"
+    assert {job.payload["run_id"] for job in first} == {"new", "same-day"}
     assert second == []
-    assert repo.review_for_run("same-day") is None
+    assert repo.review_for_run("same-day") is not None
+
+
+def test_activation_day_run_after_backfill_still_gets_reviewed():
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    jobs = _jobs(repo, gateway)
+    jobs.reconcile_pending()  # activation_date = 2026-07-12, no runs at backfill time
+
+    gateway.runs = [_run("late-arrival", "2026-07-12")]
+    created = jobs.reconcile_pending()
+
+    assert len(created) == 1
+    assert created[0].payload["run_id"] == "late-arrival"
+    assert repo.review_for_run("late-arrival") is not None
+
+
+def test_reconcile_projects_each_date_once():
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    jobs = _jobs(repo, gateway)
+    jobs.reconcile_pending()  # activation_date = 2026-07-12
+
+    gateway.runs = [_run("run-a", "2026-07-13"), _run("run-b", "2026-07-13")]
+    jobs.local_today = lambda: "2026-07-14"
+
+    jobs.reconcile_pending()
+
+    assert gateway.training_today_calls.get("2026-07-13") == 1
+
+
+def test_reconcile_bounds_scan_to_lookback_window():
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    jobs = CoachJobs(
+        repo=repo,
+        gateway=cast(CoachReadGateway, gateway),
+        local_today=lambda: "2026-04-13",
+    )
+    jobs.reconcile_pending()  # activation_date = 2026-04-13 (90 days before the day below)
+
+    gateway.training_today_calls = {}
+    jobs.local_today = lambda: "2026-07-12"
+    jobs.reconcile_pending()
+
+    assert len(gateway.training_today_calls) <= 31
 
 
 def test_manual_review_returns_existing_complete_review_without_duplicate():

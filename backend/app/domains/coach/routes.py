@@ -7,15 +7,11 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app.bootstrap.container import build_container
-from app.domains.coach.application.memory import (
-    CURRENT_MEMORY_POLICY_VERSION,
-    active_journal_entries,
-)
+from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
 from app.domains.coach.contracts import (
     CoachBriefResponse,
     CoachEnqueueResponse,
     CoachJob,
-    CoachJournalResponse,
     CoachMessageCreateRequest,
     CoachMessagesResponse,
     CoachReview,
@@ -73,14 +69,6 @@ def post_run_review(request: CoachRunReviewRequest, response: Response) -> Coach
     result = build_container().coach_jobs.enqueue_run_review(request.run_id)
     response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
     return result
-
-
-@router.get("/reviews/{review_id}", response_model=CoachReview)
-def get_review(review_id: str) -> CoachReview:
-    review = build_container().coach_repo.review(review_id)
-    if review is None:
-        raise LookupError(f"Unknown coach review: {review_id}")
-    return review
 
 
 @router.post("/reviews/{review_id}/retry", response_model=CoachJob, status_code=202)
@@ -167,26 +155,9 @@ def post_retry_close(thread_id: str) -> CoachJob:
     return container.coach_jobs.retry_close(thread_id)
 
 
-@router.get("/jobs/{job_id}", response_model=CoachJob)
-def get_job(job_id: str) -> CoachJob:
-    job = build_container().coach_repo.job(job_id)
-    if job is None:
-        raise LookupError(f"Unknown coach job: {job_id}")
-    return job
-
-
 @router.get("/brief", response_model=CoachBriefResponse)
 def get_brief() -> CoachBriefResponse:
     brief = build_container().coach_repo.current_brief(
         policy_version=CURRENT_MEMORY_POLICY_VERSION
     )
     return CoachBriefResponse(brief=brief)
-
-
-@router.get("/journal", response_model=CoachJournalResponse)
-def get_journal(limit: int = Query(30, ge=1, le=200)) -> CoachJournalResponse:
-    entries = build_container().coach_repo.list_journal(
-        limit=limit,
-        policy_version=CURRENT_MEMORY_POLICY_VERSION,
-    )
-    return CoachJournalResponse(entries=active_journal_entries(entries))

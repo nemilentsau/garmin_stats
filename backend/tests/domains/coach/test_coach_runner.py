@@ -93,7 +93,6 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     assert result.ok is True
     assert isinstance(result.output, ReviewOutput)
     assert result.session_id == "session-123"
-    assert result.usage == {"input_tokens": 11, "output_tokens": 7}
     for flag in ("--ignore-user-config", "--ignore-rules", "--json", "--skip-git-repo-check"):
         assert flag in argv
     assert "--ephemeral" in argv

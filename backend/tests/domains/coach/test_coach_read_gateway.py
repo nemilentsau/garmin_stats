@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 
 import app.domains.coach.read_gateway as gateway_module
-from app.domains.coach.read_gateway import CoachReadGateway
+from app.domains.coach.read_gateway import CoachReadGateway, training_card_for_run
 from app.domains.garmin_analytics.application.dependencies import (
     BiometricReadRepository,
 )
@@ -35,6 +35,7 @@ from app.domains.training.contracts import (
     TrainingRunActivitySummary,
     TrainingRunEvidence,
     TrainingScheduleWindow,
+    TrainingTodayCard,
     TrainingTodayResponse,
 )
 from app.domains.training.dependencies import (
@@ -330,3 +331,60 @@ def test_checkins_and_notes_delegate_without_copying_journal_policy():
     assert notes[0].id == "note-1"
     assert journal.checkin_limits == [5]
     assert journal.note_limits == [8]
+
+
+class _CardsGateway:
+    """Minimal duck-typed stand-in exposing only `training_today`.
+
+    `training_card_for_run` only calls `gateway.training_today(session_date)`,
+    so this avoids constructing a full `CoachReadGateway` for the association
+    policy's own unit tests.
+    """
+
+    def __init__(self, cards: list[TrainingTodayCard]) -> None:
+        self._cards = cards
+
+    def training_today(self, date: str) -> TrainingTodayResponse:
+        return TrainingTodayResponse(date=date, cards=self._cards)
+
+
+def _run_activity(run_id: str) -> TrainingRunActivitySummary:
+    return TrainingRunActivitySummary(
+        run_id=run_id,
+        session_date="2026-07-11",
+        start_time_local="2026-07-11T06:00:00",
+    )
+
+
+def test_training_card_for_run_returns_the_card_whose_activity_matches():
+    from tests.domains.coach.test_coach_context import _card
+
+    matching = _card([]).model_copy(
+        update={"associated_activity": _run_activity("run-01")}
+    )
+    other = _card([]).model_copy(
+        update={
+            "occurrence_key": "running.v3:run.easy:d02",
+            "associated_activity": _run_activity("run-02"),
+        }
+    )
+    gateway = _CardsGateway([other, matching])
+
+    result = training_card_for_run(
+        cast(CoachReadGateway, gateway), run_id="run-01", session_date="2026-07-11"
+    )
+
+    assert result is matching
+
+
+def test_training_card_for_run_returns_none_when_no_card_is_associated():
+    from tests.domains.coach.test_coach_context import _card
+
+    unassociated = _card([])
+    gateway = _CardsGateway([unassociated])
+
+    result = training_card_for_run(
+        cast(CoachReadGateway, gateway), run_id="run-01", session_date="2026-07-11"
+    )
+
+    assert result is None

@@ -20,7 +20,7 @@ from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
     SqliteRunsRepository,
 )
-from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.dependencies import GarminSyncDependencies, noop_after_sync
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.adapters import SqliteJournalRepository
@@ -91,7 +91,9 @@ def build_container() -> AppContainer:
     )
     garmin_sync_infra = build_garmin_sync_infra(
         config,
-        after_successful_sync=coach_jobs.reconcile_pending,
+        after_successful_sync=(
+            coach_jobs.reconcile_pending if config.coach_worker_enabled else noop_after_sync
+        ),
     )
     return AppContainer(
         config=config,

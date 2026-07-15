@@ -183,7 +183,6 @@ def test_existing_review_with_legacy_verdict_remains_readable():
             "confidence": None,
             "content_md": "Legacy review",
             "refs": [],
-            "plots_viewed": [],
             "history_used": [],
             "measurement_assessment": None,
             "job_id": "job-old",
@@ -196,3 +195,22 @@ def test_existing_review_with_legacy_verdict_remains_readable():
     assert review.verdict == "partial"
     assert review.outcome is None
     assert review.plot_observations == []
+    assert review.follow_up_questions == []
+
+
+def test_review_rejects_legacy_plots_viewed_key():
+    with pytest.raises(ValidationError):
+        contracts.CoachReview.model_validate(
+            {
+                "id": "review-legacy",
+                "date": "2026-07-14",
+                "kind": "run",
+                "run_id": "run-old",
+                "occurrence_key": None,
+                "status": "complete",
+                "job_id": "job-old",
+                "created_at": "2026-07-14T12:00:00Z",
+                "updated_at": "2026-07-14T12:00:00Z",
+                "plots_viewed": ["a.png"],
+            }
+        )

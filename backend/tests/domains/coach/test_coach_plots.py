@@ -14,7 +14,6 @@ from app.domains.coach.infra.plots import (
     render_current_run_stack,
     render_library_panel,
     run_content_fingerprint,
-    series_has_data,
 )
 from app.domains.garmin_analytics.contracts import (
     RunDetailResponse,
@@ -121,7 +120,6 @@ def test_empty_series_produces_explicit_no_series_panel(tmp_path):
 
     path = render_library_panel(tmp_path, _detail(), series)
 
-    assert series_has_data(series) is False
     _assert_png(path)
 
 

@@ -111,7 +111,7 @@ class TestExceptionHandlers:
         )
 
         status, _headers, body = asyncio.run(
-            _asgi_request("/api/training/schedule-window?start=2026-03-02&days=0")
+            _asgi_request("/api/training/schedule-window?start=2026-03-02&days=1")
         )
 
         assert status == 400

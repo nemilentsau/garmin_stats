@@ -121,7 +121,7 @@
 
 	async function persistCard(
 		card: TrainingTodayCard,
-		status: CardStatus,
+		status: CardStatus | undefined,
 		capture: TrainingCaptureLog | null = card.capture,
 		notes: string | null = card.notes,
 		date = selectedDate,
@@ -129,12 +129,13 @@
 	): Promise<void> {
 		error = null;
 		try {
-			await api.updateTrainingCard(date, card.occurrence_key, {
-				status,
+			const payload: TrainingLogUpdateRequest = {
 				variant_taken: variant,
 				notes,
 				capture: capture as TrainingLogUpdateRequest['capture']
-			});
+			};
+			if (status !== undefined) payload.status = status;
+			await api.updateTrainingCard(date, card.occurrence_key, payload);
 		} catch (cause: unknown) {
 			error = errorMessage(cause);
 		}
@@ -184,7 +185,12 @@
 			saveTimeout = null;
 			pendingPersist = null;
 			applyDetailSnapshot(card, capture, notes, variant);
-			void persistCard(card, effectiveStatus(card), capture, notes, date, variant);
+			// Only send `status` when the user explicitly changed it this session (an override
+			// exists in `localStatus`); otherwise omit the key so the PUT can't echo the
+			// *derived* status (e.g. a tracked-run auto-'completed') back into the manual log
+			// and corrupt provenance — see `TrainingLogUpdateRequest` presence-vs-null semantics.
+			const explicitStatus = localStatus[card.occurrence_key] as CardStatus | undefined;
+			void persistCard(card, explicitStatus, capture, notes, date, variant);
 		};
 		pendingPersist = { key: card.occurrence_key, run };
 		saveTimeout = setTimeout(run, delay);

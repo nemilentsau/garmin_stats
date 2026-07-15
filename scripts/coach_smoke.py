@@ -71,7 +71,7 @@ def main() -> None:
     print(f"review_id={review.id}")
     print(f"verdict={review.verdict}")
     print(f"refs={','.join(f'{ref.kind}:{ref.value}' for ref in review.refs)}")
-    print(f"plots_viewed={','.join(review.plots_viewed)}")
+    print(f"follow_up_questions={','.join(review.follow_up_questions)}")
     print(f"usage={json.dumps(_last_usage(stdout), sort_keys=True)}")
     print(f"workspace={workspace}")
     print(f"job_status={job.status}")

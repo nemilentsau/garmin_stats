@@ -91,9 +91,12 @@ class FakeCoachGateway:
                 pace_min_per_mi=8.0,
                 avg_heart_rate_bpm=140,
                 hr_source="wrist",
+                training_load=250.0,
+                aerobic_training_effect=3.5,
             )
             for index in range(run_count)
         ]
+        self.recent_runs_calls: list[int] = []
         self.overview: DashboardOverviewResponse | None = DashboardOverviewResponse(
             date="2026-07-12",
             change=MeaningfulChange(delta7_z=0.3, is_meaningful=True, direction="improving"),
@@ -134,11 +137,14 @@ class FakeCoachGateway:
         ]
 
     def recent_runs(self, *, evidence_date: str, limit: int = 20) -> list[RunListItem]:
+        self.recent_runs_calls.append(limit)
         eligible = [run for run in self.runs if run.session_date <= evidence_date]
         return list(reversed(eligible))[:limit]
 
     def run_detail(self, run_id: str) -> RunDetailResponse:
-        run = next(run for run in self.runs if run.id == run_id)
+        run = next((item for item in self.runs if item.id == run_id), None)
+        if run is None:
+            raise LookupError(f"Run {run_id} not found")
         return RunDetailResponse(
             session=RunningActivitySession(
                 id=run.id,
@@ -150,6 +156,8 @@ class FakeCoachGateway:
                 avg_heart_rate_bpm=run.avg_heart_rate_bpm,
                 hr_source=run.hr_source,
                 has_heart_rate=True,
+                training_load=run.training_load,
+                aerobic_training_effect=run.aerobic_training_effect,
             ),
             display=RunDisplayStats(
                 distance_mi=run.distance_mi,
@@ -449,7 +457,9 @@ def test_missing_evidence_is_explicit_and_transcript_is_written(tmp_path, fake_p
     assert "What now?" in (root / "transcript.md").read_text()
 
 
-def test_date_review_and_plot_refs_resolve_and_traversal_is_rejected(tmp_path, fake_plots):
+def test_date_review_and_plot_refs_resolve_and_traversal_is_skipped_and_reported(
+    tmp_path, fake_plots
+):
     repo = FakeCoachRepository()
     repo.reviews["review-1"] = CoachReview(
         id="review-1",
@@ -488,8 +498,11 @@ def test_date_review_and_plot_refs_resolve_and_traversal_is_rejected(tmp_path, f
     repo.journal[0] = repo.journal[0].model_copy(
         update={"refs": [ArtifactRef(kind="review", value="../escape")]}
     )
-    with pytest.raises(ValueError, match="Unsafe artifact reference"):
-        _assemble(tmp_path / "unsafe", FakeCoachGateway(), repo)
+    unsafe_manifest = _assemble(tmp_path / "unsafe", FakeCoachGateway(), repo)
+    unsafe_root = Path(unsafe_manifest.directory)
+
+    assert unsafe_manifest.resolved_refs == []
+    assert "Unsafe artifact reference" in (unsafe_root / "refs/unavailable.md").read_text()
 
 
 def test_historical_workspace_plot_ref_backfills_missing_shared_cache(tmp_path, fake_plots):
@@ -530,3 +543,148 @@ def test_historical_workspace_plot_ref_backfills_missing_shared_cache(tmp_path, 
     root = Path(manifest.directory)
     assert (tmp_path / "cache/legacy-current-p01.png").read_bytes() == b"legacy plot"
     assert (root / "refs/plots/legacy-current-p01.png").read_bytes() == b"legacy plot"
+
+
+def test_stale_plot_ref_is_skipped_and_reported(tmp_path, fake_plots):
+    repo = FakeCoachRepository()
+    repo.reviews["review-1"] = CoachReview(
+        id="review-1",
+        date="2026-07-11",
+        kind="run",
+        run_id="run-21",
+        status="complete",
+        verdict="compliant",
+        content_md="A sound easy run.",
+        job_id="job-1",
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    repo.journal = [
+        JournalEntry(
+            id="refs",
+            ts=NOW,
+            kind="chat",
+            content_md="One valid ref and one plot that no longer exists.",
+            refs=[
+                ArtifactRef(kind="review", value="review-1"),
+                ArtifactRef(kind="plot", value="missing-panel.png"),
+            ],
+            source_id="message-1",
+            policy_version=2,
+        )
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    root = Path(manifest.directory)
+    unavailable = (root / "refs/unavailable.md").read_text()
+
+    assert "plot:missing-panel.png" in unavailable
+    assert "A sound easy run" in (root / "refs/reviews/review-1.md").read_text()
+    assert {ref.value for ref in manifest.resolved_refs} == {"review-1"}
+
+
+def test_stale_run_ref_is_skipped_and_reported(tmp_path, fake_plots):
+    repo = FakeCoachRepository()
+    repo.journal = [
+        JournalEntry(
+            id="refs",
+            ts=NOW,
+            kind="chat",
+            content_md="One valid run ref and one run that no longer exists.",
+            refs=[
+                ArtifactRef(kind="run", value="run-00"),
+                ArtifactRef(kind="run", value="run-missing"),
+            ],
+            source_id="message-1",
+            policy_version=2,
+        )
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    root = Path(manifest.directory)
+    unavailable = (root / "refs/unavailable.md").read_text()
+
+    assert "run:run-missing" in unavailable
+    assert (root / "refs/runs/run-00/summary.md").is_file()
+    assert not (root / "refs/runs/run-missing").exists()
+    assert {ref.value for ref in manifest.resolved_refs} == {"run-00"}
+
+
+def test_run_ref_failing_after_partial_writes_leaves_no_destination_dir(
+    tmp_path, monkeypatch
+):
+    """A run ref that fails late (after summary.md/laps.md are written) must not
+    leave `refs/runs/<id>` behind — a model must never see a half-written ref dir
+    as if it were complete."""
+
+    def library(cache_dir: Path, detail, series) -> Path:
+        del series
+        if detail.session.id == "run-00":
+            # Simulate a source panel that never materializes: summary.md and
+            # laps.md for this ref are already written by the time the final
+            # `shutil.copy2` in `_export_run` is attempted, and that copy raises.
+            return cache_dir / "run-00-missing-panel.png"
+        path = cache_dir / f"{detail.session.id}-panel.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"panel")
+        return path
+
+    def current(output_dir: Path, detail, series) -> list[Path]:
+        del series
+        paths = [output_dir / f"{detail.session.id}-current-{index}.png" for index in (1, 2)]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for path in paths:
+            path.write_bytes(b"current")
+        return paths
+
+    monkeypatch.setattr("app.domains.coach.application.workspace.render_library_panel", library)
+    monkeypatch.setattr("app.domains.coach.application.workspace.render_current_run_stack", current)
+
+    repo = FakeCoachRepository()
+    repo.journal = [
+        JournalEntry(
+            id="refs",
+            ts=NOW,
+            kind="chat",
+            content_md="Reference an older run whose plot copy fails.",
+            refs=[ArtifactRef(kind="run", value="run-00")],
+            source_id="message-1",
+            policy_version=2,
+        )
+    ]
+
+    manifest = _assemble(tmp_path, FakeCoachGateway(), repo)
+    root = Path(manifest.directory)
+    unavailable = (root / "refs/unavailable.md").read_text()
+
+    assert "run:run-00" in unavailable
+    assert not (root / "refs/runs/run-00").exists()
+    assert "run-00" not in {ref.value for ref in manifest.resolved_refs}
+
+
+def test_current_run_context_does_not_scan_recent_runs(tmp_path, fake_plots):
+    """Reviewing a current run must call `recent_runs` exactly once, bounded by
+    `historical_run_limit` — not scan the full run history — while still
+    producing the current-run evidence files."""
+    from app.domains.coach.application.workspace import assemble_workspace
+
+    gateway = FakeCoachGateway()
+    repo = FakeCoachRepository()
+
+    manifest = assemble_workspace(
+        gateway,  # type: ignore[arg-type]
+        repo,  # type: ignore[arg-type]
+        directory=tmp_path / "workspace",
+        plot_cache_dir=tmp_path / "cache",
+        evidence_date="2026-07-12",
+        target_date="2026-07-12",
+        question_md="Review this run",
+        current_run_id="run-21",
+        transcript=None,
+        historical_run_limit=20,
+    )
+    root = Path(manifest.directory)
+
+    assert gateway.recent_runs_calls == [20]
+    assert (root / "current/run-21/summary.md").is_file()
+    assert (root / "current/run-21/laps.md").is_file()

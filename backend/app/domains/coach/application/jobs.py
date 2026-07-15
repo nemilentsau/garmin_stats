@@ -12,8 +12,18 @@ from app.domains.coach.contracts import (
     CoachThread,
     InitialReviewCandidate,
 )
-from app.domains.coach.read_gateway import CoachReadGateway
-from app.domains.coach.time import utc_now_iso
+from app.domains.coach.read_gateway import (
+    CoachReadGateway,
+    TrainingTodayResponse,
+    training_card_for_run,
+)
+from app.domains.coach.time import local_today_iso, utc_now_iso
+
+# Ongoing reconciliation scans at most this many days back from today, even if the
+# saved activation date is older. Runs sync at least daily, so a healthy deployment
+# never needs a longer lookback; wider gaps were only possible during the
+# initial-backfill era before this bound existed.
+_RECONCILE_LOOKBACK_DAYS = 30
 
 
 class CoachJobs:
@@ -26,16 +36,14 @@ class CoachJobs:
     ) -> None:
         self.repo = repo
         self.gateway = gateway
-        self.local_today = local_today or (lambda: datetime.now().astimezone().date().isoformat())
+        self.local_today = local_today or local_today_iso
 
     def enqueue_run_review(self, run_id: str) -> CoachEnqueueResponse:
         detail = self.gateway.run_detail(run_id)
-        occurrence_key = None
-        for card in self.gateway.training_today(detail.session.session_date).cards:
-            activity = card.associated_activity
-            if activity is not None and activity.run_id == run_id:
-                occurrence_key = card.occurrence_key
-                break
+        card = training_card_for_run(
+            self.gateway, run_id=run_id, session_date=detail.session.session_date
+        )
+        occurrence_key = card.occurrence_key if card is not None else None
         review, job, created = self.repo.enqueue_run_review(
             run_id=run_id,
             date=detail.session.session_date,
@@ -90,6 +98,14 @@ class CoachJobs:
         return self.repo.retry_failed_job(job.id, available_at=now)
 
     def reconcile_pending(self) -> list[CoachJob]:
+        """Enqueue reviews/skips for evidence that has appeared since the last pass.
+
+        The post-activation scan window is bounded to the last
+        `_RECONCILE_LOOKBACK_DAYS` days (never before the saved activation date).
+        Runs sync at least daily, so a healthy deployment never needs more than a
+        30-day lookback; an unbounded activation-to-today scan was only load-bearing
+        during the initial-backfill era, before per-run/per-day dedupe existed.
+        """
         today = date.fromisoformat(self.local_today())
         state = self.repo.reconciliation_state()
         runs = self.gateway.recent_runs(evidence_date=today.isoformat(), limit=1000)
@@ -106,11 +122,8 @@ class CoachJobs:
             return jobs
 
         activation = date.fromisoformat(state.activation_date)
-        candidates = self._candidates(
-            runs,
-            lower=activation + timedelta(days=1),
-            upper=today,
-        )
+        lower = max(activation, today - timedelta(days=_RECONCILE_LOOKBACK_DAYS))
+        candidates = self._candidates(runs, lower=lower, upper=today)
         jobs: list[CoachJob] = []
         for candidate in sorted(candidates, key=self._candidate_key):
             if candidate.kind == "run":
@@ -132,6 +145,13 @@ class CoachJobs:
     def _candidates(
         self, runs, *, lower: date, upper: date
     ) -> list[InitialReviewCandidate]:
+        projections: dict[str, TrainingTodayResponse] = {}
+
+        def cards_for(day_iso: str) -> TrainingTodayResponse:
+            if day_iso not in projections:
+                projections[day_iso] = self.gateway.training_today(day_iso)
+            return projections[day_iso]
+
         candidates: list[InitialReviewCandidate] = []
         seen_runs: set[str] = set()
         for run in runs:
@@ -139,7 +159,10 @@ class CoachJobs:
             if lower <= run_date <= upper and run.id not in seen_runs:
                 seen_runs.add(run.id)
                 occurrence_key = None
-                for card in self.gateway.training_today(run.session_date).cards:
+                # Same association policy as `read_gateway.training_card_for_run`,
+                # inlined here (rather than calling it) to reuse the `cards_for`
+                # memoization above across every run/day in this scan.
+                for card in cards_for(run.session_date).cards:
                     activity = card.associated_activity
                     if activity is not None and activity.run_id == run.id:
                         occurrence_key = card.occurrence_key
@@ -156,7 +179,7 @@ class CoachJobs:
         today = date.fromisoformat(self.local_today())
         while day <= upper:
             if day < today:
-                for card in self.gateway.training_today(day.isoformat()).cards:
+                for card in cards_for(day.isoformat()).cards:
                     if (
                         card.is_running
                         and card.associated_activity is None

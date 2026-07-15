@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
@@ -65,17 +66,27 @@ def test_enabled_runtime_recovers_reconciles_starts_and_awaits_all_tasks(monkeyp
     monkeypatch.setattr(runtime_module, "heartbeat_loop", heartbeat.run)
 
     async def exercise():
+        cutoff_time_before_start = datetime.now(UTC)
         runtime = ProcessRuntime(container)
         runtime.start()
         await worker.started.wait()
         await watcher.loop.started.wait()
         await heartbeat.started.wait()
         await runtime.stop()
+        return cutoff_time_before_start
 
-    asyncio.run(exercise())
+    cutoff_time = asyncio.run(exercise())
 
     assert len(recovered) == 1
     assert recovered[0][1] == 3
+    # The cutoff passed should be >= the instant just before start() was called.
+    # ISO format with "Z" suffix: "2026-07-15T12:34:56.789012Z"
+    cutoff_str = recovered[0][0]
+    cutoff_dt = datetime.fromisoformat(cutoff_str.replace("Z", "+00:00"))
+    assert cutoff_dt >= cutoff_time, (
+        f"Cutoff {cutoff_str} should be >= time before start {cutoff_time.isoformat()}; "
+        "recovery window must cover jobs claimed immediately before restart"
+    )
     assert reconciled == ["pending"]
     assert worker.stopped.is_set()
     assert watcher.loop.stopped.is_set()

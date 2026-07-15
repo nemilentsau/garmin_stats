@@ -29,7 +29,7 @@ from app.domains.coach.infra.runner import (
     run_codex_job,
 )
 from app.domains.coach.read_gateway import CoachReadGateway
-from app.domains.coach.time import utc_now_iso
+from app.domains.coach.time import local_today_iso, utc_now_iso
 
 Runner = Callable[..., Awaitable[CodexJobResult]]
 
@@ -54,9 +54,7 @@ class CoachHandlers:
         self.threads_dir = threads_dir
         self.logs_dir = logs_dir
         self.runner = runner
-        self.local_today = local_today or (
-            lambda: __import__("datetime").datetime.now().astimezone().date().isoformat()
-        )
+        self.local_today = local_today or local_today_iso
 
     async def execute(self, job: CoachJob) -> None:
         handlers = {
@@ -297,21 +295,18 @@ class CoachHandlers:
 
     def fail_unexpected(self, job: CoachJob, error: Exception) -> None:
         message = f"unexpected: {type(error).__name__}: {error}"
-        if job.kind == "chat_turn":
+        thread_id = job.payload.get("thread_id")
+        if job.kind == "chat_turn" and isinstance(thread_id, str):
             self.repo.fail_chat_output(
-                job_id=job.id,
-                thread_id=self._payload_text(job, "thread_id"),
-                error=message,
-                finished_at=utc_now_iso(),
+                job_id=job.id, thread_id=thread_id, error=message, finished_at=utc_now_iso()
             )
-        elif job.kind == "distill_thread":
+        elif job.kind == "distill_thread" and isinstance(thread_id, str):
             self.repo.fail_distill_output(
-                job_id=job.id,
-                thread_id=self._payload_text(job, "thread_id"),
-                error=message,
-                finished_at=utc_now_iso(),
+                job_id=job.id, thread_id=thread_id, error=message, finished_at=utc_now_iso()
             )
         else:
+            # Malformed payload (missing/non-string thread_id): fall back to the
+            # generic job failure so this last-resort path can never itself raise.
             self.repo.fail_job(job.id, error=message, finished_at=utc_now_iso())
 
     @staticmethod
