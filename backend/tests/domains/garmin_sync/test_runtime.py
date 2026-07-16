@@ -51,13 +51,10 @@ class _UnusedFileStore:
     def latest_zip_date(self, data_dir: Path):
         raise AssertionError("file store should not be used")
 
-    def remove_day(self, data_dir: Path, day):
-        raise AssertionError("file store should not be used")
-
     def zip_exists(self, data_dir: Path, day):
         raise AssertionError("file store should not be used")
 
-    def write_zip(self, data_dir: Path, day, data: bytes):
+    def install_archive(self, data_dir: Path, day, data: bytes):
         raise AssertionError("file store should not be used")
 
 

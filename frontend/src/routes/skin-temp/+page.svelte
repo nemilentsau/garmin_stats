@@ -54,7 +54,7 @@
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: '7-Day Smoothed',
@@ -64,7 +64,7 @@
 						borderDash: [6, 3],
 						pointRadius: 0,
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: 'Baseline (0)',

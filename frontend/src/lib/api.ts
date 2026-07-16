@@ -56,7 +56,7 @@ export type MetricAnalysis = Schemas['MetricAnalysis'];
 export type MetricLagResult = Schemas['MetricLagResult'];
 export type ConfounderCheck = Schemas['ConfounderCheck'];
 export type AdherenceDayEntry = Schemas['AdherenceDayEntry'];
-export type ExperimentExposure = Schemas['ExperimentExposure-Input'];
+export type ExperimentExposureCreate = Schemas['ExperimentExposureCreate'];
 export type ImportRequest = Schemas['ImportRequest'];
 export type ImportResult = Schemas['ImportResult'];
 export type TrainingBlockStatus = Schemas['TrainingBlockStatus'];
@@ -192,7 +192,7 @@ export const api = {
 	importExperiment: async (experiment: ExperimentInput) => {
 		return unwrapResponse(client.POST('/api/experiments/import', { body: experiment }));
 	},
-	recordExperimentExposure: async (experimentId: string, exposure: ExperimentExposure) => {
+	recordExperimentExposure: async (experimentId: string, exposure: ExperimentExposureCreate) => {
 		return unwrapResponse(client.POST('/api/experiments/{experiment_id}/exposures', {
 			params: { path: { experiment_id: experimentId } },
 			body: exposure

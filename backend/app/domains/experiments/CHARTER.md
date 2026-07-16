@@ -3,7 +3,7 @@
 **Status:** shipped
 **Boundary source of truth for this domain. Update in the same PR that changes the domain.**
 
-Experiment CRUD, design preview/import, target metric registry, manual
+Experiment import, design preview, target metric registry, manual
 day-grain exposure recording, and N=1 analysis. Experiment analysis is a cached read model that
 refreshes after exposure changes and on stale date-sensitive reads. The slice
 uses a flat route/adapter/dependency layout with a pure `domain/` core.
@@ -11,7 +11,7 @@ uses a flat route/adapter/dependency layout with a pure `domain/` core.
 ## Owns
 
 - Experiment definitions.
-- Design preview/import.
+- Import-only definition activation with design preview.
 - Target metric registry.
 - Experiment-day exposures.
 - Cached N=1 analysis and active-analysis refresh.
@@ -72,6 +72,11 @@ Experiment adherence is protocol-defined and day-grain.
 
 - One `ExperimentExposure` represents one experiment-day for one
   `experiment_id + date`.
+- Experiment definitions enter through previewed bundle import; the API does
+  not expose direct create or replace routes.
+- Manual exposure writes accept only the client-authored day, adherence,
+  score, and notes. The backend derives identity and experiment ownership and
+  rejects dates outside the treatment window or after the current local day.
 - Exposure is recorded explicitly after considering whether the planned
   intervention dose for that day was satisfied across every required session
   or component.

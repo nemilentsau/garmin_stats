@@ -188,20 +188,49 @@ class FilesystemSyncFileStore:
             return None
         return date.fromisoformat(max(zips))
 
-    def remove_day(self, data_dir: Path, day: date) -> None:
-        date_str = day.isoformat()
-        zip_path = data_dir / f"{date_str}.zip"
-        dir_path = data_dir / date_str
-        if zip_path.exists():
-            zip_path.unlink()
-            log.info("Deleted partial zip: %s", zip_path)
-        if dir_path.exists():
-            shutil.rmtree(dir_path)
-            log.info("Deleted partial dir: %s", dir_path)
-
     def zip_exists(self, data_dir: Path, day: date) -> bool:
         return (data_dir / f"{day.isoformat()}.zip").exists()
 
-    def write_zip(self, data_dir: Path, day: date, data: bytes) -> None:
+    def install_archive(self, data_dir: Path, day: date, data: bytes) -> None:
+        """Stage and extract a replacement before mutating the current day."""
         ensure_data_dir(data_dir)
-        (data_dir / f"{day.isoformat()}.zip").write_bytes(data)
+        date_str = day.isoformat()
+        zip_path = data_dir / f"{date_str}.zip"
+        out_dir = data_dir / date_str
+        temp_zip = data_dir / f".{date_str}.zip.tmp"
+        temp_out = data_dir / f".{date_str}.install.tmp"
+        backup_out = data_dir / f".{date_str}.backup.tmp"
+
+        if backup_out.exists():
+            if out_dir.exists():
+                shutil.rmtree(backup_out)
+            else:
+                backup_out.rename(out_dir)
+        if temp_zip.exists():
+            temp_zip.unlink()
+        if temp_out.exists():
+            shutil.rmtree(temp_out)
+
+        try:
+            temp_zip.write_bytes(data)
+            temp_out.mkdir()
+            with zipfile.ZipFile(temp_zip, "r") as zf:
+                _safe_extract_all(zf, temp_out)
+            _write_archive_stamp(temp_out, temp_zip)
+
+            temp_zip.replace(zip_path)
+            if out_dir.exists():
+                out_dir.rename(backup_out)
+            try:
+                temp_out.rename(out_dir)
+            except Exception:
+                if backup_out.exists() and not out_dir.exists():
+                    backup_out.rename(out_dir)
+                raise
+            if backup_out.exists():
+                shutil.rmtree(backup_out)
+        finally:
+            if temp_zip.exists():
+                temp_zip.unlink()
+            if temp_out.exists():
+                shutil.rmtree(temp_out)

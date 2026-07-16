@@ -76,7 +76,7 @@
 						borderDash: [4, 4],
 						pointRadius: 0,
 						tension: 0.3,
-						spanGaps: true,
+						spanGaps: false,
 						fill: false
 					},
 					{
@@ -87,7 +87,7 @@
 						pointRadius: 1.5,
 						pointBackgroundColor: withAlpha(COLORS.bodyBattery, '60'),
 						tension: 0.3,
-						spanGaps: true,
+						spanGaps: false,
 						fill: '-1',
 						backgroundColor: withAlpha(COLORS.bodyBattery, '08')
 					},
@@ -98,7 +98,7 @@
 						borderWidth: 2.5,
 						pointRadius: 0,
 						tension: 0.35,
-						spanGaps: true,
+						spanGaps: false,
 						fill: false
 					}
 				]

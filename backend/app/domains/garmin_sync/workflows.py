@@ -1,9 +1,9 @@
 """Garmin ingest and download sync workflows.
 
-The manual sync workflow treats the latest local archive as possibly partial,
-deletes it, downloads that day through today, extracts archives, and ingests only
-affected dates. Filesystem, Garmin, clock, ingest, and watcher operations are
-injected so this module stays policy-only.
+The manual sync workflow treats the latest local archive as mutable, safely
+replaces it, downloads that day through today, and ingests only affected dates.
+Filesystem, Garmin, clock, ingest, and watcher operations are injected so this
+module stays policy-only.
 
 Sync also sweeps a short activity window (the wellness range plus a lookback for
 late uploads) to download any new Garmin Connect activity FIT files, then runs
@@ -17,6 +17,7 @@ counters.
 from __future__ import annotations
 
 import logging
+import zipfile
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -28,11 +29,10 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class _SyncDatePlan:
-    """Dates to inspect plus dates already affected before downloads begin."""
+    """Dates to inspect and the existing mutable day that must be refreshed."""
 
-    deleted_latest: date | None
+    refresh_latest: date | None
     dates: list[date]
-    initial_affected_dates: list[str]
 
 
 def trigger_ingest(deps: GarminSyncDependencies) -> IngestResult:
@@ -65,20 +65,20 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
 
     latest = deps.files.latest_zip_date(deps.data_dir)
     plan = _plan_sync_dates(latest=latest, today=today)
-    deleted_latest = plan.deleted_latest.isoformat() if plan.deleted_latest else None
-
     deps.suspend_watcher()
     try:
-        if plan.deleted_latest is not None:
-            deps.files.remove_day(deps.data_dir, plan.deleted_latest)
-
         downloaded = 0
         skipped = 0
         failed = 0
-        affected_dates = list(plan.initial_affected_dates)
+        affected_dates: list[str] = []
 
         for day in plan.dates:
-            result = _download_day(deps, client, day)
+            result = _download_day(
+                deps,
+                client,
+                day,
+                force_refresh=day == plan.refresh_latest,
+            )
             if result == "downloaded":
                 downloaded += 1
                 affected_dates.append(day.isoformat())
@@ -111,7 +111,6 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         downloaded=downloaded,
         skipped=skipped,
         failed=failed,
-        deleted_latest=deleted_latest,
         days_ingested=ingest_result.days_ingested,
         duration_ms=duration_ms,
         activities_downloaded=activities_downloaded,
@@ -126,12 +125,10 @@ def _plan_sync_dates(*, latest: date | None, today: date) -> _SyncDatePlan:
     """Plan the smallest archive range that can refresh mutable Garmin data."""
     if latest is None:
         start_date = today - timedelta(days=1)
-        deleted_latest = None
-        initial_affected_dates: list[str] = []
+        refresh_latest = None
     else:
         start_date = latest
-        deleted_latest = latest
-        initial_affected_dates = [latest.isoformat()]
+        refresh_latest = latest
 
     dates: list[date] = []
     current = start_date
@@ -140,9 +137,8 @@ def _plan_sync_dates(*, latest: date | None, today: date) -> _SyncDatePlan:
         current += timedelta(days=1)
 
     return _SyncDatePlan(
-        deleted_latest=deleted_latest,
+        refresh_latest=refresh_latest,
         dates=dates,
-        initial_affected_dates=initial_affected_dates,
     )
 
 
@@ -150,10 +146,12 @@ def _download_day(
     deps: GarminSyncDependencies,
     client: GarminDownloadClient,
     day: date,
+    *,
+    force_refresh: bool = False,
 ) -> DownloadOutcome:
     """Download one archive unless a local zip already satisfies the plan."""
     date_str = day.isoformat()
-    if deps.files.zip_exists(deps.data_dir, day):
+    if not force_refresh and deps.files.zip_exists(deps.data_dir, day):
         log.info("  %s: already exists, skipping", date_str)
         return "skipped"
 
@@ -168,7 +166,11 @@ def _download_day(
         log.info("  %s: no data available", date_str)
         return "failed"
 
-    deps.files.write_zip(deps.data_dir, day, data)
+    try:
+        deps.files.install_archive(deps.data_dir, day, data)
+    except (OSError, ValueError, zipfile.BadZipFile):
+        log.exception("  %s: archive installation failed", date_str)
+        return "failed"
     log.info("  %s: OK (%d bytes)", date_str, len(data))
     return "downloaded"
 

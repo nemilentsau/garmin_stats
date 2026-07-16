@@ -266,15 +266,6 @@ def test_upsert_and_read_back_card_log():
     assert readback.status == "completed"
 
 
-def test_card_logs_for_filters_by_date():
-    repo = SqliteTrainingRepository()
-    repo.upsert_card_log(TrainingCardLog(id="2026-07-06:a", date="2026-07-06", occurrence_key="a"))
-    repo.upsert_card_log(TrainingCardLog(id="2026-07-07:b", date="2026-07-07", occurrence_key="b"))
-
-    logs = repo.card_logs_for("2026-07-06")
-    assert [log.occurrence_key for log in logs] == ["a"]
-
-
 def test_card_logs_before_filters_to_strictly_earlier_dates():
     repo = SqliteTrainingRepository()
     repo.upsert_card_log(TrainingCardLog(id="2026-07-05:a", date="2026-07-05", occurrence_key="a"))

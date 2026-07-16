@@ -78,17 +78,27 @@
 		exposureSaving = false;
 	}
 
-	function validateExposureDate(treatmentStartDate?: string | null): string | null {
+	function validateExposureDate(
+		treatmentStartDate?: string | null,
+		treatmentEndDate?: string | null
+	): string | null {
 		if (!exposureDate) return 'Select a date.';
 		if (exposureDate > today) return 'Date cannot be after today.';
 		if (treatmentStartDate && exposureDate < treatmentStartDate) {
 			return 'Date cannot be before treatment start.';
 		}
+		if (treatmentEndDate && exposureDate > treatmentEndDate) {
+			return 'Date cannot be after treatment end.';
+		}
 		return null;
 	}
 
-	async function saveExposure(experimentId: string, treatmentStartDate?: string | null): Promise<void> {
-		const validationError = validateExposureDate(treatmentStartDate);
+	async function saveExposure(
+		experimentId: string,
+		treatmentStartDate?: string | null,
+		treatmentEndDate?: string | null
+	): Promise<void> {
+		const validationError = validateExposureDate(treatmentStartDate, treatmentEndDate);
 		if (validationError) {
 			exposureError = validationError;
 			return;
@@ -97,8 +107,6 @@
 		exposureSaving = true;
 		try {
 			await api.recordExperimentExposure(experimentId, {
-				id: `exposure:manual:${experimentId}:${exposureDate}`,
-				experiment_id: experimentId,
 				date: exposureDate,
 				adherence_state: exposureState,
 				exposure_score: null,
@@ -304,7 +312,11 @@
 						type="button"
 						class="rounded-md border border-[rgba(91,181,166,0.3)] bg-[rgba(91,181,166,0.12)] px-3 py-1 font-['DM_Mono',monospace] text-[11px] text-[#5bb5a6] transition-colors hover:bg-[rgba(91,181,166,0.22)] disabled:cursor-default disabled:opacity-40"
 						disabled={exposureSaving}
-						onclick={() => void saveExposure(exp.id, exp.design?.treatment_start_date)}
+						onclick={() => void saveExposure(
+							exp.id,
+							exp.design?.treatment_start_date,
+							exp.design?.treatment_end_date
+						)}
 					>
 						{exposureSaving ? 'Saving…' : 'Save'}
 					</button>

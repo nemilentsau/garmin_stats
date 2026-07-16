@@ -938,11 +938,7 @@ export interface paths {
          */
         get: operations["get_experiments_api_experiments_get"];
         put?: never;
-        /**
-         * Post Experiment
-         * @description Create an experiment definition without preview validation or analysis.
-         */
-        post: operations["post_experiment_api_experiments_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1021,11 +1017,7 @@ export interface paths {
          * @description Return one experiment with its current analysis snapshot.
          */
         get: operations["get_experiment_detail_api_experiments__experiment_id__get"];
-        /**
-         * Put Experiment
-         * @description Replace an existing experiment definition and refresh analysis.
-         */
-        put: operations["put_experiment_api_experiments__experiment_id__put"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2157,11 +2149,6 @@ export interface components {
             /** Confounder Notes */
             confounder_notes?: string | null;
             /**
-             * Expected Lag Days
-             * @default []
-             */
-            expected_lag_days: number[];
-            /**
              * Priority
              * @default 0
              */
@@ -2196,11 +2183,6 @@ export interface components {
             confounder_watch: string[];
             /** Confounder Notes */
             confounder_notes: string | null;
-            /**
-             * Expected Lag Days
-             * @default []
-             */
-            expected_lag_days: number[];
             /**
              * Priority
              * @default 0
@@ -2299,26 +2281,7 @@ export interface components {
             min_adherence_pct: number;
         };
         /** ExperimentExposure */
-        "ExperimentExposure-Input": {
-            /** Id */
-            id: string;
-            /** Experiment Id */
-            experiment_id: string;
-            /** Date */
-            date: string;
-            /** Exposure Score */
-            exposure_score?: number | null;
-            /**
-             * Adherence State
-             * @default unknown
-             * @enum {string}
-             */
-            adherence_state: "full" | "partial" | "missed" | "unknown";
-            /** Notes */
-            notes?: string | null;
-        };
-        /** ExperimentExposure */
-        "ExperimentExposure-Output": {
+        ExperimentExposure: {
             /** Id */
             id: string;
             /** Experiment Id */
@@ -2335,6 +2298,27 @@ export interface components {
             adherence_state: "full" | "partial" | "missed" | "unknown";
             /** Notes */
             notes: string | null;
+        };
+        /**
+         * ExperimentExposureCreate
+         * @description Client-authored fields for one manual experiment-day exposure.
+         */
+        ExperimentExposureCreate: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Exposure Score */
+            exposure_score?: number | null;
+            /**
+             * Adherence State
+             * @default unknown
+             * @enum {string}
+             */
+            adherence_state: "full" | "partial" | "missed" | "unknown";
+            /** Notes */
+            notes?: string | null;
         };
         /** ExperimentPreviewIssue */
         ExperimentPreviewIssue: {
@@ -3293,11 +3277,6 @@ export interface components {
              * @enum {string}
              */
             direction: "higher_is_better" | "lower_is_better";
-            /**
-             * Min Effect Size
-             * @default 0.2
-             */
-            min_effect_size: number;
         };
         /** OutcomeMetric */
         "OutcomeMetric-Output": {
@@ -3309,11 +3288,6 @@ export interface components {
              * @enum {string}
              */
             direction: "higher_is_better" | "lower_is_better";
-            /**
-             * Min Effect Size
-             * @default 0.2
-             */
-            min_effect_size: number;
         };
         /** OverloadContract */
         OverloadContract: {
@@ -4654,8 +4628,6 @@ export interface components {
             skipped: number;
             /** Failed */
             failed: number;
-            /** Deleted Latest */
-            deleted_latest: string | null;
             /** Days Ingested */
             days_ingested: number;
             /** Duration Ms */
@@ -7097,39 +7069,6 @@ export interface operations {
             };
         };
     };
-    post_experiment_api_experiments_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Experiment-Input"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Experiment-Output"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     post_preview_api_experiments_preview_post: {
         parameters: {
             query?: never;
@@ -7247,41 +7186,6 @@ export interface operations {
             };
         };
     };
-    put_experiment_api_experiments__experiment_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                experiment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Experiment-Input"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Experiment-Output"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_analysis_api_experiments__experiment_id__analysis_get: {
         parameters: {
             query?: never;
@@ -7330,7 +7234,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExperimentExposure-Output"][];
+                    "application/json": components["schemas"]["ExperimentExposure"][];
                 };
             };
             /** @description Validation Error */
@@ -7355,7 +7259,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ExperimentExposure-Input"];
+                "application/json": components["schemas"]["ExperimentExposureCreate"];
             };
         };
         responses: {
@@ -7365,7 +7269,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExperimentExposure-Output"];
+                    "application/json": components["schemas"]["ExperimentExposure"];
                 };
             };
             /** @description Validation Error */

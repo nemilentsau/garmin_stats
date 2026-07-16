@@ -106,15 +106,3 @@ def histogram_bins(
         for b in range(bin_start, bin_end, bin_width)
         if counts.get(b, 0) > 0
     ]
-
-
-def percentile_rank(
-    values: Sequence[int | float],
-    target: float,
-) -> float | None:
-    """Percent of `values` at or below `target` (0-100), or None if empty."""
-    if not values:
-        return None
-    arr = np.sort(values)
-    idx = float(np.searchsorted(arr, target, side="right"))
-    return round(idx / len(values) * 100, 1)

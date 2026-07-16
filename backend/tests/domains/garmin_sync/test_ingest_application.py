@@ -134,21 +134,19 @@ class FakeSyncFileStore:
     def __init__(self, *, latest: date | None, existing: set[date]) -> None:
         self.latest = latest
         self.existing = existing
-        self.deleted: list[tuple[Path, date]] = []
-        self.written: list[tuple[Path, date, bytes]] = []
+        self.installed: list[tuple[Path, date, bytes]] = []
+        self.install_error: Exception | None = None
 
     def latest_zip_date(self, data_dir: Path) -> date | None:
         return self.latest
 
-    def remove_day(self, data_dir: Path, day: date) -> None:
-        self.deleted.append((data_dir, day))
-        self.existing.discard(day)
-
     def zip_exists(self, data_dir: Path, day: date) -> bool:
         return day in self.existing
 
-    def write_zip(self, data_dir: Path, day: date, data: bytes) -> None:
-        self.written.append((data_dir, day, data))
+    def install_archive(self, data_dir: Path, day: date, data: bytes) -> None:
+        if self.install_error is not None:
+            raise self.install_error
+        self.installed.append((data_dir, day, data))
         self.existing.add(day)
 
 
@@ -245,7 +243,7 @@ def test_get_ingest_status_reads_current_data_root_status(tmp_path: Path):
     assert ingest.calls == [("status", tmp_path, None)]
 
 
-def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
+def test_sync_replaces_latest_day_downloads_range_and_ingests_affected_dates(
     tmp_path: Path,
 ):
     deps, ingest, archives, watcher, client, files, _store = _deps(tmp_path)
@@ -255,11 +253,9 @@ def test_sync_deletes_latest_day_downloads_range_and_ingests_affected_dates(
     assert result.downloaded == 1
     assert result.skipped == 1
     assert result.failed == 0
-    assert result.deleted_latest == "2026-03-14"
     assert result.days_ingested == 1
     assert result.duration_ms == 1250
-    assert files.deleted == [(tmp_path, date(2026, 3, 14))]
-    assert files.written == [(tmp_path, date(2026, 3, 14), b"x" * 101)]
+    assert files.installed == [(tmp_path, date(2026, 3, 14), b"x" * 101)]
     assert client.days == [date(2026, 3, 14)]
     assert archives == [tmp_path]
     assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-14"])]
@@ -276,9 +272,7 @@ def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):
 
     assert result.downloaded == 2
     assert result.skipped == 1
-    assert result.deleted_latest == "2026-03-14"
-    assert files.deleted == [(tmp_path, date(2026, 3, 14))]
-    assert files.written == [
+    assert files.installed == [
         (tmp_path, date(2026, 3, 14), b"x" * 101),
         (tmp_path, date(2026, 3, 16), b"z" * 101),
     ]
@@ -298,8 +292,6 @@ def test_sync_starts_with_yesterday_when_no_archives_exist(tmp_path: Path):
     result = sync_garmin(deps)
 
     assert result.downloaded == 2
-    assert result.deleted_latest is None
-    assert files.deleted == []
     assert client.days == [date(2026, 3, 14), date(2026, 3, 15)]
     assert ingest.calls == [
         ("ingest_dates", tmp_path, ["2026-03-14", "2026-03-15"]),
@@ -318,8 +310,28 @@ def test_sync_treats_missing_archive_response_as_failed(tmp_path: Path):
 
     assert result.downloaded == 0
     assert result.failed == 1
-    assert files.written == []
+    assert files.installed == []
     assert client.days == [date(2026, 3, 14)]
+
+    # The unchanged archive was never replaced, so no incremental ingest is needed.
+    assert _ingest.calls == [("ingest_dates", tmp_path, [])]
+
+
+def test_sync_treats_archive_install_failure_as_failed_without_ingesting_day(
+    tmp_path: Path,
+):
+    deps, ingest, _archives, _watcher, _client, files, _store = _deps(
+        tmp_path,
+        today=date(2026, 3, 14),
+    )
+    files.install_error = ValueError("invalid replacement")
+
+    result = sync_garmin(deps)
+
+    assert result.downloaded == 0
+    assert result.failed == 1
+    assert files.installed == []
+    assert ingest.calls == [("ingest_dates", tmp_path, [])]
 
 
 def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):
@@ -383,27 +395,24 @@ def test_sync_survives_post_sync_reconciliation_failure(tmp_path: Path):
     assert result.runs_ingest_failed == 0
 
 
-def test_plan_with_no_archives_starts_yesterday_and_marks_no_deletion():
+def test_plan_with_no_archives_starts_yesterday():
     plan = _plan_sync_dates(latest=None, today=date(2026, 3, 15))
 
-    assert plan.deleted_latest is None
-    assert plan.initial_affected_dates == []
+    assert plan.refresh_latest is None
     assert plan.dates == [date(2026, 3, 14), date(2026, 3, 15)]
 
 
 def test_plan_with_older_latest_archive_redownloads_from_latest_through_today():
     plan = _plan_sync_dates(latest=date(2026, 3, 14), today=date(2026, 3, 16))
 
-    assert plan.deleted_latest == date(2026, 3, 14)
-    assert plan.initial_affected_dates == ["2026-03-14"]
+    assert plan.refresh_latest == date(2026, 3, 14)
     assert plan.dates == [date(2026, 3, 14), date(2026, 3, 15), date(2026, 3, 16)]
 
 
 def test_plan_with_latest_archive_at_today_re_syncs_only_today():
     plan = _plan_sync_dates(latest=date(2026, 3, 15), today=date(2026, 3, 15))
 
-    assert plan.deleted_latest == date(2026, 3, 15)
-    assert plan.initial_affected_dates == ["2026-03-15"]
+    assert plan.refresh_latest == date(2026, 3, 15)
     assert plan.dates == [date(2026, 3, 15)]
 
 

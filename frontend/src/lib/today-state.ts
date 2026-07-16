@@ -1,8 +1,6 @@
 export type CardStatus = 'pending' | 'completed' | 'partial' | 'skipped';
 
 type StatusCard = { occurrence_key: string; status: CardStatus };
-type ChecklistAnswer = { item_id: string; checked: boolean; scale: number | null };
-type ChecklistItemKind = 'checkbox' | 'tissue_check';
 
 export function effectiveStatus(
 	card: StatusCard,
@@ -19,14 +17,42 @@ export function statusForVariant(option: string, status: CardStatus): CardStatus
 	return option === 'skip' ? 'skipped' : status;
 }
 
-export function deriveChecklistStatus(
-	answers: ChecklistAnswer[],
-	itemKinds: Record<string, ChecklistItemKind>
-): CardStatus {
-	if (answers.length === 0) return 'pending';
-	const answered = answers.filter((answer) =>
-		itemKinds[answer.item_id] === 'tissue_check' ? answer.scale !== null : answer.checked
-	).length;
-	if (answered === answers.length) return 'completed';
-	return answered > 0 ? 'partial' : 'pending';
+type StatusPersistTask = {
+	key: string;
+	attempted: CardStatus;
+	initialConfirmed: CardStatus;
+	persist: () => Promise<boolean>;
+	isCurrent: () => boolean;
+	rollback: (confirmed: CardStatus) => void;
+};
+
+export function createStatusPersistQueue() {
+	const queues = new Map<string, Promise<void>>();
+	const confirmedStatuses = new Map<string, CardStatus>();
+
+	return {
+		enqueue(task: StatusPersistTask): Promise<void> {
+			if (!confirmedStatuses.has(task.key)) {
+				confirmedStatuses.set(task.key, task.initialConfirmed);
+			}
+
+			const previous = queues.get(task.key) ?? Promise.resolve();
+			const current = previous.then(async () => {
+				const saved = await task.persist();
+				if (saved) {
+					confirmedStatuses.set(task.key, task.attempted);
+				} else if (task.isCurrent()) {
+					task.rollback(confirmedStatuses.get(task.key) ?? task.initialConfirmed);
+				}
+			});
+			queues.set(task.key, current);
+			void current.then(() => {
+				if (queues.get(task.key) === current) {
+					queues.delete(task.key);
+					confirmedStatuses.delete(task.key);
+				}
+			});
+			return current;
+		}
+	};
 }

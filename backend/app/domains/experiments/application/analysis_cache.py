@@ -117,39 +117,6 @@ def get_experiment_analysis(
     return load_current_analysis(repo, read_source, experiment)
 
 
-def refresh_active_experiment_analyses(
-    repo: ExperimentRepository,
-    read_source: ExperimentAnalysisReadSource,
-) -> dict[str, ExperimentAnalysis]:
-    """Return current active analyses, refreshing only missing or stale snapshots.
-
-    Bulk callers (scan/list views) use this path so missing active analyses are
-    materialized for scan results while fresh cached snapshots avoid data loads
-    and writes. Experiments without a design are skipped; per-experiment
-    failures are logged and excluded.
-    """
-    experiments = repo.list_experiments(statuses=("active",))
-    cached_analyses = repo.list_all_experiment_analyses()
-    refreshed: dict[str, ExperimentAnalysis] = {}
-    for experiment in experiments:
-        if experiment.design is None:
-            continue
-        cached = cached_analyses.get(experiment.id)
-        if cached is not None and not analysis_needs_refresh(experiment, cached):
-            refreshed[experiment.id] = cached
-            continue
-        try:
-            analysis = persist_experiment_analysis(
-                repo, read_source, experiment, cached=cached,
-            )
-        except Exception:
-            log.exception("Failed to refresh experiment %s", experiment.id)
-            continue
-        if analysis is not None:
-            refreshed[experiment.id] = analysis
-    return refreshed
-
-
 def refresh_active_experiments(
     repo: ExperimentRepository,
     read_source: ExperimentAnalysisReadSource,

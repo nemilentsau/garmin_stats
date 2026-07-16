@@ -76,7 +76,7 @@
 						pointRadius: 1.5,
 						pointBackgroundColor: withAlpha(COLORS.stress, '60'),
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: '7d Avg',
@@ -85,7 +85,7 @@
 						borderWidth: 2.5,
 						pointRadius: 0,
 						tension: 0.35,
-						spanGaps: true
+						spanGaps: false
 					}
 				]
 			},

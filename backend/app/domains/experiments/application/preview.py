@@ -18,7 +18,6 @@ from app.domains.experiments.domain.preview_validation import (
     validate_baseline_coverage,
     validate_confounder_paths,
     validate_existing_experiment,
-    validate_expected_lag_days,
     validate_experiment_name,
     validate_outcome_metrics,
 )
@@ -78,7 +77,6 @@ def preview_experiment(
         start_date=b_start_str,
         end_date=validation_end,
     ))
-    issues.extend(validate_expected_lag_days(design.expected_lag_days))
     issues.extend(validate_existing_experiment(
         experiment.id,
         exists=repo.experiment_exists(experiment.id),

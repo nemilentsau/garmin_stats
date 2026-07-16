@@ -137,16 +137,6 @@ class SqliteTrainingRepository:
         """Load one capture log by its `date:occurrence_key` composite id."""
         return _STORE.load("training_card_logs", TrainingCardLog, f"{date}:{occurrence_key}")
 
-    def card_logs_for(self, date: str) -> list[TrainingCardLog]:
-        """Load every capture log recorded for one date."""
-        return _STORE.load_many(
-            "training_card_logs",
-            TrainingCardLog,
-            where_sql="json_extract(data, '$.date') = ?",
-            params=(date,),
-            order_by="id",
-        )
-
     def card_logs_before(self, date: str) -> list[TrainingCardLog]:
         """Load every capture log recorded strictly before one date."""
         return _STORE.load_many(

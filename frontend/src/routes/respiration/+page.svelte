@@ -76,7 +76,7 @@
 						borderWidth: 2,
 						pointRadius: 2,
 						tension: 0.3,
-						spanGaps: true
+						spanGaps: false
 					},
 					{
 						label: 'Q1 (25th)',
@@ -86,7 +86,7 @@
 						borderDash: [4, 4],
 						pointRadius: 0,
 						tension: 0.3,
-						spanGaps: true,
+						spanGaps: false,
 						fill: false
 					},
 					{
@@ -97,7 +97,7 @@
 						borderDash: [4, 4],
 						pointRadius: 0,
 						tension: 0.3,
-						spanGaps: true,
+						spanGaps: false,
 						fill: '-1'
 					}
 				]

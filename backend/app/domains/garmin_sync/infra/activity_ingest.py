@@ -9,9 +9,8 @@ fingerprint-equality skip but not this per-file dedup). Parsing itself belongs
 to garmin_health's ``fit_parser``; this module only orchestrates and persists,
 tolerating a per-file parse failure so one corrupt download never blocks the
 rest of the batch. Invalidates the read cache only when rows were actually
-written, never on a skip or an all-failed batch. Because the fingerprint is
-written even when some files failed to parse, a file that fails once is not
-retried until the activities tree fingerprint changes (i.e. any new download).
+written, never on a skip or an all-failed batch. A pass with any parse failure
+leaves the fingerprint pending so an unchanged-tree startup retries that file.
 """
 
 from __future__ import annotations
@@ -108,10 +107,11 @@ def ingest_running_activities(
             )
             ingested += 1
 
-        con.execute(
-            "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
-            (_FINGERPRINT_KEY, current),
-        )
+        if failed == 0:
+            con.execute(
+                "INSERT OR REPLACE INTO ingest_meta (key, value) VALUES (?, ?)",
+                (_FINGERPRINT_KEY, current),
+            )
 
     if ingested:
         cache.invalidate()

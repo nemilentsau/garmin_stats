@@ -10,6 +10,7 @@
 	} from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
 	import {
+		createStatusPersistQueue,
 		effectiveStatus as resolveEffectiveStatus,
 		statusForVariant,
 		toggledCompletionStatus,
@@ -40,6 +41,7 @@
 	let variantTaken = $state<string | null>(null);
 	let localStatus = $state<Record<string, string>>({});
 	let statusVersion = $state(0);
+	const statusPersistQueue = createStatusPersistQueue();
 	let todayRequestToken = 0;
 
 	const allCards = $derived(trainingToday?.cards ?? []);
@@ -126,7 +128,7 @@
 		notes: string | null = card.notes,
 		date = selectedDate,
 		variant: string | null = card.variant_taken
-	): Promise<void> {
+	): Promise<boolean> {
 		error = null;
 		try {
 			const payload: TrainingLogUpdateRequest = {
@@ -136,9 +138,31 @@
 			};
 			if (status !== undefined) payload.status = status;
 			await api.updateTrainingCard(date, card.occurrence_key, payload);
+			return true;
 		} catch (cause: unknown) {
 			error = errorMessage(cause);
+			return false;
 		}
+	}
+
+	function trackOptimisticStatus(
+		card: TrainingTodayCard,
+		attempted: CardStatus,
+		previous: CardStatus,
+		date: string,
+		persist: () => Promise<boolean>
+	): void {
+		void statusPersistQueue.enqueue({
+			key: `${date}:${card.occurrence_key}`,
+			attempted,
+			initialConfirmed: previous,
+			persist,
+			isCurrent: () => selectedDate === date && localStatus[card.occurrence_key] === attempted,
+			rollback: (confirmed) => {
+				localStatus[card.occurrence_key] = confirmed;
+				statusVersion++;
+			}
+		});
 	}
 
 	function applyDetailSnapshot(
@@ -153,23 +177,45 @@
 	}
 
 	function toggleComplete(card: TrainingTodayCard): void {
-		const next = toggledCompletionStatus(effectiveStatus(card));
+		const previous = effectiveStatus(card);
+		const next = toggledCompletionStatus(previous);
+		const date = selectedDate;
 		localStatus[card.occurrence_key] = next;
 		statusVersion++;
 		if (expandedOccurrenceKey === card.occurrence_key) {
 			cancelPendingPersist(card.occurrence_key);
 			const notes = detailNote.trim() || null;
-			applyDetailSnapshot(card, stagedCapture, notes, variantTaken);
-			void persistCard(card, next, stagedCapture, notes, selectedDate, variantTaken);
+			const capture = stagedCapture;
+			const variant = variantTaken;
+			applyDetailSnapshot(card, capture, notes, variant);
+			trackOptimisticStatus(
+				card,
+				next,
+				previous,
+				date,
+				() => persistCard(card, next, capture, notes, date, variant)
+			);
 			return;
 		}
-		void persistCard(card, next);
+		const capture = card.capture;
+		const notes = card.notes;
+		const variant = card.variant_taken;
+		trackOptimisticStatus(card, next, previous, date, () =>
+			persistCard(card, next, capture, notes, date, variant)
+		);
 	}
 
 	function quickSkip(card: TrainingTodayCard): void {
+		const previous = effectiveStatus(card);
 		localStatus[card.occurrence_key] = 'skipped';
 		statusVersion++;
-		void persistCard(card, 'skipped');
+		const date = selectedDate;
+		const capture = card.capture;
+		const notes = card.notes;
+		const variant = card.variant_taken;
+		trackOptimisticStatus(card, 'skipped', previous, date, () =>
+			persistCard(card, 'skipped', capture, notes, date, variant)
+		);
 	}
 
 	let saveTimeout: ReturnType<typeof setTimeout> | null = null;

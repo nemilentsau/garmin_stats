@@ -131,17 +131,6 @@ def validate_confounder_paths(
     return issues
 
 
-def validate_expected_lag_days(lag_days: Sequence[int]) -> list[ExperimentPreviewIssue]:
-    """Validate that expected lag offsets are non-negative."""
-    return [
-        ExperimentPreviewIssue(
-            level="error", message=f"Lag days must be non-negative, got {lag}.",
-        )
-        for lag in lag_days
-        if lag < 0
-    ]
-
-
 def validate_existing_experiment(
     experiment_id: str,
     *,

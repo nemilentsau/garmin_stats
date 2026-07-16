@@ -33,6 +33,14 @@ test('metric stat cards do not use runtime-built Tailwind color classes', () => 
 	}
 });
 
+test('between-day metric series never bridge missing observations', () => {
+	for (const [route] of metricPages) {
+		const source = readFileSync(join('src/routes', route, '+page.svelte'), 'utf8');
+
+		assert.doesNotMatch(source, /spanGaps:\s*true/, route);
+	}
+});
+
 test('api client uses a shared unwrap helper instead of per-method boilerplate', () => {
 	const source = readFileSync(join('src/lib', 'api.ts'), 'utf8');
 

@@ -388,61 +388,6 @@ class TestExperimentPreviewAndImport:
         assert result.autocorrelation_lag1_baseline == 0.0
         assert result.autocorrelation_lag1_treatment == 0.0
 
-    def test_update_experiment_refreshes_saved_analysis(self):
-        """Updating an experiment should refresh the persisted analysis payload."""
-        from app.domains.experiments.application.management import (
-            get_experiment_with_analysis,
-            import_experiment,
-            update_experiment,
-        )
-
-        _seed_metrics(
-            [40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0, 40.0, 41.0, 42.0, 39.0, 40.0, 41.0, 42.0],
-            [50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0, 50.0, 51.0, 52.0, 49.0, 50.0, 51.0, 52.0],
-        )
-
-        exp = Experiment(
-            id="refresh-test",
-            name="Refresh Test",
-            status="draft",
-            design=ExperimentDesign(
-                baseline_start_date="2026-01-01",
-                baseline_end_date="2026-01-14",
-                treatment_start_date="2026-01-15",
-                treatment_end_date="2026-01-28",
-            ),
-            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
-        )
-        import_experiment(
-            SqliteExperimentRepository(),
-            _read_source(),
-            exp,
-        )
-
-        updated = Experiment(
-            id="refresh-test",
-            name="Refresh Test",
-            status="active",
-            design=exp.design,
-            outcome_metrics=[OutcomeMetric(path="sleep.score")],
-        )
-        update_experiment(
-            SqliteExperimentRepository(),
-            _read_source(),
-            "refresh-test",
-            updated,
-        )
-
-        detail = get_experiment_with_analysis(
-            SqliteExperimentRepository(),
-            _read_source(),
-            "refresh-test",
-        )
-
-        assert detail.analysis is not None
-        assert detail.experiment.outcome_metrics[0].path == "sleep.score"
-        assert detail.analysis.metrics[0].path == "sleep.score"
-
     def test_get_experiment_with_analysis_refreshes_stale_adherence_window(self, monkeypatch):
         """Reading yesterday's analysis should recompute adherence for today's date."""
         import app.domains.experiments.application.analysis as experiment_analysis_mod
@@ -595,100 +540,6 @@ class TestExperimentPreviewAndImport:
         assert persisted is not None
         assert persisted.analysis_date == "2026-05-04"
         assert write_calls == [experiment.id]
-
-    def test_refresh_active_experiment_analyses_skips_fresh_cached_snapshots(
-        self,
-        monkeypatch,
-    ):
-        """Scan refresh should not recompute active analyses that are already fresh."""
-        import app.domains.experiments.domain.analysis as experiment_domain_analysis_mod
-        from app.domains.experiments.application import analysis_cache as analysis_cache_mod
-
-        class May4(date):
-            @classmethod
-            def today(cls):
-                return cls(2026, 5, 4)
-
-        monkeypatch.setattr(analysis_cache_mod, "date_type", May4)
-        monkeypatch.setattr(experiment_domain_analysis_mod, "date_type", May4)
-
-        experiment = Experiment(
-            id="fresh-scan-cache",
-            name="Fresh Scan Cache",
-            status="active",
-            design=ExperimentDesign(
-                baseline_start_date="2026-03-14",
-                baseline_end_date="2026-04-10",
-                treatment_start_date="2026-04-11",
-                treatment_end_date="2026-04-12",
-            ),
-            outcome_metrics=[],
-        )
-        cached = ExperimentAnalysis(
-            experiment_id=experiment.id,
-            analysis_date="2026-05-04",
-            phase="completed",
-            days_in_baseline=28,
-            days_in_treatment=2,
-            adherence_rate=0.0,
-            adherence_by_day=[
-                AdherenceDayEntry(date="2026-04-12", state="unknown"),
-            ],
-            metrics=[],
-            confounders=[],
-            overall_confidence="insufficient",
-            summary="Cached analysis is current.",
-        )
-
-        class _FreshAnalysisRepo:
-            def __init__(self):
-                self.save_calls: list[str] = []
-
-            def list_experiments(
-                self,
-                *,
-                statuses: tuple[str, ...] | None = None,
-            ) -> list[Experiment]:
-                assert statuses == ("active",)
-                return [experiment]
-
-            def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
-                return {experiment.id: cached}
-
-            def list_experiment_exposures(
-                self,
-                *,
-                experiment_id: str | None = None,
-                date: str | None = None,
-            ) -> list[ExperimentExposure]:
-                _ = (experiment_id, date)
-                raise AssertionError("fresh active scan should not load exposures")
-
-            def save_experiment_analysis(
-                self,
-                experiment_id: str,
-                analysis: ExperimentAnalysis,
-            ) -> None:
-                _ = analysis
-                self.save_calls.append(experiment_id)
-
-        class _ReadSource:
-            def list_daily_metrics(self) -> list[DailyMetric]:
-                raise AssertionError("fresh active scan should not load metrics")
-
-            def list_daily_checkins(self) -> list[DailyCheckIn]:
-                raise AssertionError("fresh active scan should not load check-ins")
-
-        repo = _FreshAnalysisRepo()
-        read_source = _ReadSource()
-
-        analyses = analysis_cache_mod.refresh_active_experiment_analyses(
-            cast(Any, repo),
-            read_source,
-        )
-
-        assert analyses == {experiment.id: cached}
-        assert repo.save_calls == []
 
     def test_manual_active_refresh_recomputes_fresh_cached_snapshots(
         self,
@@ -866,38 +717,6 @@ class TestExperimentPreviewAndImport:
         assert analysis.analysis_date == "2026-05-04"
         assert persisted is not None
         assert persisted.analysis_date == "2026-05-04"
-
-    def test_crud_experiment_without_analysis_does_not_compute_on_read(self):
-        """Simple CRUD experiments should remain readable without cached analysis."""
-        from app.domains.experiments.application.management import (
-            create_experiment,
-            get_experiment_with_analysis,
-            list_experiments,
-        )
-
-        experiment = Experiment(
-            id="unvalidated-crud",
-            name="Unvalidated CRUD",
-            status="draft",
-            design=ExperimentDesign(
-                baseline_start_date="2026-01-01",
-                baseline_end_date="2026-01-02",
-                treatment_start_date="not-a-date",
-            ),
-        )
-        create_experiment(SqliteExperimentRepository(), experiment)
-
-        detail = get_experiment_with_analysis(
-            SqliteExperimentRepository(),
-            _read_source(),
-            experiment.id,
-        )
-        response = list_experiments(SqliteExperimentRepository(), _read_source())
-
-        assert detail.experiment.id == experiment.id
-        assert detail.analysis is None
-        assert response.experiments[0].experiment.id == experiment.id
-        assert response.experiments[0].analysis is None
 
     def test_preview_validates_metric_path_within_experiment_window(self):
         """Historical metrics inside the experiment window should still validate."""
