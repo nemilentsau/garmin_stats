@@ -32,6 +32,23 @@ def test_list_serves_imperial_display_fields():
     assert run["pace_min_per_mi"] == round(5.24 * 1.609344, 2)
 
 
+def test_detail_serves_all_scalar_display_projections():
+    insert_run(
+        "2026-07-10",
+        "display-scalars",
+        avg_step_length_mm=1012.0,
+        total_work_j=1_005_700,
+        moderate_intensity_minutes=1,
+        vigorous_intensity_minutes=44,
+    )
+
+    display = client.get("/api/activities/runs/display-scalars").json()["display"]
+
+    assert display["avg_step_length_m"] == 1.012
+    assert display["total_work_kj"] == 1005.7
+    assert display["intensity_minutes_label"] == "1 mod / 44 vig min"
+
+
 def test_list_runs_newest_first_without_date_filter():
     insert_run("2026-07-01", "r1")
     insert_run("2026-07-10", "r2")
@@ -48,6 +65,21 @@ def test_list_runs_from_and_to_are_inclusive_boundaries():
         params={"from": "2026-07-01", "to": "2026-07-05"},
     ).json()
     assert [r["id"] for r in body["runs"]] == ["r2", "r1"]
+
+
+def test_list_runs_rejects_malformed_date():
+    response = client.get("/api/activities/runs", params={"from": "not-a-date"})
+
+    assert response.status_code == 422
+
+
+def test_list_runs_rejects_reversed_date_window():
+    response = client.get(
+        "/api/activities/runs",
+        params={"from": "2026-07-20", "to": "2026-07-01"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_list_runs_excludes_runs_outside_the_window():
@@ -347,6 +379,38 @@ def test_series_masks_start_and_resume_transitions_without_mutating_raw_series()
     assert body["stance_time_pct"][0] is None
     assert body["series"]["vertical_ratio_pct"][0] == 7.0
     assert body["series"]["stance_time_ms"][0] == 220.0
+
+
+def test_series_chart_projection_breaks_elapsed_gaps_without_mutating_raw_series():
+    insert_run("2026-07-10", "gap-run")
+    elapsed = [*range(12), 20, 21]
+    count = len(elapsed)
+    series = RunningActivitySeries(
+        elapsed_s=elapsed,
+        speed_mps=[3.2] * count,
+        heart_rate_bpm=[130] * count,
+        power_w=[350] * count,
+        respiration_rate_brpm=[30.0] * count,
+        stamina_pct=[90] * count,
+        stamina_potential_pct=[95] * count,
+        performance_condition=[1] * count,
+    )
+    with connect() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO running_activity_series (session_id, data) VALUES (?, ?)",
+            ("gap-run", series.model_dump_json()),
+        )
+        con.commit()
+
+    body = client.get("/api/activities/runs/gap-run/series").json()
+
+    assert body["series"]["elapsed_s"] == elapsed
+    assert body["chart"]["elapsed_s"] == [*range(13), 20, 21]
+    assert body["chart"]["heart_rate_bpm"][12] is None
+    assert body["chart"]["power_w"][12] is None
+    assert body["chart"]["respiration_rate_brpm"][12] is None
+    assert body["chart"]["stamina_pct"][12] is None
+    assert body["chart"]["performance_condition"][12] is None
 
 
 def test_run_detail_uses_smoothed_profile_for_display_totals_and_preserves_fit_totals():

@@ -32,6 +32,7 @@ if __name__ == "__main__":
             "running_activity_sessions",
             "running_activity_laps",
             "running_activity_series",
+            "running_activity_sources",
         ):
             con.execute(f"DELETE FROM {table}")
         con.execute("DELETE FROM ingest_meta WHERE key = 'activities_fingerprint'")

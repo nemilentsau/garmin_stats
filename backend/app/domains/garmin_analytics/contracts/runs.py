@@ -117,6 +117,9 @@ class RunDisplayStats(DefaultsRequired):
     min_temperature_f: float | None = None
     max_temperature_f: float | None = None
     avg_vertical_oscillation_cm: float | None = None
+    avg_step_length_m: float | None = None
+    total_work_kj: float | None = None
+    intensity_minutes_label: str | None = None
     avg_ground_contact_balance_label: str | None = None
     avg_stance_time_pct: float | None = None
     avg_respiration_rate_brpm: float | None = None
@@ -142,6 +145,27 @@ class RunDetailResponse(DefaultsRequired):
     display: RunDisplayStats
 
 
+class RunChartSeries(DefaultsRequired):
+    """Gap-aware, display-ready arrays consumed by the run detail charts."""
+
+    elapsed_s: list[int] = []
+    heart_rate_bpm: list[int | None] = []
+    pace_min_per_mi: list[float | None] = []
+    altitude_ft: list[float | None] = []
+    temperature_f: list[float | None] = []
+    cadence_spm: list[float | None] = []
+    step_length_m: list[float | None] = []
+    power_w: list[int | None] = []
+    vertical_oscillation_cm: list[float | None] = []
+    vertical_ratio_pct: list[float | None] = []
+    ground_contact_time_ms: list[float | None] = []
+    ground_contact_balance_pct: list[float | None] = []
+    respiration_rate_brpm: list[float | None] = []
+    stamina_pct: list[int | None] = []
+    stamina_potential_pct: list[int | None] = []
+    performance_condition: list[int | None] = []
+
+
 class RunSeriesResponse(DefaultsRequired):
     """Canonical run series plus index-aligned, display-ready chart arrays.
 
@@ -151,11 +175,13 @@ class RunSeriesResponse(DefaultsRequired):
     `altitude_ft` is the smoothed display profile. `step_length_m` and
     `vertical_oscillation_cm` retain Garmin's metric display exceptions.
 
-    Respiration, stamina, and performance-condition arrays remain only inside
-    `series`: they are not movement-dependent charts and need no display copy.
+    `chart` inserts a positional null marker at elapsed-time discontinuities so
+    line charts do not visually connect separate recording segments. Canonical
+    `series` and the original top-level projections remain record-aligned.
     """
 
     series: RunningActivitySeries
+    chart: RunChartSeries
     heart_rate_evidence: RunHeartRateEvidence | None = None
     pace_min_per_mi: list[float | None] = []
     altitude_ft: list[float | None] = []

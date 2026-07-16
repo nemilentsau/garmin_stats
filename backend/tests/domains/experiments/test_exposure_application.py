@@ -16,12 +16,17 @@ class _Repo:
     def __init__(self, experiment: Experiment | None) -> None:
         self.experiment = experiment
         self.saved = []
+        self.analysis_invalidated = False
 
     def get_experiment(self, experiment_id: str):
         return self.experiment if self.experiment and self.experiment.id == experiment_id else None
 
     def save_experiment_exposure(self, exposure) -> None:
         self.saved.append(exposure)
+
+    def save_experiment_exposure_and_invalidate_analysis(self, exposure) -> None:
+        self.saved.append(exposure)
+        self.analysis_invalidated = True
 
 
 def _experiment() -> Experiment:
@@ -106,3 +111,23 @@ def test_valid_exposure_derives_stable_identity_and_persists(monkeypatch):
     assert result.experiment_id == "exp-1"
     assert result.date == "2026-07-10"
     assert repo.saved == [result]
+
+
+def test_analysis_refresh_failure_keeps_committed_exposure_recoverable(monkeypatch):
+    repo = _Repo(_experiment())
+
+    def _refresh_fails(*_args):
+        raise RuntimeError("analysis unavailable")
+
+    monkeypatch.setattr(exposures_mod, "persist_experiment_analysis", _refresh_fails)
+
+    result = exposures_mod.create_experiment_exposure(
+        cast(Any, repo),
+        cast(Any, SimpleNamespace()),
+        "exp-1",
+        _command(),
+        today=date(2026, 7, 15),
+    )
+
+    assert repo.saved == [result]
+    assert repo.analysis_invalidated is True

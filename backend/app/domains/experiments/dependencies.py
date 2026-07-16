@@ -33,6 +33,12 @@ class ExperimentRepository(Protocol):
 
     def save_experiment(self, experiment: Experiment) -> None: ...
 
+    def save_experiment_with_analysis(
+        self,
+        experiment: Experiment,
+        analysis: ExperimentAnalysis | None,
+    ) -> None: ...
+
     def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]: ...
 
     def get_experiment_analysis(self, experiment_id: str) -> ExperimentAnalysis | None: ...
@@ -53,6 +59,11 @@ class ExperimentRepository(Protocol):
     ) -> list[ExperimentExposure]: ...
 
     def save_experiment_exposure(self, exposure: ExperimentExposure) -> None: ...
+
+    def save_experiment_exposure_and_invalidate_analysis(
+        self,
+        exposure: ExperimentExposure,
+    ) -> None: ...
 
 
 class ExperimentPreviewRepository(Protocol):

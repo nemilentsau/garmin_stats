@@ -110,3 +110,79 @@ test('latest request gate invalidates stale selected-date refreshes', () => {
 	assert.equal(gate.isCurrent(second), true);
 	assert.equal(gate.isCurrent(first), false);
 });
+
+test('date loader clears a prior error only after the latest request succeeds', async () => {
+	const errorsSeen = [];
+	const dataSeen = [];
+	let shouldFail = true;
+	const load = realtimePage.createDateLoader({
+		setSelectedDate: () => {},
+		clearData: () => {},
+		fetchByDate: async () => {
+			if (shouldFail) throw new Error('temporary failure');
+			return { ok: true };
+		},
+		setData: (data) => dataSeen.push(data),
+		setError: (error) => errorsSeen.push(error)
+	});
+
+	await load('2026-07-15');
+	shouldFail = false;
+	await load('2026-07-15');
+
+	assert.deepEqual(errorsSeen, ['temporary failure', null]);
+	assert.deepEqual(dataSeen, [{ ok: true }]);
+});
+
+test('stale date-loader success cannot clear the latest request error', async () => {
+	const errorsSeen = [];
+	let releaseFirst;
+	const firstResult = new Promise((resolve) => { releaseFirst = resolve; });
+	const load = realtimePage.createDateLoader({
+		setSelectedDate: () => {},
+		clearData: () => {},
+		fetchByDate: (date) => date === 'first' ? firstResult : Promise.reject(new Error('latest failed')),
+		setData: () => {},
+		setError: (error) => errorsSeen.push(error)
+	});
+
+	const first = load('first');
+	await load('second');
+	releaseFirst({ stale: true });
+	await first;
+
+	assert.deepEqual(errorsSeen, ['latest failed']);
+});
+
+test('realtime refresh clears an initial error after a later SSE success', async () => {
+	const originalEventSource = globalThis.EventSource;
+	let update;
+	class FakeEventSource {
+		static CONNECTING = 0;
+		static CLOSED = 2;
+		readyState = 1;
+		addEventListener(_name, callback) { update = callback; }
+		close() {}
+	}
+	globalThis.EventSource = FakeEventSource;
+	const errorsSeen = [];
+	let attempt = 0;
+	try {
+		const stop = realtimePage.startRealtimePage({
+			fetchData: async () => {
+				attempt += 1;
+				if (attempt === 1) throw new Error('initial failure');
+			},
+			setError: (error) => errorsSeen.push(error),
+			setLoading: () => {}
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		update();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		stop();
+	} finally {
+		globalThis.EventSource = originalEventSource;
+	}
+
+	assert.deepEqual(errorsSeen, ['initial failure', null]);
+});

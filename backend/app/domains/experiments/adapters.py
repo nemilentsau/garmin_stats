@@ -8,6 +8,8 @@ repository implementation below.
 
 from __future__ import annotations
 
+import sqlite3
+
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentAnalysis,
@@ -50,6 +52,27 @@ class SqliteExperimentRepository:
         """Persist one experiment definition."""
         _STORE.save("experiments", experiment.id, experiment.model_dump_json())
 
+    def save_experiment_with_analysis(
+        self,
+        experiment: Experiment,
+        analysis: ExperimentAnalysis | None,
+    ) -> None:
+        """Persist an experiment and its initial analysis in one transaction."""
+        with connect() as con, con:
+            _STORE.save_in_connection(
+                con,
+                "experiments",
+                experiment.id,
+                experiment.model_dump_json(),
+            )
+            if analysis is None:
+                con.execute(
+                    "DELETE FROM experiment_analyses WHERE experiment_id = ?",
+                    (experiment.id,),
+                )
+            else:
+                self._save_analysis_in_connection(con, experiment.id, analysis)
+
     def list_all_experiment_analyses(self) -> dict[str, ExperimentAnalysis]:
         """Load all cached analysis snapshots keyed by experiment id."""
         with connect() as con:
@@ -78,15 +101,23 @@ class SqliteExperimentRepository:
         analysis: ExperimentAnalysis,
     ) -> None:
         """Upsert the cached analysis snapshot keyed by experiment id."""
-        now = now_iso()
-        data_json = analysis.model_dump_json()
         with connect() as con, con:
-            con.execute(
-                "INSERT OR REPLACE INTO experiment_analyses "
-                "(experiment_id, data, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?)",
-                (experiment_id, data_json, now, now),
-            )
+            self._save_analysis_in_connection(con, experiment_id, analysis)
+
+    @staticmethod
+    def _save_analysis_in_connection(
+        con: sqlite3.Connection,
+        experiment_id: str,
+        analysis: ExperimentAnalysis,
+    ) -> None:
+        """Upsert one analysis through a caller-managed transaction."""
+        now = now_iso()
+        con.execute(
+            "INSERT OR REPLACE INTO experiment_analyses "
+            "(experiment_id, data, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            (experiment_id, analysis.model_dump_json(), now, now),
+        )
 
     def delete_experiment_analysis(self, experiment_id: str) -> None:
         """Delete any cached analysis snapshot for an experiment."""
@@ -130,3 +161,24 @@ class SqliteExperimentRepository:
                 "entry_date": exposure.date,
             },
         )
+
+    def save_experiment_exposure_and_invalidate_analysis(
+        self,
+        exposure: ExperimentExposure,
+    ) -> None:
+        """Persist an exposure and invalidate its cached analysis atomically."""
+        with connect() as con, con:
+            _STORE.save_in_connection(
+                con,
+                "experiment_exposures",
+                exposure.id,
+                exposure.model_dump_json(),
+                extra_columns={
+                    "experiment_id": exposure.experiment_id,
+                    "entry_date": exposure.date,
+                },
+            )
+            con.execute(
+                "DELETE FROM experiment_analyses WHERE experiment_id = ?",
+                (exposure.experiment_id,),
+            )

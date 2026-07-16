@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
@@ -27,6 +28,8 @@ from app.domains.coach.contracts import (
 )
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
+_ReviewsFromDate = Annotated[date | None, Query(alias="from")]
+_ReviewsToDate = Annotated[date | None, Query(alias="to")]
 
 
 @router.get("/plots/{plot_name}", response_class=FileResponse)
@@ -57,20 +60,16 @@ def get_status() -> CoachStatusResponse:
 
 @router.get("/reviews", response_model=CoachReviewsResponse)
 def get_reviews(
-    from_date: str | None = Query(None, alias="from"),
-    to_date: str | None = Query(None, alias="to"),
+    from_date: _ReviewsFromDate = None,
+    to_date: _ReviewsToDate = None,
     limit: int = Query(50, ge=1, le=200),
 ) -> CoachReviewsResponse:
-    for value in (from_date, to_date):
-        if value is not None:
-            try:
-                date.fromisoformat(value)
-            except ValueError as error:
-                raise HTTPException(status_code=422, detail="Dates must use YYYY-MM-DD") from error
     if from_date is not None and to_date is not None and from_date > to_date:
         raise HTTPException(status_code=422, detail="from must be on or before to")
     reviews = build_container().coach_repo.list_reviews(
-        from_date=from_date, to_date=to_date, limit=limit
+        from_date=from_date.isoformat() if from_date is not None else None,
+        to_date=to_date.isoformat() if to_date is not None else None,
+        limit=limit,
     )
     return CoachReviewsResponse(reviews=reviews)
 

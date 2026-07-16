@@ -27,6 +27,23 @@ def test_design_rejects_invalid_policy_boundaries(values):
         ExperimentDesign(**values)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"id": "exp", "name": "Experiment", "unknown": True},
+        {"id": "exp", "name": "Experiment", "design": {"unknown": True}},
+        {
+            "id": "exp",
+            "name": "Experiment",
+            "outcome_metrics": [{"path": "hrv.nightly_avg", "unknown": True}],
+        },
+    ],
+)
+def test_authored_experiment_contract_rejects_unknown_fields(payload):
+    with pytest.raises(ValidationError):
+        Experiment.model_validate(payload)
+
+
 def test_authored_minimum_adherence_controls_insufficient_confidence_boundary():
     assert "min_adherence_pct" in signature(classify_confidence).parameters
 

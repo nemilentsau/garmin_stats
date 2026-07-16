@@ -29,7 +29,7 @@
 		runs = res.runs;
 	}
 
-	function setError(e: string) {
+	function setError(e: string | null) {
 		error = e;
 	}
 	function setLoading(v: boolean) {

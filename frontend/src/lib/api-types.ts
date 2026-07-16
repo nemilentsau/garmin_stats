@@ -3658,6 +3658,92 @@ export interface components {
             human_prompts: string[];
         };
         /**
+         * RunChartSeries
+         * @description Gap-aware, display-ready arrays consumed by the run detail charts.
+         */
+        RunChartSeries: {
+            /**
+             * Elapsed S
+             * @default []
+             */
+            elapsed_s: number[];
+            /**
+             * Heart Rate Bpm
+             * @default []
+             */
+            heart_rate_bpm: (number | null)[];
+            /**
+             * Pace Min Per Mi
+             * @default []
+             */
+            pace_min_per_mi: (number | null)[];
+            /**
+             * Altitude Ft
+             * @default []
+             */
+            altitude_ft: (number | null)[];
+            /**
+             * Temperature F
+             * @default []
+             */
+            temperature_f: (number | null)[];
+            /**
+             * Cadence Spm
+             * @default []
+             */
+            cadence_spm: (number | null)[];
+            /**
+             * Step Length M
+             * @default []
+             */
+            step_length_m: (number | null)[];
+            /**
+             * Power W
+             * @default []
+             */
+            power_w: (number | null)[];
+            /**
+             * Vertical Oscillation Cm
+             * @default []
+             */
+            vertical_oscillation_cm: (number | null)[];
+            /**
+             * Vertical Ratio Pct
+             * @default []
+             */
+            vertical_ratio_pct: (number | null)[];
+            /**
+             * Ground Contact Time Ms
+             * @default []
+             */
+            ground_contact_time_ms: (number | null)[];
+            /**
+             * Ground Contact Balance Pct
+             * @default []
+             */
+            ground_contact_balance_pct: (number | null)[];
+            /**
+             * Respiration Rate Brpm
+             * @default []
+             */
+            respiration_rate_brpm: (number | null)[];
+            /**
+             * Stamina Pct
+             * @default []
+             */
+            stamina_pct: (number | null)[];
+            /**
+             * Stamina Potential Pct
+             * @default []
+             */
+            stamina_potential_pct: (number | null)[];
+            /**
+             * Performance Condition
+             * @default []
+             */
+            performance_condition: (number | null)[];
+        };
+        /**
          * RunDetailResponse
          * @description Single-run detail endpoint response: full session stats plus laps.
          *
@@ -3709,6 +3795,12 @@ export interface components {
             max_temperature_f: number | null;
             /** Avg Vertical Oscillation Cm */
             avg_vertical_oscillation_cm: number | null;
+            /** Avg Step Length M */
+            avg_step_length_m: number | null;
+            /** Total Work Kj */
+            total_work_kj: number | null;
+            /** Intensity Minutes Label */
+            intensity_minutes_label: string | null;
             /** Avg Ground Contact Balance Label */
             avg_ground_contact_balance_label: string | null;
             /** Avg Stance Time Pct */
@@ -3838,11 +3930,13 @@ export interface components {
          *     `altitude_ft` is the smoothed display profile. `step_length_m` and
          *     `vertical_oscillation_cm` retain Garmin's metric display exceptions.
          *
-         *     Respiration, stamina, and performance-condition arrays remain only inside
-         *     `series`: they are not movement-dependent charts and need no display copy.
+         *     `chart` inserts a positional null marker at elapsed-time discontinuities so
+         *     line charts do not visually connect separate recording segments. Canonical
+         *     `series` and the original top-level projections remain record-aligned.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
+            chart: components["schemas"]["RunChartSeries"];
             heart_rate_evidence: components["schemas"]["RunHeartRateEvidence"] | null;
             /**
              * Pace Min Per Mi

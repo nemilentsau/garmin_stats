@@ -9,6 +9,9 @@ those modules — this file has no policy of its own beyond the LookupError ->
 handler registered in `bootstrap/app.py`.
 """
 
+from datetime import date as Date
+from typing import Annotated
+
 from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
@@ -28,6 +31,8 @@ from app.domains.training.contracts import (
 )
 
 training_router = APIRouter(prefix="/api/training", tags=["training"])
+_TodayDate = Annotated[Date, Query(description="Date (YYYY-MM-DD)")]
+_ScheduleStartDate = Annotated[Date, Query(description="Start date (YYYY-MM-DD)")]
 
 
 @training_router.post("/import", response_model=ImportResult)
@@ -37,12 +42,12 @@ def post_import(request: ImportRequest):
 
 
 @training_router.get("/today", response_model=TrainingTodayResponse)
-def get_today(date: str = Query(..., description="Date (YYYY-MM-DD)")):
+def get_today(date: _TodayDate):
     """Return one day's compiled training schedule merged with capture logs."""
     container = build_container()
     return get_training_today(
         container.training_repo,
-        date=date,
+        date=date.isoformat(),
         run_activity_port=container.training_run_activity_port,
         measurement_assessment_port=container.training_measurement_assessment_port,
     )
@@ -50,14 +55,14 @@ def get_today(date: str = Query(..., description="Date (YYYY-MM-DD)")):
 
 @training_router.get("/schedule-window", response_model=TrainingScheduleWindow)
 def get_schedule_window(
-    start: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    start: _ScheduleStartDate,
     days: int = Query(14, ge=1, le=60, description="Number of days in the window (1-60)"),
 ):
     """Return a multi-day training schedule projection starting at `start`."""
     container = build_container()
     return get_training_schedule_window(
         container.training_repo,
-        start_date=start,
+        start_date=start.isoformat(),
         duration_days=days,
         run_activity_port=container.training_run_activity_port,
         measurement_assessment_port=container.training_measurement_assessment_port,
@@ -74,12 +79,12 @@ def get_block():
 
 
 @training_router.put("/today/{date}/cards/{occurrence_key}", response_model=TrainingCardLog)
-def put_today_card_log(date: str, occurrence_key: str, request: TrainingLogUpdateRequest):
+def put_today_card_log(date: Date, occurrence_key: str, request: TrainingLogUpdateRequest):
     """Apply a partial update to one card occurrence's capture log."""
     container = build_container()
     return upsert_training_log(
         container.training_repo,
-        date=date,
+        date=date.isoformat(),
         occurrence_key=occurrence_key,
         update=request,
         run_activity_port=container.training_run_activity_port,
