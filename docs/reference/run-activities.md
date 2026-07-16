@@ -34,6 +34,7 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 
 - `backend/app/domains/garmin_analytics/application/runs.py` + `contracts/runs.py` + `SqliteRunsRepository` — read-only over the tables above. The embedded session/lap/series objects preserve the canonical stored values; separate top-level display fields own pace, unit conversion, chart masking, and elevation smoothing so the frontend derives nothing.
 - **Movement-chart projection:** pace, cadence, stride length, vertical oscillation, vertical ratio, ground contact time, GCT balance, and stance-time display arrays preserve positional alignment but return `null` during explicit walk/stand spans and for the first 10 seconds after recording starts or resumes after a gap. The raw arrays remain unchanged inside `RunSeriesResponse.series`.
+- **Heart-rate evidence:** `RunSeriesResponse.heart_rate_evidence` is absent when no HR samples are present; otherwise it contains backend-computed sample coverage, Q1/median/Q3/P90, a continuous one-bpm sample histogram, and the same projected Garmin zone boundaries used elsewhere. The histogram describes the distribution of recorded samples, not inferred exact duration.
 - **Elevation projection:** altitude is median-smoothed in a centered 150 m distance window. Closed-loop routes (GPS endpoints within 100 m) additionally remove linear start-to-finish sensor drift; point-to-point routes do not. Display ascent/descent accumulate excursions of at least 3 m from that corrected profile. When a usable profile is absent, detail totals fall back to the stored FIT values.
 - Routes (`backend/app/domains/garmin_analytics/routes.py`, prefix `/api/activities/runs`, see `routes.md`):
   - `GET /api/activities/runs?from=&to=` — `RunsListResponse`, newest first, optional inclusive date-range filter.
@@ -43,7 +44,7 @@ How tracked runs get from `data/garmin_activities/` FIT files into the `/runs` U
 ### Display (frontend)
 
 - `frontend/src/routes/runs/+page.svelte` — list table (Date, Name, Distance, Time, Pace, Avg HR with a CHEST/WRIST badge, Load, TE), date-range filter, whole-row navigation to the detail page. Reached via Training → Runs in the nav.
-- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a chart stack (smoothed elevation, transition-safe pace/running dynamics, and the remaining recorded channels — each rendered only when its display series has data), session-stat definition lists (no card chrome), a laps table, and HR/power time-in-zone bars.
+- `frontend/src/routes/runs/[id]/+page.svelte` — stat-card header, a run/walk/stand span band, a chart stack (smoothed elevation, transition-safe pace/running dynamics, and the remaining recorded channels), an interactive HR timeline + one-bpm distribution composite using the backend evidence contract, session-stat definition lists, a laps table, and the power time-in-zone bar.
 - Shared formatting: `frontend/src/lib/format-run.ts`. Frontend computes no statistics — every displayed number (including pace) comes from the API as-is.
 
 ## `hr_source` semantics

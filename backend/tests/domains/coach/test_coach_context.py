@@ -39,20 +39,25 @@ def _card(
     status: TrainingCardStatus = "completed",
     capture_rpe: bool = True,
     est_duration_min: float | None = None,
+    intensity_override: dict[str, object] | None = None,
+    rpe_max: float | None = None,
 ) -> TrainingTodayCard:
     card = V3Card.model_validate(
         {
             "id": "run.easy",
             "bundle_id": "running.v3",
             "name": "Easy aerobic run",
-            "contract": {"kind": "recovery", "load_ceiling": {}},
+            "contract": {
+                "kind": "recovery",
+                "load_ceiling": {"rpe_max": rpe_max},
+            },
             "prescription": {
                 "segments": [
                     {
                         "label": segment.label,
                         "distance_mi": segment.distance_mi,
                         "duration_min": segment.duration_min,
-                        "intensity": {"zone": segment.zone},
+                        "intensity": intensity_override or {"zone": segment.zone},
                     }
                     for segment in segments
                 ]
@@ -78,6 +83,63 @@ def _card(
         ),
         notes=notes,
     )
+
+
+def test_authored_zone_without_mapping_is_not_compared_to_garmin_zones():
+    summary = run_summary_markdown(
+        _context(
+            card=_card(
+                [
+                    TrainingSegmentDisplay(
+                        label="Recovery",
+                        detail="5 mi · Z1",
+                        distance_mi=5,
+                        zone="Z1",
+                    )
+                ]
+            )
+        )
+    )
+
+    assert "Authored target: Z1 (uncalibrated training label)" in summary
+    assert "Direct Garmin-zone compliance: unavailable" in summary
+
+
+def test_explicit_hr_range_is_identified_as_calibrated_target():
+    card = _card(
+        [
+            TrainingSegmentDisplay(
+                label="Recovery",
+                detail="5 mi · 120–135 bpm",
+                distance_mi=5,
+            )
+        ],
+        intensity_override={"hr_range": [120, 135]},
+    )
+
+    summary = run_summary_markdown(_context(card=card))
+
+    assert "Authored HR target: 120–135 bpm" in summary
+    assert "Direct HR comparison: available" in summary
+
+
+def test_missing_rpe_does_not_claim_ceiling_failure():
+    card = _card(
+        [
+            TrainingSegmentDisplay(
+                label="Recovery",
+                detail="5 mi · Z1",
+                distance_mi=5,
+                zone="Z1",
+            )
+        ],
+        rpe_max=4,
+        capture_rpe=False,
+    )
+
+    summary = run_summary_markdown(_context(card=card))
+
+    assert "RPE ceiling: 4; observed RPE: unknown; exceedance: not established" in summary
 
 
 def _detail(

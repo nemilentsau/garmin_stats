@@ -15,12 +15,13 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-PANEL_SPEC_VERSION = 3
+PANEL_SPEC_VERSION = 4
 
 _LINE_COLOR = "#2166ac"
 _SECONDARY_COLOR = "#b2182b"
 _TERTIARY_COLOR = "#5a8f29"
 _SPAN_COLORS = {"run": "#d9edf7", "walk": "#fff0c2", "stand": "#eeeeee"}
+_ZONE_COLORS = ["#dbe5ec", "#d8e8df", "#f0e8c9", "#f2dcc8", "#efd2cf"]
 
 
 def _pyplot():
@@ -180,12 +181,144 @@ def _save_no_series(path: Path, detail: RunDetailResponse) -> None:
     plt.close(figure)
 
 
+def _annotate_hr_zones(axis: Axes, series: RunSeriesResponse) -> None:
+    evidence = series.heart_rate_evidence
+    if evidence is None:
+        return
+    y_low, y_high = axis.get_ylim()
+    for row in evidence.zones:
+        if row.lower_bound is None:
+            continue
+        lower = float(row.lower_bound)
+        upper = y_high if row.upper_bound is None else float(row.upper_bound + 1)
+        if upper >= y_low and lower <= y_high:
+            axis.axhspan(
+                max(lower, y_low),
+                min(upper, y_high),
+                color=_ZONE_COLORS[(row.zone - 1) % len(_ZONE_COLORS)],
+                alpha=0.35,
+                linewidth=0,
+                zorder=0,
+            )
+        axis.axhline(lower, color="#8b6f31", linewidth=0.75, alpha=0.7)
+        if y_low <= lower <= y_high:
+            axis.text(
+                1.0,
+                lower,
+                f"Z{row.zone} · {row.lower_bound} bpm",
+                transform=axis.get_yaxis_transform(),
+                ha="right",
+                va="bottom",
+                fontsize=7,
+                color="#705a2d",
+            )
+
+
+def _plot_hr_histogram(axis: Axes, series: RunSeriesResponse) -> None:
+    evidence = series.heart_rate_evidence
+    if evidence is None:
+        axis.axis("off")
+        axis.text(0.5, 0.5, "No heart-rate distribution", ha="center", va="center")
+        return
+    bpm = [row.bpm for row in evidence.histogram]
+    percentages = [row.sample_pct for row in evidence.histogram]
+    axis.bar(bpm, percentages, width=0.9, color="#b2182b", alpha=0.78)
+    axis.set_title("Heart-rate sample distribution", fontsize=9, loc="left")
+    axis.set_xlabel("Heart rate (bpm)", fontsize=8)
+    axis.set_ylabel("Samples (%)", fontsize=8)
+    axis.set_ylim(bottom=0)
+    axis.tick_params(axis="both", labelsize=8, colors="#555555")
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.spines[["left", "bottom"]].set_color("#cccccc")
+    axis.grid(axis="y", color="#e6e6e6", linewidth=0.5)
+    for row in evidence.zones:
+        if row.lower_bound is None:
+            continue
+        axis.axvline(row.lower_bound, color="#8b6f31", linewidth=0.75, alpha=0.7)
+        axis.text(
+            row.lower_bound,
+            0.98,
+            f"Z{row.zone}",
+            transform=axis.get_xaxis_transform(),
+            ha="left",
+            va="top",
+            fontsize=7,
+            color="#705a2d",
+        )
+
+
+def _render_intensity_composite(
+    path: Path,
+    detail: RunDetailResponse,
+    series: RunSeriesResponse,
+    *,
+    include_cadence: bool,
+) -> None:
+    plt = _pyplot()
+    evidence = series.heart_rate_evidence
+    if evidence is None:
+        _save_no_series(path, detail)
+        return
+
+    row_count = 3 if include_cadence and _present(series.series.cadence_spm) else 2
+    figure = plt.figure(
+        figsize=(11, 6.5 if row_count == 3 else 5.4), constrained_layout=True
+    )
+    grid = figure.add_gridspec(row_count, 2, width_ratios=(2.25, 1.0))
+    timeline_axes: list[Axes] = []
+    pace_axis = figure.add_subplot(grid[0, 0])
+    _plot_channel(
+        pace_axis,
+        series.series.elapsed_s,
+        _Channel("Pace", "min/mi", series.pace_min_per_mi, _LINE_COLOR, True),
+    )
+    timeline_axes.append(pace_axis)
+
+    hr_axis = figure.add_subplot(grid[1, 0], sharex=pace_axis)
+    _plot_channel(
+        hr_axis,
+        series.series.elapsed_s,
+        _Channel("Heart rate", "bpm", series.series.heart_rate_bpm, _SECONDARY_COLOR),
+    )
+    _annotate_hr_zones(hr_axis, series)
+    timeline_axes.append(hr_axis)
+
+    if row_count == 3:
+        cadence_axis = figure.add_subplot(grid[2, 0], sharex=pace_axis)
+        _plot_channel(
+            cadence_axis,
+            series.series.elapsed_s,
+            _Channel("Cadence", "spm", series.series.cadence_spm, _TERTIARY_COLOR),
+        )
+        timeline_axes.append(cadence_axis)
+    timeline_axes[-1].set_xlabel("Elapsed time (s)", fontsize=9)
+
+    histogram_axis = figure.add_subplot(grid[:, 1])
+    _plot_hr_histogram(histogram_axis, series)
+    _annotate_timeline(timeline_axes, detail, series)
+    stats = (
+        f"Q1 {evidence.q1_bpm:g} · median {evidence.median_bpm:g} · "
+        f"Q3 {evidence.q3_bpm:g} · P90 {evidence.p90_bpm:g} bpm · "
+        f"coverage {evidence.coverage_pct:g}% "
+        f"({evidence.present_samples}/{evidence.total_samples} samples)"
+    )
+    figure.suptitle(
+        f"{detail.session.session_date} · {detail.session.activity_name or detail.session.id}\n"
+        f"{stats}",
+        fontsize=10,
+        x=0.01,
+        ha="left",
+    )
+    figure.savefig(path, dpi=150, facecolor="white")
+    plt.close(figure)
+
+
 def render_library_panel(
     cache_dir: Path,
     detail: RunDetailResponse,
     series: RunSeriesResponse,
 ) -> Path:
-    """Render or reuse the three-strip historical triage panel."""
+    """Render or reuse the historical intensity-evidence panel."""
     plt = _pyplot()
     cache_dir.mkdir(parents=True, exist_ok=True)
     fingerprint = run_content_fingerprint(detail, series)
@@ -196,6 +329,12 @@ def render_library_panel(
         spec_version=PANEL_SPEC_VERSION,
     )
     if path.is_file():
+        return path
+
+    if series.heart_rate_evidence is not None:
+        _render_intensity_composite(
+            path, detail, series, include_cadence=True
+        )
         return path
 
     elapsed = series.series.elapsed_s
@@ -229,7 +368,7 @@ def render_current_run_stack(
     detail: RunDetailResponse,
     series: RunSeriesResponse,
 ) -> list[Path]:
-    """Render all present measured channels in pages of at most four strips."""
+    """Render intensity evidence first, then remaining channels in four-strip pages."""
     plt = _pyplot()
     output_dir.mkdir(parents=True, exist_ok=True)
     fingerprint = run_content_fingerprint(detail, series)
@@ -243,6 +382,21 @@ def render_current_run_stack(
         return [path]
 
     paths: list[Path] = []
+    if series.heart_rate_evidence is not None:
+        intensity_path = output_dir / (
+            f"current-{detail.session.id}-{fingerprint}-v{PANEL_SPEC_VERSION}-intensity.png"
+        )
+        paths.append(intensity_path)
+        if not intensity_path.is_file():
+            _render_intensity_composite(
+                intensity_path, detail, series, include_cadence=False
+            )
+        channels = [
+            channel
+            for channel in channels
+            if channel.label not in {"Pace", "Heart rate"}
+        ]
+
     for page_index, offset in enumerate(range(0, len(channels), 4), start=1):
         page_channels = channels[offset : offset + 4]
         path = output_dir / (

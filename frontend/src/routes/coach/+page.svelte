@@ -26,6 +26,7 @@
 	let draft = $state('');
 	let newThreadTitle = $state('');
 	let busy = $state(false);
+	let failedPlots = $state<Set<string>>(new Set());
 
 	let activeThread = $derived(threads.find((thread) => thread.id === activeThreadId) ?? null);
 	let activeReview = $derived(
@@ -38,6 +39,10 @@
 		return review.outcome && (review.status === 'queued' || review.status === 'generating')
 			? `previous: ${outcome}`
 			: outcome;
+	}
+
+	function markPlotUnavailable(plotName: string): void {
+		failedPlots = new Set(failedPlots).add(plotName);
 	}
 
 	async function refreshMessages(threadId: string | null): Promise<void> {
@@ -221,14 +226,25 @@
 				{#if activeReview.plot_observations.length > 0}
 					<section class="plot-evidence" aria-labelledby="plot-evidence-heading">
 						<h3 id="plot-evidence-heading">Plot evidence used</h3>
-						<ul>
+						<div class="plot-list">
 							{#each activeReview.plot_observations as observation (`${observation.plot}:${observation.observation}`)}
-								<li>
-									<span class="plot-name">{observation.plot}</span>
-									<span>{observation.observation}</span>
-								</li>
+								<figure>
+									{#if failedPlots.has(observation.plot)}
+										<div class="plot-unavailable">Evidence image unavailable. The persisted observation remains below.</div>
+									{:else}
+										<img
+											src={api.coachPlotUrl(observation.plot)}
+											alt="Coach evidence plot for this observation"
+											onerror={() => markPlotUnavailable(observation.plot)}
+										/>
+									{/if}
+									<figcaption>
+										<span>{observation.observation}</span>
+										<code>{observation.plot}</code>
+									</figcaption>
+								</figure>
 							{/each}
-						</ul>
+						</div>
 					</section>
 				{/if}
 				{#if activeReview.follow_up_questions.length > 0}
@@ -365,9 +381,12 @@
 	.refs, .thinking, .thread-state { color: #6e8391; font-size: 10px; }
 	.plot-evidence { margin: 16px 0 12px; }
 	.plot-evidence h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
-	.plot-evidence ul { list-style: none; margin: 0; padding: 0; }
-	.plot-evidence li { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 14px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); color: #aebec8; font-size: 12px; line-height: 1.45; }
-	.plot-name { color: #75b5e5; font-family: 'DM Mono', monospace; font-size: 10px; overflow-wrap: anywhere; }
+	.plot-list { display: grid; gap: 16px; }
+	.plot-evidence figure { margin: 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+	.plot-evidence img { display: block; width: min(100%, 980px); height: auto; background: #0c151d; border: 1px solid rgba(255,255,255,.08); border-radius: 3px; }
+	.plot-evidence figcaption { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); gap: 18px; padding-top: 8px; color: #aebec8; font-size: 12px; line-height: 1.45; }
+	.plot-evidence code { color: #75b5e5; font: 9px 'DM Mono', monospace; overflow-wrap: anywhere; text-align: right; }
+	.plot-unavailable { padding: 18px; border: 1px dashed rgba(255,255,255,.12); color: #708392; font: 11px 'DM Mono', monospace; }
 	.coach-questions { margin: 16px 0 12px; }
 	.coach-questions h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
 	.coach-questions ul { list-style: none; margin: 0; padding: 0; }

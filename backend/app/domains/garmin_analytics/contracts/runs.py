@@ -71,6 +71,28 @@ class RunZoneDisplayRow(DefaultsRequired):
     duration_s: float | None = None
 
 
+class RunHeartRateHistogramBin(DefaultsRequired):
+    """One one-bpm bin in the recorded heart-rate sample distribution."""
+
+    bpm: int
+    sample_count: int
+    sample_pct: float
+
+
+class RunHeartRateEvidence(DefaultsRequired):
+    """Backend-owned distribution evidence for one run's HR record series."""
+
+    total_samples: int
+    present_samples: int
+    coverage_pct: float
+    q1_bpm: float
+    median_bpm: float
+    q3_bpm: float
+    p90_bpm: float
+    histogram: list[RunHeartRateHistogramBin] = []
+    zones: list[RunZoneDisplayRow] = []
+
+
 class RunDisplayStats(DefaultsRequired):
     """Display projection of a run's canonical FIT session stats.
 
@@ -134,6 +156,7 @@ class RunSeriesResponse(DefaultsRequired):
     """
 
     series: RunningActivitySeries
+    heart_rate_evidence: RunHeartRateEvidence | None = None
     pace_min_per_mi: list[float | None] = []
     altitude_ft: list[float | None] = []
     temperature_f: list[float | None] = []

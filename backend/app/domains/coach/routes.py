@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
 
 from app.bootstrap.container import build_container
 from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
@@ -21,9 +23,26 @@ from app.domains.coach.contracts import (
     CoachThread,
     CoachThreadCreateRequest,
     CoachThreadsResponse,
+    safe_artifact_id,
 )
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
+
+
+@router.get("/plots/{plot_name}", response_class=FileResponse)
+def get_plot(plot_name: str) -> FileResponse:
+    """Serve a generated Coach PNG without exposing arbitrary filesystem paths."""
+    try:
+        safe_artifact_id(plot_name)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="Plot not found") from error
+    if Path(plot_name).suffix.lower() != ".png":
+        raise HTTPException(status_code=404, detail="Plot not found")
+    plot_root = build_container().coach_plot_dir.resolve()
+    plot_path = (plot_root / plot_name).resolve()
+    if plot_path.parent != plot_root or not plot_path.is_file():
+        raise HTTPException(status_code=404, detail="Plot not found")
+    return FileResponse(plot_path, media_type="image/png")
 
 
 @router.get("/status", response_model=CoachStatusResponse)

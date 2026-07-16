@@ -28,6 +28,7 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import PageState from '$lib/components/PageState.svelte';
 	import RunRouteMap from '$lib/components/RunRouteMap.svelte';
+	import RunHeartRateEvidence from '$lib/components/RunHeartRateEvidence.svelte';
 	import type { ChartConfiguration } from 'chart.js';
 
 	// ── State ──
@@ -328,19 +329,6 @@
 					reverse: true,
 					unit: '/mi',
 					format: (v) => fmtPaceBare(v)
-				})
-			});
-		}
-
-		if (hasData(s.heart_rate_bpm)) {
-			rows.push({
-				key: 'hr',
-				title: 'Heart Rate',
-				footnote: `avg ${fmtNum(session.avg_heart_rate_bpm)} · max ${fmtNum(session.max_heart_rate_bpm)} bpm${hrBadgeLabel(session.hr_source) ? ` (${hrBadgeLabel(session.hr_source)})` : ''}`,
-				config: channelConfig('Heart Rate', s.heart_rate_bpm, COLORS.heartRate, {
-					area: true,
-					unit: 'bpm',
-					format: (v) => String(Math.round(v))
 				})
 			});
 		}
@@ -711,7 +699,7 @@
 		return new Map(rows.map((row) => [row.lap_index, row]));
 	});
 
-	// ── Time in zones: HR + power zone breakdowns as proportional stacked bars. ──
+	// ── Power time-in-zone breakdown. Heart-rate zones live with the shared HR evidence. ──
 	const ZONE_COLORS = ['#5e7282', '#4A90D9', '#4CAF82', '#D4944C', '#E85D4A'];
 	type ZoneRow = RunDetail['display']['heart_rate_zones'][number];
 
@@ -719,7 +707,6 @@
 		return ZONE_COLORS[zone - 1] ?? ZONE_COLORS[0];
 	}
 
-	let hrZoneRows = $derived.by<ZoneRow[]>(() => detail?.display.heart_rate_zones ?? []);
 	let powerZoneRows = $derived.by<ZoneRow[]>(() => detail?.display.power_zones ?? []);
 </script>
 
@@ -820,6 +807,17 @@
 				<ChartCard title={row.title} footnote={row.footnote}>
 					<LineChart config={row.config} height={200} />
 				</ChartCard>
+				{#if row.key === 'pace'}
+					{#if series.heart_rate_evidence}
+						<RunHeartRateEvidence
+							elapsedS={series.series.elapsed_s}
+							heartRate={series.series.heart_rate_bpm}
+							evidence={series.heart_rate_evidence}
+						/>
+					{:else if hasData(series.series.heart_rate_bpm)}
+						<p class="hr-evidence-unavailable">Heart-rate distribution evidence is unavailable for this run.</p>
+					{/if}
+				{/if}
 			{/each}
 
 			<section class="stats-panel">
@@ -882,16 +880,10 @@
 				</section>
 			{/if}
 
-			{#if hrZoneRows.length > 0 || powerZoneRows.length > 0}
+			{#if powerZoneRows.length > 0}
 				<section class="zones-section">
 					<h2 class="section-title">Time in Zones</h2>
 					<div class="zones-grid">
-						{#if hrZoneRows.length > 0}
-							<div class="zone-block">
-								<h3 class="zone-block-title">Heart Rate Zones</h3>
-								{@render zoneBar(hrZoneRows)}
-							</div>
-						{/if}
 						{#if powerZoneRows.length > 0}
 							<div class="zone-block">
 								<h3 class="zone-block-title">Power Zones</h3>
@@ -972,6 +964,14 @@
 		height: 340px;
 		border-radius: 6px;
 		overflow: hidden;
+	}
+	.hr-evidence-unavailable {
+		margin: 14px 0;
+		padding: 14px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.07);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+		color: #6b7d8e;
+		font: 11px 'DM Mono', monospace;
 	}
 
 	.section-title {
