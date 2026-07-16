@@ -14,6 +14,7 @@ from typing import Protocol
 from app.domains.garmin_analytics.application.dependencies import RunsReadRepository
 from app.domains.garmin_analytics.contracts import (
     LapDisplayRow,
+    RunChartSeries,
     RunDetailResponse,
     RunDisplayStats,
     RunListItem,
@@ -90,6 +91,20 @@ def _mm_to_cm(value_mm: float | None) -> float | None:
 def _mm_to_m(value_mm: float | None) -> float | None:
     """Millimeters -> meters, 3dp. None-preserving."""
     return None if value_mm is None else round(value_mm / 1000, 3)
+
+
+def _j_to_kj(value_j: int | None) -> float | None:
+    """Joules -> kilojoules, 1dp. None-preserving."""
+    return None if value_j is None else round(value_j / 1000, 1)
+
+
+def _intensity_minutes_label(
+    moderate_minutes: int | None, vigorous_minutes: int | None
+) -> str | None:
+    """Render the two FIT intensity-minute components without frontend math."""
+    if moderate_minutes is None and vigorous_minutes is None:
+        return None
+    return f"{moderate_minutes or 0} mod / {vigorous_minutes or 0} vig min"
 
 
 def _ground_contact_balance_label(value_pct: float | None) -> str | None:
@@ -213,6 +228,11 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         min_temperature_f=_c_to_f(session.min_temperature_c),
         max_temperature_f=_c_to_f(session.max_temperature_c),
         avg_vertical_oscillation_cm=_mm_to_cm(session.avg_vertical_oscillation_mm),
+        avg_step_length_m=_mm_to_m(session.avg_step_length_mm),
+        total_work_kj=_j_to_kj(session.total_work_j),
+        intensity_minutes_label=_intensity_minutes_label(
+            session.moderate_intensity_minutes, session.vigorous_intensity_minutes
+        ),
         avg_ground_contact_balance_label=_ground_contact_balance_label(
             session.avg_ground_contact_balance_pct
         ),
@@ -272,6 +292,41 @@ def _series_pace_min_per_mi(speed_mps: list[float | None]) -> list[float | None]
     return paces
 
 
+def _gap_indices(elapsed_s: list[int]) -> list[int]:
+    """Indices whose sample follows an elapsed-time discontinuity."""
+    return [
+        index
+        for index in range(1, len(elapsed_s))
+        if elapsed_s[index] - elapsed_s[index - 1] > 3
+    ]
+
+
+def _insert_gap_nulls[ChartValue: (int, float)](
+    values: list[ChartValue | None], gap_indices: list[int]
+) -> list[ChartValue | None]:
+    """Insert one null at every recording gap while preserving empty channels."""
+    if not values:
+        return []
+    gap_set = set(gap_indices)
+    result: list[ChartValue | None] = []
+    for index, value in enumerate(values):
+        if index in gap_set:
+            result.append(None)
+        result.append(value)
+    return result
+
+
+def _insert_gap_elapsed(elapsed_s: list[int], gap_indices: list[int]) -> list[int]:
+    """Insert a synthetic x coordinate for each chart-breaking null sample."""
+    gap_set = set(gap_indices)
+    result: list[int] = []
+    for index, value in enumerate(elapsed_s):
+        if index in gap_set:
+            result.append(elapsed_s[index - 1] + 1)
+        result.append(value)
+    return result
+
+
 def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
     """Chart-ready record series (metric) plus imperial arrays; raises LookupError if unknown.
 
@@ -293,32 +348,63 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
         if session is not None and session.time_in_zones is not None
         else []
     )
+    pace_min_per_mi = apply_display_mask(
+        _series_pace_min_per_mi(series.speed_mps), display_mask
+    )
+    altitude_ft = (
+        [_m_to_ft(value) for value in elevation_profile]
+        if elevation_profile is not None
+        else [_m_to_ft(value) for value in series.altitude_m]
+    )
+    cadence_spm = apply_display_mask(series.cadence_spm, display_mask)
+    step_length_m = apply_display_mask(
+        [_mm_to_m(value) for value in series.step_length_mm], display_mask
+    )
+    vertical_oscillation_cm = apply_display_mask(
+        [_mm_to_cm(value) for value in series.vertical_oscillation_mm], display_mask
+    )
+    vertical_ratio_pct = apply_display_mask(series.vertical_ratio_pct, display_mask)
+    ground_contact_time_ms = apply_display_mask(series.stance_time_ms, display_mask)
+    ground_contact_balance_pct = apply_display_mask(
+        series.stance_time_balance_pct, display_mask
+    )
+    temperature_f = [_c_to_f(value) for value in series.temperature_c]
+    gaps = _gap_indices(series.elapsed_s)
+    chart = RunChartSeries(
+        elapsed_s=_insert_gap_elapsed(series.elapsed_s, gaps),
+        heart_rate_bpm=_insert_gap_nulls(series.heart_rate_bpm, gaps),
+        pace_min_per_mi=_insert_gap_nulls(pace_min_per_mi, gaps),
+        altitude_ft=_insert_gap_nulls(altitude_ft, gaps),
+        temperature_f=_insert_gap_nulls(temperature_f, gaps),
+        cadence_spm=_insert_gap_nulls(cadence_spm, gaps),
+        step_length_m=_insert_gap_nulls(step_length_m, gaps),
+        power_w=_insert_gap_nulls(series.power_w, gaps),
+        vertical_oscillation_cm=_insert_gap_nulls(vertical_oscillation_cm, gaps),
+        vertical_ratio_pct=_insert_gap_nulls(vertical_ratio_pct, gaps),
+        ground_contact_time_ms=_insert_gap_nulls(ground_contact_time_ms, gaps),
+        ground_contact_balance_pct=_insert_gap_nulls(
+            ground_contact_balance_pct, gaps
+        ),
+        respiration_rate_brpm=_insert_gap_nulls(series.respiration_rate_brpm, gaps),
+        stamina_pct=_insert_gap_nulls(series.stamina_pct, gaps),
+        stamina_potential_pct=_insert_gap_nulls(series.stamina_potential_pct, gaps),
+        performance_condition=_insert_gap_nulls(series.performance_condition, gaps),
+    )
     return RunSeriesResponse(
         series=series,
+        chart=chart,
         heart_rate_evidence=heart_rate_evidence(
             series.heart_rate_bpm, heart_rate_zones
         ),
-        pace_min_per_mi=apply_display_mask(
-            _series_pace_min_per_mi(series.speed_mps), display_mask
-        ),
-        altitude_ft=(
-            [_m_to_ft(value) for value in elevation_profile]
-            if elevation_profile is not None
-            else [_m_to_ft(value) for value in series.altitude_m]
-        ),
-        temperature_f=[_c_to_f(v) for v in series.temperature_c],
+        pace_min_per_mi=pace_min_per_mi,
+        altitude_ft=altitude_ft,
+        temperature_f=temperature_f,
         distance_mi=[m_to_mi(v) for v in series.distance_m],
-        cadence_spm=apply_display_mask(series.cadence_spm, display_mask),
-        step_length_m=apply_display_mask(
-            [_mm_to_m(value) for value in series.step_length_mm], display_mask
-        ),
-        vertical_oscillation_cm=apply_display_mask(
-            [_mm_to_cm(value) for value in series.vertical_oscillation_mm], display_mask
-        ),
-        vertical_ratio_pct=apply_display_mask(series.vertical_ratio_pct, display_mask),
-        ground_contact_time_ms=apply_display_mask(series.stance_time_ms, display_mask),
-        ground_contact_balance_pct=apply_display_mask(
-            series.stance_time_balance_pct, display_mask
-        ),
+        cadence_spm=cadence_spm,
+        step_length_m=step_length_m,
+        vertical_oscillation_cm=vertical_oscillation_cm,
+        vertical_ratio_pct=vertical_ratio_pct,
+        ground_contact_time_ms=ground_contact_time_ms,
+        ground_contact_balance_pct=ground_contact_balance_pct,
         stance_time_pct=apply_display_mask(series.stance_time_pct, display_mask),
     )

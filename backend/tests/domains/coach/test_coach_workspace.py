@@ -20,6 +20,7 @@ from app.domains.garmin_analytics.contracts import (
     DashboardOverviewResponse,
     EvidenceRow,
     MeaningfulChange,
+    RunChartSeries,
     RunDetailResponse,
     RunDisplayStats,
     RunListItem,
@@ -172,6 +173,12 @@ class FakeCoachGateway:
                 elapsed_s=[0, 1],
                 heart_rate_bpm=[138, 140],
                 cadence_spm=[172, 174],
+            ),
+            chart=RunChartSeries(
+                elapsed_s=[0, 1],
+                heart_rate_bpm=[138, 140],
+                cadence_spm=[172, 174],
+                pace_min_per_mi=[8.1, 8.0],
             ),
             pace_min_per_mi=[8.1, 8.0],
         )

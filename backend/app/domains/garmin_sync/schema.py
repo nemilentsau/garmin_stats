@@ -3,8 +3,9 @@
 Garmin sync owns writes to raw parsed day tables, the derived daily metric
 table, ingest metadata, and the session-grain ``running_activity_*`` tables.
 Day tables are one-row-per-date (``_DAY_COLS``); activities are many-per-day
-and keyed by session ``id`` instead, with ``source_file`` uniquely indexed so
-delta ingest can detect "already have this one" by path alone. Garmin
+and keyed by session ``id`` instead. ``running_activity_sources`` records the
+FIT-plus-sidecar signature that produced each session so delta ingest can
+distinguish unchanged paths from corrected source content. Garmin
 analytics reads these tables through its own repository, but creation stays
 with the ingest storage owner.
 """
@@ -39,6 +40,11 @@ CREATE INDEX IF NOT EXISTS idx_running_activity_sessions_activity_id
     ON running_activity_sessions (activity_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_running_activity_sessions_source_file
     ON running_activity_sessions (source_file);
+CREATE TABLE IF NOT EXISTS running_activity_sources (
+    source_file TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    session_id TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS running_activity_laps (
     session_id TEXT NOT NULL,
     lap_index INTEGER NOT NULL,

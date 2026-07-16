@@ -59,7 +59,7 @@ def analysis_needs_refresh(
     if experiment.design is None:
         return analysis is not None
     if analysis is None:
-        return False
+        return True
 
     if analysis.phase != expected_experiment_phase(experiment):
         return True

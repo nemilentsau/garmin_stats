@@ -1,11 +1,10 @@
 """Idempotent running-activity ingest: activities tree → SQLite.
 
-Owns the write path for ``running_activity_*`` tables and the activities-tree
-fingerprint (``ingest_meta`` key ``activities_fingerprint``). Gate first, then
-delta: an unchanged tree returns immediately with zero work; a changed tree
-parses only files that have no session row yet (downloads are write-once, so
-a ``source_file`` already on disk is never re-parsed — ``force`` bypasses the
-fingerprint-equality skip but not this per-file dedup). Parsing itself belongs
+Owns the write path for ``running_activity_*`` tables, per-source FIT+sidecar
+signatures, and the activities-tree fingerprint (``ingest_meta`` key
+``activities_fingerprint``). Gate first, then delta: an unchanged tree returns
+immediately with zero work; a changed tree parses new or signature-changed
+sources and atomically replaces their derived rows. Parsing itself belongs
 to garmin_health's ``fit_parser``; this module only orchestrates and persists,
 tolerating a per-file parse failure so one corrupt download never blocks the
 rest of the batch. Invalidates the read cache only when rows were actually
@@ -24,7 +23,10 @@ from app.domains.garmin_health.infra.fit_parser import (
     parse_running_activity,
 )
 from app.domains.garmin_sync.contracts import RunningActivityIngestResult
-from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
+from app.domains.garmin_sync.infra.filesystem import (
+    compute_activity_source_fingerprint,
+    compute_activity_tree_fingerprint,
+)
 from app.infra import cache
 from app.infra.sqlite import connect
 from app.utils.timeutil import now_iso
@@ -43,31 +45,51 @@ def _get_meta(con: sqlite3.Connection, key: str) -> str | None:
 def ingest_running_activities(
     activities_dir: Path, force: bool = False
 ) -> RunningActivityIngestResult:
-    """Ingest new running FIT files; no-op when the tree fingerprint is unchanged.
+    """Ingest new or changed running sources; no-op when the tree is unchanged.
 
     ``force=True`` bypasses only the fingerprint-equality skip (useful to force
-    the fingerprint/meta row to be rewritten); it does not force re-parsing of
-    files that already have a session row, since ``source_file`` is a stable,
-    write-once identity for a downloaded activity.
+    the fingerprint/meta row to be rewritten); unchanged source signatures are
+    still not re-parsed.
     """
-    current = compute_data_fingerprint(activities_dir)
     files = discover_running_activity_files(activities_dir)
+    current = compute_activity_tree_fingerprint(activities_dir, files)
+    source_fingerprints = {
+        str(fit_path.relative_to(activities_dir)): compute_activity_source_fingerprint(
+            fit_path, activities_dir
+        )
+        for fit_path in files
+    }
 
     with connect() as con:
         if not force and _get_meta(con, _FINGERPRINT_KEY) == current:
             return RunningActivityIngestResult(skipped=True, files_seen=len(files))
-        existing = {
-            row["source_file"]
-            for row in con.execute("SELECT source_file FROM running_activity_sessions")
+        existing_sessions = {
+            row["source_file"]: row["id"]
+            for row in con.execute("SELECT id, source_file FROM running_activity_sessions")
+        }
+        stored_fingerprints = {
+            row["source_file"]: row["fingerprint"]
+            for row in con.execute(
+                "SELECT source_file, fingerprint FROM running_activity_sources"
+            )
         }
 
-    new_files = [f for f in files if str(f.relative_to(activities_dir)) not in existing]
+    changed_files = [
+        fit_path
+        for fit_path in files
+        if (
+            (relative := str(fit_path.relative_to(activities_dir)))
+            not in existing_sessions
+            or stored_fingerprints.get(relative) != source_fingerprints[relative]
+        )
+    ]
 
     ingested = 0
     failed = 0
     now = now_iso()
     with connect() as con, con:
-        for fit_path in new_files:
+        for fit_path in changed_files:
+            source_file = str(fit_path.relative_to(activities_dir))
             try:
                 data = parse_running_activity(fit_path, activities_dir)
             except Exception as e:
@@ -76,6 +98,20 @@ def ingest_running_activities(
                 continue
 
             s = data.session
+            old_session_id = existing_sessions.get(source_file)
+            if old_session_id is not None:
+                con.execute(
+                    "DELETE FROM running_activity_laps WHERE session_id = ?",
+                    (old_session_id,),
+                )
+                con.execute(
+                    "DELETE FROM running_activity_series WHERE session_id = ?",
+                    (old_session_id,),
+                )
+                con.execute(
+                    "DELETE FROM running_activity_sessions WHERE source_file = ?",
+                    (source_file,),
+                )
             con.execute(
                 "INSERT OR REPLACE INTO running_activity_sessions "
                 "(id, activity_id, session_date, start_time_local, sub_sport,"
@@ -104,6 +140,11 @@ def ingest_running_activities(
                 "INSERT OR REPLACE INTO running_activity_series (session_id, data)"
                 " VALUES (?, ?)",
                 (s.id, data.series.model_dump_json()),
+            )
+            con.execute(
+                "INSERT OR REPLACE INTO running_activity_sources "
+                "(source_file, fingerprint, session_id) VALUES (?, ?, ?)",
+                (source_file, source_fingerprints[source_file], s.id),
             )
             ingested += 1
 

@@ -28,6 +28,33 @@ def compute_data_fingerprint(data_dir: Path) -> str:
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
+def compute_activity_source_fingerprint(fit_file: Path, activities_dir: Path) -> str:
+    """Hash one activity FIT path plus FIT/optional-sidecar file metadata."""
+    parts = [str(fit_file.relative_to(activities_dir))]
+    for source in (fit_file, fit_file.with_suffix(".json")):
+        if source.exists():
+            stat = source.stat()
+            parts.append(
+                f"{source.suffix}:{stat.st_size}:{stat.st_mtime_ns}"
+            )
+        else:
+            parts.append(f"{source.suffix}:missing")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+def compute_activity_tree_fingerprint(
+    activities_dir: Path,
+    fit_files: list[Path],
+) -> str:
+    """Hash the discovered running FIT sources including optional JSON sidecars."""
+    parts = [
+        f"{fit_file.relative_to(activities_dir)}:"
+        f"{compute_activity_source_fingerprint(fit_file, activities_dir)}"
+        for fit_file in fit_files
+    ]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
 def ensure_data_dir(data_dir: Path) -> None:
     """Create the watched data directory if it is missing."""
     created = not data_dir.exists()

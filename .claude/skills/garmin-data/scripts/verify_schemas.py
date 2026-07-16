@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""
-Verify reference schemas against real FIT file data.
+# ruff: noqa: E402
+"""Verify reference schemas against real FIT file data.
 
-Decodes one sample file per FIT type and compares the actual message
-structures against the documented schemas in references/.
+Decodes every file from three representative days per FIT type and compares
+the combined message structures against the documented schemas in references/.
 
 Reports:
   - DRIFT: field documented but not found in data (SDK change? firmware update?)
@@ -11,13 +11,14 @@ Reports:
   - OK:    field matches between schema and data
 
 Usage:
-    cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py [--data-dir ../data]
+    cd backend && uv run python ../.claude/skills/garmin-data/scripts/verify_schemas.py
 """
 
 import json
 import sys
-from pathlib import Path
 from collections import defaultdict
+from contextlib import suppress
+from pathlib import Path
 
 # Add backend to path for imports
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -26,10 +27,11 @@ PROJECT_ROOT = SKILL_DIR.parent.parent.parent
 BACKEND_DIR = PROJECT_ROOT / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.parser import decode_fit_file, get_files_by_day
-
+from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
+from app.domains.garmin_health.infra.fit_parser.files import get_files_by_day
 
 REFERENCES_DIR = SKILL_DIR / "references"
+SAMPLE_DAY_COUNT = 3
 
 # Map FIT file type -> reference file -> message types to check
 SCHEMA_MAP = {
@@ -71,15 +73,22 @@ def load_schema(ref_file: str) -> dict:
         return json.load(f)
 
 
-def get_documented_fields(schema: dict, msg_type: str) -> tuple[set[str], set[str], set[str]]:
+def get_documented_fields(
+    schema: dict, msg_type: str
+) -> tuple[set[str], set[str], set[str], set[str | int]]:
     """Extract documented field names from a schema entry.
-    Returns (all_fields, rare_fields, acknowledged_unknown_fields)."""
+
+    Returns all, rare, nullable, and acknowledged-unknown field names.
+    """
     if msg_type not in schema:
-        return set(), set(), set()
+        return set(), set(), set(), set()
     entry = schema[msg_type]
     fields_dict = entry.get("fields", {})
     all_fields = set(fields_dict.keys())
     rare_fields = {k for k, v in fields_dict.items() if isinstance(v, dict) and v.get("rare")}
+    nullable_fields = {
+        k for k, v in fields_dict.items() if isinstance(v, dict) and v.get("nullable")
+    }
     # Parse acknowledged undocumented fields like "35 (int)" -> "35"
     acknowledged = set()
     for item in entry.get("fields_undocumented", []):
@@ -95,7 +104,7 @@ def get_documented_fields(schema: dict, msg_type: str) -> tuple[set[str], set[st
             acknowledged.add(int(key))
         except ValueError:
             acknowledged.add(key)
-    return all_fields, rare_fields, acknowledged
+    return all_fields, rare_fields, nullable_fields, acknowledged
 
 
 # FIT metadata message types that exist in every file but aren't health data
@@ -108,22 +117,36 @@ FIT_METADATA_MESSAGES = {
 }
 
 
-def get_sample_file(files_by_day: dict, file_type: str) -> Path | None:
-    """Find a sample file of the given type from the middle of the date range."""
-    all_days = sorted(files_by_day.keys())
-    if not all_days:
-        return None
-    # Pick from the middle of the range for a representative sample
-    mid = len(all_days) // 2
-    for offset in range(len(all_days)):
-        for direction in [0, 1]:
-            idx = mid + offset if direction == 0 else mid - offset
-            if 0 <= idx < len(all_days):
-                day = all_days[idx]
-                files = files_by_day[day].get(file_type, [])
-                if files:
-                    return sorted(files)[0]
-    return None
+def get_sample_files(
+    files_by_day: dict, file_type: str, sample_day_count: int = SAMPLE_DAY_COUNT
+) -> list[Path]:
+    """Return every file from evenly spread representative days for a FIT type."""
+    if sample_day_count < 1:
+        raise ValueError("sample_day_count must be at least 1")
+
+    available_days = [
+        day for day in sorted(files_by_day) if files_by_day[day].get(file_type)
+    ]
+    if not available_days:
+        return []
+
+    if len(available_days) <= sample_day_count:
+        sample_days = available_days
+    elif sample_day_count == 1:
+        sample_days = [available_days[len(available_days) // 2]]
+    else:
+        last_index = len(available_days) - 1
+        sample_indices = [
+            round(index * last_index / (sample_day_count - 1))
+            for index in range(sample_day_count)
+        ]
+        sample_days = [available_days[index] for index in sample_indices]
+
+    return [
+        sample_file
+        for day in sample_days
+        for sample_file in sorted(files_by_day[day][file_type])
+    ]
 
 
 def extract_actual_fields(messages: list[dict]) -> dict[str, dict]:
@@ -155,8 +178,8 @@ def verify_file_type(
     findings = []
     schema = load_schema(schema_config["file"])
 
-    sample_file = get_sample_file(files_by_day, file_type)
-    if not sample_file:
+    sample_files = get_sample_files(files_by_day, file_type)
+    if not sample_files:
         findings.append(
             {
                 "level": "WARN",
@@ -167,23 +190,38 @@ def verify_file_type(
         )
         return findings
 
-    try:
-        messages = decode_fit_file(sample_file)
-    except Exception as e:
-        findings.append(
-            {
-                "level": "ERROR",
-                "file_type": file_type,
-                "msg_type": "-",
-                "detail": f"Failed to decode {sample_file.name}: {e}",
-            }
-        )
+    messages = defaultdict(list)
+    decoded_file_count = 0
+    for sample_file in sample_files:
+        try:
+            sample_messages = decode_fit_file(sample_file)
+        except Exception as e:
+            findings.append(
+                {
+                    "level": "ERROR",
+                    "file_type": file_type,
+                    "msg_type": "-",
+                    "detail": f"Failed to decode {sample_file.name}: {e}",
+                }
+            )
+            continue
+
+        decoded_file_count += 1
+        for msg_type, records in sample_messages.items():
+            messages[msg_type].extend(records)
+
+    if decoded_file_count == 0:
         return findings
 
     # Check each documented message type
     for msg_type in schema_config["messages"]:
         actual_msgs = messages.get(msg_type, [])
-        documented_fields, rare_fields, acknowledged_unknown = get_documented_fields(schema, msg_type)
+        (
+            documented_fields,
+            rare_fields,
+            nullable_fields,
+            acknowledged_unknown,
+        ) = get_documented_fields(schema, msg_type)
 
         if not actual_msgs:
             findings.append(
@@ -191,7 +229,9 @@ def verify_file_type(
                     "level": "WARN",
                     "file_type": file_type,
                     "msg_type": msg_type,
-                    "detail": f"No messages found in sample file {sample_file.name}",
+                    "detail": (
+                        f"No messages found across {decoded_file_count} sampled files"
+                    ),
                 }
             )
             continue
@@ -207,7 +247,20 @@ def verify_file_type(
                         "level": "OK",
                         "file_type": file_type,
                         "msg_type": msg_type,
-                        "detail": f"Field '{field}' not in sample (marked rare — expected)",
+                        "detail": (
+                            f"Field '{field}' not in samples (marked rare — expected)"
+                        ),
+                    }
+                )
+            elif field in nullable_fields:
+                findings.append(
+                    {
+                        "level": "OK",
+                        "file_type": file_type,
+                        "msg_type": msg_type,
+                        "detail": (
+                            f"Field '{field}' not in samples (nullable — omission allowed)"
+                        ),
                     }
                 )
             else:
@@ -234,7 +287,11 @@ def verify_file_type(
                     "level": "NEW",
                     "file_type": file_type,
                     "msg_type": msg_type,
-                    "detail": f"Field '{field}' in data but NOT in schema (type={info['type']}, sample={sample_repr}, null={info['null_count']}/{info['total_count']})",
+                    "detail": (
+                        f"Field '{field}' in data but NOT in schema "
+                        f"(type={info['type']}, sample={sample_repr}, "
+                        f"null={info['null_count']}/{info['total_count']})"
+                    ),
                 }
             )
 
@@ -261,10 +318,8 @@ def verify_file_type(
             if k.startswith("unknown_"):
                 num_str = k.split("_", 1)[1]
                 acknowledged_msg_types.add(num_str)  # SDK returns string keys
-                try:
+                with suppress(ValueError):
                     acknowledged_msg_types.add(int(num_str))
-                except ValueError:
-                    pass
     for msg_type in messages:
         if msg_type not in schema_config["messages"] and messages[msg_type]:
             # Skip FIT metadata messages and acknowledged untracked types
@@ -276,7 +331,10 @@ def verify_file_type(
                     "level": "NEW",
                     "file_type": file_type,
                     "msg_type": msg_type,
-                    "detail": f"Message type exists in data ({count} records) but not tracked in schema",
+                    "detail": (
+                        f"Message type exists in data ({count} records) "
+                        "but not tracked in schema"
+                    ),
                 }
             )
 
@@ -290,8 +348,8 @@ def main():
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=PROJECT_ROOT / "data",
-        help="Path to data directory",
+        default=PROJECT_ROOT / "data" / "garmin_health_stats",
+        help="Path to the extracted Garmin wellness data directory",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show OK fields too"

@@ -356,6 +356,66 @@ class TestExperimentPreviewAndImport:
         assert loaded is not None
         assert loaded.status == "active"
 
+    def test_import_analysis_failure_does_not_persist_active_experiment(self, monkeypatch):
+        """An import is all-or-nothing when its initial analysis cannot be built."""
+        import app.domains.experiments.application.management as management_mod
+
+        _seed_metrics([40.0] * 14, [50.0] * 14)
+        experiment = Experiment(
+            id="failed-import",
+            name="Failed import",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[OutcomeMetric(path="hrv.nightly_avg")],
+        )
+
+        def _analysis_fails(*_args):
+            raise RuntimeError("analysis unavailable")
+
+        monkeypatch.setattr(
+            management_mod,
+            "compute_experiment_analysis",
+            _analysis_fails,
+            raising=False,
+        )
+        repo = SqliteExperimentRepository()
+
+        with pytest.raises(RuntimeError, match="analysis unavailable"):
+            management_mod.import_experiment(repo, _read_source(), experiment)
+
+        assert repo.get_experiment(experiment.id) is None
+
+    def test_missing_analysis_for_designed_experiment_self_heals_on_read(self):
+        import app.domains.experiments.application.analysis_cache as analysis_cache_mod
+
+        experiment = Experiment(
+            id="missing-analysis",
+            name="Missing analysis",
+            status="active",
+            design=ExperimentDesign(
+                baseline_start_date="2026-01-01",
+                baseline_end_date="2026-01-14",
+                treatment_start_date="2026-01-15",
+                treatment_end_date="2026-01-28",
+            ),
+            outcome_metrics=[],
+        )
+        repo = SqliteExperimentRepository()
+        repo.save_experiment(experiment)
+
+        analysis = analysis_cache_mod.get_experiment_analysis(
+            repo,
+            _read_source(),
+            experiment.id,
+        )
+
+        assert analysis is not None
+        assert repo.get_experiment_analysis(experiment.id) == analysis
+
     def test_imported_analysis_with_flat_windows_round_trips_from_storage(self):
         """Persisted analyses should remain loadable for constant windows."""
         from app.domains.experiments.application.management import import_experiment

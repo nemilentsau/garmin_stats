@@ -41,8 +41,9 @@ _JSON_FIELD_SQL: dict[JsonFieldPath, str] = {
 def model_from_row[M](model: type[M], row: sqlite3.Row) -> M:
     """Parse a JSON ``data`` column into a Pydantic model with row timestamps."""
     payload = json.loads(row["data"])
+    model_fields = getattr(model, "model_fields", {})
     for key in ("created_at", "updated_at"):
-        if payload.get(key) is None and row[key] is not None:
+        if key in model_fields and payload.get(key) is None and row[key] is not None:
             payload[key] = row[key]
     return model.model_validate(payload)  # type: ignore[union-attr]
 

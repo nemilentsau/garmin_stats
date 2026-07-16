@@ -1,7 +1,9 @@
 """Training route dependency propagation tests."""
 
+from datetime import date as Date
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.domains.training.routes as routes
@@ -46,7 +48,7 @@ def test_today_route_propagates_run_and_assessment_ports(monkeypatch):
         ),
     )
 
-    response = routes.get_today(date="2026-07-17")
+    response = routes.get_today(date=Date(2026, 7, 17))
 
     assert response.date == "2026-07-17"
     assert captured == {
@@ -95,7 +97,7 @@ def test_schedule_route_propagates_run_and_assessment_ports(monkeypatch):
         ),
     )
 
-    response = routes.get_schedule_window(start="2026-07-17", days=1)
+    response = routes.get_schedule_window(start=Date(2026, 7, 17), days=1)
 
     assert response.start_date == "2026-07-17"
     assert captured == {
@@ -149,7 +151,7 @@ def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
     update = TrainingLogUpdateRequest(notes="Saved")
 
     response = routes.put_today_card_log(
-        date="2026-07-20",
+        date=Date(2026, 7, 20),
         occurrence_key="running.v3:run.lthr_test:d08",
         request=update,
     )
@@ -198,3 +200,19 @@ def test_schedule_window_days_query_is_bounded_to_60(monkeypatch):
 
     assert over_limit.status_code == 422
     assert at_limit.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("method", "url"),
+    [
+        ("get", "/api/training/today?date=not-a-date"),
+        ("get", "/api/training/schedule-window?start=not-a-date"),
+        ("put", "/api/training/today/not-a-date/cards/card-1"),
+    ],
+)
+def test_training_date_boundaries_reject_malformed_dates(method: str, url: str):
+    client = TestClient(create_app())
+
+    response = client.request(method, url, json={} if method == "put" else None)
+
+    assert response.status_code == 422

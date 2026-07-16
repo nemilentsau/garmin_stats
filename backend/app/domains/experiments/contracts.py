@@ -21,12 +21,12 @@ OutcomeMetricDirection = Literal["higher_is_better", "lower_is_better"]
 ExperimentDesignType = Literal["ab_intervention"]
 
 
-class OutcomeMetric(DefaultsRequired):
+class OutcomeMetric(StrictDefaultsRequired):
     path: str
     direction: OutcomeMetricDirection = "higher_is_better"
 
 
-class ExperimentDesign(DefaultsRequired):
+class ExperimentDesign(StrictDefaultsRequired):
     type: ExperimentDesignType = "ab_intervention"
     baseline_start_date: str | None = None
     baseline_end_date: str | None = None
@@ -36,7 +36,7 @@ class ExperimentDesign(DefaultsRequired):
     min_adherence_pct: Annotated[float, Field(ge=0, le=1)] = 0.70
 
 
-class Experiment(DefaultsRequired):
+class Experiment(StrictDefaultsRequired):
     id: str
     name: str
     status: ExperimentStatus = "draft"

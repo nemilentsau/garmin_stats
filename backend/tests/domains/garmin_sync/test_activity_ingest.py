@@ -8,6 +8,8 @@ Builders are declared locally (not imported from the garmin_health test
 module) to keep this test file independent of that domain's test fixtures.
 """
 
+import json
+import os
 from pathlib import Path
 
 import app.domains.garmin_sync.infra.activity_ingest as ingest_mod
@@ -47,6 +49,19 @@ def _write_fit(activities_dir: Path, day: str, stem: str) -> Path:
     day_dir.mkdir(parents=True, exist_ok=True)
     path = day_dir / f"{stem}.fit"
     path.write_bytes(b"fake")
+    return path
+
+
+def _rewrite(path: Path, content: bytes) -> None:
+    """Rewrite a source and force a distinct metadata signature."""
+    path.write_bytes(content)
+    stat = path.stat()
+    os.utime(path, ns=(stat.st_atime_ns + 1, stat.st_mtime_ns + 1))
+
+
+def _write_sidecar(fit_path: Path, activity_id: int) -> Path:
+    path = fit_path.with_suffix(".json")
+    path.write_text(json.dumps({"activityId": activity_id}))
     return path
 
 
@@ -104,6 +119,103 @@ class TestActivityIngest:
         assert result.skipped is False
         assert result.sessions_ingested == 1
         assert _session_count() == 2
+
+    def test_changed_fit_at_same_path_replaces_derived_session(self, tmp_path, monkeypatch):
+        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+        attempts = 0
+
+        def _versioned_parse(path: Path, activities_dir: Path) -> RunningActivityData:
+            nonlocal attempts
+            attempts += 1
+            rel = str(path.relative_to(activities_dir))
+            return _session(rel, f"session-v{attempts}")
+
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _versioned_parse)
+        ingest_running_activities(tmp_path)
+        _rewrite(fit_path, b"changed-fit-content")
+
+        result = ingest_running_activities(tmp_path)
+
+        assert result.sessions_ingested == 1
+        assert attempts == 2
+        assert _session_count() == 1
+        with connect() as con:
+            rows = con.execute("SELECT id FROM running_activity_sessions").fetchall()
+        assert [row["id"] for row in rows] == ["session-v2"]
+
+    def test_changed_sidecar_reingests_its_fit_source(self, tmp_path, monkeypatch):
+        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+        sidecar = _write_sidecar(fit_path, 1)
+        attempts = 0
+
+        def _counting_parse(path: Path, activities_dir: Path) -> RunningActivityData:
+            nonlocal attempts
+            attempts += 1
+            return _fake_parse(path, activities_dir)
+
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _counting_parse)
+        ingest_running_activities(tmp_path)
+        sidecar.write_text(json.dumps({"activityId": 2}))
+        stat = sidecar.stat()
+        os.utime(sidecar, ns=(stat.st_atime_ns + 1, stat.st_mtime_ns + 1))
+
+        result = ingest_running_activities(tmp_path)
+
+        assert result.sessions_ingested == 1
+        assert attempts == 2
+
+    def test_added_sidecar_reingests_previously_fit_only_source(self, tmp_path, monkeypatch):
+        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+        attempts = 0
+
+        def _counting_parse(path: Path, activities_dir: Path) -> RunningActivityData:
+            nonlocal attempts
+            attempts += 1
+            return _fake_parse(path, activities_dir)
+
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _counting_parse)
+        ingest_running_activities(tmp_path)
+        _write_sidecar(fit_path, 1)
+
+        result = ingest_running_activities(tmp_path)
+
+        assert result.sessions_ingested == 1
+        assert attempts == 2
+
+    def test_failed_refresh_preserves_old_session_and_retries_without_more_changes(
+        self, tmp_path, monkeypatch
+    ):
+        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
+        monkeypatch.setattr(
+            ingest_mod,
+            "parse_running_activity",
+            lambda path, root: _session(str(path.relative_to(root)), "stable-session"),
+        )
+        ingest_running_activities(tmp_path)
+        _rewrite(fit_path, b"changed-fit-content")
+
+        attempts = 0
+
+        def _fails_once(path: Path, activities_dir: Path) -> RunningActivityData:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ValueError("temporary parse failure")
+            return _session(str(path.relative_to(activities_dir)), "refreshed-session")
+
+        monkeypatch.setattr(ingest_mod, "parse_running_activity", _fails_once)
+        failed = ingest_running_activities(tmp_path)
+        with connect() as con:
+            after_failure = con.execute("SELECT id FROM running_activity_sessions").fetchone()
+        retried = ingest_running_activities(tmp_path)
+
+        assert failed.files_failed == 1
+        assert after_failure["id"] == "stable-session"
+        assert retried.sessions_ingested == 1
+        assert attempts == 2
+        with connect() as con:
+            after_retry = con.execute("SELECT id FROM running_activity_sessions").fetchone()
+        assert after_retry["id"] == "refreshed-session"
 
     def test_broken_file_counts_failed_and_rest_ingests(self, tmp_path, monkeypatch):
         def _flaky(fit_path: Path, activities_dir: Path) -> RunningActivityData:

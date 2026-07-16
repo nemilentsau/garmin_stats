@@ -6,6 +6,7 @@ activates it, and creates the initial cached analysis.
 
 from __future__ import annotations
 
+from app.domains.experiments.application.analysis import compute_experiment_analysis
 from app.domains.experiments.contracts import (
     Experiment,
     ExperimentsResponse,
@@ -15,7 +16,6 @@ from app.domains.experiments.contracts import (
 from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import (
     load_current_analysis,
-    persist_experiment_analysis,
     refresh_if_stale,
 )
 from .preview import preview_experiment
@@ -79,7 +79,11 @@ def import_experiment(
 
     resolved = preview.experiment or experiment
     resolved.status = "active"
-    repo.save_experiment(resolved)
-    analysis = persist_experiment_analysis(repo, read_source, resolved)
+    analysis = (
+        compute_experiment_analysis(repo, read_source, resolved)
+        if resolved.design is not None
+        else None
+    )
+    repo.save_experiment_with_analysis(resolved, analysis)
 
     return ExperimentWithAnalysis(experiment=resolved, analysis=analysis)

@@ -110,15 +110,8 @@
 	function fmtU1(v: number | null | undefined, unit: string): string {
 		return v == null ? '—' : `${v.toFixed(1)} ${unit}`;
 	}
-	function fmtMeters(mm: number | null | undefined): string {
-		return mm == null ? '—' : `${(mm / 1000).toFixed(2)} m`;
-	}
-	function fmtKJ(j: number | null | undefined): string {
-		return j == null ? '—' : `${(j / 1000).toFixed(1)} kJ`;
-	}
-	function fmtIntensity(mod: number | null | undefined, vig: number | null | undefined): string {
-		if (mod == null && vig == null) return '—';
-		return `${mod ?? 0} mod / ${vig ?? 0} vig min`;
+	function fmtMeters(v: number | null | undefined): string {
+		return v == null ? '—' : `${v.toFixed(2)} m`;
 	}
 	function labelize(s: string | null | undefined): string {
 		return s ? s.toLowerCase().replace(/_/g, ' ') : '';
@@ -128,7 +121,7 @@
 	}
 
 	// ── Shared chart x-axis: elapsed seconds since session start, ticked as h:mm:ss/m:ss. ──
-	let elapsedS = $derived.by(() => series?.series.elapsed_s ?? []);
+	let elapsedS = $derived.by(() => series?.chart.elapsed_s ?? []);
 
 	let xScale = $derived.by(() => ({
 		type: 'linear' as const,
@@ -303,16 +296,17 @@
 	let chartRows = $derived.by<ChartRow[]>(() => {
 		if (!series || !detail) return [];
 		const s = series.series;
+		const chart = series.chart;
 		const session = detail.session;
 		const d = detail.display;
 		const rows: ChartRow[] = [];
 
-		if (hasData(series.altitude_ft)) {
+		if (hasData(chart.altitude_ft)) {
 			rows.push({
 				key: 'elevation',
 				title: 'Elevation',
 				footnote: `smoothed · ↑ ${fmtFt(d.total_ascent_ft)} · ↓ ${fmtFt(d.total_descent_ft)}`,
-				config: channelConfig('Elevation', series.altitude_ft, COLORS.elevation, {
+				config: channelConfig('Elevation', chart.altitude_ft, COLORS.elevation, {
 					area: true,
 					unit: 'ft',
 					format: (v) => String(Math.round(v))
@@ -320,12 +314,12 @@
 			});
 		}
 
-		if (hasData(series.pace_min_per_mi)) {
+		if (hasData(chart.pace_min_per_mi)) {
 			rows.push({
 				key: 'pace',
 				title: 'Pace',
 				footnote: `avg ${fmtPace(d.pace_min_per_mi)}`,
-				config: channelConfig('Pace', series.pace_min_per_mi, COLORS.pace, {
+				config: channelConfig('Pace', chart.pace_min_per_mi, COLORS.pace, {
 					reverse: true,
 					unit: '/mi',
 					format: (v) => fmtPaceBare(v)
@@ -333,12 +327,12 @@
 			});
 		}
 
-		if (hasData(series.cadence_spm)) {
+		if (hasData(chart.cadence_spm)) {
 			rows.push({
 				key: 'cadence',
 				title: 'Run Cadence',
 				footnote: `avg ${fmtU0(session.avg_cadence_spm, 'spm')}`,
-				config: channelConfig('Cadence', series.cadence_spm, COLORS.cadence, {
+				config: channelConfig('Cadence', chart.cadence_spm, COLORS.cadence, {
 					dots: true,
 					unit: 'spm',
 					format: (v) => String(Math.round(v))
@@ -346,12 +340,12 @@
 			});
 		}
 
-		if (hasData(series.step_length_m)) {
+		if (hasData(chart.step_length_m)) {
 			rows.push({
 				key: 'stride',
 				title: 'Stride Length',
-				footnote: `avg ${fmtMeters(session.avg_step_length_mm)}`,
-				config: channelConfig('Stride Length', series.step_length_m, COLORS.strideLength, {
+				footnote: `avg ${fmtMeters(d.avg_step_length_m)}`,
+				config: channelConfig('Stride Length', chart.step_length_m, COLORS.strideLength, {
 					dots: true,
 					unit: 'm',
 					format: (v) => v.toFixed(2)
@@ -359,12 +353,12 @@
 			});
 		}
 
-		if (hasData(s.power_w)) {
+		if (hasData(chart.power_w)) {
 			rows.push({
 				key: 'power',
 				title: 'Power',
 				footnote: `avg ${fmtNum(session.avg_power_w)} · max ${fmtNum(session.max_power_w)} · NP ${fmtNum(session.normalized_power_w)} W`,
-				config: channelConfig('Power', s.power_w, COLORS.power, {
+				config: channelConfig('Power', chart.power_w, COLORS.power, {
 					area: true,
 					unit: 'W',
 					format: (v) => String(Math.round(v))
@@ -372,12 +366,12 @@
 			});
 		}
 
-		if (hasData(series.vertical_oscillation_cm)) {
+		if (hasData(chart.vertical_oscillation_cm)) {
 			rows.push({
 				key: 'vosc',
 				title: 'Vertical Oscillation',
 				footnote: `avg ${fmtCm(d.avg_vertical_oscillation_cm)}`,
-				config: channelConfig('Vertical Oscillation', series.vertical_oscillation_cm, COLORS.verticalOscillation, {
+				config: channelConfig('Vertical Oscillation', chart.vertical_oscillation_cm, COLORS.verticalOscillation, {
 					dots: true,
 					unit: 'cm',
 					format: (v) => v.toFixed(1)
@@ -385,12 +379,12 @@
 			});
 		}
 
-		if (hasData(series.vertical_ratio_pct)) {
+		if (hasData(chart.vertical_ratio_pct)) {
 			rows.push({
 				key: 'vratio',
 				title: 'Vertical Ratio',
 				footnote: `avg ${fmtU1(session.avg_vertical_ratio_pct, '%')}`,
-				config: channelConfig('Vertical Ratio', series.vertical_ratio_pct, COLORS.verticalRatio, {
+				config: channelConfig('Vertical Ratio', chart.vertical_ratio_pct, COLORS.verticalRatio, {
 					dots: true,
 					unit: '%',
 					format: (v) => v.toFixed(1)
@@ -398,12 +392,12 @@
 			});
 		}
 
-		if (hasData(series.ground_contact_time_ms)) {
+		if (hasData(chart.ground_contact_time_ms)) {
 			rows.push({
 				key: 'gct',
 				title: 'Ground Contact Time',
 				footnote: `avg ${fmtU0(session.avg_ground_contact_time_ms, 'ms')}`,
-				config: channelConfig('Ground Contact Time', series.ground_contact_time_ms, COLORS.groundContactTime, {
+				config: channelConfig('Ground Contact Time', chart.ground_contact_time_ms, COLORS.groundContactTime, {
 					dots: true,
 					unit: 'ms',
 					format: (v) => String(Math.round(v))
@@ -411,24 +405,24 @@
 			});
 		}
 
-		if (hasData(series.ground_contact_balance_pct)) {
+		if (hasData(chart.ground_contact_balance_pct)) {
 			rows.push({
 				key: 'gctBalance',
 				title: 'GCT Balance',
 				footnote: d.avg_ground_contact_balance_label ?? '—',
-				config: channelConfig('GCT Balance', series.ground_contact_balance_pct, COLORS.groundContactBalance, {
+				config: channelConfig('GCT Balance', chart.ground_contact_balance_pct, COLORS.groundContactBalance, {
 					dots: true,
 					format: (v) => `${v.toFixed(1)}% L`
 				})
 			});
 		}
 
-		if (hasData(s.respiration_rate_brpm)) {
+		if (hasData(chart.respiration_rate_brpm)) {
 			rows.push({
 				key: 'respiration',
 				title: 'Respiration Rate',
 				footnote: `avg ${fmtU1(d.avg_respiration_rate_brpm, 'brpm')} · min ${fmtU1(d.min_respiration_rate_brpm, 'brpm')} · max ${fmtU1(d.max_respiration_rate_brpm, 'brpm')}`,
-				config: channelConfig('Respiration Rate', s.respiration_rate_brpm, COLORS.respiration, {
+				config: channelConfig('Respiration Rate', chart.respiration_rate_brpm, COLORS.respiration, {
 					area: true,
 					unit: 'brpm',
 					format: (v) => v.toFixed(1)
@@ -436,35 +430,35 @@
 			});
 		}
 
-		if (hasData(series.temperature_f)) {
+		if (hasData(chart.temperature_f)) {
 			rows.push({
 				key: 'temp',
 				title: 'Temperature',
 				footnote: `min ${fmtF(d.min_temperature_f)} · avg ${fmtF(d.avg_temperature_f)} · max ${fmtF(d.max_temperature_f)}`,
-				config: channelConfig('Temperature', series.temperature_f, COLORS.temperature, {
+				config: channelConfig('Temperature', chart.temperature_f, COLORS.temperature, {
 					unit: '°F',
 					format: (v) => v.toFixed(1)
 				})
 			});
 		}
 
-		if (hasData(s.stamina_pct) || hasData(s.stamina_potential_pct)) {
+		if (hasData(chart.stamina_pct) || hasData(chart.stamina_potential_pct)) {
 			rows.push({
 				key: 'stamina',
 				title: 'Stamina',
 				footnote: `beginning ${fmtNum(d.stamina_beginning_potential_pct)}% · ending ${fmtNum(d.stamina_ending_potential_pct)}% · min ${fmtNum(d.stamina_min_pct)}%`,
-				config: staminaConfig(s.stamina_pct, s.stamina_potential_pct)
+				config: staminaConfig(chart.stamina_pct, chart.stamina_potential_pct)
 			});
 		}
 
-		if (hasData(s.performance_condition)) {
+		if (hasData(chart.performance_condition)) {
 			rows.push({
 				key: 'performanceCondition',
 				title: 'Performance Condition',
 				footnote: 'delta vs baseline fitness, ±10',
 				config: channelConfig(
 					'Performance Condition',
-					s.performance_condition,
+					chart.performance_condition,
 					COLORS.performanceCondition,
 					{ dots: true, zeroLine: true, format: (v) => String(Math.round(v)) }
 				)
@@ -576,14 +570,14 @@
 					{ label: 'Avg Power', value: fmtU0(s.avg_power_w, 'W') },
 					{ label: 'Max Power', value: fmtU0(s.max_power_w, 'W') },
 					{ label: 'Normalized Power', value: fmtU0(s.normalized_power_w, 'W') },
-					{ label: 'Total Work', value: fmtKJ(s.total_work_j) }
+					{ label: 'Total Work', value: fmtU1(d.total_work_kj, 'kJ') }
 				]
 			});
 		}
 
 		if (
 			s.avg_cadence_spm != null ||
-			s.avg_step_length_mm != null ||
+			d.avg_step_length_m != null ||
 			s.avg_vertical_oscillation_mm != null ||
 			s.avg_ground_contact_time_ms != null
 		) {
@@ -592,7 +586,7 @@
 				rows: [
 					{ label: 'Avg Cadence', value: fmtU0(s.avg_cadence_spm, 'spm') },
 					{ label: 'Max Cadence', value: fmtU0(s.max_cadence_spm, 'spm') },
-					{ label: 'Stride Length', value: fmtMeters(s.avg_step_length_mm) },
+					{ label: 'Stride Length', value: fmtMeters(d.avg_step_length_m) },
 					{ label: 'Vert. Oscillation', value: fmtCm(d.avg_vertical_oscillation_cm) },
 					{ label: 'Vert. Ratio', value: fmtU1(s.avg_vertical_ratio_pct, '%') },
 					{ label: 'Ground Contact', value: fmtU0(s.avg_ground_contact_time_ms, 'ms') },
@@ -657,7 +651,7 @@
 					{ label: 'Training Load', value: fmtNum(s.training_load) },
 					{ label: 'VO2max', value: fmtU0(s.vo2max, 'ml/kg/min') },
 					{ label: 'Body Battery Δ', value: s.body_battery_delta != null ? fmtSigned(s.body_battery_delta, 0) : '—' },
-					{ label: 'Intensity Min.', value: fmtIntensity(s.moderate_intensity_minutes, s.vigorous_intensity_minutes) }
+					{ label: 'Intensity Min.', value: d.intensity_minutes_label ?? '—' }
 				]
 			});
 		}
@@ -810,8 +804,8 @@
 				{#if row.key === 'pace'}
 					{#if series.heart_rate_evidence}
 						<RunHeartRateEvidence
-							elapsedS={series.series.elapsed_s}
-							heartRate={series.series.heart_rate_bpm}
+							elapsedS={series.chart.elapsed_s}
+							heartRate={series.chart.heart_rate_bpm}
 							evidence={series.heart_rate_evidence}
 						/>
 					{:else if hasData(series.series.heart_rate_bpm)}

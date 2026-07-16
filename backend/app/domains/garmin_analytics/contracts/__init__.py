@@ -101,6 +101,7 @@ from .raw import (
 )
 from .runs import (
     LapDisplayRow,
+    RunChartSeries,
     RunDetailResponse,
     RunDisplayStats,
     RunHeartRateEvidence,
@@ -173,6 +174,7 @@ __all__ = [
     "RespirationDailyResponse",
     "RestingHRTrendPoint",
     "RunDetailResponse",
+    "RunChartSeries",
     "RunDisplayStats",
     "RunHeartRateEvidence",
     "RunHeartRateHistogramBin",

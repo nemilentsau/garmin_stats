@@ -4,9 +4,10 @@ Routes bind FastAPI request/response metadata to application use cases. They
 should not own repository queries, cache policy, or metric calculations.
 """
 
+from datetime import date as Date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.bootstrap.container import build_container
 from app.domains.garmin_analytics.application import (
@@ -80,6 +81,19 @@ _HrvBaseline = Annotated[
 # BASELINE_WINDOW_DEFAULT changes the served default too (a module-level singleton, not a call
 # in the argument default, which ruff B008 forbids).
 _HRV_BASELINE_DEFAULT = BaselineWindow(BASELINE_WINDOW_DEFAULT)
+_OptionalFilterDate = Annotated[
+    Date | None, Query(description="Filter by date (YYYY-MM-DD)")
+]
+_OptionalInsightDate = Annotated[
+    Date | None, Query(description="Day (YYYY-MM-DD), defaults to latest day")
+]
+_RequiredDayDate = Annotated[Date, Query(description="Day (YYYY-MM-DD)")]
+_RunsFromDate = Annotated[
+    Date | None, Query(alias="from", description="YYYY-MM-DD inclusive")
+]
+_RunsToDate = Annotated[
+    Date | None, Query(alias="to", description="YYYY-MM-DD inclusive")
+]
 
 
 dashboard_router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -107,10 +121,12 @@ def get_dashboard_overview(repo: BiometricsRepo):
 @sleep_router.get("/raw", response_model=SleepResponse)
 def get_sleep_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw sleep data (stages, assessment scores)."""
-    return raw_biometrics_uc.get_sleep(repo, date=date)
+    return raw_biometrics_uc.get_sleep(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @sleep_router.get("/analysis", response_model=SleepAnalysisResponse)
@@ -128,10 +144,12 @@ def get_sleep_daily(repo: BiometricsRepo):
 @hrv_router.get("/raw", response_model=HrvResponse)
 def get_hrv_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw HRV data (values, summaries)."""
-    return raw_biometrics_uc.get_hrv(repo, date=date)
+    return raw_biometrics_uc.get_hrv(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @hrv_router.get("/analysis", response_model=HrvAnalysisResponse)
@@ -152,20 +170,26 @@ def get_hrv_daily(repo: BiometricsRepo):
 @hrv_router.get("/insights", response_model=HrvInsightsResponse)
 def get_hrv_insights(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
+    date: _OptionalInsightDate = None,
     baseline: _HrvBaseline = _HRV_BASELINE_DEFAULT,
 ):
     """Return backend-derived HRV insights for UI rendering."""
-    return metric_insights_uc.get_hrv_insights(repo, date, baseline=int(baseline))
+    return metric_insights_uc.get_hrv_insights(
+        repo,
+        date.isoformat() if date is not None else None,
+        baseline=int(baseline),
+    )
 
 
 @skin_temp_router.get("/raw", response_model=SkinTempResponse)
 def get_skin_temp_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw skin-temperature data."""
-    return raw_biometrics_uc.get_skin_temp(repo, date=date)
+    return raw_biometrics_uc.get_skin_temp(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @skin_temp_router.get("/daily", response_model=SkinTempDailyResponse)
@@ -183,10 +207,12 @@ def get_daily_agg(repo: BiometricsRepo):
 @heart_rate_router.get("/insights", response_model=HeartRateInsightsResponse)
 def get_heart_rate_insights(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Day (YYYY-MM-DD), defaults to latest day"),
+    date: _OptionalInsightDate = None,
 ):
     """Return backend-derived heart-rate insights for UI rendering."""
-    return metric_insights_uc.get_heart_rate_insights(repo, date)
+    return metric_insights_uc.get_heart_rate_insights(
+        repo, date.isoformat() if date is not None else None
+    )
 
 
 @heart_rate_router.get("/daily", response_model=HeartRateDailyResponse)
@@ -198,10 +224,12 @@ def get_heart_rate_daily(repo: BiometricsRepo):
 @heart_rate_router.get("/raw", response_model=HeartRateRawResponse)
 def get_heart_rate_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw heart-rate and resting-heart-rate readings."""
-    return raw_biometrics_uc.get_heart_rate_raw(repo, date=date)
+    return raw_biometrics_uc.get_heart_rate_raw(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @heart_rate_router.get("/analysis", response_model=HeartRateAnalysisResponse)
@@ -213,19 +241,21 @@ def get_heart_rate_analysis(repo: BiometricsRepo):
 @heart_rate_router.get("/distribution", response_model=HRDistributionResponse)
 def get_hr_distribution(
     repo: BiometricsRepo,
-    date: str = Query(..., description="Day (YYYY-MM-DD)"),
+    date: _RequiredDayDate,
 ):
     """Return heart-rate histogram for a single day."""
-    return metric_analysis_uc.load_hr_distribution(repo, date)
+    return metric_analysis_uc.load_hr_distribution(repo, date.isoformat())
 
 
 @stress_router.get("/raw", response_model=StressRawResponse)
 def get_stress_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw stress readings."""
-    return raw_biometrics_uc.get_stress_raw(repo, date=date)
+    return raw_biometrics_uc.get_stress_raw(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @stress_router.get("/daily", response_model=StressDailyResponse)
@@ -243,10 +273,12 @@ def get_stress_analysis(repo: BiometricsRepo):
 @body_battery_router.get("/raw", response_model=BodyBatteryRawResponse)
 def get_body_battery_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw body-battery readings."""
-    return raw_biometrics_uc.get_body_battery_raw(repo, date=date)
+    return raw_biometrics_uc.get_body_battery_raw(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @body_battery_router.get("/daily", response_model=BodyBatteryDailyResponse)
@@ -264,10 +296,12 @@ def get_body_battery_analysis(repo: BiometricsRepo):
 @respiration_router.get("/raw", response_model=RespirationRawResponse)
 def get_respiration_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw respiration readings."""
-    return raw_biometrics_uc.get_respiration_raw(repo, date=date)
+    return raw_biometrics_uc.get_respiration_raw(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @respiration_router.get("/daily", response_model=RespirationDailyResponse)
@@ -279,10 +313,12 @@ def get_respiration_daily(repo: BiometricsRepo):
 @pulse_ox_router.get("/raw", response_model=SpO2RawResponse)
 def get_pulse_ox_raw(
     repo: BiometricsRepo,
-    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    date: _OptionalFilterDate = None,
 ):
     """Get raw pulse-ox readings."""
-    return raw_biometrics_uc.get_spo2_raw(repo, date=date)
+    return raw_biometrics_uc.get_spo2_raw(
+        repo, date=date.isoformat() if date is not None else None
+    )
 
 
 @pulse_ox_router.get("/daily", response_model=SpO2DailyResponse)
@@ -294,11 +330,17 @@ def get_pulse_ox_daily(repo: BiometricsRepo):
 @runs_router.get("", response_model=RunsListResponse)
 def list_runs_route(
     repo: RunsRepo,
-    from_date: str | None = Query(None, alias="from", description="YYYY-MM-DD inclusive"),
-    to_date: str | None = Query(None, alias="to", description="YYYY-MM-DD inclusive"),
+    from_date: _RunsFromDate = None,
+    to_date: _RunsToDate = None,
 ):
     """List tracked runs, newest first."""
-    return runs_uc.list_runs(repo, from_date=from_date, to_date=to_date)
+    if from_date is not None and to_date is not None and from_date > to_date:
+        raise HTTPException(status_code=422, detail="from must be on or before to")
+    return runs_uc.list_runs(
+        repo,
+        from_date=from_date.isoformat() if from_date is not None else None,
+        to_date=to_date.isoformat() if to_date is not None else None,
+    )
 
 
 @runs_router.get("/{run_id}", response_model=RunDetailResponse)

@@ -1,6 +1,6 @@
 """SQLite schema for journal check-ins and notes.
 
-Journal owns subjective daily context used by routes, assistant evidence, and
+Journal owns subjective daily context used by routes, Coach evidence, and
 experiment confounder analysis. Date indexes live with the schema because most
 read paths are day-window based.
 """

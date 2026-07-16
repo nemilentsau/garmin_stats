@@ -6,6 +6,7 @@ refreshes the cached analysis for the owning experiment.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from app.domains.experiments.contracts import (
@@ -15,6 +16,8 @@ from app.domains.experiments.contracts import (
 
 from ..dependencies import ExperimentAnalysisReadSource, ExperimentRepository
 from .analysis_cache import persist_experiment_analysis
+
+log = logging.getLogger(__name__)
 
 
 def list_experiment_exposures(
@@ -69,6 +72,12 @@ def create_experiment_exposure(
         notes=command.notes,
     )
 
-    repo.save_experiment_exposure(exposure)
-    persist_experiment_analysis(repo, read_source, experiment)
+    repo.save_experiment_exposure_and_invalidate_analysis(exposure)
+    try:
+        persist_experiment_analysis(repo, read_source, experiment)
+    except Exception:
+        log.exception(
+            "Exposure %s was saved but experiment analysis refresh failed",
+            exposure.id,
+        )
     return exposure
