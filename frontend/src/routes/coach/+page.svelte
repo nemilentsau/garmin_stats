@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
 		api,
@@ -14,6 +15,8 @@
 	import { createCoachUpdateListener } from '$lib/sse';
 	import { errorMessage } from '$lib/utils';
 
+	type Tab = 'reviews' | 'conversation';
+
 	let status: CoachStatus | null = $state(null);
 	let reviews: CoachReview[] = $state([]);
 	let threads: CoachThread[] = $state([]);
@@ -27,12 +30,39 @@
 	let newThreadTitle = $state('');
 	let busy = $state(false);
 	let failedPlots = $state<Set<string>>(new Set());
+	let tab: Tab = $state(
+		page.url.searchParams.get('review')
+			? 'reviews'
+			: page.url.searchParams.get('tab') === 'conversation'
+				? 'conversation'
+				: 'reviews'
+	);
 
 	let activeThread = $derived(threads.find((thread) => thread.id === activeThreadId) ?? null);
 	let activeReview = $derived(
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
 	);
 	let awaitingCoach = $derived(messages.length > 0 && messages[messages.length - 1]?.role === 'user');
+	let messagePane: HTMLDivElement | null = $state(null);
+
+	$effect(() => {
+		void messages;
+		if (messagePane) messagePane.scrollTop = messagePane.scrollHeight;
+	});
+	let workerLine = $derived.by(() => {
+		if (!status) return '';
+		if (!status.worker_enabled) return 'Coach worker is paused';
+		if (status.running_job) return `Running ${status.running_job.kind.replaceAll('_', ' ')}`;
+		return `Worker active · ${status.queued_count} queued`;
+	});
+
+	function selectTab(next: Tab): void {
+		tab = next;
+		const params = new URLSearchParams(page.url.searchParams);
+		params.set('tab', next);
+		if (next === 'conversation') params.delete('review');
+		replaceState(`?${params.toString()}`, {});
+	}
 
 	function reviewOutcome(review: CoachReview): string {
 		const outcome = (review.outcome ?? review.verdict ?? 'not assessed').replaceAll('_', ' ');
@@ -184,115 +214,168 @@
 
 <div class="coach-page">
 	<header class="page-heading">
-		<div>
-			<p class="eyebrow">TRAINING REVIEW & MEMORY</p>
+		<div class="heading-left">
 			<h1>Coach</h1>
+			<div class="tab-switch" role="tablist" aria-label="Coach workspace view">
+				<button
+					role="tab"
+					aria-selected={tab === 'reviews'}
+					class:active={tab === 'reviews'}
+					onclick={() => selectTab('reviews')}
+				>Reviews</button>
+				<button
+					role="tab"
+					aria-selected={tab === 'conversation'}
+					class:active={tab === 'conversation'}
+					onclick={() => selectTab('conversation')}
+				>Conversation</button>
+			</div>
 		</div>
-		<div class="worker-state">
-			<strong>{status?.worker_enabled ? 'Worker active' : 'Coach worker is paused'}</strong>
-			<span>
-				{#if status?.running_job}Running {status.running_job.kind.replaceAll('_', ' ')}{:else}{status?.queued_count ?? 0} queued{/if}
-			</span>
-		</div>
+		{#if workerLine}<span class="worker-line">{workerLine}</span>{/if}
 	</header>
 
 	{#if error}<p class="error-line" role="alert">{error}</p>{/if}
 	{#if loading}
 		<p class="loading-line">Loading coach workspace…</p>
-	{:else}
-		<section class="latest-review" aria-labelledby="latest-review-heading">
-			<div class="section-heading-row">
-				<h2 id="latest-review-heading">Latest review</h2>
-				{#if activeReview}<span class="status-label">{activeReview.status.replaceAll('_', ' ')}</span>{/if}
-			</div>
-			{#if activeReview}
-				<div class="review-meta">
-					<span class="tabular">{activeReview.date}</span>
-					<span>{activeReview.kind === 'run' ? 'Run review' : 'Missed-run review'}</span>
-					<span>{reviewOutcome(activeReview)}</span>
-					{#if activeReview.confidence}<span>{activeReview.confidence} confidence</span>{/if}
+	{:else if tab === 'reviews'}
+		<div class="workspace">
+			<aside class="rail" aria-label="Review history">
+				<h2>Review history</h2>
+				<div class="rail-scroll">
+					{#each reviews as review (review.id)}
+						<button
+							class="rail-row review-row"
+							class:active={review.id === activeReview?.id}
+							onclick={() => (activeReviewId = review.id)}
+						>
+							<span class="row-top">
+								<span class="tabular">{review.date}</span>
+								<span class="row-status">{review.status.replaceAll('_', ' ')}</span>
+							</span>
+							<span class="row-sub">{review.kind === 'run' ? 'Run review' : 'Missed-run review'} · {reviewOutcome(review)}</span>
+						</button>
+					{:else}
+						<p class="empty-line">No review history.</p>
+					{/each}
 				</div>
-				{#if activeReview.content_md}
-					{#if activeReview.status === 'queued' || activeReview.status === 'generating'}
-						<p class="muted">Previous completed review shown while regeneration is {activeReview.status}.</p>
+				<details class="brief">
+					<summary>Coach brief</summary>
+					{#if brief?.brief}
+						<div class="markdown-body brief-body">{@html renderMarkdown(brief.brief.content_md)}</div>
+					{:else}
+						<p class="empty-line">No durable brief yet.</p>
 					{/if}
-					<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
-			{:else}
-					<p class="muted">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
-				{/if}
-				{#if activeReview.refs.length > 0}
-					<p class="refs">Evidence: {activeReview.refs.map((ref) => `${ref.kind}:${ref.value}`).join(' · ')}</p>
-				{/if}
-				{#if activeReview.plot_observations.length > 0}
-					<section class="plot-evidence" aria-labelledby="plot-evidence-heading">
-						<h3 id="plot-evidence-heading">Plot evidence used</h3>
-						<div class="plot-list">
-							{#each activeReview.plot_observations as observation (`${observation.plot}:${observation.observation}`)}
-								<figure>
-									{#if failedPlots.has(observation.plot)}
-										<div class="plot-unavailable">Evidence image unavailable. The persisted observation remains below.</div>
-									{:else}
-										<img
-											src={api.coachPlotUrl(observation.plot)}
-											alt="Coach evidence plot for this observation"
-											onerror={() => markPlotUnavailable(observation.plot)}
-										/>
-									{/if}
-									<figcaption>
-										<span>{observation.observation}</span>
-										<code>{observation.plot}</code>
-									</figcaption>
-								</figure>
-							{/each}
-						</div>
-					</section>
-				{/if}
-				{#if activeReview.follow_up_questions.length > 0}
-					<section class="coach-questions" aria-labelledby="coach-questions-heading">
-						<h3 id="coach-questions-heading">Coach questions</h3>
-						<ul>
-							{#each activeReview.follow_up_questions as question, index (index)}
-								<li>{question}</li>
-							{/each}
-						</ul>
-					</section>
-				{/if}
-				{#if activeReview.status === 'failed'}
-					<button class="text-action" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
-				{:else if activeReview.status === 'complete'}
-					<button class="text-action" onclick={() => regenerateReview(activeReview.id)} disabled={busy}>Regenerate review</button>
-				{/if}
-			{:else}
-				<p class="empty-line">No reviews yet. Open a run and choose “Review with coach.”</p>
-			{/if}
-		</section>
-
-		<div class="conversation-layout">
-			<aside class="thread-rail" aria-label="Coach threads">
-				<div class="section-heading-row"><h2>Threads</h2></div>
-				<div class="new-thread-row">
-					<input bind:value={newThreadTitle} placeholder="New thread title" aria-label="New thread title" />
-					<button onclick={createThread} disabled={busy || !newThreadTitle.trim()}>Add</button>
-				</div>
-				{#each threads as thread (thread.id)}
-					<button class:active={thread.id === activeThreadId} class="thread-row" onclick={() => chooseThread(thread.id)}>
-						<span>{thread.title}</span><small>{thread.status.replaceAll('_', ' ')}</small>
-					</button>
-				{:else}
-					<p class="empty-line">No conversations.</p>
-				{/each}
+				</details>
 			</aside>
 
-			<section class="transcript" aria-labelledby="transcript-heading">
-				<div class="section-heading-row">
-					<h2 id="transcript-heading">{activeThread?.title ?? 'Conversation'}</h2>
+			<section class="pane" aria-labelledby="review-pane-heading">
+				{#if activeReview}
+					<div class="pane-head">
+						<div>
+							<h2 id="review-pane-heading" class="pane-title">
+								{activeReview.kind === 'run' ? 'Run review' : 'Missed-run review'}
+								<span class="tabular pane-date">{activeReview.date}</span>
+							</h2>
+							<p class="pane-meta">
+								{activeReview.status.replaceAll('_', ' ')} · {reviewOutcome(activeReview)}{activeReview.confidence
+									? ` · ${activeReview.confidence} confidence`
+									: ''}
+							</p>
+						</div>
+						{#if activeReview.status === 'failed'}
+							<button class="btn" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
+						{:else if activeReview.status === 'complete'}
+							<button class="btn" onclick={() => regenerateReview(activeReview.id)} disabled={busy}>Regenerate review</button>
+						{/if}
+					</div>
+					<div class="pane-scroll">
+						{#if activeReview.content_md}
+							{#if activeReview.status === 'queued' || activeReview.status === 'generating'}
+								<p class="muted-note">Previous completed review shown while regeneration is {activeReview.status}.</p>
+							{/if}
+							<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
+						{:else}
+							<p class="empty-line">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
+						{/if}
+						{#if activeReview.refs.length > 0}
+							<p class="refs">Evidence: {activeReview.refs.map((ref) => `${ref.kind}:${ref.value}`).join(' · ')}</p>
+						{/if}
+						{#if activeReview.plot_observations.length > 0}
+							<section class="plot-evidence" aria-labelledby="plot-evidence-heading">
+								<h3 id="plot-evidence-heading">Plot evidence used</h3>
+								<div class="plot-list">
+									{#each activeReview.plot_observations as observation (`${observation.plot}:${observation.observation}`)}
+										<figure>
+											{#if failedPlots.has(observation.plot)}
+												<div class="plot-unavailable">Evidence image unavailable. The persisted observation remains below.</div>
+											{:else}
+												<img
+													src={api.coachPlotUrl(observation.plot)}
+													alt="Coach evidence plot for this observation"
+													onerror={() => markPlotUnavailable(observation.plot)}
+												/>
+											{/if}
+											<figcaption>
+												<span>{observation.observation}</span>
+												<code>{observation.plot}</code>
+											</figcaption>
+										</figure>
+									{/each}
+								</div>
+							</section>
+						{/if}
+						{#if activeReview.follow_up_questions.length > 0}
+							<section class="coach-questions" aria-labelledby="coach-questions-heading">
+								<h3 id="coach-questions-heading">Coach questions</h3>
+								<ul>
+									{#each activeReview.follow_up_questions as question, index (index)}
+										<li>{question}</li>
+									{/each}
+								</ul>
+							</section>
+						{/if}
+					</div>
+				{:else}
+					<p class="empty-line pane-empty">No reviews yet. Open a run and choose “Review with coach.”</p>
+				{/if}
+			</section>
+		</div>
+	{:else}
+		<div class="workspace">
+			<aside class="rail" aria-label="Coach threads">
+				<h2>Threads</h2>
+				<div class="new-thread-row">
+					<input bind:value={newThreadTitle} placeholder="New thread title" aria-label="New thread title" />
+					<button class="btn primary" onclick={createThread} disabled={busy || !newThreadTitle.trim()}>Add</button>
+				</div>
+				<div class="rail-scroll">
+					{#each threads as thread (thread.id)}
+						<button
+							class="rail-row"
+							class:active={thread.id === activeThreadId}
+							onclick={() => chooseThread(thread.id)}
+						>
+							<span class="row-top">
+								<span class="thread-title">{thread.title}</span>
+								<span class="row-status">{thread.status.replaceAll('_', ' ')}</span>
+							</span>
+						</button>
+					{:else}
+						<p class="empty-line">No conversations.</p>
+					{/each}
+				</div>
+			</aside>
+
+			<section class="pane" aria-labelledby="transcript-heading">
+				<div class="pane-head">
+					<h2 id="transcript-heading" class="pane-title">{activeThread?.title ?? 'Conversation'}</h2>
 					{#if activeThread?.status === 'open'}
-						<button class="text-action" onclick={closeThread} disabled={busy}>Close & remember</button>
+						<button class="btn" onclick={closeThread} disabled={busy}>Close & remember</button>
 					{:else if activeThread?.status === 'close_failed'}
-						<button class="text-action danger" onclick={retryClose} disabled={busy}>Retry close</button>
+						<button class="btn danger" onclick={retryClose} disabled={busy}>Retry close</button>
 					{/if}
 				</div>
-				<div class="message-scroll">
+				<div class="pane-scroll message-scroll" bind:this={messagePane}>
 					{#each messages as message (message.id)}
 						<article class="message" class:coach={message.role === 'coach'} class:system={message.role === 'system'}>
 							<header>{message.role}</header>
@@ -310,90 +393,438 @@
 				{#if activeThread?.status === 'open'}
 					<div class="composer">
 						<textarea bind:value={draft} rows="3" placeholder="Ask about training evidence…" aria-label="Message to coach"></textarea>
-						<button onclick={sendMessage} disabled={busy || !draft.trim()}>Send</button>
+						<button class="btn primary" onclick={sendMessage} disabled={busy || !draft.trim()}>Send</button>
 					</div>
 				{:else if activeThread}
 					<p class="thread-state">Thread is {activeThread.status.replaceAll('_', ' ')}.</p>
 				{/if}
 			</section>
 		</div>
-
-		<div class="lower-grid">
-			<section>
-				<h2>Review history</h2>
-				{#each reviews as review (review.id)}
-					<button class:active={review.id === activeReview?.id} class="review-row" onclick={() => (activeReviewId = review.id)}>
-						<span class="tabular">{review.date}</span><span>{review.kind}</span><span>{review.status.replaceAll('_', ' ')}</span><span>{reviewOutcome(review)}{review.confidence ? ` · ${review.confidence} confidence` : ''}</span>
-					</button>
-				{:else}<p class="empty-line">No review history.</p>{/each}
-			</section>
-			<section>
-				<details class="brief" open>
-					<summary>Coach brief</summary>
-					{#if brief?.brief}<div class="markdown-body">{@html renderMarkdown(brief.brief.content_md)}</div>{:else}<p class="empty-line">No durable brief yet.</p>{/if}
-				</details>
-			</section>
-		</div>
 	{/if}
 </div>
 
 <style>
-	.coach-page { max-width: 1180px; margin: 0 auto; color: #c8d6e0; }
-	.page-heading { display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 0 20px; border-bottom: 1px solid rgba(255,255,255,.08); }
-	.eyebrow, h2, .status-label, .worker-state span, .refs, .thinking, .thread-state { font-family: 'DM Mono', monospace; }
-	.eyebrow { margin: 0 0 5px; color: #5bb5a6; font-size: 10px; letter-spacing: .12em; }
-	h1 { margin: 0; font-size: 30px; color: #eef4f7; }
-	h2 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8194a2; }
-	.worker-state { text-align: right; display: grid; gap: 3px; }
-	.worker-state strong { color: #d8e4ea; font-size: 13px; }
-	.worker-state span { color: #657987; font-size: 10px; }
-	.latest-review { min-height: 160px; padding: 20px 0 22px; border-bottom: 1px solid rgba(255,255,255,.08); }
-	.section-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
-	.status-label { color: #5bb5a6; font-size: 10px; text-transform: uppercase; }
-	.review-meta { display: flex; gap: 16px; color: #708392; font-size: 12px; margin-bottom: 12px; text-transform: capitalize; }
-	.tabular { font-family: 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
-	.conversation-layout { display: grid; grid-template-columns: 250px minmax(0,1fr); min-height: 480px; border-bottom: 1px solid rgba(255,255,255,.08); }
-	.thread-rail { padding: 20px 18px 20px 0; border-right: 1px solid rgba(255,255,255,.08); }
-	.transcript { padding: 20px 0 20px 24px; min-width: 0; display: grid; grid-template-rows: auto minmax(280px,1fr) auto; }
-	.new-thread-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-bottom: 14px; }
-	input, textarea { width: 100%; box-sizing: border-box; border: 1px solid rgba(255,255,255,.11); background: #101c28; color: #dbe7ed; border-radius: 4px; padding: 9px 10px; font: inherit; }
-	input:focus, textarea:focus { outline: 2px solid rgba(91,181,166,.35); border-color: #5bb5a6; }
-	button { border: 1px solid rgba(91,181,166,.3); background: rgba(91,181,166,.09); color: #8bd1c5; border-radius: 4px; padding: 7px 10px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10px; }
-	button:disabled { opacity: .45; cursor: default; }
-	.thread-row, .review-row { width: 100%; border: 0; border-radius: 0; background: transparent; color: #aabac4; display: flex; justify-content: space-between; gap: 10px; text-align: left; padding: 9px 7px; border-top: 1px solid rgba(255,255,255,.05); }
-	.thread-row:hover, .review-row:hover, .thread-row.active, .review-row.active { background: rgba(91,181,166,.07); color: #e2ecef; }
-	.thread-row small { color: #5f7381; text-transform: capitalize; }
-	.message-scroll { overflow: auto; padding-right: 8px; }
-	.message { max-width: 82%; margin: 0 0 13px auto; padding: 11px 13px; background: #132230; border-left: 2px solid #58758d; border-radius: 2px; }
-	.message.coach { margin-left: 0; margin-right: auto; background: #111f29; border-color: #5bb5a6; }
-	.message.system { max-width: 100%; margin-left: 0; background: rgba(210,147,62,.08); border-color: #d2933e; }
-	.message header { color: #657987; font: 9px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
-	.composer { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.06); }
-	.composer button { min-width: 74px; height: 38px; }
-	.lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; padding: 22px 0 50px; }
-	.lower-grid h2 { margin-bottom: 12px; }
-	.review-row { display: grid; grid-template-columns: 95px 70px 1fr 1fr; }
-	.brief { border-top: 1px solid rgba(255,255,255,.07); padding-top: 10px; }
-	.brief summary { cursor: pointer; color: #8194a2; font: 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
-	.markdown-body { color: #c8d6e0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
-	.markdown-body :global(p:first-child) { margin-top: 0; }
-	.markdown-body :global(a) { color: #75b5e5; }
-	.refs, .thinking, .thread-state { color: #6e8391; font-size: 10px; }
-	.plot-evidence { margin: 16px 0 12px; }
-	.plot-evidence h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
-	.plot-list { display: grid; gap: 16px; }
-	.plot-evidence figure { margin: 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
-	.plot-evidence img { display: block; width: min(100%, 980px); height: auto; background: #0c151d; border: 1px solid rgba(255,255,255,.08); border-radius: 3px; }
-	.plot-evidence figcaption { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); gap: 18px; padding-top: 8px; color: #aebec8; font-size: 12px; line-height: 1.45; }
-	.plot-evidence code { color: #75b5e5; font: 9px 'DM Mono', monospace; overflow-wrap: anywhere; text-align: right; }
-	.plot-unavailable { padding: 18px; border: 1px dashed rgba(255,255,255,.12); color: #708392; font: 11px 'DM Mono', monospace; }
-	.coach-questions { margin: 16px 0 12px; }
-	.coach-questions h3 { margin: 0 0 6px; color: #8194a2; font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
-	.coach-questions ul { list-style: none; margin: 0; padding: 0; }
-	.coach-questions li { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); color: #aebec8; font-size: 12px; line-height: 1.45; }
-	.empty-line, .loading-line { color: #617481; font-size: 13px; }
-	.error-line { color: #f08a78; border-left: 2px solid #e85d4a; padding: 8px 12px; }
-	.text-action { background: transparent; border: 0; padding: 2px 0; }
-	.text-action.danger { color: #ef967f; }
-	@media (max-width: 800px) { .conversation-layout, .lower-grid { grid-template-columns: 1fr; } .thread-rail { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.08); padding-right: 0; } .transcript { padding-left: 0; } }
+	.coach-page {
+		max-width: 1240px;
+		margin: 0 auto;
+		color: #c8d6e0;
+	}
+	.page-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 2px 0 16px;
+	}
+	.heading-left {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+	}
+	h1 {
+		margin: 0;
+		font-size: 24px;
+		font-weight: 600;
+		color: #eef4f7;
+	}
+	.tab-switch {
+		display: flex;
+		gap: 2px;
+		padding: 3px;
+		background: #101a26;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+	}
+	.tab-switch button {
+		border: 0;
+		background: transparent;
+		color: #8194a2;
+		font: 500 13px 'Instrument Sans', sans-serif;
+		padding: 6px 16px;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+	.tab-switch button:hover {
+		color: #c8d6e0;
+	}
+	.tab-switch button.active {
+		background: rgba(91, 181, 166, 0.14);
+		color: #7fd0c2;
+	}
+	.worker-line {
+		color: #708392;
+		font-size: 13px;
+	}
+
+	.workspace {
+		display: grid;
+		grid-template-columns: 280px minmax(0, 1fr);
+		gap: 16px;
+		height: calc(100vh - 190px);
+		min-height: 520px;
+	}
+	.rail,
+	.pane {
+		background: #101a26;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 10px;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.rail {
+		padding: 16px 12px;
+	}
+	.rail h2 {
+		margin: 0 8px 10px;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		color: #7a8ea0;
+	}
+	.rail-scroll {
+		overflow-y: auto;
+		min-height: 0;
+		flex: 1;
+	}
+	.rail-row {
+		width: 100%;
+		display: grid;
+		gap: 3px;
+		text-align: left;
+		border: 0;
+		background: transparent;
+		border-radius: 7px;
+		padding: 9px 10px;
+		color: #aabac4;
+		cursor: pointer;
+		font: 13px 'Instrument Sans', sans-serif;
+	}
+	.rail-row:hover {
+		background: rgba(255, 255, 255, 0.04);
+		color: #dbe6ec;
+	}
+	.rail-row.active {
+		background: rgba(91, 181, 166, 0.11);
+		color: #e6efF2;
+	}
+	.row-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 10px;
+		min-width: 0;
+	}
+	.thread-title {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 500;
+	}
+	.row-status {
+		flex-shrink: 0;
+		color: #64798a;
+		font-size: 11px;
+		text-transform: capitalize;
+	}
+	.rail-row.active .row-status {
+		color: #79b8ab;
+	}
+	.row-sub {
+		color: #64798a;
+		font-size: 11.5px;
+	}
+	.rail-row.active .row-sub {
+		color: #93a8b5;
+	}
+	.tabular {
+		font-family: 'DM Mono', monospace;
+		font-variant-numeric: tabular-nums;
+		font-size: 12px;
+	}
+
+	.brief {
+		margin: 10px 8px 0;
+		padding-top: 12px;
+		border-top: 1px solid rgba(255, 255, 255, 0.07);
+	}
+	.brief summary {
+		cursor: pointer;
+		color: #7a8ea0;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+	}
+	.brief summary:hover {
+		color: #a9bcc8;
+	}
+	.brief-body {
+		margin-top: 10px;
+		font-size: 12.5px;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+
+	.pane {
+		padding: 0;
+	}
+	.pane-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 16px;
+		padding: 14px 20px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+	}
+	.pane-title {
+		margin: 0;
+		font-size: 15px;
+		font-weight: 600;
+		color: #e6eef2;
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+	}
+	.pane-date {
+		color: #7a8ea0;
+		font-weight: 400;
+	}
+	.pane-meta {
+		margin: 3px 0 0;
+		color: #708392;
+		font-size: 12.5px;
+		text-transform: capitalize;
+	}
+	.pane-scroll {
+		overflow-y: auto;
+		min-height: 0;
+		flex: 1;
+		padding: 18px 20px;
+	}
+	.pane-empty {
+		padding: 18px 20px;
+	}
+
+	input,
+	textarea {
+		width: 100%;
+		box-sizing: border-box;
+		border: 1px solid rgba(255, 255, 255, 0.11);
+		background: #0c151f;
+		color: #dbe7ed;
+		border-radius: 7px;
+		padding: 9px 11px;
+		font: 13px 'Instrument Sans', sans-serif;
+	}
+	input:focus,
+	textarea:focus {
+		outline: 2px solid rgba(91, 181, 166, 0.35);
+		border-color: #5bb5a6;
+	}
+	.btn {
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		background: rgba(255, 255, 255, 0.04);
+		color: #c4d2db;
+		border-radius: 7px;
+		padding: 7px 14px;
+		cursor: pointer;
+		font: 500 12.5px 'Instrument Sans', sans-serif;
+		white-space: nowrap;
+	}
+	.btn:hover:not(:disabled) {
+		background: rgba(255, 255, 255, 0.08);
+		color: #e8f0f5;
+	}
+	.btn.primary {
+		border-color: rgba(91, 181, 166, 0.45);
+		background: rgba(91, 181, 166, 0.16);
+		color: #8fd6c9;
+	}
+	.btn.primary:hover:not(:disabled) {
+		background: rgba(91, 181, 166, 0.26);
+		color: #b1e6dc;
+	}
+	.btn.danger {
+		border-color: rgba(232, 93, 74, 0.45);
+		background: rgba(232, 93, 74, 0.12);
+		color: #f0a08f;
+	}
+	.btn.danger:hover:not(:disabled) {
+		background: rgba(232, 93, 74, 0.2);
+	}
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
+	.new-thread-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 6px;
+		margin: 0 8px 12px;
+	}
+
+	.message-scroll {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.message {
+		max-width: 78%;
+		align-self: flex-end;
+		padding: 11px 14px;
+		background: #16283a;
+		border-left: 3px solid #6389a8;
+		border-radius: 8px;
+	}
+	.message.coach {
+		align-self: flex-start;
+		background: #12242b;
+		border-left-color: #5bb5a6;
+	}
+	.message.system {
+		max-width: 100%;
+		align-self: stretch;
+		background: rgba(210, 147, 62, 0.09);
+		border-left-color: #d2933e;
+	}
+	.message header {
+		color: #7a8ea0;
+		font-size: 10.5px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+		margin-bottom: 5px;
+	}
+	.composer {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 10px;
+		align-items: end;
+		padding: 14px 20px;
+		border-top: 1px solid rgba(255, 255, 255, 0.07);
+	}
+	.composer .btn {
+		min-width: 76px;
+		height: 40px;
+	}
+	.thread-state {
+		margin: 0;
+		padding: 14px 20px;
+		border-top: 1px solid rgba(255, 255, 255, 0.07);
+		color: #708392;
+		font-size: 12.5px;
+	}
+	.thinking {
+		color: #6e8391;
+		font-size: 12.5px;
+		font-style: italic;
+	}
+
+	.markdown-body {
+		color: #c8d6e0;
+		font-size: 13.5px;
+		line-height: 1.6;
+		overflow-wrap: anywhere;
+	}
+	.markdown-body :global(p:first-child) {
+		margin-top: 0;
+	}
+	.markdown-body :global(p:last-child) {
+		margin-bottom: 0;
+	}
+	.markdown-body :global(a) {
+		color: #75b5e5;
+	}
+	.muted-note {
+		margin: 0 0 12px;
+		color: #708392;
+		font-size: 12.5px;
+	}
+	.refs {
+		margin: 14px 0 0;
+		color: #6e8391;
+		font-size: 11.5px;
+	}
+	.plot-evidence {
+		margin-top: 18px;
+	}
+	.plot-evidence h3,
+	.coach-questions h3 {
+		margin: 0 0 8px;
+		color: #7a8ea0;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+	}
+	.plot-list {
+		display: grid;
+		gap: 16px;
+	}
+	.plot-evidence figure {
+		margin: 0;
+		padding-top: 12px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.plot-evidence img {
+		display: block;
+		width: 100%;
+		height: auto;
+		background: #0c151d;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 6px;
+	}
+	.plot-evidence figcaption {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(160px, 260px);
+		gap: 18px;
+		padding-top: 8px;
+		color: #aebec8;
+		font-size: 12.5px;
+		line-height: 1.5;
+	}
+	.plot-evidence code {
+		color: #75b5e5;
+		font: 10px 'DM Mono', monospace;
+		overflow-wrap: anywhere;
+		text-align: right;
+	}
+	.plot-unavailable {
+		padding: 18px;
+		border: 1px dashed rgba(255, 255, 255, 0.12);
+		border-radius: 6px;
+		color: #708392;
+		font-size: 12.5px;
+	}
+	.coach-questions {
+		margin-top: 18px;
+	}
+	.coach-questions ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.coach-questions li {
+		padding: 8px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		color: #b6c5cf;
+		font-size: 13px;
+		line-height: 1.5;
+	}
+	.empty-line,
+	.loading-line {
+		color: #617481;
+		font-size: 13px;
+		margin: 4px 8px;
+	}
+	.error-line {
+		color: #f08a78;
+		border-left: 3px solid #e85d4a;
+		padding: 8px 12px;
+		margin: 0 0 12px;
+	}
 </style>
