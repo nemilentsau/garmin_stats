@@ -281,6 +281,35 @@ def test_series_serves_imperial_arrays():
     assert body["pace_min_per_mi"][12] is None  # 0.1 m/s below threshold
 
 
+def test_series_includes_backend_owned_heart_rate_distribution():
+    insert_run(
+        "2026-07-14",
+        "hr-evidence",
+        time_in_zones=RunningTimeInZones(
+            time_in_hr_zone_s=[0, 0, 2, 2],
+            hr_zone_high_boundary_bpm=[94, 110, 130, 148],
+        ),
+    )
+    series = RunningActivitySeries(
+        elapsed_s=[0, 1, 2, 3],
+        heart_rate_bpm=[129, 130, 131, None],
+    )
+    with connect() as con:
+        con.execute(
+            "INSERT OR REPLACE INTO running_activity_series (session_id, data) VALUES (?, ?)",
+            ("hr-evidence", series.model_dump_json()),
+        )
+        con.commit()
+
+    response = client.get("/api/activities/runs/hr-evidence/series")
+
+    assert response.status_code == 200
+    evidence = response.json()["heart_rate_evidence"]
+    assert evidence["coverage_pct"] == 75.0
+    assert evidence["median_bpm"] == 130.0
+    assert evidence["zones"][1]["lower_bound"] == 110
+
+
 def test_series_masks_start_and_resume_transitions_without_mutating_raw_series():
     insert_run("2026-07-10", "transition-run")
     elapsed = [*range(12), *range(100, 111)]

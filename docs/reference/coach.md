@@ -46,6 +46,14 @@ explicit hard gate. Thus a plausible controlled stride near a 20-second target i
 by its neuromuscular purpose, while an LTHR measurement gate retains exact validity
 semantics.
 
+Garmin time-in-zone totals are descriptive evidence, not a continuous measure of distance
+from a boundary. Boundary-sensitive intensity judgments use the attached composite HR
+trace and sample distribution. A free-form authored zone label is not mapped to a Garmin
+zone unless the imported contract declares that mapping; an explicit authored `hr_range`
+is directly comparable. Missing RPE leaves an authored RPE ceiling unresolved rather than
+establishing that it was exceeded, and visible HR drift is an observation rather than an
+automatic material deviation.
+
 The model may ask at most two athlete questions, and only when an answer could change
 safety, formal measurement validity, or the next training decision. It must not request
 forensic confirmation of every prescribed detail. Review output stores outcome,
@@ -62,8 +70,10 @@ list has been retired, and a startup migration strips the key from any older per
 row so strict validation continues to accept it. A current-run plot ref and observation
 must correspond in both directions;
 unattached refs, attachment-inventory refs without observations, and observations without
-direct refs fail the attempt. The Coach review surface shows this bounded evidence ledger beneath the
-review so the visual basis of the judgment is inspectable. The former
+direct refs fail the attempt. The Coach review surface loads the exact persisted PNG named
+by each observation from a basename-only read route and shows it with the bounded evidence
+ledger beneath the review. It never recomputes a substitute from current run data; a
+missing image leaves the textual observation visible with an unavailable state. The former
 `compliant`/`partial`/`non_compliant` verdict remains readable only on legacy review rows.
 
 ## Measurement assessments
@@ -136,7 +146,10 @@ zero for time below the first configured zone. The analytics read model projects
 arrays once into numbered, high-exclusive display zones, folds overflow into the final
 open-ended zone, and preserves missing duration separately from zero. The run UI and the
 Coach current-run summary both consume that same projection; neither reinterprets raw FIT
-bucket indexes independently.
+bucket indexes independently. Current-run Coach attachments lead with a pace/HR/distribution
+composite that labels these boundaries and reports backend Q1, median, Q3, P90, and sample
+coverage; supplemental measured channels follow on later pages. Historical run panels use
+the same intensity evidence.
 
 Typed refs are `run`, `plot`, `review`, or `date`. IDs use a strict filename allowlist;
 path traversal is rejected. `date` refs materialize training, daily metric, check-in, and

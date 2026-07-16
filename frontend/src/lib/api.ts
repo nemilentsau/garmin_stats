@@ -236,6 +236,7 @@ export const api = {
 		}));
 	},
 	getCoachStatus: async () => unwrapResponse(client.GET('/api/coach/status')),
+	coachPlotUrl: (plotName: string) => `${API_BASE}/api/coach/plots/${encodeURIComponent(plotName)}`,
 	getCoachReviews: async (params?: { from?: string; to?: string; limit?: number }) => {
 		return unwrapResponse(client.GET('/api/coach/reviews', {
 			params: { query: params ?? {} }

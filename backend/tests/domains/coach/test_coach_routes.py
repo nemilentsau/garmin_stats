@@ -71,7 +71,7 @@ def _complete_review(repo: SqliteCoachRepository):
 
 
 @pytest.fixture
-def coach_client(monkeypatch):
+def coach_client(monkeypatch, tmp_path):
     repo = SqliteCoachRepository()
     gateway = cast(CoachReadGateway, FakeGateway())
     jobs = CoachJobs(repo=repo, gateway=gateway, local_today=lambda: "2026-07-12")
@@ -79,9 +79,28 @@ def coach_client(monkeypatch):
         config=SimpleNamespace(coach_worker_enabled=False),
         coach_repo=repo,
         coach_jobs=jobs,
+        coach_plot_dir=tmp_path / "plots",
     )
+    container.coach_plot_dir.mkdir()
     monkeypatch.setattr(routes, "build_container", lambda: container)
     return TestClient(create_app()), repo
+
+
+def test_plot_route_serves_only_cached_png_files(coach_client):
+    client, _repo = coach_client
+    plot_dir = routes.build_container().coach_plot_dir
+    (plot_dir / "run-intensity.png").write_bytes(b"\x89PNG\r\n\x1a\nplot")
+    (plot_dir / "notes.txt").write_text("not an image")
+
+    served = client.get("/api/coach/plots/run-intensity.png")
+
+    assert served.status_code == 200
+    assert served.headers["content-type"] == "image/png"
+    assert served.content.startswith(b"\x89PNG")
+    assert client.get("/api/coach/plots/missing.png").status_code == 404
+    assert client.get("/api/coach/plots/notes.txt").status_code == 404
+    assert client.get("/api/coach/plots/not%20safe.png").status_code == 404
+    assert client.get("/api/coach/plots/%2e%2e%2fsecret.png").status_code == 404
 
 
 def test_manual_run_review_enqueues_and_duplicate_returns_existing(coach_client):

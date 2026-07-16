@@ -19,7 +19,9 @@ from app.domains.garmin_analytics.contracts import (
     RunDetailResponse,
     RunDisplayStats,
     RunSeriesResponse,
+    RunZoneDisplayRow,
 )
+from app.domains.garmin_analytics.domain.run_heart_rate import heart_rate_evidence
 from app.domains.garmin_health.contracts import (
     RunningActivityLap,
     RunningActivitySeries,
@@ -38,7 +40,29 @@ def _detail(*, with_lap: bool = False) -> RunDetailResponse:
             activity_name="Morning Run",
         ),
         laps=[RunningActivityLap(lap_index=1, start_s=60)] if with_lap else [],
-        display=RunDisplayStats(distance_mi=1.0, pace_min_per_mi=8.0),
+        display=RunDisplayStats(
+            distance_mi=1.0,
+            pace_min_per_mi=8.0,
+            heart_rate_zones=[
+                RunZoneDisplayRow(
+                    zone=1,
+                    label="Z1 · 100–119 bpm",
+                    lower_bound=100,
+                    upper_bound=119,
+                ),
+                RunZoneDisplayRow(
+                    zone=2,
+                    label="Z2 · 120–139 bpm",
+                    lower_bound=120,
+                    upper_bound=139,
+                ),
+                RunZoneDisplayRow(
+                    zone=3,
+                    label="Z3 · ≥140 bpm",
+                    lower_bound=140,
+                ),
+            ],
+        ),
     )
 
 
@@ -59,10 +83,17 @@ def _series(*, with_spans: bool = False) -> RunSeriesResponse:
             else []
         ),
     )
-    return RunSeriesResponse(
+    response = RunSeriesResponse(
         series=embedded,
         pace_min_per_mi=[8.94, 8.65, None, 9.25],
         altitude_ft=[328, 335, None, 341],
+    )
+    return response.model_copy(
+        update={
+            "heart_rate_evidence": heart_rate_evidence(
+                embedded.heart_rate_bpm, _detail().display.heart_rate_zones
+            )
+        }
     )
 
 
@@ -123,7 +154,7 @@ def test_empty_series_produces_explicit_no_series_panel(tmp_path):
     _assert_png(path)
 
 
-def test_current_stack_renders_only_present_channels_in_four_strip_pages(tmp_path):
+def test_current_stack_starts_with_intensity_composite_then_supplemental_channels(tmp_path):
     series = _series()
 
     channels = available_current_channels(series)
@@ -131,9 +162,16 @@ def test_current_stack_renders_only_present_channels_in_four_strip_pages(tmp_pat
 
     assert channels == ["Pace", "Heart rate", "Cadence", "Elevation", "Power"]
     assert len(pages) == 2
-    assert all("p0" in page.name for page in pages)
+    assert "intensity" in pages[0].name
+    assert "p01" in pages[1].name
     for page in pages:
         _assert_png(page)
+
+
+def test_library_panel_with_hr_evidence_renders_composite(tmp_path):
+    path = render_library_panel(tmp_path, _detail(), _series())
+
+    _assert_png(path)
 
 
 def test_walk_shading_and_lap_markers_accept_empty_or_present_inputs(tmp_path):

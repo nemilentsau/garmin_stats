@@ -50,9 +50,16 @@ state the concrete visible pattern used. Omit unused attachments; an empty list 
 valid when no plot changes the judgment. Every current-run plot ref must have a matching
 observation, and every observation must also appear as a direct plot ref. Record older
 comparison evidence under history_used rather than listing available images speculatively.
-10. Lead review_md with what happened, what it means, and what to do. Mention
+10. Garmin time-in-zone totals are descriptive buckets, not a continuous intensity
+distribution and not sufficient by themselves to establish a material deviation. Inspect
+the composite heart-rate evidence before making a boundary-sensitive intensity claim.
+Never equate an authored zone label with a Garmin zone unless the summary explicitly says
+the target is calibrated. An unknown RPE cannot establish that an RPE ceiling was exceeded.
+Visible heart-rate drift may be reported as an observation; it is not automatically a
+material stimulus deviation.
+11. Lead review_md with what happened, what it means, and what to do. Mention
 limitations only when decision-relevant.
-11. Journal memory must state the durable takeaway and expiry/follow-up trigger.
+12. Journal memory must state the durable takeaway and expiry/follow-up trigger.
 Choose brief_update=keep unless the durable coaching model actually changed.
 """
 

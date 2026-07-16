@@ -28,6 +28,7 @@ from app.domains.garmin_analytics.domain.run_display import (
     smooth_elevation_by_distance,
     zone_display_rows,
 )
+from app.domains.garmin_analytics.domain.run_heart_rate import heart_rate_evidence
 from app.utils.units import KM_TO_MI, m_to_mi, min_per_km_to_min_per_mi
 
 _MIN_PACE_SPEED_MPS = 0.5
@@ -283,8 +284,20 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
     session = repo.load_session(run_id)
     display_mask = active_running_display_mask(series.elapsed_s, series.run_walk_spans)
     elevation_profile = _display_elevation_profile(series, session)
+    heart_rate_zones = (
+        zone_display_rows(
+            session.time_in_zones.time_in_hr_zone_s,
+            session.time_in_zones.hr_zone_high_boundary_bpm,
+            unit="bpm",
+        )
+        if session is not None and session.time_in_zones is not None
+        else []
+    )
     return RunSeriesResponse(
         series=series,
+        heart_rate_evidence=heart_rate_evidence(
+            series.heart_rate_bpm, heart_rate_zones
+        ),
         pace_min_per_mi=apply_display_mask(
             _series_pace_min_per_mi(series.speed_mps), display_mask
         ),

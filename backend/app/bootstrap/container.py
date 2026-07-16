@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 
 from app.bootstrap.coach_measurement_port import CoachMeasurementAssessmentPort
 from app.bootstrap.run_activity_port import GarminRunActivityPort
@@ -31,6 +32,7 @@ from app.realtime.events import event_bus
 @dataclass(frozen=True)
 class AppContainer:
     config: AppConfig
+    coach_plot_dir: Path
     coach_repo: SqliteCoachRepository
     coach_gateway: CoachReadGateway
     coach_jobs: CoachJobs
@@ -97,6 +99,7 @@ def build_container() -> AppContainer:
     )
     return AppContainer(
         config=config,
+        coach_plot_dir=coach_root / "plots",
         coach_repo=coach_repo,
         coach_gateway=coach_gateway,
         coach_jobs=coach_jobs,

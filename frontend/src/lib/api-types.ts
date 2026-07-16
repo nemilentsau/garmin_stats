@@ -644,6 +644,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/plots/{plot_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Plot
+         * @description Serve a generated Coach PNG without exposing arbitrary filesystem paths.
+         */
+        get: operations["get_plot_api_coach_plots__plot_name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/status": {
         parameters: {
             query?: never;
@@ -3722,6 +3742,48 @@ export interface components {
             lap_display: components["schemas"]["LapDisplayRow"][];
         };
         /**
+         * RunHeartRateEvidence
+         * @description Backend-owned distribution evidence for one run's HR record series.
+         */
+        RunHeartRateEvidence: {
+            /** Total Samples */
+            total_samples: number;
+            /** Present Samples */
+            present_samples: number;
+            /** Coverage Pct */
+            coverage_pct: number;
+            /** Q1 Bpm */
+            q1_bpm: number;
+            /** Median Bpm */
+            median_bpm: number;
+            /** Q3 Bpm */
+            q3_bpm: number;
+            /** P90 Bpm */
+            p90_bpm: number;
+            /**
+             * Histogram
+             * @default []
+             */
+            histogram: components["schemas"]["RunHeartRateHistogramBin"][];
+            /**
+             * Zones
+             * @default []
+             */
+            zones: components["schemas"]["RunZoneDisplayRow"][];
+        };
+        /**
+         * RunHeartRateHistogramBin
+         * @description One one-bpm bin in the recorded heart-rate sample distribution.
+         */
+        RunHeartRateHistogramBin: {
+            /** Bpm */
+            bpm: number;
+            /** Sample Count */
+            sample_count: number;
+            /** Sample Pct */
+            sample_pct: number;
+        };
+        /**
          * RunListItem
          * @description One row of the runs list: session summary fields, no laps/series.
          */
@@ -3781,6 +3843,7 @@ export interface components {
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
+            heart_rate_evidence: components["schemas"]["RunHeartRateEvidence"] | null;
             /**
              * Pace Min Per Mi
              * @default []
@@ -6454,6 +6517,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RunSeriesResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plot_api_coach_plots__plot_name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plot_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

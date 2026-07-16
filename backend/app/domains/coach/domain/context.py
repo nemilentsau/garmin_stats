@@ -8,7 +8,11 @@ from app.domains.garmin_analytics.contracts import (
     RunListItem,
 )
 from app.domains.garmin_health.contracts import DailyMetric
-from app.domains.training.contracts import TrainingTodayCard
+from app.domains.training.contracts import (
+    RecoveryContract,
+    SegmentPrescription,
+    TrainingTodayCard,
+)
 
 _DIGEST_LINE_MAX = 600
 _NOTE_EXCERPT_MAX = 160
@@ -92,6 +96,64 @@ def _cap(text: str, maximum: int) -> str:
     if len(text) <= maximum:
         return text
     return text[: maximum - 1].rstrip() + "…"
+
+
+def _intensity_interpretation(card: TrainingTodayCard) -> list[str]:
+    """Describe only calibrated comparisons supported by the imported card."""
+    lines = ["", "## Intensity interpretation"]
+    prescription = card.card.prescription
+    if isinstance(prescription, SegmentPrescription):
+        hr_ranges = [
+            segment.intensity.hr_range
+            for segment in prescription.segments
+            if segment.intensity.hr_range is not None
+        ]
+        authored_zones = list(
+            dict.fromkeys(
+                segment.intensity.zone
+                for segment in prescription.segments
+                if segment.intensity.zone is not None
+            )
+        )
+    else:
+        hr_ranges = []
+        authored_zones = []
+
+    if hr_ranges:
+        lines.extend(
+            f"- Authored HR target: {low}–{high} bpm" for low, high in hr_ranges
+        )
+        lines.append("- Direct HR comparison: available")
+    elif authored_zones:
+        lines.append(
+            "- Authored target: "
+            + ", ".join(authored_zones)
+            + " (uncalibrated training label)"
+        )
+        lines.append(
+            "- Direct Garmin-zone compliance: unavailable; "
+            "no zone-system mapping was imported"
+        )
+    else:
+        lines.append("- Authored HR target: none")
+        lines.append("- Direct HR comparison: unavailable")
+
+    contract = card.card.contract
+    if isinstance(contract, RecoveryContract) and contract.load_ceiling.rpe_max is not None:
+        ceiling = contract.load_ceiling.rpe_max
+        observed = None if card.capture is None else card.capture.rpe
+        exceedance = (
+            "not established"
+            if observed is None
+            else "yes"
+            if observed > ceiling
+            else "no"
+        )
+        lines.append(
+            f"- RPE ceiling: {_number(ceiling)}; "
+            f"observed RPE: {_number(observed)}; exceedance: {exceedance}"
+        )
+    return lines
 
 
 def digest_line(context: HistoricalRunContext) -> str:
@@ -178,6 +240,7 @@ def run_summary_markdown(context: HistoricalRunContext) -> str:
     ]
     card = context.training_card
     if card is not None:
+        lines.extend(_intensity_interpretation(card))
         lines.extend(
             [
                 "",
@@ -230,7 +293,9 @@ time in zones; training load/effect; stamina; VO2max; training association/statu
 recovery state/change/evidence; daily metrics and user-authored check-ins/notes.
 
 Descriptive v1 transformations: whole-session distance/duration comparison,
-missingness/source labels, compact formatting, and plot rendering.
+missingness/source labels, compact formatting, backend-owned heart-rate sample
+distributions, and plot rendering. Garmin time-in-zone buckets remain descriptive;
+authored zone labels are not mapped to Garmin zones unless imported evidence says so.
 
 Unavailable in v1: heat-adjusted fitness, pace-at-fixed-HR adaptation, causal lifting
 interference, plateau detection, predicted recovery, segment-matched compliance, and any
