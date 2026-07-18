@@ -10,6 +10,10 @@
 - Codex execution, output validation, and coach-specific runtime lifecycle.
 - Strict optional measurement-assessment validation and atomic persistence
   with the successful review or coach message that produced it.
+- Idempotent run-review enqueue after explicit Today feedback submission,
+  durable recovery of a failed immediate enqueue from that manual completion,
+  and bounded automatic skipped-run reconciliation. Tracked-run discovery alone
+  never queues a review.
 - Newest-successful assessment reads for one exact
   `(run_id, occurrence_key)` target, optionally before an exclusive cutoff.
 
@@ -47,5 +51,6 @@ schedule overlay; see
 ## Public entrypoints
 
 - `routes.py` for `/api/coach` HTTP operations.
-- `application/jobs.py` for enqueue/reconciliation behavior.
+- `application/jobs.py` for explicit feedback/manual enqueue, submitted-feedback
+  recovery, and skipped-run reconciliation behavior.
 - `application/worker.py` for process-owned queued execution.

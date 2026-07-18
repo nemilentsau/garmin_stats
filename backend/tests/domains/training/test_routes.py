@@ -16,6 +16,14 @@ from app.domains.training.contracts import (
 )
 
 
+class _CoachJobsSpy:
+    def __init__(self) -> None:
+        self.submissions: list[tuple[str, str]] = []
+
+    def enqueue_submitted_run_feedback(self, date: str, occurrence_key: str) -> None:
+        self.submissions.append((date, occurrence_key))
+
+
 def test_today_route_propagates_run_and_assessment_ports(monkeypatch):
     repo = object()
     run_port = object()
@@ -109,10 +117,11 @@ def test_schedule_route_propagates_run_and_assessment_ports(monkeypatch):
     }
 
 
-def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
+def test_log_route_propagates_ports_without_enqueuing_feedback_autosave(monkeypatch):
     repo = object()
     run_port = object()
     assessment_port = object()
+    coach_jobs = _CoachJobsSpy()
     captured: dict[str, object] = {}
 
     def fake_upsert(
@@ -146,6 +155,7 @@ def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
             training_repo=repo,
             training_run_activity_port=run_port,
             training_measurement_assessment_port=assessment_port,
+            coach_jobs=coach_jobs,
         ),
     )
     update = TrainingLogUpdateRequest(notes="Saved")
@@ -165,6 +175,57 @@ def test_log_route_propagates_run_and_assessment_ports(monkeypatch):
         "run_activity_port": run_port,
         "measurement_assessment_port": assessment_port,
     }
+    assert coach_jobs.submissions == []
+
+
+def test_log_route_enqueues_coach_after_explicit_completion_submission(monkeypatch):
+    repo = object()
+    run_port = object()
+    assessment_port = object()
+    coach_jobs = _CoachJobsSpy()
+    occurrence_key = "running.v3:run.lthr_test:d08"
+
+    def fake_upsert(
+        training_repo,
+        *,
+        date: str,
+        occurrence_key: str,
+        update: TrainingLogUpdateRequest,
+        run_activity_port=None,
+        measurement_assessment_port=None,
+    ):
+        del training_repo, run_activity_port, measurement_assessment_port
+        return TrainingCardLog(
+            id=f"{date}:{occurrence_key}",
+            date=date,
+            occurrence_key=occurrence_key,
+            status=update.status or "pending",
+            notes=update.notes,
+        )
+
+    monkeypatch.setattr(routes, "upsert_training_log", fake_upsert)
+    monkeypatch.setattr(
+        routes,
+        "build_container",
+        lambda: SimpleNamespace(
+            training_repo=repo,
+            training_run_activity_port=run_port,
+            training_measurement_assessment_port=assessment_port,
+            coach_jobs=coach_jobs,
+        ),
+    )
+
+    response = routes.put_today_card_log(
+        date=Date(2026, 7, 20),
+        occurrence_key=occurrence_key,
+        request=TrainingLogUpdateRequest(
+            status="completed",
+            notes="Felt controlled",
+        ),
+    )
+
+    assert response.status == "completed"
+    assert coach_jobs.submissions == [("2026-07-20", occurrence_key)]
 
 
 def test_schedule_window_days_query_is_bounded_to_60(monkeypatch):

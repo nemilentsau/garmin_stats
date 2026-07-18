@@ -13,6 +13,15 @@ export function toggledCompletionStatus(status: CardStatus): CardStatus {
 	return status === 'completed' ? 'pending' : 'completed';
 }
 
+export function completionStatusAfterClick(
+	status: CardStatus,
+	executionSource: 'manual_log' | 'tracked_run' | 'none'
+): CardStatus {
+	return executionSource === 'tracked_run' && status === 'completed'
+		? 'completed'
+		: toggledCompletionStatus(status);
+}
+
 export function statusForVariant(option: string, status: CardStatus): CardStatus {
 	return option === 'skip' ? 'skipped' : status;
 }

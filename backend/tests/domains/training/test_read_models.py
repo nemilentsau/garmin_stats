@@ -1056,6 +1056,7 @@ def test_schedule_window_bulk_loads_once_and_associates_runs_on_their_session_da
         start_date="2026-07-06",
         duration_days=2,
         run_activity_port=port,
+        as_of_date="2026-07-07",
     )
 
     day_1_run = next(card for card in window.days[0].cards if card.bundle_id == "running.v3")
@@ -1090,6 +1091,7 @@ def test_schedule_window_projects_measurement_with_both_read_ports():
         duration_days=1,
         run_activity_port=run_port,
         measurement_assessment_port=assessment_port,
+        as_of_date="2026-07-16",
     )
 
     card = _card(window.days[0], "running.v3:run.lthr_test:d12")

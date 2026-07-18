@@ -31,6 +31,12 @@ test('local status overrides backend status and completion toggles symmetrically
 	assert.equal(state.toggledCompletionStatus('skipped'), 'completed');
 });
 
+test('tracked completion click submits while manual completion click toggles pending', () => {
+	assert.equal(state.completionStatusAfterClick('completed', 'tracked_run'), 'completed');
+	assert.equal(state.completionStatusAfterClick('completed', 'manual_log'), 'pending');
+	assert.equal(state.completionStatusAfterClick('pending', 'none'), 'completed');
+});
+
 test('only the authored skip variant changes status', () => {
 	assert.equal(state.statusForVariant('skip', 'partial'), 'skipped');
 	assert.equal(state.statusForVariant('reduced volume', 'partial'), 'partial');
