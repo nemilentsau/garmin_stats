@@ -323,6 +323,73 @@ def test_duplicate_skip_trigger_returns_existing_review_without_second_job():
     assert repository.queued_count() == 1
 
 
+def test_matching_run_supersedes_skip_and_removes_it_from_review_history():
+    repository = SqliteCoachRepository()
+    skip, _, _ = repository.enqueue_skip_review(
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+        card_name="LT intervals",
+    )
+
+    run, _, created = repository.enqueue_run_review(
+        run_id="run-late",
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+    )
+
+    saved_skip = repository.review(skip.id)
+    assert created is True
+    assert saved_skip is not None
+    assert saved_skip.superseded_by_review_id == run.id
+    assert repository.list_reviews(from_date=None, to_date=None, limit=10) == [run]
+
+
+def test_existing_matching_run_prevents_later_skip_job():
+    repository = SqliteCoachRepository()
+    run, run_job, _ = repository.enqueue_run_review(
+        run_id="run-first",
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+    )
+
+    review, job, created = repository.enqueue_skip_review(
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+        card_name="LT intervals",
+    )
+
+    assert created is False
+    assert review.id == run.id
+    assert job.id == run_job.id
+    assert repository.queued_count() == 1
+
+
+def test_repeat_run_trigger_repairs_conflict_without_duplicate_job():
+    repository = SqliteCoachRepository()
+    skip, _, _ = repository.enqueue_skip_review(
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+        card_name="LT intervals",
+    )
+    run, run_job, _ = repository.enqueue_run_review(
+        run_id="run-late",
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+    )
+
+    repeated, repeated_job, created = repository.enqueue_run_review(
+        run_id="run-late",
+        date="2026-07-16",
+        occurrence_key="running.v3:run.lt_intervals:d04",
+    )
+
+    assert created is False
+    assert repeated.id == run.id
+    assert repeated_job.id == run_job.id
+    assert repository.review(skip.id).superseded_by_review_id == run.id  # type: ignore[union-attr]
+    assert repository.queued_count() == 2
+
+
 def test_claim_next_job_prefers_priority_then_oldest_available():
     repository = SqliteCoachRepository()
     first_review, first_review_job, _ = repository.enqueue_run_review(

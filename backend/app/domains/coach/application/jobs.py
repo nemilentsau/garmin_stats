@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
@@ -33,10 +34,12 @@ class CoachJobs:
         repo: SqliteCoachRepository,
         gateway: CoachReadGateway,
         local_today=None,
+        activity_date_covered: Callable[[str], bool] | None = None,
     ) -> None:
         self.repo = repo
         self.gateway = gateway
         self.local_today = local_today or local_today_iso
+        self.activity_date_covered = activity_date_covered or (lambda _day: False)
 
     def enqueue_run_review(self, run_id: str) -> CoachEnqueueResponse:
         detail = self.gateway.run_detail(run_id)
@@ -178,7 +181,7 @@ class CoachJobs:
         day = lower
         today = date.fromisoformat(self.local_today())
         while day <= upper:
-            if day < today:
+            if day < today and self.activity_date_covered(day.isoformat()):
                 for card in cards_for(day.isoformat()).cards:
                     if (
                         card.is_running

@@ -120,6 +120,20 @@ class FakeActivityFileStore:
         self.existing.add((day.isoformat(), activity_id))
 
 
+class FakeActivitySyncCoverage:
+    def __init__(self) -> None:
+        self.covered: set[str] = set()
+
+    def mark_covered(self, day: date) -> None:
+        self.covered.add(day.isoformat())
+
+    def mark_incomplete(self, day: date) -> None:
+        self.covered.discard(day.isoformat())
+
+    def is_covered(self, day_iso: str) -> bool:
+        return day_iso in self.covered
+
+
 class FakeGarminClientFactory:
     def __init__(self, client: FakeGarminClient) -> None:
         self.client = client
@@ -223,6 +237,7 @@ def _deps(
         monotonic=lambda: next(monotonic_values),
         after_successful_sync=lambda: reconciliation_calls.append("reconciled"),
     )
+    object.__setattr__(deps, "activity_coverage", FakeActivitySyncCoverage())
     return deps, ingest, archive_calls, watcher_calls, client, files, store
 
 
@@ -437,6 +452,68 @@ def test_sync_sweeps_activity_window_with_lookback_and_stores_new(tmp_path: Path
         result.activities_failed,
     )
     assert activity_counts == (1, 0, 0)
+
+
+def test_complete_activity_sweep_records_coverage_for_each_checked_date(tmp_path: Path):
+    deps, *_ = _deps(tmp_path)
+
+    sync_garmin(deps)
+
+    assert all(
+        deps.activity_coverage.is_covered(day)
+        for day in ("2026-03-12", "2026-03-13", "2026-03-14", "2026-03-15")
+    )
+
+
+def test_activity_listing_failure_leaves_only_failed_date_uncovered(tmp_path: Path):
+    deps, *_ = _deps(tmp_path, listing_errors={"2026-03-12"})
+
+    sync_garmin(deps)
+
+    assert not deps.activity_coverage.is_covered("2026-03-12")
+    assert all(
+        deps.activity_coverage.is_covered(day)
+        for day in ("2026-03-13", "2026-03-14", "2026-03-15")
+    )
+
+
+def test_activity_payload_failure_removes_stale_coverage_for_that_date(tmp_path: Path):
+    deps, *_ = _deps(
+        tmp_path,
+        activities={"2026-03-14": [_ref("a1")]},
+    )
+    deps.activity_coverage.mark_covered(date(2026, 3, 14))
+
+    sync_garmin(deps)
+
+    assert not deps.activity_coverage.is_covered("2026-03-14")
+
+
+def test_activity_store_failure_removes_stale_coverage_for_that_date(tmp_path: Path):
+    deps, _ingest, _archives, _watcher, _client, _files, store = _deps(
+        tmp_path,
+        activities={"2026-03-14": [_ref("a1")]},
+        activity_payloads={"a1": b"payload"},
+    )
+    deps.activity_coverage.mark_covered(date(2026, 3, 14))
+    store.store_error = OSError("disk full")
+
+    sync_garmin(deps)
+
+    assert not deps.activity_coverage.is_covered("2026-03-14")
+
+
+def test_later_successful_activity_sweep_replaces_incomplete_state(tmp_path: Path):
+    deps, _ingest, _archives, _watcher, client, _files, _store = _deps(
+        tmp_path,
+        activities={"2026-03-14": [_ref("a1")]},
+    )
+
+    sync_garmin(deps)
+    client.activity_payloads["a1"] = b"payload"
+    sync_garmin(deps)
+
+    assert deps.activity_coverage.is_covered("2026-03-14")
 
 
 def test_sync_second_run_skips_already_stored_activities(tmp_path: Path):

@@ -32,5 +32,7 @@ def test_enabled_coach_worker_wires_reconcile_pending_as_post_sync_hook(monkeypa
 
         assert getattr(hook, "__func__", None) is CoachJobs.reconcile_pending
         assert getattr(hook, "__self__", None) is container.coach_jobs
+        coverage_reader = container.coach_jobs.activity_date_covered
+        assert getattr(coverage_reader, "__self__", None) is container.garmin_sync.activity_coverage
     finally:
         build_container.cache_clear()

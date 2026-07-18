@@ -22,6 +22,7 @@ from app.domains.garmin_analytics.adapters import (
     SqliteRunsRepository,
 )
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies, noop_after_sync
+from app.domains.garmin_sync.infra.activity_coverage import SqliteActivitySyncCoverage
 from app.domains.garmin_sync.infra.factory import build_garmin_sync_infra
 from app.domains.garmin_sync.infra.watcher import DataDirectoryWatcher
 from app.domains.journal.adapters import SqliteJournalRepository
@@ -71,7 +72,12 @@ def build_container() -> AppContainer:
         measurement_assessment_port=training_measurement_assessment_port,
         journal_repo=journal_repo,
     )
-    coach_jobs = CoachJobs(repo=coach_repo, gateway=coach_gateway)
+    activity_sync_coverage = SqliteActivitySyncCoverage()
+    coach_jobs = CoachJobs(
+        repo=coach_repo,
+        gateway=coach_gateway,
+        activity_date_covered=activity_sync_coverage.is_covered,
+    )
     coach_root = config.database_path.parent / "coach"
     coach_handlers = CoachHandlers(
         repo=coach_repo,
@@ -93,6 +99,7 @@ def build_container() -> AppContainer:
     )
     garmin_sync_infra = build_garmin_sync_infra(
         config,
+        activity_coverage=activity_sync_coverage,
         after_successful_sync=(
             coach_jobs.reconcile_pending if config.coach_worker_enabled else noop_after_sync
         ),
