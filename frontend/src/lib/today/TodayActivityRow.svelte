@@ -12,6 +12,7 @@
 		brief = '',
 		tags = [],
 		backup = false,
+		completionTitle,
 		onToggleComplete,
 		onSkip,
 		onToggleDetails,
@@ -26,6 +27,7 @@
 		brief?: string;
 		tags?: string[];
 		backup?: boolean;
+		completionTitle?: string;
 		onToggleComplete: () => void;
 		onSkip: () => void;
 		onToggleDetails: () => void;
@@ -53,7 +55,7 @@
 			class:partial-check={isPartial}
 			class:skipped-check={isSkipped}
 			onclick={onToggleComplete}
-			title={isDone ? 'Mark pending' : 'Mark done'}
+			title={completionTitle ?? (isDone ? 'Mark pending' : 'Mark done')}
 		>
 			{#if isDone}
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">

@@ -56,6 +56,8 @@ routines feed side by side; neither domain imports the other.
   use the shared `app.infra.jsonstore` and `app.infra.sqlite` primitives.
 - The route module may import FastAPI and the bootstrap container to bind
   injected dependencies; bootstrap owns cross-domain adapter composition.
+  After capture-log persistence, that route may invoke the container-owned
+  Coach feedback-submission hook only for an explicitly completed occurrence.
 
 ## Must not import
 
@@ -82,8 +84,9 @@ routines feed side by side; neither domain imports the other.
 ## Key files
 
 - `routes.py` — FastAPI binding for the five `/api/training` endpoints; resolves
-  `training_repo` from the container and delegates all policy to the application
-  layer (only local behavior is the "no active block" → 404 fallback).
+  dependencies from the container, delegates training policy to the application
+  layer, and invokes the bootstrap-composed Coach hook after an explicit
+  completion submission.
 - `application/imports.py` — `import_artifacts` (+ `ImportRequest` /
   `ImportResult`): validate → lint → single-shot activate an uploaded v3
   artifact set.
