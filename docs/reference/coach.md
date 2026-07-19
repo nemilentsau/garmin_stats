@@ -194,6 +194,16 @@ regeneration requeues only a completed review, retains its prior judgment while 
 attempt is pending, preserves all prior attempt directories and logs, and increments the
 attempt number on the next claim.
 
+Tracked-run discovery is not a run-review trigger. RPE, notes, and capture fields on Today
+continue to autosave, but they do not enqueue Coach. For an activity-derived completed run,
+the existing completion checkmark submits the feedback by persisting an explicit manual
+`completed` status; only that successful submission queues the associated run review.
+Activity sync, startup, watcher refresh, and periodic reconciliation never queue a tracked
+run merely because it exists. The run page's manual **Review with coach** action remains an
+independent explicit enqueue path. If the immediate post-persistence enqueue fails, the
+durable manual completion remains a submitted-feedback candidate and a later reconciliation
+retries the same idempotent run-review enqueue.
+
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
 the row `running` for startup recovery. Startup requeues every job still marked `running`
@@ -203,15 +213,15 @@ closes the thread and deletes its Codex home, while failure retains both and bec
 `close_failed` with an explicit retry.
 
 The first enabled reconciliation inspects the inclusive local-date window from today
-minus 14 days through today, selects at most the three most recent eligible run/skip
-items, then enqueues those selected items oldest-to-newest so journal chronology is
-readable. The remaining pre-activation history is manual-only. Later reconciliation
-considers target dates from the saved activation date (inclusive) through today,
-bounded to at most the last 30 days even if activation is older — runs sync at least
-daily, so a wider lookback is never needed outside the initial-backfill era. Per-run
-and per-day training-schedule projections are computed at most once per target date
-per reconciliation pass. Unresolved run association candidates are not treated as
-skips.
+minus 14 days through today, selects at most the three most recent submitted-feedback or
+eligible-skip candidates, then enqueues those selected items oldest-to-newest so journal
+chronology is readable. The remaining pre-activation history is manual-only. Later
+reconciliation considers target dates from the saved activation date (inclusive) through
+today, bounded to at most the last 30 days even if activation is older. A run candidate
+requires an explicit manual `completed` execution plus an associated activity; a
+Garmin-derived `tracked_run` completion is never sufficient. Training-schedule projections
+are computed at most once per target date per reconciliation pass. Unresolved run
+association candidates are not treated as skips.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,
 attempt, message, review, and thread lifecycle instants are canonical UTC strings so
@@ -265,6 +275,9 @@ SSE event and displays written states (`queued`, `generating`, `failed`, `closin
 separately, falls back to the legacy verdict when needed, and labels a preserved judgment
 as previous while regeneration is queued or generating. `/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
+On `/today`, the existing completion checkmark submits feedback for a run whose completed
+state came only from its associated tracked activity; no additional submit control is
+rendered.
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

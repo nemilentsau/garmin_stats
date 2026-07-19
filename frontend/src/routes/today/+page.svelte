@@ -10,10 +10,10 @@
 	} from '$lib/api';
 	import { isIsoDateString, localDateIso } from '$lib/date';
 	import {
+		completionStatusAfterClick,
 		createStatusPersistQueue,
 		effectiveStatus as resolveEffectiveStatus,
 		statusForVariant,
-		toggledCompletionStatus,
 		type CardStatus
 	} from '$lib/today-state';
 	import TodayActivityRow from '$lib/today/TodayActivityRow.svelte';
@@ -178,8 +178,25 @@
 
 	function toggleComplete(card: TrainingTodayCard): void {
 		const previous = effectiveStatus(card);
-		const next = toggledCompletionStatus(previous);
+		const submittingTrackedRun =
+			card.execution.source === 'tracked_run' && previous === 'completed';
+		const next = completionStatusAfterClick(previous, card.execution.source);
 		const date = selectedDate;
+		const persistCompletion = async (
+			capture: TrainingCaptureLog | null,
+			notes: string | null,
+			variant: string | null
+		): Promise<boolean> => {
+			const saved = await persistCard(card, next, capture, notes, date, variant);
+			if (saved && submittingTrackedRun && selectedDate === date) {
+				try {
+					await reloadToday(date);
+				} catch (cause: unknown) {
+					error = errorMessage(cause);
+				}
+			}
+			return saved;
+		};
 		localStatus[card.occurrence_key] = next;
 		statusVersion++;
 		if (expandedOccurrenceKey === card.occurrence_key) {
@@ -193,7 +210,7 @@
 				next,
 				previous,
 				date,
-				() => persistCard(card, next, capture, notes, date, variant)
+				() => persistCompletion(capture, notes, variant)
 			);
 			return;
 		}
@@ -201,7 +218,7 @@
 		const notes = card.notes;
 		const variant = card.variant_taken;
 		trackOptimisticStatus(card, next, previous, date, () =>
-			persistCard(card, next, capture, notes, date, variant)
+			persistCompletion(capture, notes, variant)
 		);
 	}
 
@@ -354,6 +371,9 @@
 								summary={`${card.bundle_name}${card.key_session ? ' · key session' : ''}`}
 								brief={trainingCardBrief(card)}
 								backup={card.measurement_attempt === 'backup'}
+								completionTitle={card.execution.source === 'tracked_run' && effectiveStatus(card) === 'completed'
+									? 'Submit run feedback'
+									: undefined}
 								onToggleComplete={() => toggleComplete(card)}
 								onSkip={() => quickSkip(card)}
 								onToggleDetails={() => toggleDetails(card)}

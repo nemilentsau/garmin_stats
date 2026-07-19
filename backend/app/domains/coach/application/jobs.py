@@ -54,6 +54,22 @@ class CoachJobs:
         )
         return CoachEnqueueResponse(created=created, job=job, review=review)
 
+    def enqueue_submitted_run_feedback(
+        self, date: str, occurrence_key: str
+    ) -> CoachEnqueueResponse | None:
+        """Queue the associated run only after its Today feedback is submitted."""
+        card = next(
+            (
+                candidate
+                for candidate in self.gateway.training_today(date).cards
+                if candidate.occurrence_key == occurrence_key
+            ),
+            None,
+        )
+        if card is None or not card.is_running or card.associated_activity is None:
+            return None
+        return self.enqueue_run_review(card.associated_activity.run_id)
+
     def create_thread(self, title: str) -> CoachThread:
         now = utc_now_iso()
         thread = CoachThread(
@@ -101,20 +117,18 @@ class CoachJobs:
         return self.repo.retry_failed_job(job.id, available_at=now)
 
     def reconcile_pending(self) -> list[CoachJob]:
-        """Enqueue reviews/skips for evidence that has appeared since the last pass.
+        """Recover submitted-run reviews and enqueue eligible skipped-run reviews.
 
         The post-activation scan window is bounded to the last
         `_RECONCILE_LOOKBACK_DAYS` days (never before the saved activation date).
-        Runs sync at least daily, so a healthy deployment never needs more than a
-        30-day lookback; an unbounded activation-to-today scan was only load-bearing
-        during the initial-backfill era, before per-run/per-day dedupe existed.
+        Activity-derived completion is deliberately absent: a run becomes a
+        reconciliation candidate only after an explicit manual completion persists.
         """
         today = date.fromisoformat(self.local_today())
         state = self.repo.reconciliation_state()
-        runs = self.gateway.recent_runs(evidence_date=today.isoformat(), limit=1000)
         if state is None:
             lower = today - timedelta(days=14)
-            candidates = self._candidates(runs, lower=lower, upper=today)
+            candidates = self._candidates(lower=lower, upper=today)
             selected = sorted(
                 sorted(candidates, key=self._candidate_key, reverse=True)[:3],
                 key=self._candidate_key,
@@ -126,7 +140,7 @@ class CoachJobs:
 
         activation = date.fromisoformat(state.activation_date)
         lower = max(activation, today - timedelta(days=_RECONCILE_LOOKBACK_DAYS))
-        candidates = self._candidates(runs, lower=lower, upper=today)
+        candidates = self._candidates(lower=lower, upper=today)
         jobs: list[CoachJob] = []
         for candidate in sorted(candidates, key=self._candidate_key):
             if candidate.kind == "run":
@@ -145,9 +159,7 @@ class CoachJobs:
                 jobs.append(job)
         return jobs
 
-    def _candidates(
-        self, runs, *, lower: date, upper: date
-    ) -> list[InitialReviewCandidate]:
+    def _candidates(self, *, lower: date, upper: date) -> list[InitialReviewCandidate]:
         projections: dict[str, TrainingTodayResponse] = {}
 
         def cards_for(day_iso: str) -> TrainingTodayResponse:
@@ -156,47 +168,41 @@ class CoachJobs:
             return projections[day_iso]
 
         candidates: list[InitialReviewCandidate] = []
-        seen_runs: set[str] = set()
-        for run in runs:
-            run_date = date.fromisoformat(run.session_date)
-            if lower <= run_date <= upper and run.id not in seen_runs:
-                seen_runs.add(run.id)
-                occurrence_key = None
-                # Same association policy as `read_gateway.training_card_for_run`,
-                # inlined here (rather than calling it) to reuse the `cards_for`
-                # memoization above across every run/day in this scan.
-                for card in cards_for(run.session_date).cards:
-                    activity = card.associated_activity
-                    if activity is not None and activity.run_id == run.id:
-                        occurrence_key = card.occurrence_key
-                        break
-                candidates.append(
-                    InitialReviewCandidate(
-                        kind="run",
-                        date=run.session_date,
-                        run_id=run.id,
-                        occurrence_key=occurrence_key,
-                    )
-                )
         day = lower
         today = date.fromisoformat(self.local_today())
         while day <= upper:
-            if day < today and self.activity_date_covered(day.isoformat()):
-                for card in cards_for(day.isoformat()).cards:
-                    if (
-                        card.is_running
-                        and card.associated_activity is None
-                        and not card.run_candidates
-                        and card.status != "completed"
-                    ):
-                        candidates.append(
-                            InitialReviewCandidate(
-                                kind="skip",
-                                date=day.isoformat(),
-                                occurrence_key=card.occurrence_key,
-                                card_name=card.card.name,
-                            )
+            day_iso = day.isoformat()
+            for card in cards_for(day_iso).cards:
+                if not card.is_running:
+                    continue
+                if (
+                    card.execution.source == "manual_log"
+                    and card.status == "completed"
+                    and card.associated_activity is not None
+                ):
+                    candidates.append(
+                        InitialReviewCandidate(
+                            kind="run",
+                            date=day_iso,
+                            run_id=card.associated_activity.run_id,
+                            occurrence_key=card.occurrence_key,
                         )
+                    )
+                elif (
+                    day < today
+                    and self.activity_date_covered(day_iso)
+                    and card.associated_activity is None
+                    and not card.run_candidates
+                    and card.status != "completed"
+                ):
+                    candidates.append(
+                        InitialReviewCandidate(
+                            kind="skip",
+                            date=day_iso,
+                            occurrence_key=card.occurrence_key,
+                            card_name=card.card.name,
+                        )
+                    )
             day += timedelta(days=1)
         return candidates
 

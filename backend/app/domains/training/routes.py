@@ -82,7 +82,7 @@ def get_block():
 def put_today_card_log(date: Date, occurrence_key: str, request: TrainingLogUpdateRequest):
     """Apply a partial update to one card occurrence's capture log."""
     container = build_container()
-    return upsert_training_log(
+    saved = upsert_training_log(
         container.training_repo,
         date=date.isoformat(),
         occurrence_key=occurrence_key,
@@ -90,3 +90,8 @@ def put_today_card_log(date: Date, occurrence_key: str, request: TrainingLogUpda
         run_activity_port=container.training_run_activity_port,
         measurement_assessment_port=container.training_measurement_assessment_port,
     )
+    if "status" in request.model_fields_set and request.status == "completed":
+        container.coach_jobs.enqueue_submitted_run_feedback(
+            date.isoformat(), occurrence_key
+        )
+    return saved
