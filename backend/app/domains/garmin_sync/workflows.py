@@ -204,6 +204,8 @@ def _sync_activities(
     failed = 0
     for day in days:
         date_str = day.isoformat()
+        deps.activity_coverage.mark_incomplete(day)
+        day_complete = True
         try:
             refs = client.list_activities(day)
         except Exception:
@@ -219,10 +221,12 @@ def _sync_activities(
             except Exception:
                 log.exception("  %s: activity %s download failed", date_str, ref.activity_id)
                 failed += 1
+                day_complete = False
                 continue
             if payload is None:
                 log.info("  %s: activity %s had no payload", date_str, ref.activity_id)
                 failed += 1
+                day_complete = False
                 continue
             try:
                 deps.activity_files.store_activity(
@@ -231,6 +235,9 @@ def _sync_activities(
             except Exception:
                 log.exception("  %s: activity %s payload unusable", date_str, ref.activity_id)
                 failed += 1
+                day_complete = False
                 continue
             downloaded += 1
+        if day_complete:
+            deps.activity_coverage.mark_covered(day)
     return downloaded, skipped, failed

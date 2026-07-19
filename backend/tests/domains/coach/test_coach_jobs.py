@@ -39,6 +39,7 @@ def _jobs(repo: SqliteCoachRepository, gateway: ReconcileGateway) -> CoachJobs:
         repo=repo,
         gateway=cast(CoachReadGateway, gateway),
         local_today=lambda: "2026-07-12",
+        activity_date_covered=lambda _day: True,
     )
 
 
@@ -156,6 +157,48 @@ def test_reconcile_uses_training_run_classification_not_bundle_literal():
     created = _jobs(repo, gateway).reconcile_pending()
 
     assert created == []
+
+
+def test_past_scheduled_run_waits_for_confirmed_activity_sync_coverage():
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    gateway.days["2026-07-11"] = TrainingTodayResponse(
+        date="2026-07-11",
+        cards=[_pending_run_card("2026-07-11")],
+    )
+    jobs = CoachJobs(
+        repo=repo,
+        gateway=cast(CoachReadGateway, gateway),
+        local_today=lambda: "2026-07-12",
+        activity_date_covered=lambda _day: False,
+    )
+
+    created = jobs.reconcile_pending()
+
+    assert created == []
+    assert repo.list_reviews(from_date=None, to_date=None, limit=10) == []
+
+
+def test_covered_past_scheduled_run_enqueues_one_skip_idempotently():
+    repo = SqliteCoachRepository()
+    gateway = ReconcileGateway()
+    gateway.days["2026-07-11"] = TrainingTodayResponse(
+        date="2026-07-11",
+        cards=[_pending_run_card("2026-07-11")],
+    )
+    jobs = CoachJobs(
+        repo=repo,
+        gateway=cast(CoachReadGateway, gateway),
+        local_today=lambda: "2026-07-12",
+        activity_date_covered=lambda day: day == "2026-07-11",
+    )
+
+    first = jobs.reconcile_pending()
+    second = jobs.reconcile_pending()
+
+    assert len(first) == 1
+    assert first[0].kind == "review_skip"
+    assert second == []
 
 
 def test_ongoing_reconcile_includes_activation_day_skip_and_dedupes_repeat_calls():

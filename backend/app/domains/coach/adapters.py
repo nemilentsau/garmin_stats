@@ -133,6 +133,25 @@ def _create_review_job(
         dedupe_key = f"review:run:{run_id}"
         job_kind: JobKind = "review_run"
     else:
+        canonical_run_row = connection.execute(
+            """
+            SELECT data FROM coach_reviews
+            WHERE kind = 'run' AND date = ? AND occurrence_key = ?
+            ORDER BY updated_at DESC, id
+            LIMIT 1
+            """,
+            (date, occurrence_key),
+        ).fetchone()
+        if canonical_run_row is not None:
+            canonical_run = _review_from_row(canonical_run_row)
+            canonical_job_row = connection.execute(
+                "SELECT data FROM coach_jobs WHERE id = ?", (canonical_run.job_id,)
+            ).fetchone()
+            if canonical_job_row is None:
+                raise RuntimeError(
+                    f"Review {canonical_run.id} references missing job {canonical_run.job_id}"
+                )
+            return canonical_run, _job_from_row(canonical_job_row), False
         existing_row = connection.execute(
             """
             SELECT data FROM coach_reviews
@@ -191,6 +210,31 @@ def _create_review_job(
     return review, job, True
 
 
+def _supersede_matching_skip(
+    connection: sqlite3.Connection,
+    *,
+    date: str,
+    occurrence_key: str | None,
+    canonical_review_id: str,
+) -> None:
+    if occurrence_key is None:
+        return
+    rows = connection.execute(
+        """
+        SELECT data FROM coach_reviews
+        WHERE kind = 'skip' AND date = ? AND occurrence_key = ?
+        """,
+        (date, occurrence_key),
+    ).fetchall()
+    for row in rows:
+        skip = _review_from_row(row)
+        if skip.superseded_by_review_id != canonical_review_id:
+            _save_review(
+                connection,
+                skip.model_copy(update={"superseded_by_review_id": canonical_review_id}),
+            )
+
+
 class SqliteCoachRepository:
     """Coach persistence adapter with transaction-owned queue invariants."""
 
@@ -209,6 +253,12 @@ class SqliteCoachRepository:
                 date=date,
                 run_id=run_id,
                 occurrence_key=occurrence_key,
+            )
+            _supersede_matching_skip(
+                connection,
+                date=date,
+                occurrence_key=occurrence_key,
+                canonical_review_id=result[0].id,
             )
             connection.commit()
         return result
@@ -266,6 +316,7 @@ class SqliteCoachRepository:
                            'review' AS source_kind, data
                     FROM coach_reviews
                     WHERE status = 'complete'
+                      AND json_extract(data, '$.superseded_by_review_id') IS NULL
                       AND json_extract(data, '$.measurement_assessment.run_id') = ?
                       AND json_extract(
                           data, '$.measurement_assessment.occurrence_key'
@@ -328,7 +379,9 @@ class SqliteCoachRepository:
         to_date: str | None,
         limit: int,
     ) -> list[CoachReview]:
-        clauses: list[str] = []
+        clauses: list[str] = [
+            "json_extract(data, '$.superseded_by_review_id') IS NULL"
+        ]
         params: list[object] = []
         if from_date is not None:
             clauses.append("date >= ?")
@@ -336,9 +389,7 @@ class SqliteCoachRepository:
         if to_date is not None:
             clauses.append("date <= ?")
             params.append(to_date)
-        query = "SELECT data FROM coach_reviews"
-        if clauses:
-            query += " WHERE " + " AND ".join(clauses)
+        query = "SELECT data FROM coach_reviews WHERE " + " AND ".join(clauses)
         query += " ORDER BY date DESC, updated_at DESC, id LIMIT ?"
         params.append(limit)
         with connect() as connection:

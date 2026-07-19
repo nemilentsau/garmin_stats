@@ -17,6 +17,7 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     RunJournalSummary,
 )
+from app.infra.sqlite import connect
 
 NOW = "2026-07-12T12:00:00Z"
 LATER = "2026-07-12T13:00:00Z"
@@ -131,6 +132,29 @@ def test_review_assessment_persists_in_same_completed_record():
     assert saved.status == "complete"
     assert saved.measurement_assessment == assessment
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
+
+
+def test_superseded_review_cannot_supply_latest_measurement_assessment():
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    assessment = _assessment()
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(assessment),
+        finished_at=LATER,
+    )
+    with connect() as connection, connection:
+        connection.execute(
+            """
+            UPDATE coach_reviews
+            SET data = json_set(data, '$.superseded_by_review_id', 'review-canonical')
+            WHERE id = ?
+            """,
+            (review.id,),
+        )
+
+    assert repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY) is None
 
 
 @pytest.mark.parametrize(

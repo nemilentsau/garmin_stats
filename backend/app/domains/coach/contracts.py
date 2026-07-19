@@ -157,6 +157,7 @@ class CoachReview(StrictDefaultsRequired):
     plot_observations: list[PlotObservation] = []
     history_used: list[HistoricalEvidenceUse] = []
     measurement_assessment: CoachMeasurementAssessment | None = None
+    superseded_by_review_id: str | None = None
     job_id: str
     error: str | None = None
     created_at: str

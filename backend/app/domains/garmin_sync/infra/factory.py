@@ -14,7 +14,8 @@ from datetime import date
 from pathlib import Path
 
 from app.core.config import AppConfig, get_app_config
-from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.dependencies import ActivitySyncCoverage, GarminSyncDependencies
+from app.domains.garmin_sync.infra.activity_coverage import SqliteActivitySyncCoverage
 from app.domains.garmin_sync.infra.activity_files import FilesystemActivityStore
 from app.domains.garmin_sync.infra.filesystem import (
     FilesystemSyncFileStore,
@@ -34,18 +35,21 @@ class GarminSyncInfra:
 
     dependencies: GarminSyncDependencies
     watcher: DataDirectoryWatcher
+    activity_coverage: ActivitySyncCoverage
 
 
 def build_garmin_sync_infra(
     config: AppConfig | None = None,
     data_dir: Path | None = None,
     after_successful_sync: Callable[[], object] | None = None,
+    activity_coverage: ActivitySyncCoverage | None = None,
 ) -> GarminSyncInfra:
     """Wire Garmin sync ports to SQLite, filesystem, Garmin Connect, and SSE."""
 
     app_config = get_app_config() if config is None else config
     sync_data_dir = app_config.data_dir if data_dir is None else data_dir
     ingest = DatabaseIngestGateway()
+    coverage = activity_coverage or SqliteActivitySyncCoverage()
     watcher = DataDirectoryWatcher(
         data_dir=sync_data_dir,
         ensure_data_dir=ensure_data_dir,
@@ -66,6 +70,11 @@ def build_garmin_sync_infra(
         activity_files=FilesystemActivityStore(),
         today=date.today,
         monotonic=time.monotonic,
+        activity_coverage=coverage,
         after_successful_sync=after_successful_sync or (lambda: None),
     )
-    return GarminSyncInfra(dependencies=dependencies, watcher=watcher)
+    return GarminSyncInfra(
+        dependencies=dependencies,
+        watcher=watcher,
+        activity_coverage=coverage,
+    )
