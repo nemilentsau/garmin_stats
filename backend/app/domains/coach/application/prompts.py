@@ -65,21 +65,41 @@ Choose brief_update=keep unless the durable coaching model actually changed.
 
 
 def review_prompt(kind: JobKind) -> str:
-    action = "Review the current run" if kind == "review_run" else "Review the missed run"
     return (
-        f"{_COMMON}\n{_REVIEW_POLICY}\n{action} and return only the required "
+        f"{_COMMON}\n{_REVIEW_POLICY}\nReview the current run and return only the required "
         "structured output."
     )
 
 
-def chat_prompt(*, resumed: bool) -> str:
+def chat_prompt(
+    *,
+    resumed: bool,
+    review_linked: bool = False,
+    revision_requested: bool = False,
+) -> str:
     refresh = ""
     if resumed:
         refresh = (
             "Workspace files were refreshed after your previous turn. Re-read the required "
             "files before answering; do not rely on remembered file contents.\n"
         )
-    return f"{_COMMON}\n{refresh}Answer the latest user message in the required structure."
+    revision_policy = ""
+    if review_linked:
+        if revision_requested:
+            revision_policy = (
+                "The athlete explicitly authorized a correction to current-review.md. "
+                "Set review_revision only if the new information changes its content, "
+                "outcome, confidence, or refs.\n"
+            )
+        else:
+            revision_policy = (
+                "This is ordinary discussion of current-review.md. review_revision must "
+                "be null; explanations and questions cannot change the review.\n"
+            )
+    return (
+        f"{_COMMON}\n{refresh}{revision_policy}"
+        "Answer the latest user message in the required structure."
+    )
 
 
 def distill_prompt() -> str:

@@ -39,11 +39,8 @@ class FakeJobs:
     def __init__(self) -> None:
         self.calls = 0
 
-    def reconcile_pending(self):
-        self.calls += 1
-        return []
-
     def reconcile_idle_threads(self):
+        self.calls += 1
         return []
 
 
@@ -123,21 +120,18 @@ def test_worker_survives_unexpected_handler_failure():
     assert failed == ["one"]
 
 
-def test_worker_survives_claim_and_reconcile_failures():
-    """A locked-database error from reconcile or claim must not kill the loop."""
+def test_worker_survives_claim_and_maintenance_failures():
+    """A locked-database error from maintenance or claim must not kill the loop."""
     handled: list[str] = []
 
     class FlakyJobs:
         def __init__(self) -> None:
             self.calls = 0
 
-        def reconcile_pending(self):
+        def reconcile_idle_threads(self):
             self.calls += 1
             if self.calls == 1:
                 raise RuntimeError("database is locked")
-            return []
-
-        def reconcile_idle_threads(self):
             return []
 
     class FlakyRepo:
@@ -166,7 +160,7 @@ def test_worker_survives_claim_and_reconcile_failures():
             jobs=FlakyJobs(),  # type: ignore[arg-type]
             broadcast=lambda event, data: asyncio.sleep(0),
             poll_interval_s=0.01,
-            reconcile_interval_s=0,
+            maintenance_interval_s=0,
         )
         task = asyncio.create_task(worker.run())
         while len(handled) < 1:
@@ -178,20 +172,17 @@ def test_worker_survives_claim_and_reconcile_failures():
     assert handled == ["one"]
 
 
-def test_persistently_failing_reconcile_does_not_starve_job_claiming():
-    """A reconcile that always raises must not block claim_next_job forever."""
+def test_persistently_failing_maintenance_does_not_starve_job_claiming():
+    """Failing maintenance must not block claim_next_job forever."""
     handled: list[str] = []
 
     class AlwaysFailingJobs:
         def __init__(self) -> None:
             self.calls = 0
 
-        def reconcile_pending(self):
+        def reconcile_idle_threads(self):
             self.calls += 1
             raise RuntimeError("database is locked")
-
-        def reconcile_idle_threads(self):
-            raise AssertionError("should not be reached when reconcile_pending fails")
 
     class Handlers:
         async def execute(self, job):
@@ -207,7 +198,7 @@ def test_persistently_failing_reconcile_does_not_starve_job_claiming():
             jobs=AlwaysFailingJobs(),  # type: ignore[arg-type]
             broadcast=lambda event, data: asyncio.sleep(0),
             poll_interval_s=0.01,
-            reconcile_interval_s=0,
+            maintenance_interval_s=0,
         )
         task = asyncio.create_task(worker.run())
         try:

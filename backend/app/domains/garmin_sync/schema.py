@@ -23,10 +23,6 @@ CREATE TABLE IF NOT EXISTS hrv_data ({_DAY_COLS});
 CREATE TABLE IF NOT EXISTS skin_temp_data ({_DAY_COLS});
 CREATE TABLE IF NOT EXISTS daily_metrics ({_DAY_COLS});
 CREATE TABLE IF NOT EXISTS ingest_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS activity_sync_coverage (
-    date TEXT PRIMARY KEY,
-    covered_at TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS running_activity_sessions (
     id TEXT PRIMARY KEY,
     activity_id TEXT,

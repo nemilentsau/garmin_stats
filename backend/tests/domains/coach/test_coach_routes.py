@@ -74,7 +74,7 @@ def _complete_review(repo: SqliteCoachRepository):
 def coach_client(monkeypatch, tmp_path):
     repo = SqliteCoachRepository()
     gateway = cast(CoachReadGateway, FakeGateway())
-    jobs = CoachJobs(repo=repo, gateway=gateway, local_today=lambda: "2026-07-12")
+    jobs = CoachJobs(repo=repo, gateway=gateway)
     container = SimpleNamespace(
         config=SimpleNamespace(coach_worker_enabled=False),
         coach_repo=repo,
@@ -149,22 +149,24 @@ def test_failed_review_retry_and_conflict_for_nonfailed(coach_client):
     assert retried.json()["status"] == "queued"
 
 
-def test_complete_review_regenerates_and_noncomplete_conflicts(coach_client):
+def test_complete_review_opens_reusable_linked_conversation_and_lists_revisions(
+    coach_client,
+):
     client, repo = coach_client
-    review, job = _complete_review(repo)
-    queued = client.post("/api/coach/reviews/run", json={"run_id": "run-queued"}).json()
-    assert (
-        client.post(
-            f"/api/coach/reviews/{queued['review']['id']}/regenerate"
-        ).status_code
-        == 409
-    )
-    regenerated = client.post(f"/api/coach/reviews/{review.id}/regenerate")
+    review, _job = _complete_review(repo)
 
-    assert regenerated.status_code == 202
-    assert regenerated.json()["id"] == job.id
-    assert regenerated.json()["status"] == "queued"
-    assert regenerated.json()["attempt_count"] == 1
+    first = client.post(f"/api/coach/reviews/{review.id}/thread")
+    second = client.post(f"/api/coach/reviews/{review.id}/thread")
+    revisions = client.get(f"/api/coach/reviews/{review.id}/revisions")
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+    assert first.json()["review_id"] == review.id
+    assert revisions.status_code == 200
+    assert [item["version"] for item in revisions.json()["revisions"]] == [1]
+    assert client.post(f"/api/coach/reviews/{review.id}/regenerate").status_code == 404
+    assert client.post(f"/api/coach/threads/{first.json()['id']}/close").status_code == 409
 
 
 def test_thread_message_listing_close_and_closed_conflicts(coach_client):

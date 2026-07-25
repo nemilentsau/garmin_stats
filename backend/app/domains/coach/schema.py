@@ -17,10 +17,21 @@ CREATE TABLE IF NOT EXISTS coach_reviews (
 );
 CREATE TABLE IF NOT EXISTS coach_threads (
     id TEXT PRIMARY KEY,
+    review_id TEXT,
     status TEXT NOT NULL,
     last_activity_at TEXT NOT NULL,
     data TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS coach_review_revisions (
+    id TEXT PRIMARY KEY,
+    review_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    data TEXT NOT NULL,
+    UNIQUE(review_id, version)
+);
+CREATE INDEX IF NOT EXISTS idx_coach_review_revisions_review
+    ON coach_review_revisions(review_id, version);
 CREATE TABLE IF NOT EXISTS coach_messages (
     id TEXT PRIMARY KEY,
     thread_id TEXT NOT NULL,
@@ -56,21 +67,27 @@ CREATE TABLE IF NOT EXISTS coach_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_coach_jobs_claim
     ON coach_jobs(status, priority, created_at, available_at);
-CREATE TABLE IF NOT EXISTS coach_reconciliation_state (
-    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    activation_date TEXT NOT NULL,
-    initial_backfill_done INTEGER NOT NULL
-);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_reviews_run
     ON coach_reviews(run_id) WHERE kind = 'run';
-CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_reviews_skip
-    ON coach_reviews(date, occurrence_key) WHERE kind = 'skip';
 """
 
 
 def init_coach_schema(connection: sqlite3.Connection) -> None:
     """Create coach-owned tables and indexes in a caller-managed connection."""
     connection.executescript(_SCHEMA)
+    thread_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(coach_threads)")
+    }
+    if "review_id" not in thread_columns:
+        connection.execute("ALTER TABLE coach_threads ADD COLUMN review_id TEXT")
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_threads_review
+        ON coach_threads(review_id) WHERE review_id IS NOT NULL
+        """
+    )
+    connection.execute("DROP INDEX IF EXISTS idx_coach_reviews_skip")
+    connection.execute("DROP TABLE IF EXISTS coach_reconciliation_state")
     # `CoachReview` dropped the legacy `plots_viewed` field (superseded by persisted
     # `follow_up_questions`). Strict `extra="forbid"` validation would otherwise reject
     # any pre-existing row that still carries the key. Idempotent by construction: a

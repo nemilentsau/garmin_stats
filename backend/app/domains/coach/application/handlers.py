@@ -9,6 +9,7 @@ from pathlib import Path
 
 from app.domains.coach.adapters import (
     MeasurementAssessmentValidationError,
+    ReviewRevisionValidationError,
     SqliteCoachRepository,
 )
 from app.domains.coach.application.prompts import (
@@ -59,7 +60,6 @@ class CoachHandlers:
     async def execute(self, job: CoachJob) -> None:
         handlers = {
             "review_run": self._review,
-            "review_skip": self._review,
             "chat_turn": self._chat,
             "distill_thread": self._distill,
         }
@@ -189,7 +189,17 @@ class CoachHandlers:
             raise LookupError(f"Unknown coach thread: {thread_id}")
         transcript = await asyncio.to_thread(self.repo.messages_for, thread_id)
         resumed = thread.codex_session_id is not None
+        linked_review = (
+            None
+            if thread.review_id is None
+            else await asyncio.to_thread(self.repo.review, thread.review_id)
+        )
+        if thread.review_id is not None and linked_review is None:
+            raise LookupError(f"Unknown linked coach review: {thread.review_id}")
         directory = self.workspace_root / "threads" / thread_id
+        revision_requested = (
+            job.payload.get("review_revision_requested") is True
+        )
         manifest = await asyncio.to_thread(
             assemble_workspace,
             self.gateway,
@@ -197,17 +207,32 @@ class CoachHandlers:
             directory=directory,
             plot_cache_dir=self.plot_cache_dir,
             evidence_date=self.local_today(),
-            target_date=self.local_today(),
-            question_md=chat_prompt(resumed=resumed),
-            current_run_id=None,
+            target_date=(
+                self.local_today()
+                if linked_review is None
+                else linked_review.date
+            ),
+            question_md=chat_prompt(
+                resumed=resumed,
+                review_linked=linked_review is not None,
+                revision_requested=revision_requested,
+            ),
+            current_run_id=(
+                None if linked_review is None else linked_review.run_id
+            ),
             transcript=transcript,
+            linked_review_id=thread.review_id,
         )
         home = ensure_thread_codex_home(self.threads_dir, thread_id)
         result = await self.runner(
             kind=job.kind,
             job_id=job.id,
             attempt=job.attempt_count,
-            prompt=chat_prompt(resumed=resumed),
+            prompt=chat_prompt(
+                resumed=resumed,
+                review_linked=linked_review is not None,
+                revision_requested=revision_requested,
+            ),
             workspace=Path(manifest.directory),
             output_model=ChatOutput,
             images=[],
@@ -233,7 +258,10 @@ class CoachHandlers:
                 session_id=result.session_id,
                 finished_at=utc_now_iso(),
             )
-        except MeasurementAssessmentValidationError as error:
+        except (
+            MeasurementAssessmentValidationError,
+            ReviewRevisionValidationError,
+        ) as error:
             await asyncio.to_thread(
                 self.repo.fail_chat_output,
                 job_id=job.id,

@@ -13,7 +13,7 @@ def utc_now_iso() -> str:
 
 
 def local_today_iso() -> str:
-    """Local calendar day used for coach evidence and reconciliation dates."""
+    """Local calendar day used for Coach evidence dates."""
     return datetime.now().astimezone().date().isoformat()
 
 

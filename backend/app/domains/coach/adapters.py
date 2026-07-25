@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
@@ -20,14 +19,12 @@ from app.domains.coach.contracts import (
     CoachJob,
     CoachMeasurementAssessmentRecord,
     CoachMessage,
-    CoachReconciliationState,
     CoachReview,
+    CoachReviewRevision,
     CoachThread,
     DistillOutput,
-    InitialReviewCandidate,
     JobKind,
     JournalEntry,
-    ReviewKind,
     ReviewOutput,
     RunJournalSummary,
     safe_artifact_id,
@@ -38,13 +35,16 @@ from app.infra.sqlite import connect
 _PRIORITIES: dict[JobKind, int] = {
     "chat_turn": 0,
     "review_run": 10,
-    "review_skip": 10,
     "distill_thread": 30,
 }
 
 
 class MeasurementAssessmentValidationError(ValueError):
     """A model assessment does not match the durable job target/context."""
+
+
+class ReviewRevisionValidationError(ValueError):
+    """A model attempted to revise a review without durable user authorization."""
 
 
 def _new_id(prefix: str) -> str:
@@ -119,48 +119,16 @@ def _save_job(connection: sqlite3.Connection, job: CoachJob) -> None:
 def _create_review_job(
     connection: sqlite3.Connection,
     *,
-    kind: ReviewKind,
     date: str,
-    run_id: str | None,
+    run_id: str,
     occurrence_key: str | None,
-    card_name: str | None = None,
 ) -> tuple[CoachReview, CoachJob, bool]:
-    if kind == "run":
-        existing_row = connection.execute(
-            "SELECT data FROM coach_reviews WHERE kind = 'run' AND run_id = ?",
-            (run_id,),
-        ).fetchone()
-        dedupe_key = f"review:run:{run_id}"
-        job_kind: JobKind = "review_run"
-    else:
-        canonical_run_row = connection.execute(
-            """
-            SELECT data FROM coach_reviews
-            WHERE kind = 'run' AND date = ? AND occurrence_key = ?
-            ORDER BY updated_at DESC, id
-            LIMIT 1
-            """,
-            (date, occurrence_key),
-        ).fetchone()
-        if canonical_run_row is not None:
-            canonical_run = _review_from_row(canonical_run_row)
-            canonical_job_row = connection.execute(
-                "SELECT data FROM coach_jobs WHERE id = ?", (canonical_run.job_id,)
-            ).fetchone()
-            if canonical_job_row is None:
-                raise RuntimeError(
-                    f"Review {canonical_run.id} references missing job {canonical_run.job_id}"
-                )
-            return canonical_run, _job_from_row(canonical_job_row), False
-        existing_row = connection.execute(
-            """
-            SELECT data FROM coach_reviews
-            WHERE kind = 'skip' AND date = ? AND occurrence_key = ?
-            """,
-            (date, occurrence_key),
-        ).fetchone()
-        dedupe_key = f"review:skip:{date}:{occurrence_key}"
-        job_kind = "review_skip"
+    existing_row = connection.execute(
+        "SELECT data FROM coach_reviews WHERE kind = 'run' AND run_id = ?",
+        (run_id,),
+    ).fetchone()
+    dedupe_key = f"review:run:{run_id}"
+    job_kind: JobKind = "review_run"
     if existing_row is not None:
         review = _review_from_row(existing_row)
         job_row = connection.execute(
@@ -177,16 +145,13 @@ def _create_review_job(
         "review_id": review_id,
         "date": date,
     }
-    if run_id is not None:
-        payload["run_id"] = run_id
+    payload["run_id"] = run_id
     if occurrence_key is not None:
         payload["occurrence_key"] = occurrence_key
-    if card_name is not None:
-        payload["card_name"] = card_name
     review = CoachReview(
         id=review_id,
         date=date,
-        kind=kind,
+        kind="run",
         run_id=run_id,
         occurrence_key=occurrence_key,
         status="queued",
@@ -208,33 +173,6 @@ def _create_review_job(
     _save_review(connection, review)
     _save_job(connection, job)
     return review, job, True
-
-
-def _supersede_matching_skip(
-    connection: sqlite3.Connection,
-    *,
-    date: str,
-    occurrence_key: str | None,
-    canonical_review_id: str,
-) -> None:
-    if occurrence_key is None:
-        return
-    rows = connection.execute(
-        """
-        SELECT data FROM coach_reviews
-        WHERE kind = 'skip' AND date = ? AND occurrence_key = ?
-        """,
-        (date, occurrence_key),
-    ).fetchall()
-    for row in rows:
-        skip = _review_from_row(row)
-        if skip.superseded_by_review_id != canonical_review_id:
-            _save_review(
-                connection,
-                skip.model_copy(update={"superseded_by_review_id": canonical_review_id}),
-            )
-
-
 class SqliteCoachRepository:
     """Coach persistence adapter with transaction-owned queue invariants."""
 
@@ -249,36 +187,9 @@ class SqliteCoachRepository:
             connection.execute("BEGIN IMMEDIATE")
             result = _create_review_job(
                 connection,
-                kind="run",
                 date=date,
                 run_id=run_id,
                 occurrence_key=occurrence_key,
-            )
-            _supersede_matching_skip(
-                connection,
-                date=date,
-                occurrence_key=occurrence_key,
-                canonical_review_id=result[0].id,
-            )
-            connection.commit()
-        return result
-
-    def enqueue_skip_review(
-        self,
-        *,
-        date: str,
-        occurrence_key: str,
-        card_name: str,
-    ) -> tuple[CoachReview, CoachJob, bool]:
-        with connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            result = _create_review_job(
-                connection,
-                kind="skip",
-                date=date,
-                run_id=None,
-                occurrence_key=occurrence_key,
-                card_name=card_name,
             )
             connection.commit()
         return result
@@ -316,7 +227,6 @@ class SqliteCoachRepository:
                            'review' AS source_kind, data
                     FROM coach_reviews
                     WHERE status = 'complete'
-                      AND json_extract(data, '$.superseded_by_review_id') IS NULL
                       AND json_extract(data, '$.measurement_assessment.run_id') = ?
                       AND json_extract(
                           data, '$.measurement_assessment.occurrence_key'
@@ -379,9 +289,7 @@ class SqliteCoachRepository:
         to_date: str | None,
         limit: int,
     ) -> list[CoachReview]:
-        clauses: list[str] = [
-            "json_extract(data, '$.superseded_by_review_id') IS NULL"
-        ]
+        clauses: list[str] = ["kind = 'run'"]
         params: list[object] = []
         if from_date is not None:
             clauses.append("date >= ?")
@@ -472,6 +380,13 @@ class SqliteCoachRepository:
                 }
             )
             _save_review(connection, completed_review)
+            self._insert_review_revision(
+                connection,
+                review=completed_review,
+                version=1,
+                source_message_id=None,
+                created_at=finished_at,
+            )
             prior_rows = connection.execute(
                 """
                 SELECT data FROM coach_journal
@@ -520,16 +435,79 @@ class SqliteCoachRepository:
         with connect() as connection, connection:
             connection.execute(
                 """
-                INSERT INTO coach_threads (id, status, last_activity_at, data)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO coach_threads (id, review_id, status, last_activity_at, data)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     thread.id,
+                    thread.review_id,
                     thread.status,
                     thread.last_activity_at,
                     thread.model_dump_json(),
                 ),
             )
+
+    def get_or_create_review_thread(
+        self, review_id: str, *, created_at: str
+    ) -> tuple[CoachThread, bool]:
+        """Return the single durable conversation attached to a complete review."""
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            review_row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if review_row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(review_row)
+            if review.status != "complete":
+                raise ValueError("Only complete reviews can have conversations")
+            existing = connection.execute(
+                "SELECT data FROM coach_threads WHERE review_id = ?", (review_id,)
+            ).fetchone()
+            if existing is not None:
+                thread = _model_from_row(CoachThread, existing)
+                if thread.status != "open":
+                    thread = thread.model_copy(
+                        update={"status": "open", "last_activity_at": created_at}
+                    )
+                    connection.execute(
+                        """
+                        UPDATE coach_threads
+                        SET status = ?, last_activity_at = ?, data = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            thread.status,
+                            thread.last_activity_at,
+                            thread.model_dump_json(),
+                            thread.id,
+                        ),
+                    )
+                connection.commit()
+                return thread, False
+            thread = CoachThread(
+                id=_new_id("thread"),
+                title=f"Review · {review.date}",
+                status="open",
+                review_id=review_id,
+                created_at=created_at,
+                last_activity_at=created_at,
+            )
+            connection.execute(
+                """
+                INSERT INTO coach_threads (id, review_id, status, last_activity_at, data)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    thread.id,
+                    thread.review_id,
+                    thread.status,
+                    thread.last_activity_at,
+                    thread.model_dump_json(),
+                ),
+            )
+            connection.commit()
+        return thread, True
 
     def thread(self, thread_id: str) -> CoachThread | None:
         with connect() as connection:
@@ -541,19 +519,43 @@ class SqliteCoachRepository:
     def list_threads(self) -> list[CoachThread]:
         with connect() as connection:
             rows = connection.execute(
+                """
+                SELECT data FROM coach_threads
+                WHERE review_id IS NULL
+                ORDER BY last_activity_at DESC, id
+                """
+            ).fetchall()
+        return [_model_from_row(CoachThread, row) for row in rows]
+
+    def list_all_threads(self) -> list[CoachThread]:
+        with connect() as connection:
+            rows = connection.execute(
                 "SELECT data FROM coach_threads ORDER BY last_activity_at DESC, id"
             ).fetchall()
         return [_model_from_row(CoachThread, row) for row in rows]
+
+    def review_revisions(self, review_id: str) -> list[CoachReviewRevision]:
+        with connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT data FROM coach_review_revisions
+                WHERE review_id = ?
+                ORDER BY version
+                """,
+                (review_id,),
+            ).fetchall()
+        return [_model_from_row(CoachReviewRevision, row) for row in rows]
 
     def update_thread(self, thread: CoachThread) -> None:
         with connect() as connection, connection:
             result = connection.execute(
                 """
                 UPDATE coach_threads
-                SET status = ?, last_activity_at = ?, data = ?
+                SET review_id = ?, status = ?, last_activity_at = ?, data = ?
                 WHERE id = ?
                 """,
                 (
+                    thread.review_id,
                     thread.status,
                     thread.last_activity_at,
                     thread.model_dump_json(),
@@ -572,7 +574,13 @@ class SqliteCoachRepository:
         session_id: str | None,
         finished_at: str,
     ) -> CoachMessage:
-        self._validate_artifact_refs(output.refs)
+        revision_output = output.review_revision
+        self._validate_artifact_refs(
+            [
+                *output.refs,
+                *([] if revision_output is None else revision_output.refs),
+            ]
+        )
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             job = self._job_in_connection(connection, job_id)
@@ -603,6 +611,48 @@ class SqliteCoachRepository:
                 created_at=finished_at,
             )
             self._insert_message(connection, message)
+            if revision_output is not None:
+                if job.payload.get("review_revision_requested") is not True:
+                    raise ReviewRevisionValidationError(
+                        "Review revision requires an explicit correction request"
+                    )
+                if thread.review_id is None:
+                    raise ReviewRevisionValidationError(
+                        "Review revisions require a review-linked conversation"
+                    )
+                review_row = connection.execute(
+                    "SELECT data FROM coach_reviews WHERE id = ?", (thread.review_id,)
+                ).fetchone()
+                if review_row is None:
+                    raise LookupError(f"Unknown coach review: {thread.review_id}")
+                review = _review_from_row(review_row)
+                if review.status != "complete":
+                    raise ValueError("Only complete reviews can be revised")
+                version_row = connection.execute(
+                    """
+                    SELECT COALESCE(MAX(version), 0) AS version
+                    FROM coach_review_revisions WHERE review_id = ?
+                    """,
+                    (review.id,),
+                ).fetchone()
+                version = int(version_row["version"]) + 1
+                revised = review.model_copy(
+                    update={
+                        "content_md": revision_output.content_md,
+                        "outcome": revision_output.outcome,
+                        "confidence": revision_output.confidence,
+                        "refs": revision_output.refs,
+                        "updated_at": finished_at,
+                    }
+                )
+                _save_review(connection, revised)
+                self._insert_review_revision(
+                    connection,
+                    review=revised,
+                    version=version,
+                    source_message_id=message.id,
+                    created_at=finished_at,
+                )
             changed_thread = thread.model_copy(
                 update={
                     "codex_session_id": session_id or thread.codex_session_id,
@@ -751,6 +801,7 @@ class SqliteCoachRepository:
         *,
         thread_id: str,
         content_md: str,
+        review_revision_requested: bool = False,
     ) -> tuple[CoachMessage, CoachJob]:
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -762,6 +813,13 @@ class SqliteCoachRepository:
             thread = _model_from_row(CoachThread, thread_row)
             if thread.status != "open":
                 raise ValueError("Coach thread is not open")
+            if review_revision_requested and (
+                thread.review_id is None
+                or not content_md.lstrip().casefold().startswith("update the review:")
+            ):
+                raise ReviewRevisionValidationError(
+                    "Explicit review corrections must start with 'Update the review:'"
+                )
             now = utc_now_iso()
             message_id = _new_id("message")
             job_id = _new_id("job")
@@ -779,7 +837,11 @@ class SqliteCoachRepository:
                 dedupe_key=f"chat:{message_id}",
                 priority=_PRIORITIES["chat_turn"],
                 status="queued",
-                payload={"thread_id": thread_id, "user_message_id": message_id},
+                payload={
+                    "thread_id": thread_id,
+                    "user_message_id": message_id,
+                    "review_revision_requested": review_revision_requested,
+                },
                 available_at=now,
                 created_at=now,
                 updated_at=now,
@@ -967,45 +1029,6 @@ class SqliteCoachRepository:
             connection.commit()
         return retried
 
-    def regenerate_complete_review(
-        self, review_id: str, *, available_at: str
-    ) -> CoachJob:
-        """Requeue a completed review while preserving its attempt count and evidence."""
-        with connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
-            ).fetchone()
-            if row is None:
-                raise LookupError(f"Unknown coach review: {review_id}")
-            review = _review_from_row(row)
-            job = self._job_in_connection(connection, review.job_id)
-            if review.status != "complete" or job.status != "complete":
-                raise ValueError("Only complete reviews can be regenerated")
-            queued = job.model_copy(
-                update={
-                    "status": "queued",
-                    "available_at": available_at,
-                    "started_at": None,
-                    "finished_at": None,
-                    "error": None,
-                    "updated_at": available_at,
-                }
-            )
-            _save_job(connection, queued)
-            _save_review(
-                connection,
-                review.model_copy(
-                    update={
-                        "status": "queued",
-                        "error": None,
-                        "updated_at": available_at,
-                    }
-                ),
-            )
-            connection.commit()
-        return queued
-
     def recover_stale_jobs(
         self,
         *,
@@ -1157,78 +1180,46 @@ class SqliteCoachRepository:
             (brief.id, brief.created_at, brief.model_dump_json()),
         )
 
-    def enqueue_initial_backfill(
-        self,
+    @staticmethod
+    def _insert_review_revision(
+        connection: sqlite3.Connection,
         *,
-        activation_date: str,
-        candidates: list[InitialReviewCandidate],
-    ) -> tuple[list[CoachJob], bool]:
-        if len(candidates) > 3:
-            raise ValueError("Initial coach backfill is limited to three items")
-        self._validate_candidates(candidates)
-        ordered = sorted(
-            candidates,
-            key=lambda candidate: (
-                candidate.date,
-                candidate.kind,
-                candidate.run_id or candidate.occurrence_key or "",
+        review: CoachReview,
+        version: int,
+        source_message_id: str | None,
+        created_at: str,
+    ) -> None:
+        if (
+            review.content_md is None
+            or review.outcome is None
+            or review.confidence is None
+        ):
+            raise ValueError("A review revision requires completed review content")
+        revision = CoachReviewRevision(
+            id=_new_id("revision"),
+            review_id=review.id,
+            version=version,
+            content_md=review.content_md,
+            outcome=review.outcome,
+            confidence=review.confidence,
+            refs=review.refs,
+            source_message_id=source_message_id,
+            created_at=created_at,
+        )
+        connection.execute(
+            """
+            INSERT INTO coach_review_revisions
+                (id, review_id, version, created_at, data)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                revision.id,
+                revision.review_id,
+                revision.version,
+                revision.created_at,
+                revision.model_dump_json(),
             ),
         )
-        jobs: list[CoachJob] = []
-        with connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            state_row = connection.execute(
-                "SELECT 1 FROM coach_reconciliation_state WHERE singleton = 1"
-            ).fetchone()
-            if state_row is not None:
-                connection.commit()
-                return [], False
-            for candidate in ordered:
-                _, job, created = _create_review_job(
-                    connection,
-                    kind=candidate.kind,
-                    date=candidate.date,
-                    run_id=candidate.run_id,
-                    occurrence_key=candidate.occurrence_key,
-                    card_name=candidate.card_name,
-                )
-                if created:
-                    jobs.append(job)
-            connection.execute(
-                """
-                INSERT INTO coach_reconciliation_state
-                    (singleton, activation_date, initial_backfill_done)
-                VALUES (1, ?, 1)
-                """,
-                (activation_date,),
-            )
-            connection.commit()
-        return jobs, True
-
-    def reconciliation_state(self) -> CoachReconciliationState | None:
-        with connect() as connection:
-            row = connection.execute(
-                """
-                SELECT activation_date, initial_backfill_done
-                FROM coach_reconciliation_state WHERE singleton = 1
-                """
-            ).fetchone()
-        if row is None:
-            return None
-        return CoachReconciliationState(
-            activation_date=row["activation_date"],
-            initial_backfill_done=bool(row["initial_backfill_done"]),
-        )
-
-    @staticmethod
-    def _validate_candidates(candidates: Iterable[InitialReviewCandidate]) -> None:
-        for candidate in candidates:
-            if candidate.kind == "run" and candidate.run_id is None:
-                raise ValueError("Run backfill candidate requires run_id")
-            if candidate.kind == "skip" and (
-                candidate.occurrence_key is None or candidate.card_name is None
-            ):
-                raise ValueError("Skip backfill candidate requires occurrence_key and card_name")
 
     @staticmethod
     def _job_in_connection(connection: sqlite3.Connection, job_id: str) -> CoachJob:
