@@ -107,10 +107,15 @@ is normalized to that day's start in canonical UTC before comparison with stored
 instants. Training uses this historical view only to freeze authored backup decisions;
 ordinary card display still reads the current latest exact assessment.
 
-A review assessment is ordered by the instant the review *first* completed, held in the
-immutable `completed_at` column, not by the `updated_at` that every later revision moves.
-Revising a review therefore never carries its assessment across a past day's cutoff, so
-already-derived backup decisions and their saved logs stay put.
+A review assessment is ordered by the instant its *current* status first appeared, held in
+the `assessment_effective_at` column, not by the `updated_at` that every later revision
+moves. That instant is the review's first completion for as long as the assessment's status
+is unchanged since then. A revision that changes the status — adding an assessment to a
+review that had none, or flipping e.g. failed to valid — moves the instant to that revision,
+because the fact it dates is genuinely new; leaving it at first completion would retroactively
+re-derive an already-made backup decision. A revision that only rewords the rationale, with
+the status unchanged, never moves it, so already-derived backup decisions and their saved
+logs stay put.
 
 Training asks for an assessment only for the run currently associated with the exact
 runtime occurrence. Detaching the run, linking a different run, or activating a different

@@ -506,7 +506,13 @@ def test_fractional_offset_assessment_sorts_after_legacy_whole_second():
     assert record.source_id == message.id
 
 
-def _revise_review(repo: SqliteCoachRepository, review_id: str, *, finished_at: str) -> None:
+def _revise_review(
+    repo: SqliteCoachRepository,
+    review_id: str,
+    *,
+    finished_at: str,
+    assessment: CoachMeasurementAssessment | None = None,
+) -> None:
     thread, _ = repo.get_or_create_review_thread(review_id, created_at=COMPLETED_AT)
     _, correction = repo.enqueue_chat_message(
         thread_id=thread.id,
@@ -530,7 +536,9 @@ def _revise_review(repo: SqliteCoachRepository, review_id: str, *, finished_at: 
                 follow_up_questions=[],
                 plot_observations=[],
                 history_used=[],
-                measurement_assessment=_assessment(status="valid"),
+                measurement_assessment=(
+                    _assessment(status="valid") if assessment is None else assessment
+                ),
             ),
         ),
         session_id=None,
@@ -561,6 +569,106 @@ def test_review_revision_keeps_the_assessment_at_its_first_completion_instant():
     assert before_revision is not None
     assert before_revision.created_at == COMPLETED_AT
     assert after_revision == before_revision
+
+
+def test_review_revision_that_adds_a_missing_assessment_takes_effect_at_the_revision_instant():
+    """A revision that supplies a first assessment must not backdate to first completion.
+
+    Backdating it would retroactively re-derive an already-activated backup day and
+    orphan its log, since training resolves history against per-day cutoffs.
+    """
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(None),
+        finished_at=COMPLETED_AT,
+    )
+    at_cutoff_before_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+
+    _revise_review(
+        repo, review.id, finished_at=REVISED_AT, assessment=_assessment(status="valid")
+    )
+
+    at_cutoff_after_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+    at_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before="2026-07-21T10:00:00.500000Z"
+    )
+
+    assert at_cutoff_before_revision is None
+    assert at_cutoff_after_revision is None
+    assert at_revision is not None
+    assert at_revision.created_at == REVISED_AT
+    assert at_revision.assessment.status == "valid"
+
+
+def test_review_revision_that_changes_assessment_status_does_not_backdate_to_first_completion():
+    """failed -> valid must take effect at the revision instant, not first completion."""
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(_assessment(status="failed")),
+        finished_at=COMPLETED_AT,
+    )
+    at_cutoff_before_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+    assert at_cutoff_before_revision is not None
+    assert at_cutoff_before_revision.assessment.status == "failed"
+
+    _revise_review(
+        repo, review.id, finished_at=REVISED_AT, assessment=_assessment(status="valid")
+    )
+
+    at_cutoff_after_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+    at_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before="2026-07-21T10:00:00.500000Z"
+    )
+
+    assert at_cutoff_after_revision is None
+    assert at_revision is not None
+    assert at_revision.created_at == REVISED_AT
+    assert at_revision.assessment.status == "valid"
+
+
+def test_review_revision_with_only_a_reworded_rationale_does_not_move_the_effective_instant():
+    """Regression guard: the original bug moved the instant on any revision at all,
+    including one that only reworded the rationale without changing the status."""
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(_assessment(status="valid")),
+        finished_at=COMPLETED_AT,
+    )
+    before_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+
+    reworded = _assessment(status="valid").model_copy(
+        update={"rationale": "Restated for the added heat context; same conclusion."}
+    )
+    _revise_review(repo, review.id, finished_at=REVISED_AT, assessment=reworded)
+
+    after_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+
+    assert before_revision is not None
+    assert before_revision.created_at == COMPLETED_AT
+    assert after_revision is not None
+    assert after_revision.created_at == COMPLETED_AT
+    assert after_revision.assessment.rationale == reworded.rationale
 
 
 def test_equal_review_and_message_instants_use_source_id_tie_break(monkeypatch):

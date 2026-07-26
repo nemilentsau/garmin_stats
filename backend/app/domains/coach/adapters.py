@@ -73,23 +73,39 @@ def _lifecycle_instant(value: str) -> datetime:
 
 
 def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
-    """Write a review row, freezing `completed_at` at its first completion.
+    """Write a review row, freezing `assessment_effective_at` at the instant
+    the review's *current* measurement-assessment status first appeared.
 
-    `updated_at` moves with every revision. `completed_at` must not: measurement
-    history re-derives each past attempt day against that day's cutoff, so a
-    moving instant would retroactively rewrite decisions already made.
+    `updated_at` moves with every revision; `assessment_effective_at` must not,
+    except when the thing it dates actually changed: measurement history
+    re-derives each past attempt day against that day's cutoff, so a moving
+    instant would retroactively rewrite decisions already made. But a revision
+    that adds a missing assessment, or flips its status (e.g. failed -> valid),
+    introduces a genuinely new fact that must take effect at the revision
+    instant, not retroactively at first completion -- otherwise it could
+    silently deactivate an already-activated backup day.
+    Comparison is by assessment *status* only, not the whole record: a
+    rationale-only reword does not change what happened, so it must not move
+    the instant (that mismatch was the original bug this column exists to fix).
     """
     stored = connection.execute(
-        "SELECT completed_at FROM coach_reviews WHERE id = ?", (review.id,)
+        "SELECT assessment_effective_at, data FROM coach_reviews WHERE id = ?",
+        (review.id,),
     ).fetchone()
-    completed_at = None if stored is None else stored["completed_at"]
-    if completed_at is None and review.status == "complete":
-        completed_at = review.updated_at
+    assessment_effective_at = None if stored is None else stored["assessment_effective_at"]
+    prior_assessment = None if stored is None else _review_from_row(stored).measurement_assessment
+    prior_status = None if prior_assessment is None else prior_assessment.status
+    current_assessment = review.measurement_assessment
+    current_status = None if current_assessment is None else current_assessment.status
+    if review.status == "complete" and (
+        assessment_effective_at is None or current_status != prior_status
+    ):
+        assessment_effective_at = review.updated_at
     connection.execute(
         """
         INSERT OR REPLACE INTO coach_reviews
             (id, date, kind, run_id, occurrence_key, status, updated_at,
-             completed_at, data)
+             assessment_effective_at, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
@@ -100,7 +116,7 @@ def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
             review.occurrence_key,
             review.status,
             review.updated_at,
-            completed_at,
+            assessment_effective_at,
             review.model_dump_json(),
         ),
     )
@@ -238,7 +254,7 @@ class SqliteCoachRepository:
                 """
                 SELECT source_id, created_at, source_kind, data FROM (
                     SELECT id AS source_id,
-                           COALESCE(completed_at, updated_at) AS created_at,
+                           COALESCE(assessment_effective_at, updated_at) AS created_at,
                            'review' AS source_kind, data
                     FROM coach_reviews
                     WHERE status = 'complete'
