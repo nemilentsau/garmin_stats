@@ -630,6 +630,59 @@ def test_retry_rejects_complete_or_running_job():
     with pytest.raises(ValueError, match="failed"):
         repository.retry_failed_job(running_job.id, available_at=NOW)
 
+def test_manual_retry_restores_the_full_attempt_budget():
+    repository = SqliteCoachRepository()
+    _, job, _ = repository.enqueue_run_review(
+        run_id="run-1", date="2026-07-10", occurrence_key=None
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    assert claimed.attempt_count == 1
+    repository.fail_job(job.id, error="invalid output", finished_at=NOW)
+
+    retried = repository.retry_failed_job(job.id, available_at=LATER)
+
+    assert retried.attempt_count == 0
+    reclaimed = repository.claim_next_job(LATER)
+    assert reclaimed is not None
+    assert reclaimed.attempt_count == 1
+
+
+def _closing_thread_distill_job(repository: SqliteCoachRepository):
+    repository.insert_thread(_thread())
+    repository.mark_thread_closing("thread-1", updated_at=NOW)
+    job = repository.enqueue_distill(thread_id="thread-1")
+    assert repository.claim_next_job("9999-01-01T00:00:00Z") is not None
+    return job
+
+
+def test_stale_distill_job_at_attempt_limit_fails_the_owning_thread():
+    repository = SqliteCoachRepository()
+    job = _closing_thread_distill_job(repository)
+
+    changed = repository.recover_stale_jobs(cutoff="9999-01-01T00:00:00Z", max_attempts=1)
+
+    assert [item.status for item in changed] == ["failed"]
+    thread = repository.thread("thread-1")
+    assert thread is not None
+    assert thread.status == "close_failed"
+    failed_job = repository.failed_distill_job("thread-1")
+    assert failed_job is not None
+    assert failed_job.id == job.id
+
+
+def test_stale_distill_job_below_attempt_limit_keeps_the_thread_closing():
+    repository = SqliteCoachRepository()
+    _closing_thread_distill_job(repository)
+
+    changed = repository.recover_stale_jobs(cutoff="9999-01-01T00:00:00Z", max_attempts=3)
+
+    assert [item.status for item in changed] == ["queued"]
+    thread = repository.thread("thread-1")
+    assert thread is not None
+    assert thread.status == "closing"
+
+
 def test_stale_running_job_below_attempt_limit_requeues():
     repository = SqliteCoachRepository()
     _, job, _ = repository.enqueue_run_review(
