@@ -1,7 +1,9 @@
 """Tests for parser extractor edge cases."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 from app.domains.garmin_health.contracts import (
     DayData,
@@ -14,7 +16,8 @@ from app.domains.garmin_health.contracts import (
     SkinTempOvernight,
     SleepLevel,
 )
-from app.domains.garmin_health.infra.fit_parser.days import _parse_day
+from app.domains.garmin_health.infra.fit_parser.days import _parse_day, parse_day
+from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
 from app.domains.garmin_health.infra.fit_parser.extractors import (
     _extract_hrv,
     _extract_wellness,
@@ -22,8 +25,9 @@ from app.domains.garmin_health.infra.fit_parser.extractors import (
 from app.domains.garmin_health.infra.fit_parser.files import get_files_by_day
 from app.domains.garmin_health.infra.fit_parser.timestamps import (
     _GARMIN_EPOCH_UNIX,
-    _extract_utc_offset_hours,
-    _shift_timestamps,
+    UtcOffsetTimeline,
+    _extract_utc_offset_breakpoints,
+    _shift_overnight_to_local,
 )
 
 
@@ -51,6 +55,51 @@ class TestExtractorZeroValues:
         }
         day = _extract_hrv(messages, "2026-01-15")
         assert [r.value for r in day.hrv_values] == [0]
+
+
+class _FakeDecoder:
+    """Stand-in for the SDK decoder, which returns errors instead of raising."""
+
+    def __init__(self, result: tuple[dict, list]) -> None:
+        self._result = result
+
+    def __call__(self, _stream: object) -> _FakeDecoder:
+        return self
+
+    def read(self) -> tuple[dict, list]:
+        return self._result
+
+
+def _stub_decoder(monkeypatch, messages: dict, errors: list) -> None:
+    monkeypatch.setattr(
+        "app.domains.garmin_health.infra.fit_parser.decode.Stream",
+        type("_Stream", (), {"from_file": staticmethod(lambda path: path)}),
+    )
+    monkeypatch.setattr(
+        "app.domains.garmin_health.infra.fit_parser.decode.Decoder",
+        _FakeDecoder((messages, errors)),
+    )
+
+
+class TestDecodeFitFile:
+    """The SDK never raises: it returns whatever it managed to decode plus errors."""
+
+    def test_returns_messages_when_the_sdk_reports_no_errors(self, monkeypatch, tmp_path: Path):
+        _stub_decoder(monkeypatch, {"monitoring_mesgs": [{"heart_rate": 60}]}, [])
+
+        assert decode_fit_file(tmp_path / "a.fit") == {"monitoring_mesgs": [{"heart_rate": 60}]}
+
+    def test_raises_naming_the_file_and_errors_when_the_sdk_reports_errors(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """Partial messages from a truncated file must never reach a caller."""
+        _stub_decoder(monkeypatch, {"monitoring_mesgs": [{"heart_rate": 60}]}, [ValueError("CRC")])
+        fit_file = tmp_path / "truncated.fit"
+
+        with pytest.raises(ValueError, match="truncated.fit") as excinfo:
+            decode_fit_file(fit_file)
+
+        assert "CRC" in str(excinfo.value)
 
 
 class TestParseDayMerge:
@@ -135,90 +184,363 @@ def _make_monitoring_info(utc_dt: datetime, offset_hours: float) -> dict:
     return {"timestamp": utc_dt, "local_timestamp": local_garmin}
 
 
-class TestExtractUtcOffset:
+class TestExtractUtcOffsetBreakpoints:
     def test_positive_offset_extracted(self):
         """NZ +13 offset is correctly extracted."""
         utc = datetime(2026, 1, 15, 3, 0, 0, tzinfo=UTC)
         messages = {"monitoring_info_mesgs": [_make_monitoring_info(utc, 13.0)]}
-        assert _extract_utc_offset_hours(messages) == 13.0
+        assert _extract_utc_offset_breakpoints(messages) == [(utc, 13.0)]
 
     def test_negative_offset_extracted(self):
         """NYC -5 offset is correctly extracted."""
         utc = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
         messages = {"monitoring_info_mesgs": [_make_monitoring_info(utc, -5.0)]}
-        assert _extract_utc_offset_hours(messages) == -5.0
+        assert _extract_utc_offset_breakpoints(messages) == [(utc, -5.0)]
 
-    def test_returns_none_when_no_monitoring_info(self):
+    def test_every_monitoring_info_becomes_a_breakpoint(self):
+        """One file can span an offset change, so all of its infos are kept."""
+        before = datetime(2026, 3, 8, 15, 6, 0, tzinfo=UTC)
+        after = datetime(2026, 3, 8, 15, 49, 0, tzinfo=UTC)
+        messages = {
+            "monitoring_info_mesgs": [
+                _make_monitoring_info(before, -5.0),
+                _make_monitoring_info(after, -4.0),
+            ]
+        }
+        assert _extract_utc_offset_breakpoints(messages) == [(before, -5.0), (after, -4.0)]
+
+    def test_incomplete_monitoring_info_is_ignored(self):
+        utc = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
+        messages = {
+            "monitoring_info_mesgs": [
+                {"timestamp": utc, "local_timestamp": None},
+                {"timestamp": None, "local_timestamp": 1130343473},
+                {"timestamp": "not-a-datetime", "local_timestamp": 1130343473},
+            ]
+        }
+        assert _extract_utc_offset_breakpoints(messages) == []
+
+    def test_returns_empty_when_no_monitoring_info(self):
         messages: dict[str, list[dict[str, object]]] = {"monitoring_info_mesgs": []}
-        assert _extract_utc_offset_hours(messages) is None
+        assert _extract_utc_offset_breakpoints(messages) == []
 
-    def test_returns_none_when_key_missing(self):
-        assert _extract_utc_offset_hours({}) is None
+    def test_returns_empty_when_key_missing(self):
+        assert _extract_utc_offset_breakpoints({}) == []
+
+
+class TestUtcOffsetTimeline:
+    """Offset resolution across a span that changes offset partway through."""
+
+    EARLY = datetime(2026, 3, 8, 10, 0, 0, tzinfo=UTC)
+    LATE = datetime(2026, 3, 8, 15, 49, 0, tzinfo=UTC)
+
+    def _timeline(self) -> UtcOffsetTimeline:
+        return UtcOffsetTimeline([(self.LATE, -4.0), (self.EARLY, -5.0)])
+
+    def test_moment_before_first_breakpoint_uses_earliest_offset(self):
+        assert self._timeline().offset_at(self.EARLY - timedelta(hours=1)) == -5.0
+
+    def test_moment_between_breakpoints_uses_earlier_offset(self):
+        assert self._timeline().offset_at(self.LATE - timedelta(seconds=1)) == -5.0
+
+    def test_moment_exactly_at_breakpoint_uses_new_offset(self):
+        assert self._timeline().offset_at(self.LATE) == -4.0
+
+    def test_moment_after_last_breakpoint_uses_last_offset(self):
+        assert self._timeline().offset_at(self.LATE + timedelta(hours=6)) == -4.0
+
+    def test_final_offset_is_the_chronologically_last_offset(self):
+        assert self._timeline().final_offset == -4.0
+
+    def test_empty_timeline_resolves_to_none(self):
+        empty = UtcOffsetTimeline([])
+        assert empty.offset_at(self.EARLY) is None
+        assert empty.final_offset is None
+        assert not empty
 
 
 # ---------------------------------------------------------------------------
 # Timestamp shifting
 # ---------------------------------------------------------------------------
 
-class TestShiftTimestamps:
-    def test_shifts_all_reading_types(self):
-        """All timestamp fields across wellness, sleep, hrv, skin_temp are shifted."""
-        ts = "2026-01-15T00:00:00+00:00"
-        day = DayData(
+def _overnight_day(ts: str | None) -> DayData:
+    """A DayData whose sleep/hrv/skin-temp readings share one UTC timestamp."""
+    return DayData(
+        date="2026-01-15",
+        wellness=DayWellness(
             date="2026-01-15",
-            wellness=DayWellness(
-                date="2026-01-15",
-                heart_rate=[HeartRateReading(timestamp=ts, value=70)],
-            ),
-            sleep=DaySleep(
-                date="2026-01-15",
-                sleep_levels=[SleepLevel(date="2026-01-15", timestamp=ts, level="deep")],
-            ),
-            hrv=DayHrv(
-                date="2026-01-15",
-                hrv_values=[HrvValue(date="2026-01-15", timestamp=ts, value=50.0)],
-            ),
-            skin_temp=DaySkinTemp(
-                date="2026-01-15",
-                skin_temp_overnight=[SkinTempOvernight(date="2026-01-15", timestamp=ts)],
-            ),
-        )
-        _shift_timestamps(day, 13.0)
+            heart_rate=[HeartRateReading(timestamp=ts, value=70)],
+        ),
+        sleep=DaySleep(
+            date="2026-01-15",
+            sleep_levels=[SleepLevel(date="2026-01-15", timestamp=ts, level="deep")],
+        ),
+        hrv=DayHrv(
+            date="2026-01-15",
+            hrv_values=[HrvValue(date="2026-01-15", timestamp=ts, value=50.0)],
+        ),
+        skin_temp=DaySkinTemp(
+            date="2026-01-15",
+            skin_temp_overnight=[SkinTempOvernight(date="2026-01-15", timestamp=ts)],
+        ),
+    )
+
+
+class TestShiftOvernightReadings:
+    def test_shifts_sleep_hrv_and_skin_temp_but_not_wellness(self):
+        """Wellness is already shifted per source file, so this pass must skip it."""
+        ts = "2026-01-15T00:00:00+00:00"
+        day = _overnight_day(ts)
+        timeline = UtcOffsetTimeline([(datetime(2026, 1, 14, tzinfo=UTC), 13.0)])
+
+        _shift_overnight_to_local(day, timeline)
 
         expected = "2026-01-15T13:00:00"
-        assert day.wellness.heart_rate[0].timestamp == expected
         assert day.sleep.sleep_levels[0].timestamp == expected
         assert day.hrv.hrv_values[0].timestamp == expected
         assert day.skin_temp.skin_temp_overnight[0].timestamp == expected
+        assert day.wellness.heart_rate[0].timestamp == ts
 
     def test_negative_offset_shifts_backwards(self):
-        ts = "2026-01-15T03:00:00+00:00"
+        day = _overnight_day("2026-01-15T03:00:00+00:00")
+        timeline = UtcOffsetTimeline([(datetime(2026, 1, 14, tzinfo=UTC), -5.0)])
+
+        _shift_overnight_to_local(day, timeline)
+
+        assert day.sleep.sleep_levels[0].timestamp == "2026-01-14T22:00:00"
+
+    def test_readings_resolve_against_their_own_instant(self):
+        """An overnight reading after the change carries the post-change offset."""
         day = DayData(
-            date="2026-01-15",
-            wellness=DayWellness(
-                date="2026-01-15",
-                heart_rate=[HeartRateReading(timestamp=ts, value=60)],
+            date="2026-03-08",
+            wellness=DayWellness(date="2026-03-08"),
+            sleep=DaySleep(
+                date="2026-03-08",
+                sleep_levels=[
+                    SleepLevel(
+                        date="2026-03-08", timestamp="2026-03-08T06:00:00+00:00", level="deep"
+                    ),
+                    SleepLevel(
+                        date="2026-03-08", timestamp="2026-03-08T20:00:00+00:00", level="awake"
+                    ),
+                ],
             ),
-            sleep=DaySleep(date="2026-01-15"),
-            hrv=DayHrv(date="2026-01-15"),
-            skin_temp=DaySkinTemp(date="2026-01-15"),
+            hrv=DayHrv(date="2026-03-08"),
+            skin_temp=DaySkinTemp(date="2026-03-08"),
         )
-        _shift_timestamps(day, -5.0)
-        assert day.wellness.heart_rate[0].timestamp == "2026-01-14T22:00:00"
+        timeline = UtcOffsetTimeline([
+            (datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0),
+            (datetime(2026, 3, 8, 15, 49, tzinfo=UTC), -4.0),
+        ])
+
+        _shift_overnight_to_local(day, timeline)
+
+        assert [level.timestamp for level in day.sleep.sleep_levels] == [
+            "2026-03-08T01:00:00",
+            "2026-03-08T16:00:00",
+        ]
 
     def test_none_timestamps_preserved(self):
-        day = DayData(
-            date="2026-01-15",
-            wellness=DayWellness(
-                date="2026-01-15",
-                heart_rate=[HeartRateReading(timestamp=None, value=60)],
-            ),
-            sleep=DaySleep(date="2026-01-15"),
-            hrv=DayHrv(date="2026-01-15"),
-            skin_temp=DaySkinTemp(date="2026-01-15"),
+        day = _overnight_day(None)
+        timeline = UtcOffsetTimeline([(datetime(2026, 1, 14, tzinfo=UTC), 5.0)])
+
+        _shift_overnight_to_local(day, timeline)
+
+        assert day.sleep.sleep_levels[0].timestamp is None
+
+    def test_empty_timeline_leaves_timestamps_untouched(self):
+        ts = "2026-01-15T03:00:00+00:00"
+        day = _overnight_day(ts)
+
+        _shift_overnight_to_local(day, UtcOffsetTimeline([]))
+
+        assert day.sleep.sleep_levels[0].timestamp == ts
+
+
+def _wellness_messages(
+    readings: list[tuple[datetime, int]],
+    infos: list[tuple[datetime, float]],
+) -> dict:
+    """Decoded-WELLNESS shape: HR readings plus monitoring_info offset markers."""
+    return {
+        "monitoring_mesgs": [
+            {"timestamp": utc, "heart_rate": value} for utc, value in readings
+        ],
+        "monitoring_info_mesgs": [_make_monitoring_info(utc, off) for utc, off in infos],
+    }
+
+
+class TestWellnessDayLocalTime:
+    """Each WELLNESS file is shifted with the offsets it declares itself.
+
+    Real days do change offset partway through — DST rollover and travel — and
+    a single file can straddle the change, so a day cannot be reduced to one
+    offset without misplacing readings by whole hours.
+    """
+
+    DATE = "2026-03-08"
+
+    def _parse(self, monkeypatch, tmp_path: Path, files: dict[str, dict]) -> DayData:
+        paths = []
+        for name in files:
+            path = tmp_path / name
+            path.write_text("", encoding="ascii")
+            paths.append(path)
+        monkeypatch.setattr(
+            "app.domains.garmin_health.infra.fit_parser.days.decode_fit_file",
+            lambda path: files[path.name],
         )
-        _shift_timestamps(day, 5.0)
-        assert day.wellness.heart_rate[0].timestamp is None
+        return parse_day(self.DATE, {"WELLNESS": paths})
+
+    def test_each_file_shifts_with_its_own_offset(self, monkeypatch, tmp_path: Path):
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 12, 0, tzinfo=UTC), 60)],
+                [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)],
+            ),
+            "b_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 23, 30, tzinfo=UTC), 61)],
+                [(datetime(2026, 3, 8, 23, 6, tzinfo=UTC), -4.0)],
+            ),
+        })
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == [
+            "2026-03-08T07:00:00",
+            "2026-03-08T19:30:00",
+        ]
+
+    def test_day_offset_is_the_one_in_effect_at_the_end_of_the_day(
+        self, monkeypatch, tmp_path: Path
+    ):
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [], [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)]
+            ),
+            "b_WELLNESS.fit": _wellness_messages(
+                [], [(datetime(2026, 3, 8, 23, 6, tzinfo=UTC), -4.0)]
+            ),
+        })
+
+        assert day.utc_offset_hours == -4.0
+
+    def test_offset_change_inside_one_file_splits_that_files_readings(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """The real 2026-03-08 archive changes offset mid-file at 15:49 UTC."""
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [
+                    (datetime(2026, 3, 8, 15, 10, tzinfo=UTC), 60),
+                    (datetime(2026, 3, 8, 16, 0, tzinfo=UTC), 61),
+                ],
+                [
+                    (datetime(2026, 3, 8, 15, 6, tzinfo=UTC), -5.0),
+                    (datetime(2026, 3, 8, 15, 49, tzinfo=UTC), -4.0),
+                ],
+            ),
+        })
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == [
+            "2026-03-08T10:10:00",
+            "2026-03-08T12:00:00",
+        ]
+
+    def test_overlapping_files_that_disagree_each_keep_their_own_offset(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """Two same-span files with different offsets must not cross-contaminate."""
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 6, 29, 23, 0, tzinfo=UTC), 60)],
+                [(datetime(2026, 6, 29, 20, 25, tzinfo=UTC), -4.0)],
+            ),
+            "b_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 6, 29, 23, 0, tzinfo=UTC), 61)],
+                [(datetime(2026, 6, 29, 22, 35, tzinfo=UTC), -5.0)],
+            ),
+        })
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == [
+            "2026-06-29T19:00:00",
+            "2026-06-29T18:00:00",
+        ]
+
+    def test_file_without_monitoring_info_falls_back_to_the_day_offset(
+        self, monkeypatch, tmp_path: Path
+    ):
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [], [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)]
+            ),
+            "b_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 20, 0, tzinfo=UTC), 60)], []
+            ),
+        })
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == ["2026-03-08T15:00:00"]
+
+    def test_uniform_day_shifts_every_reading_by_the_same_offset(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """The common case: all files agree, so nothing about the day changes."""
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 6, 0, tzinfo=UTC), 60)],
+                [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)],
+            ),
+            "b_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 22, 0, tzinfo=UTC), 61)],
+                [(datetime(2026, 3, 8, 15, 0, tzinfo=UTC), -5.0)],
+            ),
+        })
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == [
+            "2026-03-08T01:00:00",
+            "2026-03-08T17:00:00",
+        ]
+        assert day.utc_offset_hours == -5.0
+
+    def test_unreadable_file_contributes_nothing_and_later_files_still_merge(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """A corrupt file is skipped whole; no half-decoded readings leak into the day."""
+        good = _wellness_messages(
+            [(datetime(2026, 3, 8, 12, 0, tzinfo=UTC), 60)],
+            [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)],
+        )
+        paths = []
+        for name in ("a_WELLNESS.fit", "b_WELLNESS.fit"):
+            path = tmp_path / name
+            path.write_text("", encoding="ascii")
+            paths.append(path)
+
+        def decode(path: Path) -> dict:
+            if path.name == "a_WELLNESS.fit":
+                raise ValueError("decode errors in a_WELLNESS.fit")
+            return good
+
+        monkeypatch.setattr(
+            "app.domains.garmin_health.infra.fit_parser.days.decode_fit_file", decode
+        )
+
+        day = parse_day(self.DATE, {"WELLNESS": paths})
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == ["2026-03-08T07:00:00"]
+        assert day.utc_offset_hours == -5.0
+
+    def test_day_without_any_monitoring_info_keeps_utc_timestamps(
+        self, monkeypatch, tmp_path: Path
+    ):
+        day = self._parse(monkeypatch, tmp_path, {
+            "a_WELLNESS.fit": _wellness_messages(
+                [(datetime(2026, 3, 8, 6, 0, tzinfo=UTC), 60)], []
+            ),
+        })
+
+        assert day.utc_offset_hours is None
+        assert [r.timestamp for r in day.wellness.heart_rate] == [
+            "2026-03-08T06:00:00+00:00"
+        ]
 
 
 class TestDayDirectoryDiscovery:

@@ -86,8 +86,11 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
             else:
                 failed += 1
 
-        deps.extract_archives(deps.data_dir)
-        unique_dates = sorted(set(affected_dates))
+        # Extraction also refreshes archives replaced outside the app, which the
+        # download loop knows nothing about. Ingesting that union keeps the
+        # whole-tree fingerprint stamped below truthful.
+        extracted_dates = deps.extract_archives(deps.data_dir)
+        unique_dates = sorted(set(affected_dates) | set(extracted_dates))
         ingest_result = deps.ingest.ingest_dates(deps.data_dir, unique_dates)
         deps.mark_watcher_synced()
     finally:

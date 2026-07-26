@@ -89,7 +89,9 @@ Each schema file documents:
 
 5. **Stress uses a non-standard timestamp field.** Stress messages use `stress_level_time`, not `timestamp`.
 
-6. **Filtering rules:**
+6. **The SDK never raises on a corrupt file.** `Decoder.read()` wraps its decode loop in try/except and returns `(messages, errors)` — a truncated or CRC-broken file comes back as a thin but otherwise ordinary message dict. `decode_fit_file` raises `ValueError` when that error list is non-empty, so a corrupt file is all-or-nothing; the wellness day parser skips such a file with a warning, and activity parsing fails the file.
+
+7. **Filtering rules:**
    - HR: `heart_rate > 0` (zero = no reading)
    - Stress: `stress_level_value >= 0` (negative = invalid: -1 unknown, -2 calculating)
    - Respiration: `respiration_rate > 0` (negative = invalid: -300 invalid, -200 motion, -100 off-wrist)
@@ -108,7 +110,7 @@ def parse_X(data_dir: Path, date: str | None = None) -> list[DayX]:
     # Return Garmin health contract rows
 ```
 
-`parse_day()` composes `DayData` and applies the per-day UTC offset through `_shift_timestamps()`. New timestamp fields must be added there before they are considered display-safe.
+`parse_day()` (in `days.py`) composes `DayData` from per-metric parses and shifts every reading to local time through a `UtcOffsetTimeline` (`timestamps.py`), not a single per-day offset. `_parse_wellness_day_with_offset()` decodes each WELLNESS file, pulls its own `monitoring_info` markers via `_extract_utc_offset_breakpoints()`, and shifts that file's readings against its own timeline in `_shift_wellness_to_local()` — a file with no markers of its own falls back to the day-wide timeline built from the union of every WELLNESS file's breakpoints. SLEEP/HRV/SKIN_TEMP files carry no `monitoring_info` at all, so their overnight readings always ride that same day-wide timeline via `_shift_overnight_to_local()`. New timestamp fields must be registered in one of the field tuples in `timestamps.py` before they are considered display-safe.
 
 ## When Adding New Metrics
 

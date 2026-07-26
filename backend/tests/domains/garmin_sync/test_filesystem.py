@@ -3,6 +3,7 @@
 import os
 import zipfile
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -37,6 +38,32 @@ class TestFingerprint:
         fp = compute_data_fingerprint(missing)
         assert isinstance(fp, str)
         assert len(fp) == 64
+
+    def test_file_that_vanishes_between_listing_and_stat_is_skipped(
+        self, tmp_path, monkeypatch
+    ):
+        """Extraction replaces whole day directories under the watcher, so a
+        listed FIT file can be gone by the time it is stat'd."""
+        data_dir = tmp_path / "data"
+        day_dir = data_dir / "2026-01-15"
+        day_dir.mkdir(parents=True)
+        (day_dir / "001_WELLNESS.fit").write_bytes(b"AAAA")
+        doomed = day_dir / "002_WELLNESS.fit"
+        doomed.write_bytes(b"BBBB")
+
+        real_stat = Path.stat
+
+        def vanishing_stat(self, *args, **kwargs):
+            if self.name == "002_WELLNESS.fit":
+                raise FileNotFoundError(str(self))
+            return real_stat(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", vanishing_stat)
+        fp_during_race = compute_data_fingerprint(data_dir)
+        monkeypatch.undo()
+
+        doomed.unlink()
+        assert fp_during_race == compute_data_fingerprint(data_dir)
 
 
 class TestSafeExtract:
@@ -117,13 +144,27 @@ class TestSafeExtract:
 
         extracted = extract_existing_archives(data_dir)
 
-        assert extracted == 1
+        assert extracted == ["2026-01-15"]
         assert (data_dir / "2026-01-15" / "nested" / "file.fit").exists()
         assert (data_dir / "2026-01-15" / _ARCHIVE_STAMP_NAME).exists()
 
         extracted_again = extract_existing_archives(data_dir)
 
-        assert extracted_again == 0
+        assert extracted_again == []
+
+    def test_extract_existing_archives_omits_dates_it_could_not_extract(self, tmp_path):
+        """A corrupt archive must not be reported as extracted; sync would then
+        stamp a whole-tree fingerprint over a date it never re-ingested."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        (data_dir / "2026-01-15.zip").write_bytes(b"not-a-zip")
+        good_zip = data_dir / "2026-01-16.zip"
+        with zipfile.ZipFile(good_zip, "w") as zf:
+            zf.writestr("nested/file.fit", "ok")
+
+        extracted = extract_existing_archives(data_dir)
+
+        assert extracted == ["2026-01-16"]
 
     def test_existing_matching_output_bootstraps_archive_stamp_without_reextracting(self, tmp_path):
         data_dir = tmp_path / "data"
@@ -139,7 +180,7 @@ class TestSafeExtract:
 
         extracted = extract_existing_archives(data_dir)
 
-        assert extracted == 0
+        assert extracted == []
         assert (data_dir / "2026-01-15" / _ARCHIVE_STAMP_NAME).exists()
 
     def test_changed_archive_reextracts_when_existing_output_does_not_match(self, tmp_path):
@@ -156,7 +197,7 @@ class TestSafeExtract:
 
         extracted = extract_existing_archives(data_dir)
 
-        assert extracted == 1
+        assert extracted == ["2026-01-15"]
         assert (
             data_dir / "2026-01-15" / "nested" / "file.fit"
         ).read_text(encoding="ascii") == "updated"
@@ -176,7 +217,7 @@ class TestSafeExtract:
 
         extracted = extract_existing_archives(data_dir)
 
-        assert extracted == 1
+        assert extracted == ["2026-01-15"]
         assert (
             data_dir / "2026-01-15" / "nested" / "file.fit"
         ).read_text(encoding="ascii") == "BBBBBBBBBB"

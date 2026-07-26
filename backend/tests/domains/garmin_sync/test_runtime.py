@@ -4,6 +4,7 @@ Startup owns archive reconciliation and full ingest decisions, but it should not
 touch Garmin download clients, file-store mutation, or watcher state callbacks.
 """
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
@@ -71,7 +72,7 @@ def _make_deps(
     *,
     data_dir: Path,
     ingest: _FakeIngest,
-    extract_archives,
+    extract_archives: Callable[[Path], list[str]],
 ) -> GarminSyncDependencies:
     return GarminSyncDependencies(
         data_dir=data_dir,
@@ -103,7 +104,7 @@ class TestStartupIngest:
         deps = _make_deps(
             data_dir=data_dir,
             ingest=ingest,
-            extract_archives=lambda _data_dir: 0,
+            extract_archives=lambda _data_dir: [],
         )
         refreshes: list[str] = []
         deps = replace(
@@ -130,7 +131,7 @@ class TestStartupIngest:
         def fake_extract_existing_archives(_data_dir):
             assert _data_dir == data_dir
             order.append("extract")
-            return 3
+            return ["2026-03-13", "2026-03-14", "2026-03-15"]
 
         deps = _make_deps(
             data_dir=data_dir,
@@ -160,7 +161,7 @@ class TestStartupIngest:
         deps = _make_deps(
             data_dir=data_dir,
             ingest=ingest,
-            extract_archives=lambda _data_dir: 0,
+            extract_archives=lambda _data_dir: [],
         )
 
         runtime_mod.run_startup_ingest_if_needed(deps)
@@ -216,7 +217,7 @@ class TestStartupIngest:
 
         def fake_extract_existing_archives(_data_dir):
             order.append("extract")
-            return 0
+            return []
 
         deps = _make_deps(
             data_dir=data_dir,
@@ -252,7 +253,7 @@ class TestStartupIngest:
         deps = _make_deps(
             data_dir=data_dir,
             ingest=ingest,
-            extract_archives=lambda _data_dir: 0,
+            extract_archives=lambda _data_dir: [],
         )
 
         runtime_mod.run_startup_ingest_if_needed(deps)

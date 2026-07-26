@@ -20,7 +20,9 @@ from app.domains.garmin_sync.infra.filesystem import compute_data_fingerprint
 
 log = logging.getLogger(__name__)
 
-ArchiveBatchExtractor = Callable[[list[Path]], None]
+# The extractor reports which archives it managed to extract; the watcher
+# re-fingerprints the tree instead, so it ignores the return value.
+ArchiveBatchExtractor = Callable[[list[Path]], object]
 Broadcast = Callable[[str, str], Awaitable[None]]
 ChangeBatch = Collection[tuple[Change, str]]
 EnsureDataDir = Callable[[Path], None]
@@ -126,3 +128,8 @@ class DataDirectoryWatcher:
             await self._broadcast("data_updated", "new_data")
         except RuntimeError:
             log.info("Ingest already in progress; skipping")
+        except Exception:
+            # One bad batch must not end the watch loop: the task would stay dead
+            # until process restart, silently stopping every later auto-ingest.
+            # The fingerprint is left behind so the next change retries this one.
+            log.exception("Auto-ingest failed; watcher continues")
