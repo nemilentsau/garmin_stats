@@ -1577,6 +1577,8 @@ export interface components {
              */
             history_used: components["schemas"]["HistoricalEvidenceUse"][];
             measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
+            /** Superseded By Review Id */
+            superseded_by_review_id: string | null;
             /** Job Id */
             job_id: string;
             /** Error */

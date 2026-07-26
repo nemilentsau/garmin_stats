@@ -279,5 +279,11 @@ On `/today`, the existing completion checkmark submits feedback for a run whose 
 state came only from its associated tracked activity; no additional submit control is
 rendered.
 
+The `/coach` page is a two-tab workspace. **Reviews** combines a review-history rail with
+the selected review's report, persisted plot evidence, questions, and the collapsed Coach
+brief. **Conversation** combines a general-thread rail with the selected transcript and its
+pinned composer. The selected tab is reflected in `?tab=`; a `?review=<id>` deep link always
+opens **Reviews** with that review selected.
+
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

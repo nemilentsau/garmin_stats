@@ -13,7 +13,7 @@ configuration, and commands live in `docs/reference/data-and-ingest.md`.
 - Wellness archive extraction, source fingerprinting, affected-date decisions, ingest status, manual ingest, and watcher suspension/resume.
 - The tracked-activity filesystem store, JSON sidecars, readable filenames, and activity-id download idempotence.
 - Fingerprint-gated running-activity ingest and per-file failure isolation.
-- SQLite persistence/schema for raw Garmin day data, derived `daily_metrics`, ingest metadata, and running session/lap/series rows.
+- SQLite persistence/schema for raw Garmin day data, derived `daily_metrics`, ingest metadata, running session/lap/series rows, and durable proof that a local activity date received a complete Garmin Connect sweep.
 - Read-cache invalidation and event publication when owned persisted data changes.
 - Invocation of injected sync/watcher completion capabilities; bootstrap owns the cross-domain reaction policy.
 
@@ -52,5 +52,6 @@ configuration, and commands live in `docs/reference/data-and-ingest.md`.
 - `infra/garmin_connect.py` and `infra/activity_files.py` — Garmin Connect acquisition and tracked-activity filesystem storage.
 - `infra/filesystem.py`, `infra/watcher.py`, and `infra/runtime.py` — extraction/fingerprints, watcher state, and startup reconciliation.
 - `infra/sqlite_ingest.py` and `infra/activity_ingest.py` — wellness/running persistence and running ingest.
+- `infra/activity_coverage.py` — per-date complete/incomplete activity-sweep evidence consumed through an injected read boundary.
 - `infra/factory.py` — production dependency composition for this capability.
 - `schema.py` — owned SQLite DDL.

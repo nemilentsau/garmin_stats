@@ -57,7 +57,12 @@ After both wellness and running ingest succeed, manual Sync invokes an injected 
 
 The activity sweep also records durable coverage per local date. Coverage means the Garmin activity listing succeeded and every listed activity was already stored or was downloaded and stored successfully. Any listing, payload, download, or storage failure leaves that date uncovered; a later complete sweep marks it covered. Startup ingest does not create coverage because local files alone cannot prove Garmin Connect was checked.
 
-Coach may infer a missed scheduled run only for a covered past date. Startup and periodic reconciliation can therefore discover real ingested runs immediately without declaring an unsynced date skipped. If a late run appears after a skip was already recorded, the run review becomes canonical and the skip remains stored only as superseded audit evidence; it is omitted from review history and measurement-assessment reads.
+Coach may infer a missed scheduled run only for a covered past date. Reconciliation may
+recover a run review after explicit Today feedback was already submitted, but activity
+discovery alone never queues one. If a late run appears after a skip was already recorded,
+an explicit Today feedback submission or run-page review request makes the run review
+canonical. The skip remains stored only as superseded audit evidence and is omitted from
+review history and measurement-assessment reads.
 
 Watcher-driven successful wellness ingest invokes a separate bootstrap-composed reaction that refreshes active experiment analyses and, when `GARMIN_COACH_WORKER_ENABLED=true`, reconciles Coach review work. `garmin_sync` imports neither consumer.
 
