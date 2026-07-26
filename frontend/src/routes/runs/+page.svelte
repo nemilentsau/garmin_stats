@@ -1,11 +1,8 @@
-<svelte:head>
-	<title>Runs - Garmin Stats</title>
-</svelte:head>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type RunListItem } from '$lib/api';
-	import { startRealtimePage } from '$lib/realtime-page';
+	import { createLatestLoader } from '$lib/realtime-page';
+	import { createDataUpdateListener } from '$lib/sse';
 	import { errorMessage } from '$lib/utils';
 	import { parseIsoDate, fmtWeekdayDayMonth } from '$lib/date';
 	import {
@@ -23,33 +20,36 @@
 	let error: string | null = $state(null);
 	let fromDate = $state('');
 	let toDate = $state('');
+	const loadRuns = createLatestLoader({
+		onStart: (_requestedFrom: string, _requestedTo: string) => {
+			loading = true;
+			error = null;
+		},
+		load: (requestedFrom: string, requestedTo: string) =>
+			api.getRuns(requestedFrom || undefined, requestedTo || undefined),
+		onSuccess: (response) => {
+			runs = response.runs;
+			error = null;
+		},
+		onError: (cause) => {
+			error = errorMessage(cause);
+		},
+		onSettled: () => {
+			loading = false;
+		}
+	});
 
-	async function loadRuns() {
-		const res = await api.getRuns(fromDate || undefined, toDate || undefined);
-		runs = res.runs;
+	function refreshRuns(): Promise<void> {
+		return loadRuns(fromDate, toDate);
 	}
 
-	function setError(e: string | null) {
-		error = e;
-	}
-	function setLoading(v: boolean) {
-		loading = v;
-	}
-
-	onMount(() => startRealtimePage({ fetchData: loadRuns, setError, setLoading }));
+	onMount(() => {
+		void refreshRuns();
+		return createDataUpdateListener(refreshRuns);
+	});
 
 	function applyFilter(): void {
-		loading = true;
-		loadRuns()
-			.then(() => {
-				error = null;
-			})
-			.catch((e: unknown) => {
-				error = errorMessage(e);
-			})
-			.finally(() => {
-				loading = false;
-			});
+		void refreshRuns();
 	}
 
 	function clearFilter(): void {
@@ -62,6 +62,10 @@
 	   supplies every value below, including the already-derived pace field. Nothing here
 	   computes or aggregates. */
 </script>
+
+<svelte:head>
+	<title>Runs - Garmin Stats</title>
+</svelte:head>
 
 <div class="runs-page">
 	<div class="page-header">

@@ -29,7 +29,11 @@ def compute_data_fingerprint(data_dir: Path) -> str:
 
 
 def compute_activity_source_fingerprint(fit_file: Path, activities_dir: Path) -> str:
-    """Hash one activity FIT path plus FIT/optional-sidecar file metadata."""
+    """Versioned hash of one activity FIT plus optional-sidecar metadata.
+
+    The version is part of the persisted signature so changes to parser-owned
+    identity semantics can deliberately trigger one complete reingest.
+    """
     parts = [str(fit_file.relative_to(activities_dir))]
     for source in (fit_file, fit_file.with_suffix(".json")):
         if source.exists():
@@ -39,7 +43,7 @@ def compute_activity_source_fingerprint(fit_file: Path, activities_dir: Path) ->
             )
         else:
             parts.append(f"{source.suffix}:missing")
-    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+    return f"v2:{hashlib.sha256('\n'.join(parts).encode()).hexdigest()}"
 
 
 def compute_activity_tree_fingerprint(

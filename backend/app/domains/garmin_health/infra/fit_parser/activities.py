@@ -10,6 +10,7 @@ persistence belong to garmin_sync.
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from app.domains.garmin_health.contracts import RunningActivityData, RunningActivitySeries
@@ -21,6 +22,7 @@ from app.domains.garmin_health.infra.fit_parser.activity_extractors import (
 from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
 
 log = logging.getLogger(__name__)
+_GENERATED_PART_PATTERN = re.compile(r"_part\d+\.fit$")
 
 
 def _stamina_scalars(series: RunningActivitySeries) -> tuple[int | None, int | None, int | None]:
@@ -40,10 +42,19 @@ def _stamina_scalars(series: RunningActivitySeries) -> tuple[int | None, int | N
 
 
 def discover_running_activity_files(activities_dir: Path) -> list[Path]:
-    """All running FIT files across day directories, sorted by relative path."""
+    """Primary running FIT files across day directories, sorted by relative path.
+
+    Garmin ZIP payloads may contain ancillary FIT members stored with the
+    reserved ``_partN`` suffix. They belong to the primary activity bundle and
+    must not be parsed as independent sessions.
+    """
     if not activities_dir.exists():
         return []
-    return sorted(activities_dir.glob("*/*_running_*.fit"))
+    return sorted(
+        path
+        for path in activities_dir.glob("*/*_running_*.fit")
+        if _GENERATED_PART_PATTERN.search(path.name) is None
+    )
 
 
 def _load_sidecar(fit_path: Path) -> dict | None:

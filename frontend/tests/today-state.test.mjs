@@ -42,6 +42,12 @@ test('only the authored skip variant changes status', () => {
 	assert.equal(state.statusForVariant('reduced volume', 'partial'), 'partial');
 });
 
+test('mutations are allowed only for the selected date whose cards finished loading', () => {
+	assert.equal(state.loadedMutationDate('2026-07-15', '2026-07-15'), '2026-07-15');
+	assert.equal(state.loadedMutationDate('2026-07-16', '2026-07-15'), null);
+	assert.equal(state.loadedMutationDate('2026-07-16', null), null);
+});
+
 test('rapid optimistic writes serialize and roll back to the last confirmed status', async () => {
 	const events = [];
 	let current = 'completed';
