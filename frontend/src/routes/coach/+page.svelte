@@ -83,18 +83,23 @@
 
 	function selectTab(next: Tab): void {
 		tab = next;
-		const params = new URLSearchParams(page.url.searchParams);
+		// `page.url` is stale after a prior `replaceState` (SvelteKit 2.69 never reassigns it),
+		// so read the live address bar via `location` instead.
+		const params = new URLSearchParams(new URL(location.href).searchParams);
 		params.set('tab', next);
 		if (next === 'conversation') params.delete('review');
 		replaceState(`?${params.toString()}`, {});
 	}
 
 	function clearReviewParam(): void {
-		if (!page.url.searchParams.has('review')) return;
-		const params = new URLSearchParams(page.url.searchParams);
+		// See note in `selectTab`: `page.url` can be stale after `replaceState`, so this reads
+		// the live URL from `location` rather than trusting `page.url`.
+		const currentUrl = new URL(location.href);
+		if (!currentUrl.searchParams.has('review')) return;
+		const params = new URLSearchParams(currentUrl.searchParams);
 		params.delete('review');
 		const query = params.toString();
-		replaceState(query ? `?${query}` : page.url.pathname, {});
+		replaceState(query ? `?${query}` : currentUrl.pathname, {});
 	}
 
 	function reviewOutcome(review: CoachReview): string {
