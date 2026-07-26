@@ -1,4 +1,4 @@
-"""HTTP routes for v3 training import, Today/schedule views, and capture logs.
+"""HTTP routes for v3 package import, Today/schedule views, and capture logs.
 
 Routes bind FastAPI request/response metadata to the training application use
 cases (`application/imports.py`, `application/read_models.py`). They resolve
@@ -15,7 +15,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
-from app.domains.training.application.imports import ImportRequest, ImportResult, import_artifacts
+from app.domains.training.application.import_packages import (
+    ImportPackageRequest,
+    import_package,
+)
+from app.domains.training.application.imports import ImportResult
 from app.domains.training.application.read_models import (
     TrainingLogUpdateRequest,
     get_block_status,
@@ -36,9 +40,9 @@ _ScheduleStartDate = Annotated[Date, Query(description="Start date (YYYY-MM-DD)"
 
 
 @training_router.post("/import", response_model=ImportResult)
-def post_import(request: ImportRequest):
-    """Validate, lint, and single-shot activate an uploaded v3 artifact set."""
-    return import_artifacts(build_container().training_repo, request)
+def post_import(request: ImportPackageRequest):
+    """Decode, validate, lint, and atomically activate one authored ZIP package."""
+    return import_package(build_container().training_repo, request)
 
 
 @training_router.get("/today", response_model=TrainingTodayResponse)

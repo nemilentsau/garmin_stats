@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 
 import app.domains.training.routes as routes
 from app.bootstrap.app import create_app
+from app.domains.training.application.import_packages import ImportPackageRequest
+from app.domains.training.application.imports import ImportResult
 from app.domains.training.application.read_models import TrainingLogUpdateRequest
 from app.domains.training.contracts import (
     TrainingCardLog,
@@ -22,6 +24,49 @@ class _CoachJobsSpy:
 
     def enqueue_submitted_run_feedback(self, date: str, occurrence_key: str) -> None:
         self.submissions.append((date, occurrence_key))
+
+
+def test_import_route_delegates_one_package_to_training_application(monkeypatch):
+    repo = object()
+    package = ImportPackageRequest(
+        filename="training.zip",
+        content_base64="UEs=",
+        warning_acks=[],
+    )
+    expected = ImportResult()
+    captured: dict[str, object] = {}
+
+    def fake_import_package(training_repo, request):
+        captured.update(repo=training_repo, request=request)
+        return expected
+
+    monkeypatch.setattr(routes, "import_package", fake_import_package, raising=False)
+    monkeypatch.setattr(
+        routes,
+        "build_container",
+        lambda: SimpleNamespace(training_repo=repo),
+    )
+
+    response = routes.post_import(package)
+
+    assert response is expected
+    assert captured == {"repo": repo, "request": package}
+
+
+def test_import_route_returns_readable_400_for_invalid_zip():
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/training/import",
+        json={
+            "filename": "training.zip",
+            "content_base64": "bm90IGEgemlw",
+            "warning_acks": [],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Training package must be a valid ZIP archive"}
 
 
 def test_today_route_propagates_run_and_assessment_ports(monkeypatch):

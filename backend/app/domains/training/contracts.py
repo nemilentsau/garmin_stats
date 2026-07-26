@@ -1,6 +1,6 @@
 """Training-domain wire, persistence, and read-model contracts.
 
-The strict v3 models parse the six-file import set documented in
+The strict v3 models parse the six-artifact import set documented in
 ``docs/training/artifact-schema-v3.md``. Uploaded block, bundle, registry,
 and exercise-library JSON is stored verbatim; these models validate the wire
 shape but never translate or re-author it. Authored programs live under
