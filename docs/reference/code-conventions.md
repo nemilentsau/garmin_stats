@@ -8,14 +8,13 @@ Cross-cutting structural and documentation conventions. CLAUDE.md links here rat
 
 A helper belongs in `app/utils/` only when **all three** rules hold:
 
-1. **Primitive-only signatures.** Inputs and outputs are language types (numbers, strings, datetimes, sequences, mappings) — never domain models like `DayData`, `DailyMetric`, `RoutineCard`, or `ExperimentExposure`.
-2. **No domain vocabulary in names.** Function and type names use generic terms (`safe_avg`, `percentile_rank`, `ScalarSummary`, `now_utc`). Names like `normalize_hrv_status`, `compute_hr_zones`, `classify_recovery` are domain-bound even when small, and stay in their owning domain.
+1. **Primitive-only signatures.** Inputs and outputs are language types (numbers, strings, datetimes, sequences, mappings) — never domain models like `DayData`, `DailyMetric`, or `ExperimentExposure`.
+2. **No domain vocabulary in names.** Function and type names use generic terms (`safe_avg`, `safe_percentile`, `ScalarSummary`, `now_iso`). Names like `normalize_hrv_status`, `compute_hr_zones`, `classify_recovery` are domain-bound even when small, and stay in their owning domain.
 3. **Two or more consumers already need it.** Don't promote on speculation. A helper used by exactly one domain stays in that domain. Promote on the second real consumer, in the same PR that introduces it.
 
 Counter-examples (these belong in a domain, not `app/utils/`):
 - `compute_daily_heart_rate(wellness: DayWellness)` — takes a domain type. → `garmin_health/domain/daily_metrics/`.
 - `prior_7d_avg(...)` — encodes a period-window concept specific to analytics. → `garmin_analytics/domain/primitives/trends.py`.
-- `format_routine_card_label(card)` — single consumer + domain type. → `routines/`.
 
 Forbidden in `app/utils/`:
 - Imports from `app.domains.*`, `app.infra.*`, `app.routers.*`, or `app.bootstrap.*`. Allowed dependencies are stdlib and numpy.
@@ -51,7 +50,7 @@ Each domain's Owns / Does-not-own / May-import / Must-not-import contract lives 
 
 The display-only rule bars statistical computation client-side, but a narrow class of **client-side order statistics** is in-bounds when it exists purely to calibrate how already-backend-computed values are *drawn* — never to produce a value that is itself displayed as data:
 
-- `tightScale` (`frontend/src/lib/chart-scale.ts`) — takes the min/max (an order statistic) of the chart's own already-backend-computed data points to set tight axis bounds instead of overshooting to round bounds (`feedback_chart_axis_hug_data.md`), then places gridline ticks at round (half-integer) values inside those bounds. The min/max themselves are never rendered; the ticks that are rendered are round grid positions chosen from the range, not a statistic *of* the underlying signal (not a mean, percentile, or smoothed value).
+- `tightScale` (`frontend/src/lib/chart-scale.ts`) — takes the min/max (an order statistic) of the chart's own already-backend-computed data points to set tight axis bounds instead of overshooting to round bounds (axes should hug the data, not round outward), then places gridline ticks at round (half-integer) values inside those bounds. The min/max themselves are never rendered; the ticks that are rendered are round grid positions chosen from the range, not a statistic *of* the underlying signal (not a mean, percentile, or smoothed value).
 - Map color quantiles (`frontend/src/lib/components/RunRouteMap.svelte`) — bins a route's already-backend-computed pace values into 5 quantile bins of that run's own pace distribution to pick a line color per segment. The quantile edges are never displayed as numbers; they only decide which of 5 fixed colors a segment gets.
 
 Both compute order statistics (min/max, quantile edges) over values the backend already produced, and neither statistic is itself surfaced as a displayed number, label, or derived metric — both are consumed only by rendering code (an SVG viewBox/gridline position, a polyline color). A helper crosses back into forbidden territory the moment its computed statistic could be read as a displayed value (e.g. an on-chart annotation of the computed percentile) rather than purely steering how existing values are drawn.

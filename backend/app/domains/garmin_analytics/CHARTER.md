@@ -29,7 +29,6 @@ Strength sessions are not yet parsed; their retained implementation contract is
 ## Does not own
 - Archive acquisition (owned by `garmin_sync`).
 - Parser timestamp normalization (owned by `garmin_health`).
-- Routine execution.
 - Canonical daily metric composition (owned by `garmin_health`).
 - Experiment exposure derivation.
 - Coach runtime behavior.
@@ -46,7 +45,7 @@ Strength sessions are not yet parsed; their retained implementation contract is
   boundary.)
 
 ## Must not import
-- Garmin sync, routines, experiments, coach, artifacts, journal.
+- Garmin sync, experiments, coach, journal.
 - FastAPI from application (non-route) modules.
 - SQLite helpers from application (non-adapter) modules.
 
@@ -87,9 +86,14 @@ Application files are named by concern:
   averaged daily summaries).
 - `domain/analysis/` — chart/trend analysis calculations.
 - `domain/insights/` — selected-day insight calculations.
-- `domain/primitives/` — generic numeric/window/timestamp/trend helpers.
+- `domain/primitives/` — generic window/timestamp/trend helpers (no numeric
+  module; numeric helpers live in `app.utils.numeric`).
 - `domain/recovery_score/` — normalization, weighting, smoothing, thresholds,
   flags, regimes, evidence (each pure, unit-tested).
 - `domain/dashboard.py` — maps recovery score onto `DashboardOverviewResponse`.
+- `domain/run_display.py` — display-only chart projections (zone folding,
+  transition-safe masking, elevation smoothing) for run series.
+- `domain/run_heart_rate.py` — backend-computed HR sample coverage,
+  quantiles, and histogram evidence for the run detail view.
 - `contracts/` — API/read-model contracts split by concern (`raw`, `period`,
-  `analysis`, `insights`, `dashboard`).
+  `analysis`, `insights`, `dashboard`, `runs`).

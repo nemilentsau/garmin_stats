@@ -21,6 +21,7 @@
 	import { COLORS, withAlpha, DARK_MUTED_TEXT } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import { tightScale } from '$lib/chart-scale';
+	import { zoneColor } from '$lib/zone-colors';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import ChartCanvas from '$lib/components/charts/ChartCanvas.svelte';
 	import ChartCard from '$lib/components/ChartCard.svelte';
@@ -721,12 +722,7 @@
 	});
 
 	// ── Power time-in-zone breakdown. Heart-rate zones live with the shared HR evidence. ──
-	const ZONE_COLORS = ['#5e7282', '#4A90D9', '#4CAF82', '#D4944C', '#E85D4A'];
 	type ZoneRow = RunDetail['display']['heart_rate_zones'][number];
-
-	function zoneColor(zone: number): string {
-		return ZONE_COLORS[zone - 1] ?? ZONE_COLORS[0];
-	}
 
 	let powerZoneRows = $derived.by<ZoneRow[]>(() => detail?.display.power_zones ?? []);
 </script>

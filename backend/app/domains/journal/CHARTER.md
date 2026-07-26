@@ -17,7 +17,6 @@ check-in caching.
 
 ## Does not own
 - Garmin metrics.
-- Routine execution.
 - Experiment definitions.
 - Coach runtime.
 - Analytics computations.
@@ -25,14 +24,16 @@ check-in caching.
 ## May import
 - Journal repository dependencies.
 - Journal-owned contracts.
+- `app.infra.cache` and `app.infra.jsonstore` at the persistence boundary
+  (`adapters.py`).
+- FastAPI and the bootstrap container from `routes.py` only.
+- `sqlite3` for owned DDL (`schema.py`).
 
 ## Must not import
 - Garmin sync.
 - Garmin analytics.
-- routines.
 - experiments.
 - coach.
-- artifacts.
 - FastAPI from application modules.
 - SQLite helpers from application modules.
 

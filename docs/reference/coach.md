@@ -243,16 +243,20 @@ original occurrence as `target_date` but uses execution-day recovery as `evidenc
 
 ## Codex isolation and runtime files
 
-Each attempt starts `codex exec` in a new process session with a read-only sandbox,
-strict structured-output schema, JSON events, and these isolation controls:
+Each attempt starts `codex exec` in a new process session with strict
+structured-output schema, JSON events, and these isolation controls. A
+read-only sandbox and a fresh workspace directory (`--sandbox read-only -C
+<workspace>`) are passed only on non-resumed sessions; a resumed chat turn
+reuses the already-sandboxed persistent session instead of re-declaring it:
 
 - clean `HOME` and auth-only `CODEX_HOME`, preserving only the existing local
   `auth.json` link;
 - a copied execution workspace under the system temporary root, outside the app
   repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
-- model pinned explicitly to `gpt-5.6-sol` with `xhigh` reasoning; lowering the
-  production reasoning effort requires a code change rather than a user-config override;
+- model defaults to `gpt-5.6-sol` with `xhigh` reasoning, overridable via the
+  `COACH_CODEX_MODEL` environment variable; lowering the production reasoning
+  effort requires a code change rather than a user-config override;
 - project documentation budget set to zero, preventing repo `AGENTS.md` and unrelated
   analytical skills from inflating or redirecting the coach call;
 - no fallback schema guessing or automatic model retry.

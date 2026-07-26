@@ -17,7 +17,7 @@ Experiment and training content enters the app only through import/upload of aut
 ## Project Layout
 
 - `backend/app/` — FastAPI application code.
-- `backend/tests/` — backend tests by ownership: architecture guards, bootstrap, infra, core, and domain slices.
+- `backend/tests/` — backend tests by ownership: architecture guards, bootstrap, contracts, infra, core, scripts, utils, and domain slices.
 - `frontend/src/` — SvelteKit application.
 - Local SQLite and Garmin data roots are runtime state, not repository source. Their exact defaults, environment overrides, and lifecycles live in `reference/data-and-ingest.md`.
 
@@ -37,12 +37,13 @@ Three paths:
 
 Dependency direction (the layering enforced by architecture tests):
 
-- `garmin_sync` ingest adapters → `garmin_health`, `app.utils`
-- `garmin_analytics` → `garmin_health`, `app.utils`
+- `garmin_sync` ingest adapters → `garmin_health`, `app.utils`, `app.core.config`, `app.parser`, `app.realtime.events`, `app.infra`
+- `garmin_analytics` → `garmin_health`, `app.utils`, `app.infra`, `app.contracts.base`
 - `experiments` → Garmin health and journal contracts plus injected analytics/journal read sources
-- `coach` → existing `garmin_analytics`, `training`, `journal`, and `garmin_health` read contracts through one gateway; it does not own estimator computation
+- `coach` → `garmin_analytics` and `training` application-layer use cases, plus `journal` contracts and dependencies, only through `read_gateway.py`; `garmin_analytics`, `garmin_health`, and `training` read *contracts* are also imported directly by a few other coach modules (`domain/context.py`, `application/workspace.py`, `infra/plots.py`) — application-layer access stays confined to the gateway, contracts do not. Coach does not own estimator computation.
 - `garmin_health` → `app.contracts.base`, `app.utils`
 - `app.utils` → stdlib and numpy only
+- **Sanctioned upward exception:** every domain's `routes.py` imports `app.bootstrap.container` to resolve injected dependencies (`coach/routes.py`, `training/routes.py`, `garmin_analytics/routes.py`, `garmin_sync/routes.py`, `experiments/routes.py`, `journal/routes.py`) — this is the one composition-root import allowed to go against the layering above.
 
 ### Core modules
 
@@ -82,7 +83,7 @@ Notes: `garmin_sync` is a data-acquisition capability, not a business domain. `c
 
 Slice boundary convention, `app/utils/` promotion rule, frontend conventions, and code-doc style: **`reference/code-conventions.md`**.
 
-Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` / `app.services.*` paths. Current strict-boundary slices: all domains above plus `core/profile`; transitional slices: none.
+Architecture tests guard route/service boundaries and prevent new imports of removed flat `app.routers.*` / `app.services.*` paths. Current strict-boundary slices: all domains above plus `core/profile`, except `coach`, which has no dedicated boundary test yet (`backend/tests/architecture/` has no `test_architecture_coach_boundaries.py`) — its cross-slice imports are instead allowlisted in `test_architecture_cross_slice_imports.py`, so they are guarded, not unchecked; transitional slices: none.
 
 ## Experiment Semantics
 
@@ -107,8 +108,10 @@ Data roots, ingest lifecycles, Garmin credentials, and path overrides live only 
 - [reference/routes.md](reference/routes.md) — generated route inventory.
 - [reference/code-conventions.md](reference/code-conventions.md) — cross-cutting code conventions.
 - [reference/coach.md](reference/coach.md) — coach evidence, memory, queue, runtime, and API behavior.
+- [reference/recovery-dashboard.md](reference/recovery-dashboard.md) — recovery score, bands/regimes, and health flags.
+- [reference/hrv.md](reference/hrv.md) — HRV trend vs. one-night detail surface.
 - `backend/app/domains/<domain>/CHARTER.md` — per-domain boundary contracts.
 - [README.md](../README.md) — product overview, setup, high-level data-flow narrative.
 - [future/strength-activities.md](future/strength-activities.md) — the retained unbuilt strength-session ingest contract.
 - [routine-pivot/](routine-pivot/) — training-system canon (principles, v3 schema, roadmap, frozen block0 exemplar, active block1).
-- [FINDINGS.md](../FINDINGS.md) — current dataset observations.
+- `FINDINGS.md` — current dataset observations; gitignored and local-only, not part of a fresh checkout (no repo link).

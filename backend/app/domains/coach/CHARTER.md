@@ -21,7 +21,7 @@
 
 - Garmin parsing, measurement observations/gates, deterministic estimators,
   training scheduling/prescriptions, or artifact import.
-- Authoritative run, recovery, routine, experiment, check-in, or note storage.
+- Authoritative run, recovery, experiment, check-in, or note storage.
 - Training-content creation, editing, activation, backup substitution, or
   estimator eligibility. Coach classifies evidence; it does not change the
   imported training content.
@@ -34,7 +34,8 @@
 
 ## Must not import
 
-- Retired assistant modules.
+- The retired `assistant` domain (deleted chat-thread/artifact tables and
+  routes; guarded by `tests/architecture/test_retired_assistant.py`).
 - FIT parser internals.
 - Other domains' persistence adapters outside the bootstrap-injected gateway.
 

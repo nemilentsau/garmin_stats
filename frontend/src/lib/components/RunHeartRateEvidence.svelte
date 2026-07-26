@@ -4,6 +4,7 @@
 	import { COLORS, DARK_MUTED_TEXT, withAlpha } from '$lib/colors';
 	import { chartTooltip, DARK_BORDER, DARK_GRID, DARK_GRID_Y, DARK_TICK } from '$lib/chart-setup';
 	import { fmtDuration } from '$lib/format-run';
+	import { zoneColor } from '$lib/zone-colors';
 	import ChartCanvas from '$lib/components/charts/ChartCanvas.svelte';
 
 	type Evidence = NonNullable<RunSeries['heart_rate_evidence']>;
@@ -17,12 +18,6 @@
 		heartRate: (number | null)[];
 		evidence: Evidence;
 	} = $props();
-
-	const ZONE_COLORS = ['#5e7282', '#4A90D9', '#4CAF82', '#D4944C', '#E85D4A'];
-
-	function zoneColor(zone: number): string {
-		return ZONE_COLORS[zone - 1] ?? ZONE_COLORS[0];
-	}
 
 	function fmtBpm(value: number): string {
 		return `${Math.round(value)} bpm`;

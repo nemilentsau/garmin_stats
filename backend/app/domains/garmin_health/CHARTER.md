@@ -35,11 +35,12 @@ and config paths: `docs/reference/data-and-ingest.md`.
 - `app.contracts.base`.
 - `app.utils`.
 - Its own contracts/domain modules.
+- Its own `infra/` (FIT parser) and `garmin_fit_sdk` at the decode boundary
+  (`infra/fit_parser/decode.py`).
 
 ## Must not import
-- Garmin sync, Garmin analytics, experiments, coach, routines, artifacts,
-  journal.
-- Infrastructure adapters.
+- Garmin sync, Garmin analytics, experiments, coach, journal.
+- Shared or other domains' infrastructure adapters (e.g. SQLite/cache).
 - FastAPI from application (non-route) modules.
 - SQLite helpers from application modules.
 

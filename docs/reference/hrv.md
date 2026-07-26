@@ -21,7 +21,7 @@ This boundary also applies to the weekday chart: the backend classifies each wee
 
 ## Backend ownership
 
-- `garmin_health/domain/daily_metrics/hrv.py` persists the nightly and weekly Garmin summaries and computes the nightly delta classification.
+- `garmin_health/domain/daily_metrics/hrv.py` computes (does not persist) the nightly and weekly Garmin summaries and the nightly delta classification; `garmin_sync` owns persisting the resulting `daily_metrics` rows.
 - `garmin_analytics/domain/analysis/hrv.py` owns the gap-aware nightly trend, moving average, trailing band, extremes, pattern windows, weekday states, and counts.
 - `garmin_analytics/domain/insights/hrv.py` owns latest/selected-night baseline comparisons and recovery insights.
 - `/api/hrv/daily`, `/api/hrv/analysis`, and `/api/hrv/insights` expose those values. The dashboard response supplies the compact cross-metric correlations shown at the bottom of the tab.
