@@ -9,7 +9,7 @@ every rule testable with synthetic dicts.
 """
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.domains.garmin_health.contracts import (
     RunningActivityLap,
@@ -18,6 +18,7 @@ from app.domains.garmin_health.contracts import (
     RunningTimeInZones,
     RunWalkSpan,
 )
+from app.domains.garmin_health.infra.fit_parser.timestamps import _GARMIN_EPOCH_UNIX
 
 _SEMICIRCLE_TO_DEG = 180 / 2**31
 _SIDE_CAR_TIME_FMT = "%Y-%m-%d %H:%M:%S"
@@ -41,6 +42,21 @@ def _pace_min_per_km(timer_s: float | None, distance_m: float | None) -> float |
     return round(timer_s / 60 / (distance_m / 1000), 2)
 
 
+def _local_wall_clock(local_ts: object) -> datetime | None:
+    """Read an activity_mesg ``local_timestamp`` as a naive local wall clock.
+
+    The SDK converts ``date_time`` fields to datetimes but leaves
+    ``local_date_time`` as a raw Garmin-epoch int, which is what every file in
+    the tree carries. The datetime branch is tolerance for a future SDK that
+    converts both.
+    """
+    if isinstance(local_ts, datetime):
+        return local_ts.replace(tzinfo=None)
+    if isinstance(local_ts, int):
+        return datetime.fromtimestamp(local_ts + _GARMIN_EPOCH_UNIX, tz=UTC).replace(tzinfo=None)
+    return None
+
+
 def _derive_utc_offset(sidecar: dict | None, messages: dict) -> float | None:
     """Per-activity UTC offset in hours; sidecar wins, FIT activity mesg is fallback."""
     if sidecar and sidecar.get("startTimeGMT") and sidecar.get("startTimeLocal"):
@@ -48,11 +64,11 @@ def _derive_utc_offset(sidecar: dict | None, messages: dict) -> float | None:
         local = datetime.strptime(sidecar["startTimeLocal"], _SIDE_CAR_TIME_FMT)
         return (local - gmt).total_seconds() / 3600
     for msg in messages.get("activity_mesgs", []):
-        ts, local_ts = msg.get("timestamp"), msg.get("local_timestamp")
-        if ts is not None and local_ts is not None:
-            naive_ts = ts.replace(tzinfo=None)
-            naive_local = local_ts.replace(tzinfo=None)
-            return (naive_local - naive_ts).total_seconds() / 3600
+        ts = msg.get("timestamp")
+        naive_local = _local_wall_clock(msg.get("local_timestamp"))
+        if ts is None or naive_local is None:
+            continue
+        return (naive_local - ts.replace(tzinfo=None)).total_seconds() / 3600
     return None
 
 

@@ -122,7 +122,23 @@ class TestUtcOffset:
     def test_offset_from_sidecar_gmt_vs_local(self):
         assert _derive_utc_offset(SIDECAR, {}) == -4.0
 
-    def test_offset_falls_back_to_activity_mesg_local_timestamp(self):
+    def test_offset_falls_back_to_garmin_epoch_int_local_timestamp(self):
+        """The SDK leaves local_date_time fields as raw Garmin-epoch ints.
+
+        Real pairing from 2025-06-01/174134_running_generic.fit.
+        """
+        messages = {
+            "activity_mesgs": [
+                {
+                    "timestamp": datetime(2025, 6, 1, 15, 41, 34, tzinfo=UTC),
+                    "local_timestamp": 1117734094,
+                }
+            ]
+        }
+        assert _derive_utc_offset(None, messages) == 2.0
+
+    def test_offset_falls_back_to_datetime_local_timestamp(self):
+        """Tolerated in case a future SDK converts local_date_time like date_time."""
         messages = {
             "activity_mesgs": [
                 {
@@ -132,6 +148,15 @@ class TestUtcOffset:
             ]
         }
         assert _derive_utc_offset(None, messages) == -4.0
+
+    def test_offset_skips_activity_mesgs_missing_either_timestamp(self):
+        messages = {
+            "activity_mesgs": [
+                {"timestamp": START, "local_timestamp": None},
+                {"timestamp": None, "local_timestamp": 1117734094},
+            ]
+        }
+        assert _derive_utc_offset(None, messages) is None
 
     def test_offset_none_when_no_source(self):
         assert _derive_utc_offset(None, {}) is None
