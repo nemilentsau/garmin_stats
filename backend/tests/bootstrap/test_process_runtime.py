@@ -7,8 +7,6 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
-import pytest
-
 import app.bootstrap.process_runtime as runtime_module
 from app.bootstrap.container import AppContainer
 from app.bootstrap.process_runtime import ProcessRuntime
@@ -41,7 +39,6 @@ def _container(*, enabled: bool):
     worker = BlockingLoop()
     watcher = FakeWatcher()
     recovered: list[tuple[str, int]] = []
-    reconciled: list[str] = []
     container = SimpleNamespace(
         config=SimpleNamespace(coach_worker_enabled=enabled),
         garmin_sync=object(),
@@ -52,17 +49,15 @@ def _container(*, enabled: bool):
                 (kwargs["cutoff"], kwargs["max_attempts"])
             )
         ),
-        coach_jobs=SimpleNamespace(
-            reconcile_pending=lambda: reconciled.append("pending") or [],
-        ),
+        coach_jobs=SimpleNamespace(),
         experiments_repo=object(),
         experiments_read_source=object(),
     )
-    return cast(AppContainer, container), worker, watcher, recovered, reconciled
+    return cast(AppContainer, container), worker, watcher, recovered
 
 
-def test_enabled_runtime_recovers_reconciles_starts_and_awaits_all_tasks(monkeypatch):
-    container, worker, watcher, recovered, reconciled = _container(enabled=True)
+def test_enabled_runtime_recovers_starts_and_awaits_all_tasks(monkeypatch):
+    container, worker, watcher, recovered = _container(enabled=True)
     heartbeat = BlockingLoop()
     monkeypatch.setattr(runtime_module, "run_startup_ingest_if_needed", lambda deps: None)
     monkeypatch.setattr(runtime_module, "heartbeat_loop", heartbeat.run)
@@ -89,14 +84,13 @@ def test_enabled_runtime_recovers_reconciles_starts_and_awaits_all_tasks(monkeyp
         f"Cutoff {cutoff_str} should be >= time before start {cutoff_time.isoformat()}; "
         "recovery window must cover jobs claimed immediately before restart"
     )
-    assert reconciled == ["pending"]
     assert worker.stopped.is_set()
     assert watcher.loop.stopped.is_set()
     assert heartbeat.stopped.is_set()
 
 
-def test_disabled_runtime_skips_coach_recovery_reconciliation_and_worker(monkeypatch):
-    container, worker, watcher, recovered, reconciled = _container(enabled=False)
+def test_disabled_runtime_skips_coach_recovery_and_worker(monkeypatch):
+    container, worker, watcher, recovered = _container(enabled=False)
     heartbeat = BlockingLoop()
     monkeypatch.setattr(runtime_module, "run_startup_ingest_if_needed", lambda deps: None)
     monkeypatch.setattr(runtime_module, "heartbeat_loop", heartbeat.run)
@@ -111,27 +105,20 @@ def test_disabled_runtime_skips_coach_recovery_reconciliation_and_worker(monkeyp
     asyncio.run(exercise())
 
     assert recovered == []
-    assert reconciled == []
     assert not worker.started.is_set()
     assert watcher.refresh is not None
 
 
-@pytest.mark.parametrize("failing_stage", ["recovery", "reconcile"])
-def test_coach_startup_reconciliation_failure_does_not_block_process_tasks(
-    monkeypatch, failing_stage: str
-):
-    container, worker, watcher, _recovered, _reconciled = _container(enabled=True)
+def test_coach_startup_recovery_failure_does_not_block_process_tasks(monkeypatch):
+    container, worker, watcher, _recovered = _container(enabled=True)
     heartbeat = BlockingLoop()
     monkeypatch.setattr(runtime_module, "run_startup_ingest_if_needed", lambda deps: None)
     monkeypatch.setattr(runtime_module, "heartbeat_loop", heartbeat.run)
 
     def fail(*_args, **_kwargs):
-        raise RuntimeError(f"{failing_stage} unavailable")
+        raise RuntimeError("recovery unavailable")
 
-    if failing_stage == "recovery":
-        container.coach_repo.recover_stale_jobs = fail
-    else:
-        container.coach_jobs.reconcile_pending = fail
+    container.coach_repo.recover_stale_jobs = fail
 
     async def exercise():
         runtime = ProcessRuntime(container)

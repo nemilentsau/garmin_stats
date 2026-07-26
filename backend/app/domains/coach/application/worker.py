@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from collections.abc import Awaitable, Callable
 
 from app.domains.coach.adapters import SqliteCoachRepository
@@ -26,30 +25,28 @@ class CoachWorker:
         jobs: CoachJobs,
         broadcast: Broadcast,
         poll_interval_s: float = 2,
-        reconcile_interval_s: float = 300,
+        maintenance_interval_s: float = 300,
     ) -> None:
         self.repo = repo
         self.handlers = handlers
         self.jobs = jobs
         self.broadcast = broadcast
         self.poll_interval_s = poll_interval_s
-        self.reconcile_interval_s = reconcile_interval_s
+        self.maintenance_interval_s = maintenance_interval_s
 
     async def run(self) -> None:
         """Claim and execute exactly one job at a time until cancelled."""
-        next_reconcile = time.monotonic() + self.reconcile_interval_s
+        loop = asyncio.get_running_loop()
+        next_maintenance = loop.time() + self.maintenance_interval_s
         while True:
-            if time.monotonic() >= next_reconcile:
-                # Advance the deadline before attempting reconcile so a persistently
-                # failing reconcile cannot retry in a tight loop or block claiming.
-                next_reconcile = time.monotonic() + self.reconcile_interval_s
+            if loop.time() >= next_maintenance:
+                next_maintenance = loop.time() + self.maintenance_interval_s
                 try:
-                    await asyncio.to_thread(self.jobs.reconcile_pending)
                     await asyncio.to_thread(self.jobs.reconcile_idle_threads)
                 except asyncio.CancelledError:
                     raise
                 except Exception:
-                    log.exception("Coach worker reconcile failed")
+                    log.exception("Coach worker maintenance failed")
             try:
                 job = await asyncio.to_thread(self.repo.claim_next_job, utc_now_iso())
             except asyncio.CancelledError:

@@ -7,11 +7,12 @@
 		type CoachBriefResponse,
 		type CoachMessage,
 		type CoachReview,
+		type CoachReviewRevision,
 		type CoachStatus,
 		type CoachThread
 	} from '$lib/api';
 	import { renderMarkdown } from '$lib/markdown';
-	import { startRealtimePage } from '$lib/realtime-page';
+	import { createLatestRequestGate, startRealtimePage } from '$lib/realtime-page';
 	import { createCoachUpdateListener } from '$lib/sse';
 	import { errorMessage } from '$lib/utils';
 
@@ -21,12 +22,16 @@
 	let reviews: CoachReview[] = $state([]);
 	let threads: CoachThread[] = $state([]);
 	let messages: CoachMessage[] = $state([]);
+	let reviewMessages: CoachMessage[] = $state([]);
+	let reviewRevisions: CoachReviewRevision[] = $state([]);
 	let brief: CoachBriefResponse | null = $state(null);
 	let activeThreadId: string | null = $state(null);
 	let activeReviewId: string | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let draft = $state('');
+	let reviewDraft = $state('');
+	let reviewThread: CoachThread | null = $state(null);
 	let newThreadTitle = $state('');
 	let busy = $state(false);
 	let failedPlots = $state<Set<string>>(new Set());
@@ -43,11 +48,20 @@
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
 	);
 	let awaitingCoach = $derived(messages.length > 0 && messages[messages.length - 1]?.role === 'user');
+	let awaitingReviewCoach = $derived(
+		reviewMessages.length > 0 && reviewMessages[reviewMessages.length - 1]?.role === 'user'
+	);
 	let messagePane: HTMLDivElement | null = $state(null);
+	let reviewMessagePane: HTMLDivElement | null = $state(null);
+	const reviewConversationGate = createLatestRequestGate();
 
 	$effect(() => {
 		void messages;
 		if (messagePane) messagePane.scrollTop = messagePane.scrollHeight;
+	});
+	$effect(() => {
+		void reviewMessages;
+		if (reviewMessagePane) reviewMessagePane.scrollTop = reviewMessagePane.scrollHeight;
 	});
 	let workerLine = $derived.by(() => {
 		if (!status) return '';
@@ -79,6 +93,30 @@
 		messages = threadId ? (await api.getCoachMessages(threadId)).messages : [];
 	}
 
+	async function refreshReviewConversation(review: CoachReview | null): Promise<void> {
+		const request = reviewConversationGate.issue();
+		if (!review || review.status !== 'complete') {
+			reviewThread = null;
+			reviewMessages = [];
+			reviewRevisions = [];
+			return;
+		}
+		if (reviewThread?.review_id !== review.id) {
+			reviewThread = null;
+			reviewMessages = [];
+			reviewRevisions = [];
+		}
+		const nextThread = await api.openCoachReviewThread(review.id);
+		const [nextMessages, nextRevisions] = await Promise.all([
+			api.getCoachMessages(nextThread.id),
+			api.getCoachReviewRevisions(review.id)
+		]);
+		if (!reviewConversationGate.isCurrent(request) || activeReviewId !== review.id) return;
+		reviewThread = nextThread;
+		reviewMessages = nextMessages.messages;
+		reviewRevisions = nextRevisions.revisions;
+	}
+
 	async function refreshAll(): Promise<void> {
 		const [nextStatus, nextReviews, nextThreads, nextBrief] = await Promise.all([
 			api.getCoachStatus(),
@@ -99,8 +137,20 @@
 		if (!activeThreadId || !threads.some((thread) => thread.id === activeThreadId)) {
 			activeThreadId = threads[0]?.id ?? null;
 		}
-		await refreshMessages(activeThreadId);
+		await Promise.all([
+			refreshMessages(activeThreadId),
+			refreshReviewConversation(activeReview)
+		]);
 		error = null;
+	}
+
+	async function chooseReview(review: CoachReview): Promise<void> {
+		activeReviewId = review.id;
+		try {
+			await refreshReviewConversation(review);
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		}
 	}
 
 	async function chooseThread(threadId: string): Promise<void> {
@@ -143,10 +193,16 @@
 		}
 	}
 
-	async function retryReview(reviewId: string): Promise<void> {
+	async function sendReviewMessage(): Promise<void> {
+		const content = reviewDraft.trim();
+		if (!content || !reviewThread || busy) return;
+		const selectedReviewId = activeReview?.id;
+		if (!selectedReviewId || reviewThread.review_id !== selectedReviewId) return;
+		const revisionRequested = content.toLowerCase().startsWith('update the review:');
 		busy = true;
 		try {
-			await api.retryCoachReview(reviewId);
+			await api.sendCoachMessage(reviewThread.id, content, revisionRequested);
+			reviewDraft = '';
 			await refreshAll();
 		} catch (e: unknown) {
 			error = errorMessage(e);
@@ -155,11 +211,10 @@
 		}
 	}
 
-	async function regenerateReview(reviewId: string): Promise<void> {
-		if (busy) return;
+	async function retryReview(reviewId: string): Promise<void> {
 		busy = true;
 		try {
-			await api.regenerateCoachReview(reviewId);
+			await api.retryCoachReview(reviewId);
 			await refreshAll();
 		} catch (e: unknown) {
 			error = errorMessage(e);
@@ -246,13 +301,13 @@
 						<button
 							class="rail-row review-row"
 							class:active={review.id === activeReview?.id}
-							onclick={() => (activeReviewId = review.id)}
+							onclick={() => chooseReview(review)}
 						>
 							<span class="row-top">
 								<span class="tabular">{review.date}</span>
 								<span class="row-status">{review.status.replaceAll('_', ' ')}</span>
 							</span>
-							<span class="row-sub">{review.kind === 'run' ? 'Run review' : 'Missed-run review'} · {reviewOutcome(review)}</span>
+							<span class="row-sub">Run review · {reviewOutcome(review)}</span>
 						</button>
 					{:else}
 						<p class="empty-line">No review history.</p>
@@ -273,7 +328,7 @@
 					<div class="pane-head">
 						<div>
 							<h2 id="review-pane-heading" class="pane-title">
-								{activeReview.kind === 'run' ? 'Run review' : 'Missed-run review'}
+								Run review
 								<span class="tabular pane-date">{activeReview.date}</span>
 							</h2>
 							<p class="pane-meta">
@@ -284,15 +339,10 @@
 						</div>
 						{#if activeReview.status === 'failed'}
 							<button class="btn" onclick={() => retryReview(activeReview.id)} disabled={busy}>Retry review</button>
-						{:else if activeReview.status === 'complete'}
-							<button class="btn" onclick={() => regenerateReview(activeReview.id)} disabled={busy}>Regenerate review</button>
 						{/if}
 					</div>
 					<div class="pane-scroll">
 						{#if activeReview.content_md}
-							{#if activeReview.status === 'queued' || activeReview.status === 'generating'}
-								<p class="muted-note">Previous completed review shown while regeneration is {activeReview.status}.</p>
-							{/if}
 							<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
 						{:else}
 							<p class="empty-line">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
@@ -332,6 +382,53 @@
 										<li>{question}</li>
 									{/each}
 								</ul>
+							</section>
+						{/if}
+						{#if activeReview.status === 'complete' && reviewThread}
+							<section class="review-conversation" aria-labelledby="review-conversation-heading">
+								<div class="review-conversation-head">
+									<div>
+										<h3 id="review-conversation-heading">Discuss this review</h3>
+										<p>Ask what the evidence means. To correct it, start your message with “Update the review:”.</p>
+									</div>
+									{#if reviewRevisions.length > 1}
+										<details class="revision-history">
+											<summary>{reviewRevisions.length} versions</summary>
+											<ol>
+												{#each reviewRevisions as revision (revision.id)}
+													<li>
+														<span>Version {revision.version}</span>
+														<time>{revision.created_at}</time>
+													</li>
+												{/each}
+											</ol>
+										</details>
+									{/if}
+								</div>
+								<div class="review-message-list" bind:this={reviewMessagePane}>
+									{#each reviewMessages as message (message.id)}
+										<article class="message" class:coach={message.role === 'coach'} class:system={message.role === 'system'}>
+											<header>{message.role}</header>
+											<div class="markdown-body">{@html renderMarkdown(message.content_md)}</div>
+										</article>
+									{:else}
+										<p class="empty-line">No discussion yet.</p>
+									{/each}
+									{#if awaitingReviewCoach}
+										<p class="thinking">
+											{#if !status?.worker_enabled}Coach worker is paused{:else}Coach is thinking…{/if}
+										</p>
+									{/if}
+								</div>
+								<div class="review-composer">
+									<textarea
+										bind:value={reviewDraft}
+										rows="3"
+										placeholder="Discuss it, or start with “Update the review:”"
+										aria-label="Message about this review"
+									></textarea>
+									<button class="btn primary" onclick={sendReviewMessage} disabled={busy || !reviewDraft.trim()}>Send</button>
+								</div>
 							</section>
 						{/if}
 					</div>
@@ -739,11 +836,6 @@
 	.markdown-body :global(a) {
 		color: #75b5e5;
 	}
-	.muted-note {
-		margin: 0 0 12px;
-		color: #708392;
-		font-size: 12.5px;
-	}
 	.refs {
 		margin: 14px 0 0;
 		color: #6e8391;
@@ -814,6 +906,71 @@
 		color: #b6c5cf;
 		font-size: 13px;
 		line-height: 1.5;
+	}
+	.review-conversation {
+		margin-top: 24px;
+		padding-top: 18px;
+		border-top: 1px solid rgba(255, 255, 255, 0.09);
+	}
+	.review-conversation-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 20px;
+	}
+	.review-conversation h3 {
+		margin: 0;
+		color: #dce7ec;
+		font-size: 14px;
+		font-weight: 600;
+	}
+	.review-conversation-head p {
+		max-width: 660px;
+		margin: 4px 0 0;
+		color: #708392;
+		font-size: 12.5px;
+		line-height: 1.5;
+	}
+	.revision-history {
+		flex: 0 0 auto;
+		color: #7a8ea0;
+		font-size: 11.5px;
+	}
+	.revision-history summary {
+		cursor: pointer;
+		color: #79b8ab;
+	}
+	.revision-history ol {
+		margin: 8px 0 0;
+		padding-left: 22px;
+	}
+	.revision-history li {
+		padding: 2px 0;
+	}
+	.revision-history time {
+		display: block;
+		color: #607483;
+		font: 10px 'DM Mono', monospace;
+	}
+	.review-message-list {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		max-height: 360px;
+		margin-top: 14px;
+		padding: 2px 4px 2px 0;
+		overflow-y: auto;
+	}
+	.review-composer {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: end;
+		gap: 10px;
+		margin-top: 12px;
+	}
+	.review-composer .btn {
+		min-width: 76px;
+		height: 40px;
 	}
 	.empty-line,
 	.loading-line {

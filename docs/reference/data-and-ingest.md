@@ -48,18 +48,27 @@ Path resolution lives in `backend/app/core/config.py`.
 - Download an inclusive range: `cd backend && uv run python ../scripts/download_garmin.py --activities --from YYYY-MM-DD --to YYYY-MM-DD`
 - Backfill the wellness archive range: `cd backend && uv run python ../scripts/download_garmin.py --activities --health-range`
 - Sync wellness and recent activities: `POST /api/ingest/sync` or the frontend Sync action.
+- Preview the failed-round Coach/training reset:
+  `cd backend && uv run python ../scripts/reset_failed_round.py`
+- Execute that reset after stopping the app:
+  `cd backend && uv run python ../scripts/reset_failed_round.py --execute`.
+  It clears imported training/experiment state and Coach state, removes the Coach
+  runtime directory, and verifies Garmin SQLite rows plus both Garmin source trees
+  remain byte-for-byte unchanged. The runtime path is fixed to the database's `coach/`
+  sibling and must be disjoint from both Garmin trees. Authored bundle files are outside
+  the reset.
 
 Normal running ingest never re-parses an existing `source_file`; use the rebuild command after adding or changing parser fields.
 
 ## Post-ingest reactions
 
-After both wellness and running ingest succeed, manual Sync invokes an injected no-argument completion callback. When `GARMIN_COACH_WORKER_ENABLED=true`, bootstrap wires it to idempotent Coach review reconciliation (it still runs after a source no-op because local-date eligibility can change independently of file changes); when the flag is `false`, bootstrap wires a noop so disabled deployments never enqueue durable coach jobs nobody consumes. A callback exception is logged and does not fail the sync — `POST /api/ingest/sync` reports the ingest outcome regardless of the callback's own success.
+Manual sync and startup ingest update Garmin-owned data and publish their normal
+data-change events; neither creates Coach work. Coach reviews are manual-only and
+independent of activity coverage, upload timing, and schedule dates.
 
-The activity sweep also records durable coverage per local date. Coverage means the Garmin activity listing succeeded and every listed activity was already stored or was downloaded and stored successfully. Any listing, payload, download, or storage failure leaves that date uncovered; a later complete sweep marks it covered. Startup ingest does not create coverage because local files alone cannot prove Garmin Connect was checked.
-
-Coach may infer a missed scheduled run only for a covered past date. Startup and periodic reconciliation can therefore discover real ingested runs immediately without declaring an unsynced date skipped. If a late run appears after a skip was already recorded, the run review becomes canonical and the skip remains stored only as superseded audit evidence; it is omitted from review history and measurement-assessment reads.
-
-Watcher-driven successful wellness ingest invokes a separate bootstrap-composed reaction that refreshes active experiment analyses and, when `GARMIN_COACH_WORKER_ENABLED=true`, reconciles Coach review work. `garmin_sync` imports neither consumer.
+Watcher-driven successful wellness ingest invokes a bootstrap-composed reaction
+that refreshes active experiment analyses. `garmin_sync` does not import that
+consumer.
 
 ## Invariants
 

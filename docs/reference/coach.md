@@ -1,7 +1,7 @@
 # Coach
 
 Authoritative description of the shipped local training coach: its evidence boundary,
-memory model, durable queue, Codex isolation, and UI/API lifecycle.
+memory model, durable queue, revision history, Codex isolation, and UI/API lifecycle.
 
 ## Product boundary
 
@@ -88,7 +88,7 @@ clear judgment.
 Assessment validation and persistence share the review/message completion transaction:
 
 - a run review accepts an assessment only when its run and occurrence exactly match the
-  durable run-review target and queued job payload; skip reviews cannot carry one;
+  durable run-review target and queued job payload;
 - chat accepts an assessment only when the output cites exactly one `run` reference and
   that reference matches `assessment.run_id`. Chat refs do not encode an occurrence, so
   this check cannot independently prove the supplied `occurrence_key`; training's later
@@ -177,51 +177,41 @@ These are different memory layers:
 
 Current semantic memory uses policy version 2. Legacy records default to version 1 and
 remain stored and individually readable for audit, but they do not enter new workspaces or
-the current journal/brief API. Regenerating a review appends a policy-v2 journal revision
-whose `supersedes_id` retires the prior active interpretation without deleting it.
+the current journal/brief API.
 
 Review and answer Markdown are limited to 12,000 characters. Over-length model output is
 failed intact—never truncated—and changes no review, journal, or brief state.
 
 ## Durable jobs and review chronology
 
-SQLite owns reviews, threads, messages, journal entries, brief versions, jobs, and one
-reconciliation marker. Enqueue, dedupe, claim, success persistence, and failure
+SQLite owns reviews, immutable review revisions, threads, messages, journal entries,
+brief versions, and jobs. Enqueue, dedupe, claim, success persistence, and failure
 persistence are transaction boundaries. A successful review atomically completes its
-review/job and appends semantic memory; a failed runner changes no memory. Manual retry
-requeues a failed durable job and preserves the original review or user message. Explicit
-regeneration requeues only a completed review, retains its prior judgment while the new
-attempt is pending, preserves all prior attempt directories and logs, and increments the
-attempt number on the next claim.
+review/job, creates revision 1, and appends semantic memory; a failed runner changes no
+memory. Manual retry requeues a failed durable job and preserves the original review or
+user message.
 
-Tracked-run discovery is not a run-review trigger. RPE, notes, and capture fields on Today
-continue to autosave, but they do not enqueue Coach. For an activity-derived completed run,
-the existing completion checkmark submits the feedback by persisting an explicit manual
-`completed` status; only that successful submission queues the associated run review.
-Activity sync, startup, watcher refresh, and periodic reconciliation never queue a tracked
-run merely because it exists. The run page's manual **Review with coach** action remains an
-independent explicit enqueue path. If the immediate post-persistence enqueue fails, the
-durable manual completion remains a submitted-feedback candidate and a later reconciliation
-retries the same idempotent run-review enqueue.
+Reviews are manual-only. The run page's **Review with coach** action is the sole review
+trigger. Activity sync, upload, startup, watcher refresh, elapsed schedule dates, and Today
+feedback persistence never enqueue Coach or infer a missed run.
+
+Every completed review has one reusable linked conversation, opened inline on the review
+surface. Ordinary questions and explanations append messages without changing the review.
+Only a message beginning with `Update the review:` durably authorizes structured
+`review_revision` output; prompt compliance alone is never sufficient. That output
+atomically appends an immutable numbered revision
+and updates the current review snapshot; prior versions remain readable. The linked
+workspace includes `current-review.md`, the original run evidence, and the complete
+transcript so new athlete context can be applied deliberately.
 
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
 the row `running` for startup recovery. Startup requeues every job still marked `running`
 (a single-process deployment cannot have one legitimately running at boot) up to
-three interruption attempts. Open threads idle for six hours queue distillation; success
+three interruption attempts. Open general threads idle for six hours queue distillation; success
 closes the thread and deletes its Codex home, while failure retains both and becomes
-`close_failed` with an explicit retry.
-
-The first enabled reconciliation inspects the inclusive local-date window from today
-minus 14 days through today, selects at most the three most recent submitted-feedback or
-eligible-skip candidates, then enqueues those selected items oldest-to-newest so journal
-chronology is readable. The remaining pre-activation history is manual-only. Later
-reconciliation considers target dates from the saved activation date (inclusive) through
-today, bounded to at most the last 30 days even if activation is older. A run candidate
-requires an explicit manual `completed` execution plus an associated activity; a
-Garmin-derived `tracked_run` completion is never sufficient. Training-schedule projections
-are computed at most once per target date per reconciliation pass. Unresolved run
-association candidates are not treated as skips.
+`close_failed` with an explicit retry. Review-linked conversations stay available for
+future corrections and are not auto-distilled or closed.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,
 attempt, message, review, and thread lifecycle instants are canonical UTC strings so
@@ -264,20 +254,20 @@ paused state.
 
 ## API and UI
 
-The `/api/coach/*` API exposes status, review history/manual run enqueue/retry/regenerate,
-threads/messages/close/retry-close, and current-policy brief. Jobs and the semantic journal
+The `/api/coach/*` API exposes status, review history/manual run enqueue/retry,
+review-linked thread/revision history, general threads/messages/close/retry-close,
+and current-policy brief. Jobs and the semantic journal
 stay durable SQLite records with no standalone read route; a job's lifecycle rides along on
 its owning review/message/status response instead, and no product surface reads the journal
 directly. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence
-separately, falls back to the legacy verdict when needed, and labels a preserved judgment
-as previous while regeneration is queued or generating. `/runs/[id]` resolves one review
+separately and falls back to the legacy verdict when needed. A completed review shows its
+linked transcript and composer inline, with version history when corrections exist.
+`/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
-On `/today`, the existing completion checkmark submits feedback for a run whose completed
-state came only from its associated tracked activity; no additional submit control is
-rendered.
+On `/today`, feedback capture remains training state only and never triggers Coach.
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

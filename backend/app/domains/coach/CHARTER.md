@@ -5,15 +5,15 @@
 
 ## Owns
 
-- Durable coach reviews, conversations, semantic journal entries, briefs, and jobs.
+- Durable manual coach reviews, linked review revisions, conversations, semantic
+  journal entries, briefs, and jobs.
 - Hierarchical evidence workspaces assembled from existing read models.
 - Codex execution, output validation, and coach-specific runtime lifecycle.
 - Strict optional measurement-assessment validation and atomic persistence
   with the successful review or coach message that produced it.
-- Idempotent run-review enqueue after explicit Today feedback submission,
-  durable recovery of a failed immediate enqueue from that manual completion,
-  and bounded automatic skipped-run reconciliation. Tracked-run discovery alone
-  never queues a review.
+- Idempotent run-review enqueue only from an explicit manual review request.
+  Activity upload, sync, startup, watcher refresh, training feedback submission,
+  and elapsed schedule dates never queue reviews.
 - Newest-successful assessment reads for one exact
   `(run_id, occurrence_key)` target, optionally before an exclusive cutoff.
 
@@ -51,6 +51,5 @@ schedule overlay; see
 ## Public entrypoints
 
 - `routes.py` for `/api/coach` HTTP operations.
-- `application/jobs.py` for explicit feedback/manual enqueue, submitted-feedback
-  recovery, and skipped-run reconciliation behavior.
+- `application/jobs.py` for explicit manual enqueue and conversation lifecycle.
 - `application/worker.py` for process-owned queued execution.

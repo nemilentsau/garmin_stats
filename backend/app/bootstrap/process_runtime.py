@@ -44,10 +44,6 @@ class ProcessRuntime:
                 )
             except Exception:
                 log.exception("Coach stale-job recovery failed; startup will continue")
-            try:
-                self._container.coach_jobs.reconcile_pending()
-            except Exception:
-                log.exception("Coach pending-job reconciliation failed; startup will continue")
             coach_task = asyncio.create_task(
                 self._container.coach_worker.run(), name="coach-worker"
             )
@@ -79,7 +75,4 @@ class ProcessRuntime:
         )
 
     def _refresh_after_ingest(self) -> int:
-        refreshed = self._refresh_active_experiment_analyses()
-        if self._container.config.coach_worker_enabled:
-            refreshed += len(self._container.coach_jobs.reconcile_pending())
-        return refreshed
+        return self._refresh_active_experiment_analyses()

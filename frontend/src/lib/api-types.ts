@@ -749,7 +749,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/coach/reviews/{review_id}/regenerate": {
+    "/api/coach/reviews/{review_id}/thread": {
         parameters: {
             query?: never;
             header?: never;
@@ -758,8 +758,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post Review Regenerate */
-        post: operations["post_review_regenerate_api_coach_reviews__review_id__regenerate_post"];
+        /** Post Review Thread */
+        post: operations["post_review_thread_api_coach_reviews__review_id__thread_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/{review_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Revisions */
+        get: operations["get_review_revisions_api_coach_reviews__review_id__revisions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1442,7 +1459,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "review_run" | "review_skip" | "chat_turn" | "distill_thread";
+            kind: "review_run" | "chat_turn" | "distill_thread";
             /** Dedupe Key */
             dedupe_key: string;
             /** Priority */
@@ -1519,6 +1536,11 @@ export interface components {
         CoachMessageCreateRequest: {
             /** Content Md */
             content_md: string;
+            /**
+             * Review Revision Requested
+             * @default false
+             */
+            review_revision_requested: boolean;
         };
         /** CoachMessagesResponse */
         CoachMessagesResponse: {
@@ -1536,9 +1558,9 @@ export interface components {
             date: string;
             /**
              * Kind
-             * @enum {string}
+             * @constant
              */
-            kind: "run" | "skip";
+            kind: "run";
             /** Run Id */
             run_id: string | null;
             /** Occurrence Key */
@@ -1586,6 +1608,41 @@ export interface components {
             /** Updated At */
             updated_at: string;
         };
+        /** CoachReviewRevision */
+        CoachReviewRevision: {
+            /** Id */
+            id: string;
+            /** Review Id */
+            review_id: string;
+            /** Version */
+            version: number;
+            /** Content Md */
+            content_md: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "moderate" | "high";
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Source Message Id */
+            source_message_id: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /** CoachReviewRevisionsResponse */
+        CoachReviewRevisionsResponse: {
+            /**
+             * Revisions
+             * @default []
+             */
+            revisions: components["schemas"]["CoachReviewRevision"][];
+        };
         /** CoachReviewsResponse */
         CoachReviewsResponse: {
             /**
@@ -1618,6 +1675,8 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "closing" | "closed" | "close_failed";
+            /** Review Id */
+            review_id: string | null;
             /** Codex Session Id */
             codex_session_id: string | null;
             /** Created At */
@@ -6800,7 +6859,7 @@ export interface operations {
             };
         };
     };
-    post_review_regenerate_api_coach_reviews__review_id__regenerate_post: {
+    post_review_thread_api_coach_reviews__review_id__thread_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -6812,12 +6871,43 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            202: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CoachJob"];
+                    "application/json": components["schemas"]["CoachThread"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_revisions_api_coach_reviews__review_id__revisions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachReviewRevisionsResponse"];
                 };
             };
             /** @description Validation Error */

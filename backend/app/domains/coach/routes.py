@@ -18,6 +18,7 @@ from app.domains.coach.contracts import (
     CoachMessageCreateRequest,
     CoachMessagesResponse,
     CoachReview,
+    CoachReviewRevisionsResponse,
     CoachReviewsResponse,
     CoachRunReviewRequest,
     CoachStatusResponse,
@@ -100,12 +101,8 @@ def post_review_retry(review_id: str) -> CoachJob:
     return container.coach_jobs.retry_job(review.job_id)
 
 
-@router.post(
-    "/reviews/{review_id}/regenerate",
-    response_model=CoachJob,
-    status_code=202,
-)
-def post_review_regenerate(review_id: str) -> CoachJob:
+@router.post("/reviews/{review_id}/thread", response_model=CoachThread)
+def post_review_thread(review_id: str, response: Response) -> CoachThread:
     container = build_container()
     review = container.coach_repo.review(review_id)
     if review is None:
@@ -113,9 +110,26 @@ def post_review_regenerate(review_id: str) -> CoachJob:
     if review.status != "complete":
         raise HTTPException(
             status_code=409,
-            detail="Only complete reviews can be regenerated",
+            detail="Only complete reviews can have conversations",
         )
-    return container.coach_jobs.regenerate_review(review_id)
+    thread, created = container.coach_jobs.get_or_create_review_thread(review_id)
+    response.status_code = (
+        status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    )
+    return thread
+
+
+@router.get(
+    "/reviews/{review_id}/revisions",
+    response_model=CoachReviewRevisionsResponse,
+)
+def get_review_revisions(review_id: str) -> CoachReviewRevisionsResponse:
+    container = build_container()
+    if container.coach_repo.review(review_id) is None:
+        raise LookupError(f"Unknown coach review: {review_id}")
+    return CoachReviewRevisionsResponse(
+        revisions=container.coach_repo.review_revisions(review_id)
+    )
 
 
 @router.get("/threads", response_model=CoachThreadsResponse)
@@ -148,7 +162,11 @@ def post_message(thread_id: str, request: CoachMessageCreateRequest) -> CoachEnq
         raise LookupError(f"Unknown coach thread: {thread_id}")
     if thread.status != "open":
         raise HTTPException(status_code=409, detail="Coach thread is not open")
-    return container.coach_jobs.enqueue_message(thread_id, request.content_md)
+    return container.coach_jobs.enqueue_message(
+        thread_id,
+        request.content_md,
+        review_revision_requested=request.review_revision_requested,
+    )
 
 
 @router.post("/threads/{thread_id}/close", response_model=CoachJob, status_code=202)
@@ -157,6 +175,11 @@ def post_close(thread_id: str) -> CoachJob:
     thread = container.coach_repo.thread(thread_id)
     if thread is None:
         raise LookupError(f"Unknown coach thread: {thread_id}")
+    if thread.review_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Review-linked conversations remain open",
+        )
     if thread.status != "open":
         raise HTTPException(status_code=409, detail="Coach thread is already closing or closed")
     return container.coach_jobs.close_thread(thread_id)

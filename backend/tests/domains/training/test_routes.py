@@ -178,7 +178,7 @@ def test_log_route_propagates_ports_without_enqueuing_feedback_autosave(monkeypa
     assert coach_jobs.submissions == []
 
 
-def test_log_route_enqueues_coach_after_explicit_completion_submission(monkeypatch):
+def test_log_route_never_enqueues_coach_after_explicit_completion_submission(monkeypatch):
     repo = object()
     run_port = object()
     assessment_port = object()
@@ -225,7 +225,7 @@ def test_log_route_enqueues_coach_after_explicit_completion_submission(monkeypat
     )
 
     assert response.status == "completed"
-    assert coach_jobs.submissions == [("2026-07-20", occurrence_key)]
+    assert coach_jobs.submissions == []
 
 
 def test_schedule_window_days_query_is_bounded_to_60(monkeypatch):

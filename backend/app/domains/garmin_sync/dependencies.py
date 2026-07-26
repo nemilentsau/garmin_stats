@@ -24,12 +24,6 @@ ArchiveExtractor = Callable[[Path], int]
 WatcherAction = Callable[[], None]
 TodayProvider = Callable[[], date]
 MonotonicClock = Callable[[], float]
-AfterSuccessfulSync = Callable[[], object]
-
-
-def noop_after_sync() -> None:
-    """Do nothing; the default post-sync hook when no reaction is wired."""
-    return None
 
 
 class IngestGateway(Protocol):
@@ -97,33 +91,6 @@ class ActivityFileStore(Protocol):
     ) -> None: ...
 
 
-class ActivitySyncCoverage(Protocol):
-    """Durable proof that Garmin Connect was fully checked for one date."""
-
-    def mark_covered(self, day: date) -> None: ...
-
-    def mark_incomplete(self, day: date) -> None: ...
-
-    def is_covered(self, day_iso: str) -> bool: ...
-
-
-class NoActivitySyncCoverage:
-    """Safe default for isolated callers that do not persist sync coverage."""
-
-    def mark_covered(self, day: date) -> None:
-        del day
-
-    def mark_incomplete(self, day: date) -> None:
-        del day
-
-    def is_covered(self, day_iso: str) -> bool:
-        del day_iso
-        return False
-
-
-NO_ACTIVITY_SYNC_COVERAGE = NoActivitySyncCoverage()
-
-
 @dataclass(frozen=True)
 class GarminSyncDependencies:
     """Dependency bundle passed from bootstrap into sync workflow functions.
@@ -145,5 +112,3 @@ class GarminSyncDependencies:
     activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock
-    activity_coverage: ActivitySyncCoverage = NO_ACTIVITY_SYNC_COVERAGE
-    after_successful_sync: AfterSuccessfulSync = noop_after_sync

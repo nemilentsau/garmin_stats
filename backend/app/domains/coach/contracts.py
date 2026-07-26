@@ -26,10 +26,10 @@ def safe_artifact_id(value: str) -> str:
 
 
 ArtifactKind = Literal["run", "plot", "review", "date"]
-ReviewKind = Literal["run", "skip"]
+ReviewKind = Literal["run"]
 ReviewStatus = Literal["queued", "generating", "complete", "failed"]
 ThreadStatus = Literal["open", "closing", "closed", "close_failed"]
-JobKind = Literal["review_run", "review_skip", "chat_turn", "distill_thread"]
+JobKind = Literal["review_run", "chat_turn", "distill_thread"]
 JobStatus = Literal["queued", "running", "complete", "failed"]
 LegacyReviewVerdict = Literal[
     "compliant",
@@ -157,7 +157,6 @@ class CoachReview(StrictDefaultsRequired):
     plot_observations: list[PlotObservation] = []
     history_used: list[HistoricalEvidenceUse] = []
     measurement_assessment: CoachMeasurementAssessment | None = None
-    superseded_by_review_id: str | None = None
     job_id: str
     error: str | None = None
     created_at: str
@@ -168,6 +167,7 @@ class CoachThread(StrictDefaultsRequired):
     id: str
     title: str
     status: ThreadStatus
+    review_id: str | None = None
     codex_session_id: str | None = None
     created_at: str
     last_activity_at: str
@@ -220,19 +220,6 @@ class CoachJob(StrictDefaultsRequired):
     updated_at: str
 
 
-class CoachReconciliationState(StrictDefaultsRequired):
-    activation_date: str
-    initial_backfill_done: bool
-
-
-class InitialReviewCandidate(StrictDefaultsRequired):
-    kind: ReviewKind
-    date: str
-    run_id: str | None = None
-    occurrence_key: str | None = None
-    card_name: str | None = None
-
-
 class ReviewOutput(StrictDefaultsRequired):
     outcome: ReviewOutcome
     confidence: ReviewConfidence
@@ -246,10 +233,32 @@ class ReviewOutput(StrictDefaultsRequired):
     measurement_assessment: CoachMeasurementAssessment | None = None
 
 
+class ReviewRevisionOutput(StrictDefaultsRequired):
+    """An explicit correction to the linked review, never an ordinary chat side effect."""
+
+    content_md: str = Field(min_length=1, max_length=12000)
+    outcome: ReviewOutcome
+    confidence: ReviewConfidence
+    refs: list[ArtifactRef]
+
+
+class CoachReviewRevision(StrictDefaultsRequired):
+    id: str
+    review_id: str
+    version: int = Field(ge=1)
+    content_md: str
+    outcome: ReviewOutcome
+    confidence: ReviewConfidence
+    refs: list[ArtifactRef]
+    source_message_id: str | None = None
+    created_at: str
+
+
 class ChatOutput(StrictDefaultsRequired):
     answer_md: str = Field(min_length=1, max_length=12000)
     refs: list[ArtifactRef]
     measurement_assessment: CoachMeasurementAssessment | None = None
+    review_revision: ReviewRevisionOutput | None = None
 
 
 class DistillOutput(StrictDefaultsRequired):
@@ -267,6 +276,10 @@ class CoachEnqueueResponse(StrictDefaultsRequired):
 
 class CoachReviewsResponse(StrictDefaultsRequired):
     reviews: list[CoachReview] = []
+
+
+class CoachReviewRevisionsResponse(StrictDefaultsRequired):
+    revisions: list[CoachReviewRevision] = []
 
 
 class CoachThreadsResponse(StrictDefaultsRequired):
@@ -297,3 +310,4 @@ class CoachThreadCreateRequest(StrictDefaultsRequired):
 
 class CoachMessageCreateRequest(StrictDefaultsRequired):
     content_md: str = Field(min_length=1, max_length=12000)
+    review_revision_requested: bool = False

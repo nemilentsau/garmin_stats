@@ -17,7 +17,6 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     RunJournalSummary,
 )
-from app.infra.sqlite import connect
 
 NOW = "2026-07-12T12:00:00Z"
 LATER = "2026-07-12T13:00:00Z"
@@ -134,29 +133,6 @@ def test_review_assessment_persists_in_same_completed_record():
     assert repo.job(job.id).status == "complete"  # type: ignore[union-attr]
 
 
-def test_superseded_review_cannot_supply_latest_measurement_assessment():
-    repo = SqliteCoachRepository()
-    review, job = _running_review(repo)
-    assessment = _assessment()
-    repo.complete_review_output(
-        review_id=review.id,
-        job_id=job.id,
-        output=_review_output(assessment),
-        finished_at=LATER,
-    )
-    with connect() as connection, connection:
-        connection.execute(
-            """
-            UPDATE coach_reviews
-            SET data = json_set(data, '$.superseded_by_review_id', 'review-canonical')
-            WHERE id = ?
-            """,
-            (review.id,),
-        )
-
-    assert repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY) is None
-
-
 @pytest.mark.parametrize(
     "assessment",
     [
@@ -185,32 +161,6 @@ def test_review_assessment_wrong_target_rejects_entire_completion(
     assert saved.measurement_assessment is None
     assert repo.job(job.id).status == "running"  # type: ignore[union-attr]
     assert repo.list_journal() == []
-
-
-def test_skip_review_cannot_persist_run_measurement_assessment():
-    repo = SqliteCoachRepository()
-    review, _, _ = repo.enqueue_skip_review(
-        date="2026-07-12",
-        occurrence_key=OCCURRENCE_KEY,
-        card_name="LTHR test",
-    )
-    job = repo.claim_next_job("9999-01-01T00:00:00Z")
-    assert job is not None
-    repo.mark_review_generating(review.id, updated_at=NOW)
-
-    with pytest.raises(ValueError, match="queued review target"):
-        repo.complete_review_output(
-            review_id=review.id,
-            job_id=job.id,
-            output=_review_output(_assessment()),
-            finished_at=LATER,
-        )
-
-    saved = repo.review(review.id)
-    assert saved is not None
-    assert saved.status == "generating"
-    assert saved.measurement_assessment is None
-    assert repo.job(job.id).status == "running"  # type: ignore[union-attr]
 
 
 @pytest.mark.parametrize(

@@ -15,14 +15,15 @@ configuration, and commands live in `docs/reference/data-and-ingest.md`.
 - Fingerprint-gated running-activity ingest and per-file failure isolation.
 - SQLite persistence/schema for raw Garmin day data, derived `daily_metrics`, ingest metadata, and running session/lap/series rows.
 - Read-cache invalidation and event publication when owned persisted data changes.
-- Invocation of injected sync/watcher completion capabilities; bootstrap owns the cross-domain reaction policy.
+- Invocation of the injected watcher completion capability; bootstrap owns the
+  cross-domain experiment-refresh policy.
 
 ## Does not own
 
 - FIT parsing semantics, decoding, or timestamp normalization (`garmin_health`).
 - Garmin analytical read models or dashboard calculations (`garmin_analytics`).
 - Training prescription association/evaluation (`training`).
-- Experiment refresh or Coach reconciliation policy (bootstrap composition).
+- Experiment refresh policy (bootstrap composition).
 - Frontend presentation.
 
 ## May import

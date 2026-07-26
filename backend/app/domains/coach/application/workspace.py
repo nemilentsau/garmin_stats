@@ -397,6 +397,7 @@ def assemble_workspace(
     question_md: str,
     current_run_id: str | None,
     transcript: list[CoachMessage] | None,
+    linked_review_id: str | None = None,
     historical_run_limit: int = 20,
     recent_journal_limit: int = 10,
 ) -> WorkspaceManifest:
@@ -491,6 +492,28 @@ def assemble_workspace(
 
     if transcript is not None:
         _write(directory / "transcript.md", _transcript_markdown(transcript))
+    if linked_review_id is not None:
+        linked_review = repo.review(linked_review_id)
+        if linked_review is None:
+            raise LookupError(f"Unknown linked coach review: {linked_review_id}")
+        _write(
+            directory / "current-review.md",
+            "\n".join(
+                [
+                    f"# Current review {linked_review.id}",
+                    "",
+                    linked_review.content_md or "Review has no completed content.",
+                    "",
+                    f"- Outcome: {linked_review.outcome or 'unknown'}",
+                    f"- Confidence: {linked_review.confidence or 'unknown'}",
+                    *[
+                        f"- Ref: {ref.kind}:{ref.value}"
+                        for ref in linked_review.refs
+                    ],
+                    "",
+                ]
+            ),
+        )
     _write(directory / "question.md", question_md.rstrip() + "\n")
     return WorkspaceManifest(
         directory=str(directory),

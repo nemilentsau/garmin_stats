@@ -74,6 +74,7 @@ export type RunDetail = Schemas['RunDetailResponse'];
 export type RunSeries = Schemas['RunSeriesResponse'];
 export type CoachStatus = Schemas['CoachStatusResponse'];
 export type CoachReview = Schemas['CoachReview'];
+export type CoachReviewRevision = Schemas['CoachReviewRevision'];
 export type CoachThread = Schemas['CoachThread'];
 export type CoachMessage = Schemas['CoachMessage'];
 export type CoachBriefResponse = Schemas['CoachBriefResponse'];
@@ -255,8 +256,13 @@ export const api = {
 			params: { path: { review_id: reviewId } }
 		}));
 	},
-	regenerateCoachReview: async (reviewId: string) => {
-		return unwrapResponse(client.POST('/api/coach/reviews/{review_id}/regenerate', {
+	openCoachReviewThread: async (reviewId: string) => {
+		return unwrapResponse(client.POST('/api/coach/reviews/{review_id}/thread', {
+			params: { path: { review_id: reviewId } }
+		}));
+	},
+	getCoachReviewRevisions: async (reviewId: string) => {
+		return unwrapResponse(client.GET('/api/coach/reviews/{review_id}/revisions', {
 			params: { path: { review_id: reviewId } }
 		}));
 	},
@@ -269,10 +275,17 @@ export const api = {
 			params: { path: { thread_id: threadId } }
 		}));
 	},
-	sendCoachMessage: async (threadId: string, contentMd: string) => {
+	sendCoachMessage: async (
+		threadId: string,
+		contentMd: string,
+		reviewRevisionRequested = false
+	) => {
 		return unwrapResponse(client.POST('/api/coach/threads/{thread_id}/messages', {
 			params: { path: { thread_id: threadId } },
-			body: { content_md: contentMd }
+			body: {
+				content_md: contentMd,
+				review_revision_requested: reviewRevisionRequested
+			}
 		}));
 	},
 	closeCoachThread: async (threadId: string) => {
