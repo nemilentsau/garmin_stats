@@ -16,8 +16,7 @@
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
-	import { dailyTrendConfig, weeklyRibbonConfig } from '$lib/chart-options';
-	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import { dailyTrendConfig, simpleIntradayLineConfig, weeklyRibbonConfig } from '$lib/chart-options';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: BodyBatteryDaily | null = $state(null);
@@ -109,48 +108,20 @@
 	});
 
 	// ── Intraday body battery ──
+	// NOTE: migrating to simpleIntradayLineConfig intentionally fixes a drift —
+	// the hand-written config here previously omitted `interaction: { mode:
+	// 'index', intersect: false }` that every other intraday chart has.
 	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!intradayData || intradayData.body_battery.length === 0) return null;
-		return {
-			type: 'line',
-			data: {
-				labels: intradayData.body_battery.map(d => d.timestamp),
-				datasets: [{
-					label: 'Body Battery',
-					data: intradayData.body_battery.map(d => d.value),
-					borderColor: COLORS.bodyBattery,
-					borderWidth: 1.5,
-					pointRadius: 0,
-					tension: 0.2,
-					fill: { target: 'origin', above: withAlpha(COLORS.bodyBattery, '10') }
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.bodyBattery, '60'))
-				},
-				scales: {
-					x: {
-						type: 'time',
-						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'battery %', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return simpleIntradayLineConfig({
+			label: 'Body Battery',
+			color: COLORS.bodyBattery,
+			yTitle: 'battery %',
+			labels: intradayData.body_battery.map(d => d.timestamp),
+			values: intradayData.body_battery.map(d => d.value),
+			beginAtZero: true,
+			max: 100
+		});
 	});
 
 	let stats = $derived.by(() => {

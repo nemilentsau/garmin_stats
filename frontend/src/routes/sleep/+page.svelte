@@ -118,6 +118,8 @@
 		const levels = intradayData.sleep_levels.filter(l => l.date === selectedDate);
 		if (levels.length === 0) return null;
 		const stageMap: Record<string, number> = { deep: 1, light: 2, rem: 3, awake: 4 };
+		// Deliberately hand-written: stepped stages, a custom label tooltip, and a reversed
+		// categorical y-axis aren't expressible by `simpleIntradayLineConfig`.
 		return {
 			type: 'line',
 			data: {
