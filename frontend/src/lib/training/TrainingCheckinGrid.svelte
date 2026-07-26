@@ -14,8 +14,8 @@
 	 * composes the full TrainingCaptureLog from each child's slice. This is deliberate: a
 	 * component that seeds a sibling capture kind once and replays it unchanged on every emit
 	 * would silently revert that sibling's staged edits if a card ever combined capture kinds,
-	 * even though the shipped v3 bundles don't do so today (see
-	 * `docs/routine-pivot/block1/support_v3.json`).
+	 * even though the latest authored v3 program doesn't do so today (see
+	 * `docs/training/programs/threshold-development-2026-07-13/support_v3.json`).
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingCheckinRow } from '$lib/api';

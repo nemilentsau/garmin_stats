@@ -1,7 +1,7 @@
-"""Schedule-compile + L1-L12 validator tests against the block0 canon artifacts.
+"""Schedule-compile + L1-L12 validator tests against the calibration fixture.
 
 `test_block0_artifacts_lint_clean_and_reproduce_shipped_report` is the
-keystone: block0 is shipped as a clean (0 error, 0 warning) block, so the
+keystone: the fixture is a clean (0 error, 0 warning) block, so the
 port must reproduce `lint_report.json`'s `errors`, `warnings`, and
 `week_run_miles` exactly. Every other test mutates a deep copy of one shipped
 artifact — one rule, one violation — and asserts the corresponding rule id
@@ -22,7 +22,9 @@ from app.domains.training.contracts import (
 )
 from tests._architecture import REPO_ROOT
 
-BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
+CALIBRATION_FIXTURE = (
+    REPO_ROOT / "backend" / "tests" / "fixtures" / "training" / "v3-calibration"
+)
 _BUNDLE_FILES = {
     "running.v3": "running_v3.json",
     "strength.v3": "strength_v3.json",
@@ -31,7 +33,7 @@ _BUNDLE_FILES = {
 
 
 def _load(name: str) -> dict:
-    return json.loads((BLOCK0 / name).read_text(encoding="utf-8"))
+    return json.loads((CALIBRATION_FIXTURE / name).read_text(encoding="utf-8"))
 
 
 def _block0_artifacts() -> tuple[V3Block, list[V3Bundle], SignalRegistry, ExerciseLibrary]:
@@ -65,7 +67,9 @@ def test_block0_artifacts_lint_clean_and_reproduce_shipped_report():
     report = lint(block, bundles, registry, library)
     assert report.errors == []
     assert report.warnings == []
-    shipped = json.loads((BLOCK0 / "lint_report.json").read_text(encoding="utf-8"))
+    shipped = json.loads(
+        (CALIBRATION_FIXTURE / "lint_report.json").read_text(encoding="utf-8")
+    )
     assert report.week_run_miles == {int(k): v for k, v in shipped["week_run_miles"].items()}
     assert report.week_minutes_by_bundle == {
         int(week): {bundle_id: float(minutes) for bundle_id, minutes in bundle_minutes.items()}

@@ -1,6 +1,6 @@
-"""Single-shot v3 artifact import/activation tests against the block0 canon set.
+"""Single-shot v3 artifact import/activation tests against the calibration fixture.
 
-`import_artifacts` is pure policy over the block0 canon artifacts: it never
+`import_artifacts` is pure policy over the read-only calibration artifacts: it never
 mutates its inputs, and any failure — invalid contract, incomplete set, lint
 error, un-acked warning — must leave storage untouched. The re-import test is
 the idempotence keystone: importing the identical six files twice must leave
@@ -19,7 +19,9 @@ from app.domains.training.contracts import TrainingCardLog
 from app.infra.sqlite import connect
 from tests._architecture import REPO_ROOT
 
-BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
+CALIBRATION_FIXTURE = (
+    REPO_ROOT / "backend" / "tests" / "fixtures" / "training" / "v3-calibration"
+)
 _BLOCK0_FILENAMES = [
     "block0.json",
     "running_v3.json",
@@ -31,7 +33,7 @@ _BLOCK0_FILENAMES = [
 
 
 def _load(name: str) -> dict:
-    return json.loads((BLOCK0 / name).read_text(encoding="utf-8"))
+    return json.loads((CALIBRATION_FIXTURE / name).read_text(encoding="utf-8"))
 
 
 def _block0_files(

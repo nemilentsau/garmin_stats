@@ -17,17 +17,19 @@ Each fact has one authoritative home. Other documents link to that owner instead
 | How Coach evidence, memory, jobs, and runtime work | [`reference/coach.md`](reference/coach.md) |
 | How the recovery overview works | [`reference/recovery-dashboard.md`](reference/recovery-dashboard.md) |
 | How the HRV detail surface separates trend from one-night state | [`reference/hrv.md`](reference/hrv.md) |
-| What governs v3 training and what remains to build | [`routine-pivot/`](routine-pivot/) |
+| What governs v3 training and what remains to build | [`training/`](training/) |
 | What unbuilt product work has an implementation contract | [`future/`](future/) |
 | What the dataset supports | [`findings/`](findings/) and `FINDINGS.md` (gitignored/local-only) |
 
-## `routine-pivot/` — training canon
+## `training/` — training canon
 
-- [`general_principles.md`](routine-pivot/general_principles.md) — P1-P13 and the surface rule.
-- [`schema_v3_spec.md`](routine-pivot/schema_v3_spec.md) — shipped v3 artifact semantics and activation contract.
-- [`pivot_roadmap.md`](routine-pivot/pivot_roadmap.md) — current implementation boundary and remaining objectives; no changelog.
-- [`block0/`](routine-pivot/block0/) — retired, read-only schema exemplar and validator/import fixture. Its expected lint report is retained because tests consume it.
-- [`block1/`](routine-pivot/block1/) — the active authored import artifacts (six JSON artifacts plus `lower-leg-routine-review.md`, seven files total). Derived lint/compiled outputs are not checked in.
+- [`README.md`](training/README.md) — authoritative distinction between training canon, authored programs, and runtime activation.
+- [`principles.md`](training/principles.md) — P1-P13 and the surface rule.
+- [`artifact-schema-v3.md`](training/artifact-schema-v3.md) — shipped v3 artifact semantics and activation contract.
+- [`roadmap.md`](training/roadmap.md) — current implementation boundary and remaining objectives; no changelog.
+- [`programs/`](training/programs/) — authored import sources named by purpose and start date. Checked-in does not mean runtime-active.
+
+Test-only training artifacts live under `backend/tests/fixtures/training/`, not in product documentation.
 
 ## `reference/` — shipped behavior
 

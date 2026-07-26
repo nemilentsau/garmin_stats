@@ -30,14 +30,14 @@
 - Never reduce an experiment day to a "best component status" or treat multiple same-day sessions as ambiguity. Multiple same-day sessions are expected when the intervention dose requires them.
 - **Timestamps are local time** (invariant): FIT stores UTC; the parser shifts all timestamps to local at ingest, and `utc_offset_hours` carries the offset for display. New timestamp fields must be shifted at ingest — parser internals are owned by the `garmin-data` skill; data topology and the re-ingest command live in `docs/reference/data-and-ingest.md`.
 - **Watcher/startup/ingest changes must prove no-op behavior**: if you touch startup ingest, archive extraction, watcher logic, cache invalidation, or data-root resolution, tests must cover `missing`, `already in sync`, and `stale/changed` states, including an idempotence case where a second run with no file changes does no work. After those changes, do a real local smoke check against the actual data tree before considering the task done.
-- **Import is the only content ingress.** Experiment and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/routine-pivot/schema_v3_spec.md` + `block1/` artifacts, the active imported block; `block0/` is retired and stays read-only as the frozen schema exemplar + test-fixture canon); schemas are never flattened into older engine formats.
+- **Import is the only content ingress.** Experiment and training content enters the app exclusively by importing/uploading an authored bundle. Never write generators, translators, seeders, or "derived" bundle artifacts — not even as a temporary bridge. The app adapts to new schemas (currently v3: `docs/training/artifact-schema-v3.md`); schemas are never flattened into older engine formats. Checked-in authored programs are source artifacts, not proof that a program is active in the runtime database. Training fixtures belong under `backend/tests/fixtures/training/`.
 
 ## Where Things Live (map)
 This file holds durable rules, setup, and pointers — not current-state facts. For detail, go to the one authoritative doc:
 - **Code map** — domains, dependency layering, boundaries, route inventory: `docs/ARCHITECTURE.md`
 - **Data sources, ingest, sync, config paths**: `docs/reference/data-and-ingest.md`
 - **How shipped features work** (recovery dashboard, HRV tab, …): `docs/reference/`
-- **Training system canon** (P1–P13 principles, v3 schema, roadmap, block0, block1): `docs/routine-pivot/`
+- **Training system canon** (entry point, P1–P13 principles, v3 schema, roadmap, authored programs): `docs/training/`
 - **Specs for unbuilt work**: `docs/future/`
 - **Doc index / question router**: `docs/README.md`
 - **Code conventions** (app/utils promotion rule, slice boundaries, frontend, doc style): `docs/reference/code-conventions.md`
@@ -105,4 +105,4 @@ Each fact has exactly one authoritative home; every other mention links to it. U
 
 Docs hygiene rules:
 - **Implementation plans and working specs are never committed to `docs/`.** Write them to the gitignored `.superpowers/` scratch area (or the session scratchpad); they are working artifacts, deleted with the work. Git history is the archive.
-- `docs/` follows the taxonomy in `docs/README.md`: `routine-pivot/` (canon) · `ARCHITECTURE.md` (code map) · `reference/` (how shipped things work) · `future/` (specs for unbuilt work) · `findings/`. A doc whose subject stops existing is deleted in the same change.
+- `docs/` follows the taxonomy in `docs/README.md`: `training/` (training canon and authored programs) · `ARCHITECTURE.md` (code map) · `reference/` (how shipped things work) · `future/` (specs for unbuilt work) · `findings/`. A doc whose subject stops existing is deleted in the same change.
