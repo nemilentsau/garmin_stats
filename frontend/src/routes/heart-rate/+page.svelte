@@ -586,7 +586,7 @@
 
 <svelte:head><title>Heart Rate — Garmin Stats</title></svelte:head>
 
-{#if error}
+{#if error && !agg}
 	<div class="card" style="border-color: rgba(232,93,74,0.3); background: rgba(232,93,74,0.08);">
 		<p class="text-[#E85D4A]">Error: {error}</p>
 	</div>
@@ -595,6 +595,12 @@
 		<div class="text-[#5e7282]">Loading...</div>
 	</div>
 {:else if agg}
+	{#if error}
+		<div class="card inline-error-banner" style="border-color: rgba(232,93,74,0.3); background: rgba(232,93,74,0.08);">
+			<p class="text-[#E85D4A]">Error: {error}</p>
+			<button type="button" class="inline-error-dismiss" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
+		</div>
+	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
 	<!-- TIER 1: TODAY                                        -->
@@ -1252,6 +1258,30 @@
 		font-size: 11px;
 		color: #4a5c6a;
 		margin-top: 8px;
+	}
+
+	/* ── Inline, dismissible refresh error — shown alongside (not instead of) the
+	     dashboard once it already has data, so a transient background-refresh failure
+	     doesn't blank a fully-loaded page. ── */
+	.inline-error-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+	.inline-error-dismiss {
+		flex-shrink: 0;
+		border: 0;
+		background: transparent;
+		color: #E85D4A;
+		font-size: 12px;
+		line-height: 1;
+		padding: 2px 4px;
+		cursor: pointer;
+		opacity: 0.7;
+	}
+	.inline-error-dismiss:hover {
+		opacity: 1;
 	}
 
 	/* ── Info hint icon with CSS tooltip ── */

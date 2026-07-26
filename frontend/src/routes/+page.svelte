@@ -94,7 +94,7 @@
 	<title>Dashboard - Garmin Stats</title>
 </svelte:head>
 
-{#if error}
+{#if error && !data}
 	<div class="topo-error">
 		<p>Error: {error}</p>
 	</div>
@@ -150,6 +150,12 @@
 		<span>Mapping terrain data...</span>
 	</div>
 {:else}
+	{#if error}
+		<div class="inline-error-banner">
+			<span>Error: {error}</span>
+			<button type="button" class="inline-error-dismiss" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
+		</div>
+	{/if}
 	{#if freshnessNotice}
 		<section class:pending={freshnessNotice.tone === 'pending'} class="freshness-banner">
 			<div class="freshness-label">Data freshness</div>
@@ -201,6 +207,38 @@
 		color: #E85D4A;
 		font-family: 'DM Mono', monospace;
 		font-size: 13px;
+	}
+
+	/* ── Inline, dismissible refresh/sync error — used instead of `.topo-error` once the
+	     dashboard already has data on screen, so a transient background-refresh failure
+	     doesn't blank a fully-loaded page (keep-last-good, same spirit as RecoverySection). ── */
+	.inline-error-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin: 0 0 18px;
+		padding: 10px 14px;
+		border: 1px solid rgba(232,93,74,0.3);
+		border-radius: 8px;
+		background: rgba(232,93,74,0.08);
+		color: #E85D4A;
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+	}
+	.inline-error-dismiss {
+		flex-shrink: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font-size: 12px;
+		line-height: 1;
+		padding: 2px 4px;
+		cursor: pointer;
+		opacity: 0.7;
+	}
+	.inline-error-dismiss:hover {
+		opacity: 1;
 	}
 
 	.topo-loading {
