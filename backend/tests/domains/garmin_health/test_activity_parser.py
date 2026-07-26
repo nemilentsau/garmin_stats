@@ -3,6 +3,8 @@
 import json
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 import app.domains.garmin_health.infra.fit_parser.activities as activities_mod
 from app.domains.garmin_health.infra.fit_parser.activities import (
     discover_running_activity_files,
@@ -599,6 +601,19 @@ class TestDiscoveryAndComposition:
         assert data.session.stamina_beginning_potential_pct is None
         assert data.session.stamina_ending_potential_pct is None
         assert data.session.stamina_min_pct is None
+
+    def test_parse_raises_on_decode_errors_instead_of_storing_a_partial_session(
+        self, tmp_path, monkeypatch
+    ):
+        """Corruption at rest must fail the file, not persist a truncated activity."""
+        def decode(path):
+            raise ValueError(f"FIT decode errors in {path.name}: [CRC Error]")
+
+        monkeypatch.setattr(activities_mod, "decode_fit_file", decode)
+        fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+
+        with pytest.raises(ValueError, match="decode errors"):
+            parse_running_activity(fit, tmp_path)
 
     def test_missing_activities_dir_returns_empty_list(self, tmp_path):
         files = discover_running_activity_files(tmp_path / "does_not_exist")

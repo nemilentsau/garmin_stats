@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from app.domains.garmin_health.contracts import (
     DayData,
     DayHrv,
@@ -15,6 +17,7 @@ from app.domains.garmin_health.contracts import (
     SleepLevel,
 )
 from app.domains.garmin_health.infra.fit_parser.days import _parse_day, parse_day
+from app.domains.garmin_health.infra.fit_parser.decode import decode_fit_file
 from app.domains.garmin_health.infra.fit_parser.extractors import (
     _extract_hrv,
     _extract_wellness,
@@ -52,6 +55,51 @@ class TestExtractorZeroValues:
         }
         day = _extract_hrv(messages, "2026-01-15")
         assert [r.value for r in day.hrv_values] == [0]
+
+
+class _FakeDecoder:
+    """Stand-in for the SDK decoder, which returns errors instead of raising."""
+
+    def __init__(self, result: tuple[dict, list]) -> None:
+        self._result = result
+
+    def __call__(self, _stream: object) -> _FakeDecoder:
+        return self
+
+    def read(self) -> tuple[dict, list]:
+        return self._result
+
+
+def _stub_decoder(monkeypatch, messages: dict, errors: list) -> None:
+    monkeypatch.setattr(
+        "app.domains.garmin_health.infra.fit_parser.decode.Stream",
+        type("_Stream", (), {"from_file": staticmethod(lambda path: path)}),
+    )
+    monkeypatch.setattr(
+        "app.domains.garmin_health.infra.fit_parser.decode.Decoder",
+        _FakeDecoder((messages, errors)),
+    )
+
+
+class TestDecodeFitFile:
+    """The SDK never raises: it returns whatever it managed to decode plus errors."""
+
+    def test_returns_messages_when_the_sdk_reports_no_errors(self, monkeypatch, tmp_path: Path):
+        _stub_decoder(monkeypatch, {"monitoring_mesgs": [{"heart_rate": 60}]}, [])
+
+        assert decode_fit_file(tmp_path / "a.fit") == {"monitoring_mesgs": [{"heart_rate": 60}]}
+
+    def test_raises_naming_the_file_and_errors_when_the_sdk_reports_errors(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """Partial messages from a truncated file must never reach a caller."""
+        _stub_decoder(monkeypatch, {"monitoring_mesgs": [{"heart_rate": 60}]}, [ValueError("CRC")])
+        fit_file = tmp_path / "truncated.fit"
+
+        with pytest.raises(ValueError, match="truncated.fit") as excinfo:
+            decode_fit_file(fit_file)
+
+        assert "CRC" in str(excinfo.value)
 
 
 class TestParseDayMerge:
@@ -450,6 +498,34 @@ class TestWellnessDayLocalTime:
             "2026-03-08T01:00:00",
             "2026-03-08T17:00:00",
         ]
+        assert day.utc_offset_hours == -5.0
+
+    def test_unreadable_file_contributes_nothing_and_later_files_still_merge(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """A corrupt file is skipped whole; no half-decoded readings leak into the day."""
+        good = _wellness_messages(
+            [(datetime(2026, 3, 8, 12, 0, tzinfo=UTC), 60)],
+            [(datetime(2026, 3, 8, 5, 0, tzinfo=UTC), -5.0)],
+        )
+        paths = []
+        for name in ("a_WELLNESS.fit", "b_WELLNESS.fit"):
+            path = tmp_path / name
+            path.write_text("", encoding="ascii")
+            paths.append(path)
+
+        def decode(path: Path) -> dict:
+            if path.name == "a_WELLNESS.fit":
+                raise ValueError("decode errors in a_WELLNESS.fit")
+            return good
+
+        monkeypatch.setattr(
+            "app.domains.garmin_health.infra.fit_parser.days.decode_fit_file", decode
+        )
+
+        day = parse_day(self.DATE, {"WELLNESS": paths})
+
+        assert [r.timestamp for r in day.wellness.heart_rate] == ["2026-03-08T07:00:00"]
         assert day.utc_offset_hours == -5.0
 
     def test_day_without_any_monitoring_info_keeps_utc_timestamps(

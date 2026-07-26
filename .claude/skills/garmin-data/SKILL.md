@@ -89,7 +89,9 @@ Each schema file documents:
 
 5. **Stress uses a non-standard timestamp field.** Stress messages use `stress_level_time`, not `timestamp`.
 
-6. **Filtering rules:**
+6. **The SDK never raises on a corrupt file.** `Decoder.read()` wraps its decode loop in try/except and returns `(messages, errors)` — a truncated or CRC-broken file comes back as a thin but otherwise ordinary message dict. `decode_fit_file` raises `ValueError` when that error list is non-empty, so a corrupt file is all-or-nothing; the wellness day parser skips such a file with a warning, and activity parsing fails the file.
+
+7. **Filtering rules:**
    - HR: `heart_rate > 0` (zero = no reading)
    - Stress: `stress_level_value >= 0` (negative = invalid: -1 unknown, -2 calculating)
    - Respiration: `respiration_rate > 0` (negative = invalid: -300 invalid, -200 motion, -100 off-wrist)
