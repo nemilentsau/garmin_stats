@@ -67,6 +67,11 @@
 	}
 
 	async function submitWindowStart(): Promise<void> {
+		// Clearing the native date input yields '' — ignore it and keep the schedule that's
+		// already on screen rather than tearing down state for a date that can't be fetched
+		// (matches the guard already in `createDateLoader`, `$lib/realtime-page.ts`). We don't
+		// snap the input back to `loadedStartDate`; the user can keep typing.
+		if (!isIsoDateString(windowStartDate)) return;
 		expandedOccurrenceKey = null;
 		await loadSchedule(windowStartDate);
 	}

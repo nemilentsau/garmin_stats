@@ -113,6 +113,11 @@
 
 	$effect(() => {
 		if (!mounted || selectedDate === loadedDate || selectedDate === requestedDate) return;
+		// Clearing the native date input (or an incomplete in-progress edit) yields '' /
+		// a non-ISO value — ignore it and keep whatever's currently on screen rather than
+		// tearing down state for a date that can't be fetched (matches the guard already
+		// in `createDateLoader`, `$lib/realtime-page.ts`).
+		if (!isIsoDateString(selectedDate)) return;
 		const date = selectedDate;
 		untrack(() => flushPendingPersist());
 		expandedOccurrenceKey = null;
