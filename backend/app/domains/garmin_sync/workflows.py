@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .contracts import IngestResult, IngestStatus, SyncResult
-from .data_change import notify_data_changed
 from .dependencies import DownloadOutcome, GarminDownloadClient, GarminSyncDependencies
 
 log = logging.getLogger(__name__)
@@ -39,9 +38,7 @@ class _SyncDatePlan:
 def trigger_ingest(deps: GarminSyncDependencies) -> IngestResult:
     """Extract all known archives and re-ingest the configured data tree."""
     deps.extract_archives(deps.data_dir)
-    result = deps.ingest.ingest_all(deps.data_dir)
-    notify_data_changed(deps)
-    return result
+    return deps.ingest.ingest_all(deps.data_dir)
 
 
 def get_ingest_status(deps: GarminSyncDependencies) -> IngestStatus:
@@ -100,7 +97,6 @@ def sync_garmin(deps: GarminSyncDependencies) -> SyncResult:
         deps, client, activity_days
     )
     runs_result = deps.ingest.ingest_running_activities(deps.activities_dir)
-    notify_data_changed(deps)
 
     duration_ms = int((deps.monotonic() - t0) * 1000)
     return SyncResult(

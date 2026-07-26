@@ -26,13 +26,6 @@ export function statusForVariant(option: string, status: CardStatus): CardStatus
 	return option === 'skip' ? 'skipped' : status;
 }
 
-export function loadedMutationDate(
-	selectedDate: string,
-	loadedDate: string | null
-): string | null {
-	return selectedDate === loadedDate ? loadedDate : null;
-}
-
 type StatusPersistTask = {
 	key: string;
 	attempted: CardStatus;

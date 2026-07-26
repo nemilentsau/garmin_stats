@@ -54,8 +54,6 @@
 	let messagePane: HTMLDivElement | null = $state(null);
 	let reviewMessagePane: HTMLDivElement | null = $state(null);
 	const reviewConversationGate = createLatestRequestGate();
-	const threadMessagesGate = createLatestRequestGate();
-	const refreshAllGate = createLatestRequestGate();
 
 	$effect(() => {
 		void messages;
@@ -92,15 +90,7 @@
 	}
 
 	async function refreshMessages(threadId: string | null): Promise<void> {
-		const request = threadMessagesGate.issue();
-		try {
-			const nextMessages = threadId ? (await api.getCoachMessages(threadId)).messages : [];
-			if (!threadMessagesGate.isCurrent(request) || activeThreadId !== threadId) return;
-			messages = nextMessages;
-		} catch (cause: unknown) {
-			if (!threadMessagesGate.isCurrent(request) || activeThreadId !== threadId) return;
-			throw cause;
-		}
+		messages = threadId ? (await api.getCoachMessages(threadId)).messages : [];
 	}
 
 	async function refreshReviewConversation(review: CoachReview | null): Promise<void> {
@@ -116,19 +106,11 @@
 			reviewMessages = [];
 			reviewRevisions = [];
 		}
-		let nextThread: CoachThread | null;
-		let nextRevisions: { revisions: CoachReviewRevision[] };
-		let nextMessages: { messages: CoachMessage[] };
-		try {
-			[nextThread, nextRevisions] = await Promise.all([
-				api.getCoachReviewThread(review.id),
-				api.getCoachReviewRevisions(review.id)
-			]);
-			nextMessages = nextThread ? await api.getCoachMessages(nextThread.id) : { messages: [] };
-		} catch (cause: unknown) {
-			if (!reviewConversationGate.isCurrent(request) || activeReviewId !== review.id) return;
-			throw cause;
-		}
+		const [nextThread, nextRevisions] = await Promise.all([
+			api.getCoachReviewThread(review.id),
+			api.getCoachReviewRevisions(review.id)
+		]);
+		const nextMessages = nextThread ? await api.getCoachMessages(nextThread.id) : { messages: [] };
 		if (!reviewConversationGate.isCurrent(request) || activeReviewId !== review.id) return;
 		reviewThread = nextThread;
 		reviewMessages = nextMessages.messages;
@@ -136,23 +118,12 @@
 	}
 
 	async function refreshAll(): Promise<void> {
-		const request = refreshAllGate.issue();
-		let nextStatus: CoachStatus;
-		let nextReviews: { reviews: CoachReview[] };
-		let nextThreads: { threads: CoachThread[] };
-		let nextBrief: CoachBriefResponse;
-		try {
-			[nextStatus, nextReviews, nextThreads, nextBrief] = await Promise.all([
-				api.getCoachStatus(),
-				api.getCoachReviews({ limit: 100 }),
-				api.getCoachThreads(),
-				api.getCoachBrief()
-			]);
-		} catch (cause: unknown) {
-			if (!refreshAllGate.isCurrent(request)) return;
-			throw cause;
-		}
-		if (!refreshAllGate.isCurrent(request)) return;
+		const [nextStatus, nextReviews, nextThreads, nextBrief] = await Promise.all([
+			api.getCoachStatus(),
+			api.getCoachReviews({ limit: 100 }),
+			api.getCoachThreads(),
+			api.getCoachBrief()
+		]);
 		status = nextStatus;
 		reviews = nextReviews.reviews;
 		threads = nextThreads.threads;
@@ -170,7 +141,7 @@
 			refreshMessages(activeThreadId),
 			refreshReviewConversation(activeReview)
 		]);
-		if (refreshAllGate.isCurrent(request)) error = null;
+		error = null;
 	}
 
 	async function chooseReview(review: CoachReview): Promise<void> {

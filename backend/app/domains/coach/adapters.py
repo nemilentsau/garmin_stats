@@ -535,6 +535,13 @@ class SqliteCoachRepository:
             ).fetchall()
         return [_model_from_row(CoachThread, row) for row in rows]
 
+    def list_all_threads(self) -> list[CoachThread]:
+        with connect() as connection:
+            rows = connection.execute(
+                "SELECT data FROM coach_threads ORDER BY last_activity_at DESC, id"
+            ).fetchall()
+        return [_model_from_row(CoachThread, row) for row in rows]
+
     def review_revisions(self, review_id: str) -> list[CoachReviewRevision]:
         with connect() as connection:
             rows = connection.execute(

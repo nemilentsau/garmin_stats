@@ -4,7 +4,6 @@ Startup owns archive reconciliation and full ingest decisions, but it should not
 touch Garmin download clients, file-store mutation, or watcher state callbacks.
 """
 
-from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -90,31 +89,6 @@ def _make_deps(
 
 
 class TestStartupIngest:
-    def test_refreshes_data_dependents_after_startup_changes(self):
-        data_dir = Path("data")
-        ingest = _FakeIngest([
-            IngestStatus(
-                needs_ingest=True,
-                last_ingest_time=None,
-                days_in_db=0,
-                days_on_disk=72,
-            )
-        ])
-        deps = _make_deps(
-            data_dir=data_dir,
-            ingest=ingest,
-            extract_archives=lambda _data_dir: 0,
-        )
-        refreshes: list[str] = []
-        deps = replace(
-            deps,
-            after_data_change=lambda: refreshes.append("experiments") or 1,
-        )
-
-        runtime_mod.run_startup_ingest_if_needed(deps)
-
-        assert refreshes == ["experiments"]
-
     def test_runs_ingest_after_reconciling_existing_archives(self):
         order: list[str] = []
         data_dir = Path("data")

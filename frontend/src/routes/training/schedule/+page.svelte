@@ -3,7 +3,6 @@
 
 	import { api, type TrainingScheduleWindow } from '$lib/api';
 	import { addDays, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
-	import { createLatestLoader } from '$lib/realtime-page';
 	import TrainingCardBody from '$lib/training/TrainingCardBody.svelte';
 	import {
 		SLOT_LABELS,
@@ -17,9 +16,9 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let windowStartDate = $state(localDateIso());
-	let loadedStartDate = $state<string | null>(null);
 	let schedule = $state<TrainingScheduleWindow | null>(null);
 	let expandedOccurrenceKey = $state<string | null>(null);
+	let requestToken = 0;
 
 	const scheduledDays = $derived(schedule?.days.filter((day) => day.cards.length > 0) ?? []);
 	const shortDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
@@ -39,31 +38,18 @@
 		return requested && isIsoDateString(requested) ? requested : localDateIso();
 	}
 
-	const loadSchedule = createLatestLoader({
-		onStart: (start: string) => {
-			windowStartDate = start;
-			loadedStartDate = null;
-			schedule = null;
-			loading = true;
-			error = null;
-		},
-		load: (start: string) => api.getTrainingScheduleWindow(start, 14),
-		onSuccess: (response) => {
-			schedule = response as TrainingScheduleWindow;
-			windowStartDate = response.start_date;
-			loadedStartDate = response.start_date;
-		},
-		onError: (cause) => {
-			error = errorMessage(cause);
-		},
-		onSettled: () => {
-			loading = false;
-		}
-	});
+	async function loadSchedule(start: string): Promise<void> {
+		const token = ++requestToken;
+		error = null;
+		const response = await api.getTrainingScheduleWindow(start, 14);
+		if (token !== requestToken) return;
+		schedule = response as TrainingScheduleWindow;
+		windowStartDate = response.start_date;
+	}
 
 	async function moveWindow(days: number): Promise<void> {
 		expandedOccurrenceKey = null;
-		await loadSchedule(addDays(loadedStartDate ?? windowStartDate, days));
+		await loadSchedule(addDays(windowStartDate, days));
 	}
 
 	async function submitWindowStart(): Promise<void> {
@@ -73,7 +59,13 @@
 
 	onMount(() => {
 		windowStartDate = readInitialStart();
-		void loadSchedule(windowStartDate);
+		void loadSchedule(windowStartDate)
+			.catch((cause: unknown) => {
+				error = errorMessage(cause);
+			})
+			.finally(() => {
+				loading = false;
+			});
 	});
 </script>
 
@@ -117,12 +109,12 @@
 			</div>
 		{/if}
 
-		{#if !error && scheduledDays.length === 0}
+		{#if scheduledDays.length === 0}
 			<div class="empty-state">
 				<span>No training is scheduled in this window.</span>
 				<a href="/training/import">Import an active block</a>
 			</div>
-		{:else if !error}
+		{:else}
 			<div class="timeline">
 				{#each scheduledDays as day (day.date)}
 					<div class="day-row">

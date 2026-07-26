@@ -16,9 +16,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app.bootstrap.schema import init_storage
-from app.bootstrap.container import build_container
 from app.core.config import get_app_config
-from app.domains.garmin_sync.workflows import trigger_ingest
+from app.domains.garmin_sync.infra.filesystem import extract_existing_archives
+from app.domains.garmin_sync.infra.sqlite_ingest import ingest_all
 
 if __name__ == "__main__":
     data_dir = get_app_config().data_dir
@@ -28,6 +28,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     init_storage()
+    extracted = extract_existing_archives(data_dir)
+    if extracted:
+        print(f"Extracted {extracted} pending archive(s)")
     print("Re-ingesting all FIT files...")
-    result = trigger_ingest(build_container().garmin_sync)
+    result = ingest_all(data_dir)
     print(f"Done: {result.days_ingested} days ingested in {result.duration_ms} ms")

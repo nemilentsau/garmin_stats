@@ -182,9 +182,8 @@ def test_lifespan_delegates_process_runtime_wiring():
     assert "watch_data_directory" not in lifespan_source
     assert "run_startup_ingest_if_needed" not in lifespan_source
 
+    assert "refresh_active_experiments" in runtime_source
     assert "run_startup_ingest_if_needed" in runtime_source
-    assert "refresh_active_experiments" not in runtime_source
-    assert "after_data_change" in runtime_source
 
 
 def test_garmin_sync_uses_small_capability_layout_with_only_owned_infra_layer():

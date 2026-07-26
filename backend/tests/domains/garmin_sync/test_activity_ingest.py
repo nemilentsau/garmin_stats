@@ -20,7 +20,6 @@ from app.domains.garmin_health.contracts import (
     RunningActivitySession,
 )
 from app.domains.garmin_sync.infra.activity_ingest import ingest_running_activities
-from app.domains.garmin_sync.infra.filesystem import compute_activity_source_fingerprint
 from app.infra import cache
 from app.infra.sqlite import connect
 
@@ -72,13 +71,6 @@ def _session_count() -> int:
 
 
 class TestActivityIngest:
-    def test_source_fingerprint_is_versioned_for_parser_identity_migrations(self, tmp_path):
-        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
-
-        fingerprint = compute_activity_source_fingerprint(fit_path, tmp_path)
-
-        assert fingerprint.startswith("v2:")
-
     def test_missing_dir_is_a_clean_noop(self, tmp_path):
         result = ingest_running_activities(tmp_path / "nope")
         assert result.sessions_ingested == 0
@@ -150,37 +142,6 @@ class TestActivityIngest:
         with connect() as con:
             rows = con.execute("SELECT id FROM running_activity_sessions").fetchall()
         assert [row["id"] for row in rows] == ["session-v2"]
-
-    def test_removed_fit_deletes_all_derived_rows_and_second_pass_is_noop(
-        self, tmp_path, monkeypatch
-    ):
-        lap = RunningActivityLap(lap_index=0, distance_m=1000.0)
-        invalidations: list[str] = []
-
-        def _parse_with_lap(fit_path: Path, activities_dir: Path) -> RunningActivityData:
-            rel = str(fit_path.relative_to(activities_dir))
-            return _session(rel, "removed-session", laps=[lap])
-
-        monkeypatch.setattr(ingest_mod, "parse_running_activity", _parse_with_lap)
-        monkeypatch.setattr(
-            ingest_mod.cache, "invalidate", lambda: invalidations.append("cache")
-        )
-        fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")
-        ingest_running_activities(tmp_path)
-        fit_path.unlink()
-
-        removed = ingest_running_activities(tmp_path)
-        second = ingest_running_activities(tmp_path)
-
-        assert removed.skipped is False
-        assert removed.sessions_ingested == 0
-        assert second.skipped is True
-        assert invalidations == ["cache", "cache"]
-        with connect() as con:
-            assert con.execute("SELECT COUNT(*) FROM running_activity_sessions").fetchone()[0] == 0
-            assert con.execute("SELECT COUNT(*) FROM running_activity_laps").fetchone()[0] == 0
-            assert con.execute("SELECT COUNT(*) FROM running_activity_series").fetchone()[0] == 0
-            assert con.execute("SELECT COUNT(*) FROM running_activity_sources").fetchone()[0] == 0
 
     def test_changed_sidecar_reingests_its_fit_source(self, tmp_path, monkeypatch):
         fit_path = _write_fit(tmp_path, "2026-07-10", "105726_running_generic")

@@ -8,7 +8,6 @@ callers hand in the decoded message dict (see ``activities.py``), which keeps
 every rule testable with synthetic dicts.
 """
 
-import hashlib
 from datetime import datetime, timedelta
 
 from app.domains.garmin_health.contracts import (
@@ -122,11 +121,11 @@ def _extract_run_session(
     has_hr = fit.get("avg_heart_rate") is not None
     hr_source, strap_serial, strap_battery = _detect_hr_source(messages, has_hr)
     activity_id = str(side["activityId"]) if side.get("activityId") is not None else None
-    fallback_id = f"file-{hashlib.sha256(source_file.encode()).hexdigest()[:24]}"
+    stem = source_file.rsplit(".", 1)[0]
     body_battery = side.get("differenceBodyBattery")
 
     return RunningActivitySession(
-        id=activity_id or fallback_id,
+        id=activity_id or f"file:{stem}",
         activity_id=activity_id,
         source_file=source_file,
         session_date=start_local.date().isoformat(),

@@ -7,7 +7,6 @@ bulk sync.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import date
 from itertools import count
 from pathlib import Path
@@ -235,32 +234,6 @@ def test_trigger_ingest_reconciles_archives_before_ingesting(tmp_path: Path):
     assert ingest.calls == [("ingest_all", tmp_path, None)]
 
 
-def test_trigger_ingest_refreshes_data_dependents_after_success(tmp_path: Path):
-    deps, *_ = _deps(tmp_path)
-    refreshes: list[str] = []
-    deps = replace(
-        deps,
-        after_data_change=lambda: refreshes.append("experiments") or 1,
-    )
-
-    trigger_ingest(deps)
-
-    assert refreshes == ["experiments"]
-
-
-def test_trigger_ingest_keeps_successful_result_when_refresh_fails(tmp_path: Path):
-    deps, *_ = _deps(tmp_path)
-
-    def fail_refresh() -> int:
-        raise RuntimeError("analysis unavailable")
-
-    deps = replace(deps, after_data_change=fail_refresh)
-
-    result = trigger_ingest(deps)
-
-    assert result == IngestResult(days_ingested=2, duration_ms=50)
-
-
 def test_get_ingest_status_reads_current_data_root_status(tmp_path: Path):
     deps, ingest, *_ = _deps(tmp_path)
 
@@ -285,19 +258,6 @@ def test_sync_replaces_latest_day_downloads_range_and_ingests_affected_dates(
     assert archives == [tmp_path]
     assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-14"])]
     assert watcher == ["suspend", "synced", "resume"]
-
-
-def test_sync_refreshes_data_dependents_after_wellness_and_activity_ingest(tmp_path: Path):
-    deps, *_ = _deps(tmp_path)
-    refreshes: list[str] = []
-    deps = replace(
-        deps,
-        after_data_change=lambda: refreshes.append("experiments") or 1,
-    )
-
-    sync_garmin(deps)
-
-    assert refreshes == ["experiments"]
 
 
 def test_sync_redownloads_latest_archive_through_today(tmp_path: Path):

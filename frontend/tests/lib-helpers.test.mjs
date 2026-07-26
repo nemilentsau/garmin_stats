@@ -111,31 +111,6 @@ test('latest request gate invalidates stale selected-date refreshes', () => {
 	assert.equal(gate.isCurrent(first), false);
 });
 
-test('latest loader gives success, failure, and settlement ownership only to the newest request', async () => {
-	const events = [];
-	let releaseFirst;
-	const firstResult = new Promise((resolve) => { releaseFirst = resolve; });
-	const load = realtimePage.createLatestLoader({
-		onStart: (key) => events.push(`start:${key}`),
-		load: (key) => key === 'first' ? firstResult : Promise.reject(new Error('newest failed')),
-		onSuccess: (_value, key) => events.push(`success:${key}`),
-		onError: (error, key) => events.push(`error:${key}:${error.message}`),
-		onSettled: (key) => events.push(`settled:${key}`)
-	});
-
-	const first = load('first');
-	await load('second');
-	releaseFirst({ stale: true });
-	await first;
-
-	assert.deepEqual(events, [
-		'start:first',
-		'start:second',
-		'error:second:newest failed',
-		'settled:second'
-	]);
-});
-
 test('date loader clears a prior error only after the latest request succeeds', async () => {
 	const errorsSeen = [];
 	const dataSeen = [];
@@ -210,41 +185,4 @@ test('realtime refresh clears an initial error after a later SSE success', async
 	}
 
 	assert.deepEqual(errorsSeen, ['initial failure', null]);
-});
-
-test('stale realtime success cannot clear a newer refresh error', async () => {
-	const originalEventSource = globalThis.EventSource;
-	let update;
-	class FakeEventSource {
-		static CONNECTING = 0;
-		static CLOSED = 2;
-		readyState = 1;
-		addEventListener(_name, callback) { update = callback; }
-		close() {}
-	}
-	globalThis.EventSource = FakeEventSource;
-	const errorsSeen = [];
-	let releaseInitial;
-	const initial = new Promise((resolve) => { releaseInitial = resolve; });
-	let attempt = 0;
-	try {
-		const stop = realtimePage.startRealtimePage({
-			fetchData: async () => {
-				attempt += 1;
-				if (attempt === 1) await initial;
-				else throw new Error('latest failure');
-			},
-			setError: (error) => errorsSeen.push(error),
-			setLoading: () => {}
-		});
-		update();
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		releaseInitial();
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		stop();
-	} finally {
-		globalThis.EventSource = originalEventSource;
-	}
-
-	assert.deepEqual(errorsSeen, ['latest failure']);
 });

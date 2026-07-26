@@ -26,13 +26,3 @@ test('review history exposes every field in prior immutable snapshots', () => {
 	assert.match(page, /revision\.history_used/);
 	assert.match(page, /revision\.measurement_assessment/);
 });
-
-test('coach refreshes and general-thread messages reject stale responses', () => {
-	const page = readFileSync('src/routes/coach/+page.svelte', 'utf8');
-
-	assert.match(page, /const refreshAllGate = createLatestRequestGate\(\)/);
-	assert.match(page, /const threadMessagesGate = createLatestRequestGate\(\)/);
-	assert.match(page, /threadMessagesGate\.isCurrent\(request\)/);
-	assert.match(page, /activeThreadId !== threadId/);
-	assert.match(page, /refreshAllGate\.isCurrent\(request\)/);
-});

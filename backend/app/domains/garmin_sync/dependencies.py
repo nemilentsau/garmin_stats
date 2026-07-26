@@ -24,11 +24,6 @@ ArchiveExtractor = Callable[[Path], int]
 WatcherAction = Callable[[], None]
 TodayProvider = Callable[[], date]
 MonotonicClock = Callable[[], float]
-DataChangeAction = Callable[[], int]
-
-
-def _no_data_change_action() -> int:
-    return 0
 
 
 class IngestGateway(Protocol):
@@ -117,4 +112,3 @@ class GarminSyncDependencies:
     activity_files: ActivityFileStore
     today: TodayProvider
     monotonic: MonotonicClock
-    after_data_change: DataChangeAction = _no_data_change_action

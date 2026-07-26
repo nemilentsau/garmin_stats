@@ -25,9 +25,6 @@ RESET_TABLES = (
 )
 
 _OBSOLETE_TABLES = ("activity_sync_coverage", "coach_reconciliation_state")
-_APPLICATION_SCHEMA_MARKERS = frozenset(
-    {"ingest_meta", "wellness_data", "training_bundles", "coach_jobs"}
-)
 
 
 @dataclass(frozen=True)
@@ -56,30 +53,6 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return connection
 
 
-def _validate_application_database(db_path: Path) -> None:
-    """Fail closed unless ``db_path`` is an initialized Garmin Stats database."""
-    if not db_path.exists():
-        raise ValueError(f"database does not exist: {db_path}")
-    if not db_path.is_file():
-        raise ValueError(f"database path is not a regular file: {db_path}")
-    try:
-        connection = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
-    except sqlite3.Error as error:
-        raise ValueError(f"database cannot be opened read-only: {db_path}") from error
-    connection.row_factory = sqlite3.Row
-    try:
-        tables = _tables(connection)
-    except sqlite3.DatabaseError as error:
-        raise ValueError(f"database is not valid SQLite: {db_path}") from error
-    finally:
-        connection.close()
-    missing = sorted(_APPLICATION_SCHEMA_MARKERS - tables)
-    if missing:
-        raise ValueError(
-            f"not a Garmin Stats database; missing schema markers: {', '.join(missing)}"
-        )
-
-
 def _validated_paths(
     *,
     db_path: Path,
@@ -91,7 +64,6 @@ def _validated_paths(
     wellness_dir = wellness_dir.resolve()
     activities_dir = activities_dir.resolve()
     coach_dir = coach_dir.resolve()
-    _validate_application_database(db_path)
     expected_coach_dir = db_path.parent / "coach"
     if coach_dir != expected_coach_dir:
         raise ValueError(

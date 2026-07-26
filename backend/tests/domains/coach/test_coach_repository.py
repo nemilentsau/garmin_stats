@@ -193,6 +193,7 @@ def test_linked_review_thread_is_reused_and_hidden_from_general_conversations():
     assert second.review_id == review.id
     assert repository.thread_for_review(review.id) == first
     assert repository.list_threads() == []
+    assert repository.list_all_threads() == [first]
 
 
 def test_linked_chat_only_changes_review_for_explicit_revision_output():

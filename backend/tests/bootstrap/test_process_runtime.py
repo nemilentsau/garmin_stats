@@ -35,13 +35,13 @@ class FakeWatcher:
         await self.loop.run()
 
 
-def _container(*, enabled: bool, after_data_change=None):
+def _container(*, enabled: bool):
     worker = BlockingLoop()
     watcher = FakeWatcher()
     recovered: list[tuple[str, int]] = []
     container = SimpleNamespace(
         config=SimpleNamespace(coach_worker_enabled=enabled),
-        garmin_sync=SimpleNamespace(after_data_change=after_data_change or (lambda: 0)),
+        garmin_sync=object(),
         garmin_sync_watcher=watcher,
         coach_worker=worker,
         coach_repo=SimpleNamespace(
@@ -107,29 +107,6 @@ def test_disabled_runtime_skips_coach_recovery_and_worker(monkeypatch):
     assert recovered == []
     assert not worker.started.is_set()
     assert watcher.refresh is not None
-
-
-def test_watcher_refresh_uses_the_generic_data_change_callback(monkeypatch):
-    refreshes: list[str] = []
-    container, _worker, _watcher, _recovered = _container(
-        enabled=False,
-        after_data_change=lambda: refreshes.append("experiments") or 1,
-    )
-
-    def obsolete_direct_refresh(*_args, **_kwargs):
-        raise AssertionError("runtime must use the composed data-change callback")
-
-    monkeypatch.setattr(
-        runtime_module,
-        "refresh_active_experiments",
-        obsolete_direct_refresh,
-        raising=False,
-    )
-
-    refreshed = ProcessRuntime(container)._refresh_after_ingest()
-
-    assert refreshed == 1
-    assert refreshes == ["experiments"]
 
 
 def test_coach_startup_recovery_failure_does_not_block_process_tasks(monkeypatch):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from app.domains.garmin_sync.data_change import notify_data_changed
 from app.domains.garmin_sync.dependencies import GarminSyncDependencies
 
 log = logging.getLogger(__name__)
@@ -38,6 +37,4 @@ def run_startup_ingest_if_needed(deps: GarminSyncDependencies) -> None:
             result.duration_ms,
         )
 
-    running_result = deps.ingest.ingest_running_activities(deps.activities_dir)
-    if status.needs_ingest or not running_result.skipped:
-        notify_data_changed(deps)
+    deps.ingest.ingest_running_activities(deps.activities_dir)

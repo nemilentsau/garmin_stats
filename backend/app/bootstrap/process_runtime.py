@@ -7,6 +7,7 @@ import logging
 from datetime import UTC, datetime
 
 from app.bootstrap.container import AppContainer
+from app.domains.experiments.application.analysis_cache import refresh_active_experiments
 from app.domains.garmin_sync.infra.runtime import run_startup_ingest_if_needed
 from app.realtime.events import heartbeat_loop
 
@@ -67,5 +68,11 @@ class ProcessRuntime:
             task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
+    def _refresh_active_experiment_analyses(self) -> int:
+        return refresh_active_experiments(
+            self._container.experiments_repo,
+            self._container.experiments_read_source,
+        )
+
     def _refresh_after_ingest(self) -> int:
-        return self._container.garmin_sync.after_data_change()
+        return self._refresh_active_experiment_analyses()

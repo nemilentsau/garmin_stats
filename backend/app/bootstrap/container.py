@@ -16,7 +16,6 @@ from app.domains.coach.application.jobs import CoachJobs
 from app.domains.coach.application.worker import CoachWorker
 from app.domains.coach.read_gateway import CoachReadGateway
 from app.domains.experiments.adapters import SqliteExperimentRepository
-from app.domains.experiments.application.analysis_cache import refresh_active_experiments
 from app.domains.experiments.read_sources import ExperimentReadSource
 from app.domains.garmin_analytics.adapters import (
     SqliteBiometricRepository,
@@ -95,13 +94,7 @@ def build_container() -> AppContainer:
         biometric_repo=garmin_biometrics_repo,
         journal_repo=journal_repo,
     )
-    garmin_sync_infra = build_garmin_sync_infra(
-        config,
-        after_data_change=lambda: refresh_active_experiments(
-            experiments_repo,
-            experiments_read_source,
-        ),
-    )
+    garmin_sync_infra = build_garmin_sync_infra(config)
     return AppContainer(
         config=config,
         coach_plot_dir=coach_root / "plots",
