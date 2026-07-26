@@ -19,6 +19,12 @@ current ZIP and extracted day directory. A missing, malformed, or unsafe
 replacement leaves the last known-good day intact and is reported as a failed
 download; only successfully installed days enter incremental ingest.
 
+Sync ingests the union of the days it downloaded and the days whose archives its
+extraction step refreshed. The second half matters for archives replaced outside
+the app: file events are dropped while sync holds the watcher suspended, so a day
+that sync extracted but never ingested would keep stale rows behind a whole-tree
+fingerprint that says everything is current.
+
 ## Tracked-activity tree
 
 `data/garmin_activities/` contains one directory per local date. Each tracked activity is stored as `HHMMSS_{sport}_{sub_sport}.fit` plus a JSON Connect sidecar, for example `154911_running_generic.fit` or `104600_training_strength_training.fit`.

@@ -162,6 +162,7 @@ def _deps(
     activity_payloads: dict[str, bytes | None] | None = None,
     listing_errors: set[str] | None = None,
     existing_activities: set[tuple[str, str]] | None = None,
+    extracted_dates: list[str] | None = None,
 ) -> tuple[
     GarminSyncDependencies,
     FakeIngestGateway,
@@ -174,14 +175,15 @@ def _deps(
     ingest = FakeIngestGateway()
     archive_calls: list[Path] = []
     watcher_calls: list[str] = []
+    extracted_dates = extracted_dates or []
     # An unbounded counter (not a fixed two-item list) because tests that call
     # sync_garmin more than once (e.g. to exercise idempotent activity skips)
     # need the fake clock to keep advancing rather than running dry.
     monotonic_values = count(10.0, 1.25)
 
-    def extract_archives(data_dir: Path) -> int:
+    def extract_archives(data_dir: Path) -> list[str]:
         archive_calls.append(data_dir)
-        return 2
+        return list(extracted_dates)
 
     def suspend_watcher() -> None:
         watcher_calls.append("suspend")
@@ -370,6 +372,49 @@ def test_sync_treats_archive_install_failure_as_failed_without_ingesting_day(
     assert result.failed == 1
     assert files.installed == []
     assert ingest.calls == [("ingest_dates", tmp_path, [])]
+
+
+def test_sync_ingests_dates_whose_archives_extraction_refreshed(tmp_path: Path):
+    """An archive replaced outside the app is extracted by sync but was never
+    ingested, while sync still stamped a whole-tree fingerprint over it — so the
+    day stayed stale through every later startup and sync."""
+    deps, ingest, _archives, _watcher, _client, _files, _store = _deps(
+        tmp_path,
+        today=date(2026, 3, 14),
+        responses={"2026-03-14": None},
+        extracted_dates=["2026-03-01"],
+    )
+
+    sync_garmin(deps)
+
+    assert ingest.calls == [("ingest_dates", tmp_path, ["2026-03-01"])]
+
+
+def test_sync_ingests_the_union_of_downloaded_and_extracted_dates(tmp_path: Path):
+    deps, ingest, *_ = _deps(
+        tmp_path,
+        extracted_dates=["2026-03-14", "2026-03-01"],
+    )
+
+    sync_garmin(deps)
+
+    assert ingest.calls == [
+        ("ingest_dates", tmp_path, ["2026-03-01", "2026-03-14"]),
+    ]
+
+
+def test_sync_second_run_adds_no_dates_when_extraction_reports_nothing(tmp_path: Path):
+    """Idempotence: with no external archive change, a repeat sync ingests only
+    the mutable latest day it re-downloaded, never a growing set."""
+    deps, ingest, *_ = _deps(tmp_path, today=date(2026, 3, 14))
+
+    sync_garmin(deps)
+    first = list(ingest.calls)
+    ingest.calls.clear()
+    sync_garmin(deps)
+
+    assert first == [("ingest_dates", tmp_path, ["2026-03-14"])]
+    assert ingest.calls == first
 
 
 def test_sync_resumes_watcher_when_ingest_fails(tmp_path: Path):

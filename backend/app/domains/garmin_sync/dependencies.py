@@ -20,7 +20,9 @@ from app.domains.garmin_sync.contracts import (
 )
 
 DownloadOutcome = Literal["downloaded", "skipped", "failed"]
-ArchiveExtractor = Callable[[Path], int]
+# Returns the dates whose archives it (re)extracted, so sync can ingest days
+# that changed on disk without the app downloading them.
+ArchiveExtractor = Callable[[Path], list[str]]
 WatcherAction = Callable[[], None]
 TodayProvider = Callable[[], date]
 MonotonicClock = Callable[[], float]

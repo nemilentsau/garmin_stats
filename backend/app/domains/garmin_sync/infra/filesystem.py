@@ -67,8 +67,14 @@ def ensure_data_dir(data_dir: Path) -> None:
         log.info("Created missing data directory at %s", data_dir)
 
 
-def extract_existing_archives(data_dir: Path) -> int:
-    """Extract all top-level day archives already present in data_dir."""
+def extract_existing_archives(data_dir: Path) -> list[str]:
+    """Extract missing/stale top-level day archives; return the dates refreshed.
+
+    Callers need the dates, not a count: an archive replaced outside the app is
+    reconciled here but is invisible to a caller that only knows what it
+    downloaded itself, and incremental ingest would skip it while still
+    stamping a whole-tree fingerprint over it.
+    """
     ensure_data_dir(data_dir)
     zips = sorted(path for path in data_dir.glob("*.zip") if path.is_file())
     zips_to_extract: list[Path] = []
@@ -85,12 +91,12 @@ def extract_existing_archives(data_dir: Path) -> int:
             len(zips_to_extract),
             data_dir,
         )
-    extract_archives(zips_to_extract)
-    return len(zips_to_extract)
+    return [zip_path.stem for zip_path in extract_archives(zips_to_extract)]
 
 
-def extract_archives(zips: list[Path]) -> None:
-    """Extract multiple zip archives."""
+def extract_archives(zips: list[Path]) -> list[Path]:
+    """Extract multiple zip archives; return the ones that actually extracted."""
+    extracted: list[Path] = []
     for zip_path in zips:
         try:
             _extract_zip(zip_path)
@@ -98,6 +104,9 @@ def extract_archives(zips: list[Path]) -> None:
             log.warning("Skipping invalid zip: %s", zip_path.name)
         except ValueError as exc:
             log.warning("Skipping unsafe zip %s: %s", zip_path.name, exc)
+        else:
+            extracted.append(zip_path)
+    return extracted
 
 
 def _extract_zip(zip_path: Path) -> Path:
