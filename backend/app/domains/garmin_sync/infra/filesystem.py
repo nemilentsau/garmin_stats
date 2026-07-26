@@ -22,7 +22,13 @@ def compute_data_fingerprint(data_dir: Path) -> str:
 
     parts: list[str] = []
     for fit_file in sorted(data_dir.rglob("*.fit")):
-        stat = fit_file.stat()
+        try:
+            stat = fit_file.stat()
+        except OSError:
+            # Extraction swaps whole day directories underneath this scan, so a
+            # listed file can be gone before it is stat'd. Treat it as absent;
+            # the change lands in the next fingerprint.
+            continue
         rel = fit_file.relative_to(data_dir)
         parts.append(f"{rel}:{stat.st_size}:{stat.st_mtime_ns}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
