@@ -166,10 +166,11 @@ def lint(
                         err("L2", f"{card.id} ({bundle.id}) targets {tissue} owned by {owner}")
 
     # ---------- L3: budgets ----------
+    block_weeks = week_of(block.window.days)
     for bundle in bundles:
         for budget in bundle.declared_budgets:
-            for wk in range(1, 5):
-                minutes = week_minutes_raw[wk].get(bundle.id, 0.0)
+            for wk in range(1, block_weeks + 1):
+                minutes = week_minutes_raw.get(wk, {}).get(bundle.id, 0.0)
                 if minutes > budget.minutes_max + 1e-6:
                     err(
                         "L3",

@@ -73,11 +73,40 @@ def _lifecycle_instant(value: str) -> datetime:
 
 
 def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
+    """Write a review row, freezing `assessment_effective_at` at the instant
+    the review's *current* measurement-assessment status first appeared.
+
+    `updated_at` moves with every revision; `assessment_effective_at` must not,
+    except when the thing it dates actually changed: measurement history
+    re-derives each past attempt day against that day's cutoff, so a moving
+    instant would retroactively rewrite decisions already made. But a revision
+    that adds a missing assessment, or flips its status (e.g. failed -> valid),
+    introduces a genuinely new fact that must take effect at the revision
+    instant, not retroactively at first completion -- otherwise it could
+    silently deactivate an already-activated backup day.
+    Comparison is by assessment *status* only, not the whole record: a
+    rationale-only reword does not change what happened, so it must not move
+    the instant (that mismatch was the original bug this column exists to fix).
+    """
+    stored = connection.execute(
+        "SELECT assessment_effective_at, data FROM coach_reviews WHERE id = ?",
+        (review.id,),
+    ).fetchone()
+    assessment_effective_at = None if stored is None else stored["assessment_effective_at"]
+    prior_assessment = None if stored is None else _review_from_row(stored).measurement_assessment
+    prior_status = None if prior_assessment is None else prior_assessment.status
+    current_assessment = review.measurement_assessment
+    current_status = None if current_assessment is None else current_assessment.status
+    if review.status == "complete" and (
+        assessment_effective_at is None or current_status != prior_status
+    ):
+        assessment_effective_at = review.updated_at
     connection.execute(
         """
         INSERT OR REPLACE INTO coach_reviews
-            (id, date, kind, run_id, occurrence_key, status, updated_at, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, date, kind, run_id, occurrence_key, status, updated_at,
+             assessment_effective_at, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             review.id,
@@ -87,6 +116,7 @@ def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
             review.occurrence_key,
             review.status,
             review.updated_at,
+            assessment_effective_at,
             review.model_dump_json(),
         ),
     )
@@ -223,7 +253,8 @@ class SqliteCoachRepository:
             rows = connection.execute(
                 """
                 SELECT source_id, created_at, source_kind, data FROM (
-                    SELECT id AS source_id, updated_at AS created_at,
+                    SELECT id AS source_id,
+                           COALESCE(assessment_effective_at, updated_at) AS created_at,
                            'review' AS source_kind, data
                     FROM coach_reviews
                     WHERE status = 'complete'
@@ -1052,6 +1083,10 @@ class SqliteCoachRepository:
             retried = job.model_copy(
                 update={
                     "status": "queued",
+                    # A manual retry is a fresh decision by the user, so it gets
+                    # the whole attempt budget back; `claim_next_job` would
+                    # otherwise resume counting and burn the retry immediately.
+                    "attempt_count": 0,
                     "available_at": available_at,
                     "started_at": None,
                     "finished_at": None,
@@ -1094,6 +1129,7 @@ class SqliteCoachRepository:
                         }
                     )
                     self._update_associated_review(connection, updated, "failed", updated.error)
+                    self._fail_associated_thread(connection, updated, finished_at=now)
                 else:
                     updated = job.model_copy(
                         update={
@@ -1288,3 +1324,38 @@ class SqliteCoachRepository:
             update={"status": status, "error": error, "updated_at": job.updated_at}
         )
         _save_review(connection, updated)
+
+    @staticmethod
+    def _fail_associated_thread(
+        connection: sqlite3.Connection,
+        job: CoachJob,
+        *,
+        finished_at: str,
+    ) -> None:
+        """Move a hard-failed distill job's thread to the recoverable state.
+
+        Mirrors the thread transition in `fail_distill_output`: a `closing`
+        thread whose only distill job is gone can never reach `open`, `closed`,
+        or retry-close, so recovery must leave it `close_failed`.
+        """
+        if job.kind != "distill_thread":
+            return
+        thread_id = job.payload.get("thread_id")
+        if not isinstance(thread_id, str):
+            return
+        row = connection.execute(
+            "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
+        ).fetchone()
+        if row is None:
+            raise RuntimeError(f"Coach job {job.id} references missing thread {thread_id}")
+        thread = _model_from_row(CoachThread, row)
+        if thread.status != "closing":
+            # An already-closed thread means distillation landed; never resurrect it.
+            return
+        failed = thread.model_copy(
+            update={"status": "close_failed", "last_activity_at": finished_at}
+        )
+        connection.execute(
+            "UPDATE coach_threads SET status = ?, last_activity_at = ?, data = ? WHERE id = ?",
+            (failed.status, failed.last_activity_at, failed.model_dump_json(), thread_id),
+        )

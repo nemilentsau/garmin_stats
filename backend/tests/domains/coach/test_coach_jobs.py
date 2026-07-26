@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import sqlite3
 from typing import cast
+
+import pytest
 
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.application.jobs import CoachJobs
@@ -48,6 +51,60 @@ def test_coach_jobs_exposes_no_automatic_review_reconciliation():
     jobs = _jobs(SqliteCoachRepository(), JobsGateway())
 
     assert not hasattr(jobs, "reconcile_pending")
+
+
+def _open_thread(repo: SqliteCoachRepository, thread_id: str = "thread-1") -> None:
+    repo.insert_thread(
+        CoachThread(
+            id=thread_id,
+            title="Recovery question",
+            status="open",
+            created_at=NOW,
+            last_activity_at=NOW,
+        )
+    )
+
+
+def test_close_thread_enqueue_failure_leaves_the_thread_recoverable(monkeypatch):
+    repo = SqliteCoachRepository()
+    _open_thread(repo)
+    jobs = _jobs(repo, JobsGateway())
+
+    enqueue_distill = repo.enqueue_distill
+    attempts: list[str] = []
+
+    def flaky_enqueue(*, thread_id: str):
+        attempts.append(thread_id)
+        if len(attempts) == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return enqueue_distill(thread_id=thread_id)
+
+    monkeypatch.setattr(repo, "enqueue_distill", flaky_enqueue)
+    with pytest.raises(sqlite3.OperationalError):
+        jobs.close_thread("thread-1")
+    assert repo.thread("thread-1").status == "close_failed"  # type: ignore[union-attr]
+
+    queued = jobs.retry_close("thread-1")
+
+    assert queued.payload["thread_id"] == "thread-1"
+    assert queued.status == "queued"
+    assert repo.thread("thread-1").status == "closing"  # type: ignore[union-attr]
+
+
+def test_retry_close_requeues_a_distill_job_failed_by_stale_recovery():
+    repo = SqliteCoachRepository()
+    _open_thread(repo)
+    jobs = _jobs(repo, JobsGateway())
+    job = jobs.close_thread("thread-1")
+    assert repo.claim_next_job("9999-01-01T00:00:00Z") is not None
+    repo.recover_stale_jobs(cutoff="9999-01-01T00:00:00Z", max_attempts=1)
+
+    retried = jobs.retry_close("thread-1")
+
+    assert retried.id == job.id
+    assert retried.status == "queued"
+    assert retried.attempt_count == 0
+    assert repo.thread("thread-1").status == "closing"  # type: ignore[union-attr]
 
 
 def test_idle_thread_boundary_queues_distill_and_just_under_stays_open():

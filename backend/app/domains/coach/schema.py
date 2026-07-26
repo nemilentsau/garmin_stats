@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS coach_reviews (
     occurrence_key TEXT,
     status TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    assessment_effective_at TEXT,
     data TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS coach_threads (
@@ -84,6 +85,46 @@ def init_coach_schema(connection: sqlite3.Connection) -> None:
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_threads_review
         ON coach_threads(review_id) WHERE review_id IS NOT NULL
+        """
+    )
+    review_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(coach_reviews)")
+    }
+    if "completed_at" in review_columns and "assessment_effective_at" not in review_columns:
+        # An earlier run of this branch created the column under its original
+        # name (`completed_at`) before it was renamed to `assessment_effective_at`.
+        # Rename in place rather than re-deriving: the live DB otherwise has
+        # zero `coach_reviews` rows, so this only protects branch-local dev DBs.
+        connection.execute(
+            "ALTER TABLE coach_reviews RENAME COLUMN completed_at TO assessment_effective_at"
+        )
+        review_columns.discard("completed_at")
+        review_columns.add("assessment_effective_at")
+    if "assessment_effective_at" not in review_columns:
+        connection.execute(
+            "ALTER TABLE coach_reviews ADD COLUMN assessment_effective_at TEXT"
+        )
+    # `assessment_effective_at` freezes the instant the review's current
+    # measurement-assessment status first appeared (first completion if the
+    # review has no assessment, or if its assessment's status hasn't changed
+    # since). `updated_at` moves with every revision, and measurement history
+    # re-derives past days against a per-day cutoff, so a mutable instant would
+    # rewrite decisions that were already made -- see `_save_review` for the
+    # status-based comparison that decides when this must move. Backfill
+    # prefers revision 1 (the first completion snapshot) and falls back to
+    # `updated_at` for pre-revision rows. Idempotent by construction: a second
+    # run finds no NULL `assessment_effective_at` to fill.
+    connection.execute(
+        """
+        UPDATE coach_reviews
+        SET assessment_effective_at = COALESCE(
+            (
+                SELECT revision.created_at FROM coach_review_revisions AS revision
+                WHERE revision.review_id = coach_reviews.id AND revision.version = 1
+            ),
+            updated_at
+        )
+        WHERE assessment_effective_at IS NULL AND status = 'complete'
         """
     )
     connection.execute("DROP INDEX IF EXISTS idx_coach_reviews_skip")

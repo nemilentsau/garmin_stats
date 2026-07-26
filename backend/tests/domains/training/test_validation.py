@@ -42,6 +42,16 @@ def _block0_artifacts() -> tuple[V3Block, list[V3Bundle], SignalRegistry, Exerci
     return block, bundles, registry, library
 
 
+def _truncate_assignments(raw_bundle: dict, *, through_day: int) -> dict:
+    """Drop assignments past a shortened block window."""
+    raw_bundle["assignments"] = [
+        assignment
+        for assignment in raw_bundle["assignments"]
+        if assignment["day"] <= through_day
+    ]
+    return raw_bundle
+
+
 def _bundles_with_override(overrides: dict[str, dict]) -> list[V3Bundle]:
     """Parse the three bundles, substituting a mutated raw dict for the given ids."""
     return [
@@ -99,6 +109,32 @@ def test_l3_budget_exceeded_flags_error():
     bundles = _bundles_with_override({"strength.v3": raw_strength})
     report = lint(block, bundles, registry, library)
     assert any("L3" in e for e in report.errors)
+
+
+def test_l3_checks_every_week_of_a_block_longer_than_four_weeks():
+    """A 35-day block leaves week 5 unscheduled, violating support's declared min."""
+    raw_block = _load("block0.json")
+    raw_block["window"]["days"] = 35
+    block = V3Block.model_validate(raw_block)
+    _, bundles, registry, library = _block0_artifacts()
+    report = lint(block, bundles, registry, library)
+    assert [e for e in report.errors if "L3" in e and "week 5" in e]
+
+
+def test_l3_ignores_weeks_beyond_a_block_shorter_than_four_weeks():
+    """A 21-day block has no week 4, so a satisfied weekly min must stay clean."""
+    raw_block = _load("block0.json")
+    raw_block["window"]["days"] = 21
+    block = V3Block.model_validate(raw_block)
+    _, _, registry, library = _block0_artifacts()
+    bundles = _bundles_with_override(
+        {
+            bundle_id: _truncate_assignments(_load(filename), through_day=21)
+            for bundle_id, filename in _BUNDLE_FILES.items()
+        }
+    )
+    report = lint(block, bundles, registry, library)
+    assert [e for e in report.errors if "L3" in e] == []
 
 
 # ---------- L4: prose conditionals in display_notes ----------
