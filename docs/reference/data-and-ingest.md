@@ -83,7 +83,7 @@ consumer.
 
 ## Invariants
 
-- FIT timestamps are shifted to local time during ingest. `utc_offset_hours` carries the offset for display; new timestamp fields must follow the same parser path.
+- FIT timestamps are shifted to local time during ingest; new timestamp fields must follow the same parser path. A day can hold more than one offset — DST rollover or travel, sometimes changing inside a single WELLNESS file — so each reading is shifted with the offset in effect at its own instant, taken from its own source file. The day's `utc_offset_hours` is the offset in effect at the end of that day, and is a display label, not the shift that was applied to every reading.
 - Period statistics come from raw readings, never averages of daily aggregates.
 - Startup/watcher/ingest changes require `missing`, `already in sync`, and `changed` tests, including a second unchanged run that performs no work, plus a real-tree smoke check.
 - Cache invalidation occurs only when owned persisted data changes.
