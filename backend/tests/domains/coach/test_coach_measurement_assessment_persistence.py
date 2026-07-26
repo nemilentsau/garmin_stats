@@ -15,12 +15,16 @@ from app.domains.coach.contracts import (
     CoachMeasurementAssessment,
     CoachThread,
     ReviewOutput,
+    ReviewRevisionOutput,
     RunJournalSummary,
 )
 
 NOW = "2026-07-12T12:00:00Z"
 LATER = "2026-07-12T13:00:00Z"
 OCCURRENCE_KEY = "running:lthr:d08"
+COMPLETED_AT = "2026-07-19T22:00:00Z"
+BACKUP_DAY_CUTOFF = "2026-07-20T00:00:00Z"
+REVISED_AT = "2026-07-21T10:00:00Z"
 
 
 def _assessment(
@@ -500,6 +504,63 @@ def test_fractional_offset_assessment_sorts_after_legacy_whole_second():
     assert record is not None
     assert record.assessment == assessment
     assert record.source_id == message.id
+
+
+def _revise_review(repo: SqliteCoachRepository, review_id: str, *, finished_at: str) -> None:
+    thread, _ = repo.get_or_create_review_thread(review_id, created_at=COMPLETED_AT)
+    _, correction = repo.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: the heat context was understated.",
+        review_revision_requested=True,
+    )
+    claimed = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    assert claimed.id == correction.id
+    repo.complete_chat_output(
+        job_id=claimed.id,
+        thread_id=thread.id,
+        output=ChatOutput(
+            answer_md="I added the heat context to the review.",
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            review_revision=ReviewRevisionOutput(
+                content_md="Review, with the heat context stated.",
+                outcome="completed_as_intended",
+                confidence="high",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                follow_up_questions=[],
+                plot_observations=[],
+                history_used=[],
+                measurement_assessment=_assessment(status="valid"),
+            ),
+        ),
+        session_id=None,
+        finished_at=finished_at,
+    )
+
+
+def test_review_revision_keeps_the_assessment_at_its_first_completion_instant():
+    """A later revision must not move an assessment past a past day's cutoff."""
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(_assessment(status="valid")),
+        finished_at=COMPLETED_AT,
+    )
+    before_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+
+    _revise_review(repo, review.id, finished_at=REVISED_AT)
+
+    after_revision = repo.latest_measurement_assessment(
+        "run-1", OCCURRENCE_KEY, before=BACKUP_DAY_CUTOFF
+    )
+    assert repo.review(review.id).updated_at == REVISED_AT  # type: ignore[union-attr]
+    assert before_revision is not None
+    assert before_revision.created_at == COMPLETED_AT
+    assert after_revision == before_revision
 
 
 def test_equal_review_and_message_instants_use_source_id_tie_break(monkeypatch):

@@ -107,6 +107,11 @@ is normalized to that day's start in canonical UTC before comparison with stored
 instants. Training uses this historical view only to freeze authored backup decisions;
 ordinary card display still reads the current latest exact assessment.
 
+A review assessment is ordered by the instant the review *first* completed, held in the
+immutable `completed_at` column, not by the `updated_at` that every later revision moves.
+Revising a review therefore never carries its assessment across a past day's cutoff, so
+already-derived backup decisions and their saved logs stay put.
+
 Training asks for an assessment only for the run currently associated with the exact
 runtime occurrence. Detaching the run, linking a different run, or activating a different
 event-qualified backup occurrence therefore leaves the old record auditable in Coach but
@@ -216,9 +221,14 @@ One process-local async worker claims one job at a time. Chat priority is ahead 
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
 the row `running` for startup recovery. Startup requeues every job still marked `running`
 (a single-process deployment cannot have one legitimately running at boot) up to
-three interruption attempts. Open general threads idle for six hours queue distillation; success
+three interruption attempts. Past that limit the job fails, and a failed distillation
+carries its `closing` thread to `close_failed` the same way a worker failure does — a
+thread never stays `closing` without a job to run. An explicit retry restores the whole
+attempt budget. Open general threads idle for six hours queue distillation; success
 closes the thread and deletes its Codex home, while failure retains both and becomes
-`close_failed` with an explicit retry. Review-linked conversations stay available for
+`close_failed` with an explicit retry. Marking a thread `closing` and queueing its
+distillation are separate transactions, so a failure between them also lands on
+`close_failed`; retry-close then queues a fresh job. Review-linked conversations stay available for
 future corrections and are not auto-distilled or closed.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,

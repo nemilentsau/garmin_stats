@@ -73,11 +73,24 @@ def _lifecycle_instant(value: str) -> datetime:
 
 
 def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
+    """Write a review row, freezing `completed_at` at its first completion.
+
+    `updated_at` moves with every revision. `completed_at` must not: measurement
+    history re-derives each past attempt day against that day's cutoff, so a
+    moving instant would retroactively rewrite decisions already made.
+    """
+    stored = connection.execute(
+        "SELECT completed_at FROM coach_reviews WHERE id = ?", (review.id,)
+    ).fetchone()
+    completed_at = None if stored is None else stored["completed_at"]
+    if completed_at is None and review.status == "complete":
+        completed_at = review.updated_at
     connection.execute(
         """
         INSERT OR REPLACE INTO coach_reviews
-            (id, date, kind, run_id, occurrence_key, status, updated_at, data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, date, kind, run_id, occurrence_key, status, updated_at,
+             completed_at, data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             review.id,
@@ -87,6 +100,7 @@ def _save_review(connection: sqlite3.Connection, review: CoachReview) -> None:
             review.occurrence_key,
             review.status,
             review.updated_at,
+            completed_at,
             review.model_dump_json(),
         ),
     )
@@ -223,7 +237,8 @@ class SqliteCoachRepository:
             rows = connection.execute(
                 """
                 SELECT source_id, created_at, source_kind, data FROM (
-                    SELECT id AS source_id, updated_at AS created_at,
+                    SELECT id AS source_id,
+                           COALESCE(completed_at, updated_at) AS created_at,
                            'review' AS source_kind, data
                     FROM coach_reviews
                     WHERE status = 'complete'

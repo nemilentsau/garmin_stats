@@ -175,6 +175,66 @@ def test_legacy_revision_is_explicitly_marked_as_an_incomplete_snapshot():
     assert revision.snapshot_complete is False
 
 
+def _completed_at(review_id: str) -> str | None:
+    with sqlite.connect() as connection:
+        row = connection.execute(
+            "SELECT completed_at FROM coach_reviews WHERE id = ?", (review_id,)
+        ).fetchone()
+    return None if row is None else row["completed_at"]
+
+
+def test_review_completed_at_column_is_added_to_a_pre_existing_table():
+    with sqlite.connect() as connection:
+        connection.execute("DROP TABLE coach_reviews")
+        connection.execute(
+            """
+            CREATE TABLE coach_reviews (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                run_id TEXT,
+                occurrence_key TEXT,
+                status TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                data TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
+
+    with sqlite.connect() as connection:
+        init_coach_schema(connection)
+        connection.commit()
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(coach_reviews)")
+        }
+
+    assert "completed_at" in columns
+
+
+def test_review_completed_at_backfills_from_the_first_revision_once():
+    """Rows written before `completed_at` existed keep their original instant."""
+    repository = SqliteCoachRepository()
+    review, _ = _complete_review(repository, finished_at=NOW)
+    with sqlite.connect() as connection:
+        connection.execute(
+            "UPDATE coach_reviews SET completed_at = NULL, updated_at = ? WHERE id = ?",
+            (LATER, review.id),
+        )
+        connection.commit()
+
+    with sqlite.connect() as connection:
+        init_coach_schema(connection)
+        connection.commit()
+    backfilled = _completed_at(review.id)
+    with sqlite.connect() as connection:
+        init_coach_schema(connection)
+        connection.commit()
+
+    assert backfilled == NOW
+    assert _completed_at(review.id) == backfilled
+
+
 def test_linked_review_thread_is_reused_and_hidden_from_general_conversations():
     repository = SqliteCoachRepository()
     review, _ = _complete_review(repository)

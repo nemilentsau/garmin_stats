@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS coach_reviews (
     occurrence_key TEXT,
     status TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    completed_at TEXT,
     data TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS coach_threads (
@@ -84,6 +85,30 @@ def init_coach_schema(connection: sqlite3.Connection) -> None:
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_threads_review
         ON coach_threads(review_id) WHERE review_id IS NOT NULL
+        """
+    )
+    review_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(coach_reviews)")
+    }
+    if "completed_at" not in review_columns:
+        connection.execute("ALTER TABLE coach_reviews ADD COLUMN completed_at TEXT")
+    # `completed_at` freezes the instant a review first completed. `updated_at`
+    # moves with every revision, and measurement history re-derives past days
+    # against a per-day cutoff, so a mutable instant would rewrite decisions
+    # that were already made. Backfill prefers revision 1 (the first completion
+    # snapshot) and falls back to `updated_at` for pre-revision rows. Idempotent
+    # by construction: a second run finds no NULL `completed_at` to fill.
+    connection.execute(
+        """
+        UPDATE coach_reviews
+        SET completed_at = COALESCE(
+            (
+                SELECT revision.created_at FROM coach_review_revisions AS revision
+                WHERE revision.review_id = coach_reviews.id AND revision.version = 1
+            ),
+            updated_at
+        )
+        WHERE completed_at IS NULL AND status = 'complete'
         """
     )
     connection.execute("DROP INDEX IF EXISTS idx_coach_reviews_skip")
