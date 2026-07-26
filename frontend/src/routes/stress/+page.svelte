@@ -15,8 +15,8 @@
 	import DateSelector from '$lib/components/DateSelector.svelte';
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
-	import { COLORS, withAlpha } from '$lib/colors';
-	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
+	import { COLORS } from '$lib/colors';
+	import { dailyTrendConfig, simpleIntradayLineConfig, weeklyRibbonConfig } from '$lib/chart-options';
 	import type { ChartConfiguration } from 'chart.js';
 
 	let agg: StressDaily | null = $state(null);
@@ -63,189 +63,50 @@
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis) return null;
 		const trend = filterByRange(analysis.avg_trend, trendRange);
-		return {
-			type: 'line',
-			data: {
-				labels: trend.map(p => p.date),
-				datasets: [
-					{
-						label: 'Daily Avg',
-						data: trend.map(p => p.avg),
-						borderColor: withAlpha(COLORS.stress, '50'),
-						borderWidth: 1,
-						pointRadius: 1.5,
-						pointBackgroundColor: withAlpha(COLORS.stress, '60'),
-						tension: 0.3,
-						spanGaps: false
-					},
-					{
-						label: '7d Avg',
-						data: trend.map(p => p.ma7),
-						borderColor: COLORS.stress,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.35,
-						spanGaps: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.stress, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'stress', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return dailyTrendConfig({
+			labels: trend.map(p => p.date),
+			color: COLORS.stress,
+			yTitle: 'stress',
+			beginAtZero: true,
+			max: 100,
+			daily: { label: 'Daily Avg', values: trend.map(p => p.avg) },
+			movingAverage: { label: '7d Avg', values: trend.map(p => p.ma7) }
+		});
 	});
 
 	// ── Weekly boxplot ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
 		const boxes = analysis.weekly_boxplots;
-		return {
-			type: 'line',
-			data: {
-				labels: boxes.map(b => b.iso_week),
-				datasets: [
-					{
-						label: 'Max',
-						data: boxes.map(b => b.max_avg),
-						borderColor: withAlpha(COLORS.stress, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q3',
-						data: boxes.map(b => b.q3_avg),
-						borderColor: withAlpha(COLORS.stress, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Median',
-						data: boxes.map(b => b.median_avg),
-						borderColor: COLORS.stress,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.stress, '15')
-					},
-					{
-						label: 'Q1',
-						data: boxes.map(b => b.q1_avg),
-						borderColor: withAlpha(COLORS.stress, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.stress, '10')
-					},
-					{
-						label: 'Min',
-						data: boxes.map(b => b.min_avg),
-						borderColor: withAlpha(COLORS.stress, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.stress, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK, maxTicksLimit: 12 },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'stress', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return weeklyRibbonConfig({
+			labels: boxes.map(b => b.iso_week),
+			max: boxes.map(b => b.max_avg),
+			q3: boxes.map(b => b.q3_avg),
+			median: boxes.map(b => b.median_avg),
+			q1: boxes.map(b => b.q1_avg),
+			min: boxes.map(b => b.min_avg),
+			color: COLORS.stress,
+			yTitle: 'stress',
+			beginAtZero: true,
+			yMax: 100
+		});
 	});
 
 	// ── Intraday stress ──
+	// NOTE: migrating to simpleIntradayLineConfig intentionally fixes a drift —
+	// the hand-written config here previously omitted `interaction: { mode:
+	// 'index', intersect: false }` that every other intraday chart has.
 	let intradayConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!intradayData || intradayData.stress.length === 0) return null;
-		return {
-			type: 'line',
-			data: {
-				labels: intradayData.stress.map(d => d.timestamp),
-				datasets: [{
-					label: 'Stress',
-					data: intradayData.stress.map(d => d.value),
-					borderColor: COLORS.stress,
-					borderWidth: 1.5,
-					pointRadius: 0,
-					tension: 0.2,
-					fill: { target: 'origin', above: withAlpha(COLORS.stress, '10') }
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false },
-					tooltip: chartTooltip(withAlpha(COLORS.stress, '60'))
-				},
-				scales: {
-					x: {
-						type: 'time',
-						time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-						ticks: { font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'stress', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return simpleIntradayLineConfig({
+			label: 'Stress',
+			color: COLORS.stress,
+			yTitle: 'stress',
+			labels: intradayData.stress.map(d => d.timestamp),
+			values: intradayData.stress.map(d => d.value),
+			beginAtZero: true,
+			max: 100
+		});
 	});
 
 	let stats = $derived.by(() => {

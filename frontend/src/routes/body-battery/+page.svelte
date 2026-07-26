@@ -16,6 +16,7 @@
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { dailyTrendConfig, weeklyRibbonConfig } from '$lib/chart-options';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
@@ -63,158 +64,48 @@
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis) return null;
 		const trend = filterByRange(analysis.trend, trendRange);
-		return {
-			type: 'line',
-			data: {
-				labels: trend.map(p => p.date),
-				datasets: [
-					{
-						label: 'Daily Max',
-						data: trend.map(p => p.max_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '40'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: false,
-						fill: false
-					},
-					{
-						label: 'Daily Min',
-						data: trend.map(p => p.min_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '50'),
-						borderWidth: 1,
-						pointRadius: 1.5,
-						pointBackgroundColor: withAlpha(COLORS.bodyBattery, '60'),
-						tension: 0.3,
-						spanGaps: false,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.bodyBattery, '08')
-					},
-					{
-						label: '7d Avg (Min)',
-						data: trend.map(p => p.ma7_min),
-						borderColor: COLORS.bodyBattery,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.35,
-						spanGaps: false,
-						fill: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.bodyBattery, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'battery %', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
+		return dailyTrendConfig({
+			labels: trend.map(p => p.date),
+			color: COLORS.bodyBattery,
+			yTitle: 'battery %',
+			beginAtZero: true,
+			max: 100,
+			daily: { label: 'Daily Min', values: trend.map(p => p.min_val) },
+			movingAverage: { label: '7d Avg (Min)', values: trend.map(p => p.ma7_min) },
+			dailyFill: { backgroundColor: withAlpha(COLORS.bodyBattery, '08') },
+			extraDatasetsPosition: 'before',
+			extraDatasets: [
+				{
+					label: 'Daily Max',
+					data: trend.map(p => p.max_val),
+					borderColor: withAlpha(COLORS.bodyBattery, '40'),
+					borderWidth: 1,
+					borderDash: [4, 4],
+					pointRadius: 0,
+					tension: 0.3,
+					spanGaps: false,
+					fill: false
 				}
-			}
-		};
+			]
+		});
 	});
 
 	// ── Weekly boxplot ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
 		const boxes = analysis.weekly_boxplots;
-		return {
-			type: 'line',
-			data: {
-				labels: boxes.map(b => b.iso_week),
-				datasets: [
-					{
-						label: 'Max',
-						data: boxes.map(b => b.max_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q3',
-						data: boxes.map(b => b.q3_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Median',
-						data: boxes.map(b => b.median_val),
-						borderColor: COLORS.bodyBattery,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.bodyBattery, '15')
-					},
-					{
-						label: 'Q1',
-						data: boxes.map(b => b.q1_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.bodyBattery, '10')
-					},
-					{
-						label: 'Min',
-						data: boxes.map(b => b.min_val),
-						borderColor: withAlpha(COLORS.bodyBattery, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.bodyBattery, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK, maxTicksLimit: 12 },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: true,
-						max: 100,
-						title: { display: true, text: 'battery %', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return weeklyRibbonConfig({
+			labels: boxes.map(b => b.iso_week),
+			max: boxes.map(b => b.max_val),
+			q3: boxes.map(b => b.q3_val),
+			median: boxes.map(b => b.median_val),
+			q1: boxes.map(b => b.q1_val),
+			min: boxes.map(b => b.min_val),
+			color: COLORS.bodyBattery,
+			yTitle: 'battery %',
+			beginAtZero: true,
+			yMax: 100
+		});
 	});
 
 	// ── Intraday body battery ──

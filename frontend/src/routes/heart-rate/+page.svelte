@@ -529,6 +529,11 @@
 
 
 	// ── Chart: Weekly Boxplot ──
+	// Deliberate variant of `weeklyRibbonConfig` ($lib/chart-options): zero tension,
+	// point markers on the median, an ascending Min→Max dataset order with an
+	// IQR-only fill, week-range filtering, and custom tooltip callbacks — the
+	// shared builder can't express this without changing behavior, so it stays
+	// hand-written here.
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
 		const cutoff = trendCutoff(trendRange);

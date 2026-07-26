@@ -20,6 +20,7 @@
 	import { type TrendRange, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import { fmt } from '$lib/format';
 	import { COLORS, withAlpha } from '$lib/colors';
+	import { dailyTrendConfig, weeklyRibbonConfig } from '$lib/chart-options';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import type { ChartConfiguration } from 'chart.js';
 
@@ -72,152 +73,43 @@
 	let trendConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis) return null;
 		const trend = filterByRange(analysis.score_trend, trendRange);
-		return {
-			type: 'line',
-			data: {
-				labels: trend.map(p => p.date),
-				datasets: [
-					{
-						label: 'Sleep Score',
-						data: trend.map(p => p.score),
-						borderColor: withAlpha(COLORS.sleep, '50'),
-						borderWidth: 1,
-						pointRadius: 1.5,
-						pointBackgroundColor: withAlpha(COLORS.sleep, '60'),
-						tension: 0.3,
-						spanGaps: false
-					},
-					{
-						label: '7d Avg',
-						data: trend.map(p => p.ma7),
-						borderColor: COLORS.sleep,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.35,
-						spanGaps: false
-					},
-					{
-						label: 'Deep Score',
-						data: trend.map(p => p.deep_score),
-						borderColor: withAlpha(COLORS.sleep7Day, '60'),
-						borderWidth: 1,
-						borderDash: [4, 4],
-						pointRadius: 0,
-						tension: 0.3,
-						spanGaps: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.sleep, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'score', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
+		return dailyTrendConfig({
+			labels: trend.map(p => p.date),
+			color: COLORS.sleep,
+			yTitle: 'score',
+			beginAtZero: false,
+			daily: { label: 'Sleep Score', values: trend.map(p => p.score) },
+			movingAverage: { label: '7d Avg', values: trend.map(p => p.ma7) },
+			extraDatasets: [
+				{
+					label: 'Deep Score',
+					data: trend.map(p => p.deep_score),
+					borderColor: withAlpha(COLORS.sleep7Day, '60'),
+					borderWidth: 1,
+					borderDash: [4, 4],
+					pointRadius: 0,
+					tension: 0.3,
+					spanGaps: false
 				}
-			}
-		};
+			]
+		});
 	});
 
 	// ── Weekly boxplot as area chart ──
 	let boxplotConfig = $derived.by<ChartConfiguration<'line'> | null>(() => {
 		if (!analysis || analysis.weekly_boxplots.length === 0) return null;
 		const boxes = analysis.weekly_boxplots;
-		return {
-			type: 'line',
-			data: {
-				labels: boxes.map(b => b.iso_week),
-				datasets: [
-					{
-						label: 'Max',
-						data: boxes.map(b => b.max_score),
-						borderColor: withAlpha(COLORS.sleep, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Q3',
-						data: boxes.map(b => b.q3_score),
-						borderColor: withAlpha(COLORS.sleep, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					},
-					{
-						label: 'Median',
-						data: boxes.map(b => b.median_score),
-						borderColor: COLORS.sleep,
-						borderWidth: 2.5,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.sleep, '15')
-					},
-					{
-						label: 'Q1',
-						data: boxes.map(b => b.q1_score),
-						borderColor: withAlpha(COLORS.sleep, '50'),
-						borderWidth: 1,
-						pointRadius: 0,
-						tension: 0.3,
-						fill: '-1',
-						backgroundColor: withAlpha(COLORS.sleep, '10')
-					},
-					{
-						label: 'Min',
-						data: boxes.map(b => b.min_score),
-						borderColor: withAlpha(COLORS.sleep, '30'),
-						borderWidth: 1,
-						borderDash: [3, 3],
-						pointRadius: 0,
-						tension: 0.3,
-						fill: false
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: { mode: 'index' as const, intersect: false },
-				plugins: {
-					legend: { labels: { boxWidth: 12, font: { size: 11 }, color: '#8a9baa' } },
-					tooltip: chartTooltip(withAlpha(COLORS.sleep, '60'))
-				},
-				scales: {
-					x: {
-						ticks: { maxRotation: 45, font: { size: 10 }, ...DARK_TICK, maxTicksLimit: 12 },
-						grid: DARK_GRID,
-						border: DARK_BORDER
-					},
-					y: {
-						beginAtZero: false,
-						title: { display: true, text: 'score', ...DARK_TICK },
-						ticks: DARK_TICK,
-						grid: DARK_GRID_Y,
-						border: DARK_BORDER
-					}
-				}
-			}
-		};
+		return weeklyRibbonConfig({
+			labels: boxes.map(b => b.iso_week),
+			max: boxes.map(b => b.max_score),
+			q3: boxes.map(b => b.q3_score),
+			median: boxes.map(b => b.median_score),
+			q1: boxes.map(b => b.q1_score),
+			min: boxes.map(b => b.min_score),
+			color: COLORS.sleep,
+			yTitle: 'score',
+			beginAtZero: false
+		});
 	});
 
 	// ── Intraday: sleep stage chart ──
