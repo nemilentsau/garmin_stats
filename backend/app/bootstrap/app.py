@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from ..core.config import get_app_config, get_cors_origins
 from .lifespan import lifespan
+from .request_limits import TrainingImportRequestLimitMiddleware
 from .routing import register_routers
 
 
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.add_middleware(TrainingImportRequestLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_cors_origins(),

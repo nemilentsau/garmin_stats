@@ -1141,7 +1141,7 @@ export interface paths {
         put?: never;
         /**
          * Post Import
-         * @description Validate, lint, and single-shot activate an uploaded v3 artifact set.
+         * @description Decode, validate, lint, and atomically activate one authored ZIP package.
          */
         post: operations["post_import_api_training_import_post"];
         delete?: never;
@@ -2978,24 +2978,14 @@ export interface components {
             value: number;
         };
         /**
-         * ImportFile
-         * @description One uploaded artifact file: its name plus parsed JSON content.
+         * ImportPackageRequest
+         * @description One authored ZIP package plus any lint warnings already acknowledged.
          */
-        ImportFile: {
+        ImportPackageRequest: {
             /** Filename */
             filename: string;
-            /** Content */
-            content: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * ImportRequest
-         * @description An upload batch plus any lint warnings the caller has already accepted.
-         */
-        ImportRequest: {
-            /** Files */
-            files: components["schemas"]["ImportFile"][];
+            /** Content Base64 */
+            content_base64: string;
             /**
              * Warning Acks
              * @default []
@@ -7644,7 +7634,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ImportRequest"];
+                "application/json": components["schemas"]["ImportPackageRequest"];
             };
         };
         responses: {

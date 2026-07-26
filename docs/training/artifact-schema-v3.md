@@ -8,20 +8,22 @@ The governing behavior is in [`principles.md`](principles.md). Current implement
 
 ## Repository artifacts
 
-- [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) is the latest authored program retained in the repository and contains the six files accepted by the import surface. Its presence here does not imply runtime activation.
+- [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) is the latest authored program source retained in the repository. Its six JSON artifacts are packaged into the one ZIP accepted by the import surface; its presence here does not imply runtime activation.
 - `backend/tests/fixtures/training/v3-calibration/` contains the read-only calibration artifacts and expected lint report used by contract, validator, import, and read-model tests.
 - `lint_report.json` and compiled schedules are outputs, not content ingress. The runtime compiles and lints an upload during activation and persists the resulting report with the active block.
 
 ## Import set and lifecycle
 
-One import contains exactly:
+One import is an authored ZIP package. The backend reads JSON members in memory,
+ignores non-JSON documentation and platform metadata, and never extracts or
+rewrites package content. The JSON members contain exactly:
 
 1. every bundle named by the block's `bundle_ids` (currently `running_v3.json`, `strength_v3.json`, and `support_v3.json`);
 2. one block definition (`block1.json` in the latest authored program);
 3. one `registry.json`;
 4. one `exercise_library.json`.
 
-The server strictly validates each JSON object, checks that the set is complete and internally consistent, compiles the schedule, runs L1-L12, requires acknowledgement of any warnings, then atomically retires the prior generation and activates the new one. A failed import writes nothing.
+The server bounds the compressed package, member count, and decompressed JSON size before it strictly validates each JSON object. It checks that the set is complete and internally consistent, compiles the schedule, runs L1-L12, requires acknowledgement of any warnings, then atomically retires the prior generation and activates the new one. A failed import writes nothing.
 
 ## Artifact models
 

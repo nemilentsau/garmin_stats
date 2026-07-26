@@ -6,6 +6,7 @@ import json
 from starlette.types import Message
 
 import app.main as main_mod
+from app.bootstrap.request_limits import MAX_TRAINING_IMPORT_REQUEST_BYTES
 
 app = main_mod.app
 
@@ -14,6 +15,8 @@ async def _asgi_request(
     path: str,
     *,
     method: str = "GET",
+    body: bytes = b"",
+    include_content_length: bool = True,
 ) -> tuple[int, dict[str, str], bytes]:
     """Perform a raw ASGI request and return (status, headers, body)."""
     if "?" in path:
@@ -27,7 +30,7 @@ async def _asgi_request(
         nonlocal receive_calls
         receive_calls += 1
         if receive_calls == 1:
-            return {"type": "http.request", "body": b"", "more_body": False}
+            return {"type": "http.request", "body": body, "more_body": False}
         return {"type": "http.disconnect"}
 
     async def send(message: Message) -> None:
@@ -44,7 +47,14 @@ async def _asgi_request(
             "raw_path": path_part.encode(),
             "query_string": qs.encode(),
             "root_path": "",
-            "headers": [],
+            "headers": [
+                (b"content-type", b"application/json"),
+                *(
+                    [(b"content-length", str(len(body)).encode())]
+                    if include_content_length
+                    else []
+                ),
+            ],
             "client": ("testclient", 50000),
             "server": ("testserver", 80),
         },
@@ -116,3 +126,30 @@ class TestExceptionHandlers:
 
         assert status == 400
         assert json.loads(body)["detail"] == "duration_days must be > 0"
+
+
+class TestRequestBodyLimits:
+    def test_training_import_rejects_oversized_http_body_before_parsing(self):
+        request_body = b"x" * (MAX_TRAINING_IMPORT_REQUEST_BYTES + 1)
+
+        status, _headers, body = asyncio.run(
+            _asgi_request("/api/training/import", method="POST", body=request_body)
+        )
+
+        assert status == 413
+        assert json.loads(body)["detail"] == "Training import request is too large"
+
+    def test_training_import_counts_body_when_content_length_is_absent(self):
+        request_body = b"x" * (MAX_TRAINING_IMPORT_REQUEST_BYTES + 1)
+
+        status, _headers, body = asyncio.run(
+            _asgi_request(
+                "/api/training/import",
+                method="POST",
+                body=request_body,
+                include_content_length=False,
+            )
+        )
+
+        assert status == 413
+        assert json.loads(body)["detail"] == "Training import request is too large"

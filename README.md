@@ -65,7 +65,7 @@ Per-slice dependency boundaries live in `backend/app/domains/<domain>/CHARTER.md
 
 ### v3 training
 
-The training import at `/training/import` accepts one v3 program's six authored artifacts:
+The training import at `/training/import` accepts one authored `.zip` package. The package contains the v3 program's six JSON artifacts:
 
 - `running_v3.json`
 - `strength_v3.json`
@@ -74,7 +74,7 @@ The training import at `/training/import` accepts one v3 program's six authored 
 - `registry.json`
 - `exercise_library.json`
 
-Import is atomic: strict wire validation, completeness checks, schedule compilation, L1-L12 linting, and warning acknowledgement all succeed before the new generation activates. Uploaded artifacts are stored verbatim. The full contract is [docs/training/artifact-schema-v3.md](docs/training/artifact-schema-v3.md).
+The backend opens the package in memory and ignores non-JSON documentation; it does not generate, translate, or rewrite the authored content. Import is atomic: strict wire validation, completeness checks, schedule compilation, L1-L12 linting, and warning acknowledgement all succeed before the new generation activates. The full contract is [docs/training/artifact-schema-v3.md](docs/training/artifact-schema-v3.md).
 
 [`docs/training/programs/threshold-development-2026-07-13/`](docs/training/programs/threshold-development-2026-07-13/) is the latest authored program checked into the repository. That does not imply runtime activation; the active imported database record is authoritative. Test-only calibration artifacts live under `backend/tests/fixtures/training/`.
 

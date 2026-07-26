@@ -3,12 +3,12 @@
 **Status:** shipped
 **Boundary source of truth for this slice. Update in the same PR that changes it.**
 
-The v3-native training runtime. It imports authored v3 training artifacts, lint-gates and single-shot activates them, compiles their schedule, and projects execution, measurement, and authored backup state into Today / schedule-window / block-status read models plus per-occurrence capture logs. The import endpoint is the ONLY ingress for training content: artifacts are stored verbatim, and runtime projections never create or rewrite authored content.
+The v3-native training runtime. Its HTTP boundary accepts one authored ZIP package, decodes the contained JSON artifacts in memory, lint-gates and single-shot activates them, compiles their schedule, and projects execution, measurement, and authored backup state into Today / schedule-window / block-status read models plus per-occurrence capture logs. The import endpoint is the ONLY ingress for training content: artifacts are stored without translation, and runtime projections never create or rewrite authored content.
 
 ## Owns
 
-- v3 training artifact import and single-shot atomic activation (content
-  bundles, block definition, signal registry, exercise library).
+- bounded, in-memory v3 ZIP package decoding plus single-shot atomic activation
+  of its content bundles, block definition, signal registry, and exercise library.
 - The ported L1-L12 block linter.
 - Schedule compilation from imported bundles.
 - Today / schedule-window / block-status read models.
@@ -82,9 +82,12 @@ there is no separate routines feed to compose it with.
 - `routes.py` — FastAPI binding for the five `/api/training` endpoints; resolves
   dependencies from the container, delegates training policy to the application
   layer, and persists capture updates without triggering Coach work.
+- `application/import_packages.py` — `ImportPackageRequest` and `import_package`:
+  safely decode one bounded ZIP into JSON artifacts, then delegate without
+  extracting files, translating content, or owning artifact validation.
 - `application/imports.py` — `import_artifacts` (+ `ImportRequest` /
   `ImportResult`): validate → lint → single-shot activate an uploaded v3
-  artifact set.
+  artifact set after package decoding.
 - `application/validation.py` — the ported L1-L12 block linter (all of L1
   through L12 present); blocks activation on failure.
 - `application/compile.py` — `compile_schedule` and `full_variant_prescription`:

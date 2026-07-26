@@ -1,42 +1,38 @@
 <script lang="ts">
 	/**
-	 * Training Import — upload a v3-native artifact set (bundles, block, registry, library
-	 * JSON files), review the backend's lint report, acknowledge warnings, and activate.
+	 * Training Import — upload one authored v3 ZIP package, review the backend's contained
+	 * artifact validation and lint report, acknowledge warnings, and activate.
 	 *
-	 * This page never interprets artifact content itself: files are read and JSON-parsed
-	 * client-side only to catch malformed JSON before it leaves the browser, and every
-	 * validity/lint/rollup judgment rendered here comes straight from `ImportResult` /
-	 * `LintReport` as returned by `POST /api/training/import`.
+	 * This page never opens or interprets the package. It base64-encodes the selected ZIP for
+	 * the JSON API boundary; every package, artifact, lint, and rollup judgment rendered here
+	 * comes straight from `ImportResult` / `LintReport` as returned by
+	 * `POST /api/training/import`.
 	 */
 	import { onMount } from 'svelte';
 	import { api, type ImportResult, type TrainingBlockStatus } from '$lib/api';
 	import { fmt } from '$lib/format';
 	import { errorMessage } from '$lib/utils';
 
-	type SelectedFile = {
+	type SelectedPackage = {
 		filename: string;
 		size: number;
-		content: Record<string, unknown> | null;
-		parseError: string | null;
+		contentBase64: string;
 	};
+	const MAX_PACKAGE_BYTES = 5 * 1024 * 1024;
 
 	let blockLoading = $state(true);
 	let blockStatus = $state<TrainingBlockStatus | null>(null);
 
-	let selectedFiles = $state<SelectedFile[]>([]);
+	let selectedPackage = $state<SelectedPackage | null>(null);
+	let packageReading = $state(false);
+	let selectionVersion = 0;
 
 	let importing = $state(false);
 	let importError = $state<string | null>(null);
 	let result = $state<ImportResult | null>(null);
 	let ackedWarnings = $state<string[]>([]);
 
-	const validFiles = $derived(
-		selectedFiles.filter(
-			(f): f is SelectedFile & { content: Record<string, unknown> } => f.content !== null
-		)
-	);
-	const invalidFileCount = $derived(selectedFiles.length - validFiles.length);
-	const canImport = $derived(validFiles.length > 0 && !importing);
+	const canImport = $derived(selectedPackage !== null && !packageReading && !importing);
 	const lintReport = $derived(result?.lint_report ?? null);
 
 	const weekKeys = $derived.by(() => {
@@ -78,25 +74,60 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
-	async function parseFile(file: File): Promise<SelectedFile> {
-		try {
-			const text = await file.text();
-			const content = JSON.parse(text) as Record<string, unknown>;
-			return { filename: file.name, size: file.size, content, parseError: null };
-		} catch (e: unknown) {
-			return { filename: file.name, size: file.size, content: null, parseError: errorMessage(e) };
+	function bytesToBase64(bytes: Uint8Array): string {
+		const chunkSize = 0x8000;
+		let binary = '';
+		for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+			binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
 		}
+		return btoa(binary);
+	}
+
+	function packageImportErrorMessage(error: unknown): string {
+		const message = errorMessage(error);
+		try {
+			const payload: unknown = JSON.parse(message);
+			if (
+				typeof payload === 'object' &&
+				payload !== null &&
+				'detail' in payload &&
+				typeof payload.detail === 'string'
+			) {
+				return payload.detail;
+			}
+		} catch {
+			// The shared API client returns non-HTTP failures as plain messages.
+		}
+		return message;
 	}
 
 	async function handleFileSelection(e: Event): Promise<void> {
 		const input = e.currentTarget as HTMLInputElement;
-		const files = Array.from(input.files ?? []);
-		input.value = '';
-		if (files.length === 0) return;
-		selectedFiles = await Promise.all(files.map(parseFile));
+		const file = input.files?.[0] ?? null;
+		if (!file) return;
+		const version = ++selectionVersion;
+		packageReading = true;
+		selectedPackage = null;
 		result = null;
 		importError = null;
 		ackedWarnings = [];
+		if (file.size > MAX_PACKAGE_BYTES) {
+			importError = `Training package exceeds the ${fmtBytes(MAX_PACKAGE_BYTES)} size limit.`;
+			packageReading = false;
+			return;
+		}
+		try {
+			const nextPackage = {
+				filename: file.name,
+				size: file.size,
+				contentBase64: bytesToBase64(new Uint8Array(await file.arrayBuffer()))
+			};
+			if (version === selectionVersion) selectedPackage = nextPackage;
+		} catch (e: unknown) {
+			if (version === selectionVersion) importError = errorMessage(e);
+		} finally {
+			if (version === selectionVersion) packageReading = false;
+		}
 	}
 
 	function onWarningAckChange(warning: string, e: Event): void {
@@ -105,19 +136,20 @@
 	}
 
 	async function handleImport(): Promise<void> {
-		if (validFiles.length === 0) return;
+		if (!selectedPackage) return;
 		importing = true;
 		importError = null;
 		try {
 			result = await api.importTraining({
-				files: validFiles.map((f) => ({ filename: f.filename, content: f.content })),
+				filename: selectedPackage.filename,
+				content_base64: selectedPackage.contentBase64,
 				warning_acks: ackedWarnings
 			});
 			if (result.activated) {
 				await loadBlockStatus();
 			}
 		} catch (e: unknown) {
-			importError = errorMessage(e);
+			importError = packageImportErrorMessage(e);
 		} finally {
 			importing = false;
 		}
@@ -154,59 +186,35 @@
 
 	<div class="panel">
 		<div class="panel-header">
-			<h2>Files</h2>
-			<span class="hint">.json artifacts — bundles, block, registry, library</span>
+			<h2>Training package</h2>
+			<span class="hint">one .zip — one authored program</span>
 		</div>
 
 		<label class="file-picker">
-			<input type="file" multiple accept=".json" onchange={handleFileSelection} />
+			<input
+				type="file"
+				accept=".zip,application/zip"
+				onclick={(e) => ((e.currentTarget as HTMLInputElement).value = '')}
+				onchange={handleFileSelection}
+			/>
 		</label>
 
-		{#if selectedFiles.length > 0}
-			<table class="data-table">
-				<colgroup>
-					<col />
-					<col style="width: 90px" />
-					<col style="width: 60px" />
-					<col />
-				</colgroup>
-				<thead>
-					<tr>
-						<th>filename</th>
-						<th class="num">size</th>
-						<th class="status-col">parsed</th>
-						<th>error</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each selectedFiles as f (f.filename)}
-						<tr class:invalid={f.parseError !== null}>
-							<td>{f.filename}</td>
-							<td class="num">{fmtBytes(f.size)}</td>
-							<td class="status-col">
-								<span class="status-mark" class:ok={f.parseError === null} class:bad={f.parseError !== null}>
-									{f.parseError === null ? '✓' : '✗'}
-								</span>
-							</td>
-							<td class="error-text">{f.parseError ?? ''}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-			{#if invalidFileCount > 0}
-				<div class="hint warning-hint">
-					{invalidFileCount} file{invalidFileCount === 1 ? '' : 's'} excluded from submission — fix and re-select.
+		{#if packageReading}
+			<div class="package-summary loading">Reading package&hellip;</div>
+		{:else if selectedPackage}
+			<div class="package-summary">
+				<div>
+					<div class="package-name">{selectedPackage.filename}</div>
+					<div class="hint">Contents will be validated by the backend before activation.</div>
 				</div>
-			{/if}
+				<span class="package-size">{fmtBytes(selectedPackage.size)}</span>
+			</div>
 		{/if}
 
 		<div class="import-actions">
 			<button type="button" class="action-btn primary" disabled={!canImport} onclick={() => void handleImport()}>
-				{importing ? 'Importing…' : 'Import'}
+				{importing ? 'Importing…' : 'Import package'}
 			</button>
-			{#if selectedFiles.length > 0}
-				<span class="hint">{validFiles.length} of {selectedFiles.length} file{selectedFiles.length === 1 ? '' : 's'} ready</span>
-			{/if}
 		</div>
 
 		{#if importError}
@@ -467,6 +475,38 @@
 
 	.file-picker input[type='file']::file-selector-button:hover {
 		background: rgba(91, 181, 166, 0.22);
+	}
+
+	.package-summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 10px 12px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.package-summary.loading {
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		color: var(--muted);
+	}
+
+	.package-name,
+	.package-size {
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		color: #c3d3dd;
+	}
+
+	.package-name {
+		margin-bottom: 3px;
+	}
+
+	.package-size {
+		font-variant-numeric: tabular-nums lining-nums;
+		white-space: nowrap;
 	}
 
 	.table-scroll {

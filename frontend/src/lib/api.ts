@@ -57,7 +57,7 @@ export type MetricLagResult = Schemas['MetricLagResult'];
 export type ConfounderCheck = Schemas['ConfounderCheck'];
 export type AdherenceDayEntry = Schemas['AdherenceDayEntry'];
 export type ExperimentExposureCreate = Schemas['ExperimentExposureCreate'];
-export type ImportRequest = Schemas['ImportRequest'];
+export type ImportPackageRequest = Schemas['ImportPackageRequest'];
 export type ImportResult = Schemas['ImportResult'];
 export type TrainingBlockStatus = Schemas['TrainingBlockStatus'];
 export type TrainingTodayCard = Schemas['TrainingTodayCard'];
@@ -199,7 +199,7 @@ export const api = {
 			body: exposure
 		}));
 	},
-	importTraining: async (body: ImportRequest) => {
+	importTraining: async (body: ImportPackageRequest) => {
 		return unwrapResponse(client.POST('/api/training/import', { body }));
 	},
 	getTrainingBlock: async () => {
