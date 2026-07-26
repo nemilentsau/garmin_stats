@@ -83,11 +83,28 @@ def ingest_running_activities(
             or stored_fingerprints.get(relative) != source_fingerprints[relative]
         )
     ]
+    removed_sources = sorted(set(existing_sessions) - set(source_fingerprints))
 
     ingested = 0
     failed = 0
     now = now_iso()
     with connect() as con, con:
+        for source_file in removed_sources:
+            session_id = existing_sessions[source_file]
+            con.execute(
+                "DELETE FROM running_activity_laps WHERE session_id = ?", (session_id,)
+            )
+            con.execute(
+                "DELETE FROM running_activity_series WHERE session_id = ?", (session_id,)
+            )
+            con.execute(
+                "DELETE FROM running_activity_sessions WHERE source_file = ?",
+                (source_file,),
+            )
+            con.execute(
+                "DELETE FROM running_activity_sources WHERE source_file = ?",
+                (source_file,),
+            )
         for fit_path in changed_files:
             source_file = str(fit_path.relative_to(activities_dir))
             try:
@@ -154,7 +171,7 @@ def ingest_running_activities(
                 (_FINGERPRINT_KEY, current),
             )
 
-    if ingested:
+    if ingested or removed_sources:
         cache.invalidate()
 
     return RunningActivityIngestResult(

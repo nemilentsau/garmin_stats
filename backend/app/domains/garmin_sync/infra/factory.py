@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from app.core.config import AppConfig, get_app_config
-from app.domains.garmin_sync.dependencies import GarminSyncDependencies
+from app.domains.garmin_sync.dependencies import DataChangeAction, GarminSyncDependencies
 from app.domains.garmin_sync.infra.activity_files import FilesystemActivityStore
 from app.domains.garmin_sync.infra.filesystem import (
     FilesystemSyncFileStore,
@@ -38,6 +38,7 @@ class GarminSyncInfra:
 def build_garmin_sync_infra(
     config: AppConfig | None = None,
     data_dir: Path | None = None,
+    after_data_change: DataChangeAction | None = None,
 ) -> GarminSyncInfra:
     """Wire Garmin sync ports to SQLite, filesystem, Garmin Connect, and SSE."""
 
@@ -64,6 +65,11 @@ def build_garmin_sync_infra(
         activity_files=FilesystemActivityStore(),
         today=date.today,
         monotonic=time.monotonic,
+        **(
+            {"after_data_change": after_data_change}
+            if after_data_change is not None
+            else {}
+        ),
     )
     return GarminSyncInfra(
         dependencies=dependencies,

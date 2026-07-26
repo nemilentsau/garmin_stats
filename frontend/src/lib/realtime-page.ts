@@ -15,6 +15,32 @@ export function createLatestRequestGate(): LatestRequestGate {
 	};
 }
 
+type LatestLoaderOptions<TArgs extends unknown[], TResult> = {
+	onStart?: (...args: TArgs) => void;
+	load: (...args: TArgs) => Promise<TResult>;
+	onSuccess: (result: TResult, ...args: TArgs) => void;
+	onError?: (error: unknown, ...args: TArgs) => void;
+	onSettled?: (...args: TArgs) => void;
+};
+
+export function createLatestLoader<TArgs extends unknown[], TResult>(
+	options: LatestLoaderOptions<TArgs, TResult>
+): (...args: TArgs) => Promise<void> {
+	const gate = createLatestRequestGate();
+	return async (...args: TArgs) => {
+		const request = gate.issue();
+		options.onStart?.(...args);
+		try {
+			const result = await options.load(...args);
+			if (gate.isCurrent(request)) options.onSuccess(result, ...args);
+		} catch (error: unknown) {
+			if (gate.isCurrent(request)) options.onError?.(error, ...args);
+		} finally {
+			if (gate.isCurrent(request)) options.onSettled?.(...args);
+		}
+	};
+}
+
 type RealtimeInitOptions = {
 	fetchData: () => Promise<void>;
 	setError: (message: string | null) => void;
@@ -22,21 +48,23 @@ type RealtimeInitOptions = {
 };
 
 export function startRealtimePage(options: RealtimeInitOptions): () => void {
+	const gate = createLatestRequestGate();
 	const refresh = async () => {
+		const request = gate.issue();
 		try {
 			await options.fetchData();
-			options.setError(null);
+			if (gate.isCurrent(request)) options.setError(null);
 		} catch (error: unknown) {
-			options.setError(error instanceof Error ? error.message : String(error));
+			if (gate.isCurrent(request)) {
+				options.setError(error instanceof Error ? error.message : String(error));
+			}
 			throw error;
+		} finally {
+			if (gate.isCurrent(request)) options.setLoading(false);
 		}
 	};
 
-	refresh()
-		.catch(() => {})
-		.finally(() => {
-			options.setLoading(false);
-		});
+	refresh().catch(() => {});
 
 	return createDataUpdateListener(refresh);
 }

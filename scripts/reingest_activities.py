@@ -4,8 +4,8 @@
 
 Needed after parser-field changes: wipes the running_activity_* tables and
 the activities-tree fingerprint, then re-runs the ingest engine so every
-file is re-parsed with the current parser (source_file dedup means a normal
-sync/startup ingest would otherwise skip already-seen files).
+file is re-parsed with the current parser (unchanged source signatures mean a
+normal sync/startup ingest would otherwise skip already-seen files).
 
 Usage:
     cd backend && uv run python ../scripts/reingest_activities.py
@@ -17,7 +17,9 @@ from pathlib import Path
 # Ensure backend package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
+from app.bootstrap.container import build_container
 from app.core.config import get_app_config
+from app.domains.garmin_sync.data_change import notify_data_changed
 from app.domains.garmin_sync.infra.activity_ingest import ingest_running_activities
 from app.infra.sqlite import connect
 
@@ -39,4 +41,5 @@ if __name__ == "__main__":
 
     print("Re-ingesting all running activity FIT files...")
     result = ingest_running_activities(activities_dir)
+    notify_data_changed(build_container().garmin_sync)
     print(f"reingested: {result.sessions_ingested} sessions, {result.files_failed} failed")
