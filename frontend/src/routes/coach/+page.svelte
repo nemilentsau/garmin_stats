@@ -43,6 +43,15 @@
 				: 'reviews'
 	);
 
+	// One-shot deep-link consumption (`/runs/[id]` links here as `/coach?review=<id>`):
+	// captured once from the URL at component init, NOT re-read from `page.url` on every
+	// refresh. `refreshAll` runs on every SSE tick and after every send/create/close action;
+	// re-reading the query param each time would keep snapping the selection back to the
+	// deep-linked review even after the user picked a different one. Cleared (and the param
+	// stripped from the URL) once the deep-linked review is found in the reviews list, or
+	// as soon as the user makes an explicit selection via `chooseReview`.
+	let pendingDeepLinkReviewId: string | null = page.url.searchParams.get('review');
+
 	let activeThread = $derived(threads.find((thread) => thread.id === activeThreadId) ?? null);
 	let activeReview = $derived(
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
@@ -78,6 +87,14 @@
 		params.set('tab', next);
 		if (next === 'conversation') params.delete('review');
 		replaceState(`?${params.toString()}`, {});
+	}
+
+	function clearReviewParam(): void {
+		if (!page.url.searchParams.has('review')) return;
+		const params = new URLSearchParams(page.url.searchParams);
+		params.delete('review');
+		const query = params.toString();
+		replaceState(query ? `?${query}` : page.url.pathname, {});
 	}
 
 	function reviewOutcome(review: CoachReview): string {
@@ -157,9 +174,14 @@
 		reviews = nextReviews.reviews;
 		threads = nextThreads.threads;
 		brief = nextBrief;
-		const requestedReview = page.url.searchParams.get('review');
-		if (requestedReview && reviews.some((review) => review.id === requestedReview)) {
-			activeReviewId = requestedReview;
+		// Fresh review data just arrived — let any previously-404'd evidence plot retry
+		// (the worker may have generated it since). Reassigning (not mutating) the Set is
+		// required for the `{#if failedPlots.has(...)}` reads below to pick up the change.
+		failedPlots = new Set();
+		if (pendingDeepLinkReviewId && reviews.some((review) => review.id === pendingDeepLinkReviewId)) {
+			activeReviewId = pendingDeepLinkReviewId;
+			pendingDeepLinkReviewId = null;
+			clearReviewParam();
 		} else if (!activeReviewId && reviews[0]) {
 			activeReviewId = reviews[0].id;
 		}
@@ -175,6 +197,9 @@
 
 	async function chooseReview(review: CoachReview): Promise<void> {
 		activeReviewId = review.id;
+		pendingDeepLinkReviewId = null;
+		clearReviewParam();
+		failedPlots = new Set();
 		try {
 			await refreshReviewConversation(review);
 		} catch (e: unknown) {
