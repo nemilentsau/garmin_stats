@@ -138,4 +138,4 @@ After backend API schema changes, regenerate `frontend/src/lib/api-types.ts` wit
 - [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md) and [docs/reference/hrv.md](docs/reference/hrv.md) — shipped analytical surfaces.
 - [docs/routine-pivot/](docs/routine-pivot/) — training principles, v3 contract, current work, frozen Block 0, and active Block 1.
 - [docs/future/strength-activities.md](docs/future/strength-activities.md) — the only retained unbuilt implementation spec.
-- [FINDINGS.md](FINDINGS.md) — durable dataset findings and open analytical questions.
+- `FINDINGS.md` — durable dataset findings and open analytical questions. Gitignored/local-only by policy (not part of this checkout); the shareable presentation is [docs/findings/](docs/findings/).

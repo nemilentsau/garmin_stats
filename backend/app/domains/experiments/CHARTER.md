@@ -56,7 +56,8 @@ uses a flat route/adapter/dependency layout with a pure `domain/` core.
 - `application/` — named use cases: `management`, `preview`, `exposures`,
   `analysis_cache`, `analysis`, `target_metrics`.
 - `dependencies.py` — repository/read-source ports (`ExperimentRepository`,
-  `ExperimentPreviewReadSource`, `ExperimentAnalysisReadSource`).
+  `ExperimentPreviewRepository`, `ExperimentPreviewReadSource`,
+  `ExperimentAnalysisReadSource`).
 - `read_sources.py` — cross-domain read-source wiring for preview/analysis inputs.
 - `domain/` — pure experiment analysis, experiment-local statistical primitives,
   metric path resolution, and exposure scoring

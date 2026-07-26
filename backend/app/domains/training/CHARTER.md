@@ -36,16 +36,14 @@ The v3-native training runtime. It imports authored v3 training artifacts, lint-
 
 ## Does not own
 
-- Routine catalog or activation for non-training routines.
-- Artifact staging.
 - Experiment analysis.
 - Garmin ingest.
 - Garmin run persistence or canonical FIT contracts.
 - Coach assessment persistence or model-output validation.
 - Mutation, generation, translation, or rescheduling of imported content.
 
-The frontend Today and schedule pages compose the training feed and the
-routines feed side by side; neither domain imports the other.
+The frontend Today and schedule pages render the v3 training feed alone;
+there is no separate routines feed to compose it with.
 
 ## May import
 
@@ -59,9 +57,9 @@ routines feed side by side; neither domain imports the other.
 
 ## Must not import
 
-- routines, experiments, artifacts, journal, coach,
-  Garmin sync, Garmin analytics, Garmin health, FastAPI from application
-  modules, or SQLite helpers from application modules.
+- experiments, journal, coach, Garmin sync, Garmin analytics, Garmin health,
+  FastAPI from application modules, or SQLite helpers from application
+  modules.
 - Application/domain policy must not import bootstrap or infrastructure;
   persistence remains behind `TrainingRepository`.
 - Tracked-run summaries/full evidence and Coach judgments go through the

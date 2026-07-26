@@ -19,7 +19,7 @@ Each fact has one authoritative home. Other documents link to that owner instead
 | How the HRV detail surface separates trend from one-night state | [`reference/hrv.md`](reference/hrv.md) |
 | What governs v3 training and what remains to build | [`routine-pivot/`](routine-pivot/) |
 | What unbuilt product work has an implementation contract | [`future/`](future/) |
-| What the dataset supports | [`findings/`](findings/) and `FINDINGS.md` |
+| What the dataset supports | [`findings/`](findings/) and `FINDINGS.md` (gitignored/local-only) |
 
 ## `routine-pivot/` — training canon
 
@@ -27,7 +27,7 @@ Each fact has one authoritative home. Other documents link to that owner instead
 - [`schema_v3_spec.md`](routine-pivot/schema_v3_spec.md) — shipped v3 artifact semantics and activation contract.
 - [`pivot_roadmap.md`](routine-pivot/pivot_roadmap.md) — current implementation boundary and remaining objectives; no changelog.
 - [`block0/`](routine-pivot/block0/) — retired, read-only schema exemplar and validator/import fixture. Its expected lint report is retained because tests consume it.
-- [`block1/`](routine-pivot/block1/) — the six active authored import artifacts. Derived lint/compiled outputs are not checked in.
+- [`block1/`](routine-pivot/block1/) — the active authored import artifacts (six JSON artifacts plus `lower-leg-routine-review.md`, seven files total). Derived lint/compiled outputs are not checked in.
 
 ## `reference/` — shipped behavior
 
@@ -49,4 +49,4 @@ This folder is intentionally small. Analysis wish lists, shipped behavior, and s
 
 ## `findings/` — published analysis presentation
 
-The HTML pages and their referenced assets are the current human-facing findings presentation. The durable evidence record and open analytical questions live in `FINDINGS.md`.
+The HTML pages and their referenced assets are the current human-facing findings presentation. The durable evidence record and open analytical questions live in `FINDINGS.md`, which is gitignored and local-only — not part of a fresh checkout.

@@ -35,7 +35,7 @@ configuration, and commands live in `docs/reference/data-and-ingest.md`.
 
 ## Must not import
 
-- Routines, experiments, Coach, artifacts, journal, or Garmin Analytics application modules.
+- Experiments, Coach, journal, or Garmin Analytics application modules.
 - FastAPI from workflow/infra modules.
 - SQLite helpers from workflow modules.
 
@@ -54,4 +54,5 @@ configuration, and commands live in `docs/reference/data-and-ingest.md`.
 - `infra/filesystem.py`, `infra/watcher.py`, and `infra/runtime.py` — extraction/fingerprints, watcher state, and startup reconciliation.
 - `infra/sqlite_ingest.py` and `infra/activity_ingest.py` — wellness/running persistence and running ingest.
 - `infra/factory.py` — production dependency composition for this capability.
+- `data_change.py` — best-effort post-ingest cross-domain refresh notification.
 - `schema.py` — owned SQLite DDL.

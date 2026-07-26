@@ -22,7 +22,7 @@ The raw output is a personal z-score: zero is typical, negative is suppressed, a
 
 ## State, change, and regimes
 
-- Band: `suppressed` below -0.5 z, `typical` from -0.5 through +0.5 z, and `strong` above +0.5 z.
+- Band: `suppressed` at or below -0.5 z, `typical` strictly between -0.5 and +0.5 z, and `strong` at or above +0.5 z (`domain/recovery_score/thresholds.py::score_band`; exactly ±0.5 resolves to `suppressed`/`strong`, not `typical`).
 - Trend: the latest 7-day mean versus the previous 7-day mean; a change of at least 0.97 z is meaningful.
 - Acute event: a one-day move of at least 1.86 z is reported separately and never replaces the trend.
 - Regime: at least 14 days with the 7-day average outside the typical band, merging returns of at most three days.
@@ -56,7 +56,7 @@ The two flags have independent status vocabularies and no blended severity score
 | `events` | detected recovery regimes |
 | `correlations` | HRV detail-page association context; not an overview lane |
 
-Computation lives in `backend/app/domains/garmin_analytics/domain/recovery_score/` and `domain/dashboard.py`. `application/dashboard.py` loads the data and owns cache behavior. The overview renders the shared-axis trajectory, evidence table, and flag strip; metric pages remain drill-downs.
+Computation lives in `backend/app/domains/garmin_analytics/domain/recovery_score/` and `domain/dashboard.py`. `application/dashboard.py` loads the data through the repository port; caching lives at the persistence boundary in `adapters.py` (`cache.cached(cache.DAILY_METRICS, ...)`), not in the application use case. The overview renders the shared-axis trajectory, evidence table, and flag strip; metric pages remain drill-downs.
 
 ## Product boundary
 
