@@ -57,9 +57,11 @@ Path resolution lives in `backend/app/core/config.py`.
   source trees remain byte-for-byte unchanged. Goals, experiments, exposures, analyses,
   reports, profile, notes, check-ins, and Garmin data are preserved. The runtime path is
   fixed to the database's `coach/` sibling and must be disjoint from both Garmin trees.
-  Authored bundle files are outside the reset.
+  The command fails closed unless the database already exists and contains the
+  Garmin Stats schema markers; authored bundle files are outside the reset.
 
-Normal running ingest never re-parses an existing `source_file`; use the rebuild command after adding or changing parser fields.
+Normal running ingest re-parses only new or source-signature-changed files; use
+the rebuild command after parser changes that do not alter the source signature.
 
 ## Post-ingest reactions
 
@@ -67,8 +69,10 @@ Manual sync and startup ingest update Garmin-owned data and publish their normal
 data-change events; neither creates Coach work. Coach reviews are manual-only and
 independent of activity coverage, upload timing, and schedule dates.
 
-Watcher-driven successful wellness ingest invokes a bootstrap-composed reaction
-that refreshes active experiment analyses. `garmin_sync` does not import that
+Successful manual ingest, manual sync, startup reconciliation, and watcher-driven
+wellness ingest invoke one bootstrap-composed reaction that refreshes active
+experiment analyses. The reaction is best-effort so a read-model refresh failure
+does not falsify a successful Garmin ingest. `garmin_sync` does not import that
 consumer.
 
 ## Invariants

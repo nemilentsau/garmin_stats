@@ -13,6 +13,7 @@
 		completionStatusAfterClick,
 		createStatusPersistQueue,
 		effectiveStatus as resolveEffectiveStatus,
+		loadedMutationDate,
 		statusForVariant,
 		type CardStatus
 	} from '$lib/today-state';
@@ -33,6 +34,7 @@
 	let error: string | null = $state(null);
 	let selectedDate = $state(localDateIso());
 	let loadedDate = $state<string | null>(null);
+	let requestedDate = $state<string | null>(null);
 	let trainingToday = $state<TrainingTodayResponse | null>(null);
 	let slotFilter = $state<SlotName | null>(null);
 	let expandedOccurrenceKey = $state<string | null>(null);
@@ -43,6 +45,7 @@
 	let statusVersion = $state(0);
 	const statusPersistQueue = createStatusPersistQueue();
 	let todayRequestToken = 0;
+	let mounted = $state(false);
 
 	const allCards = $derived(trainingToday?.cards ?? []);
 	const stats = $derived.by(() => {
@@ -75,38 +78,46 @@
 		return urlDate && isIsoDateString(urlDate) ? urlDate : fallback;
 	}
 
-	async function loadToday(date: string, requestToken: number): Promise<void> {
-		const response = await api.getTrainingToday(date);
-		if (requestToken !== todayRequestToken || date !== selectedDate) return;
-		trainingToday = response as TrainingTodayResponse;
-		loadedDate = date;
+	async function reloadToday(date: string): Promise<void> {
+		const requestToken = ++todayRequestToken;
+		requestedDate = date;
+		loadedDate = null;
+		trainingToday = null;
+		loading = true;
+		error = null;
+		try {
+			const response = await api.getTrainingToday(date);
+			if (requestToken !== todayRequestToken || date !== selectedDate) return;
+			trainingToday = response as TrainingTodayResponse;
+			loadedDate = date;
+		} catch (cause: unknown) {
+			if (requestToken === todayRequestToken && date === selectedDate) {
+				error = errorMessage(cause);
+			}
+		} finally {
+			if (requestToken === todayRequestToken && date === selectedDate) {
+				loading = false;
+			}
+		}
 	}
 
-	async function reloadToday(date: string): Promise<void> {
-		todayRequestToken += 1;
-		await loadToday(date, todayRequestToken);
+	function mutationDate(): string | null {
+		return loadedMutationDate(selectedDate, loadedDate);
 	}
 
 	onMount(() => {
 		selectedDate = initialSelectedDate();
-		void reloadToday(selectedDate)
-			.catch((cause: unknown) => {
-				error = errorMessage(cause);
-			})
-			.finally(() => {
-				loading = false;
-			});
+		mounted = true;
+		void reloadToday(selectedDate);
 	});
 
 	$effect(() => {
-		if (loading || selectedDate === loadedDate) return;
+		if (!mounted || selectedDate === loadedDate || selectedDate === requestedDate) return;
 		const date = selectedDate;
 		untrack(() => flushPendingPersist());
 		expandedOccurrenceKey = null;
 		localStatus = {};
-		void reloadToday(date).catch((cause: unknown) => {
-			error = errorMessage(cause);
-		});
+		void reloadToday(date);
 	});
 
 	function toggleDetails(card: TrainingTodayCard): void {
@@ -124,9 +135,9 @@
 	async function persistCard(
 		card: TrainingTodayCard,
 		status: CardStatus | undefined,
+		date: string,
 		capture: TrainingCaptureLog | null = card.capture,
 		notes: string | null = card.notes,
-		date = selectedDate,
 		variant: string | null = card.variant_taken
 	): Promise<boolean> {
 		error = null;
@@ -140,7 +151,7 @@
 			await api.updateTrainingCard(date, card.occurrence_key, payload);
 			return true;
 		} catch (cause: unknown) {
-			error = errorMessage(cause);
+			if (selectedDate === date) error = errorMessage(cause);
 			return false;
 		}
 	}
@@ -177,23 +188,20 @@
 	}
 
 	function toggleComplete(card: TrainingTodayCard): void {
+		const date = mutationDate();
+		if (date === null) return;
 		const previous = effectiveStatus(card);
 		const submittingTrackedRun =
 			card.execution.source === 'tracked_run' && previous === 'completed';
 		const next = completionStatusAfterClick(previous, card.execution.source);
-		const date = selectedDate;
 		const persistCompletion = async (
 			capture: TrainingCaptureLog | null,
 			notes: string | null,
 			variant: string | null
 		): Promise<boolean> => {
-			const saved = await persistCard(card, next, capture, notes, date, variant);
+			const saved = await persistCard(card, next, date, capture, notes, variant);
 			if (saved && submittingTrackedRun && selectedDate === date) {
-				try {
-					await reloadToday(date);
-				} catch (cause: unknown) {
-					error = errorMessage(cause);
-				}
+				await reloadToday(date);
 			}
 			return saved;
 		};
@@ -223,15 +231,16 @@
 	}
 
 	function quickSkip(card: TrainingTodayCard): void {
+		const date = mutationDate();
+		if (date === null) return;
 		const previous = effectiveStatus(card);
 		localStatus[card.occurrence_key] = 'skipped';
 		statusVersion++;
-		const date = selectedDate;
 		const capture = card.capture;
 		const notes = card.notes;
 		const variant = card.variant_taken;
 		trackOptimisticStatus(card, 'skipped', previous, date, () =>
-			persistCard(card, 'skipped', capture, notes, date, variant)
+			persistCard(card, 'skipped', date, capture, notes, variant)
 		);
 	}
 
@@ -239,10 +248,11 @@
 	let pendingPersist: { key: string; run: () => void } | null = null;
 
 	function schedulePersistDetail(card: TrainingTodayCard, delay = 500): void {
+		const date = mutationDate();
+		if (date === null) return;
 		if (saveTimeout) clearTimeout(saveTimeout);
 		const capture = stagedCapture;
 		const notes = detailNote.trim() || null;
-		const date = selectedDate;
 		const variant = variantTaken;
 		const run = () => {
 			saveTimeout = null;
@@ -253,7 +263,7 @@
 			// *derived* status (e.g. a tracked-run auto-'completed') back into the manual log
 			// and corrupt provenance — see `TrainingLogUpdateRequest` presence-vs-null semantics.
 			const explicitStatus = localStatus[card.occurrence_key] as CardStatus | undefined;
-			void persistCard(card, explicitStatus, capture, notes, date, variant);
+			void persistCard(card, explicitStatus, date, capture, notes, variant);
 		};
 		pendingPersist = { key: card.occurrence_key, run };
 		saveTimeout = setTimeout(run, delay);
@@ -287,12 +297,14 @@
 		card: TrainingTodayCard,
 		patch: { linked_run_id?: string | null; run_link_detached?: boolean | null }
 	): Promise<void> {
+		const date = mutationDate();
+		if (date === null) return;
 		error = null;
 		try {
-			await api.updateTrainingCard(selectedDate, card.occurrence_key, patch);
-			await reloadToday(selectedDate);
+			await api.updateTrainingCard(date, card.occurrence_key, patch);
+			if (selectedDate === date) await reloadToday(date);
 		} catch (cause: unknown) {
-			error = errorMessage(cause);
+			if (selectedDate === date) error = errorMessage(cause);
 		}
 	}
 </script>
@@ -345,12 +357,12 @@
 			</div>
 		{/if}
 
-		{#if allCards.length === 0}
+		{#if !error && allCards.length === 0}
 			<div class="empty-board">
 				<span>Nothing scheduled for this date.</span>
 				<a href="/training/import">No active block — import one</a>
 			</div>
-		{:else}
+		{:else if !error}
 			<div class="activity-list">
 				{#each SLOT_ORDER as slot}
 					{@const cards = cardsForSlot(slot)}

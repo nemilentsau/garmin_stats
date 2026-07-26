@@ -202,7 +202,14 @@ class TestSessionExtraction:
 
     def test_no_sidecar_derives_id_from_source_file_and_keeps_fit_fields(self):
         session = _extract_run_session(_messages(), None, "2026-07-10/105726_running_generic.fit")
-        assert session.id == "file:2026-07-10/105726_running_generic"
+        assert session.id.startswith("file-")
+        assert "/" not in session.id
+        assert session.id == _extract_run_session(
+            _messages(), None, "2026-07-10/105726_running_generic.fit"
+        ).id
+        assert session.id != _extract_run_session(
+            _messages(), None, "2026-07-11/105726_running_generic.fit"
+        ).id
         assert session.activity_id is None
         assert session.vo2max is None
         # no offset source → start time stays UTC-naive and is flagged as such
@@ -535,6 +542,19 @@ class TestDiscoveryAndComposition:
         files = discover_running_activity_files(tmp_path)
         assert [f.name for f in files] == ["070000_running_trail.fit", "105726_running_generic.fit"]
 
+    def test_discovery_excludes_generated_multi_fit_parts(self, tmp_path):
+        _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
+        _write_activity_pair(
+            tmp_path,
+            "2026-07-10",
+            "105726_running_generic_part2",
+            sidecar=None,
+        )
+
+        files = discover_running_activity_files(tmp_path)
+
+        assert [file.name for file in files] == ["105726_running_generic.fit"]
+
     def test_parse_composes_session_laps_series_and_counts(self, tmp_path, monkeypatch):
         monkeypatch.setattr(activities_mod, "decode_fit_file", lambda _: FULL_MESSAGES)
         fit = _write_activity_pair(tmp_path, "2026-07-10", "105726_running_generic")
@@ -597,7 +617,8 @@ class TestDiscoveryAndComposition:
         assert data.session is not None
         # Sidecar-derived fields are None
         assert data.session.activity_id is None
-        assert data.session.id.startswith("file:")
+        assert data.session.id.startswith("file-")
+        assert "/" not in data.session.id
         # Sidecar-independent fields from FIT are intact
         assert data.session.session_date == "2026-07-10"
         assert data.session.avg_heart_rate_bpm == 139
