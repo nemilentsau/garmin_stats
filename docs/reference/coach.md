@@ -195,14 +195,22 @@ Reviews are manual-only. The run page's **Review with coach** action is the sole
 trigger. Activity sync, upload, startup, watcher refresh, elapsed schedule dates, and Today
 feedback persistence never enqueue Coach or infer a missed run.
 
-Every completed review has one reusable linked conversation, opened inline on the review
-surface. Ordinary questions and explanations append messages without changing the review.
+Every completed review can have one reusable linked conversation inline on the review
+surface. Opening or refreshing the review is read-only: the thread is created only when
+the athlete sends the first message. Ordinary questions and explanations append messages
+without changing the review.
 Only a message beginning with `Update the review:` durably authorizes structured
 `review_revision` output; prompt compliance alone is never sufficient. That output
-atomically appends an immutable numbered revision
-and updates the current review snapshot; prior versions remain readable. The linked
-workspace includes `current-review.md`, the original run evidence, and the complete
-transcript so new athlete context can be applied deliberately.
+must replace the complete review-owned snapshot: content, outcome, confidence, refs,
+questions, plot observations, historical evidence, and any exact measurement assessment.
+The handler validates direct and historical plot refs against the exact linked workspace;
+matching a made-up ref to a made-up observation is not sufficient. It atomically appends
+an immutable numbered revision and updates the current review. Prior versions expose the
+complete audit snapshot in the UI. Rows written before complete snapshots were introduced
+are explicitly marked as legacy partial snapshots instead of treating absent fields as
+known-empty. The linked workspace includes the full persisted review as
+`current-review.md`, the original run evidence, and the complete transcript so new athlete
+context can be applied deliberately.
 
 One process-local async worker claims one job at a time. Chat priority is ahead of queued
 reviews; distillation is behind them. A cancellation propagates into the runner and leaves
@@ -264,7 +272,9 @@ immediately as queued resources. `/coach` observes completion through the coach-
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence
 separately and falls back to the legacy verdict when needed. A completed review shows its
-linked transcript and composer inline, with version history when corrections exist.
+composer and any existing linked transcript inline, with readable narrative and audit
+fields for every version when corrections exist. Viewing it does not create a thread;
+sending the first message does.
 `/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
 On `/today`, feedback capture remains training state only and never triggers Coach.

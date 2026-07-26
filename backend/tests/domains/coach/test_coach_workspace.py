@@ -11,9 +11,12 @@ from app.domains.coach.application.memory import render_run_journal
 from app.domains.coach.contracts import (
     ArtifactRef,
     BriefVersion,
+    CoachMeasurementAssessment,
     CoachMessage,
     CoachReview,
+    HistoricalEvidenceUse,
     JournalEntry,
+    PlotObservation,
     RunJournalSummary,
 )
 from app.domains.garmin_analytics.contracts import (
@@ -236,6 +239,8 @@ def fake_plots(monkeypatch):
 def _assemble(tmp_path: Path, gateway: FakeCoachGateway, repo: FakeCoachRepository, **kwargs):
     from app.domains.coach.application.workspace import assemble_workspace
 
+    current_run_id = kwargs.pop("current_run_id", None)
+    transcript = kwargs.pop("transcript", None)
     return assemble_workspace(
         gateway,  # type: ignore[arg-type]
         repo,  # type: ignore[arg-type]
@@ -244,8 +249,8 @@ def _assemble(tmp_path: Path, gateway: FakeCoachGateway, repo: FakeCoachReposito
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="How should I interpret this?",
-        current_run_id=None,
-        transcript=None,
+        current_run_id=current_run_id,
+        transcript=transcript,
         **kwargs,
     )
 
@@ -308,6 +313,69 @@ def test_older_journal_index_exposes_purpose_outcome_tags_and_refs(
     assert "completed as intended" in index
     assert "easy,strides,strap_hr" in index
     assert "run:run-00" in index
+
+
+def test_linked_review_workspace_exports_the_complete_revision_state(
+    tmp_path, fake_plots
+):
+    repo = FakeCoachRepository()
+    repo.reviews["review-linked"] = CoachReview(
+        id="review-linked",
+        date="2026-07-12",
+        kind="run",
+        run_id="run-21",
+        occurrence_key="run-am",
+        status="complete",
+        outcome="completed_with_material_deviation",
+        confidence="moderate",
+        content_md="The run drifted above its intended effort.",
+        refs=[
+            ArtifactRef(kind="run", value="run-21"),
+            ArtifactRef(kind="plot", value="run-21-current-1.png"),
+        ],
+        follow_up_questions=["Was the final climb intentional?"],
+        plot_observations=[
+            PlotObservation(
+                plot="run-21-current-1.png",
+                observation="Heart rate rose while pace held steady.",
+            )
+        ],
+        history_used=[
+            HistoricalEvidenceUse(
+                run_id="run-20",
+                role="recent_clean",
+                reason="Provides a clean comparison at the same purpose.",
+                refs=[
+                    ArtifactRef(kind="run", value="run-20"),
+                    ArtifactRef(kind="plot", value="run-20-panel.png"),
+                ],
+            )
+        ],
+        measurement_assessment=CoachMeasurementAssessment(
+            run_id="run-21",
+            occurrence_key="run-am",
+            status="provisional",
+            rationale="The climb may explain the drift.",
+        ),
+        job_id="job-review",
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+    manifest = _assemble(
+        tmp_path,
+        FakeCoachGateway(),
+        repo,
+        current_run_id="run-21",
+        linked_review_id="review-linked",
+    )
+    current_review = (Path(manifest.directory) / "current-review.md").read_text()
+
+    assert "Was the final climb intentional?" in current_review
+    assert "Heart rate rose while pace held steady." in current_review
+    assert "Provides a clean comparison at the same purpose." in current_review
+    assert "The climb may explain the drift." in current_review
+    assert ArtifactRef(kind="plot", value="run-20-panel.png") in manifest.resolved_refs
 
 
 def test_workspace_contains_twenty_run_digest_and_all_on_demand_files(tmp_path, fake_plots):

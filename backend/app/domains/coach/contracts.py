@@ -240,6 +240,10 @@ class ReviewRevisionOutput(StrictDefaultsRequired):
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     refs: list[ArtifactRef]
+    follow_up_questions: list[str] = Field(max_length=2)
+    plot_observations: list[PlotObservation]
+    history_used: list[HistoricalEvidenceUse]
+    measurement_assessment: CoachMeasurementAssessment | None = None
 
 
 class CoachReviewRevision(StrictDefaultsRequired):
@@ -250,6 +254,11 @@ class CoachReviewRevision(StrictDefaultsRequired):
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     refs: list[ArtifactRef]
+    follow_up_questions: list[str] = []
+    plot_observations: list[PlotObservation] = []
+    history_used: list[HistoricalEvidenceUse] = []
+    measurement_assessment: CoachMeasurementAssessment | None = None
+    snapshot_complete: bool = False
     source_message_id: str | None = None
     created_at: str
 

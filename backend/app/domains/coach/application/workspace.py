@@ -12,7 +12,12 @@ from app.domains.coach.application.memory import (
     CURRENT_MEMORY_POLICY_VERSION,
     active_journal_entries,
 )
-from app.domains.coach.contracts import ArtifactRef, CoachMessage, JournalEntry
+from app.domains.coach.contracts import (
+    ArtifactRef,
+    CoachMessage,
+    CoachReview,
+    JournalEntry,
+)
 from app.domains.coach.contracts import safe_artifact_id as _safe
 from app.domains.coach.domain.context import (
     HistoricalRunContext,
@@ -45,6 +50,16 @@ class WorkspaceManifest(StrictDefaultsRequired):
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _current_review_markdown(review: CoachReview) -> str:
+    """Expose the complete persisted review so a correction replaces one snapshot."""
+    return (
+        f"# Current review {review.id}\n\n"
+        "The JSON below is the complete persisted review state. A revision must return "
+        "a complete replacement for every review-owned field.\n\n"
+        f"```json\n{review.model_dump_json(indent=2)}\n```\n"
+    )
 
 
 def _first_sentence(text: str) -> str:
@@ -265,10 +280,16 @@ def _transcript_markdown(messages: list[CoachMessage]) -> str:
     return "\n".join(lines)
 
 
-def _refs(entries: list[JournalEntry], transcript: list[CoachMessage] | None) -> list[ArtifactRef]:
+def _refs(
+    entries: list[JournalEntry],
+    transcript: list[CoachMessage] | None,
+    additional: list[ArtifactRef] | None = None,
+) -> list[ArtifactRef]:
     candidates = [ref for entry in entries for ref in entry.refs]
     if transcript is not None:
         candidates.extend(ref for message in transcript for ref in message.refs)
+    if additional is not None:
+        candidates.extend(additional)
     unique: dict[tuple[str, str], ArtifactRef] = {}
     for ref in candidates:
         unique[(ref.kind, ref.value)] = ref
@@ -466,9 +487,24 @@ def assemble_workspace(
             shutil.copy2(cached_image, destination)
             current_images.append(str(destination.resolve()))
 
+    linked_review = None
+    linked_review_refs: list[ArtifactRef] = []
+    if linked_review_id is not None:
+        linked_review = repo.review(linked_review_id)
+        if linked_review is None:
+            raise LookupError(f"Unknown linked coach review: {linked_review_id}")
+        linked_review_refs = [
+            *linked_review.refs,
+            *[
+                ref
+                for historical_use in linked_review.history_used
+                for ref in historical_use.refs
+            ],
+        ]
+
     resolved: list[ArtifactRef] = []
     unavailable: list[str] = []
-    for ref in _refs(journal, transcript):
+    for ref in _refs(journal, transcript, linked_review_refs):
         try:
             _resolve_ref(
                 gateway,
@@ -492,27 +528,10 @@ def assemble_workspace(
 
     if transcript is not None:
         _write(directory / "transcript.md", _transcript_markdown(transcript))
-    if linked_review_id is not None:
-        linked_review = repo.review(linked_review_id)
-        if linked_review is None:
-            raise LookupError(f"Unknown linked coach review: {linked_review_id}")
+    if linked_review is not None:
         _write(
             directory / "current-review.md",
-            "\n".join(
-                [
-                    f"# Current review {linked_review.id}",
-                    "",
-                    linked_review.content_md or "Review has no completed content.",
-                    "",
-                    f"- Outcome: {linked_review.outcome or 'unknown'}",
-                    f"- Confidence: {linked_review.confidence or 'unknown'}",
-                    *[
-                        f"- Ref: {ref.kind}:{ref.value}"
-                        for ref in linked_review.refs
-                    ],
-                    "",
-                ]
-            ),
+            _current_review_markdown(linked_review),
         )
     _write(directory / "question.md", question_md.rstrip() + "\n")
     return WorkspaceManifest(

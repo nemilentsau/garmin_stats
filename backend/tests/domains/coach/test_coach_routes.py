@@ -155,13 +155,18 @@ def test_complete_review_opens_reusable_linked_conversation_and_lists_revisions(
     client, repo = coach_client
     review, _job = _complete_review(repo)
 
+    before = client.get(f"/api/coach/reviews/{review.id}/thread")
     first = client.post(f"/api/coach/reviews/{review.id}/thread")
     second = client.post(f"/api/coach/reviews/{review.id}/thread")
+    after = client.get(f"/api/coach/reviews/{review.id}/thread")
     revisions = client.get(f"/api/coach/reviews/{review.id}/revisions")
 
+    assert before.status_code == 200
+    assert before.json() is None
     assert first.status_code == 201
     assert second.status_code == 200
     assert second.json()["id"] == first.json()["id"]
+    assert after.json()["id"] == first.json()["id"]
     assert first.json()["review_id"] == review.id
     assert revisions.status_code == 200
     assert [item["version"] for item in revisions.json()["revisions"]] == [1]

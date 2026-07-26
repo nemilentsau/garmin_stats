@@ -20,8 +20,8 @@ def main() -> None:
     config = get_app_config()
     parser = argparse.ArgumentParser(
         description=(
-            "Clear Coach, imported training, and experiment state while preserving "
-            "Garmin SQLite rows and source files. Defaults to preview-only."
+            "Clear Coach and imported-training state while preserving all non-reset "
+            "application state and both Garmin source trees. Defaults to preview-only."
         )
     )
     parser.add_argument("--execute", action="store_true")

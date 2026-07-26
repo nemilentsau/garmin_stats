@@ -17,11 +17,13 @@ from app.domains.coach.application.prompts import (
     distill_prompt,
     review_prompt,
 )
-from app.domains.coach.application.workspace import assemble_workspace
+from app.domains.coach.application.workspace import WorkspaceManifest, assemble_workspace
 from app.domains.coach.contracts import (
+    ArtifactRef,
     ChatOutput,
     CoachJob,
     DistillOutput,
+    PlotObservation,
     ReviewOutput,
 )
 from app.domains.coach.infra.runner import (
@@ -33,6 +35,48 @@ from app.domains.coach.read_gateway import CoachReadGateway
 from app.domains.coach.time import local_today_iso, utc_now_iso
 
 Runner = Callable[..., Awaitable[CodexJobResult]]
+
+
+def _plot_evidence_errors(
+    *,
+    direct_refs: list[ArtifactRef],
+    supporting_refs: list[ArtifactRef],
+    observations: list[PlotObservation],
+    manifest: WorkspaceManifest,
+) -> list[str]:
+    """Validate cited plot evidence against the exact assembled workspace."""
+    current_plots = {Path(path).name for path in manifest.current_images}
+    available_plots = current_plots | {
+        ref.value for ref in manifest.resolved_refs if ref.kind == "plot"
+    }
+    output_plot_refs = {
+        ref.value
+        for ref in [*direct_refs, *supporting_refs]
+        if ref.kind == "plot"
+    }
+    direct_plot_refs = {ref.value for ref in direct_refs if ref.kind == "plot"}
+    observation_plots = {observation.plot for observation in observations}
+    unknown_plots = sorted(
+        (observation_plots - current_plots) | (output_plot_refs - available_plots)
+    )
+    unobserved_current_refs = sorted(
+        (output_plot_refs & current_plots) - observation_plots
+    )
+    uncited_observations = sorted(observation_plots - direct_plot_refs)
+    errors: list[str] = []
+    if unknown_plots:
+        errors.append("unavailable plot names: " + ", ".join(unknown_plots))
+    if unobserved_current_refs:
+        errors.append(
+            "current plot refs without observations: "
+            + ", ".join(unobserved_current_refs)
+        )
+    if uncited_observations:
+        errors.append(
+            "plot observations missing direct refs: "
+            + ", ".join(uncited_observations)
+        )
+    return errors
 
 
 class CoachHandlers:
@@ -110,12 +154,7 @@ class CoachHandlers:
                 finished_at=utc_now_iso(),
             )
             return
-        attached_plots = {Path(path).name for path in manifest.current_images}
-        available_plot_refs = attached_plots | {
-            ref.value for ref in manifest.resolved_refs if ref.kind == "plot"
-        }
-        all_output_refs = [
-            *result.output.refs,
+        supporting_refs = [
             *result.output.journal.refs,
             *[
                 ref
@@ -123,38 +162,12 @@ class CoachHandlers:
                 for ref in historical_use.refs
             ],
         ]
-        output_plot_refs = {
-            ref.value for ref in all_output_refs if ref.kind == "plot"
-        }
-        direct_plot_refs = {
-            ref.value for ref in result.output.refs if ref.kind == "plot"
-        }
-        observation_plots = {
-            observation.plot for observation in result.output.plot_observations
-        }
-        unknown_plots = sorted(
-            (observation_plots - attached_plots)
-            | (output_plot_refs - available_plot_refs)
+        validation_errors = _plot_evidence_errors(
+            direct_refs=result.output.refs,
+            supporting_refs=supporting_refs,
+            observations=result.output.plot_observations,
+            manifest=manifest,
         )
-        unobserved_current_refs = sorted(
-            (output_plot_refs & attached_plots) - observation_plots
-        )
-        uncited_observations = sorted(observation_plots - direct_plot_refs)
-        validation_errors: list[str] = []
-        if unknown_plots:
-            validation_errors.append(
-                "unavailable plot names: " + ", ".join(unknown_plots)
-            )
-        if unobserved_current_refs:
-            validation_errors.append(
-                "current plot refs without observations: "
-                + ", ".join(unobserved_current_refs)
-            )
-        if uncited_observations:
-            validation_errors.append(
-                "plot observations missing direct refs: "
-                + ", ".join(uncited_observations)
-            )
         if validation_errors:
             await asyncio.to_thread(
                 self.repo.fail_job,
@@ -200,6 +213,11 @@ class CoachHandlers:
         revision_requested = (
             job.payload.get("review_revision_requested") is True
         )
+        prompt = chat_prompt(
+            resumed=resumed,
+            review_linked=linked_review is not None,
+            revision_requested=revision_requested,
+        )
         manifest = await asyncio.to_thread(
             assemble_workspace,
             self.gateway,
@@ -212,11 +230,7 @@ class CoachHandlers:
                 if linked_review is None
                 else linked_review.date
             ),
-            question_md=chat_prompt(
-                resumed=resumed,
-                review_linked=linked_review is not None,
-                revision_requested=revision_requested,
-            ),
+            question_md=prompt,
             current_run_id=(
                 None if linked_review is None else linked_review.run_id
             ),
@@ -228,11 +242,7 @@ class CoachHandlers:
             kind=job.kind,
             job_id=job.id,
             attempt=job.attempt_count,
-            prompt=chat_prompt(
-                resumed=resumed,
-                review_linked=linked_review is not None,
-                revision_requested=revision_requested,
-            ),
+            prompt=prompt,
             workspace=Path(manifest.directory),
             output_model=ChatOutput,
             images=[],
@@ -249,6 +259,30 @@ class CoachHandlers:
                 finished_at=utc_now_iso(),
             )
             return
+        revision = result.output.review_revision
+        if revision is not None:
+            validation_errors = _plot_evidence_errors(
+                direct_refs=revision.refs,
+                supporting_refs=[
+                    ref
+                    for historical_use in revision.history_used
+                    for ref in historical_use.refs
+                ],
+                observations=revision.plot_observations,
+                manifest=manifest,
+            )
+            if validation_errors:
+                await asyncio.to_thread(
+                    self.repo.fail_chat_output,
+                    job_id=job.id,
+                    thread_id=thread_id,
+                    error=(
+                        "invalid_output: inconsistent plot evidence: "
+                        + "; ".join(validation_errors)
+                    ),
+                    finished_at=utc_now_iso(),
+                )
+                return
         try:
             await asyncio.to_thread(
                 self.repo.complete_chat_output,
