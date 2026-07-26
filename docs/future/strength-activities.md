@@ -86,7 +86,7 @@ Use separate storage (`strength_activity_sessions`, plus an optional `strength_a
 
 ## Association rules to decide in implementation
 
-Strength association must be deterministic and preserve manual control. Before coding, pin down these cases with real Block 1 dates:
+Strength association must be deterministic and preserve manual control. Before coding, pin down these cases with real dates from the threshold-development authored program:
 
 - zero, one, or multiple `strength.v3` cards on the same date;
 - zero, one, or multiple tracked strength sessions on the same date;

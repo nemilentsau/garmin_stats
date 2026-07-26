@@ -2,24 +2,24 @@
 
 **Status:** current implementation boundary and remaining objectives.
 
-This file contains only current state and work that still changes the product. Git history records how the pivot arrived here. [`general_principles.md`](general_principles.md) governs training decisions; [`schema_v3_spec.md`](schema_v3_spec.md) describes the shipped artifact contract.
+This file contains only current state and work that still changes the product. Git history records how the system arrived here. [`principles.md`](principles.md) governs training decisions; [`artifact-schema-v3.md`](artifact-schema-v3.md) describes the shipped artifact contract.
 
 ## Current state
 
-- **Block 1 is the active authored block.** `block1/` contains the six import artifacts for a 28-day threshold-development block beginning 2026-07-13. `block0/` is retired and retained only as the frozen schema exemplar and validator/import test fixture.
+- **Threshold development is the latest authored program.** [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) contains its six import artifacts for a 28-day program beginning 2026-07-13. Checked-in authored content does not establish runtime activation; the active imported SQLite record does. The calibration artifact set belongs exclusively to backend tests.
 - **v3 import and execution are shipped.** A six-file upload is strictly parsed, compiled, linted L1-L12, and activated atomically. The Today and schedule-window reads project the active block; logs capture status, variant, notes, set/rep/load, run RPE, and tissue check-ins.
 - **Running activity evidence is shipped.** Running FIT files parse into session/lap/series storage, display in Runs, associate with `running.v3` cards, and can establish effective execution.
 - **Imported-block measurement handling is shipped.** Training evaluates the authored LTHR protocol from tracked run evidence, applies hard quality gates, composes the exact Coach assessment, activates authored backup opportunities at read time, and exposes estimator eligibility without mutating the imported schedule.
 - **Coach v1 is shipped.** Coach owns queued reviews/chat, bounded evidence workspaces, semantic memory, and subjective measurement assessments. It does not create or edit training content and does not replace the general estimator engine.
 - **Selection is still human-driven.** The app displays authored variants and rules and records the chosen branch, but it does not yet evaluate the registry's morning selection rules.
-- **The signal registry is declarative only.** The active `block1/registry.json` validates and is stored verbatim; most estimators and materialized training-state signals it declares are not yet computed.
+- **The signal registry is declarative only.** The latest authored program's `registry.json` validates and is stored verbatim when imported; most estimators and materialized training-state signals it declares are not yet computed.
 - **Strength and breathing activity files remain download-only.** Strength set/rep/load capture exists in training logs, but Garmin strength FIT sessions are not parsed or associated.
 
 ## Remaining implementation objectives
 
 ### 1. Materialize the active registry
 
-Implement the estimators and signals declared by `block1/registry.json`, starting with the inputs already captured or ingested: HRV/RHR baselines, LTHR evidence, set-log e1RM and tonnage, planned-versus-executed work, tissue check-ins, and daily load. Persist outputs so weekly reviews and selection rules consume one auditable source.
+Implement the estimators and signals declared by [`programs/threshold-development-2026-07-13/registry.json`](programs/threshold-development-2026-07-13/registry.json), starting with the inputs already captured or ingested: HRV/RHR baselines, LTHR evidence, set-log e1RM and tonnage, planned-versus-executed work, tissue check-ins, and daily load. Persist outputs so weekly reviews and selection rules consume one auditable source.
 
 This engine is separate from Coach. Coach may explain its outputs, but deterministic estimators own the values.
 

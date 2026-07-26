@@ -1,10 +1,11 @@
 """Training-domain wire, persistence, and read-model contracts.
 
 The strict v3 models parse the six-file import set documented in
-``docs/routine-pivot/schema_v3_spec.md``. Uploaded block, bundle, registry,
+``docs/training/artifact-schema-v3.md``. Uploaded block, bundle, registry,
 and exercise-library JSON is stored verbatim; these models validate the wire
-shape but never translate or re-author it. ``block1`` is the active authored
-set, while ``block0`` remains the read-only schema and test-fixture canon.
+shape but never translate or re-author it. Authored programs live under
+``docs/training/programs/``; calibration artifacts used only by tests live
+under ``backend/tests/fixtures/training/``.
 
 ``Variant.prescription_patch`` and ``ExtensionRule.action`` remain opaque
 dictionaries because they are structural partials whose valid shape depends

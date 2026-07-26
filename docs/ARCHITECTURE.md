@@ -113,5 +113,5 @@ Data roots, ingest lifecycles, Garmin credentials, and path overrides live only 
 - `backend/app/domains/<domain>/CHARTER.md` — per-domain boundary contracts.
 - [README.md](../README.md) — product overview, setup, high-level data-flow narrative.
 - [future/strength-activities.md](future/strength-activities.md) — the retained unbuilt strength-session ingest contract.
-- [routine-pivot/](routine-pivot/) — training-system canon (principles, v3 schema, roadmap, frozen block0 exemplar, active block1).
+- [training/](training/) — training-system canon, implementation roadmap, and semantically named authored programs. Runtime activation remains database-owned; test fixtures live with backend tests.
 - `FINDINGS.md` — current dataset observations; gitignored and local-only, not part of a fresh checkout (no repo link).

@@ -21,7 +21,7 @@ All experiment and training content enters through import/upload. The app does n
 - Coach queued run reviews and chat, hierarchical evidence workspaces, semantic journal/brief memory, durable jobs, and isolated Codex execution.
 - Experiment preview/import, manual day-grain exposures, and cached N=1 analysis.
 
-Strength and breathing activities download but are not parsed. The v3 registry validates and is stored, but most declared estimators/signals and automated selection rules are not yet executed. Current training work is tracked in [the training roadmap](docs/routine-pivot/pivot_roadmap.md).
+Strength and breathing activities download but are not parsed. The v3 registry validates and is stored, but most declared estimators/signals and automated selection rules are not yet executed. Current training work is tracked in [the training roadmap](docs/training/roadmap.md).
 
 ## Data flow
 
@@ -65,7 +65,7 @@ Per-slice dependency boundaries live in `backend/app/domains/<domain>/CHARTER.md
 
 ### v3 training
 
-The training import at `/training/import` accepts the active block's six authored artifacts:
+The training import at `/training/import` accepts one v3 program's six authored artifacts:
 
 - `running_v3.json`
 - `strength_v3.json`
@@ -74,9 +74,9 @@ The training import at `/training/import` accepts the active block's six authore
 - `registry.json`
 - `exercise_library.json`
 
-Import is atomic: strict wire validation, completeness checks, schedule compilation, L1-L12 linting, and warning acknowledgement all succeed before the new generation activates. Uploaded artifacts are stored verbatim. The full contract is [docs/routine-pivot/schema_v3_spec.md](docs/routine-pivot/schema_v3_spec.md).
+Import is atomic: strict wire validation, completeness checks, schedule compilation, L1-L12 linting, and warning acknowledgement all succeed before the new generation activates. Uploaded artifacts are stored verbatim. The full contract is [docs/training/artifact-schema-v3.md](docs/training/artifact-schema-v3.md).
 
-`docs/routine-pivot/block1/` is the active authored set. `block0/` is retired and retained only as the frozen schema/validator fixture.
+[`docs/training/programs/threshold-development-2026-07-13/`](docs/training/programs/threshold-development-2026-07-13/) is the latest authored program checked into the repository. That does not imply runtime activation; the active imported database record is authoritative. Test-only calibration artifacts live under `backend/tests/fixtures/training/`.
 
 ### Experiments
 
@@ -136,6 +136,6 @@ After backend API schema changes, regenerate `frontend/src/lib/api-types.ts` wit
 - [docs/reference/run-activities.md](docs/reference/run-activities.md) — tracked-run parse, storage, display, association, measurement, and backup semantics.
 - [docs/reference/coach.md](docs/reference/coach.md) — Coach evidence, memory, queue, runtime, and API/UI behavior.
 - [docs/reference/recovery-dashboard.md](docs/reference/recovery-dashboard.md) and [docs/reference/hrv.md](docs/reference/hrv.md) — shipped analytical surfaces.
-- [docs/routine-pivot/](docs/routine-pivot/) — training principles, v3 contract, current work, frozen Block 0, and active Block 1.
+- [docs/training/](docs/training/) — training canon, current work, and authored-program index.
 - [docs/future/strength-activities.md](docs/future/strength-activities.md) — the only retained unbuilt implementation spec.
 - `FINDINGS.md` — durable dataset findings and open analytical questions. Gitignored/local-only by policy (not part of this checkout); the shareable presentation is [docs/findings/](docs/findings/).

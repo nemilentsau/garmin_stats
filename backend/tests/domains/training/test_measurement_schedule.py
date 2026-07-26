@@ -18,11 +18,17 @@ from app.domains.training.contracts import (
 )
 from tests._architecture import REPO_ROOT
 
-BLOCK1 = REPO_ROOT / "docs" / "routine-pivot" / "block1"
+AUTHORED_PROGRAM = (
+    REPO_ROOT
+    / "docs"
+    / "training"
+    / "programs"
+    / "threshold-development-2026-07-13"
+)
 
 
 def _load(name: str) -> dict:
-    return json.loads((BLOCK1 / name).read_text(encoding="utf-8"))
+    return json.loads((AUTHORED_PROGRAM / name).read_text(encoding="utf-8"))
 
 
 def _block_and_schedule():

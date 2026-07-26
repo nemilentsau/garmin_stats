@@ -1,4 +1,4 @@
-"""V3 contract fidelity: the shipped Block 0 artifacts are the parsing contract."""
+"""V3 contract fidelity against the read-only calibration fixture."""
 
 from __future__ import annotations
 
@@ -18,11 +18,13 @@ from app.domains.training.contracts import (
 )
 from tests._architecture import REPO_ROOT
 
-BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
+CALIBRATION_FIXTURE = (
+    REPO_ROOT / "backend" / "tests" / "fixtures" / "training" / "v3-calibration"
+)
 
 
 def _load(name: str) -> dict:
-    return json.loads((BLOCK0 / name).read_text(encoding="utf-8"))
+    return json.loads((CALIBRATION_FIXTURE / name).read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("name", ["running_v3.json", "strength_v3.json", "support_v3.json"])

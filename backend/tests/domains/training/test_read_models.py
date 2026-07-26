@@ -1,10 +1,10 @@
-"""Today/schedule-window/block-status read model tests against block0 canon.
+"""Today/schedule-window/block-status reads against fixture artifact sets.
 
-Block0's window is `start=2026-07-06, days=28` (`block0.json`), so day 1 is
+The calibration fixture window is `start=2026-07-06, days=28` (`block0.json`), so day 1 is
 2026-07-06 and day 28 is 2026-08-02 — every date-boundary test below is
 anchored to those two literal dates. The render-helper unit tests exercise
 `render_scheme`/`render_segment`/`render_rule`/`render_gate`/`checkin_rows`
-directly against both synthetic fixtures (to hit branches block0 never
+directly against both synthetic fixtures (to hit branches the calibration set never
 exercises, e.g. `AllPredicate`/`NotPredicate`/`rhr.delta_7d`) and the real
 imported schedule (to prove the projection end to end).
 """
@@ -58,8 +58,16 @@ from app.domains.training.contracts import (
 )
 from tests._architecture import REPO_ROOT
 
-BLOCK0 = REPO_ROOT / "docs" / "routine-pivot" / "block0"
-BLOCK1 = REPO_ROOT / "docs" / "routine-pivot" / "block1"
+CALIBRATION_FIXTURE = (
+    REPO_ROOT / "backend" / "tests" / "fixtures" / "training" / "v3-calibration"
+)
+AUTHORED_PROGRAM = (
+    REPO_ROOT
+    / "docs"
+    / "training"
+    / "programs"
+    / "threshold-development-2026-07-13"
+)
 _BLOCK0_FILENAMES = [
     "block0.json",
     "running_v3.json",
@@ -79,7 +87,7 @@ _BLOCK1_FILENAMES = [
 
 
 def _load(name: str) -> dict:
-    return json.loads((BLOCK0 / name).read_text(encoding="utf-8"))
+    return json.loads((CALIBRATION_FIXTURE / name).read_text(encoding="utf-8"))
 
 
 def _block0_files() -> list[ImportFile]:
@@ -90,7 +98,7 @@ def _block1_files() -> list[ImportFile]:
     return [
         ImportFile(
             filename=name,
-            content=json.loads((BLOCK1 / name).read_text(encoding="utf-8")),
+            content=json.loads((AUTHORED_PROGRAM / name).read_text(encoding="utf-8")),
         )
         for name in _BLOCK1_FILENAMES
     ]

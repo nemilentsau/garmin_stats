@@ -4,12 +4,12 @@
 
 This document is the semantic authoring contract. The executable wire models live in `backend/app/domains/training/contracts.py`, the L1-L12 activation policy lives in `backend/app/domains/training/application/validation.py`, and imported JSON is stored verbatim. The app adapts directly to authored v3 artifacts; uploaded content is never translated into another runtime format.
 
-The governing behavior is in [`general_principles.md`](general_principles.md). Current implementation gaps belong in [`pivot_roadmap.md`](pivot_roadmap.md), not in this schema reference.
+The governing behavior is in [`principles.md`](principles.md). Current implementation gaps belong in [`roadmap.md`](roadmap.md), not in this schema reference.
 
-## Canon sets
+## Repository artifacts
 
-- `block1/` is the active authored block and contains the six files accepted by the import surface.
-- `block0/` is retired and read-only. Its six upload artifacts plus the expected lint report remain the schema and test-fixture canon.
+- [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) is the latest authored program retained in the repository and contains the six files accepted by the import surface. Its presence here does not imply runtime activation.
+- `backend/tests/fixtures/training/v3-calibration/` contains the read-only calibration artifacts and expected lint report used by contract, validator, import, and read-model tests.
 - `lint_report.json` and compiled schedules are outputs, not content ingress. The runtime compiles and lints an upload during activation and persists the resulting report with the active block.
 
 ## Import set and lifecycle
@@ -17,7 +17,7 @@ The governing behavior is in [`general_principles.md`](general_principles.md). C
 One import contains exactly:
 
 1. every bundle named by the block's `bundle_ids` (currently `running_v3.json`, `strength_v3.json`, and `support_v3.json`);
-2. one block definition (`block1.json` for the active authored set);
+2. one block definition (`block1.json` in the latest authored program);
 3. one `registry.json`;
 4. one `exercise_library.json`.
 

@@ -60,4 +60,4 @@ Computation lives in `backend/app/domains/garmin_analytics/domain/recovery_score
 
 ## Product boundary
 
-Running activity data now exists, but it is deliberately not folded into this score. The training-state overview described in [`../routine-pivot/pivot_roadmap.md`](../routine-pivot/pivot_roadmap.md) must present progress, load, and constraints as distinct backend-owned lanes instead of stretching the recovery construct.
+Running activity data now exists, but it is deliberately not folded into this score. The training-state overview described in [`../training/roadmap.md`](../training/roadmap.md) must present progress, load, and constraints as distinct backend-owned lanes instead of stretching the recovery construct.

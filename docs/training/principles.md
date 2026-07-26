@@ -4,7 +4,7 @@
 
 The system serves a trained runner pursuing a sub-three-hour marathon without a fixed deadline while preserving upper-body physique and lower-body strength. It uses Garmin recovery and activity data, training capture, and authored blocks to pursue measurable progress without treating recovery itself as the objective.
 
-These principles govern authored training content and the runtime that interprets it. They are requirements, not claims that every automation described below is already implemented; current implementation status lives in [`pivot_roadmap.md`](pivot_roadmap.md).
+These principles govern authored training content and the runtime that interprets it. They are requirements, not claims that every automation described below is already implemented; current implementation status lives in [`roadmap.md`](roadmap.md).
 
 ## P1 — Progress is the objective; recovery is a constraint
 

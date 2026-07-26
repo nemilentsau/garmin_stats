@@ -1,11 +1,11 @@
-# Lower-Leg Routine Review — Block 1
+# Lower-Leg Routine Review — Threshold Development (2026-07-13)
 
-**Subject:** Lower-body strength + tendon prescription in the active Block 1 threshold-development block (`strength.v3` legs cards + `support.v3` HSR cards).
+**Subject:** Lower-body strength + tendon prescription in the threshold-development authored program (`strength.v3` legs cards + `support.v3` HSR cards).
 **Block window:** 28 days from 2026-07-13.
 **Data snapshot:** `storage/garmin_stats.db`, reviewed 2026-07-14 (block day 2).
-**Status:** **Actioned in block1 on 2026-07-15** — retained as the standing rationale for the lower-body design. §5–§6 describe the **pre-change** diagnosis (the "why"); §7 records what was applied. Edits to the routine happen in the JSON artifacts, not here.
+**Status:** **Actioned in the authored program on 2026-07-15** — retained as the standing rationale for the lower-body design. §5–§6 describe the **pre-change** diagnosis (the "why"); §7 records what was applied. Edits to the routine happen in the JSON artifacts, not here.
 
-### Applied to block1 (2026-07-15 · re-imported through the sanctioned pipeline · all capture logs preserved)
+### Applied to the authored program (2026-07-15 · re-imported through the sanctioned pipeline · all capture logs preserved)
 - **Legs 2 (`str.legs_machine`) rebuilt** into a hip/posterior day: Romanian deadlift (loaded hinge, prime mover), barbell hip thrust (glute-max horizontal force), Bulgarian split squat (unilateral / frontal-plane), with pendulum squat retained for quad. **Legs 1 (`str.legs_barbell`) untouched** (already performed this block).
 - **S5 rewired** — `est.e1rm.hip_hinge` is now fed by the real RDL capture (`cap.set_log.legs_rdl`), not only the seated-curl proxy.
 - **Exit criterion `strength_progressing` tightened** — now requires **held-or-up vs the 28-day SWC** (`e1rm.*.dev_swc >= -1.0`) for squat / hinge / calf-soleus, replacing the "readout exists" (`> 0`) gate; three `*.dev_swc` signals + deviation estimators added.
@@ -34,7 +34,7 @@ Lower body receives **two strength sessions and two tendon sessions per week**, 
 
 ## 2. Declared goal and hierarchy
 
-From `general_principles.md`: mission is a sub-3 marathon *"while preserving upper-body physique and lower-body strength."* Block 1's state vector makes the priority explicit:
+From [`../../principles.md`](../../principles.md): mission is a sub-3 marathon *"while preserving upper-body physique and lower-body strength."* The program's state vector makes the priority explicit:
 
 - **S1 — threshold pace at LTHR** (the adaptation target for this block).
 - **S2 — squat-pattern e1RM**, **S3 — calf/soleus HSR e1RM**, **S5 — hip-hinge e1RM** (qualities to hold or nudge up while running improves).
@@ -49,8 +49,8 @@ These converge: heavy hinging, eccentric hamstring work, and loaded glute traini
 
 ## 3. Data reality — progress is currently unmeasurable
 
-- As of the snapshot, Block 1 is on **day 2**. The only logged lower-body strength session is the **day-2 barbell squat**, marked complete but with an **empty set/rep/load capture**; the day-2 tendon session (`sup.hsr_a`) is likewise complete with no captured load.
-- The e1RM and tonnage estimators (`est.e1rm.*`, `est.upper_tonnage`, `est.planned_vs_executed`) are **declared in the registry but not implemented** (per `pivot_roadmap.md`).
+- As of the snapshot, the program is on **day 2**. The only logged lower-body strength session is the **day-2 barbell squat**, marked complete but with an **empty set/rep/load capture**; the day-2 tendon session (`sup.hsr_a`) is likewise complete with no captured load.
+- The e1RM and tonnage estimators (`est.e1rm.*`, `est.upper_tonnage`, `est.planned_vs_executed`) are **declared in the registry but not implemented** (per [`../../roadmap.md`](../../roadmap.md)).
 - **Consequence:** the app cannot presently show leg progress even if it occurs, and the "no progress" perception is at least partly an instrumentation gap, not only a programming one. Any before/after judgement must wait for set-log capture + estimator materialization.
 
 ---
@@ -69,7 +69,7 @@ These converge: heavy hinging, eccentric hamstring work, and loaded glute traini
 Against the two-goal bar in §2, the gaps below cost **both** strength progression **and** injury resilience — the same missing patterns would deliver both.
 
 1. **The hamstring's highest-force action has no training vehicle.** In running the biarticular hamstrings produce their peak force as **eccentric hip extension at long muscle length** in terminal swing [12] — simultaneously the most trainable hamstring strength quality and the exact action that fails in a strain. Seated leg curl is knee flexion only; superimposing hip extension recruits biceps femoris far more than knee flexion alone [13]. So the capacity S5 nominally wants to progress has no route to progress — and the single best-supported hamstring-injury intervention is absent with it: eccentric hamstring work cut hamstring injuries ~51% [14] (a 2021 methods reappraisal notes the magnitude is less certain [15]). One movement, both wins forgone.
-2. **Glute max horizontal-force strength has no vehicle.** Glute max is the primary hip extensor on the ground and produces the *horizontal* propulsive force of running; squats load hip extension in the *vertical* vector only. A hip-thrust vs front-squat trial found the hip thrust improved sprint performance more, precisely because it loads hip extension near hip-neutral [16]. Block 0 carried a hip thrust (`str.lower_b`); Block 1 **dropped it**, deleting the one horizontal-force glute stimulus — a progressable strength quality *and* a propulsion/resilience contributor removed outright.
+2. **Glute max horizontal-force strength has no vehicle.** Glute max is the primary hip extensor on the ground and produces the *horizontal* propulsive force of running; squats load hip extension in the *vertical* vector only. A hip-thrust vs front-squat trial found the hip thrust improved sprint performance more, precisely because it loads hip extension near hip-neutral [16]. The preceding calibration artifact carried a hip thrust (`str.lower_b`); the threshold-development draft **dropped it**, deleting the one horizontal-force glute stimulus — a progressable strength quality *and* a propulsion/resilience contributor removed outright.
 3. **Unilateral / frontal-plane hip strength is entirely absent.** No single-leg or abduction work. This costs a strength quality the state vector never names (unilateral hip-extension and abductor force) **and** the frontal-plane control that is a top-tier running-injury lever: hip-abductor/glute-med weakness drives iliotibial band syndrome [17] and patellofemoral pain [18], two of the most common runner overuse injuries. For an injury-resilience goal this is arguably the most conspicuous omission.
 4. **The posterior chain has no progression path — only the quads do.** S2 (squat/quad e1RM) can climb via the load-driven back squat. But the hip-extensor state (glutes as horizontal-force producers, hamstrings as hip extensors) is trained only as a squat by-product or via a knee-flexion isolation, neither of which is wired to a progressing signal. Under a push philosophy this is the core defect: half the lower body cannot be pushed because nothing measures or loads it as a prime mover.
 5. **Within-block progress pressure is nominal.** The `strength_progressing` exit criterion only requires each e1RM signal `> 0` (a readout exists), not that e1RM held or improved vs SWC — one logged session satisfies it. For a program whose stated point is to see how far strength can be pushed, the exit gate applies essentially no upward pressure (contra P8).
@@ -84,11 +84,11 @@ The block's own contract says a hinge should exist and be *progressed* (S5 is a 
 
 ## 7. Directions — actioned 2026-07-15
 
-Organizing principle: **every lower-body strength quality gets a high-tension, progressable vehicle, and the known running-injury risk factors are directly trained** — lean volume via minimum-effective-dose logic [3][4], not piling on sets. Each addition below earns its slot by serving *both* goals. Status markers reflect what shipped into block1.
+Organizing principle: **every lower-body strength quality gets a high-tension, progressable vehicle, and the known running-injury risk factors are directly trained** — lean volume via minimum-effective-dose logic [3][4], not piling on sets. Each addition below earns its slot by serving *both* goals. Status markers reflect what shipped into this authored program.
 
 - **✓ Actioned — loaded hip hinge as a prime mover.** Romanian deadlift added to Legs 2 (4×5–8 @ 75% e1RM, RPE-8 top set + back-offs, 3s eccentric): the hip-extension + long-length hamstring vehicle (§5.1), the load-driven S5 state (§6), and the eccentric hamstring stimulus behind the ~51% strain reduction [14].
 - **✓ Actioned — frontal-plane / unilateral hip work.** Bulgarian split squat added to Legs 2 (2×8–12/leg): unilateral strength + the glute-med frontal-plane control tied to ITBS/PFPS [17][18] (§5.3). A direct hip-abduction accessory remains an alternative for more isolated glute-med loading.
-- **✓ Actioned — hip thrust as a horizontal-force strength lift.** Barbell hip thrust added to Legs 2 (3×8–12): restores the glute-max propulsion quality Block 0 had and Block 1 had deleted (§5.2).
+- **✓ Actioned — hip thrust as a horizontal-force strength lift.** Barbell hip thrust added to Legs 2 (3×8–12): restores the glute-max propulsion quality present in the preceding calibration artifact and missing from the threshold-development draft (§5.2).
 - **✓ Held — the real constraints.** Legs 2 raised to ~50 min; weekly strength load 302/320 min under budget; `protect_long_run` / `protect_test` windows and the interference ceiling [5][6] intact.
 - **✓ Actioned — real progression predicate for S2/S3/S5.** `strength_progressing` now requires `e1rm.*.dev_swc >= -1.0` (held-or-up vs 28-day SWC) instead of `> 0` (§5.5).
 - **⏳ Open — measurement prerequisite.** The e1RM / tonnage / dev-SWC estimators are declared but not yet computed; capture set/rep/load and materialize the estimator engine, or progress stays unmeasurable (§3).
