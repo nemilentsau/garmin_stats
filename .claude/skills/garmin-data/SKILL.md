@@ -110,7 +110,7 @@ def parse_X(data_dir: Path, date: str | None = None) -> list[DayX]:
     # Return Garmin health contract rows
 ```
 
-`parse_day()` composes `DayData` and applies the per-day UTC offset through `_shift_timestamps()`. New timestamp fields must be added there before they are considered display-safe.
+`parse_day()` (in `days.py`) composes `DayData` from per-metric parses and shifts every reading to local time through a `UtcOffsetTimeline` (`timestamps.py`), not a single per-day offset. `_parse_wellness_day_with_offset()` decodes each WELLNESS file, pulls its own `monitoring_info` markers via `_extract_utc_offset_breakpoints()`, and shifts that file's readings against its own timeline in `_shift_wellness_to_local()` — a file with no markers of its own falls back to the day-wide timeline built from the union of every WELLNESS file's breakpoints. SLEEP/HRV/SKIN_TEMP files carry no `monitoring_info` at all, so their overnight readings always ride that same day-wide timeline via `_shift_overnight_to_local()`. New timestamp fields must be registered in one of the field tuples in `timestamps.py` before they are considered display-safe.
 
 ## When Adding New Metrics
 

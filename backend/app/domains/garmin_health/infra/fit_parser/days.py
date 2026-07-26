@@ -97,6 +97,10 @@ def _parse_wellness_day_with_offset(
 
     day_timeline = UtcOffsetTimeline(day_breakpoints)
     for extracted, breakpoints in decoded:
+        # Per-file scoping is absolute by design: a reading before its own
+        # file's first marker uses that file's earliest offset, and day-wide
+        # markers from other files are deliberately not mixed in — overlapping
+        # devices disagree on real data.
         _shift_wellness_to_local(
             extracted,
             UtcOffsetTimeline(breakpoints) if breakpoints else day_timeline,

@@ -24,10 +24,12 @@ def compute_data_fingerprint(data_dir: Path) -> str:
     for fit_file in sorted(data_dir.rglob("*.fit")):
         try:
             stat = fit_file.stat()
-        except OSError:
+        except FileNotFoundError:
             # Extraction swaps whole day directories underneath this scan, so a
             # listed file can be gone before it is stat'd. Treat it as absent;
-            # the change lands in the next fingerprint.
+            # the change lands in the next fingerprint. Other OSErrors (transient
+            # EIO, persistent PermissionError) should not silently drop files, so
+            # they are not caught here.
             continue
         rel = fit_file.relative_to(data_dir)
         parts.append(f"{rel}:{stat.st_size}:{stat.st_mtime_ns}")
