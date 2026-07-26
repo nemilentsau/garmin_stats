@@ -690,6 +690,7 @@ def test_retry_rejects_complete_or_running_job():
     with pytest.raises(ValueError, match="failed"):
         repository.retry_failed_job(running_job.id, available_at=NOW)
 
+
 def test_manual_retry_restores_the_full_attempt_budget():
     repository = SqliteCoachRepository()
     _, job, _ = repository.enqueue_run_review(

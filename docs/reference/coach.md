@@ -228,8 +228,8 @@ attempt budget. Open general threads idle for six hours queue distillation; succ
 closes the thread and deletes its Codex home, while failure retains both and becomes
 `close_failed` with an explicit retry. Marking a thread `closing` and queueing its
 distillation are separate transactions, so a failure between them also lands on
-`close_failed`; retry-close then queues a fresh job. Review-linked conversations stay available for
-future corrections and are not auto-distilled or closed.
+`close_failed`; retry-close then queues a fresh job. Review-linked conversations stay
+available for future corrections and are not auto-distilled or closed.
 
 Evidence dates and prescribed occurrence dates are local calendar dates. Queue,
 attempt, message, review, and thread lifecycle instants are canonical UTC strings so
