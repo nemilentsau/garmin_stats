@@ -24,7 +24,6 @@ def _insert_json_row(table: str, row_id: str) -> None:
 
 def _seed_failed_round(db_path: Path) -> None:
     _insert_json_row("training_bundles", "bundle-1")
-    _insert_json_row("experiments", "experiment-1")
     with sqlite.connect() as connection, connection:
         connection.execute(
             """
@@ -66,6 +65,55 @@ def _seed_failed_round(db_path: Path) -> None:
             )
             """
         )
+
+
+def _seed_preserved_goal_and_experiment_state() -> None:
+    _insert_json_row("experiments", "experiment-1")
+    with sqlite.connect() as connection, connection:
+        connection.executescript(
+            """
+            CREATE TABLE goals (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE experiment_reports (
+                id TEXT PRIMARY KEY,
+                experiment_id TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO goals VALUES (
+                'goal-1', '{"target": "stay healthy"}',
+                '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z'
+            );
+            INSERT INTO experiment_exposures VALUES (
+                'exposure-1', 'experiment-1', '2026-07-01', '{}',
+                '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z'
+            );
+            INSERT INTO experiment_analyses VALUES (
+                'experiment-1', '{}',
+                '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z'
+            );
+            INSERT INTO experiment_reports VALUES (
+                'report-1', 'experiment-1', '2026-07-01', '{}',
+                '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z'
+            );
+            """
+        )
+
+
+def _table_counts(*tables: str) -> dict[str, int]:
+    with sqlite.connect() as connection:
+        return {
+            table: int(
+                connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+            )
+            for table in tables
+        }
 
 
 def _seed_garmin_files(wellness_dir: Path, activities_dir: Path) -> None:
@@ -113,6 +161,109 @@ def test_reset_clears_failed_round_and_preserves_garmin_rows_and_files(
     assert all(count == 0 for count in after.reset_table_counts.values())
     assert after.coverage_table_present is False
     assert coach_dir.exists() is False
+
+
+def test_reset_preserves_goals_and_every_experiment_table(
+    tmp_db: Path, tmp_path: Path
+):
+    _seed_failed_round(tmp_db)
+    _seed_preserved_goal_and_experiment_state()
+    wellness_dir = tmp_path / "wellness"
+    activities_dir = tmp_path / "activities"
+    coach_dir = tmp_path / "coach"
+    _seed_garmin_files(wellness_dir, activities_dir)
+    preserved_tables = (
+        "goals",
+        "experiments",
+        "experiment_exposures",
+        "experiment_analyses",
+        "experiment_reports",
+    )
+    counts_before = _table_counts(*preserved_tables)
+    fingerprint_before = inspect_failed_round(
+        db_path=tmp_db,
+        wellness_dir=wellness_dir,
+        activities_dir=activities_dir,
+        coach_dir=coach_dir,
+    ).preserved_fingerprint
+
+    result = reset_failed_round(
+        db_path=tmp_db,
+        wellness_dir=wellness_dir,
+        activities_dir=activities_dir,
+        coach_dir=coach_dir,
+    )
+
+    assert _table_counts(*preserved_tables) == counts_before
+    assert result.preserved_fingerprint == fingerprint_before
+
+
+def test_preservation_fingerprint_includes_goals_and_every_experiment_table(
+    tmp_db: Path, tmp_path: Path
+):
+    _seed_preserved_goal_and_experiment_state()
+    wellness_dir = tmp_path / "wellness"
+    activities_dir = tmp_path / "activities"
+    coach_dir = tmp_path / "coach"
+    _seed_garmin_files(wellness_dir, activities_dir)
+    def inspection() -> str:
+        return inspect_failed_round(
+            db_path=tmp_db,
+            wellness_dir=wellness_dir,
+            activities_dir=activities_dir,
+            coach_dir=coach_dir,
+        ).preserved_fingerprint
+    prior = inspection()
+    mutations = (
+        ("goals", "id", "goal-1"),
+        ("experiments", "id", "experiment-1"),
+        ("experiment_exposures", "id", "exposure-1"),
+        ("experiment_analyses", "experiment_id", "experiment-1"),
+        ("experiment_reports", "id", "report-1"),
+    )
+
+    for table, key_column, row_id in mutations:
+        with sqlite.connect() as connection, connection:
+            connection.execute(
+                f'UPDATE "{table}" SET data = ? WHERE "{key_column}" = ?',
+                (f'{{"changed": "{table}"}}', row_id),
+            )
+        current = inspection()
+        assert current != prior, f"{table} is missing from the preservation fingerprint"
+        prior = current
+
+
+def test_preservation_fingerprint_covers_future_non_reset_tables(
+    tmp_db: Path, tmp_path: Path
+):
+    with sqlite.connect() as connection, connection:
+        connection.execute(
+            "CREATE TABLE future_user_state (id TEXT PRIMARY KEY, data TEXT NOT NULL)"
+        )
+        connection.execute("INSERT INTO future_user_state VALUES ('state-1', '{}')")
+    wellness_dir = tmp_path / "wellness"
+    activities_dir = tmp_path / "activities"
+    coach_dir = tmp_path / "coach"
+    _seed_garmin_files(wellness_dir, activities_dir)
+
+    before = inspect_failed_round(
+        db_path=tmp_db,
+        wellness_dir=wellness_dir,
+        activities_dir=activities_dir,
+        coach_dir=coach_dir,
+    ).preserved_fingerprint
+    with sqlite.connect() as connection, connection:
+        connection.execute(
+            "UPDATE future_user_state SET data = '{\"changed\": true}'"
+        )
+    after = inspect_failed_round(
+        db_path=tmp_db,
+        wellness_dir=wellness_dir,
+        activities_dir=activities_dir,
+        coach_dir=coach_dir,
+    ).preserved_fingerprint
+
+    assert after != before
 
 
 def test_reset_dry_run_and_second_execution_are_noops(tmp_db: Path, tmp_path: Path):

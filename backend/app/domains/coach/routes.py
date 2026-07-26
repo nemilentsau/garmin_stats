@@ -119,6 +119,15 @@ def post_review_thread(review_id: str, response: Response) -> CoachThread:
     return thread
 
 
+@router.get("/reviews/{review_id}/thread", response_model=CoachThread | None)
+def get_review_thread(review_id: str) -> CoachThread | None:
+    """Look up the discussion without turning a page view into a write."""
+    container = build_container()
+    if container.coach_repo.review(review_id) is None:
+        raise LookupError(f"Unknown coach review: {review_id}")
+    return container.coach_repo.thread_for_review(review_id)
+
+
 @router.get(
     "/reviews/{review_id}/revisions",
     response_model=CoachReviewRevisionsResponse,

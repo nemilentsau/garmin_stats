@@ -15,8 +15,11 @@ from app.domains.coach.contracts import (
     ArtifactRef,
     BriefUpdate,
     ChatOutput,
+    CoachMeasurementAssessment,
     CoachThread,
+    HistoricalEvidenceUse,
     JournalEntry,
+    PlotObservation,
     ReviewOutput,
     ReviewRevisionOutput,
     RunJournalSummary,
@@ -138,13 +141,45 @@ def test_completed_review_starts_immutable_revision_history():
     assert len(revisions) == 1
     assert revisions[0].version == 1
     assert revisions[0].content_md == "The run achieved its intended purpose."
+    assert revisions[0].snapshot_complete is True
     assert revisions[0].source_message_id is None
+
+
+def test_legacy_revision_is_explicitly_marked_as_an_incomplete_snapshot():
+    legacy_data = json.dumps(
+        {
+            "id": "revision-legacy",
+            "review_id": "review-legacy",
+            "version": 1,
+            "content_md": "Legacy narrative only.",
+            "outcome": "completed_as_intended",
+            "confidence": "moderate",
+            "refs": [],
+            "created_at": NOW,
+        }
+    )
+    with sqlite.connect() as connection:
+        init_coach_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO coach_review_revisions
+                (id, review_id, version, created_at, data)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("revision-legacy", "review-legacy", 1, NOW, legacy_data),
+        )
+        connection.commit()
+
+    revision = SqliteCoachRepository().review_revisions("review-legacy")[0]
+
+    assert revision.snapshot_complete is False
 
 
 def test_linked_review_thread_is_reused_and_hidden_from_general_conversations():
     repository = SqliteCoachRepository()
     review, _ = _complete_review(repository)
 
+    assert repository.thread_for_review(review.id) is None
     first, first_created = repository.get_or_create_review_thread(
         review.id, created_at=NOW
     )
@@ -156,13 +191,16 @@ def test_linked_review_thread_is_reused_and_hidden_from_general_conversations():
     assert second_created is False
     assert second.id == first.id
     assert second.review_id == review.id
+    assert repository.thread_for_review(review.id) == first
     assert repository.list_threads() == []
     assert repository.list_all_threads() == [first]
 
 
 def test_linked_chat_only_changes_review_for_explicit_revision_output():
     repository = SqliteCoachRepository()
-    review, _ = _complete_review(repository)
+    review, _ = _complete_review(
+        repository, follow_up_questions=["Was the course flat?"]
+    )
     thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
 
     _, ordinary_job = repository.enqueue_chat_message(
@@ -202,7 +240,31 @@ def test_linked_chat_only_changes_review_for_explicit_revision_output():
                 content_md="The run ended early because air quality became unsafe.",
                 outcome="completed_with_material_deviation",
                 confidence="high",
-                refs=[ArtifactRef(kind="run", value="run-1")],
+                refs=[
+                    ArtifactRef(kind="run", value="run-1"),
+                    ArtifactRef(kind="plot", value="air-quality.png"),
+                ],
+                follow_up_questions=[],
+                plot_observations=[
+                    PlotObservation(
+                        plot="air-quality.png",
+                        observation="The trace ends when the air-quality alert occurred.",
+                    )
+                ],
+                history_used=[
+                    HistoricalEvidenceUse(
+                        run_id="run-previous",
+                        role="recent_clean",
+                        reason="Shows the expected complete aerobic duration.",
+                        refs=[ArtifactRef(kind="run", value="run-previous")],
+                    )
+                ],
+                measurement_assessment=CoachMeasurementAssessment(
+                    run_id="run-1",
+                    occurrence_key="run-am",
+                    status="failed",
+                    rationale="Unsafe air ended the measurement before completion.",
+                ),
             ),
         ),
         session_id="session-1",
@@ -212,9 +274,15 @@ def test_linked_chat_only_changes_review_for_explicit_revision_output():
     revisions = repository.review_revisions(review.id)
     assert [item.version for item in revisions] == [1, 2]
     assert revisions[-1].source_message_id == coach_message.id
-    assert repository.review(review.id).content_md == (  # type: ignore[union-attr]
+    saved = repository.review(review.id)
+    assert saved is not None
+    assert saved.content_md == (
         "The run ended early because air quality became unsafe."
     )
+    assert saved.follow_up_questions == []
+    assert saved.plot_observations == revisions[-1].plot_observations
+    assert saved.history_used == revisions[-1].history_used
+    assert saved.measurement_assessment == revisions[-1].measurement_assessment
 
 
 def test_review_revision_is_rejected_without_durable_user_correction_intent():
@@ -240,6 +308,9 @@ def test_review_revision_is_rejected_without_durable_user_correction_intent():
                     outcome="completed_with_material_deviation",
                     confidence="low",
                     refs=[ArtifactRef(kind="run", value="run-1")],
+                    follow_up_questions=[],
+                    plot_observations=[],
+                    history_used=[],
                 ),
             ),
             session_id="session-1",
@@ -250,6 +321,84 @@ def test_review_revision_is_rejected_without_durable_user_correction_intent():
     assert repository.review(review.id).content_md == (  # type: ignore[union-attr]
         "The run achieved its intended purpose."
     )
+
+
+def test_review_revision_rejects_plot_refs_without_matching_observations():
+    repository = SqliteCoachRepository()
+    review, _ = _complete_review(repository)
+    thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
+    repository.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: use the corrected plot.",
+        review_revision_requested=True,
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+
+    with pytest.raises(ValueError, match="plot evidence"):
+        repository.complete_chat_output(
+            job_id=claimed.id,
+            thread_id=thread.id,
+            output=ChatOutput(
+                answer_md="I updated the review.",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                review_revision=ReviewRevisionOutput(
+                    content_md="Corrected review.",
+                    outcome="completed_as_intended",
+                    confidence="high",
+                    refs=[ArtifactRef(kind="plot", value="corrected.png")],
+                    follow_up_questions=[],
+                    plot_observations=[],
+                    history_used=[],
+                ),
+            ),
+            session_id="session-1",
+            finished_at=LATER,
+        )
+
+    assert len(repository.review_revisions(review.id)) == 1
+
+
+def test_review_revision_rejects_measurement_assessment_for_another_occurrence():
+    repository = SqliteCoachRepository()
+    review, _ = _complete_review(repository)
+    thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
+    repository.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: correct the measurement assessment.",
+        review_revision_requested=True,
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+
+    with pytest.raises(ValueError, match="linked review target"):
+        repository.complete_chat_output(
+            job_id=claimed.id,
+            thread_id=thread.id,
+            output=ChatOutput(
+                answer_md="I updated the review.",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                review_revision=ReviewRevisionOutput(
+                    content_md="Corrected review.",
+                    outcome="completed_as_intended",
+                    confidence="high",
+                    refs=[ArtifactRef(kind="run", value="run-1")],
+                    follow_up_questions=[],
+                    plot_observations=[],
+                    history_used=[],
+                    measurement_assessment=CoachMeasurementAssessment(
+                        run_id="run-1",
+                        occurrence_key="run-pm",
+                        status="valid",
+                        rationale="This assessment points at the wrong occurrence.",
+                    ),
+                ),
+            ),
+            session_id="session-1",
+            finished_at=LATER,
+        )
+
+    assert len(repository.review_revisions(review.id)) == 1
 
 
 def test_existing_closed_review_thread_is_reopened_for_future_corrections():

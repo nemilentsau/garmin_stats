@@ -88,8 +88,11 @@ def chat_prompt(
         if revision_requested:
             revision_policy = (
                 "The athlete explicitly authorized a correction to current-review.md. "
-                "Set review_revision only if the new information changes its content, "
-                "outcome, confidence, or refs.\n"
+                "Set review_revision only if the new information changes the review. "
+                "When set, it is a complete replacement snapshot: preserve or deliberately "
+                "replace content_md, outcome, confidence, refs, follow_up_questions, "
+                "plot_observations, history_used, and measurement_assessment. Never omit a "
+                "field merely because the correction did not discuss it.\n"
             )
         else:
             revision_policy = (

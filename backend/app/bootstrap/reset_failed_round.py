@@ -1,4 +1,4 @@
-"""One-time guarded reset for failed Coach, training, and experiment state."""
+"""One-time guarded reset for failed Coach and imported-training state."""
 
 from __future__ import annotations
 
@@ -17,30 +17,11 @@ RESET_TABLES = (
     "coach_brief_versions",
     "coach_reviews",
     "coach_jobs",
-    "experiment_analyses",
-    "experiment_exposures",
-    "experiments",
     "training_card_logs",
     "training_registry",
     "training_blocks",
     "training_exercise_library",
     "training_bundles",
-)
-
-PRESERVED_TABLES = (
-    "wellness_data",
-    "sleep_data",
-    "hrv_data",
-    "skin_temp_data",
-    "daily_metrics",
-    "ingest_meta",
-    "running_activity_sessions",
-    "running_activity_sources",
-    "running_activity_laps",
-    "running_activity_series",
-    "daily_checkins",
-    "notes",
-    "user_profile",
 )
 
 _OBSOLETE_TABLES = ("activity_sync_coverage", "coach_reconciliation_state")
@@ -117,11 +98,15 @@ def _row_count(connection: sqlite3.Connection, table: str) -> int:
 def _database_fingerprint(connection: sqlite3.Connection) -> str:
     digest = hashlib.sha256()
     tables = _tables(connection)
-    for table in PRESERVED_TABLES:
+    preserved_tables = sorted(
+        table
+        for table in tables
+        if table not in RESET_TABLES
+        and table not in _OBSOLETE_TABLES
+        and not table.startswith("sqlite_")
+    )
+    for table in preserved_tables:
         digest.update(table.encode())
-        if table not in tables:
-            digest.update(b"<missing>")
-            continue
         columns = [
             str(row["name"])
             for row in connection.execute(f'PRAGMA table_info("{table}")')
@@ -259,7 +244,7 @@ def reset_failed_round(
             connection, wellness_dir, activities_dir
         )
         if preserved_after != preserved_before:
-            raise RuntimeError("Preserved Garmin data changed during reset")
+            raise RuntimeError("Preserved application data changed during reset")
         remaining = {
             table: _row_count(connection, table)
             for table in RESET_TABLES

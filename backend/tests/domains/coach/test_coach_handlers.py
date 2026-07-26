@@ -16,8 +16,10 @@ from app.domains.coach.contracts import (
     CoachMeasurementAssessment,
     CoachThread,
     DistillOutput,
+    HistoricalEvidenceUse,
     PlotObservation,
     ReviewOutput,
+    ReviewRevisionOutput,
     RunJournalSummary,
 )
 from app.domains.coach.infra.runner import CodexJobResult
@@ -439,6 +441,73 @@ def test_chat_invalid_assessment_context_fails_without_persisting_assessment(
     assert [message.role for message in messages] == ["user", "system"]
     assert all(message.measurement_assessment is None for message in messages)
     assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+
+
+def test_chat_revision_rejects_unavailable_direct_and_historical_plots(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    review, queued, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    review_job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert review_job is not None and review_job.id == queued.id
+    repo.mark_review_generating(review.id, updated_at=NOW)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=review_job.id,
+        output=_review_output(),
+        finished_at=NOW,
+    )
+    thread, _ = repo.get_or_create_review_thread(review.id, created_at=NOW)
+    _, queued_chat = repo.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: use the new plot evidence.",
+        review_revision_requested=True,
+    )
+    chat_job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert chat_job is not None and chat_job.id == queued_chat.id
+    output = ChatOutput(
+        answer_md="I updated the review.",
+        refs=[ArtifactRef(kind="run", value="run-1")],
+        review_revision=ReviewRevisionOutput(
+            content_md="The revised interpretation cites two unavailable plots.",
+            outcome="completed_with_material_deviation",
+            confidence="moderate",
+            refs=[ArtifactRef(kind="plot", value="missing-direct.png")],
+            follow_up_questions=[],
+            plot_observations=[
+                PlotObservation(
+                    plot="missing-direct.png",
+                    observation="The alleged trace changes near the end.",
+                )
+            ],
+            history_used=[
+                HistoricalEvidenceUse(
+                    run_id="run-previous",
+                    role="recent_clean",
+                    reason="Alleged clean comparison.",
+                    refs=[ArtifactRef(kind="plot", value="missing-history.png")],
+                )
+            ],
+        ),
+    )
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=output)]),
+    )
+
+    asyncio.run(handlers.execute(chat_job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.content_md == _review_output().review_md
+    assert len(repo.review_revisions(review.id)) == 1
+    error = repo.job(chat_job.id).error or ""  # type: ignore[union-attr]
+    assert "missing-direct.png" in error
+    assert "missing-history.png" in error
 
 
 def test_fail_unexpected_without_thread_id_falls_back_to_fail_job(tmp_path):

@@ -52,11 +52,12 @@ Path resolution lives in `backend/app/core/config.py`.
   `cd backend && uv run python ../scripts/reset_failed_round.py`
 - Execute that reset after stopping the app:
   `cd backend && uv run python ../scripts/reset_failed_round.py --execute`.
-  It clears imported training/experiment state and Coach state, removes the Coach
-  runtime directory, and verifies Garmin SQLite rows plus both Garmin source trees
-  remain byte-for-byte unchanged. The runtime path is fixed to the database's `coach/`
-  sibling and must be disjoint from both Garmin trees. Authored bundle files are outside
-  the reset.
+  It clears imported training state and Coach state, removes the Coach runtime
+  directory, and verifies every non-reset, non-retired SQLite table plus both Garmin
+  source trees remain byte-for-byte unchanged. Goals, experiments, exposures, analyses,
+  reports, profile, notes, check-ins, and Garmin data are preserved. The runtime path is
+  fixed to the database's `coach/` sibling and must be disjoint from both Garmin trees.
+  Authored bundle files are outside the reset.
 
 Normal running ingest never re-parses an existing `source_file`; use the rebuild command after adding or changing parser fields.
 

@@ -261,6 +261,11 @@ export const api = {
 			params: { path: { review_id: reviewId } }
 		}));
 	},
+	getCoachReviewThread: async (reviewId: string) => {
+		return unwrapResponse(client.GET('/api/coach/reviews/{review_id}/thread', {
+			params: { path: { review_id: reviewId } }
+		}));
+	},
 	getCoachReviewRevisions: async (reviewId: string) => {
 		return unwrapResponse(client.GET('/api/coach/reviews/{review_id}/revisions', {
 			params: { path: { review_id: reviewId } }

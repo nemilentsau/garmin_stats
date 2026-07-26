@@ -756,7 +756,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Review Thread
+         * @description Look up the discussion without turning a page view into a write.
+         */
+        get: operations["get_review_thread_api_coach_reviews__review_id__thread_get"];
         put?: never;
         /** Post Review Thread */
         post: operations["post_review_thread_api_coach_reviews__review_id__thread_post"];
@@ -1630,6 +1634,27 @@ export interface components {
             confidence: "low" | "moderate" | "high";
             /** Refs */
             refs: components["schemas"]["ArtifactRef"][];
+            /**
+             * Follow Up Questions
+             * @default []
+             */
+            follow_up_questions: string[];
+            /**
+             * Plot Observations
+             * @default []
+             */
+            plot_observations: components["schemas"]["PlotObservation"][];
+            /**
+             * History Used
+             * @default []
+             */
+            history_used: components["schemas"]["HistoricalEvidenceUse"][];
+            measurement_assessment: components["schemas"]["CoachMeasurementAssessment"] | null;
+            /**
+             * Snapshot Complete
+             * @default false
+             */
+            snapshot_complete: boolean;
             /** Source Message Id */
             source_message_id: string | null;
             /** Created At */
@@ -6846,6 +6871,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_thread_api_coach_reviews__review_id__thread_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachThread"] | null;
                 };
             };
             /** @description Validation Error */

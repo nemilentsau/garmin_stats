@@ -516,6 +516,14 @@ class SqliteCoachRepository:
             ).fetchone()
         return None if row is None else _model_from_row(CoachThread, row)
 
+    def thread_for_review(self, review_id: str) -> CoachThread | None:
+        """Return an existing review thread without creating or reopening one."""
+        with connect() as connection:
+            row = connection.execute(
+                "SELECT data FROM coach_threads WHERE review_id = ?", (review_id,)
+            ).fetchone()
+        return None if row is None else _model_from_row(CoachThread, row)
+
     def list_threads(self) -> list[CoachThread]:
         with connect() as connection:
             rows = connection.execute(
@@ -579,6 +587,15 @@ class SqliteCoachRepository:
             [
                 *output.refs,
                 *([] if revision_output is None else revision_output.refs),
+                *(
+                    []
+                    if revision_output is None
+                    else [
+                        ref
+                        for historical_use in revision_output.history_used
+                        for ref in historical_use.refs
+                    ]
+                ),
             ]
         )
         with connect() as connection:
@@ -612,6 +629,18 @@ class SqliteCoachRepository:
             )
             self._insert_message(connection, message)
             if revision_output is not None:
+                direct_plot_refs = {
+                    ref.value for ref in revision_output.refs if ref.kind == "plot"
+                }
+                observation_plots = {
+                    observation.plot
+                    for observation in revision_output.plot_observations
+                }
+                if direct_plot_refs != observation_plots:
+                    raise ReviewRevisionValidationError(
+                        "Review revision plot evidence requires matching direct refs "
+                        "and observations"
+                    )
                 if job.payload.get("review_revision_requested") is not True:
                     raise ReviewRevisionValidationError(
                         "Review revision requires an explicit correction request"
@@ -628,6 +657,15 @@ class SqliteCoachRepository:
                 review = _review_from_row(review_row)
                 if review.status != "complete":
                     raise ValueError("Only complete reviews can be revised")
+                revision_assessment = revision_output.measurement_assessment
+                if revision_assessment is not None and (
+                    review.kind != "run"
+                    or revision_assessment.run_id != review.run_id
+                    or revision_assessment.occurrence_key != review.occurrence_key
+                ):
+                    raise MeasurementAssessmentValidationError(
+                        "Review revision assessment does not match the linked review target"
+                    )
                 version_row = connection.execute(
                     """
                     SELECT COALESCE(MAX(version), 0) AS version
@@ -642,6 +680,10 @@ class SqliteCoachRepository:
                         "outcome": revision_output.outcome,
                         "confidence": revision_output.confidence,
                         "refs": revision_output.refs,
+                        "follow_up_questions": revision_output.follow_up_questions,
+                        "plot_observations": revision_output.plot_observations,
+                        "history_used": revision_output.history_used,
+                        "measurement_assessment": revision_assessment,
                         "updated_at": finished_at,
                     }
                 )
@@ -1203,6 +1245,11 @@ class SqliteCoachRepository:
             outcome=review.outcome,
             confidence=review.confidence,
             refs=review.refs,
+            follow_up_questions=review.follow_up_questions,
+            plot_observations=review.plot_observations,
+            history_used=review.history_used,
+            measurement_assessment=review.measurement_assessment,
+            snapshot_complete=True,
             source_message_id=source_message_id,
             created_at=created_at,
         )

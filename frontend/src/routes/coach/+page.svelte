@@ -106,11 +106,11 @@
 			reviewMessages = [];
 			reviewRevisions = [];
 		}
-		const nextThread = await api.openCoachReviewThread(review.id);
-		const [nextMessages, nextRevisions] = await Promise.all([
-			api.getCoachMessages(nextThread.id),
+		const [nextThread, nextRevisions] = await Promise.all([
+			api.getCoachReviewThread(review.id),
 			api.getCoachReviewRevisions(review.id)
 		]);
+		const nextMessages = nextThread ? await api.getCoachMessages(nextThread.id) : { messages: [] };
 		if (!reviewConversationGate.isCurrent(request) || activeReviewId !== review.id) return;
 		reviewThread = nextThread;
 		reviewMessages = nextMessages.messages;
@@ -195,13 +195,18 @@
 
 	async function sendReviewMessage(): Promise<void> {
 		const content = reviewDraft.trim();
-		if (!content || !reviewThread || busy) return;
+		if (!content || busy) return;
 		const selectedReviewId = activeReview?.id;
-		if (!selectedReviewId || reviewThread.review_id !== selectedReviewId) return;
+		if (!selectedReviewId) return;
 		const revisionRequested = content.toLowerCase().startsWith('update the review:');
 		busy = true;
 		try {
-			await api.sendCoachMessage(reviewThread.id, content, revisionRequested);
+			const thread =
+				reviewThread?.review_id === selectedReviewId && reviewThread.status === 'open'
+					? reviewThread
+					: await api.openCoachReviewThread(selectedReviewId);
+			reviewThread = thread;
+			await api.sendCoachMessage(thread.id, content, revisionRequested);
 			reviewDraft = '';
 			await refreshAll();
 		} catch (e: unknown) {
@@ -384,7 +389,7 @@
 								</ul>
 							</section>
 						{/if}
-						{#if activeReview.status === 'complete' && reviewThread}
+						{#if activeReview.status === 'complete'}
 							<section class="review-conversation" aria-labelledby="review-conversation-heading">
 								<div class="review-conversation-head">
 									<div>
@@ -397,8 +402,64 @@
 											<ol>
 												{#each reviewRevisions as revision (revision.id)}
 													<li>
-														<span>Version {revision.version}</span>
+														<div class="revision-meta">
+															<span>Version {revision.version}</span>
+															<span>{revision.outcome.replaceAll('_', ' ')} · {revision.confidence}</span>
+														</div>
 														<time>{revision.created_at}</time>
+														<div class="markdown-body revision-content">{@html renderMarkdown(revision.content_md)}</div>
+														{#if !revision.snapshot_complete}
+															<p class="revision-legacy-note">Legacy partial snapshot — fields not recorded at the time are shown as unavailable.</p>
+														{/if}
+														<details class="revision-evidence">
+															<summary>Audit details</summary>
+															<dl>
+																<div>
+																	<dt>References</dt>
+																	<dd>
+																		{#each revision.refs as ref, index (index)}
+																			<code>{ref.kind}:{ref.value}</code>
+																		{:else}None{/each}
+																	</dd>
+																</div>
+																<div>
+																	<dt>Follow-up questions</dt>
+																	<dd>
+																		{#each revision.follow_up_questions as question, index (index)}
+																			<span>{question}</span>
+																		{:else}{revision.snapshot_complete ? 'None' : 'Unavailable'}{/each}
+																	</dd>
+																</div>
+																<div>
+																	<dt>Plot observations</dt>
+																	<dd>
+																		{#each revision.plot_observations as observation, index (index)}
+																			<span><code>{observation.plot}</code> — {observation.observation}</span>
+																		{:else}{revision.snapshot_complete ? 'None' : 'Unavailable'}{/each}
+																	</dd>
+																</div>
+																<div>
+																	<dt>Historical evidence</dt>
+																	<dd>
+																		{#each revision.history_used as evidence, index (index)}
+																			<span>
+																				<code>{evidence.run_id}</code> · {evidence.role.replaceAll('_', ' ')} — {evidence.reason}
+																				({evidence.refs.map((ref) => `${ref.kind}:${ref.value}`).join(', ')})
+																			</span>
+																		{:else}{revision.snapshot_complete ? 'None' : 'Unavailable'}{/each}
+																	</dd>
+																</div>
+																<div>
+																	<dt>Measurement assessment</dt>
+																	<dd>
+																		{#if revision.measurement_assessment}
+																			<span>{revision.measurement_assessment.status} · <code>{revision.measurement_assessment.run_id}</code> / <code>{revision.measurement_assessment.occurrence_key}</code></span>
+																			<span>{revision.measurement_assessment.rationale}</span>
+																		{:else}{revision.snapshot_complete ? 'None' : 'Unavailable'}{/if}
+																	</dd>
+																</div>
+															</dl>
+														</details>
 													</li>
 												{/each}
 											</ol>
@@ -913,9 +974,7 @@
 		border-top: 1px solid rgba(255, 255, 255, 0.09);
 	}
 	.review-conversation-head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
+		display: grid;
 		gap: 20px;
 	}
 	.review-conversation h3 {
@@ -932,7 +991,7 @@
 		line-height: 1.5;
 	}
 	.revision-history {
-		flex: 0 0 auto;
+		width: 100%;
 		color: #7a8ea0;
 		font-size: 11.5px;
 	}
@@ -942,15 +1001,63 @@
 	}
 	.revision-history ol {
 		margin: 8px 0 0;
-		padding-left: 22px;
+		padding: 0;
+		list-style: none;
 	}
 	.revision-history li {
-		padding: 2px 0;
+		padding: 10px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.07);
+	}
+	.revision-meta {
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+		color: #94a7b3;
+		text-transform: capitalize;
 	}
 	.revision-history time {
 		display: block;
 		color: #607483;
 		font: 10px 'DM Mono', monospace;
+	}
+	.revision-content {
+		margin-top: 8px;
+		color: #aebec8;
+		font-size: 12px;
+	}
+	.revision-legacy-note {
+		margin: 8px 0 0;
+		color: #d2a15f;
+	}
+	.revision-evidence {
+		margin-top: 8px;
+	}
+	.revision-evidence summary {
+		color: #708fa3;
+	}
+	.revision-evidence dl {
+		margin: 8px 0 0;
+	}
+	.revision-evidence dl > div {
+		display: grid;
+		grid-template-columns: 140px minmax(0, 1fr);
+		gap: 14px;
+		padding: 6px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.05);
+	}
+	.revision-evidence dt {
+		color: #718593;
+	}
+	.revision-evidence dd {
+		display: grid;
+		gap: 4px;
+		margin: 0;
+		color: #a6b7c2;
+		line-height: 1.45;
+	}
+	.revision-evidence code {
+		color: #75b5e5;
+		font: 10.5px 'DM Mono', monospace;
 	}
 	.review-message-list {
 		display: flex;
