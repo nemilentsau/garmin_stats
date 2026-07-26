@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { api, type CoachReview, type RunDetail, type RunSeries } from '$lib/api';
 	import { errorMessage } from '$lib/utils';
@@ -45,11 +44,21 @@
 	let coachReviewError: string | null = $state(null);
 	let reviewBusy = $state(false);
 
-	async function loadCoachReview(id: string) {
+	// Request token: run→run navigation re-fires the `$effect` below on every
+	// `page.params.id` change; the token ensures a slow in-flight response for a
+	// run the user has since navigated away from can never land and overwrite
+	// the newer run's state (latest-wins), mirroring `todayRequestToken` in
+	// today/+page.svelte.
+	let runRequestToken = 0;
+
+	async function loadCoachReview(id: string, requestToken: number) {
 		coachReviewError = null;
 		try {
-			coachReview = await api.getCoachRunReview(id);
+			const review = await api.getCoachRunReview(id);
+			if (requestToken !== runRequestToken) return;
+			coachReview = review;
 		} catch (e: unknown) {
+			if (requestToken !== runRequestToken) return;
 			coachReview = null;
 			const message = errorMessage(e);
 			if (!message.toLowerCase().includes('no coach review')) {
@@ -59,27 +68,33 @@
 	}
 
 	async function requestCoachReview(id: string) {
+		const requestToken = runRequestToken;
 		reviewBusy = true;
 		coachReviewError = null;
 		try {
 			const result = await api.enqueueCoachRunReview(id);
+			if (requestToken !== runRequestToken) return;
 			coachReview = result.review;
 		} catch (e: unknown) {
-			error = errorMessage(e);
+			if (requestToken !== runRequestToken) return;
+			coachReviewError = errorMessage(e);
 		} finally {
-			reviewBusy = false;
+			if (requestToken === runRequestToken) reviewBusy = false;
 		}
 	}
 
-	async function loadRun(id: string) {
+	async function loadRun(id: string, requestToken: number) {
 		loading = true;
 		try {
 			const [nextDetail, nextSeries] = await Promise.all([api.getRun(id), api.getRunSeries(id)]);
+			if (requestToken !== runRequestToken) return;
 			detail = nextDetail;
 			series = nextSeries;
-			await loadCoachReview(id);
+			await loadCoachReview(id, requestToken);
+			if (requestToken !== runRequestToken) return;
 			error = null;
 		} catch (e: unknown) {
+			if (requestToken !== runRequestToken) return;
 			detail = null;
 			series = null;
 			const message = errorMessage(e);
@@ -87,13 +102,25 @@
 			// that into the Error message, so match on content rather than a status code we don't have.
 			error = message.toLowerCase().includes('not found') ? 'Run not found.' : message;
 		} finally {
-			loading = false;
+			if (requestToken === runRequestToken) loading = false;
 		}
 	}
 
-	onMount(() => {
+	// React to `page.params.id` changes (not just the initial mount) so run→run
+	// navigation (e.g. from a "next run" link) loads the new run instead of
+	// leaving the previous run's detail on screen. Per-run state is reset
+	// synchronously before the fetch starts so nothing from the outgoing run
+	// (coach review, its error) can flash over the incoming run's page.
+	$effect(() => {
 		const id = page.params.id;
-		if (id) void loadRun(id);
+		const requestToken = ++runRequestToken;
+		detail = null;
+		series = null;
+		error = null;
+		coachReview = null;
+		coachReviewError = null;
+		reviewBusy = false;
+		if (id) void loadRun(id, requestToken);
 	});
 
 	// ── Pure display formatting (no computation/aggregation — every value below comes
