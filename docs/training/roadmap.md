@@ -6,20 +6,20 @@ This file contains only current state and work that still changes the product. G
 
 ## Current state
 
-- **Threshold development is the latest authored program.** [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) contains its six import artifacts for a 28-day program beginning 2026-07-13. Checked-in authored content does not establish runtime activation; the active imported SQLite record does. The calibration artifact set belongs exclusively to backend tests.
+- **Threshold development is the latest authored program.** [`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip) is its canonical import package for a 28-day program beginning 2026-07-13. Its six JSON artifacts exist only inside that ZIP. Checked-in authored content does not establish runtime activation; the active imported SQLite record does. The calibration artifact set belongs exclusively to backend tests.
 - **v3 import and execution are shipped.** One authored ZIP package is decoded into its six JSON artifacts, then strictly parsed, compiled, linted L1-L12, and activated atomically. The Today and schedule-window reads project the active block; logs capture status, variant, notes, set/rep/load, run RPE, and tissue check-ins.
 - **Running activity evidence is shipped.** Running FIT files parse into session/lap/series storage, display in Runs, associate with `running.v3` cards, and can establish effective execution.
 - **Imported-block measurement handling is shipped.** Training evaluates the authored LTHR protocol from tracked run evidence, applies hard quality gates, composes the exact Coach assessment, activates authored backup opportunities at read time, and exposes estimator eligibility without mutating the imported schedule.
 - **Coach v1 is shipped.** Coach owns queued reviews/chat, bounded evidence workspaces, semantic memory, and subjective measurement assessments. It does not create or edit training content and does not replace the general estimator engine.
 - **Selection is still human-driven.** The app displays authored variants and rules and records the chosen branch, but it does not yet evaluate the registry's morning selection rules.
-- **The signal registry is declarative only.** The latest authored program's `registry.json` validates and is stored verbatim when imported; most estimators and materialized training-state signals it declares are not yet computed.
+- **The signal registry is declarative only.** The latest authored program package's `registry.json` member validates and is stored verbatim when imported; most estimators and materialized training-state signals it declares are not yet computed.
 - **Strength and breathing activity files remain download-only.** Strength set/rep/load capture exists in training logs, but Garmin strength FIT sessions are not parsed or associated.
 
 ## Remaining implementation objectives
 
 ### 1. Materialize the active registry
 
-Implement the estimators and signals declared by [`programs/threshold-development-2026-07-13/registry.json`](programs/threshold-development-2026-07-13/registry.json), starting with the inputs already captured or ingested: HRV/RHR baselines, LTHR evidence, set-log e1RM and tonnage, planned-versus-executed work, tissue check-ins, and daily load. Persist outputs so weekly reviews and selection rules consume one auditable source.
+Implement the estimators and signals declared by the `registry.json` member of [`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip), starting with the inputs already captured or ingested: HRV/RHR baselines, LTHR evidence, set-log e1RM and tonnage, planned-versus-executed work, tissue check-ins, and daily load. Persist outputs so weekly reviews and selection rules consume one auditable source.
 
 This engine is separate from Coach. Coach may explain its outputs, but deterministic estimators own the values.
 

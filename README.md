@@ -76,7 +76,7 @@ The training import at `/training/import` accepts one authored `.zip` package. T
 
 The backend opens the package in memory and ignores non-JSON documentation; it does not generate, translate, or rewrite the authored content. Import is atomic: strict wire validation, completeness checks, schedule compilation, L1-L12 linting, and warning acknowledgement all succeed before the new generation activates. The full contract is [docs/training/artifact-schema-v3.md](docs/training/artifact-schema-v3.md).
 
-[`docs/training/programs/threshold-development-2026-07-13/`](docs/training/programs/threshold-development-2026-07-13/) is the latest authored program checked into the repository. That does not imply runtime activation; the active imported database record is authoritative. Test-only calibration artifacts live under `backend/tests/fixtures/training/`.
+Import [`threshold-development-2026-07-13.zip`](docs/training/programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip) for the latest checked-in authored program. Do not select or package its internal JSON artifacts yourself. Repository presence does not imply runtime activation; the active imported database record is authoritative. Test-only calibration artifacts live under `backend/tests/fixtures/training/`.
 
 ### Experiments
 

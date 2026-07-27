@@ -57,16 +57,10 @@ from app.domains.training.contracts import (
     TrainingTodayCard,
 )
 from tests._architecture import REPO_ROOT
+from tests.domains.training._authored_program import load_authored_artifact
 
 CALIBRATION_FIXTURE = (
     REPO_ROOT / "backend" / "tests" / "fixtures" / "training" / "v3-calibration"
-)
-AUTHORED_PROGRAM = (
-    REPO_ROOT
-    / "docs"
-    / "training"
-    / "programs"
-    / "threshold-development-2026-07-13"
 )
 _BLOCK0_FILENAMES = [
     "block0.json",
@@ -98,7 +92,7 @@ def _block1_files() -> list[ImportFile]:
     return [
         ImportFile(
             filename=name,
-            content=json.loads((AUTHORED_PROGRAM / name).read_text(encoding="utf-8")),
+            content=load_authored_artifact(name),
         )
         for name in _BLOCK1_FILENAMES
     ]

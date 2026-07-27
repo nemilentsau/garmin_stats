@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from copy import deepcopy
 from dataclasses import replace
 
@@ -16,19 +15,11 @@ from app.domains.training.contracts import (
     V3Block,
     V3Bundle,
 )
-from tests._architecture import REPO_ROOT
-
-AUTHORED_PROGRAM = (
-    REPO_ROOT
-    / "docs"
-    / "training"
-    / "programs"
-    / "threshold-development-2026-07-13"
-)
+from tests.domains.training._authored_program import load_authored_artifact
 
 
 def _load(name: str) -> dict:
-    return json.loads((AUTHORED_PROGRAM / name).read_text(encoding="utf-8"))
+    return load_authored_artifact(name)
 
 
 def _block_and_schedule():
