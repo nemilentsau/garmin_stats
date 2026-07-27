@@ -745,8 +745,7 @@ def test_manual_retry_restores_the_full_attempt_budget():
 
 def _closing_thread_distill_job(repository: SqliteCoachRepository):
     repository.insert_thread(_thread())
-    repository.mark_thread_closing("thread-1", updated_at=NOW)
-    job = repository.enqueue_distill(thread_id="thread-1")
+    job = repository.begin_thread_close("thread-1", updated_at=NOW)
     assert repository.claim_next_job("9999-01-01T00:00:00Z") is not None
     return job
 
@@ -761,7 +760,7 @@ def test_stale_distill_job_at_attempt_limit_fails_the_owning_thread():
     thread = repository.thread("thread-1")
     assert thread is not None
     assert thread.status == "close_failed"
-    failed_job = repository.failed_distill_job("thread-1")
+    failed_job = repository.job(job.id)
     assert failed_job is not None
     assert failed_job.id == job.id
 

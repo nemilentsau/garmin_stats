@@ -18,6 +18,8 @@ from app.domains.coach.contracts import (
     ReviewRevisionOutput,
     RunJournalSummary,
 )
+from app.domains.coach.schema import init_coach_schema
+from app.infra import sqlite
 
 NOW = "2026-07-12T12:00:00Z"
 LATER = "2026-07-12T13:00:00Z"
@@ -638,6 +640,36 @@ def test_review_revision_that_changes_assessment_status_does_not_backdate_to_fir
     assert at_revision is not None
     assert at_revision.created_at == REVISED_AT
     assert at_revision.assessment.status == "valid"
+
+
+def test_schema_backfill_uses_revision_where_current_assessment_status_took_effect():
+    repo = SqliteCoachRepository()
+    review, job = _running_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(_assessment(status="failed")),
+        finished_at=COMPLETED_AT,
+    )
+    _revise_review(
+        repo,
+        review.id,
+        finished_at=REVISED_AT,
+        assessment=_assessment(status="valid"),
+    )
+    with sqlite.connect() as connection:
+        connection.execute(
+            "UPDATE coach_reviews SET assessment_effective_at = NULL WHERE id = ?",
+            (review.id,),
+        )
+        init_coach_schema(connection)
+        effective_at = connection.execute(
+            "SELECT assessment_effective_at FROM coach_reviews WHERE id = ?",
+            (review.id,),
+        ).fetchone()["assessment_effective_at"]
+        connection.commit()
+
+    assert effective_at == REVISED_AT
 
 
 def test_review_revision_with_only_a_reworded_rationale_does_not_move_the_effective_instant():

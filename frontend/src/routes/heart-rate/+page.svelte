@@ -19,6 +19,7 @@
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
 	import { chartTooltip, DARK_GRID, DARK_GRID_Y, DARK_BORDER, DARK_TICK } from '$lib/chart-setup';
 	import TrendRangePicker from '$lib/components/TrendRangePicker.svelte';
+	import InlineError from '$lib/components/InlineError.svelte';
 	import { localDateIso } from '$lib/date';
 	import { type TrendRange, trendCutoff, filterByRange, PERIOD_KEY_MAP } from '$lib/trend-range';
 	import type { ChartConfiguration } from 'chart.js';
@@ -601,10 +602,7 @@
 	</div>
 {:else if agg}
 	{#if error}
-		<div class="card inline-error-banner" style="border-color: rgba(232,93,74,0.3); background: rgba(232,93,74,0.08);">
-			<p class="text-[#E85D4A]">Error: {error}</p>
-			<button type="button" class="inline-error-dismiss" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
-		</div>
+		<InlineError message={error} dismiss={() => (error = null)} variant="panel" />
 	{/if}
 
 	<!-- ════════════════════════════════════════════════════ -->
@@ -1263,30 +1261,6 @@
 		font-size: 11px;
 		color: #4a5c6a;
 		margin-top: 8px;
-	}
-
-	/* ── Inline, dismissible refresh error — shown alongside (not instead of) the
-	     dashboard once it already has data, so a transient background-refresh failure
-	     doesn't blank a fully-loaded page. ── */
-	.inline-error-banner {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-	}
-	.inline-error-dismiss {
-		flex-shrink: 0;
-		border: 0;
-		background: transparent;
-		color: #E85D4A;
-		font-size: 12px;
-		line-height: 1;
-		padding: 2px 4px;
-		cursor: pointer;
-		opacity: 0.7;
-	}
-	.inline-error-dismiss:hover {
-		opacity: 1;
 	}
 
 	/* ── Info hint icon with CSS tooltip ── */

@@ -146,6 +146,38 @@ def _save_job(connection: sqlite3.Connection, job: CoachJob) -> None:
     )
 
 
+def _distill_job(thread: CoachThread, *, now: str) -> CoachJob:
+    """Build the one queued distillation job owned by a closing thread."""
+    return CoachJob(
+        id=_new_id("job"),
+        kind="distill_thread",
+        dedupe_key=f"distill:{thread.id}:{thread.last_activity_at}",
+        priority=_PRIORITIES["distill_thread"],
+        status="queued",
+        payload={"thread_id": thread.id},
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _retry_job(job: CoachJob, *, available_at: str) -> CoachJob:
+    """Reset a failed job for one full manual-retry attempt budget."""
+    if job.status != "failed":
+        raise ValueError("Only failed coach jobs can be retried")
+    return job.model_copy(
+        update={
+            "status": "queued",
+            "attempt_count": 0,
+            "available_at": available_at,
+            "started_at": None,
+            "finished_at": None,
+            "error": None,
+            "updated_at": available_at,
+        }
+    )
+
+
 def _create_review_job(
     connection: sqlite3.Connection,
     *,
@@ -924,7 +956,8 @@ class SqliteCoachRepository:
             connection.commit()
         return message, job
 
-    def enqueue_distill(self, *, thread_id: str) -> CoachJob:
+    def begin_thread_close(self, thread_id: str, *, updated_at: str) -> CoachJob:
+        """Atomically transition an open thread and queue its distill job."""
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
@@ -933,38 +966,56 @@ class SqliteCoachRepository:
             if row is None:
                 raise LookupError(f"Unknown coach thread: {thread_id}")
             thread = _model_from_row(CoachThread, row)
-            dedupe_key = f"distill:{thread_id}:{thread.last_activity_at}"
-            existing = connection.execute(
-                "SELECT data FROM coach_jobs WHERE dedupe_key = ?", (dedupe_key,)
-            ).fetchone()
-            if existing is not None:
-                connection.commit()
-                return _job_from_row(existing)
-            now = utc_now_iso()
-            job = CoachJob(
-                id=_new_id("job"),
-                kind="distill_thread",
-                dedupe_key=dedupe_key,
-                priority=_PRIORITIES["distill_thread"],
-                status="queued",
-                payload={"thread_id": thread_id},
-                available_at=now,
-                created_at=now,
-                updated_at=now,
+            if thread.status != "open":
+                raise ValueError("Only open coach threads can begin closing")
+            closing = thread.model_copy(
+                update={"status": "closing", "last_activity_at": updated_at}
+            )
+            job = _distill_job(closing, now=updated_at)
+            connection.execute(
+                "UPDATE coach_threads SET status = ?, last_activity_at = ?, data = ? "
+                "WHERE id = ?",
+                (closing.status, closing.last_activity_at, closing.model_dump_json(), thread_id),
             )
             _save_job(connection, job)
             connection.commit()
         return job
 
-    def mark_thread_closing(self, thread_id: str, *, updated_at: str) -> None:
-        thread = self.thread(thread_id)
-        if thread is None:
-            raise LookupError(f"Unknown coach thread: {thread_id}")
-        if thread.status != "open":
-            raise ValueError("Only open coach threads can begin closing")
-        self.update_thread(
-            thread.model_copy(update={"status": "closing", "last_activity_at": updated_at})
-        )
+    def retry_thread_close(self, thread_id: str, *, available_at: str) -> CoachJob:
+        """Atomically reopen close processing and queue/retry its distill job."""
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT data FROM coach_threads WHERE id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach thread: {thread_id}")
+            thread = _model_from_row(CoachThread, row)
+            if thread.status != "close_failed":
+                raise ValueError("Only a close-failed thread can retry closing")
+            closing = thread.model_copy(
+                update={"status": "closing", "last_activity_at": available_at}
+            )
+            job_row = connection.execute(
+                "SELECT data FROM coach_jobs "
+                "WHERE kind = 'distill_thread' AND status = 'failed' "
+                "AND json_extract(data, '$.payload.thread_id') = ? "
+                "ORDER BY updated_at DESC, id LIMIT 1",
+                (thread_id,),
+            ).fetchone()
+            job = (
+                _distill_job(closing, now=available_at)
+                if job_row is None
+                else _retry_job(_job_from_row(job_row), available_at=available_at)
+            )
+            connection.execute(
+                "UPDATE coach_threads SET status = ?, last_activity_at = ?, data = ? "
+                "WHERE id = ?",
+                (closing.status, closing.last_activity_at, closing.model_dump_json(), thread_id),
+            )
+            _save_job(connection, job)
+            connection.commit()
+        return job
 
     @staticmethod
     def _insert_message(connection: sqlite3.Connection, message: CoachMessage) -> None:
@@ -1006,19 +1057,6 @@ class SqliteCoachRepository:
                 SELECT data FROM coach_jobs
                 WHERE status = 'running' ORDER BY started_at, id LIMIT 1
                 """
-            ).fetchone()
-        return None if row is None else _job_from_row(row)
-
-    def failed_distill_job(self, thread_id: str) -> CoachJob | None:
-        with connect() as connection:
-            row = connection.execute(
-                """
-                SELECT data FROM coach_jobs
-                WHERE kind = 'distill_thread' AND status = 'failed'
-                  AND json_extract(data, '$.payload.thread_id') = ?
-                ORDER BY updated_at DESC, id LIMIT 1
-                """,
-                (thread_id,),
             ).fetchone()
         return None if row is None else _job_from_row(row)
 
@@ -1078,22 +1116,7 @@ class SqliteCoachRepository:
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             job = self._job_in_connection(connection, job_id)
-            if job.status != "failed":
-                raise ValueError("Only failed coach jobs can be retried")
-            retried = job.model_copy(
-                update={
-                    "status": "queued",
-                    # A manual retry is a fresh decision by the user, so it gets
-                    # the whole attempt budget back; `claim_next_job` would
-                    # otherwise resume counting and burn the retry immediately.
-                    "attempt_count": 0,
-                    "available_at": available_at,
-                    "started_at": None,
-                    "finished_at": None,
-                    "error": None,
-                    "updated_at": available_at,
-                }
-            )
+            retried = _retry_job(job, available_at=available_at)
             _save_job(connection, retried)
             self._update_associated_review(connection, retried, "queued", None)
             connection.commit()

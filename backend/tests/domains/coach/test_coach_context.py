@@ -64,8 +64,12 @@ def _card(
             },
         }
     )
+    program_instance_id = "training_v3_test"
+    occurrence_key = "running.v3:run.easy:d01"
     return TrainingTodayCard(
-        occurrence_key="running.v3:run.easy:d01",
+        program_instance_id=program_instance_id,
+        occurrence_key=occurrence_key,
+        occurrence_id=f"{program_instance_id}:{occurrence_key}",
         date="2026-07-11",
         day=1,
         slot="morning",

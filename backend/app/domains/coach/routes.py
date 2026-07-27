@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 
 from app.bootstrap.container import build_container
+from app.contracts.errors import error_responses
 from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
 from app.domains.coach.contracts import (
     CoachBriefResponse,
@@ -33,7 +34,11 @@ _ReviewsFromDate = Annotated[date | None, Query(alias="from")]
 _ReviewsToDate = Annotated[date | None, Query(alias="to")]
 
 
-@router.get("/plots/{plot_name}", response_class=FileResponse)
+@router.get(
+    "/plots/{plot_name}",
+    response_class=FileResponse,
+    responses=error_responses(404),
+)
 def get_plot(plot_name: str) -> FileResponse:
     """Serve a generated Coach PNG without exposing arbitrary filesystem paths."""
     try:
@@ -59,14 +64,18 @@ def get_status() -> CoachStatusResponse:
     )
 
 
-@router.get("/reviews", response_model=CoachReviewsResponse)
+@router.get(
+    "/reviews",
+    response_model=CoachReviewsResponse,
+    responses=error_responses(400),
+)
 def get_reviews(
     from_date: _ReviewsFromDate = None,
     to_date: _ReviewsToDate = None,
     limit: int = Query(50, ge=1, le=200),
 ) -> CoachReviewsResponse:
     if from_date is not None and to_date is not None and from_date > to_date:
-        raise HTTPException(status_code=422, detail="from must be on or before to")
+        raise HTTPException(status_code=400, detail="from must be on or before to")
     reviews = build_container().coach_repo.list_reviews(
         from_date=from_date.isoformat() if from_date is not None else None,
         to_date=to_date.isoformat() if to_date is not None else None,
@@ -75,7 +84,11 @@ def get_reviews(
     return CoachReviewsResponse(reviews=reviews)
 
 
-@router.get("/run-reviews/{run_id}", response_model=CoachReview)
+@router.get(
+    "/run-reviews/{run_id}",
+    response_model=CoachReview,
+    responses=error_responses(404),
+)
 def get_run_review(run_id: str) -> CoachReview:
     review = build_container().coach_repo.review_for_run(run_id)
     if review is None:
@@ -83,14 +96,23 @@ def get_run_review(run_id: str) -> CoachReview:
     return review
 
 
-@router.post("/reviews/run", response_model=CoachEnqueueResponse)
+@router.post(
+    "/reviews/run",
+    response_model=CoachEnqueueResponse,
+    responses=error_responses(404),
+)
 def post_run_review(request: CoachRunReviewRequest, response: Response) -> CoachEnqueueResponse:
     result = build_container().coach_jobs.enqueue_run_review(request.run_id)
     response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
     return result
 
 
-@router.post("/reviews/{review_id}/retry", response_model=CoachJob, status_code=202)
+@router.post(
+    "/reviews/{review_id}/retry",
+    response_model=CoachJob,
+    status_code=202,
+    responses=error_responses(404, 409),
+)
 def post_review_retry(review_id: str) -> CoachJob:
     container = build_container()
     review = container.coach_repo.review(review_id)
@@ -101,7 +123,11 @@ def post_review_retry(review_id: str) -> CoachJob:
     return container.coach_jobs.retry_job(review.job_id)
 
 
-@router.post("/reviews/{review_id}/thread", response_model=CoachThread)
+@router.post(
+    "/reviews/{review_id}/thread",
+    response_model=CoachThread,
+    responses=error_responses(404, 409),
+)
 def post_review_thread(review_id: str, response: Response) -> CoachThread:
     container = build_container()
     review = container.coach_repo.review(review_id)
@@ -119,7 +145,11 @@ def post_review_thread(review_id: str, response: Response) -> CoachThread:
     return thread
 
 
-@router.get("/reviews/{review_id}/thread", response_model=CoachThread | None)
+@router.get(
+    "/reviews/{review_id}/thread",
+    response_model=CoachThread | None,
+    responses=error_responses(404),
+)
 def get_review_thread(review_id: str) -> CoachThread | None:
     """Look up the discussion without turning a page view into a write."""
     container = build_container()
@@ -131,6 +161,7 @@ def get_review_thread(review_id: str) -> CoachThread | None:
 @router.get(
     "/reviews/{review_id}/revisions",
     response_model=CoachReviewRevisionsResponse,
+    responses=error_responses(404),
 )
 def get_review_revisions(review_id: str) -> CoachReviewRevisionsResponse:
     container = build_container()
@@ -151,7 +182,11 @@ def post_thread(request: CoachThreadCreateRequest) -> CoachThread:
     return build_container().coach_jobs.create_thread(request.title)
 
 
-@router.get("/threads/{thread_id}/messages", response_model=CoachMessagesResponse)
+@router.get(
+    "/threads/{thread_id}/messages",
+    response_model=CoachMessagesResponse,
+    responses=error_responses(404),
+)
 def get_messages(thread_id: str) -> CoachMessagesResponse:
     container = build_container()
     if container.coach_repo.thread(thread_id) is None:
@@ -163,6 +198,7 @@ def get_messages(thread_id: str) -> CoachMessagesResponse:
     "/threads/{thread_id}/messages",
     response_model=CoachEnqueueResponse,
     status_code=202,
+    responses=error_responses(404, 409),
 )
 def post_message(thread_id: str, request: CoachMessageCreateRequest) -> CoachEnqueueResponse:
     container = build_container()
@@ -178,7 +214,12 @@ def post_message(thread_id: str, request: CoachMessageCreateRequest) -> CoachEnq
     )
 
 
-@router.post("/threads/{thread_id}/close", response_model=CoachJob, status_code=202)
+@router.post(
+    "/threads/{thread_id}/close",
+    response_model=CoachJob,
+    status_code=202,
+    responses=error_responses(404, 409),
+)
 def post_close(thread_id: str) -> CoachJob:
     container = build_container()
     thread = container.coach_repo.thread(thread_id)
@@ -194,7 +235,12 @@ def post_close(thread_id: str) -> CoachJob:
     return container.coach_jobs.close_thread(thread_id)
 
 
-@router.post("/threads/{thread_id}/retry-close", response_model=CoachJob, status_code=202)
+@router.post(
+    "/threads/{thread_id}/retry-close",
+    response_model=CoachJob,
+    status_code=202,
+    responses=error_responses(404, 409),
+)
 def post_retry_close(thread_id: str) -> CoachJob:
     container = build_container()
     thread = container.coach_repo.thread(thread_id)

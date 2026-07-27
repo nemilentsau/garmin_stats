@@ -10,6 +10,7 @@
 	import { calendarDayDiff, localDateIso, parseIsoDate, fmtFullDate } from '$lib/date';
 	import { createRefreshBus, DASHBOARD_REFRESH } from '$lib/dashboard/refresh-bus';
 	import RecoverySection from '$lib/components/recovery/RecoverySection.svelte';
+	import InlineError from '$lib/components/InlineError.svelte';
 
 	let data: DailyAggregates | null = $state(null);
 	let ingestStatus: IngestStatus | null = $state(null);
@@ -151,10 +152,7 @@
 	</div>
 {:else}
 	{#if error}
-		<div class="inline-error-banner">
-			<span>Error: {error}</span>
-			<button type="button" class="inline-error-dismiss" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
-		</div>
+		<InlineError message={error} dismiss={() => (error = null)} variant="compact" />
 	{/if}
 	{#if freshnessNotice}
 		<section class:pending={freshnessNotice.tone === 'pending'} class="freshness-banner">
@@ -207,38 +205,6 @@
 		color: #E85D4A;
 		font-family: 'DM Mono', monospace;
 		font-size: 13px;
-	}
-
-	/* ── Inline, dismissible refresh/sync error — used instead of `.topo-error` once the
-	     dashboard already has data on screen, so a transient background-refresh failure
-	     doesn't blank a fully-loaded page (keep-last-good, same spirit as RecoverySection). ── */
-	.inline-error-banner {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		margin: 0 0 18px;
-		padding: 10px 14px;
-		border: 1px solid rgba(232,93,74,0.3);
-		border-radius: 8px;
-		background: rgba(232,93,74,0.08);
-		color: #E85D4A;
-		font-family: 'DM Mono', monospace;
-		font-size: 13px;
-	}
-	.inline-error-dismiss {
-		flex-shrink: 0;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font-size: 12px;
-		line-height: 1;
-		padding: 2px 4px;
-		cursor: pointer;
-		opacity: 0.7;
-	}
-	.inline-error-dismiss:hover {
-		opacity: 1;
 	}
 
 	.topo-loading {

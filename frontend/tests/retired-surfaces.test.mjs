@@ -9,10 +9,31 @@ test('unreferenced frontend scaffolding and helpers stay removed', () => {
 
 	assert.equal(existsSync('src/lib/components/ScatterChart.svelte'), false);
 	assert.equal(existsSync('src/lib/index.ts'), false);
+	assert.equal(existsSync('src/lib/errors.ts'), false);
 	assert.equal(format.includes('fmtTimeWindow'), false);
 	assert.equal(utils.includes('makeId'), false);
 	assert.equal(utils.includes('isRecord'), false);
 	assert.equal(packageJson.includes('@types/dompurify'), false);
+});
+
+test('metric pages share the dismissible inline error component', () => {
+	const routes = [
+		'',
+		'heart-rate',
+		'stress',
+		'skin-temp',
+		'body-battery',
+		'respiration',
+		'sleep',
+		'pulse-ox'
+	];
+	for (const route of routes) {
+		const routePath = route ? `${route}/` : '';
+		const source = readFileSync(`src/routes/${routePath}+page.svelte`, 'utf8');
+		assert.match(source, /<InlineError message=\{error\}/, route);
+		assert.doesNotMatch(source, /inline-error-banner/, route);
+		assert.doesNotMatch(source, /inline-error-dismiss/, route);
+	}
 });
 
 test('API client exposes only methods used by the shipped frontend', () => {

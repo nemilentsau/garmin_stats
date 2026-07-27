@@ -12,6 +12,8 @@ from app.domains.garmin_analytics.contracts import (
     BodyBatteryDailyPoint,
     BodyBatteryDailyResponse,
     DailyAggregatesResponse,
+    DailyMetricDisplay,
+    DailySkinTempDisplayStats,
     HeartRateDailyPoint,
     HeartRateDailyResponse,
     HrvDailyPoint,
@@ -39,6 +41,7 @@ from app.domains.garmin_health.contracts import (
     DayWellness,
 )
 from app.infra import cache
+from app.utils.units import c_delta_to_f_delta, c_to_f
 
 
 def get_daily_aggregates(
@@ -48,7 +51,7 @@ def get_daily_aggregates(
     metrics = repo.load_daily_metrics()
     return DailyAggregatesResponse(
         days=_days(metrics),
-        daily=metrics,
+        daily=[_daily_metric_display(metric) for metric in metrics],
         period_windows=load_windowed_period_summary(repo),
     )
 
@@ -78,7 +81,19 @@ def get_spo2_daily(repo: BiometricReadRepository) -> SpO2DailyResponse:
 
 
 def get_skin_temp_daily(repo: BiometricReadRepository) -> SkinTempDailyResponse:
-    return _build_daily(repo, SkinTempDailyPoint, SkinTempDailyResponse, "skin_temp")
+    metrics = repo.load_daily_metrics()
+    return SkinTempDailyResponse(
+        days=_days(metrics),
+        daily=[
+            SkinTempDailyPoint(
+                date=metric.date,
+                utc_offset_hours=metric.utc_offset_hours,
+                skin_temp=_skin_temp_display(metric),
+            )
+            for metric in metrics
+        ],
+        period_windows=_window_field(repo, lambda summary: summary.skin_temp),
+    )
 
 
 def get_body_battery_daily(repo: BiometricReadRepository) -> BodyBatteryDailyResponse:
@@ -119,6 +134,21 @@ def _build_daily[Point, Response](
 
 def _days(metrics: list[DailyMetric]) -> list[str]:
     return [metric.date for metric in metrics]
+
+
+def _skin_temp_display(metric: DailyMetric) -> DailySkinTempDisplayStats:
+    return DailySkinTempDisplayStats(
+        deviation_f=c_delta_to_f_delta(metric.skin_temp.deviation),
+        deviation_7_day_f=c_delta_to_f_delta(metric.skin_temp.deviation_7_day),
+        nightly_value_f=c_to_f(metric.skin_temp.nightly_value),
+    )
+
+
+def _daily_metric_display(metric: DailyMetric) -> DailyMetricDisplay:
+    return DailyMetricDisplay(
+        **metric.model_dump(exclude={"skin_temp"}),
+        skin_temp=_skin_temp_display(metric),
+    )
 
 
 def _window_field[PeriodWindow](

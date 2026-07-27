@@ -89,6 +89,7 @@ def test_source_type_and_tab_links_are_assigned():
     assert rows["hrv_nightly_avg"].tab_href == "/hrv"
     assert rows["heart_rate_resting"].tab_href == "/heart-rate"
     assert rows["sleep_score"].tab_href == "/sleep"
+    assert rows["body_battery_avg"].unit == ""
 
 
 def test_recovery_direction_reflects_metric_sign():

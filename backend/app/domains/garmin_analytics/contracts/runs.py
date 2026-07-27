@@ -160,6 +160,7 @@ class RunChartSeries(DefaultsRequired):
     vertical_ratio_pct: list[float | None] = []
     ground_contact_time_ms: list[float | None] = []
     ground_contact_balance_pct: list[float | None] = []
+    stance_time_pct: list[float | None] = []
     respiration_rate_brpm: list[float | None] = []
     stamina_pct: list[int | None] = []
     stamina_potential_pct: list[int | None] = []
@@ -167,30 +168,17 @@ class RunChartSeries(DefaultsRequired):
 
 
 class RunSeriesResponse(DefaultsRequired):
-    """Canonical run series plus index-aligned, display-ready chart arrays.
+    """Canonical run series plus chart and route-map display projections.
 
     `series` is the untouched metric FIT projection. Top-level movement arrays
-    are chart projections: start/resume sensor-settling samples and explicit
-    non-running spans become positional nulls without deleting source records.
-    `altitude_ft` is the smoothed display profile. `step_length_m` and
-    `vertical_oscillation_cm` retain Garmin's metric display exceptions.
+    are not duplicated: chart consumers use `chart`, while the route map uses
+    the record-aligned `pace_min_per_mi` alongside canonical latitude/longitude.
 
     `chart` inserts a positional null marker at elapsed-time discontinuities so
-    line charts do not visually connect separate recording segments. Canonical
-    `series` and the original top-level projections remain record-aligned.
+    line charts do not visually connect separate recording segments.
     """
 
     series: RunningActivitySeries
     chart: RunChartSeries
     heart_rate_evidence: RunHeartRateEvidence | None = None
     pace_min_per_mi: list[float | None] = []
-    altitude_ft: list[float | None] = []
-    temperature_f: list[float | None] = []
-    distance_mi: list[float | None] = []
-    cadence_spm: list[float | None] = []
-    step_length_m: list[float | None] = []
-    vertical_oscillation_cm: list[float | None] = []
-    vertical_ratio_pct: list[float | None] = []
-    ground_contact_time_ms: list[float | None] = []
-    ground_contact_balance_pct: list[float | None] = []
-    stance_time_pct: list[float | None] = []

@@ -19,7 +19,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import { fmt, fmtSigned } from '$lib/format';
-	import { errorMessage } from '$lib/errors';
+	import { errorMessage } from '$lib/utils';
 	import { historicalApplyOptions } from '$lib/hrv-async';
 	import { fmtFullDate, parseIsoDate } from '$lib/date';
 	import { COLORS, withAlpha, insightLevelColor } from '$lib/colors';
@@ -128,11 +128,11 @@
 		// insights stay a hard dependency — they drive the always-visible headline.
 		// When the open night IS the latest night (the common default focus), reuse the latest
 		// insights request instead of firing a second byte-identical GET — same date, same window.
-		const historicalReq =
-			historicalDate === latest ? latestP : api.getHrvInsights(historicalDate, window);
 		const historicalP: Promise<{ insights: HrvInsights | null; error: string | null }> =
 			historicalDate
-				? historicalReq
+				? (historicalDate === latest
+						? latestP
+						: api.getHrvInsights(historicalDate, window))
 						.then((insights) => ({ insights, error: null }))
 						.catch((e: unknown) => ({
 							insights: null,

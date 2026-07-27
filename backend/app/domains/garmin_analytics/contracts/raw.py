@@ -8,12 +8,22 @@ from app.domains.garmin_health.contracts import (
     HrvValue,
     RespirationReading,
     RestingHRReading,
-    SkinTempOvernight,
     SleepAssessment,
     SleepLevel,
     SpO2Reading,
     StressReading,
 )
+
+
+class SkinTempOvernightDisplay(DefaultsRequired):
+    """Display-ready overnight skin temperature with explicit Fahrenheit units."""
+
+    date: str
+    timestamp: str | None = None
+    local_timestamp: float | None = None
+    nightly_value_f: float | None = None
+    average_deviation_f: float | None = None
+    average_7_day_deviation_f: float | None = None
 
 
 class HeartRateRawResponse(DefaultsRequired):
@@ -72,4 +82,4 @@ class SkinTempResponse(DefaultsRequired):
     """Raw skin-temperature endpoint response."""
 
     days: list[str]
-    skin_temp_overnight: list[SkinTempOvernight]
+    skin_temp_overnight: list[SkinTempOvernightDisplay]

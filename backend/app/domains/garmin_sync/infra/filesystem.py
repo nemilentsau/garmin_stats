@@ -118,21 +118,50 @@ def extract_archives(zips: list[Path]) -> list[Path]:
 
 
 def _extract_zip(zip_path: Path) -> Path:
-    """Extract a YYYY-MM-DD.zip into a sibling YYYY-MM-DD directory."""
+    """Stage a day archive and atomically replace its extracted directory."""
     date_str = zip_path.stem
     out_dir = zip_path.parent / date_str
     temp_out_dir = zip_path.parent / f".{date_str}.tmp"
+    backup_out_dir = zip_path.parent / f".{date_str}.extract.backup"
+    _recover_interrupted_directory_swap(out_dir, backup_out_dir)
     if temp_out_dir.exists():
         shutil.rmtree(temp_out_dir)
-    temp_out_dir.mkdir()
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        _safe_extract_all(zf, temp_out_dir)
-    _write_archive_stamp(temp_out_dir, zip_path)
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    temp_out_dir.rename(out_dir)
+    try:
+        temp_out_dir.mkdir()
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            _safe_extract_all(zf, temp_out_dir)
+        _write_archive_stamp(temp_out_dir, zip_path)
+        _replace_directory(temp_out_dir, out_dir, backup_out_dir)
+    finally:
+        if temp_out_dir.exists():
+            shutil.rmtree(temp_out_dir)
     log.info("Extracted %s to %s/", zip_path.name, date_str)
     return out_dir
+
+
+def _recover_interrupted_directory_swap(target: Path, backup: Path) -> None:
+    """Resolve a backup left by an interrupted prior directory replacement."""
+    if not backup.exists():
+        return
+    if target.exists():
+        shutil.rmtree(backup)
+    else:
+        backup.rename(target)
+
+
+def _replace_directory(staged: Path, target: Path, backup: Path) -> None:
+    """Install ``staged`` while preserving ``target`` until rename succeeds."""
+    _recover_interrupted_directory_swap(target, backup)
+    if target.exists():
+        target.rename(backup)
+    try:
+        staged.rename(target)
+    except Exception:
+        if backup.exists() and not target.exists():
+            backup.rename(target)
+        raise
+    if backup.exists():
+        shutil.rmtree(backup)
 
 
 def _archive_needs_extraction(zip_path: Path) -> bool:
@@ -249,11 +278,7 @@ class FilesystemSyncFileStore:
         temp_out = data_dir / f".{date_str}.install.tmp"
         backup_out = data_dir / f".{date_str}.backup.tmp"
 
-        if backup_out.exists():
-            if out_dir.exists():
-                shutil.rmtree(backup_out)
-            else:
-                backup_out.rename(out_dir)
+        _recover_interrupted_directory_swap(out_dir, backup_out)
         if temp_zip.exists():
             temp_zip.unlink()
         if temp_out.exists():
@@ -267,16 +292,7 @@ class FilesystemSyncFileStore:
             _write_archive_stamp(temp_out, temp_zip)
 
             temp_zip.replace(zip_path)
-            if out_dir.exists():
-                out_dir.rename(backup_out)
-            try:
-                temp_out.rename(out_dir)
-            except Exception:
-                if backup_out.exists() and not out_dir.exists():
-                    backup_out.rename(out_dir)
-                raise
-            if backup_out.exists():
-                shutil.rmtree(backup_out)
+            _replace_directory(temp_out, out_dir, backup_out)
         finally:
             if temp_zip.exists():
                 temp_zip.unlink()

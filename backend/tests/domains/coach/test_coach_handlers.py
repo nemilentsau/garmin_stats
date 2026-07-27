@@ -563,14 +563,14 @@ def test_distill_success_closes_thread_persists_memory_then_deletes_home(
         CoachThread(
             id="thread-1",
             title="Training",
-            status="closing",
+            status="open",
             created_at=NOW,
             last_activity_at=NOW,
         )
     )
     home = tmp_path / "threads/thread-1/codex-home/.codex"
     home.mkdir(parents=True)
-    job = repo.enqueue_distill(thread_id="thread-1")
+    job = repo.begin_thread_close("thread-1", updated_at=NOW)
     claimed = repo.claim_next_job("9999-01-01T00:00:00Z")
     assert claimed is not None and claimed.id == job.id
     output = DistillOutput(
@@ -595,14 +595,14 @@ def test_distill_failure_keeps_home_and_marks_close_failed(tmp_path, monkeypatch
         CoachThread(
             id="thread-1",
             title="Training",
-            status="closing",
+            status="open",
             created_at=NOW,
             last_activity_at=NOW,
         )
     )
     home = tmp_path / "threads/thread-1/codex-home/.codex"
     home.mkdir(parents=True)
-    claimed = repo.enqueue_distill(thread_id="thread-1")
+    repo.begin_thread_close("thread-1", updated_at=NOW)
     claimed = repo.claim_next_job("9999-01-01T00:00:00Z")
     assert claimed is not None
     handlers = _handlers(

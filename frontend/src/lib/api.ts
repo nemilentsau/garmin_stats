@@ -79,21 +79,41 @@ export type CoachThread = Schemas['CoachThread'];
 export type CoachMessage = Schemas['CoachMessage'];
 export type CoachBriefResponse = Schemas['CoachBriefResponse'];
 
-function unwrap<T>(data: T | undefined, error: unknown): T {
-	if (error) {
-		throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+function apiErrorMessage(body: unknown): string {
+	if (
+		typeof body === 'object' &&
+		body !== null &&
+		'detail' in body &&
+		typeof body.detail === 'string'
+	) {
+		return body.detail;
+	}
+	return typeof body === 'string' ? body : JSON.stringify(body);
+}
+
+export class ApiError extends Error {
+	readonly status: number;
+	readonly body: unknown;
+
+	constructor(status: number, body: unknown) {
+		super(apiErrorMessage(body));
+		this.name = 'ApiError';
+		this.status = status;
+		this.body = body;
+	}
+}
+
+type ApiResponse<T> = Promise<{ data?: T; error?: unknown; response: Response }>;
+
+async function unwrapResponse<T>(response: ApiResponse<T>): Promise<T> {
+	const { data, error, response: rawResponse } = await response;
+	if (error !== undefined) {
+		throw new ApiError(rawResponse.status, error);
 	}
 	if (data === undefined) {
 		throw new Error('API response did not include JSON data');
 	}
 	return data;
-}
-
-type ApiResponse<T> = Promise<{ data?: T; error?: unknown }>;
-
-async function unwrapResponse<T>(response: ApiResponse<T>): Promise<T> {
-	const { data, error } = await response;
-	return unwrap(data, error);
 }
 
 const dateQuery = (date?: string) => ({ params: { query: date ? { date } : {} } });

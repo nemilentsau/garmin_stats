@@ -12,6 +12,7 @@
 		startRealtimePage
 	} from '$lib/realtime-page';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import InlineError from '$lib/components/InlineError.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
 	import PageState from '$lib/components/PageState.svelte';
@@ -202,10 +203,7 @@
 <PageState error={agg ? null : error} {loading}>
 	{#if agg}
 		{#if error}
-			<div class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[rgba(232,93,74,0.3)] bg-[rgba(232,93,74,0.08)] p-3">
-				<p class="text-[#E85D4A]">Error: {error}</p>
-				<button type="button" class="shrink-0 text-[#E85D4A] opacity-70 hover:opacity-100" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
-			</div>
+			<InlineError message={error} dismiss={() => (error = null)} />
 		{/if}
 		<MetricPageHeader title="Sleep" bind:trendRange />
 

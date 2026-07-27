@@ -13,6 +13,7 @@ from app.domains.garmin_health.contracts import (
     HeartRateReading,
     RespirationReading,
     RestingHRReading,
+    SkinTempOvernight,
     SpO2Reading,
     StressReading,
 )
@@ -164,6 +165,82 @@ def test_date_filtered_raw_metric_read_raises_lookup_error_when_day_missing():
 
     with pytest.raises(LookupError, match="Day 2026-04-12 not found"):
         get_heart_rate_raw(repo, date="2026-04-12")
+
+
+def test_skin_temp_raw_read_exposes_explicit_fahrenheit_fields():
+    from app.domains.garmin_analytics.application.raw_biometrics import get_skin_temp
+
+    repo = _FakeBiometricRepository()
+    repo.skin_temp = [
+        DaySkinTemp(
+            date="2026-04-12",
+            skin_temp_overnight=[
+                SkinTempOvernight(
+                    date="2026-04-12",
+                    timestamp="2026-04-12T06:00:00",
+                    local_timestamp=123.0,
+                    nightly_value=30.0,
+                    average_deviation=1.0,
+                    average_7_day_deviation=-0.5,
+                )
+            ],
+        )
+    ]
+
+    response = get_skin_temp(repo)
+
+    assert response.skin_temp_overnight[0].model_dump() == {
+        "date": "2026-04-12",
+        "timestamp": "2026-04-12T06:00:00",
+        "local_timestamp": 123.0,
+        "nightly_value_f": 86.0,
+        "average_deviation_f": 1.8,
+        "average_7_day_deviation_f": -0.9,
+    }
+
+
+def test_skin_temp_daily_read_converts_daily_and_combined_contracts_to_fahrenheit():
+    from app.domains.garmin_analytics.application.daily_aggregates import (
+        get_daily_aggregates,
+        get_skin_temp_daily,
+    )
+    from app.domains.garmin_health.contracts import (
+        DailyBodyBatteryStats,
+        DailyHeartRateStats,
+        DailyHrvStats,
+        DailyMetricStats,
+        DailySkinTempStats,
+        DailySleepStats,
+    )
+
+    repo = _FakeBiometricRepository()
+    repo.daily = [
+        DailyMetric(
+            date="2026-04-12",
+            heart_rate=DailyHeartRateStats(),
+            stress=DailyMetricStats(),
+            body_battery=DailyBodyBatteryStats(),
+            spo2=DailyMetricStats(),
+            respiration=DailyMetricStats(),
+            hrv=DailyHrvStats(),
+            sleep=DailySleepStats(),
+            skin_temp=DailySkinTempStats(
+                deviation=1.0,
+                deviation_7_day=-0.5,
+                nightly_value=30.0,
+            ),
+        )
+    ]
+
+    focused = get_skin_temp_daily(repo).daily[0].skin_temp
+    combined = get_daily_aggregates(repo).daily[0].skin_temp
+
+    assert focused.model_dump() == {
+        "deviation_f": 1.8,
+        "deviation_7_day_f": -0.9,
+        "nightly_value_f": 86.0,
+    }
+    assert combined == focused
 
 
 def test_daily_aggregates_include_windowed_period_summaries():

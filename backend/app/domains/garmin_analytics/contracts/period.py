@@ -5,12 +5,33 @@ from app.domains.garmin_health.contracts import (
     DailyBodyBatteryStats,
     DailyHeartRateStats,
     DailyHrvStats,
-    DailyMetric,
     DailyMetricStats,
-    DailySkinTempStats,
     DailySleepStats,
     HRZoneBucket,
 )
+
+
+class DailySkinTempDisplayStats(DefaultsRequired):
+    """Display-ready daily skin-temperature values in Fahrenheit."""
+
+    deviation_f: float | None = None
+    deviation_7_day_f: float | None = None
+    nightly_value_f: float | None = None
+
+
+class DailyMetricDisplay(DefaultsRequired):
+    """Public daily metric row with display-ready skin temperature."""
+
+    date: str
+    utc_offset_hours: float | None = None
+    heart_rate: DailyHeartRateStats
+    stress: DailyMetricStats
+    body_battery: DailyBodyBatteryStats
+    spo2: DailyMetricStats
+    respiration: DailyMetricStats
+    hrv: DailyHrvStats
+    sleep: DailySleepStats
+    skin_temp: DailySkinTempDisplayStats
 
 
 class PeriodHeartRateStats(DefaultsRequired):
@@ -52,10 +73,10 @@ class PeriodSpo2Stats(DefaultsRequired):
 class PeriodSkinTempStats(DefaultsRequired):
     """Skin-temperature summary recomputed from overnight rows across a period."""
 
-    avg_deviation: float | None = None
-    max_deviation: float | None = None
-    min_deviation: float | None = None
-    avg_nightly: float | None = None
+    avg_deviation_f: float | None = None
+    max_deviation_f: float | None = None
+    min_deviation_f: float | None = None
+    avg_nightly_f: float | None = None
     days_tracked: int = 0
 
 
@@ -92,7 +113,7 @@ class DailyAggregatesResponse(DefaultsRequired):
     """Daily metric mart plus standard period-window summaries."""
 
     days: list[str]
-    daily: list[DailyMetric]
+    daily: list[DailyMetricDisplay]
     period_windows: dict[str, PeriodSummary] = {}
 
 
@@ -171,7 +192,7 @@ class SpO2DailyResponse(DefaultsRequired):
 class SkinTempDailyPoint(DefaultsRequired):
     date: str
     utc_offset_hours: float | None = None
-    skin_temp: DailySkinTempStats
+    skin_temp: DailySkinTempDisplayStats
 
 
 class SkinTempDailyResponse(DefaultsRequired):

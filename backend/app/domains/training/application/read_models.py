@@ -126,6 +126,12 @@ from app.domains.training.dependencies import (
     RunActivityReadPort,
     TrainingRepository,
 )
+from app.domains.training.domain.instance_identity import (
+    card_log_id,
+)
+from app.domains.training.domain.instance_identity import (
+    occurrence_id as durable_occurrence_id,
+)
 from app.domains.training.domain.run_evaluation import (
     effective_execution,
     evaluate_run_measurement,
@@ -428,7 +434,7 @@ def _block_display_name(block: V3Block) -> str:
 
 def _active_context(
     repo: TrainingRepository,
-) -> tuple[V3Block, list[V3Bundle], SignalRegistry, ExerciseLibrary, str] | None:
+) -> tuple[V3Block, list[V3Bundle], SignalRegistry, ExerciseLibrary, str, str] | None:
     """Load and parse the active block plus its bundles/registry/library.
 
     Returns None when nothing is imported yet. All four artifact kinds are
@@ -447,7 +453,10 @@ def _active_context(
     registry = SignalRegistry.model_validate(stored_registry.artifact)
     library = ExerciseLibrary.model_validate(stored_library.artifact)
     schedule_start = stored_block.schedule_start or block.window.start
-    return block, bundles, registry, library, schedule_start
+    instance_id = stored_block.program_instance_id
+    if instance_id is None:
+        raise RuntimeError("active training block has no program instance identity")
+    return block, bundles, registry, library, schedule_start, instance_id
 
 
 def _exercise_name(library: ExerciseLibrary, exercise_id: str) -> str:
@@ -529,6 +538,7 @@ def match_run_to_card(
 def _build_card(
     entry: CompiledEntry,
     *,
+    program_instance_id: str,
     date: str,
     registry: SignalRegistry,
     library: ExerciseLibrary,
@@ -567,6 +577,7 @@ def _build_card(
     occurrence_key = occurrence_key_override or (
         f"{entry.bundle_id}:{card.id}:d{entry.day:02d}"
     )
+    occurrence_id = durable_occurrence_id(program_instance_id, occurrence_key)
 
     segments: list[SegmentSpec] = []
     segments_display: list[TrainingSegmentDisplay] = []
@@ -599,7 +610,11 @@ def _build_card(
         render_gate(card.contract) if isinstance(card.contract, MeasurementContract) else None
     )
 
-    log = repo.card_log(date, occurrence_key)
+    log = repo.card_log(
+        date,
+        occurrence_key,
+        program_instance_id=program_instance_id,
+    )
 
     associated_activity: TrainingRunActivitySummary | None = None
     run_candidates: list[TrainingRunActivitySummary] = []
@@ -651,7 +666,7 @@ def _build_card(
             if not evidence_available:
                 measurement = objective
             else:
-                assessment_key = (run_id, occurrence_key, assessment_before)
+                assessment_key = (run_id, occurrence_id, assessment_before)
                 if measurement_assessment_port is None:
                     assessment = None
                 elif assessment_cache is not None and assessment_key in assessment_cache:
@@ -659,7 +674,7 @@ def _build_card(
                 else:
                     assessment = measurement_assessment_port.latest_for(
                         run_id=run_id,
-                        occurrence_key=occurrence_key,
+                        occurrence_key=occurrence_id,
                         before=assessment_before,
                     )
                     if assessment_cache is not None:
@@ -679,7 +694,9 @@ def _build_card(
                 )
 
     return TrainingTodayCard(
+        program_instance_id=program_instance_id,
         occurrence_key=occurrence_key,
+        occurrence_id=occurrence_id,
         date=date,
         day=entry.day,
         slot=entry.slot,
@@ -765,6 +782,7 @@ def _cards_for_day(
     schedule: list[CompiledEntry],
     day: int,
     *,
+    program_instance_id: str,
     date: str,
     registry: SignalRegistry,
     library: ExerciseLibrary,
@@ -810,6 +828,7 @@ def _cards_for_day(
         cards.append(
             _build_card(
                 entry,
+                program_instance_id=program_instance_id,
                 date=date,
                 registry=registry,
                 library=library,
@@ -864,6 +883,7 @@ def _evaluate_resolved_measurement_attempts(
     resolutions: dict[int, MeasurementDayResolution],
     through_day: int,
     assessment_before: str | None,
+    program_instance_id: str,
     block: V3Block,
     schedule_start: str,
     registry: SignalRegistry,
@@ -887,6 +907,7 @@ def _evaluate_resolved_measurement_attempts(
         cards = _cards_for_day(
             list(resolution.entries),
             attempt_day,
+            program_instance_id=program_instance_id,
             date=attempt_date,
             registry=registry,
             library=library,
@@ -908,6 +929,7 @@ def _evaluate_resolved_measurement_attempts(
 def _resolve_measurement_history(
     *,
     through_day: int,
+    program_instance_id: str,
     block: V3Block,
     schedule_start: str,
     schedule: list[CompiledEntry],
@@ -938,6 +960,7 @@ def _resolve_measurement_history(
             resolutions=resolutions,
             through_day=attempt_day - 1,
             assessment_before=_date_for_block_day(schedule_start, attempt_day),
+            program_instance_id=program_instance_id,
             block=block,
             schedule_start=schedule_start,
             registry=registry,
@@ -1018,12 +1041,13 @@ def get_training_today(
     context = _active_context(repo)
     if context is None:
         return TrainingTodayResponse(date=date, cards=[])
-    block, bundles, registry, library, schedule_start = context
+    block, bundles, registry, library, schedule_start, program_instance_id = context
     day = _day_number(schedule_start, date)
     block_name = _block_display_name(block)
     if not 1 <= day <= block.window.days:
         return TrainingTodayResponse(
             date=date,
+            program_instance_id=program_instance_id,
             block_id=block.id,
             block_name=block_name,
             block_days=block.window.days,
@@ -1034,7 +1058,10 @@ def get_training_today(
 
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
-    prior_logs = repo.card_logs_before(date)
+    prior_logs = repo.card_logs_before(
+        date,
+        program_instance_id=program_instance_id,
+    )
     summary_start = _summary_horizon_start(block, schedule_start, date, day)
     run_summaries = (
         run_activity_port.runs_between(summary_start, date) if run_activity_port is not None else []
@@ -1044,6 +1071,7 @@ def get_training_today(
     assessment_cache: AssessmentCache = {}
     resolutions = _resolve_measurement_history(
         through_day=day,
+        program_instance_id=program_instance_id,
         block=block,
         schedule_start=schedule_start,
         schedule=schedule,
@@ -1068,6 +1096,7 @@ def get_training_today(
     cards = _cards_for_day(
         list(resolution.entries),
         day,
+        program_instance_id=program_instance_id,
         date=date,
         registry=registry,
         library=library,
@@ -1084,6 +1113,7 @@ def get_training_today(
     )
     return TrainingTodayResponse(
         date=date,
+        program_instance_id=program_instance_id,
         block_id=block.id,
         block_name=block_name,
         block_days=block.window.days,
@@ -1118,7 +1148,7 @@ def get_training_schedule_window(
     if context is None:
         return TrainingScheduleWindow(start_date=start_date, end_date=end.isoformat(), days=[])
 
-    block, bundles, registry, library, schedule_start = context
+    block, bundles, registry, library, schedule_start, program_instance_id = context
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     effective_as_of = as_of_date or date_cls.today().isoformat()
@@ -1146,6 +1176,7 @@ def get_training_schedule_window(
     visible_end_day = _day_number(schedule_start, end.isoformat())
     resolutions = _resolve_measurement_history(
         through_day=max(as_of_day, visible_end_day),
+        program_instance_id=program_instance_id,
         block=block,
         schedule_start=schedule_start,
         schedule=schedule,
@@ -1163,6 +1194,7 @@ def get_training_schedule_window(
         resolutions=resolutions,
         through_day=as_of_day,
         assessment_before=_date_for_block_day(schedule_start, as_of_day + 1),
+        program_instance_id=program_instance_id,
         block=block,
         schedule_start=schedule_start,
         registry=registry,
@@ -1199,6 +1231,7 @@ def get_training_schedule_window(
             _cards_for_day(
                 list(resolution.entries),
                 day_number,
+                program_instance_id=program_instance_id,
                 date=current_iso,
                 registry=registry,
                 library=library,
@@ -1356,7 +1389,12 @@ def upsert_training_log(
         run_activity_port=run_activity_port,
         measurement_assessment_port=measurement_assessment_port,
     )
-    existing = repo.card_log(date, occurrence_key)
+    program_instance_id = resolved_card.program_instance_id
+    existing = repo.card_log(
+        date,
+        occurrence_key,
+        program_instance_id=program_instance_id,
+    )
     fields_set = update.model_fields_set
     status = (
         update.status
@@ -1391,9 +1429,10 @@ def upsert_training_log(
     ):
         raise ValueError(f"run {update.linked_run_id!r} is not a tracked run for {date}")
     log = TrainingCardLog(
-        id=f"{date}:{occurrence_key}",
+        id=card_log_id(program_instance_id, date, occurrence_key),
         date=date,
         occurrence_key=occurrence_key,
+        program_instance_id=program_instance_id,
         status=status,
         variant_taken=variant_taken,
         notes=notes,

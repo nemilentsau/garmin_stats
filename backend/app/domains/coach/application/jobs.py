@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -34,7 +33,7 @@ class CoachJobs:
         card = training_card_for_run(
             self.gateway, run_id=run_id, session_date=detail.session.session_date
         )
-        occurrence_key = card.occurrence_key if card is not None else None
+        occurrence_key = card.occurrence_id if card is not None else None
         review, job, created = self.repo.enqueue_run_review(
             run_id=run_id,
             date=detail.session.session_date,
@@ -92,54 +91,11 @@ class CoachJobs:
             raise LookupError(f"Unknown coach thread: {thread_id}")
         if thread.review_id is not None:
             raise ValueError("Review-linked conversations cannot be closed")
-        if thread.status != "close_failed":
-            raise ValueError("Only a close-failed thread can retry closing")
-        job = self.repo.failed_distill_job(thread_id)
-        now = utc_now_iso()
-        self.repo.update_thread(
-            thread.model_copy(update={"status": "closing", "last_activity_at": now})
-        )
-
-        def queue() -> CoachJob:
-            # A close that failed before its job existed has nothing to requeue.
-            if job is None:
-                return self.repo.enqueue_distill(thread_id=thread_id)
-            return self.repo.retry_failed_job(job.id, available_at=now)
-
-        return self._queue_close_job(thread, now=now, queue=queue)
+        return self.repo.retry_thread_close(thread_id, available_at=utc_now_iso())
 
     def _begin_close(self, thread: CoachThread, *, now: str) -> CoachJob:
-        """Mark an open thread `closing` and queue its distill job."""
-        self.repo.mark_thread_closing(thread.id, updated_at=now)
-        return self._queue_close_job(
-            thread,
-            now=now,
-            queue=lambda: self.repo.enqueue_distill(thread_id=thread.id),
-        )
-
-    def _queue_close_job(
-        self,
-        thread: CoachThread,
-        *,
-        now: str,
-        queue: Callable[[], CoachJob],
-    ) -> CoachJob:
-        """Queue the distill job of a thread already marked `closing`.
-
-        Marking the thread and queueing its job are two transactions. A failure
-        between them would strand the thread in `closing` with no job and no
-        route back, so the thread falls back to `close_failed` — the one state
-        retry-close accepts.
-        """
-        try:
-            return queue()
-        except Exception:
-            self.repo.update_thread(
-                thread.model_copy(
-                    update={"status": "close_failed", "last_activity_at": now}
-                )
-            )
-            raise
+        """Atomically mark an open thread `closing` and queue its distill job."""
+        return self.repo.begin_thread_close(thread.id, updated_at=now)
 
     def reconcile_idle_threads(self, *, now: str | None = None) -> list[CoachJob]:
         current = datetime.fromisoformat((now or utc_now_iso()).replace("Z", "+00:00"))

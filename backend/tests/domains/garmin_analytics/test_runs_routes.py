@@ -303,6 +303,7 @@ def test_series_serves_imperial_arrays():
         con.commit()
 
     body = client.get("/api/activities/runs/r2/series").json()
+    assert set(body) == {"series", "chart", "heart_rate_evidence", "pace_min_per_mi"}
     assert body["series"]["elapsed_s"] == list(range(13))
     assert "pace_min_per_km" not in body
     assert body["pace_min_per_mi"][:10] == [None] * 10
@@ -370,13 +371,12 @@ def test_series_masks_start_and_resume_transitions_without_mutating_raw_series()
     assert body["pace_min_per_mi"][10] is not None
     assert body["pace_min_per_mi"][12:22] == [None] * 10
     assert body["pace_min_per_mi"][22] is not None
-    assert body["cadence_spm"][0] is None
-    assert body["step_length_m"][0] is None
-    assert body["vertical_oscillation_cm"][0] is None
-    assert body["vertical_ratio_pct"][0] is None
-    assert body["ground_contact_time_ms"][0] is None
-    assert body["ground_contact_balance_pct"][0] is None
-    assert body["stance_time_pct"][0] is None
+    assert body["chart"]["cadence_spm"][0] is None
+    assert body["chart"]["step_length_m"][0] is None
+    assert body["chart"]["vertical_oscillation_cm"][0] is None
+    assert body["chart"]["vertical_ratio_pct"][0] is None
+    assert body["chart"]["ground_contact_time_ms"][0] is None
+    assert body["chart"]["ground_contact_balance_pct"][0] is None
     assert body["series"]["vertical_ratio_pct"][0] == 7.0
     assert body["series"]["stance_time_ms"][0] == 220.0
 
@@ -485,11 +485,11 @@ def test_series_strap_dynamics_arrays_absent_for_wrist_run():
     assert body["series"]["stance_time_balance_pct"] == []
     assert body["series"]["respiration_rate_brpm"] == []
     assert body["series"]["stance_time_pct"] == []
-    # Movement-dependent display copies are empty when the raw source is empty.
+    # Movement-dependent top-level duplicates are not part of the public response.
     assert "stance_time_balance_pct" not in body
     assert "respiration_rate_brpm" not in body
-    assert body["ground_contact_balance_pct"] == []
-    assert body["stance_time_pct"] == []
+    assert "ground_contact_balance_pct" not in body
+    assert "stance_time_pct" not in body
 
 
 def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
@@ -507,11 +507,11 @@ def test_series_passes_through_strap_dynamics_arrays_for_strap_run():
     assert body["series"]["stance_time_balance_pct"] == [49.09, None, 49.46]
     assert body["series"]["respiration_rate_brpm"] == [23.2, 23.2, None]
     assert body["series"]["stance_time_pct"] == [35.25, 35.0, None]
-    # The new top-level chart copies are masked; the canonical arrays above are not.
+    # Canonical source and chart projection are the only representations.
     assert "stance_time_balance_pct" not in body
     assert "respiration_rate_brpm" not in body
-    assert body["ground_contact_balance_pct"] == [None, None, None]
-    assert body["stance_time_pct"] == [None, None, None]
+    assert body["chart"]["ground_contact_balance_pct"] == [None, None, None]
+    assert "stance_time_pct" not in body
 
 
 def test_series_passes_through_stamina_and_performance_condition_arrays():
@@ -565,7 +565,7 @@ def test_series_pace_at_exact_threshold_is_computed_and_missing_speed_is_null():
     assert body["pace_min_per_mi"][12] is None  # missing speed sample
 
 
-def test_series_converts_altitude_temperature_distance_arrays_with_null_preserved():
+def test_series_chart_converts_altitude_and_temperature_with_null_preserved():
     insert_run("2026-07-10", "r2")
     series = RunningActivitySeries(
         elapsed_s=[0, 1, 2],
@@ -582,13 +582,17 @@ def test_series_converts_altitude_temperature_distance_arrays_with_null_preserve
 
     body = client.get("/api/activities/runs/r2/series").json()
 
-    assert body["altitude_ft"] == [round(100.0 * 3.28084, 0), None, round(120.0 * 3.28084, 0)]
-    assert body["temperature_f"] == [
+    assert body["chart"]["altitude_ft"] == [
+        round(100.0 * 3.28084, 0),
+        None,
+        round(120.0 * 3.28084, 0),
+    ]
+    assert body["chart"]["temperature_f"] == [
         round(20.0 * 9 / 5 + 32, 1),
         None,
         round(22.0 * 9 / 5 + 32, 1),
     ]
-    assert body["distance_mi"] == [round(0.0 / 1609.344, 2), None, round(50.0 / 1609.344, 2)]
+    assert "distance_mi" not in body
 
 
 def test_series_converts_running_dynamics_to_garmin_display_units():
@@ -607,7 +611,7 @@ def test_series_converts_running_dynamics_to_garmin_display_units():
 
     body = client.get("/api/activities/runs/r2/series").json()
 
-    assert body["step_length_m"][:10] == [None] * 10
-    assert body["vertical_oscillation_cm"][:10] == [None] * 10
-    assert body["step_length_m"][10:] == [1.2, None, 0.98]
-    assert body["vertical_oscillation_cm"][10:] == [8.8, None, 7.5]
+    assert body["chart"]["step_length_m"][:10] == [None] * 10
+    assert body["chart"]["vertical_oscillation_cm"][:10] == [None] * 10
+    assert body["chart"]["step_length_m"][10:] == [1.2, None, 0.98]
+    assert body["chart"]["vertical_oscillation_cm"][10:] == [8.8, None, 7.5]

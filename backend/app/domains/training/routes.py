@@ -15,6 +15,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.bootstrap.container import build_container
+from app.contracts.errors import error_responses
 from app.domains.training.application.import_packages import (
     ImportPackageRequest,
     import_package,
@@ -39,7 +40,11 @@ _TodayDate = Annotated[Date, Query(description="Date (YYYY-MM-DD)")]
 _ScheduleStartDate = Annotated[Date, Query(description="Start date (YYYY-MM-DD)")]
 
 
-@training_router.post("/import", response_model=ImportResult)
+@training_router.post(
+    "/import",
+    response_model=ImportResult,
+    responses=error_responses(400, 413),
+)
 def post_import(request: ImportPackageRequest):
     """Decode, validate, lint, and atomically activate one authored ZIP package."""
     return import_package(build_container().training_repo, request)
@@ -73,7 +78,11 @@ def get_schedule_window(
     )
 
 
-@training_router.get("/block", response_model=TrainingBlockStatus)
+@training_router.get(
+    "/block",
+    response_model=TrainingBlockStatus,
+    responses=error_responses(404),
+)
 def get_block():
     """Return the active block's lifecycle status, 404 when nothing is imported."""
     status = get_block_status(build_container().training_repo)
@@ -82,7 +91,11 @@ def get_block():
     return status
 
 
-@training_router.put("/today/{date}/cards/{occurrence_key}", response_model=TrainingCardLog)
+@training_router.put(
+    "/today/{date}/cards/{occurrence_key}",
+    response_model=TrainingCardLog,
+    responses=error_responses(400, 404),
+)
 def put_today_card_log(date: Date, occurrence_key: str, request: TrainingLogUpdateRequest):
     """Apply a partial update to one card occurrence's capture log."""
     container = build_container()

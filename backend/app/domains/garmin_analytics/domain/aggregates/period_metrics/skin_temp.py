@@ -2,7 +2,7 @@
 
 from app.domains.garmin_analytics.contracts import PeriodSkinTempStats
 from app.domains.garmin_health.contracts import DayData
-from app.utils.numeric import safe_avg
+from app.utils.units import c_delta_to_f_delta, c_to_f
 
 
 def compute_period_skin_temp(days: list[DayData]) -> PeriodSkinTempStats:
@@ -17,9 +17,17 @@ def compute_period_skin_temp(days: list[DayData]) -> PeriodSkinTempStats:
                 nightly_values.append(reading.nightly_value)
 
     return PeriodSkinTempStats(
-        avg_deviation=safe_avg(deviations),
-        max_deviation=round(max(deviations), 2) if deviations else None,
-        min_deviation=round(min(deviations), 2) if deviations else None,
-        avg_nightly=safe_avg(nightly_values),
+        avg_deviation_f=(
+            c_delta_to_f_delta(sum(deviations) / len(deviations))
+            if deviations
+            else None
+        ),
+        max_deviation_f=c_delta_to_f_delta(max(deviations)) if deviations else None,
+        min_deviation_f=c_delta_to_f_delta(min(deviations)) if deviations else None,
+        avg_nightly_f=(
+            c_to_f(sum(nightly_values) / len(nightly_values))
+            if nightly_values
+            else None
+        ),
         days_tracked=len(deviations),
     )

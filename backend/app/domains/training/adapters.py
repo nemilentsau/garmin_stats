@@ -24,6 +24,7 @@ from app.domains.training.contracts import (
     StoredRegistry,
     TrainingCardLog,
 )
+from app.domains.training.domain.instance_identity import card_log_id
 from app.infra.jsonstore import JsonStore, model_from_row
 from app.infra.sqlite import connect
 
@@ -133,17 +134,32 @@ class SqliteTrainingRepository:
                 con, "training_exercise_library", library.id, library.model_dump_json()
             )
 
-    def card_log(self, date: str, occurrence_key: str) -> TrainingCardLog | None:
-        """Load one capture log by its `date:occurrence_key` composite id."""
-        return _STORE.load("training_card_logs", TrainingCardLog, f"{date}:{occurrence_key}")
+    def card_log(
+        self,
+        date: str,
+        occurrence_key: str,
+        *,
+        program_instance_id: str,
+    ) -> TrainingCardLog | None:
+        """Load one capture log within a program instance."""
+        record_id = card_log_id(program_instance_id, date, occurrence_key)
+        return _STORE.load("training_card_logs", TrainingCardLog, record_id)
 
-    def card_logs_before(self, date: str) -> list[TrainingCardLog]:
-        """Load every capture log recorded strictly before one date."""
+    def card_logs_before(
+        self,
+        date: str,
+        *,
+        program_instance_id: str,
+    ) -> list[TrainingCardLog]:
+        """Load capture history before one date within one program instance."""
         return _STORE.load_many(
             "training_card_logs",
             TrainingCardLog,
-            where_sql="json_extract(data, '$.date') < ?",
-            params=(date,),
+            where_sql=(
+                "json_extract(data, '$.date') < ? "
+                "AND json_extract(data, '$.program_instance_id') = ?"
+            ),
+            params=(date, program_instance_id),
             order_by="id",
         )
 

@@ -16,6 +16,8 @@ import json
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.domains.training.application.imports import ImportFile, ImportRequest, import_artifacts
 from app.domains.training.contracts import TrainingCardLog
+from app.domains.training.domain.instance_identity import card_log_id
+from app.domains.training.schema import init_training_schema
 from app.infra.sqlite import connect
 from tests._architecture import REPO_ROOT
 
@@ -106,6 +108,51 @@ def test_reimporting_identical_set_replaces_rows_without_duplicating():
     assert _table_row_count("training_registry") == 1
     assert _table_row_count("training_exercise_library") == 1
     assert len(repo.bundles_for(["running.v3", "strength.v3", "support.v3"])) == 3
+
+
+def test_schema_migrates_legacy_log_into_active_program_instance_without_deletion():
+    repo = SqliteTrainingRepository()
+    import_artifacts(
+        repo,
+        ImportRequest(files=_block0_files(), schedule_start="2026-07-06"),
+    )
+    legacy_id = "2026-07-06:support.v3:sup.daily:d01"
+    legacy_payload = {
+        "id": legacy_id,
+        "date": "2026-07-06",
+        "occurrence_key": "support.v3:sup.daily:d01",
+        "status": "completed",
+        "notes": "legacy history",
+    }
+    with connect() as con, con:
+        con.execute(
+            "UPDATE training_blocks "
+            "SET data = json_remove(data, '$.program_instance_id') "
+            "WHERE json_extract(data, '$.status') = 'active'"
+        )
+        con.execute(
+            "INSERT INTO training_card_logs (id, data, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            (legacy_id, json.dumps(legacy_payload), "2026-07-06T12:00:00Z", "2026-07-06T12:00:00Z"),
+        )
+        init_training_schema(con)
+
+    active = repo.active_block()
+    assert active is not None
+    assert active.program_instance_id is not None
+    migrated = repo.card_log(
+        "2026-07-06",
+        "support.v3:sup.daily:d01",
+        program_instance_id=active.program_instance_id,
+    )
+    assert migrated is not None
+    assert migrated.program_instance_id == active.program_instance_id
+    assert migrated.notes == "legacy history"
+    assert _table_row_count("training_card_logs") == 1
+    with connect() as con:
+        assert con.execute(
+            "SELECT 1 FROM training_card_logs WHERE id = ?", (legacy_id,)
+        ).fetchone() is None
 
 
 # ---------- incomplete set ----------
@@ -255,24 +302,44 @@ def test_contract_invalid_bundle_content_is_marked_invalid():
 
 def test_upsert_and_read_back_card_log():
     repo = SqliteTrainingRepository()
+    instance_id = "training_v3_test"
     log = TrainingCardLog(
-        id="2026-07-06:running.v3:run.easy:d01",
+        id=card_log_id(instance_id, "2026-07-06", "running.v3:run.easy:d01"),
         date="2026-07-06",
         occurrence_key="running.v3:run.easy:d01",
+        program_instance_id=instance_id,
         status="completed",
     )
     repo.upsert_card_log(log)
 
-    readback = repo.card_log("2026-07-06", "running.v3:run.easy:d01")
+    readback = repo.card_log(
+        "2026-07-06",
+        "running.v3:run.easy:d01",
+        program_instance_id=instance_id,
+    )
     assert readback is not None
     assert readback.status == "completed"
 
 
 def test_card_logs_before_filters_to_strictly_earlier_dates():
     repo = SqliteTrainingRepository()
-    repo.upsert_card_log(TrainingCardLog(id="2026-07-05:a", date="2026-07-05", occurrence_key="a"))
-    repo.upsert_card_log(TrainingCardLog(id="2026-07-06:b", date="2026-07-06", occurrence_key="b"))
-    repo.upsert_card_log(TrainingCardLog(id="2026-07-07:c", date="2026-07-07", occurrence_key="c"))
+    instance_id = "training_v3_test"
+    for log_date, key in (
+        ("2026-07-05", "a"),
+        ("2026-07-06", "b"),
+        ("2026-07-07", "c"),
+    ):
+        repo.upsert_card_log(
+            TrainingCardLog(
+                id=card_log_id(instance_id, log_date, key),
+                date=log_date,
+                occurrence_key=key,
+                program_instance_id=instance_id,
+            )
+        )
 
-    logs = repo.card_logs_before("2026-07-06")
+    logs = repo.card_logs_before(
+        "2026-07-06",
+        program_instance_id=instance_id,
+    )
     assert [log.occurrence_key for log in logs] == ["a"]

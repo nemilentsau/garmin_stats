@@ -9,12 +9,19 @@ initializer under one connection.
 import sqlite3
 from datetime import UTC, datetime
 
+from app.bootstrap.training_coach_identity import (
+    legacy_coach_occurrence_identity_migration_pending,
+    migrate_legacy_coach_occurrence_identity,
+)
 from app.core.profile.schema import init_profile_schema
 from app.domains.coach.schema import init_coach_schema
 from app.domains.experiments.schema import init_experiment_schema
 from app.domains.garmin_sync.schema import init_garmin_sync_schema
 from app.domains.journal.schema import init_journal_schema
-from app.domains.training.schema import init_training_schema
+from app.domains.training.schema import (
+    init_training_schema,
+    program_instance_identity_migration_pending,
+)
 from app.infra import sqlite
 
 _RETIRED_TABLES = (
@@ -47,7 +54,7 @@ def _drop_retired_tables(connection: sqlite3.Connection) -> None:
 
 
 def _destructive_migration_pending(connection: sqlite3.Connection) -> bool:
-    """True when startup migrations would delete existing user data.
+    """True when startup migrations would irreversibly rewrite or delete user data.
 
     Does not cover the coach `json_remove` blob rewrite in ``init_coach_schema``:
     that migration only strips redundant derived data and is judged non-destructive.
@@ -73,7 +80,10 @@ def _destructive_migration_pending(connection: sqlite3.Connection) -> bool:
         ).fetchone()
         if duplicate:
             return True
-    return False
+    training_identity_pending = program_instance_identity_migration_pending(connection)
+    if training_identity_pending:
+        return True
+    return legacy_coach_occurrence_identity_migration_pending(connection)
 
 
 def _backup_database() -> None:
@@ -105,5 +115,6 @@ def init_storage() -> None:
         init_journal_schema(con)
         init_experiment_schema(con)
         init_training_schema(con)
+        migrate_legacy_coach_occurrence_identity(con)
         _drop_retired_tables(con)
         con.commit()

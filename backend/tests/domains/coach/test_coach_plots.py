@@ -88,12 +88,13 @@ def _series(*, with_spans: bool = False) -> RunSeriesResponse:
         series=embedded,
         chart=RunChartSeries(
             elapsed_s=embedded.elapsed_s,
+            pace_min_per_mi=[8.94, 8.65, None, 9.25],
             heart_rate_bpm=embedded.heart_rate_bpm,
             cadence_spm=embedded.cadence_spm,
+            altitude_ft=[328, 335, None, 341],
             power_w=embedded.power_w,
         ),
         pace_min_per_mi=[8.94, 8.65, None, 9.25],
-        altitude_ft=[328, 335, None, 341],
     )
     return response.model_copy(
         update={

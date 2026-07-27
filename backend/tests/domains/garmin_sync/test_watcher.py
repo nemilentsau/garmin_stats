@@ -156,6 +156,85 @@ def test_failed_ingest_is_retried_on_the_next_change(tmp_path):
     assert broadcasts == [("data_updated", "new_data")]
 
 
+def test_extraction_failure_does_not_kill_loop_or_advance_fingerprint(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    ingest = _FakeIngest()
+    broadcasts: list[tuple[str, str]] = []
+    extraction_calls = 0
+
+    def extract(zips: list[Path]) -> None:
+        nonlocal extraction_calls
+        extraction_calls += 1
+        if extraction_calls == 1:
+            raise OSError("temporary archive read failure")
+        (data_dir / "recovered.fit").write_bytes(b"fitdata")
+
+    async def broadcast(event: str, data: str) -> None:
+        broadcasts.append((event, data))
+
+    watcher = watcher_mod.DataDirectoryWatcher(
+        data_dir=data_dir,
+        ensure_data_dir=lambda _data_dir: None,
+        extract_archives=extract,
+        ingest=ingest,
+        broadcast=broadcast,
+    )
+    watcher.prime()
+
+    asyncio.run(watcher.handle_changes({(Change.added, str(data_dir / "2026-03-14.zip"))}))
+    asyncio.run(watcher.handle_changes({(Change.modified, str(data_dir / "2026-03-14.zip"))}))
+
+    assert extraction_calls == 2
+    assert ingest.calls == [data_dir]
+    assert broadcasts == [("data_updated", "new_data")]
+
+
+def test_fingerprint_failure_does_not_kill_loop_or_mark_batch_synced(
+    tmp_path, monkeypatch
+):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    ingest = _FakeIngest()
+    broadcasts: list[tuple[str, str]] = []
+    extraction_calls = 0
+
+    def extract(_zips: list[Path]) -> None:
+        nonlocal extraction_calls
+        extraction_calls += 1
+        (data_dir / f"{extraction_calls}.fit").write_bytes(b"fitdata")
+
+    async def broadcast(event: str, data: str) -> None:
+        broadcasts.append((event, data))
+
+    watcher = watcher_mod.DataDirectoryWatcher(
+        data_dir=data_dir,
+        ensure_data_dir=lambda _data_dir: None,
+        extract_archives=extract,
+        ingest=ingest,
+        broadcast=broadcast,
+    )
+    watcher.prime()
+    real_fingerprint = watcher_mod.compute_data_fingerprint
+    fingerprint_calls = 0
+
+    def flaky_fingerprint(path: Path) -> str:
+        nonlocal fingerprint_calls
+        fingerprint_calls += 1
+        if fingerprint_calls == 1:
+            raise PermissionError("temporary metadata read failure")
+        return real_fingerprint(path)
+
+    monkeypatch.setattr(watcher_mod, "compute_data_fingerprint", flaky_fingerprint)
+
+    asyncio.run(watcher.handle_changes({(Change.added, str(data_dir / "2026-03-14.zip"))}))
+    asyncio.run(watcher.handle_changes({(Change.modified, str(data_dir / "2026-03-14.zip"))}))
+
+    assert fingerprint_calls == 2
+    assert ingest.calls == [data_dir]
+    assert broadcasts == [("data_updated", "new_data")]
+
+
 def test_concurrent_ingest_is_skipped_without_broadcasting(tmp_path):
     ingest = _FakeIngest(error=RuntimeError("Ingest already in progress"))
     watcher, data_dir, broadcasts = _watcher_over_growing_tree(tmp_path, ingest)
