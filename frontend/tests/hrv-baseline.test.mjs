@@ -45,7 +45,7 @@ test('hrv window and detail loads use orthogonal tokens so neither cancels the o
 	// lib-helpers.test.mjs), not inlined / copy-pasted per handler.
 	assert.match(page, /\$lib\/hrv-async/);
 	assert.match(page, /historicalApplyOptions\(/);
-	assert.match(page, /\$lib\/errors/);
+	assert.match(page, /\$lib\/utils/);
 	assert.match(page, /errorMessage\(/);
 
 	// Baseline switch reuses the window-independent daily aggregate + overview instead of
@@ -56,6 +56,11 @@ test('hrv window and detail loads use orthogonal tokens so neither cancels the o
 	// detailError instead of rejecting the whole snapshot, so a failed night fetch can't blank the
 	// chart/headline.
 	assert.match(page, /detailError = snapshot\.historicalError;/);
+	assert.match(
+		page,
+		/historicalDate\s*\?\s*\(historicalDate === latest\s*\?\s*latestP\s*:\s*api\.getHrvInsights/
+	);
+	assert.doesNotMatch(page, /const historicalReq =/);
 });
 
 test('hrv headline does not render the retired recovery status pill', () => {

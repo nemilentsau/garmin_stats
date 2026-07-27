@@ -38,6 +38,7 @@ from app.domains.training.contracts import (
     V3Bundle,
 )
 from app.domains.training.dependencies import TrainingRepository
+from app.domains.training.domain.instance_identity import program_instance_id
 from app.utils.timeutil import now_iso
 
 ArtifactKind = Literal["bundle", "block", "registry", "library"]
@@ -247,6 +248,14 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
             assert block_file is not None
             assert registry_file is not None
             assert library_file is not None
+            schedule_start = request.schedule_start or block.window.start
+            instance_id = program_instance_id(
+                block=block_file.content,
+                bundles=[bundle_files[bundle_id].content for bundle_id in block.bundle_ids],
+                registry=registry_file.content,
+                library=library_file.content,
+                schedule_start=schedule_start,
+            )
             stored_block = StoredBlock(
                 id=block.id,
                 status="active",
@@ -254,7 +263,8 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
                 lint_report=lint_report,
                 warning_acks=list(request.warning_acks),
                 activated_at=now_iso(),
-                schedule_start=request.schedule_start or block.window.start,
+                schedule_start=schedule_start,
+                program_instance_id=instance_id,
             )
             stored_bundles = [
                 StoredBundle(

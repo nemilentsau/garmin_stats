@@ -50,7 +50,7 @@ METRIC_UNITS: dict[str, str] = {
     "heart_rate_resting": "bpm",
     "heart_rate_avg": "bpm",
     "respiration_avg": "brpm",
-    "body_battery_avg": "%",
+    "body_battery_avg": "",
     "hrv_nightly_avg": "ms",
     "stress_avg": "",
     "sleep_score": "",

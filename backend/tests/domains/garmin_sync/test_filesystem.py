@@ -10,6 +10,7 @@ import pytest
 from app.domains.garmin_sync.infra.filesystem import (
     _ARCHIVE_STAMP_NAME,
     FilesystemSyncFileStore,
+    _extract_zip,
     _safe_extract_all,
     compute_data_fingerprint,
     ensure_data_dir,
@@ -67,6 +68,34 @@ class TestFingerprint:
 
 
 class TestSafeExtract:
+    def test_reextract_restores_existing_day_when_staged_directory_install_fails(
+        self, tmp_path, monkeypatch
+    ):
+        data_dir = tmp_path / "data"
+        old_day = data_dir / "2026-01-15"
+        old_day.mkdir(parents=True)
+        (old_day / "old.fit").write_text("old", encoding="ascii")
+        zip_path = data_dir / "2026-01-15.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            zf.writestr("new.fit", "new")
+
+        real_rename = Path.rename
+
+        def fail_staged_install(self: Path, target: Path):
+            if self.name == ".2026-01-15.tmp" and Path(target) == old_day:
+                raise OSError("simulated directory install failure")
+            return real_rename(self, target)
+
+        monkeypatch.setattr(Path, "rename", fail_staged_install)
+
+        with pytest.raises(OSError, match="simulated directory install failure"):
+            _extract_zip(zip_path)
+
+        assert (old_day / "old.fit").read_text(encoding="ascii") == "old"
+        assert not (old_day / "new.fit").exists()
+        assert not (data_dir / ".2026-01-15.extract.backup").exists()
+        assert not (data_dir / ".2026-01-15.tmp").exists()
+
     def test_install_archive_replaces_zip_and_extracted_day_only_after_validation(
         self, tmp_path
     ):

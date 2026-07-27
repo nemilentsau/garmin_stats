@@ -9,7 +9,7 @@
 	 * `POST /api/training/import`.
 	 */
 	import { onMount } from 'svelte';
-	import { api, type ImportResult, type TrainingBlockStatus } from '$lib/api';
+	import { api, ApiError, type ImportResult, type TrainingBlockStatus } from '$lib/api';
 	import { fmtFullDate, isIsoDateString, parseIsoDate } from '$lib/date';
 	import { fmt } from '$lib/format';
 	import { errorMessage } from '$lib/utils';
@@ -19,10 +19,9 @@
 		size: number;
 		contentBase64: string;
 	};
-	const MAX_PACKAGE_BYTES = 5 * 1024 * 1024;
-
 	let blockLoading = $state(true);
 	let blockStatus = $state<TrainingBlockStatus | null>(null);
+	let blockLoadError = $state<string | null>(null);
 
 	let selectedPackage = $state<SelectedPackage | null>(null);
 	let startDate = $state('');
@@ -62,14 +61,15 @@
 		(lintReport?.warnings ?? []).every((w) => ackedWarnings.includes(w))
 	);
 
-	/** Fetch the active block's lifecycle status. The endpoint 404s when nothing has been
-	 * imported yet; any failure to fetch (including that 404) is treated as "no active
-	 * block" — this page has no other way to distinguish "none yet" from a transient error. */
+	/** Fetch active-block state without hiding transport/server failures as an empty state. */
 	async function loadBlockStatus(): Promise<void> {
 		try {
 			blockStatus = await api.getTrainingBlock();
-		} catch {
+			blockLoadError = null;
+		} catch (error: unknown) {
 			blockStatus = null;
+			blockLoadError =
+				error instanceof ApiError && error.status === 404 ? null : errorMessage(error);
 		}
 	}
 
@@ -92,24 +92,6 @@
 		return btoa(binary);
 	}
 
-	function packageImportErrorMessage(error: unknown): string {
-		const message = errorMessage(error);
-		try {
-			const payload: unknown = JSON.parse(message);
-			if (
-				typeof payload === 'object' &&
-				payload !== null &&
-				'detail' in payload &&
-				typeof payload.detail === 'string'
-			) {
-				return payload.detail;
-			}
-		} catch {
-			// The shared API client returns non-HTTP failures as plain messages.
-		}
-		return message;
-	}
-
 	async function handleFileSelection(e: Event): Promise<void> {
 		const input = e.currentTarget as HTMLInputElement;
 		const file = input.files?.[0] ?? null;
@@ -121,11 +103,6 @@
 		activatedStartDate = null;
 		importError = null;
 		ackedWarnings = [];
-		if (file.size > MAX_PACKAGE_BYTES) {
-			importError = `Training package exceeds the ${fmtBytes(MAX_PACKAGE_BYTES)} size limit.`;
-			packageReading = false;
-			return;
-		}
 		try {
 			const nextPackage = {
 				filename: file.name,
@@ -162,7 +139,7 @@
 				await loadBlockStatus();
 			}
 		} catch (e: unknown) {
-			importError = packageImportErrorMessage(e);
+			importError = errorMessage(e);
 		} finally {
 			importing = false;
 		}
@@ -182,9 +159,15 @@
 <section class="import-shell">
 	<div class="header-bar">
 		<h1>Training Import</h1>
-		<div class="block-status" class:empty={!blockLoading && !blockStatus}>
+		<div
+			class="block-status"
+			class:empty={!blockLoading && !blockStatus && !blockLoadError}
+			class:error={blockLoadError !== null}
+		>
 			{#if blockLoading}
 				Checking active block&hellip;
+			{:else if blockLoadError}
+				Unable to check active block: {blockLoadError}
 			{:else if blockStatus}
 				<span class="block-name">{blockStatus.block_name}</span>
 				<span>Starts {fmtProgramDate(blockStatus.schedule_start)}</span>
@@ -412,6 +395,10 @@
 
 	.block-status.empty {
 		color: #6b8292;
+	}
+
+	.block-status.error {
+		color: #df7d86;
 	}
 
 	.block-name {

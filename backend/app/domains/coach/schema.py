@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from typing import Any
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS coach_reviews (
@@ -104,29 +106,7 @@ def init_coach_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE coach_reviews ADD COLUMN assessment_effective_at TEXT"
         )
-    # `assessment_effective_at` freezes the instant the review's current
-    # measurement-assessment status first appeared (first completion if the
-    # review has no assessment, or if its assessment's status hasn't changed
-    # since). `updated_at` moves with every revision, and measurement history
-    # re-derives past days against a per-day cutoff, so a mutable instant would
-    # rewrite decisions that were already made -- see `_save_review` for the
-    # status-based comparison that decides when this must move. Backfill
-    # prefers revision 1 (the first completion snapshot) and falls back to
-    # `updated_at` for pre-revision rows. Idempotent by construction: a second
-    # run finds no NULL `assessment_effective_at` to fill.
-    connection.execute(
-        """
-        UPDATE coach_reviews
-        SET assessment_effective_at = COALESCE(
-            (
-                SELECT revision.created_at FROM coach_review_revisions AS revision
-                WHERE revision.review_id = coach_reviews.id AND revision.version = 1
-            ),
-            updated_at
-        )
-        WHERE assessment_effective_at IS NULL AND status = 'complete'
-        """
-    )
+    _backfill_assessment_effective_at(connection)
     connection.execute("DROP INDEX IF EXISTS idx_coach_reviews_skip")
     connection.execute("DROP TABLE IF EXISTS coach_reconciliation_state")
     # `CoachReview` dropped the legacy `plots_viewed` field (superseded by persisted
@@ -140,3 +120,50 @@ def init_coach_schema(connection: sqlite3.Connection) -> None:
         WHERE json_extract(data, '$.plots_viewed') IS NOT NULL
         """
     )
+
+
+def _assessment_status(payload: dict[str, Any]) -> str | None:
+    assessment = payload.get("measurement_assessment")
+    if not isinstance(assessment, dict):
+        return None
+    status = assessment.get("status")
+    return status if isinstance(status, str) else None
+
+
+def _backfill_assessment_effective_at(connection: sqlite3.Connection) -> None:
+    """Recover when the current assessment status most recently took effect.
+
+    Revisions are complete snapshots. Walking them in order and recording each
+    transition into the review's current status reproduces `_save_review`'s
+    status-change policy, including a status that changed away and later came
+    back. Rows without an assessment keep their first-completion instant.
+    """
+    reviews = connection.execute(
+        "SELECT id, updated_at, data FROM coach_reviews "
+        "WHERE assessment_effective_at IS NULL AND status = 'complete'"
+    ).fetchall()
+    for review in reviews:
+        current_status = _assessment_status(json.loads(review["data"]))
+        revisions = connection.execute(
+            "SELECT created_at, data FROM coach_review_revisions "
+            "WHERE review_id = ? ORDER BY version",
+            (review["id"],),
+        ).fetchall()
+        effective_at = review["updated_at"]
+        if revisions and current_status is None:
+            effective_at = revisions[0]["created_at"]
+        elif revisions:
+            previous_status: str | None = None
+            found_current = False
+            for revision in revisions:
+                status = _assessment_status(json.loads(revision["data"]))
+                if status == current_status and previous_status != current_status:
+                    effective_at = revision["created_at"]
+                    found_current = True
+                previous_status = status
+            if not found_current:
+                effective_at = review["updated_at"]
+        connection.execute(
+            "UPDATE coach_reviews SET assessment_effective_at = ? WHERE id = ?",
+            (effective_at, review["id"]),
+        )

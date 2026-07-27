@@ -9,6 +9,9 @@ initializer under one connection.
 import sqlite3
 from datetime import UTC, datetime
 
+from app.bootstrap.training_coach_identity import (
+    migrate_legacy_coach_occurrence_identity,
+)
 from app.core.profile.schema import init_profile_schema
 from app.domains.coach.schema import init_coach_schema
 from app.domains.experiments.schema import init_experiment_schema
@@ -105,5 +108,6 @@ def init_storage() -> None:
         init_journal_schema(con)
         init_experiment_schema(con)
         init_training_schema(con)
+        migrate_legacy_coach_occurrence_identity(con)
         _drop_retired_tables(con)
         con.commit()

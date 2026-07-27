@@ -102,9 +102,17 @@ class DataDirectoryWatcher:
             return
 
         log.info("Detected %d new/modified .zip archive(s)", len(new_zips))
-        await asyncio.to_thread(self._extract_archives, new_zips)
+        try:
+            await asyncio.to_thread(self._extract_archives, new_zips)
+        except Exception:
+            log.exception("Archive extraction failed; watcher continues")
+            return
 
-        fingerprint = compute_data_fingerprint(self._data_dir)
+        try:
+            fingerprint = compute_data_fingerprint(self._data_dir)
+        except Exception:
+            log.exception("Data fingerprint failed; watcher continues")
+            return
         if fingerprint == self._last_fingerprint:
             log.debug("Fingerprint unchanged after extraction; skipping ingest")
             return

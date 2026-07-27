@@ -441,6 +441,9 @@ class StoredBlock(DefaultsRequired):
     warning_acks: list[str] = []
     activated_at: str
     schedule_start: str | None = None
+    # None is accepted only while loading a pre-instance-identity database;
+    # schema startup backfills it before normal application reads.
+    program_instance_id: str | None = None
 
 
 class StoredRegistry(DefaultsRequired):
@@ -510,13 +513,15 @@ class TrainingExecutionEvaluation(DefaultsRequired):
 
 
 class TrainingCardLog(DefaultsRequired):
-    """One card occurrence's completion state, keyed by `date:occurrence_key`."""
+    """One card occurrence's completion state, owned by a program instance."""
 
-    id: str  # f"{date}:{occurrence_key}"
+    id: str  # f"{program_instance_id}:{date}:{occurrence_key}" for current rows
     date: str
     # Opaque display key; ordinary/base form is bundle:card:dNN, while every
     # activated backup adds an event-qualified suffix for stable ownership.
     occurrence_key: str
+    # None is a legacy-row compatibility state consumed only by schema migration.
+    program_instance_id: str | None = None
     status: TrainingCardStatus = "pending"
     variant_taken: str | None = None
     notes: str | None = None
@@ -680,7 +685,9 @@ class TrainingMeasurementEvaluation(DefaultsRequired):
 class TrainingTodayCard(DefaultsRequired):
     """One scheduled card occurrence, fully projected for Today-board display."""
 
+    program_instance_id: str
     occurrence_key: str
+    occurrence_id: str
     date: str
     day: int
     slot: SlotName3
@@ -720,6 +727,7 @@ class TrainingTodayResponse(DefaultsRequired):
     """One day's compiled schedule, enriched with any saved capture logs."""
 
     date: str
+    program_instance_id: str | None = None
     block_id: str | None = None
     block_name: str | None = None
     block_days: int | None = None

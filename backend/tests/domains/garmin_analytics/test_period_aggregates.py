@@ -254,10 +254,10 @@ def test_period_spo2_low_threshold_and_lowest_min_use_daily_mins():
 
 def test_period_skin_temp_empty_records_return_nulls_and_zero_days():
     result = compute_period_skin_temp([])
-    assert result.avg_deviation is None
-    assert result.max_deviation is None
-    assert result.min_deviation is None
-    assert result.avg_nightly is None
+    assert result.avg_deviation_f is None
+    assert result.max_deviation_f is None
+    assert result.min_deviation_f is None
+    assert result.avg_nightly_f is None
     assert result.days_tracked == 0
 
 
@@ -284,10 +284,10 @@ def test_period_skin_temp_excludes_null_deviations_and_averages_nightly_values()
             ],
         ),
     ])
-    assert result.avg_deviation == -0.2
-    assert result.min_deviation == -0.23
-    assert result.max_deviation == -0.23
-    assert result.avg_nightly == 36.6
+    assert result.avg_deviation_f == -0.42
+    assert result.min_deviation_f == -0.42
+    assert result.max_deviation_f == -0.42
+    assert result.avg_nightly_f == 97.9
     assert result.days_tracked == 1
 
 

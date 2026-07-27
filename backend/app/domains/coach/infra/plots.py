@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-PANEL_SPEC_VERSION = 4
+PANEL_SPEC_VERSION = 5
 
 _LINE_COLOR = "#2166ac"
 _SECONDARY_COLOR = "#b2182b"
@@ -54,34 +54,34 @@ def _present(values: Sequence[float | int | None]) -> bool:
 
 
 def _current_channels(series: RunSeriesResponse) -> list[_Channel]:
-    embedded = series.series
+    chart = series.chart
     candidates = [
-        _Channel("Pace", "min/mi", series.pace_min_per_mi, _LINE_COLOR, True),
-        _Channel("Heart rate", "bpm", embedded.heart_rate_bpm, _SECONDARY_COLOR),
-        _Channel("Cadence", "spm", embedded.cadence_spm, _TERTIARY_COLOR),
-        _Channel("Elevation", "ft", series.altitude_ft, "#6b6b6b"),
-        _Channel("Power", "W", embedded.power_w, "#7b3294"),
-        _Channel("Stride length", "m", series.step_length_m, "#008837"),
+        _Channel("Pace", "min/mi", chart.pace_min_per_mi, _LINE_COLOR, True),
+        _Channel("Heart rate", "bpm", chart.heart_rate_bpm, _SECONDARY_COLOR),
+        _Channel("Cadence", "spm", chart.cadence_spm, _TERTIARY_COLOR),
+        _Channel("Elevation", "ft", chart.altitude_ft, "#6b6b6b"),
+        _Channel("Power", "W", chart.power_w, "#7b3294"),
+        _Channel("Stride length", "m", chart.step_length_m, "#008837"),
         _Channel(
             "Vertical oscillation",
             "cm",
-            series.vertical_oscillation_cm,
+            chart.vertical_oscillation_cm,
             "#c51b7d",
         ),
-        _Channel("Vertical ratio", "%", embedded.vertical_ratio_pct, "#de77ae"),
-        _Channel("Ground contact time", "ms", embedded.stance_time_ms, "#8c510a"),
+        _Channel("Vertical ratio", "%", chart.vertical_ratio_pct, "#de77ae"),
+        _Channel("Ground contact time", "ms", chart.ground_contact_time_ms, "#8c510a"),
         _Channel(
             "Ground contact balance",
             "% left",
-            embedded.stance_time_balance_pct,
+            chart.ground_contact_balance_pct,
             "#01665e",
         ),
-        _Channel("Respiration", "brpm", embedded.respiration_rate_brpm, "#35978f"),
-        _Channel("Stance time", "%", embedded.stance_time_pct, "#bf812d"),
-        _Channel("Stamina", "%", embedded.stamina_pct, "#1b7837"),
-        _Channel("Stamina potential", "%", embedded.stamina_potential_pct, "#5aae61"),
-        _Channel("Performance condition", "score", embedded.performance_condition, "#762a83"),
-        _Channel("Temperature", "°F", series.temperature_f, "#e66101"),
+        _Channel("Respiration", "brpm", chart.respiration_rate_brpm, "#35978f"),
+        _Channel("Stance time", "%", chart.stance_time_pct, "#bf812d"),
+        _Channel("Stamina", "%", chart.stamina_pct, "#1b7837"),
+        _Channel("Stamina potential", "%", chart.stamina_potential_pct, "#5aae61"),
+        _Channel("Performance condition", "score", chart.performance_condition, "#762a83"),
+        _Channel("Temperature", "°F", chart.temperature_f, "#e66101"),
     ]
     return [channel for channel in candidates if _present(channel.values)]
 
@@ -260,7 +260,7 @@ def _render_intensity_composite(
         _save_no_series(path, detail)
         return
 
-    row_count = 3 if include_cadence and _present(series.series.cadence_spm) else 2
+    row_count = 3 if include_cadence and _present(series.chart.cadence_spm) else 2
     figure = plt.figure(
         figsize=(11, 6.5 if row_count == 3 else 5.4), constrained_layout=True
     )
@@ -269,16 +269,16 @@ def _render_intensity_composite(
     pace_axis = figure.add_subplot(grid[0, 0])
     _plot_channel(
         pace_axis,
-        series.series.elapsed_s,
-        _Channel("Pace", "min/mi", series.pace_min_per_mi, _LINE_COLOR, True),
+        series.chart.elapsed_s,
+        _Channel("Pace", "min/mi", series.chart.pace_min_per_mi, _LINE_COLOR, True),
     )
     timeline_axes.append(pace_axis)
 
     hr_axis = figure.add_subplot(grid[1, 0], sharex=pace_axis)
     _plot_channel(
         hr_axis,
-        series.series.elapsed_s,
-        _Channel("Heart rate", "bpm", series.series.heart_rate_bpm, _SECONDARY_COLOR),
+        series.chart.elapsed_s,
+        _Channel("Heart rate", "bpm", series.chart.heart_rate_bpm, _SECONDARY_COLOR),
     )
     _annotate_hr_zones(hr_axis, series)
     timeline_axes.append(hr_axis)
@@ -287,8 +287,8 @@ def _render_intensity_composite(
         cadence_axis = figure.add_subplot(grid[2, 0], sharex=pace_axis)
         _plot_channel(
             cadence_axis,
-            series.series.elapsed_s,
-            _Channel("Cadence", "spm", series.series.cadence_spm, _TERTIARY_COLOR),
+            series.chart.elapsed_s,
+            _Channel("Cadence", "spm", series.chart.cadence_spm, _TERTIARY_COLOR),
         )
         timeline_axes.append(cadence_axis)
     timeline_axes[-1].set_xlabel("Elapsed time (s)", fontsize=9)
@@ -337,11 +337,11 @@ def render_library_panel(
         )
         return path
 
-    elapsed = series.series.elapsed_s
+    elapsed = series.chart.elapsed_s
     channels = [
-        _Channel("Pace", "min/mi", series.pace_min_per_mi, _LINE_COLOR, True),
-        _Channel("Heart rate", "bpm", series.series.heart_rate_bpm, _SECONDARY_COLOR),
-        _Channel("Cadence", "spm", series.series.cadence_spm, _TERTIARY_COLOR),
+        _Channel("Pace", "min/mi", series.chart.pace_min_per_mi, _LINE_COLOR, True),
+        _Channel("Heart rate", "bpm", series.chart.heart_rate_bpm, _SECONDARY_COLOR),
+        _Channel("Cadence", "spm", series.chart.cadence_spm, _TERTIARY_COLOR),
     ]
     if not elapsed or not any(_present(channel.values) for channel in channels):
         _save_no_series(path, detail)
@@ -407,7 +407,7 @@ def render_current_run_stack(
             continue
         figure, axes = _new_figure(len(page_channels))
         for axis, channel in zip(axes, page_channels, strict=True):
-            _plot_channel(axis, series.series.elapsed_s, channel)
+            _plot_channel(axis, series.chart.elapsed_s, channel)
         _annotate_timeline(axes, detail, series)
         axes[-1].set_xlabel("Elapsed time (s)", fontsize=9)
         figure.suptitle(

@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+import app.domains.coach.adapters as coach_adapters
 from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.application.jobs import CoachJobs
 from app.domains.coach.contracts import CoachThread
@@ -65,26 +66,23 @@ def _open_thread(repo: SqliteCoachRepository, thread_id: str = "thread-1") -> No
     )
 
 
-def test_close_thread_enqueue_failure_leaves_the_thread_recoverable(monkeypatch):
+def test_close_thread_job_insert_failure_rolls_back_to_open_and_can_retry(monkeypatch):
     repo = SqliteCoachRepository()
     _open_thread(repo)
     jobs = _jobs(repo, JobsGateway())
 
-    enqueue_distill = repo.enqueue_distill
-    attempts: list[str] = []
+    save_job = coach_adapters._save_job
 
-    def flaky_enqueue(*, thread_id: str):
-        attempts.append(thread_id)
-        if len(attempts) == 1:
-            raise sqlite3.OperationalError("database is locked")
-        return enqueue_distill(thread_id=thread_id)
+    def fail_job_insert(*_args, **_kwargs):
+        raise sqlite3.OperationalError("database is locked")
 
-    monkeypatch.setattr(repo, "enqueue_distill", flaky_enqueue)
+    monkeypatch.setattr(coach_adapters, "_save_job", fail_job_insert)
     with pytest.raises(sqlite3.OperationalError):
         jobs.close_thread("thread-1")
-    assert repo.thread("thread-1").status == "close_failed"  # type: ignore[union-attr]
+    assert repo.thread("thread-1").status == "open"  # type: ignore[union-attr]
 
-    queued = jobs.retry_close("thread-1")
+    monkeypatch.setattr(coach_adapters, "_save_job", save_job)
+    queued = jobs.close_thread("thread-1")
 
     assert queued.payload["thread_id"] == "thread-1"
     assert queued.status == "queued"

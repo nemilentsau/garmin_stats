@@ -71,6 +71,21 @@ def test_import_route_returns_readable_400_for_invalid_zip():
     assert response.json() == {"detail": "Training package must be a valid ZIP archive"}
 
 
+def test_training_openapi_documents_structured_operational_errors():
+    schema = create_app().openapi()
+
+    expected = {
+        ("/api/training/import", "post"): {"400", "413"},
+        ("/api/training/block", "get"): {"404"},
+        ("/api/training/today/{date}/cards/{occurrence_key}", "put"): {"400", "404"},
+    }
+    for (path, method), statuses in expected.items():
+        responses = schema["paths"][path][method]["responses"]
+        for status in statuses:
+            error_schema = responses[status]["content"]["application/json"]["schema"]
+            assert error_schema["$ref"].endswith("/ApiErrorResponse")
+
+
 def test_today_route_propagates_run_and_assessment_ports(monkeypatch):
     repo = object()
     run_port = object()

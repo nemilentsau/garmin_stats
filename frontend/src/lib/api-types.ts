@@ -1283,6 +1283,14 @@ export interface components {
             /** Any */
             any: (components["schemas"]["Cmp"] | components["schemas"]["AllPredicate"] | components["schemas"]["AnyPredicate"] | components["schemas"]["NotPredicate"])[];
         };
+        /**
+         * ApiErrorResponse
+         * @description Stable JSON body returned for application-level HTTP failures.
+         */
+        ApiErrorResponse: {
+            /** Detail */
+            detail: string;
+        };
         /** ArtifactRef */
         ArtifactRef: {
             /**
@@ -1789,7 +1797,7 @@ export interface components {
             /** Days */
             days: string[];
             /** Daily */
-            daily: components["schemas"]["DailyMetric"][];
+            daily: components["schemas"]["DailyMetricDisplay"][];
             /**
              * Period Windows
              * @default {}
@@ -1964,10 +1972,10 @@ export interface components {
             status: string | null;
         };
         /**
-         * DailyMetric
-         * @description Canonical persisted Garmin health row for one local date.
+         * DailyMetricDisplay
+         * @description Public daily metric row with display-ready skin temperature.
          */
-        DailyMetric: {
+        DailyMetricDisplay: {
             /** Date */
             date: string;
             /** Utc Offset Hours */
@@ -1979,7 +1987,7 @@ export interface components {
             respiration: components["schemas"]["DailyMetricStats"];
             hrv: components["schemas"]["DailyHrvStats"];
             sleep: components["schemas"]["DailySleepStats"];
-            skin_temp: components["schemas"]["DailySkinTempStats"];
+            skin_temp: components["schemas"]["DailySkinTempDisplayStats"];
         };
         /**
          * DailyMetricStats
@@ -2000,16 +2008,16 @@ export interface components {
             q3: number | null;
         };
         /**
-         * DailySkinTempStats
-         * @description Persisted overnight skin-temperature deviation summary.
+         * DailySkinTempDisplayStats
+         * @description Display-ready daily skin-temperature values in Fahrenheit.
          */
-        DailySkinTempStats: {
-            /** Deviation */
-            deviation: number | null;
-            /** Deviation 7 Day */
-            deviation_7_day: number | null;
-            /** Nightly Value */
-            nightly_value: number | null;
+        DailySkinTempDisplayStats: {
+            /** Deviation F */
+            deviation_f: number | null;
+            /** Deviation 7 Day F */
+            deviation_7_day_f: number | null;
+            /** Nightly Value F */
+            nightly_value_f: number | null;
         };
         /**
          * DailySleepStats
@@ -3525,14 +3533,14 @@ export interface components {
          * @description Skin-temperature summary recomputed from overnight rows across a period.
          */
         PeriodSkinTempStats: {
-            /** Avg Deviation */
-            avg_deviation: number | null;
-            /** Max Deviation */
-            max_deviation: number | null;
-            /** Min Deviation */
-            min_deviation: number | null;
-            /** Avg Nightly */
-            avg_nightly: number | null;
+            /** Avg Deviation F */
+            avg_deviation_f: number | null;
+            /** Max Deviation F */
+            max_deviation_f: number | null;
+            /** Min Deviation F */
+            min_deviation_f: number | null;
+            /** Avg Nightly F */
+            avg_nightly_f: number | null;
             /**
              * Days Tracked
              * @default 0
@@ -3802,6 +3810,11 @@ export interface components {
              */
             ground_contact_balance_pct: (number | null)[];
             /**
+             * Stance Time Pct
+             * @default []
+             */
+            stance_time_pct: (number | null)[];
+            /**
              * Respiration Rate Brpm
              * @default []
              */
@@ -4001,17 +4014,14 @@ export interface components {
         };
         /**
          * RunSeriesResponse
-         * @description Canonical run series plus index-aligned, display-ready chart arrays.
+         * @description Canonical run series plus chart and route-map display projections.
          *
          *     `series` is the untouched metric FIT projection. Top-level movement arrays
-         *     are chart projections: start/resume sensor-settling samples and explicit
-         *     non-running spans become positional nulls without deleting source records.
-         *     `altitude_ft` is the smoothed display profile. `step_length_m` and
-         *     `vertical_oscillation_cm` retain Garmin's metric display exceptions.
+         *     are not duplicated: chart consumers use `chart`, while the route map uses
+         *     the record-aligned `pace_min_per_mi` alongside canonical latitude/longitude.
          *
          *     `chart` inserts a positional null marker at elapsed-time discontinuities so
-         *     line charts do not visually connect separate recording segments. Canonical
-         *     `series` and the original top-level projections remain record-aligned.
+         *     line charts do not visually connect separate recording segments.
          */
         RunSeriesResponse: {
             series: components["schemas"]["RunningActivitySeries"];
@@ -4022,56 +4032,6 @@ export interface components {
              * @default []
              */
             pace_min_per_mi: (number | null)[];
-            /**
-             * Altitude Ft
-             * @default []
-             */
-            altitude_ft: (number | null)[];
-            /**
-             * Temperature F
-             * @default []
-             */
-            temperature_f: (number | null)[];
-            /**
-             * Distance Mi
-             * @default []
-             */
-            distance_mi: (number | null)[];
-            /**
-             * Cadence Spm
-             * @default []
-             */
-            cadence_spm: (number | null)[];
-            /**
-             * Step Length M
-             * @default []
-             */
-            step_length_m: (number | null)[];
-            /**
-             * Vertical Oscillation Cm
-             * @default []
-             */
-            vertical_oscillation_cm: (number | null)[];
-            /**
-             * Vertical Ratio Pct
-             * @default []
-             */
-            vertical_ratio_pct: (number | null)[];
-            /**
-             * Ground Contact Time Ms
-             * @default []
-             */
-            ground_contact_time_ms: (number | null)[];
-            /**
-             * Ground Contact Balance Pct
-             * @default []
-             */
-            ground_contact_balance_pct: (number | null)[];
-            /**
-             * Stance Time Pct
-             * @default []
-             */
-            stance_time_pct: (number | null)[];
         };
         /**
          * RunWalkSpan
@@ -4540,7 +4500,7 @@ export interface components {
             date: string;
             /** Utc Offset Hours */
             utc_offset_hours: number | null;
-            skin_temp: components["schemas"]["DailySkinTempStats"];
+            skin_temp: components["schemas"]["DailySkinTempDisplayStats"];
         };
         /** SkinTempDailyResponse */
         SkinTempDailyResponse: {
@@ -4557,22 +4517,22 @@ export interface components {
             };
         };
         /**
-         * SkinTempOvernight
-         * @description Parsed overnight skin-temperature summary for one local date.
+         * SkinTempOvernightDisplay
+         * @description Display-ready overnight skin temperature with explicit Fahrenheit units.
          */
-        SkinTempOvernight: {
+        SkinTempOvernightDisplay: {
             /** Date */
             date: string;
             /** Timestamp */
             timestamp: string | null;
             /** Local Timestamp */
             local_timestamp: number | null;
-            /** Nightly Value */
-            nightly_value: number | null;
-            /** Average Deviation */
-            average_deviation: number | null;
-            /** Average 7 Day Deviation */
-            average_7_day_deviation: number | null;
+            /** Nightly Value F */
+            nightly_value_f: number | null;
+            /** Average Deviation F */
+            average_deviation_f: number | null;
+            /** Average 7 Day Deviation F */
+            average_7_day_deviation_f: number | null;
         };
         /**
          * SkinTempResponse
@@ -4582,7 +4542,7 @@ export interface components {
             /** Days */
             days: string[];
             /** Skin Temp Overnight */
-            skin_temp_overnight: components["schemas"]["SkinTempOvernight"][];
+            skin_temp_overnight: components["schemas"]["SkinTempOvernightDisplay"][];
         };
         /**
          * SleepAnalysisResponse
@@ -5015,7 +4975,7 @@ export interface components {
         };
         /**
          * TrainingCardLog
-         * @description One card occurrence's completion state, keyed by `date:occurrence_key`.
+         * @description One card occurrence's completion state, owned by a program instance.
          */
         TrainingCardLog: {
             /** Id */
@@ -5024,6 +4984,8 @@ export interface components {
             date: string;
             /** Occurrence Key */
             occurrence_key: string;
+            /** Program Instance Id */
+            program_instance_id: string | null;
             /**
              * Status
              * @default pending
@@ -5449,8 +5411,12 @@ export interface components {
          * @description One scheduled card occurrence, fully projected for Today-board display.
          */
         TrainingTodayCard: {
+            /** Program Instance Id */
+            program_instance_id: string;
             /** Occurrence Key */
             occurrence_key: string;
+            /** Occurrence Id */
+            occurrence_id: string;
             /** Date */
             date: string;
             /** Day */
@@ -5539,6 +5505,8 @@ export interface components {
         TrainingTodayResponse: {
             /** Date */
             date: string;
+            /** Program Instance Id */
+            program_instance_id: string | null;
             /** Block Id */
             block_id: string | null;
             /** Block Name */
@@ -6730,6 +6698,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -6783,6 +6760,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoachReviewsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -6812,6 +6798,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachReview"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6847,6 +6842,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoachEnqueueResponse"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -6876,6 +6880,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6909,6 +6931,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoachThread"] | null;
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -6940,6 +6971,24 @@ export interface operations {
                     "application/json": components["schemas"]["CoachThread"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -6969,6 +7018,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachReviewRevisionsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7055,6 +7113,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoachMessagesResponse"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -7090,6 +7157,24 @@ export interface operations {
                     "application/json": components["schemas"]["CoachEnqueueResponse"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -7121,6 +7206,24 @@ export interface operations {
                     "application/json": components["schemas"]["CoachJob"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -7150,6 +7253,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachJob"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7662,6 +7783,24 @@ export interface operations {
                     "application/json": components["schemas"]["ImportResult"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -7757,6 +7896,15 @@ export interface operations {
                     "application/json": components["schemas"]["TrainingBlockStatus"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
         };
     };
     put_today_card_log_api_training_today__date__cards__occurrence_key__put: {
@@ -7782,6 +7930,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrainingCardLog"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description Validation Error */

@@ -213,8 +213,8 @@ def test_run_detail_and_series_use_existing_imperial_projections():
     assert detail.display.pace_min_per_mi == 8.05
     assert detail.display.lap_display[0].distance_mi == 1.0
     assert isinstance(series, RunSeriesResponse)
-    assert series.distance_mi == [1.0] * 11
-    assert series.altitude_ft == [328.0] * 11
+    assert series.series.distance_m == [1609.344] * 11
+    assert series.chart.altitude_ft == [328.0] * 11
     assert series.pace_min_per_mi == [None] * 10 + [8.941]
 
 

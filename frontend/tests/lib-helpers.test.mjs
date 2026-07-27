@@ -22,7 +22,7 @@ test.before(async () => {
 		logLevel: 'error'
 	});
 	format = await server.ssrLoadModule('/src/lib/format.ts');
-	errors = await server.ssrLoadModule('/src/lib/errors.ts');
+	errors = await server.ssrLoadModule('/src/lib/utils.ts');
 	hrvAsync = await server.ssrLoadModule('/src/lib/hrv-async.ts');
 	hrvStatus = await server.ssrLoadModule('/src/lib/hrv-status.ts');
 	realtimePage = await server.ssrLoadModule('/src/lib/realtime-page.ts');

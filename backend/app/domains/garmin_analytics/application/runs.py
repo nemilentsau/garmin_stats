@@ -30,7 +30,7 @@ from app.domains.garmin_analytics.domain.run_display import (
     zone_display_rows,
 )
 from app.domains.garmin_analytics.domain.run_heart_rate import heart_rate_evidence
-from app.utils.units import KM_TO_MI, m_to_mi, min_per_km_to_min_per_mi
+from app.utils.units import KM_TO_MI, c_to_f, m_to_mi, min_per_km_to_min_per_mi
 
 _MIN_PACE_SPEED_MPS = 0.5
 
@@ -67,11 +67,6 @@ class _ElevationLocationView(Protocol):
 def _m_to_ft(value_m: float | None) -> float | None:
     """Meters -> feet, rounded to the nearest whole foot. None-preserving."""
     return None if value_m is None else round(value_m * _M_TO_FT, 0)
-
-
-def _c_to_f(value_c: float | None) -> float | None:
-    """Celsius -> Fahrenheit, 1dp. None-preserving."""
-    return None if value_c is None else round(value_c * 9 / 5 + 32, 1)
 
 
 def _mps_to_mph(value_mps: float | None) -> float | None:
@@ -224,9 +219,9 @@ def get_run(repo: RunsReadRepository, run_id: str) -> RunDetailResponse:
         total_descent_ft=_m_to_ft(
             elevation_totals[1] if elevation_totals is not None else session.total_descent_m
         ),
-        avg_temperature_f=_c_to_f(session.avg_temperature_c),
-        min_temperature_f=_c_to_f(session.min_temperature_c),
-        max_temperature_f=_c_to_f(session.max_temperature_c),
+        avg_temperature_f=c_to_f(session.avg_temperature_c),
+        min_temperature_f=c_to_f(session.min_temperature_c),
+        max_temperature_f=c_to_f(session.max_temperature_c),
         avg_vertical_oscillation_cm=_mm_to_cm(session.avg_vertical_oscillation_mm),
         avg_step_length_m=_mm_to_m(session.avg_step_length_mm),
         total_work_kj=_j_to_kj(session.total_work_j),
@@ -368,7 +363,7 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
     ground_contact_balance_pct = apply_display_mask(
         series.stance_time_balance_pct, display_mask
     )
-    temperature_f = [_c_to_f(value) for value in series.temperature_c]
+    temperature_f = [c_to_f(value) for value in series.temperature_c]
     gaps = _gap_indices(series.elapsed_s)
     chart = RunChartSeries(
         elapsed_s=_insert_gap_elapsed(series.elapsed_s, gaps),
@@ -385,6 +380,9 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
         ground_contact_balance_pct=_insert_gap_nulls(
             ground_contact_balance_pct, gaps
         ),
+        stance_time_pct=_insert_gap_nulls(
+            apply_display_mask(series.stance_time_pct, display_mask), gaps
+        ),
         respiration_rate_brpm=_insert_gap_nulls(series.respiration_rate_brpm, gaps),
         stamina_pct=_insert_gap_nulls(series.stamina_pct, gaps),
         stamina_potential_pct=_insert_gap_nulls(series.stamina_potential_pct, gaps),
@@ -397,14 +395,4 @@ def get_run_series(repo: RunsReadRepository, run_id: str) -> RunSeriesResponse:
             series.heart_rate_bpm, heart_rate_zones
         ),
         pace_min_per_mi=pace_min_per_mi,
-        altitude_ft=altitude_ft,
-        temperature_f=temperature_f,
-        distance_mi=[m_to_mi(v) for v in series.distance_m],
-        cadence_spm=cadence_spm,
-        step_length_m=step_length_m,
-        vertical_oscillation_cm=vertical_oscillation_cm,
-        vertical_ratio_pct=vertical_ratio_pct,
-        ground_contact_time_ms=ground_contact_time_ms,
-        ground_contact_balance_pct=ground_contact_balance_pct,
-        stance_time_pct=apply_display_mask(series.stance_time_pct, display_mask),
     )

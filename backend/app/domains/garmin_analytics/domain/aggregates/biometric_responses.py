@@ -5,6 +5,7 @@ from app.domains.garmin_analytics.contracts import (
     HeartRateRawResponse,
     HrvResponse,
     RespirationRawResponse,
+    SkinTempOvernightDisplay,
     SkinTempResponse,
     SleepResponse,
     SpO2RawResponse,
@@ -16,6 +17,7 @@ from app.domains.garmin_health.contracts import (
     DaySleep,
     DayWellness,
 )
+from app.utils.units import c_delta_to_f_delta, c_to_f
 
 
 def flatten_heart_rate(days: list[DayWellness]) -> HeartRateRawResponse:
@@ -84,5 +86,18 @@ def flatten_skin_temp(days: list[DaySkinTemp]) -> SkinTempResponse:
     """Flatten day-grouped skin-temperature rows into the raw response."""
     return SkinTempResponse(
         days=[d.date for d in days],
-        skin_temp_overnight=[r for d in days for r in d.skin_temp_overnight],
+        skin_temp_overnight=[
+            SkinTempOvernightDisplay(
+                date=reading.date,
+                timestamp=reading.timestamp,
+                local_timestamp=reading.local_timestamp,
+                nightly_value_f=c_to_f(reading.nightly_value),
+                average_deviation_f=c_delta_to_f_delta(reading.average_deviation),
+                average_7_day_deviation_f=c_delta_to_f_delta(
+                    reading.average_7_day_deviation
+                ),
+            )
+            for day in days
+            for reading in day.skin_temp_overnight
+        ],
     )

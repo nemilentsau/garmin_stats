@@ -1,5 +1,7 @@
 """Tests for SQLite storage initialization and shared JSON persistence behavior."""
 
+import json
+
 import app.infra.sqlite as sqlite
 from app.core.profile.adapters import SqliteProfileRepository
 from app.core.profile.contracts import UserProfile
@@ -176,6 +178,88 @@ class TestInit:
         assert exposure_ids == ["manual-new"]
         assert analysis_ids == ["untouched-exp"]
         assert "uq_experiment_exposures_experiment_date" in unique_indexes
+
+    def test_bootstrap_namespaces_legacy_coach_occurrences_once(self, tmp_db):
+        from app.bootstrap import schema as storage_schema
+        from app.domains.training.domain.instance_identity import (
+            program_instance_id,
+        )
+
+        instance_id = program_instance_id(
+            block={"block_id": "block-1"},
+            bundles=[],
+            registry={},
+            library={},
+            schedule_start="2026-01-01",
+        )
+        legacy_key = "run:measurement:d01"
+        durable_key = f"{instance_id}:{legacy_key}"
+        with sqlite.connect() as con:
+            con.execute(
+                "INSERT INTO training_blocks (id, data, created_at, updated_at) "
+                "VALUES ('block-1', ?, 'now', 'now')",
+                (json.dumps({"status": "active", "program_instance_id": instance_id}),),
+            )
+            review = {
+                "occurrence_key": legacy_key,
+                "measurement_assessment": {"occurrence_key": legacy_key},
+            }
+            con.execute(
+                "INSERT INTO coach_reviews "
+                "(id, date, kind, run_id, occurrence_key, status, updated_at, data) "
+                "VALUES ('review-1', '2026-01-01', 'run', 'run-1', ?, "
+                "'complete', 'now', ?)",
+                (legacy_key, json.dumps(review)),
+            )
+            con.execute(
+                "INSERT INTO coach_review_revisions "
+                "(id, review_id, version, created_at, data) "
+                "VALUES ('revision-1', 'review-1', 1, 'now', ?)",
+                (json.dumps(review),),
+            )
+            con.execute(
+                "INSERT INTO coach_messages (id, thread_id, created_at, data) "
+                "VALUES ('message-1', 'thread-1', 'now', ?)",
+                (json.dumps({"measurement_assessment": {"occurrence_key": legacy_key}}),),
+            )
+            con.execute(
+                "INSERT INTO coach_jobs "
+                "(id, kind, dedupe_key, priority, status, available_at, created_at, "
+                "updated_at, data) VALUES "
+                "('job-1', 'review_run', 'review:run:run-1', 1, 'complete', "
+                "'now', 'now', 'now', ?)",
+                (json.dumps({"payload": {"occurrence_key": legacy_key}}),),
+            )
+
+            con.commit()
+
+        storage_schema.init_storage()
+        storage_schema.init_storage()
+
+        with sqlite.connect() as con:
+
+            stored_review = con.execute(
+                "SELECT occurrence_key, data FROM coach_reviews WHERE id = 'review-1'"
+            ).fetchone()
+            stored_revision = con.execute(
+                "SELECT data FROM coach_review_revisions WHERE id = 'revision-1'"
+            ).fetchone()
+            stored_message = con.execute(
+                "SELECT data FROM coach_messages WHERE id = 'message-1'"
+            ).fetchone()
+            stored_job = con.execute(
+                "SELECT data FROM coach_jobs WHERE id = 'job-1'"
+            ).fetchone()
+
+        assert stored_review["occurrence_key"] == durable_key
+        assert json.loads(stored_review["data"])["measurement_assessment"][
+            "occurrence_key"
+        ] == durable_key
+        assert json.loads(stored_revision["data"])["occurrence_key"] == durable_key
+        assert json.loads(stored_message["data"])["measurement_assessment"][
+            "occurrence_key"
+        ] == durable_key
+        assert json.loads(stored_job["data"])["payload"]["occurrence_key"] == durable_key
 
 
 class TestPreMigrationBackup:

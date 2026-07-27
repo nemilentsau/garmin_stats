@@ -8,6 +8,7 @@
 	} from '$lib/api';
 	import { createDateLoader, startRealtimePage } from '$lib/realtime-page';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import InlineError from '$lib/components/InlineError.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import MetricPageHeader from '$lib/components/MetricPageHeader.svelte';
 	import PageState from '$lib/components/PageState.svelte';
@@ -66,7 +67,7 @@
 		return dailyTrendConfig({
 			labels: trend.map(p => p.date),
 			color: COLORS.bodyBattery,
-			yTitle: 'battery %',
+			yTitle: 'Body Battery (0–100)',
 			beginAtZero: true,
 			max: 100,
 			daily: { label: 'Daily Min', values: trend.map(p => p.min_val) },
@@ -101,7 +102,7 @@
 			q1: boxes.map(b => b.q1_val),
 			min: boxes.map(b => b.min_val),
 			color: COLORS.bodyBattery,
-			yTitle: 'battery %',
+			yTitle: 'Body Battery (0–100)',
 			beginAtZero: true,
 			yMax: 100
 		});
@@ -116,7 +117,7 @@
 		return simpleIntradayLineConfig({
 			label: 'Body Battery',
 			color: COLORS.bodyBattery,
-			yTitle: 'battery %',
+			yTitle: 'Body Battery (0–100)',
 			labels: intradayData.body_battery.map(d => d.timestamp),
 			values: intradayData.body_battery.map(d => d.value),
 			beginAtZero: true,
@@ -141,10 +142,7 @@
 <PageState error={agg ? null : error} {loading}>
 	{#if agg}
 		{#if error}
-			<div class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[rgba(232,93,74,0.3)] bg-[rgba(232,93,74,0.08)] p-3">
-				<p class="text-[#E85D4A]">Error: {error}</p>
-				<button type="button" class="shrink-0 text-[#E85D4A] opacity-70 hover:opacity-100" onclick={() => (error = null)} aria-label="Dismiss error">✕</button>
-			</div>
+			<InlineError message={error} dismiss={() => (error = null)} />
 		{/if}
 		<MetricPageHeader title="Body Battery" bind:trendRange />
 
@@ -152,8 +150,8 @@
 
 		{#if stats}
 			<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-				<StatCard title="Avg Daily Min" value={fmt(stats.avgMin)} unit="%" color={COLORS.heartRate} />
-				<StatCard title="Avg Daily Max" value={fmt(stats.avgMax)} unit="%" color={COLORS.bodyBattery} />
+				<StatCard title="Avg Daily Min" value={fmt(stats.avgMin)} color={COLORS.heartRate} />
+				<StatCard title="Avg Daily Max" value={fmt(stats.avgMax)} color={COLORS.bodyBattery} />
 				<StatCard title="Days Tracked" value={stats.days} color="#8a9baa" />
 			</div>
 		{/if}

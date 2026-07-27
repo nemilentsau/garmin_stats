@@ -128,7 +128,11 @@ def test_status_lookup_and_review_filters(coach_client):
     assert by_run.json()["run_id"] == "run-1"
     assert by_run.json()["id"] == created["review"]["id"]
     assert len(listed.json()["reviews"]) == 1
-    assert client.get("/api/coach/reviews?from=2026-07-12&to=2026-07-11").status_code == 422
+    invalid_range = client.get(
+        "/api/coach/reviews?from=2026-07-12&to=2026-07-11"
+    )
+    assert invalid_range.status_code == 400
+    assert invalid_range.json() == {"detail": "from must be on or before to"}
     assert client.get("/api/coach/reviews?limit=201").status_code == 422
 
 
@@ -209,6 +213,39 @@ def test_unknown_resources_strict_requests_and_removed_artifact_routes(coach_cli
     )
     assert strict.status_code == 422
     assert client.get("/api/assistant/artifacts").status_code == 404
+
+
+def test_coach_openapi_documents_not_found_and_conflict_responses():
+    schema = create_app().openapi()
+
+    run_review_responses = schema["paths"]["/api/coach/reviews/run"]["post"][
+        "responses"
+    ]
+    assert run_review_responses["404"]["content"]["application/json"]["schema"][
+        "$ref"
+    ].endswith("/ApiErrorResponse")
+
+    review_list_responses = schema["paths"]["/api/coach/reviews"]["get"][
+        "responses"
+    ]
+    assert review_list_responses["400"]["content"]["application/json"]["schema"][
+        "$ref"
+    ].endswith("/ApiErrorResponse")
+    assert review_list_responses["422"]["content"]["application/json"]["schema"][
+        "$ref"
+    ].endswith("/HTTPValidationError")
+
+    for path, method in (
+        ("/api/coach/reviews/{review_id}/retry", "post"),
+        ("/api/coach/reviews/{review_id}/thread", "post"),
+        ("/api/coach/threads/{thread_id}/messages", "post"),
+        ("/api/coach/threads/{thread_id}/close", "post"),
+        ("/api/coach/threads/{thread_id}/retry-close", "post"),
+    ):
+        responses = schema["paths"][path][method]["responses"]
+        for status in ("404", "409"):
+            error_schema = responses[status]["content"]["application/json"]["schema"]
+            assert error_schema["$ref"].endswith("/ApiErrorResponse")
 
 
 def test_orphan_read_routes_are_removed_not_just_missing_ids(coach_client):

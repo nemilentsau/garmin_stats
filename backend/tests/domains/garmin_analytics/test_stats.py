@@ -158,8 +158,8 @@ class TestPeriodSummary:
         day1 = _make_day(date="2026-01-01", skin_dev=-0.3)
         day2 = _make_day(date="2026-01-02", skin_dev=0.5)
         period = compute_period_summary([day1, day2])
-        assert period.skin_temp.min_deviation == -0.3
-        assert period.skin_temp.max_deviation == 0.5
+        assert period.skin_temp.min_deviation_f == -0.54
+        assert period.skin_temp.max_deviation_f == 0.9
         assert period.skin_temp.days_tracked == 2
 
     def test_all_none_when_no_days(self):
