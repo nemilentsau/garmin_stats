@@ -26,6 +26,9 @@ Import **one `.zip` file** on the Training Import page. That ZIP represents one
 authored program and contains its block, running, strength, support, registry,
 and exercise-library JSON artifacts. The backend shows and validates those six
 artifacts after you submit the package; you do not select them individually.
+You must also choose **Program starts**, which becomes runtime Day 1. The app
+stores that choice beside the verbatim imported block instead of rewriting the
+authored date inside the ZIP.
 
 Import
 [`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip)
@@ -37,8 +40,10 @@ Program directories use a descriptive name plus their planned start date. Each
 directory keeps one canonical authored ZIP plus any human review documentation;
 it does not keep loose copies of the ZIP's JSON members. Internal filenames and
 artifact IDs remain unchanged because import stores authored content without
-translating it. The app does not generate ZIPs, lint reports, compiled schedules,
-or any other derived training content.
+translating it. A directory or artifact date records authoring provenance; it
+does not force the runtime start selected during import. The app does not
+generate ZIPs, lint reports, compiled schedules, or any other derived training
+content.
 
 ## Test fixtures
 

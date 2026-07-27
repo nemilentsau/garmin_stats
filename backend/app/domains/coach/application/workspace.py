@@ -176,13 +176,13 @@ def _plan_markdown(gateway: CoachReadGateway, target_date: str) -> str:
         lines.extend(["No active training block.", ""])
     else:
         block = status.block
-        target_day = (target - date.fromisoformat(block.window.start)).days + 1
+        target_day = (target - date.fromisoformat(status.schedule_start)).days + 1
         lines.extend(
             [
                 f"- Block: {block.id}",
                 f"- Identity: {block.identity}",
                 f"- Target block day: {target_day}",
-                f"- Block window: {block.window.start} for {block.window.days} days",
+                f"- Block window: {status.schedule_start} for {block.window.days} days",
                 "",
                 "## Exit criteria",
                 "",

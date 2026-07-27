@@ -305,6 +305,7 @@ class ReviewSpec(StrictDefaultsRequired):
 
 class V3Block(StrictDefaultsRequired):
     id: str
+    name: str | None = None
     identity: Literal["measurement", "development", "consolidation", "taper", "race"]
     window: BlockWindow
     bundle_ids: list[str]
@@ -439,6 +440,7 @@ class StoredBlock(DefaultsRequired):
     lint_report: LintReport
     warning_acks: list[str] = []
     activated_at: str
+    schedule_start: str | None = None
 
 
 class StoredRegistry(DefaultsRequired):
@@ -719,7 +721,9 @@ class TrainingTodayResponse(DefaultsRequired):
 
     date: str
     block_id: str | None = None
-    block_name: str | None = None  # block id doubles as name for now
+    block_name: str | None = None
+    block_days: int | None = None
+    schedule_start: str | None = None
     day: int | None = None  # None when date is outside the active window
     cards: list[TrainingTodayCard] = []
 
@@ -745,6 +749,8 @@ class TrainingBlockStatus(DefaultsRequired):
     """The active block's lifecycle snapshot: lint history plus burn-in phase."""
 
     block: V3Block
+    block_name: str
+    schedule_start: str
     lint_report: LintReport
     warning_acks: list[str] = []
     current_day: int | None = None

@@ -413,15 +413,22 @@ def checkin_rows(registry: SignalRegistry) -> list[TrainingCheckinRow]:
 # ---------- day math + active-context loading ----------
 
 
-def _day_number(block: V3Block, date: str) -> int:
+def _day_number(schedule_start: str, date: str) -> int:
     """1-indexed block day for `date`; may fall outside `[1, window.days]`."""
-    start = date_cls.fromisoformat(block.window.start)
+    start = date_cls.fromisoformat(schedule_start)
     return (date_cls.fromisoformat(date) - start).days + 1
+
+
+def _block_display_name(block: V3Block) -> str:
+    """Return authored display text, with a backend-only legacy-id fallback."""
+    if block.name:
+        return block.name
+    return block.id.rsplit(".", 1)[-1].replace("_", " ").title()
 
 
 def _active_context(
     repo: TrainingRepository,
-) -> tuple[V3Block, list[V3Bundle], SignalRegistry, ExerciseLibrary] | None:
+) -> tuple[V3Block, list[V3Bundle], SignalRegistry, ExerciseLibrary, str] | None:
     """Load and parse the active block plus its bundles/registry/library.
 
     Returns None when nothing is imported yet. All four artifact kinds are
@@ -439,7 +446,8 @@ def _active_context(
     assert stored_library is not None
     registry = SignalRegistry.model_validate(stored_registry.artifact)
     library = ExerciseLibrary.model_validate(stored_library.artifact)
-    return block, bundles, registry, library
+    schedule_start = stored_block.schedule_start or block.window.start
+    return block, bundles, registry, library, schedule_start
 
 
 def _exercise_name(library: ExerciseLibrary, exercise_id: str) -> str:
@@ -825,8 +833,8 @@ def _cards_for_day(
     return cards
 
 
-def _date_for_block_day(block: V3Block, day: int) -> str:
-    start = date_cls.fromisoformat(block.window.start)
+def _date_for_block_day(schedule_start: str, day: int) -> str:
+    start = date_cls.fromisoformat(schedule_start)
     return (start + timedelta(days=day - 1)).isoformat()
 
 
@@ -857,6 +865,7 @@ def _evaluate_resolved_measurement_attempts(
     through_day: int,
     assessment_before: str | None,
     block: V3Block,
+    schedule_start: str,
     registry: SignalRegistry,
     library: ExerciseLibrary,
     bundle_names: dict[str, str],
@@ -874,7 +883,7 @@ def _evaluate_resolved_measurement_attempts(
     for attempt_day, resolution in sorted(resolutions.items()):
         if attempt_day > through_day:
             continue
-        attempt_date = _date_for_block_day(block, attempt_day)
+        attempt_date = _date_for_block_day(schedule_start, attempt_day)
         cards = _cards_for_day(
             list(resolution.entries),
             attempt_day,
@@ -900,6 +909,7 @@ def _resolve_measurement_history(
     *,
     through_day: int,
     block: V3Block,
+    schedule_start: str,
     schedule: list[CompiledEntry],
     registry: SignalRegistry,
     library: ExerciseLibrary,
@@ -927,8 +937,9 @@ def _resolve_measurement_history(
         prior_statuses = _evaluate_resolved_measurement_attempts(
             resolutions=resolutions,
             through_day=attempt_day - 1,
-            assessment_before=_date_for_block_day(block, attempt_day),
+            assessment_before=_date_for_block_day(schedule_start, attempt_day),
             block=block,
+            schedule_start=schedule_start,
             registry=registry,
             library=library,
             bundle_names=bundle_names,
@@ -948,7 +959,12 @@ def _resolve_measurement_history(
     return resolutions
 
 
-def _summary_horizon_start(block: V3Block, requested_start: str, before_day: int) -> str:
+def _summary_horizon_start(
+    block: V3Block,
+    schedule_start: str,
+    requested_start: str,
+    before_day: int,
+) -> str:
     prior_scheduled_days = [
         event.scheduled_day
         for event in block.measurement_events
@@ -956,11 +972,16 @@ def _summary_horizon_start(block: V3Block, requested_start: str, before_day: int
     ]
     if not prior_scheduled_days:
         return requested_start
-    earliest_attempt = _date_for_block_day(block, min(prior_scheduled_days))
+    earliest_attempt = _date_for_block_day(schedule_start, min(prior_scheduled_days))
     return min(requested_start, earliest_attempt)
 
 
-def _summary_horizon_end(block: V3Block, requested_end: str, as_of_day: int) -> str:
+def _summary_horizon_end(
+    block: V3Block,
+    schedule_start: str,
+    requested_end: str,
+    as_of_day: int,
+) -> str:
     elapsed_attempt_days = [
         attempt_day
         for event in block.measurement_events
@@ -969,7 +990,7 @@ def _summary_horizon_end(block: V3Block, requested_end: str, as_of_day: int) -> 
     ]
     if not elapsed_attempt_days:
         return requested_end
-    latest_attempt = _date_for_block_day(block, max(elapsed_attempt_days))
+    latest_attempt = _date_for_block_day(schedule_start, max(elapsed_attempt_days))
     return max(requested_end, latest_attempt)
 
 
@@ -997,17 +1018,24 @@ def get_training_today(
     context = _active_context(repo)
     if context is None:
         return TrainingTodayResponse(date=date, cards=[])
-    block, bundles, registry, library = context
-    day = _day_number(block, date)
+    block, bundles, registry, library, schedule_start = context
+    day = _day_number(schedule_start, date)
+    block_name = _block_display_name(block)
     if not 1 <= day <= block.window.days:
         return TrainingTodayResponse(
-            date=date, block_id=block.id, block_name=block.id, day=None, cards=[]
+            date=date,
+            block_id=block.id,
+            block_name=block_name,
+            block_days=block.window.days,
+            schedule_start=schedule_start,
+            day=None,
+            cards=[],
         )
 
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     prior_logs = repo.card_logs_before(date)
-    summary_start = _summary_horizon_start(block, date, day)
+    summary_start = _summary_horizon_start(block, schedule_start, date, day)
     run_summaries = (
         run_activity_port.runs_between(summary_start, date) if run_activity_port is not None else []
     )
@@ -1017,6 +1045,7 @@ def get_training_today(
     resolutions = _resolve_measurement_history(
         through_day=day,
         block=block,
+        schedule_start=schedule_start,
         schedule=schedule,
         registry=registry,
         library=library,
@@ -1054,7 +1083,13 @@ def get_training_today(
         assessment_cache=assessment_cache,
     )
     return TrainingTodayResponse(
-        date=date, block_id=block.id, block_name=block.id, day=day, cards=cards
+        date=date,
+        block_id=block.id,
+        block_name=block_name,
+        block_days=block.window.days,
+        schedule_start=schedule_start,
+        day=day,
+        cards=cards,
     )
 
 
@@ -1083,17 +1118,23 @@ def get_training_schedule_window(
     if context is None:
         return TrainingScheduleWindow(start_date=start_date, end_date=end.isoformat(), days=[])
 
-    block, bundles, registry, library = context
+    block, bundles, registry, library, schedule_start = context
     bundle_names = {bundle.id: bundle.name for bundle in bundles}
     schedule = compile_schedule(bundles)
     effective_as_of = as_of_date or date_cls.today().isoformat()
-    as_of_day = _day_number(block, effective_as_of)
+    as_of_day = _day_number(schedule_start, effective_as_of)
     summary_start = _summary_horizon_start(
         block,
+        schedule_start,
         start_date,
         as_of_day + 1,
     )
-    summary_end = _summary_horizon_end(block, end.isoformat(), as_of_day)
+    summary_end = _summary_horizon_end(
+        block,
+        schedule_start,
+        end.isoformat(),
+        as_of_day,
+    )
     run_summaries = (
         run_activity_port.runs_between(summary_start, summary_end)
         if run_activity_port is not None
@@ -1102,10 +1143,11 @@ def get_training_schedule_window(
     runs_by_date = _runs_grouped_by_date(run_summaries)
     evidence_cache: dict[str, TrainingRunEvidence | None] = {}
     assessment_cache: AssessmentCache = {}
-    visible_end_day = _day_number(block, end.isoformat())
+    visible_end_day = _day_number(schedule_start, end.isoformat())
     resolutions = _resolve_measurement_history(
         through_day=max(as_of_day, visible_end_day),
         block=block,
+        schedule_start=schedule_start,
         schedule=schedule,
         registry=registry,
         library=library,
@@ -1120,8 +1162,9 @@ def get_training_schedule_window(
     current_statuses = _evaluate_resolved_measurement_attempts(
         resolutions=resolutions,
         through_day=as_of_day,
-        assessment_before=_date_for_block_day(block, as_of_day + 1),
+        assessment_before=_date_for_block_day(schedule_start, as_of_day + 1),
         block=block,
+        schedule_start=schedule_start,
         registry=registry,
         library=library,
         bundle_names=bundle_names,
@@ -1143,7 +1186,7 @@ def get_training_schedule_window(
     for offset in range(duration_days):
         current = start + timedelta(days=offset)
         current_iso = current.isoformat()
-        day_number = _day_number(block, current_iso)
+        day_number = _day_number(schedule_start, current_iso)
         resolution = resolutions.get(day_number)
         if resolution is None:
             resolution = resolve_measurement_day(
@@ -1195,10 +1238,13 @@ def get_block_status(repo: TrainingRepository) -> TrainingBlockStatus | None:
         return None
     block = V3Block.model_validate(stored_block.artifact)
     today = date_cls.today().isoformat()
-    day = _day_number(block, today)
+    schedule_start = stored_block.schedule_start or block.window.start
+    day = _day_number(schedule_start, today)
     in_window = 1 <= day <= block.window.days
     return TrainingBlockStatus(
         block=block,
+        block_name=_block_display_name(block),
+        schedule_start=schedule_start,
         lint_report=stored_block.lint_report,
         warning_acks=list(stored_block.warning_acks),
         current_day=day if in_window else None,

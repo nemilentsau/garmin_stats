@@ -8,7 +8,7 @@
 		type TrainingTodayCard,
 		type TrainingTodayResponse
 	} from '$lib/api';
-	import { isIsoDateString, localDateIso } from '$lib/date';
+	import { fmtFullDate, isIsoDateString, localDateIso, parseIsoDate } from '$lib/date';
 	import {
 		completionStatusAfterClick,
 		createStatusPersistQueue,
@@ -326,6 +326,16 @@
 			<div class="header-left">
 				<h1>Today</h1>
 				<input type="date" class="date-input" bind:value={selectedDate} />
+				{#if trainingToday?.block_name}
+					<span class="program-context">
+						<strong>{trainingToday.block_name}</strong>
+						{#if trainingToday.day !== null && trainingToday.block_days !== null}
+							· Day {trainingToday.day} of {trainingToday.block_days}
+						{:else if trainingToday.schedule_start}
+							· Starts {fmtFullDate(parseIsoDate(trainingToday.schedule_start))}
+						{/if}
+					</span>
+				{/if}
 			</div>
 			<div class="header-right">
 				<div class="progress-summary">
@@ -365,7 +375,11 @@
 		{#if !error && allCards.length === 0}
 			<div class="empty-board">
 				<span>Nothing scheduled for this date.</span>
-				<a href="/training/import">No active block — import one</a>
+				{#if trainingToday?.block_id}
+					<a href="/training/schedule">View schedule</a>
+				{:else}
+					<a href="/training/import">No active block — import one</a>
+				{/if}
 			</div>
 		{:else if !error}
 			<div class="activity-list">
@@ -376,7 +390,6 @@
 							<span class="slot-label">{SLOT_LABELS[slot]}</span>
 							<span class="slot-count">{cards.length}</span>
 						</div>
-						<div class="block-label">{trainingToday?.block_name ?? 'Training'}</div>
 						{#each cards as card (card.occurrence_key)}
 							{@const theme = trainingCardTheme(card)}
 							<TodayActivityRow
@@ -429,6 +442,8 @@
 	.header-left,.header-right,.progress-summary { display: flex; align-items: center; gap: 14px; }
 	h1 { margin: 0; color: #eef5f8; font-family: 'Instrument Sans',sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
 	.date-input { color-scheme: dark; border: 1px solid rgba(255,255,255,.1); background: rgba(8,15,24,.7); color: #c8d6df; border-radius: 9px; padding: 8px 10px; font-family: 'DM Mono',monospace; font-size: 13px; }
+	.program-context { color: #8196a5; font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .02em; white-space: nowrap; }
+	.program-context strong { color: #b9cad4; font-weight: 500; }
 	.progress-count { color: #eef5f8; font-family: 'DM Mono',monospace; font-size: 13px; }
 	.progress-count span { color: #6b8292; }
 	.progress-bar { display: flex; width: 120px; height: 6px; overflow: hidden; border-radius: 3px; background: rgba(255,255,255,.06); }
@@ -446,9 +461,8 @@
 	.activity-list { display: flex; flex-direction: column; gap: 6px; }
 	.slot-divider { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 0 6px; border-bottom: 1px solid rgba(255,255,255,.07); }
 	.slot-divider::before { width: 3px; height: 16px; border-radius: 2px; background: var(--sd-color); content: ''; }
-	.slot-label,.block-label { color: var(--sd-color,#8fa3b0); font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+	.slot-label { color: var(--sd-color,#8fa3b0); font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
 	.slot-count { color: #6b8292; font-family: 'DM Mono',monospace; font-size: 11px; }
-	.block-label { margin: 10px 0 2px; color: #6f8798; }
 	.empty-board { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 	.empty-board a { color: #5bb5a6; text-decoration: none; }
 </style>

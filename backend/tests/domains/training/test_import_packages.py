@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from base64 import b64encode
+from datetime import date
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
+from pydantic import ValidationError
 
 from app.domains.training.adapters import SqliteTrainingRepository
 from app.domains.training.application import import_packages
@@ -46,6 +48,7 @@ def _request(content_base64: str, *, filename: str = "training.zip") -> ImportPa
     return ImportPackageRequest(
         filename=filename,
         content_base64=content_base64,
+        start_date=date(2026, 8, 3),
         warning_acks=[],
     )
 
@@ -71,6 +74,7 @@ def test_package_import_activates_nested_json_artifacts_and_ignores_other_files(
         ImportPackageRequest(
             filename="threshold-development.zip",
             content_base64=_zip_base64(entries),
+            start_date=date(2026, 8, 3),
             warning_acks=[],
         ),
     )
@@ -80,7 +84,22 @@ def test_package_import_activates_nested_json_artifacts_and_ignores_other_files(
     stored = repo.active_block()
     assert stored is not None
     assert stored.id == "block0.calibration"
+    assert stored.schedule_start == "2026-08-03"
     assert stored.artifact == json.loads((CALIBRATION_FIXTURE / "block0.json").read_text())
+
+
+@pytest.mark.parametrize("start_date", [None, "2026-02-30", "August 3, 2026"])
+def test_package_import_requires_valid_explicit_start_date(start_date):
+    payload = {
+        "filename": "training.zip",
+        "content_base64": _zip_base64(_calibration_entries()),
+        "warning_acks": [],
+    }
+    if start_date is not None:
+        payload["start_date"] = start_date
+
+    with pytest.raises(ValidationError):
+        ImportPackageRequest.model_validate(payload)
 
 
 @pytest.mark.parametrize(
@@ -308,6 +327,7 @@ def test_package_can_be_resubmitted_with_lint_warning_acknowledged():
         ImportPackageRequest(
             filename="training.zip",
             content_base64=package,
+            start_date=date(2026, 8, 3),
             warning_acks=[warning],
         ),
     )

@@ -6,6 +6,7 @@ import json
 import struct
 from base64 import b64decode
 from binascii import Error as Base64Error
+from datetime import date
 from io import BytesIO
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Annotated, Any
@@ -44,6 +45,7 @@ class ImportPackageRequest(StrictDefaultsRequired):
 
     filename: Annotated[str, Field(min_length=1, max_length=255)]
     content_base64: Annotated[str, Field(max_length=MAX_PACKAGE_BASE64_CHARS)]
+    start_date: date
     warning_acks: Annotated[
         list[Annotated[str, Field(max_length=MAX_WARNING_ACK_CHARS)]],
         Field(max_length=MAX_WARNING_ACKS),
@@ -73,7 +75,11 @@ def import_package(repo: TrainingRepository, request: ImportPackageRequest) -> I
 
     return import_artifacts(
         repo,
-        ImportRequest(files=files, warning_acks=request.warning_acks),
+        ImportRequest(
+            files=files,
+            schedule_start=request.start_date.isoformat(),
+            warning_acks=request.warning_acks,
+        ),
     )
 
 
