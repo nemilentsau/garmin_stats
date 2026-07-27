@@ -98,16 +98,26 @@ def _block1_files() -> list[ImportFile]:
     ]
 
 
-def _imported_repo(*, include_measurement_event: bool = True) -> SqliteTrainingRepository:
+def _imported_repo(
+    *,
+    include_measurement_event: bool = True,
+    schedule_start: str | None = None,
+) -> SqliteTrainingRepository:
     repo = SqliteTrainingRepository()
-    result = import_artifacts(repo, ImportRequest(files=_block0_files()))
+    result = import_artifacts(
+        repo,
+        ImportRequest(files=_block0_files(), schedule_start=schedule_start),
+    )
     assert result.activated is True
     return repo if include_measurement_event else _NoMeasurementEventTrainingRepository()
 
 
-def _imported_block1_repo() -> SqliteTrainingRepository:
+def _imported_block1_repo(*, schedule_start: str | None = None) -> SqliteTrainingRepository:
     repo = SqliteTrainingRepository()
-    result = import_artifacts(repo, ImportRequest(files=_block1_files()))
+    result = import_artifacts(
+        repo,
+        ImportRequest(files=_block1_files(), schedule_start=schedule_start),
+    )
     assert result.activated is True
     return repo
 
@@ -280,6 +290,26 @@ class _NoMeasurementEventTrainingRepository(SqliteTrainingRepository):
         return stored.model_copy(update={"artifact": artifact})
 
 
+class _LegacyStartTrainingRepository(SqliteTrainingRepository):
+    """Simulate a pre-schedule_start row loaded from an existing database."""
+
+    def active_block(self):
+        stored = super().active_block()
+        assert stored is not None
+        return stored.model_copy(update={"schedule_start": None})
+
+
+class _NamedBlockTrainingRepository(SqliteTrainingRepository):
+    """Present an authored human name that cannot be inferred from the id."""
+
+    def active_block(self):
+        stored = super().active_block()
+        assert stored is not None
+        artifact = dict(stored.artifact)
+        artifact["name"] = "Athlete Threshold Build"
+        return stored.model_copy(update={"artifact": artifact})
+
+
 class _SharedCardMeasurementTrainingRepository(SqliteTrainingRepository):
     """Read-only test overlay with two events sharing one card and backup day."""
 
@@ -385,7 +415,9 @@ def test_today_at_window_start_returns_day_one_checkin_first_and_patched_segment
     response = get_training_today(repo, date="2026-07-06")
 
     assert response.block_id == "block0.calibration"
-    assert response.block_name == "block0.calibration"
+    assert response.block_name == "Calibration"
+    assert response.block_days == 28
+    assert response.schedule_start == "2026-07-06"
     assert response.day == 1
     assert [c.occurrence_key for c in response.cards] == [
         "support.v3:sup.daily:d01",
@@ -432,14 +464,70 @@ def test_today_at_window_end_boundary_returns_day_28_with_cards():
     assert len(response.cards) == 4
 
 
+@pytest.mark.parametrize(
+    ("requested_date", "expected_day"),
+    [
+        ("2026-08-02", None),
+        ("2026-08-03", 1),
+        ("2026-08-30", 28),
+        ("2026-08-31", None),
+    ],
+)
+def test_today_uses_import_selected_start_for_program_boundaries(
+    requested_date,
+    expected_day,
+):
+    repo = _imported_repo(schedule_start="2026-08-03")
+
+    response = get_training_today(repo, date=requested_date)
+
+    assert response.day == expected_day
+    assert bool(response.cards) is (expected_day is not None)
+
+
+def test_today_uses_authored_start_for_legacy_stored_block():
+    repo = _LegacyStartTrainingRepository()
+    result = import_artifacts(repo, ImportRequest(files=_block0_files()))
+    assert result.activated is True
+
+    response = get_training_today(repo, date="2026-07-06")
+
+    assert response.day == 1
+
+
 def test_today_with_no_active_block_returns_empty_response():
     repo = SqliteTrainingRepository()
     response = get_training_today(repo, date="2026-07-06")
 
     assert response.block_id is None
     assert response.block_name is None
+    assert response.block_days is None
+    assert response.schedule_start is None
     assert response.day is None
     assert response.cards == []
+
+
+def test_today_exposes_authored_program_and_concise_bundle_names():
+    repo = _imported_block1_repo()
+
+    response = get_training_today(repo, date="2026-07-13")
+
+    assert response.block_name == "Threshold Development"
+    assert {card.bundle_name for card in response.cards} == {
+        "Running",
+        "Strength",
+        "Support",
+    }
+
+
+def test_today_prefers_authored_program_name_over_internal_id():
+    repo = _NamedBlockTrainingRepository()
+    result = import_artifacts(repo, ImportRequest(files=_block0_files()))
+    assert result.activated is True
+
+    response = get_training_today(repo, date="2026-07-06")
+
+    assert response.block_name == "Athlete Threshold Build"
 
 
 # ---------- get_training_today: card projection details ----------
@@ -1137,6 +1225,41 @@ def test_schedule_window_uses_distinct_as_of_and_display_assessment_snapshots():
     assert run_port.evidence_calls == ["measurement-run"]
     assert assessment_port.calls == [
         ("measurement-run", "running.v3:run.lthr_test:d01", "2026-07-14"),
+        ("measurement-run", "running.v3:run.lthr_test:d01", None),
+    ]
+
+
+def test_schedule_and_measurement_horizons_use_import_selected_start():
+    repo = _imported_block1_repo(schedule_start="2026-08-03")
+    evidence = _measurement_evidence(session_date="2026-08-03")
+    run_port = _FakeRunActivityPort(
+        {"2026-08-03": [evidence.summary]},
+        evidence_by_run={evidence.summary.run_id: evidence},
+    )
+    assessment_port = _FakeMeasurementAssessmentPort(
+        TrainingMeasurementAssessment(
+            status="valid",
+            rationale="Runtime Day 1 protocol met.",
+            source_id="review-runtime-start",
+        )
+    )
+
+    window = get_training_schedule_window(
+        repo,
+        start_date="2026-08-03",
+        duration_days=1,
+        run_activity_port=run_port,
+        measurement_assessment_port=assessment_port,
+        as_of_date="2026-08-03",
+    )
+
+    assert window.days[0].day == 1
+    card = _card(window.days[0], "running.v3:run.lthr_test:d01")
+    assert card.measurement is not None
+    assert card.measurement.status == "valid"
+    assert run_port.calls == [("2026-08-03", "2026-08-03")]
+    assert assessment_port.calls == [
+        ("measurement-run", "running.v3:run.lthr_test:d01", "2026-08-04"),
         ("measurement-run", "running.v3:run.lthr_test:d01", None),
     ]
 
@@ -1861,6 +1984,7 @@ def test_block_status_reports_lint_report_and_dynamic_current_day():
     assert status.lint_report.errors == []
     assert status.warning_acks == []
     assert status.activated_at
+    assert status.schedule_start == "2026-07-06"
 
     expected_day = (date.today() - date(2026, 7, 6)).days + 1
     if 1 <= expected_day <= 28:
@@ -1869,6 +1993,18 @@ def test_block_status_reports_lint_report_and_dynamic_current_day():
     else:
         assert status.current_day is None
         assert status.burn_in is None
+
+
+def test_block_status_current_day_uses_import_selected_start():
+    runtime_today = date.today().isoformat()
+    repo = _imported_repo(schedule_start=runtime_today)
+
+    status = get_block_status(repo)
+
+    assert status is not None
+    assert status.schedule_start == runtime_today
+    assert status.current_day == 1
+    assert status.burn_in is True
 
 
 # ---------- upsert_training_log ----------

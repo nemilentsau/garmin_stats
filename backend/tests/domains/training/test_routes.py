@@ -31,6 +31,7 @@ def test_import_route_delegates_one_package_to_training_application(monkeypatch)
     package = ImportPackageRequest(
         filename="training.zip",
         content_base64="UEs=",
+        start_date=Date(2026, 8, 3),
         warning_acks=[],
     )
     expected = ImportResult()
@@ -61,6 +62,7 @@ def test_import_route_returns_readable_400_for_invalid_zip():
         json={
             "filename": "training.zip",
             "content_base64": "bm90IGEgemlw",
+            "start_date": "2026-08-03",
             "warning_acks": [],
         },
     )

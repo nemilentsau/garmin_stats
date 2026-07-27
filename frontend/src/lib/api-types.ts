@@ -2987,6 +2987,11 @@ export interface components {
             /** Content Base64 */
             content_base64: string;
             /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
              * Warning Acks
              * @default []
              */
@@ -4963,6 +4968,10 @@ export interface components {
          */
         TrainingBlockStatus: {
             block: components["schemas"]["V3Block"];
+            /** Block Name */
+            block_name: string;
+            /** Schedule Start */
+            schedule_start: string;
             lint_report: components["schemas"]["LintReport"];
             /**
              * Warning Acks
@@ -5534,6 +5543,10 @@ export interface components {
             block_id: string | null;
             /** Block Name */
             block_name: string | null;
+            /** Block Days */
+            block_days: number | null;
+            /** Schedule Start */
+            schedule_start: string | null;
             /** Day */
             day: number | null;
             /**
@@ -5683,6 +5696,8 @@ export interface components {
         V3Block: {
             /** Id */
             id: string;
+            /** Name */
+            name: string | null;
             /**
              * Identity
              * @enum {string}

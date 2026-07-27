@@ -57,6 +57,7 @@ class ImportRequest(StrictDefaultsRequired):
     """An upload batch plus any lint warnings the caller has already accepted."""
 
     files: list[ImportFile]
+    schedule_start: str | None = None
     warning_acks: list[str] = []
 
 
@@ -253,6 +254,7 @@ def import_artifacts(repo: TrainingRepository, request: ImportRequest) -> Import
                 lint_report=lint_report,
                 warning_acks=list(request.warning_acks),
                 activated_at=now_iso(),
+                schedule_start=request.schedule_start or block.window.start,
             )
             stored_bundles = [
                 StoredBundle(

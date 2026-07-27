@@ -10,6 +10,7 @@
 	 */
 	import { onMount } from 'svelte';
 	import { api, type ImportResult, type TrainingBlockStatus } from '$lib/api';
+	import { fmtFullDate, isIsoDateString, parseIsoDate } from '$lib/date';
 	import { fmt } from '$lib/format';
 	import { errorMessage } from '$lib/utils';
 
@@ -24,15 +25,19 @@
 	let blockStatus = $state<TrainingBlockStatus | null>(null);
 
 	let selectedPackage = $state<SelectedPackage | null>(null);
+	let startDate = $state('');
 	let packageReading = $state(false);
 	let selectionVersion = 0;
 
 	let importing = $state(false);
 	let importError = $state<string | null>(null);
 	let result = $state<ImportResult | null>(null);
+	let activatedStartDate = $state<string | null>(null);
 	let ackedWarnings = $state<string[]>([]);
 
-	const canImport = $derived(selectedPackage !== null && !packageReading && !importing);
+	const canImport = $derived(
+		selectedPackage !== null && isIsoDateString(startDate) && !packageReading && !importing
+	);
 	const lintReport = $derived(result?.lint_report ?? null);
 
 	const weekKeys = $derived.by(() => {
@@ -74,6 +79,10 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
+	function fmtProgramDate(date: string): string {
+		return fmtFullDate(parseIsoDate(date));
+	}
+
 	function bytesToBase64(bytes: Uint8Array): string {
 		const chunkSize = 0x8000;
 		let binary = '';
@@ -109,6 +118,7 @@
 		packageReading = true;
 		selectedPackage = null;
 		result = null;
+		activatedStartDate = null;
 		importError = null;
 		ackedWarnings = [];
 		if (file.size > MAX_PACKAGE_BYTES) {
@@ -137,15 +147,18 @@
 
 	async function handleImport(): Promise<void> {
 		if (!selectedPackage) return;
+		const submittedStartDate = startDate;
 		importing = true;
 		importError = null;
 		try {
 			result = await api.importTraining({
 				filename: selectedPackage.filename,
 				content_base64: selectedPackage.contentBase64,
+				start_date: submittedStartDate,
 				warning_acks: ackedWarnings
 			});
 			if (result.activated) {
+				activatedStartDate = submittedStartDate;
 				await loadBlockStatus();
 			}
 		} catch (e: unknown) {
@@ -173,8 +186,11 @@
 			{#if blockLoading}
 				Checking active block&hellip;
 			{:else if blockStatus}
-				<span class="block-id">{blockStatus.block.id}</span>
-				<span class="block-day">day {blockStatus.current_day ?? '—'} of {blockStatus.block.window.days}</span>
+				<span class="block-name">{blockStatus.block_name}</span>
+				<span>Starts {fmtProgramDate(blockStatus.schedule_start)}</span>
+				{#if blockStatus.current_day !== null}
+					<span class="block-day">Day {blockStatus.current_day} of {blockStatus.block.window.days}</span>
+				{/if}
 				{#if blockStatus.burn_in}
 					<span class="burn-in-tag">burn-in</span>
 				{/if}
@@ -190,14 +206,22 @@
 			<span class="hint">one .zip — one authored program</span>
 		</div>
 
-		<label class="file-picker">
-			<input
-				type="file"
-				accept=".zip,application/zip"
-				onclick={(e) => ((e.currentTarget as HTMLInputElement).value = '')}
-				onchange={handleFileSelection}
-			/>
-		</label>
+		<div class="package-controls">
+			<label class="file-picker">
+				<span>Program package</span>
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					disabled={importing}
+					onclick={(e) => ((e.currentTarget as HTMLInputElement).value = '')}
+					onchange={handleFileSelection}
+				/>
+			</label>
+			<label class="start-field">
+				<span>Program starts</span>
+				<input type="date" bind:value={startDate} required disabled={importing} />
+			</label>
+		</div>
 
 		{#if packageReading}
 			<div class="package-summary loading">Reading package&hellip;</div>
@@ -224,8 +248,8 @@
 
 	{#if result}
 		<div class="panel">
-			{#if result.activated}
-				<div class="success-banner">Block activated. <a href="/today">Go to Today</a></div>
+			{#if result.activated && activatedStartDate}
+				<div class="success-banner">Program activated for {fmtProgramDate(activatedStartDate)}. <a href="/today">Go to Today</a></div>
 			{/if}
 
 			<div class="panel-header">
@@ -390,7 +414,7 @@
 		color: #6b8292;
 	}
 
-	.block-id {
+	.block-name {
 		color: #eef5f8;
 		font-weight: 500;
 	}
@@ -452,10 +476,46 @@
 		color: #d4944c;
 	}
 
+	.package-controls {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 24px;
+	}
+
+	.file-picker,
+	.start-field {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+		font-family: 'DM Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: #8fa3b0;
+	}
+
+	.file-picker {
+		flex: 1;
+	}
+
 	.file-picker input[type='file'] {
 		font-family: 'DM Mono', monospace;
 		font-size: 12px;
 		color: #8fa3b0;
+	}
+
+	.start-field input {
+		color-scheme: dark;
+		min-width: 160px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 8px;
+		background: rgba(8, 15, 24, 0.7);
+		color: #c8d6df;
+		padding: 7px 10px;
+		font-family: 'DM Mono', monospace;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	.file-picker input[type='file']::file-selector-button {

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,8 +43,10 @@ from app.domains.garmin_health.contracts import (
 )
 from app.domains.journal.contracts import DailyCheckIn, Note
 from app.domains.training.contracts import (
+    BlockWindow,
     TrainingScheduleWindow,
     TrainingTodayResponse,
+    V3Block,
 )
 
 NOW = "2026-07-12T12:00:00Z"
@@ -139,6 +142,7 @@ class FakeCoachGateway:
                 content="Fresh",
             )
         ]
+        self.block_status_value: object | None = None
 
     def recent_runs(self, *, evidence_date: str, limit: int = 20) -> list[RunListItem]:
         self.recent_runs_calls.append(limit)
@@ -204,7 +208,7 @@ class FakeCoachGateway:
         )
 
     def block_status(self):
-        return None
+        return self.block_status_value
 
     def checkins(self, *, last_n: int | None = None) -> list[DailyCheckIn]:
         del last_n
@@ -530,6 +534,40 @@ def test_missing_evidence_is_explicit_and_transcript_is_written(tmp_path, fake_p
     assert "No recovery overview available" in (root / "recovery.md").read_text()
     assert "No runs available" in (root / "runs/digest.md").read_text()
     assert "What now?" in (root / "transcript.md").read_text()
+
+
+def test_training_plan_uses_runtime_start_instead_of_authored_window_start(
+    tmp_path,
+    fake_plots,
+):
+    gateway = FakeCoachGateway(run_count=0)
+    gateway.block_status_value = SimpleNamespace(
+        block=V3Block(
+            id="block1.internal_id",
+            name="Threshold Development",
+            identity="development",
+            window=BlockWindow(start="2026-07-13", days=28),
+            bundle_ids=[],
+        ),
+        schedule_start="2026-08-03",
+    )
+    from app.domains.coach.application.workspace import assemble_workspace
+
+    manifest = assemble_workspace(
+        gateway,  # type: ignore[arg-type]
+        FakeCoachRepository(),  # type: ignore[arg-type]
+        directory=tmp_path / "workspace",
+        plot_cache_dir=tmp_path / "cache",
+        evidence_date="2026-08-03",
+        target_date="2026-08-03",
+        question_md="Review Day 1",
+        current_run_id=None,
+        transcript=None,
+    )
+
+    plan = (Path(manifest.directory) / "plan.md").read_text()
+    assert "Target block day: 1" in plan
+    assert "Block window: 2026-08-03 for 28 days" in plan
 
 
 def test_date_review_and_plot_refs_resolve_and_traversal_is_skipped_and_reported(
