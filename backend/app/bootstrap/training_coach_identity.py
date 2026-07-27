@@ -9,6 +9,19 @@ from typing import Any
 
 from app.domains.training.domain.instance_identity import is_occurrence_id, occurrence_id
 
+_COACH_OCCURRENCE_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "coach_reviews": (
+        ("occurrence_key",),
+        ("measurement_assessment", "occurrence_key"),
+    ),
+    "coach_review_revisions": (
+        ("occurrence_key",),
+        ("measurement_assessment", "occurrence_key"),
+    ),
+    "coach_messages": (("measurement_assessment", "occurrence_key"),),
+    "coach_jobs": (("payload", "occurrence_key"),),
+}
+
 
 def _namespace(value: object, instance_id: str) -> object:
     if not isinstance(value, str) or is_occurrence_id(value):
@@ -30,6 +43,65 @@ def _rewrite_path(payload: dict[str, Any], path: Sequence[str], instance_id: str
         return False
     owner[leaf] = rewritten
     return True
+
+
+def _path_value(payload: dict[str, Any], path: Sequence[str]) -> object:
+    owner: object = payload
+    for key in path:
+        if not isinstance(owner, dict):
+            return None
+        owner = owner.get(key)
+    return owner
+
+
+def _is_legacy_occurrence(value: object) -> bool:
+    return isinstance(value, str) and not is_occurrence_id(value)
+
+
+def legacy_coach_occurrence_identity_migration_pending(
+    connection: sqlite3.Connection,
+) -> bool:
+    """Return whether startup can namespace any legacy Coach reference."""
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+    if "training_blocks" not in tables:
+        return False
+    active = connection.execute(
+        "SELECT json_extract(data, '$.program_instance_id') AS instance_id "
+        "FROM training_blocks WHERE json_extract(data, '$.status') = 'active' "
+        "ORDER BY updated_at DESC LIMIT 1"
+    ).fetchone()
+    if active is None or not isinstance(active["instance_id"], str):
+        return False
+
+    if "coach_reviews" in tables:
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(coach_reviews)")
+        }
+        if "occurrence_key" in columns:
+            keys = connection.execute(
+                "SELECT occurrence_key FROM coach_reviews "
+                "WHERE occurrence_key IS NOT NULL"
+            ).fetchall()
+            if any(_is_legacy_occurrence(row["occurrence_key"]) for row in keys):
+                return True
+
+    for table, paths in _COACH_OCCURRENCE_PATHS.items():
+        if table not in tables:
+            continue
+        rows = connection.execute(f'SELECT data FROM "{table}"').fetchall()
+        for row in rows:
+            payload = json.loads(row["data"])
+            if not isinstance(payload, dict):
+                continue
+            if any(_is_legacy_occurrence(_path_value(payload, path)) for path in paths):
+                return True
+    return False
 
 
 def _rewrite_json_rows(
@@ -82,24 +154,24 @@ def migrate_legacy_coach_occurrence_identity(connection: sqlite3.Connection) -> 
     _rewrite_json_rows(
         connection,
         table="coach_reviews",
-        paths=(("occurrence_key",), ("measurement_assessment", "occurrence_key")),
+        paths=_COACH_OCCURRENCE_PATHS["coach_reviews"],
         instance_id=instance_id,
     )
     _rewrite_json_rows(
         connection,
         table="coach_review_revisions",
-        paths=(("occurrence_key",), ("measurement_assessment", "occurrence_key")),
+        paths=_COACH_OCCURRENCE_PATHS["coach_review_revisions"],
         instance_id=instance_id,
     )
     _rewrite_json_rows(
         connection,
         table="coach_messages",
-        paths=(("measurement_assessment", "occurrence_key"),),
+        paths=_COACH_OCCURRENCE_PATHS["coach_messages"],
         instance_id=instance_id,
     )
     _rewrite_json_rows(
         connection,
         table="coach_jobs",
-        paths=(("payload", "occurrence_key"),),
+        paths=_COACH_OCCURRENCE_PATHS["coach_jobs"],
         instance_id=instance_id,
     )

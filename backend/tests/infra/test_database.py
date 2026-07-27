@@ -416,6 +416,137 @@ class TestPreMigrationBackup:
             ]
         assert live_ids == ["exposure:manual:dup-exp:2026-01-01:b"]
 
+    def test_legacy_training_identity_rewrite_backs_up_original_rows(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from app.bootstrap import schema as storage_schema
+
+        test_db = tmp_path / "backup-training-identity.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+        storage_schema.init_storage()
+        legacy_log_id = "2026-01-01:bundle-1:session-1"
+        with sqlite.connect() as con:
+            con.execute(
+                "INSERT INTO training_blocks (id, data, created_at, updated_at) "
+                "VALUES ('block-1', ?, 'now', 'now')",
+                (
+                    json.dumps(
+                        {
+                            "status": "active",
+                            "schedule_start": "2026-01-01",
+                            "artifact": {
+                                "bundle_ids": ["bundle-1"],
+                                "window": {"start": "2026-01-01"},
+                            },
+                        }
+                    ),
+                ),
+            )
+            con.execute(
+                "INSERT INTO training_bundles (id, data, created_at, updated_at) "
+                "VALUES ('bundle-1', ?, 'now', 'now')",
+                (json.dumps({"status": "active", "artifact": {"id": "bundle-1"}}),),
+            )
+            for table in ("training_registry", "training_exercise_library"):
+                con.execute(
+                    f'INSERT INTO "{table}" (id, data, created_at, updated_at) '
+                    "VALUES ('singleton', ?, 'now', 'now')",
+                    (json.dumps({"artifact": {}}),),
+                )
+            con.execute(
+                "INSERT INTO training_card_logs (id, data, created_at, updated_at) "
+                "VALUES (?, ?, 'now', 'now')",
+                (
+                    legacy_log_id,
+                    json.dumps(
+                        {
+                            "id": legacy_log_id,
+                            "date": "2026-01-01",
+                            "occurrence_key": "bundle-1:session-1",
+                        }
+                    ),
+                ),
+            )
+            con.commit()
+
+        storage_schema.init_storage()
+
+        backups = list((test_db.parent / "backups").glob("pre-migration-*.db"))
+        assert len(backups) == 1
+        with sqlite.connect(str(backups[0])) as con:
+            block = con.execute(
+                "SELECT data FROM training_blocks WHERE id = 'block-1'"
+            ).fetchone()
+            assert json.loads(block["data"]).get("program_instance_id") is None
+            assert con.execute(
+                "SELECT 1 FROM training_card_logs WHERE id = ?", (legacy_log_id,)
+            ).fetchone() is not None
+        with sqlite.connect() as con:
+            assert storage_schema._destructive_migration_pending(con) is False
+
+        storage_schema.init_storage()
+
+        assert list((test_db.parent / "backups").glob("pre-migration-*.db")) == backups
+
+    def test_legacy_coach_occurrence_rewrite_backs_up_original_rows(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from app.bootstrap import schema as storage_schema
+        from app.domains.training.domain.instance_identity import program_instance_id
+
+        test_db = tmp_path / "backup-coach-occurrence.db"
+        monkeypatch.setattr(sqlite, "DB_PATH", test_db)
+        storage_schema.init_storage()
+        instance_id = program_instance_id(
+            block={},
+            bundles=[],
+            registry={},
+            library={},
+            schedule_start="2026-01-01",
+        )
+        legacy_key = "bundle-1:session-1"
+        with sqlite.connect() as con:
+            con.execute(
+                "INSERT INTO training_blocks (id, data, created_at, updated_at) "
+                "VALUES ('block-1', ?, 'now', 'now')",
+                (
+                    json.dumps(
+                        {
+                            "status": "active",
+                            "program_instance_id": instance_id,
+                        }
+                    ),
+                ),
+            )
+            con.execute(
+                "INSERT INTO coach_reviews "
+                "(id, date, kind, run_id, occurrence_key, status, updated_at, data) "
+                "VALUES ('review-1', '2026-01-01', 'run', 'run-1', ?, "
+                "'complete', 'now', ?)",
+                (legacy_key, json.dumps({"occurrence_key": legacy_key})),
+            )
+            con.commit()
+
+        storage_schema.init_storage()
+
+        backups = list((test_db.parent / "backups").glob("pre-migration-*.db"))
+        assert len(backups) == 1
+        with sqlite.connect(str(backups[0])) as con:
+            backed_up = con.execute(
+                "SELECT occurrence_key FROM coach_reviews WHERE id = 'review-1'"
+            ).fetchone()
+        assert backed_up["occurrence_key"] == legacy_key
+        with sqlite.connect() as con:
+            assert storage_schema._destructive_migration_pending(con) is False
+
+        storage_schema.init_storage()
+
+        assert list((test_db.parent / "backups").glob("pre-migration-*.db")) == backups
+
 
 # ---------------------------------------------------------------------------
 # Store and load round-trips

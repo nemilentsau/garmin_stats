@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS training_exercise_library ({JSON_RECORD_COLUMNS_SQL})
 CREATE TABLE IF NOT EXISTS training_card_logs ({JSON_RECORD_COLUMNS_SQL});
 """
 
+_IDENTITY_MIGRATION_TABLES = {
+    "training_blocks",
+    "training_bundles",
+    "training_registry",
+    "training_exercise_library",
+}
+
 
 def init_training_schema(con: sqlite3.Connection) -> None:
     """Create training-owned tables and namespace pre-identity capture logs."""
@@ -33,14 +40,16 @@ def init_training_schema(con: sqlite3.Connection) -> None:
     _migrate_program_instance_identity(con)
 
 
-def _migrate_program_instance_identity(con: sqlite3.Connection) -> None:
-    """Assign the active legacy import and its logs one deterministic owner.
-
-    Old databases have no import-generation identity. The only honest mapping
-    available is their active complete artifact set, so startup derives that
-    identity and rekeys every still-unnamespaced log in the same transaction.
-    A destination-key collision raises instead of overwriting either row.
-    """
+def _legacy_program_identity(
+    con: sqlite3.Connection,
+) -> tuple[str, dict[str, Any], str] | None:
+    """Prepare the deterministic identity for an eligible legacy import."""
+    tables = {
+        row[0]
+        for row in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    if not _IDENTITY_MIGRATION_TABLES.issubset(tables):
+        return None
     block_row = con.execute(
         "SELECT id, data FROM training_blocks "
         "WHERE json_extract(data, '$.status') = 'active' "
@@ -89,10 +98,30 @@ def _migrate_program_instance_identity(con: sqlite3.Connection) -> None:
         library=library,
         schedule_start=schedule_start,
     )
+    return block_row["id"], block_data, instance_id
+
+
+def program_instance_identity_migration_pending(con: sqlite3.Connection) -> bool:
+    """Return whether startup can assign a legacy import its durable identity."""
+    return _legacy_program_identity(con) is not None
+
+
+def _migrate_program_instance_identity(con: sqlite3.Connection) -> None:
+    """Assign the active legacy import and its logs one deterministic owner.
+
+    Old databases have no import-generation identity. The only honest mapping
+    available is their active complete artifact set, so startup derives that
+    identity and rekeys every still-unnamespaced log in the same transaction.
+    A destination-key collision raises instead of overwriting either row.
+    """
+    prepared = _legacy_program_identity(con)
+    if prepared is None:
+        return
+    block_id, block_data, instance_id = prepared
     block_data["program_instance_id"] = instance_id
     con.execute(
         "UPDATE training_blocks SET data = ? WHERE id = ?",
-        (json.dumps(block_data, separators=(",", ":")), block_row["id"]),
+        (json.dumps(block_data, separators=(",", ":")), block_id),
     )
 
     legacy_logs = con.execute(
