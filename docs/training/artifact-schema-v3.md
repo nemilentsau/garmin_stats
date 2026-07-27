@@ -8,7 +8,7 @@ The governing behavior is in [`principles.md`](principles.md). Current implement
 
 ## Repository artifacts
 
-- [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/) is the latest authored program source retained in the repository. Its six JSON artifacts are packaged into the one ZIP accepted by the import surface; its presence here does not imply runtime activation.
+- [`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip) is the latest authored program retained in the repository and the exact file accepted by the import surface. Its six JSON artifacts exist only as members of that package; repository presence does not imply runtime activation.
 - `backend/tests/fixtures/training/v3-calibration/` contains the read-only calibration artifacts and expected lint report used by contract, validator, import, and read-model tests.
 - `lint_report.json` and compiled schedules are outputs, not content ingress. The runtime compiles and lints an upload during activation and persists the resulting report with the active block.
 

@@ -20,8 +20,8 @@
 	 * the merge here — rather than having each child replay the other slices from its own
 	 * stale seed — is what prevents a card that combines capture kinds (nothing in the schema
 	 * forbids it, even though the latest authored v3 program doesn't do so today, see
-	 * `docs/training/programs/threshold-development-2026-07-13/*.json`) from silently
-	 * reverting a sibling's staged edit.
+	 * `docs/training/programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip`)
+	 * from silently reverting a sibling's staged edit.
 	 *
 	 * Run-link (`associated_activity`/`run_candidates`, `running.v3` cards only — every other
 	 * card gets both empty/null from the backend, so the block below is naturally a no-op for

@@ -10,8 +10,9 @@ the authored programs retained in the repository.
   and activation contract.
 - [`roadmap.md`](roadmap.md) records the current implementation boundary and
   remaining work.
-- [`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/)
-  is the latest authored program checked into the repository.
+- [`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip)
+  is the latest authored program checked into the repository and the exact file
+  accepted by Training Import.
 
 "Latest authored" is not the same as "active." A checked-in program becomes
 active only after the complete artifact set passes import validation and is
@@ -26,18 +27,18 @@ authored program and contains its block, running, strength, support, registry,
 and exercise-library JSON artifacts. The backend shows and validates those six
 artifacts after you submit the package; you do not select them individually.
 
-The latest checked-in source is
-[`programs/threshold-development-2026-07-13/`](programs/threshold-development-2026-07-13/).
-When packaging that source, include its six JSON files. The Markdown review may
-be present in the ZIP because the importer ignores non-JSON documentation.
+Import
+[`threshold-development-2026-07-13.zip`](programs/threshold-development-2026-07-13/threshold-development-2026-07-13.zip)
+for the latest checked-in program. Do not select or package JSON files yourself.
 
 ## Authored programs
 
-Program directories use a descriptive name plus their planned start date. The
-JSON filenames and internal artifact IDs remain unchanged because import stores
-authored content without translating it. Packages are authored outside the app;
-the app does not generate ZIPs, lint reports, compiled schedules, or any other
-derived training content.
+Program directories use a descriptive name plus their planned start date. Each
+directory keeps one canonical authored ZIP plus any human review documentation;
+it does not keep loose copies of the ZIP's JSON members. Internal filenames and
+artifact IDs remain unchanged because import stores authored content without
+translating it. The app does not generate ZIPs, lint reports, compiled schedules,
+or any other derived training content.
 
 ## Test fixtures
 
