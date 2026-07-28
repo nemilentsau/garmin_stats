@@ -277,6 +277,11 @@ export const api = {
 	enqueueCoachDayReview: async (date: string) => {
 		return unwrapResponse(client.POST('/api/coach/reviews/day', { body: { date } }));
 	},
+	enqueueCoachWeekReview: async (weekStart: string) => {
+		return unwrapResponse(
+			client.POST('/api/coach/reviews/week', { body: { week_start: weekStart } })
+		);
+	},
 	retryCoachReview: async (reviewId: string) => {
 		return unwrapResponse(client.POST('/api/coach/reviews/{review_id}/retry', {
 			params: { path: { review_id: reviewId } }

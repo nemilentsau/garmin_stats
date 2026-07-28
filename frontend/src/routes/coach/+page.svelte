@@ -35,6 +35,7 @@
 	let error: string | null = $state(null);
 	let draft = $state('');
 	let reviewDraft = $state('');
+	let weekReviewDate = $state('');
 	let reviewThread: CoachThread | null = $state(null);
 	let newThreadTitle = $state('');
 	let busy = $state(false);
@@ -340,6 +341,24 @@
 		}
 	}
 
+	// The backend owns the Monday invariant (422s on non-Mondays); this control never
+	// computes or defaults a date — the user picks one and the API validates it.
+	async function requestWeekReview(): Promise<void> {
+		const weekStart = weekReviewDate;
+		if (!weekStart || busy) return;
+		busy = true;
+		try {
+			const result = await api.enqueueCoachWeekReview(weekStart);
+			await refreshAll();
+			if (result.review) await chooseReview(result.review);
+			weekReviewDate = '';
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function closeThread(): Promise<void> {
 		if (!activeThreadId) return;
 		busy = true;
@@ -403,7 +422,24 @@
 				>Conversation</button>
 			</div>
 		</div>
-		{#if workerLine}<span class="worker-line">{workerLine}</span>{/if}
+		<div class="heading-right">
+			{#if tab === 'reviews'}
+				<div class="week-review-control">
+					<input
+						type="date"
+						class="date-input"
+						bind:value={weekReviewDate}
+						aria-label="Week start date for weekly synthesis"
+					/>
+					<button
+						class="btn"
+						onclick={requestWeekReview}
+						disabled={busy || !weekReviewDate}
+					>Review my week</button>
+				</div>
+			{/if}
+			{#if workerLine}<span class="worker-line">{workerLine}</span>{/if}
+		</div>
 	</header>
 
 	{#if error}<p class="error-line" role="alert">{error}</p>{/if}
@@ -483,9 +519,12 @@
 								<p class="pane-headline">{activeReview.headline}</p>
 							{/if}
 							<p class="pane-meta">
-								{activeReview.status.replaceAll('_', ' ')} · {reviewOutcome(activeReview)}
-								{#if activeReview.measurement_assessment}
-									· {measurementLabel(activeReview.measurement_assessment.status)}
+								{activeReview.status.replaceAll('_', ' ')}
+								{#if activeReview.kind !== 'week'}
+									· {reviewOutcome(activeReview)}
+									{#if activeReview.measurement_assessment}
+										· {measurementLabel(activeReview.measurement_assessment.status)}
+									{/if}
 								{/if}
 							</p>
 						</div>
@@ -777,6 +816,27 @@
 	}
 	.worker-line {
 		color: #708392;
+		font-size: 13px;
+	}
+	.heading-right {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+	.week-review-control {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.date-input {
+		width: auto;
+		color-scheme: dark;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(8, 15, 24, 0.7);
+		color: #c8d6df;
+		border-radius: 9px;
+		padding: 8px 10px;
+		font-family: 'DM Mono', monospace;
 		font-size: 13px;
 	}
 
