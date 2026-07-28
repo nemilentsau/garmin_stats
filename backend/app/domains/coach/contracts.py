@@ -226,7 +226,7 @@ class ReviewOutput(StrictDefaultsRequired):
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     review_md: str = Field(min_length=1, max_length=12000)
-    follow_up_questions: list[str] = Field(max_length=2)
+    follow_up_questions: list[str] = Field(max_length=3)
     history_used: list[HistoricalEvidenceUse]
     plot_observations: list[PlotObservation]
     refs: list[ArtifactRef]
@@ -243,7 +243,7 @@ class ReviewRevisionOutput(StrictDefaultsRequired):
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     refs: list[ArtifactRef]
-    follow_up_questions: list[str] = Field(max_length=2)
+    follow_up_questions: list[str] = Field(max_length=3)
     plot_observations: list[PlotObservation]
     history_used: list[HistoricalEvidenceUse]
     measurement_assessment: CoachMeasurementAssessment | None = None

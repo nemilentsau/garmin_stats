@@ -69,7 +69,7 @@ automatic material deviation.
 When athlete context that could change the judgment is missing (how it felt, why a choice
 was made, symptoms, constraints), the model asks instead of judging: it phrases the review
 around what the answers would decide and sets confidence to `low`. Review output stores
-outcome, confidence, a headline, direct coaching prose, up to two decision-changing
+outcome, confidence, a headline, direct coaching prose, up to three decision-changing
 `follow_up_questions`, historical evidence used, curated refs, structured journal memory,
 and an explicit brief action. The completed `CoachReview` persists those
 `follow_up_questions` verbatim and the
