@@ -1588,6 +1588,8 @@ export interface components {
             outcome: ("completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned") | null;
             /** Confidence */
             confidence: ("low" | "moderate" | "high") | null;
+            /** Headline */
+            headline: string | null;
             /** Content Md */
             content_md: string | null;
             /**

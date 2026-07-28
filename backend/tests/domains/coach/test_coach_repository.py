@@ -63,6 +63,7 @@ def _review_output(
 ) -> ReviewOutput:
     journal = _run_journal_summary().model_copy(update={"takeaway": takeaway})
     return ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="The run achieved its intended purpose.",
@@ -330,6 +331,7 @@ def test_linked_chat_only_changes_review_for_explicit_revision_output():
             answer_md="I updated the review with the air-quality context.",
             refs=[ArtifactRef(kind="run", value="run-1")],
             review_revision=ReviewRevisionOutput(
+                headline="Run cut short by unsafe air quality.",
                 content_md="The run ended early because air quality became unsafe.",
                 outcome="completed_with_material_deviation",
                 confidence="high",
@@ -397,6 +399,7 @@ def test_review_revision_is_rejected_without_durable_user_correction_intent():
                 answer_md="I changed it.",
                 refs=[ArtifactRef(kind="run", value="run-1")],
                 review_revision=ReviewRevisionOutput(
+                    headline="Changed without authorization.",
                     content_md="Changed without authorization.",
                     outcome="completed_with_material_deviation",
                     confidence="low",
@@ -436,6 +439,7 @@ def test_review_revision_rejects_plot_refs_without_matching_observations():
                 answer_md="I updated the review.",
                 refs=[ArtifactRef(kind="run", value="run-1")],
                 review_revision=ReviewRevisionOutput(
+                    headline="Corrected review.",
                     content_md="Corrected review.",
                     outcome="completed_as_intended",
                     confidence="high",
@@ -472,6 +476,7 @@ def test_review_revision_rejects_measurement_assessment_for_another_occurrence()
                 answer_md="I updated the review.",
                 refs=[ArtifactRef(kind="run", value="run-1")],
                 review_revision=ReviewRevisionOutput(
+                    headline="Corrected review.",
                     content_md="Corrected review.",
                     outcome="completed_as_intended",
                     confidence="high",

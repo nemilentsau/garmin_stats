@@ -151,6 +151,7 @@ class CoachReview(StrictDefaultsRequired):
     verdict: LegacyReviewVerdict | None = None
     outcome: ReviewOutcome | None = None
     confidence: ReviewConfidence | None = None
+    headline: str | None = None
     content_md: str | None = None
     refs: list[ArtifactRef] = []
     follow_up_questions: list[str] = []
@@ -221,6 +222,7 @@ class CoachJob(StrictDefaultsRequired):
 
 
 class ReviewOutput(StrictDefaultsRequired):
+    headline: str = Field(min_length=1, max_length=160)
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     review_md: str = Field(min_length=1, max_length=12000)
@@ -236,6 +238,7 @@ class ReviewOutput(StrictDefaultsRequired):
 class ReviewRevisionOutput(StrictDefaultsRequired):
     """An explicit correction to the linked review, never an ordinary chat side effect."""
 
+    headline: str = Field(min_length=1, max_length=160)
     content_md: str = Field(min_length=1, max_length=12000)
     outcome: ReviewOutcome
     confidence: ReviewConfidence

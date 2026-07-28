@@ -432,6 +432,7 @@ class SqliteCoachRepository:
                     "status": "complete",
                     "outcome": output.outcome,
                     "confidence": output.confidence,
+                    "headline": output.headline,
                     "content_md": output.review_md,
                     "refs": output.refs,
                     "follow_up_questions": list(output.follow_up_questions),
@@ -732,6 +733,7 @@ class SqliteCoachRepository:
                 version = int(version_row["version"]) + 1
                 revised = review.model_copy(
                     update={
+                        "headline": revision_output.headline,
                         "content_md": revision_output.content_md,
                         "outcome": revision_output.outcome,
                         "confidence": revision_output.confidence,

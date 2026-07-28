@@ -47,6 +47,7 @@ def _review_output(
     assessment: CoachMeasurementAssessment | None,
 ) -> ReviewOutput:
     return ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="Review",
@@ -531,6 +532,7 @@ def _revise_review(
             answer_md="I added the heat context to the review.",
             refs=[ArtifactRef(kind="run", value="run-1")],
             review_revision=ReviewRevisionOutput(
+                headline="Review, with the heat context stated.",
                 content_md="Review, with the heat context stated.",
                 outcome="completed_as_intended",
                 confidence="high",

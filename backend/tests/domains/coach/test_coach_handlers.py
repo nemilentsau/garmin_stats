@@ -86,6 +86,7 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
 
 def _review_output() -> ReviewOutput:
     return ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="The session met the intended easy-day purpose.",
@@ -149,6 +150,24 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     assert brief is not None
     assert brief.content_md.startswith("Current approach")
     assert brief.policy_version == 2
+
+
+def test_review_completion_persists_headline(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output()  # after Step 3 this helper includes headline
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.headline == "Controlled easy day; recovery on track."
 
 
 def test_review_prompt_names_exact_measurement_assessment_target(tmp_path, monkeypatch):
@@ -493,6 +512,7 @@ def test_chat_revision_rejects_unavailable_direct_and_historical_plots(
         answer_md="I updated the review.",
         refs=[ArtifactRef(kind="run", value="run-1")],
         review_revision=ReviewRevisionOutput(
+            headline="Revised interpretation cites unavailable plots.",
             content_md="The revised interpretation cites two unavailable plots.",
             outcome="completed_with_material_deviation",
             confidence="moderate",

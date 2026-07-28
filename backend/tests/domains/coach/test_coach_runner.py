@@ -27,6 +27,7 @@ from app.domains.coach.infra.runner import (
 
 def _review_json(**updates) -> str:
     value = ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="Sound run.",

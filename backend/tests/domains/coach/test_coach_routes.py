@@ -47,6 +47,7 @@ def _complete_review(repo: SqliteCoachRepository):
         review_id=review.id,
         job_id=job.id,
         output=ReviewOutput(
+            headline="Controlled easy day; recovery on track.",
             outcome="completed_as_intended",
             confidence="high",
             review_md="Purpose achieved.",

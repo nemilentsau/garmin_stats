@@ -75,6 +75,7 @@ def test_plot_observation_enforces_bounded_evidence_statement():
 
 def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility():
     review_output = contracts.ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="Review",
@@ -126,6 +127,7 @@ def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility(
 def test_new_review_output_separates_outcome_confidence_and_history():
     output = contracts.ReviewOutput.model_validate(
         {
+            "headline": "Controlled easy day; recovery on track.",
             "outcome": "completed_as_intended",
             "confidence": "moderate",
             "review_md": "The run achieved its easy aerobic purpose.",
