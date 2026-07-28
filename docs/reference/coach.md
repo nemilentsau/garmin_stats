@@ -30,7 +30,17 @@ documented in [run-activities.md](run-activities.md#imported-block-measurement-e
 
 ## Review judgment
 
-Coach judges the purpose of the workout rather than auditing every prescription field.
+Coach acts as a coach in dialogue with a self-aware athlete, not a compliance auditor and
+not a narrator. It never restates facts the athlete already supplied (notes, RPE, variant
+choice, an admitted deviation) — the athlete knows what they did, so the review leads with
+net-new information instead: what the telemetry shows that the athlete cannot feel (drift,
+decoupling, zone distribution, strap-vs-wrist discrepancies, pacing structure), how the
+session compares to the athlete's own history when decision-relevant, and what it changes
+about the next sessions. A review with no net-new information says so in one sentence and
+stops. Every completed review carries a `headline`: one plain-language sentence (<=160
+chars) reconciling training value and any measurement/validity outcome, e.g. "Solid aerobic
+work; not a valid LTHR test - zones unchanged, backup attempt needed."
+
 New reviews use these outcomes:
 
 - `completed_as_intended`: the intended training stimulus was materially achieved;
@@ -44,7 +54,9 @@ decision; they do not automatically downgrade a run. Exact values become hard va
 boundaries only when the imported contract declares a measurement quality gate or another
 explicit hard gate. Thus a plausible controlled stride near a 20-second target is judged
 by its neuromuscular purpose, while an LTHR measurement gate retains exact validity
-semantics.
+semantics. Judgments about formal measurement validity are mechanical, not moral: the model
+states the gate result and its consequence once, without repeating the athlete's own
+admission as evidence.
 
 Garmin time-in-zone totals are descriptive evidence, not a continuous measure of distance
 from a boundary. Boundary-sensitive intensity judgments use the attached composite HR
@@ -54,12 +66,13 @@ is directly comparable. Missing RPE leaves an authored RPE ceiling unresolved ra
 establishing that it was exceeded, and visible HR drift is an observation rather than an
 automatic material deviation.
 
-The model may ask at most two athlete questions, and only when an answer could change
-safety, formal measurement validity, or the next training decision. It must not request
-forensic confirmation of every prescribed detail. Review output stores outcome,
-confidence, direct coaching prose, up to two decision-changing `follow_up_questions`,
-historical evidence used, curated refs, structured journal memory, and an explicit brief
-action. The completed `CoachReview` persists those `follow_up_questions` verbatim and the
+When athlete context that could change the judgment is missing (how it felt, why a choice
+was made, symptoms, constraints), the model asks instead of judging: it phrases the review
+around what the answers would decide and sets confidence to `low`. Review output stores
+outcome, confidence, a headline, direct coaching prose, up to two decision-changing
+`follow_up_questions`, historical evidence used, curated refs, structured journal memory,
+and an explicit brief action. The completed `CoachReview` persists those
+`follow_up_questions` verbatim and the
 `/api/coach/reviews*` endpoints surface them so the UI can show what the model still wants
 resolved. Visual evidence is recorded as bounded `plot_observations`: each entry names an
 attached image basename and the concrete visible pattern that affected the judgment.
