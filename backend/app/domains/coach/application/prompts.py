@@ -64,10 +64,24 @@ Choose brief_update=keep unless the durable coaching model actually changed.
 """
 
 
-def review_prompt(kind: JobKind) -> str:
+def review_prompt(
+    kind: JobKind,
+    *,
+    run_id: str | None = None,
+    occurrence_key: str | None = None,
+) -> str:
+    # Persistence rejects any measurement_assessment whose identifiers differ from
+    # the queued target, and plan.md's card `occurrence_key` field is the short,
+    # non-qualified form — so the exact target must be stated here.
+    target = ""
+    if run_id is not None and occurrence_key is not None:
+        target = (
+            "If you emit measurement_assessment, copy these identifiers exactly: "
+            f"run_id={run_id}; occurrence_key={occurrence_key}\n"
+        )
     return (
-        f"{_COMMON}\n{_REVIEW_POLICY}\nReview the current run and return only the required "
-        "structured output."
+        f"{_COMMON}\n{_REVIEW_POLICY}\n{target}Review the current run and return only "
+        "the required structured output."
     )
 
 

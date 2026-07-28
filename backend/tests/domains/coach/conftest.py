@@ -32,6 +32,9 @@ record.write_text(json.dumps({
     "cwd": os.getcwd(),
     "home": os.environ.get("HOME"),
     "codex_home": os.environ.get("CODEX_HOME"),
+    "cmux_env": {k: v for k, v in os.environ.items() if k.startswith("CMUX_")},
+    "path": os.environ.get("PATH", ""),
+    "stdin_is_devnull": os.fstat(0).st_rdev == os.stat(os.devnull).st_rdev,
 }))
 behavior = os.environ.get("CODEX_STUB_BEHAVIOR", "success")
 if behavior == "nonzero":

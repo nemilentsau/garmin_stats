@@ -298,6 +298,25 @@
 		schedulePersistDetail(card);
 	}
 
+	/** Coach-review request state per run id. TrainingCardBody renders the action;
+	 *  this page owns the enqueue call (display-only component rule). */
+	let coachReviewByRun = $state<
+		Record<string, { state: 'requesting' } | { state: 'queued'; reviewId: string | null }>
+	>({});
+
+	async function requestCoachReview(runId: string): Promise<void> {
+		if (coachReviewByRun[runId]?.state === 'requesting') return;
+		coachReviewByRun[runId] = { state: 'requesting' };
+		error = null;
+		try {
+			const result = await api.enqueueCoachRunReview(runId);
+			coachReviewByRun[runId] = { state: 'queued', reviewId: result.review?.id ?? null };
+		} catch (cause: unknown) {
+			delete coachReviewByRun[runId];
+			error = errorMessage(cause);
+		}
+	}
+
 	async function persistRunLink(
 		card: TrainingTodayCard,
 		patch: { linked_run_id?: string | null; run_link_detached?: boolean | null }
@@ -423,6 +442,10 @@
 											schedulePersistDetail(card);
 										}}
 										onRunLink={(patch) => persistRunLink(card, patch)}
+										coachReview={card.associated_activity
+											? (coachReviewByRun[card.associated_activity.run_id] ?? null)
+											: null}
+										onCoachReview={(runId) => void requestCoachReview(runId)}
 									/>
 								</TodayCardDetails>
 							</TodayActivityRow>

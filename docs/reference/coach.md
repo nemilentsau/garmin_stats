@@ -88,7 +88,9 @@ clear judgment.
 Assessment validation and persistence share the review/message completion transaction:
 
 - a run review accepts an assessment only when its run and occurrence exactly match the
-  durable run-review target and queued job payload;
+  durable run-review target and queued job payload; the review prompt states both
+  identifiers verbatim so the model never reconstructs them from `plan.md`, whose card
+  `occurrence_key` field is the short non-qualified form;
 - chat accepts an assessment only when the output cites exactly one `run` reference and
   that reference matches `assessment.run_id`. Chat refs do not encode an occurrence, so
   this check cannot independently prove the supplied `occurrence_key`; training's later
@@ -201,9 +203,10 @@ review/job, creates revision 1, and appends semantic memory; a failed runner cha
 memory. Manual retry requeues a failed durable job and preserves the original review or
 user message.
 
-Reviews are manual-only. The run page's **Review with coach** action is the sole review
-trigger. Activity sync, upload, startup, watcher refresh, elapsed schedule dates, and Today
-feedback persistence never enqueue Coach or infer a missed run.
+Reviews are manual-only. The explicit **Review with coach** action — on the run page and
+on a Today card's executed-run row — is the sole review trigger. Activity sync, upload,
+startup, watcher refresh, elapsed schedule dates, and Today feedback persistence never
+enqueue Coach or infer a missed run.
 
 Every completed review can have one reusable linked conversation inline on the review
 surface. Opening or refreshing the review is read-only: the thread is created only when
@@ -251,6 +254,10 @@ reuses the already-sandboxed persistent session instead of re-declaring it:
 
 - clean `HOME` and auth-only `CODEX_HOME`, preserving only the existing local
   `auth.json` link;
+- a hermetic process environment: `stdin` is `/dev/null`, terminal-session wrapper
+  markers (`CMUX_*`) are dropped, and cmux CLI-shim directories are stripped from
+  `PATH` so an interactive terminal's `codex` wrapper can never inject session hooks
+  into a headless coach job;
 - a copied execution workspace under the system temporary root, outside the app
   repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
@@ -268,9 +275,12 @@ rereading it. On timeout or cancellation the runner sends `SIGTERM` to the whole
 group, waits up to five seconds, then sends `SIGKILL`; process shutdown awaits that
 cleanup.
 
+Each Codex call may run up to 30 minutes before the runner times it out.
+
 Runtime files live beside the configured database under `coach/`: workspaces, shared
 plot cache, thread Codex homes, and attempt logs. Attempts are keyed by job ID and attempt
-number, so stale output from another attempt cannot be accepted. Temporary execution
+number, so stale output from another attempt cannot be accepted; a manual retry that
+reuses an attempt number replaces the stale attempt directory before running. Temporary execution
 workspace copies are removed after each call. Plot filenames include a source-content
 fingerprint and rendering-spec version.
 
@@ -296,7 +306,9 @@ fields for every version when corrections exist. Viewing it does not create a th
 sending the first message does.
 `/runs/[id]` resolves one review
 directly and shows either **Review with coach** or **Open coach review**.
-On `/today`, feedback capture remains training state only and never triggers Coach.
+On `/today`, feedback capture remains training state only and never triggers Coach;
+a card's executed-run row offers an explicit **Review with coach** action that enqueues
+manually and then deep-links to the queued review on `/coach`.
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

@@ -113,6 +113,29 @@ def test_review_command_is_ephemeral_isolated_and_attaches_images(
     assert record["codex_home"].endswith("_runtime/job-1/attempt-1/codex-home/.codex")
 
 
+def test_codex_spawn_is_hermetic_from_terminal_wrapper_state(
+    tmp_path, codex_stub, monkeypatch
+):
+    """A cmux-style terminal shim earlier on PATH must never intercept codex."""
+    shim_dir = tmp_path / "cmux-cli-shims/surface-1"
+    shim_dir.mkdir(parents=True)
+    hijacker = shim_dir / "codex"
+    hijacker.write_text("#!/bin/sh\necho 'wrapper hijacked' >&2\nexit 97\n")
+    hijacker.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{shim_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("CMUX_SURFACE_ID", "surface-1")
+    monkeypatch.setenv("CMUX_SOCKET_PATH", "/tmp/cmux.sock")
+    monkeypatch.setenv("CODEX_STUB_OUTPUT", _review_json())
+
+    result = asyncio.run(_run(tmp_path))
+    record = json.loads(codex_stub.read_text())
+
+    assert result.ok is True
+    assert record["cmux_env"] == {}
+    assert str(shim_dir) not in record["path"].split(os.pathsep)
+    assert record["stdin_is_devnull"] is True
+
+
 def test_cli_schema_generation_is_exact_recorded_mode():
     assert output_schema(ReviewOutput) == ReviewOutput.model_json_schema(mode="serialization")
     assert output_schema.schema_mode == "exact"  # type: ignore[attr-defined]
@@ -182,6 +205,35 @@ def test_overlength_output_is_not_truncated(tmp_path, codex_stub, monkeypatch):
     assert result.error_kind == "output_too_large"
     output_path = tmp_path / "workspace/_runtime/job-1/attempt-1/output.json"
     assert json.loads(output_path.read_text())["review_md"] == "x" * 12001
+
+
+def test_manual_retry_reusing_attempt_number_runs_fresh(tmp_path, codex_stub, monkeypatch):
+    """Manual retry resets the attempt budget, so the same attempt number runs again;
+    the prior attempt's directory must not abort the retry as a spawn failure."""
+    stale = tmp_path / "workspace/_runtime/job-1/attempt-1/output.json"
+    stale.parent.mkdir(parents=True)
+    stale.write_text(_review_json(review_md="stale first attempt"))
+    monkeypatch.setenv("CODEX_STUB_OUTPUT", _review_json())
+
+    result = asyncio.run(_run(tmp_path))
+
+    assert result.ok is True
+    assert isinstance(result.output, ReviewOutput)
+    assert result.output.review_md == "Sound run."
+
+
+def test_stale_output_of_same_attempt_number_is_not_reread(
+    tmp_path, codex_stub, monkeypatch
+):
+    del codex_stub
+    stale = tmp_path / "workspace/_runtime/job-1/attempt-1/output.json"
+    stale.parent.mkdir(parents=True)
+    stale.write_text(_review_json())
+    monkeypatch.setenv("CODEX_STUB_BEHAVIOR", "missing")
+
+    result = asyncio.run(_run(tmp_path))
+
+    assert result.error_kind == "missing_output"
 
 
 def test_stale_output_cannot_be_read_by_new_attempt(tmp_path, codex_stub, monkeypatch):

@@ -382,7 +382,10 @@
 					{#if brief?.brief}
 						<div class="markdown-body brief-body">{@html renderMarkdown(brief.brief.content_md)}</div>
 					{:else}
-						<p class="empty-line">No durable brief yet.</p>
+						<p class="empty-line">
+							The coach writes this durable memory itself after a successful review or a
+							closed conversation. It stays empty until the first review succeeds.
+						</p>
 					{/if}
 				</details>
 			</aside>
@@ -408,6 +411,10 @@
 					<div class="pane-scroll">
 						{#if activeReview.content_md}
 							<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
+						{:else if activeReview.status === 'failed'}
+							<p class="error-line failure-reason" role="alert">
+								{activeReview.error ?? 'This review failed before producing a response.'}
+							</p>
 						{:else}
 							<p class="empty-line">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
 						{/if}
@@ -1149,5 +1156,10 @@
 		border-left: 3px solid #e85d4a;
 		padding: 8px 12px;
 		margin: 0 0 12px;
+	}
+
+	.failure-reason {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 </style>

@@ -43,16 +43,24 @@
 	 *  `run_link_detached` fields; the page owns the actual PATCH + feed refresh. */
 	type RunLinkPatch = { linked_run_id?: string | null; run_link_detached?: boolean | null };
 
+	/** Coach-review request state for the associated run — owned by the page (which makes
+	 *  the enqueue call); this component only renders the action and emits the click. */
+	type CoachReviewState = { state: 'requesting' } | { state: 'queued'; reviewId: string | null };
+
 	let {
 		card,
 		mode,
 		onCapture,
-		onRunLink
+		onRunLink,
+		coachReview = null,
+		onCoachReview
 	}: {
 		card: TrainingTodayCard;
 		mode: 'log' | 'view';
 		onCapture?: (capture: TrainingCaptureLog) => void;
 		onRunLink?: (patch: RunLinkPatch) => void;
+		coachReview?: CoachReviewState | null;
+		onCoachReview?: (runId: string) => void;
 	} = $props();
 
 	const EMPTY_CAPTURE: TrainingCaptureLog = { set_logs: [], checkin: null, rpe: null };
@@ -211,6 +219,25 @@
 			</div>
 			<div class="executed-actions">
 				<a class="view-run-link" href={`/runs/${activity.run_id}`}>View run →</a>
+				{#if mode === 'log' && onCoachReview}
+					{#if coachReview?.state === 'queued'}
+						<a
+							class="view-run-link"
+							href={coachReview.reviewId ? `/coach?review=${coachReview.reviewId}` : '/coach'}
+						>
+							Review queued →
+						</a>
+					{:else}
+						<button
+							type="button"
+							class="link-action"
+							disabled={coachReview?.state === 'requesting'}
+							onclick={() => onCoachReview(activity.run_id)}
+						>
+							{coachReview?.state === 'requesting' ? 'Requesting review…' : 'Review with coach'}
+						</button>
+					{/if}
+				{/if}
 				{#if mode === 'log'}
 					<button type="button" class="link-action" onclick={() => (runPickerOpen = !runPickerOpen)}>
 						Not this run?

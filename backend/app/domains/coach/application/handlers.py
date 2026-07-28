@@ -118,6 +118,12 @@ class CoachHandlers:
         target_date = self._payload_text(job, "date")
         run_id = job.payload.get("run_id")
         current_run_id = run_id if isinstance(run_id, str) else None
+        occurrence_key = job.payload.get("occurrence_key")
+        prompt = review_prompt(
+            job.kind,
+            run_id=current_run_id,
+            occurrence_key=occurrence_key if isinstance(occurrence_key, str) else None,
+        )
         await asyncio.to_thread(
             self.repo.mark_review_generating, review_id, updated_at=utc_now_iso()
         )
@@ -130,7 +136,7 @@ class CoachHandlers:
             plot_cache_dir=self.plot_cache_dir,
             evidence_date=self.local_today(),
             target_date=target_date,
-            question_md=review_prompt(job.kind),
+            question_md=prompt,
             current_run_id=current_run_id,
             transcript=None,
         )
@@ -138,7 +144,7 @@ class CoachHandlers:
             kind=job.kind,
             job_id=job.id,
             attempt=job.attempt_count,
-            prompt=review_prompt(job.kind),
+            prompt=prompt,
             workspace=Path(manifest.directory),
             output_model=ReviewOutput,
             images=[Path(path) for path in manifest.current_images],

@@ -151,6 +151,28 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     assert brief.policy_version == 2
 
 
+def test_review_prompt_names_exact_measurement_assessment_target(tmp_path, monkeypatch):
+    """The model can only echo the fully-qualified target if the prompt states it;
+    plan.md's card `occurrence_key` field is the short form and must not be the
+    model's only source (it caused real rejected reviews)."""
+    repo = SqliteCoachRepository()
+    repo.enqueue_run_review(
+        run_id="run-1",
+        date="2026-07-11",
+        occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    runner = FakeRunner([CodexJobResult(ok=True, output=_review_output())])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    prompt = str(runner.calls[0]["prompt"])
+    assert "run_id=run-1" in prompt
+    assert "occurrence_key=training_v3_abc:running.v3:run.lthr_test:d01" in prompt
+
+
 def test_review_rejects_observation_for_plot_that_was_not_attached(
     tmp_path, monkeypatch
 ):
