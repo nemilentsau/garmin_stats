@@ -219,10 +219,13 @@ review/job, creates revision 1, and appends semantic memory; a failed runner cha
 memory. Manual retry requeues a failed durable job and preserves the original review or
 user message.
 
-Reviews are manual-only. The explicit **Review with coach** action — on the run page and
-on a Today card's executed-run row — is the sole review trigger. Activity sync, upload,
-startup, watcher refresh, elapsed schedule dates, and Today feedback persistence never
-enqueue Coach or infer a missed run.
+Reviews are manual-only. The **Coach debrief for this day** action on the Today board is
+the sole review trigger — it enqueues a whole-day debrief (`kind = "day"`) for the
+selected date. The run page shows a review's outcome once it exists but no longer
+initiates one: it links to the coach review when present (`Open coach review →`) and
+otherwise shows a static hint pointing back to Today. Activity sync, upload, startup,
+watcher refresh, elapsed schedule dates, and Today feedback persistence never enqueue
+Coach or infer a missed run.
 
 Every completed review can have one reusable linked conversation inline on the review
 surface. Opening or refreshing the review is read-only: the thread is created only when
@@ -352,11 +355,14 @@ separately and falls back to the legacy verdict when needed. A completed review 
 composer and any existing linked transcript inline, with readable narrative and audit
 fields for every version when corrections exist. Viewing it does not create a thread;
 sending the first message does.
-`/runs/[id]` resolves one review
-directly and shows either **Review with coach** or **Open coach review**.
-On `/today`, feedback capture remains training state only and never triggers Coach;
-a card's executed-run row offers an explicit **Review with coach** action that enqueues
-manually and then deep-links to the queued review on `/coach`.
+`/runs/[id]` resolves one review directly and is read-only: it shows **Open coach
+review →** when that run's review exists, otherwise a static "Reviews are requested from
+the Today board" hint. `/today` is the sole trigger surface: a **Coach debrief for this
+day** action at the foot of the board enqueues a whole-day debrief for the selected date
+and deep-links to it on `/coach` once queued; a hint counts that day's completed cards
+still missing RPE/notes so the athlete can fill them in before debriefing. The review
+rail on `/coach` labels each row from `CoachReview.kind` (`day` → "Day debrief", `week` →
+"Weekly synthesis", `run` → "Run review").
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

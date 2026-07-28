@@ -121,6 +121,12 @@
 			: outcome;
 	}
 
+	function reviewKindLabel(kind: CoachReview['kind']): string {
+		if (kind === 'day') return 'Day debrief';
+		if (kind === 'week') return 'Weekly synthesis';
+		return 'Run review';
+	}
+
 	function journalEntryTakeaway(entry: JournalEntry): string {
 		const firstLine = entry.content_md.split('\n').find((line) => line.trim().length > 0) ?? '';
 		return entry.run_summary?.takeaway ?? firstLine;
@@ -426,7 +432,7 @@
 								<span class="tabular">{review.date}</span>
 								<span class="row-status">{review.status.replaceAll('_', ' ')}</span>
 							</span>
-							<span class="row-sub">Run review · {reviewOutcome(review)}</span>
+							<span class="row-sub">{reviewKindLabel(review.kind)} · {reviewOutcome(review)}</span>
 						</button>
 					{:else}
 						<p class="empty-line">No review history.</p>
@@ -470,7 +476,7 @@
 					<div class="pane-head">
 						<div>
 							<h2 id="review-pane-heading" class="pane-title">
-								Run review
+								{reviewKindLabel(activeReview.kind)}
 								<span class="tabular pane-date">{activeReview.date}</span>
 							</h2>
 							{#if activeReview.headline}
@@ -655,7 +661,7 @@
 						{/if}
 					</div>
 				{:else}
-					<p class="empty-line pane-empty">No reviews yet. Open a run and choose “Review with coach.”</p>
+					<p class="empty-line pane-empty">No reviews yet. Request a coach debrief from the Today board.</p>
 				{/if}
 			</section>
 		</div>

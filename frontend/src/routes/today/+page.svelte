@@ -122,6 +122,7 @@
 		untrack(() => flushPendingPersist());
 		expandedOccurrenceKey = null;
 		localStatus = {};
+		dayReview = null;
 		void reloadToday(date);
 	});
 
@@ -298,24 +299,39 @@
 		schedulePersistDetail(card);
 	}
 
-	/** Coach-review request state per run id. TrainingCardBody renders the action;
-	 *  this page owns the enqueue call (display-only component rule). */
-	let coachReviewByRun = $state<
-		Record<string, { state: 'requesting' } | { state: 'queued'; reviewId: string | null }>
-	>({});
+	/** Day-debrief request state for the currently selected date — one date at a time (unlike
+	 *  the old per-run record), reset whenever the date changes so a queued/requesting state
+	 *  from a previous day never bleeds into the newly loaded one. */
+	type DayDebriefState = { state: 'requesting' } | { state: 'queued'; reviewId: string | null };
+	let dayReview = $state<DayDebriefState | null>(null);
 
-	async function requestCoachReview(runId: string): Promise<void> {
-		if (coachReviewByRun[runId]?.state === 'requesting') return;
-		coachReviewByRun[runId] = { state: 'requesting' };
+	async function requestDayDebrief(): Promise<void> {
+		if (dayReview?.state === 'requesting') return;
+		const date = selectedDate;
+		dayReview = { state: 'requesting' };
 		error = null;
 		try {
-			const result = await api.enqueueCoachRunReview(runId);
-			coachReviewByRun[runId] = { state: 'queued', reviewId: result.review?.id ?? null };
+			const result = await api.enqueueCoachDayReview(date);
+			if (selectedDate !== date) return;
+			dayReview = { state: 'queued', reviewId: result.review?.id ?? null };
 		} catch (cause: unknown) {
-			delete coachReviewByRun[runId];
+			if (selectedDate !== date) return;
+			dayReview = null;
 			error = errorMessage(cause);
 		}
 	}
+
+	/** Completed cards missing both RPE and notes — the coach will ask about these during
+	 *  the day debrief. Counting existing fields is display logic, not analysis. */
+	const feedbackGapCount = $derived.by(() => {
+		void statusVersion;
+		let count = 0;
+		for (const card of allCards) {
+			if (effectiveStatus(card) !== 'completed') continue;
+			if (card.notes === null && (card.capture?.rpe ?? null) === null) count++;
+		}
+		return count;
+	});
 
 	async function persistRunLink(
 		card: TrainingTodayCard,
@@ -442,16 +458,32 @@
 											schedulePersistDetail(card);
 										}}
 										onRunLink={(patch) => persistRunLink(card, patch)}
-										coachReview={card.associated_activity
-											? (coachReviewByRun[card.associated_activity.run_id] ?? null)
-											: null}
-										onCoachReview={(runId) => void requestCoachReview(runId)}
 									/>
 								</TodayCardDetails>
 							</TodayActivityRow>
 						{/each}
 					{/if}
 				{/each}
+			</div>
+
+			<div class="debrief-bar">
+				{#if dayReview?.state === 'queued'}
+					<a class="schedule-link" href={dayReview.reviewId ? `/coach?review=${dayReview.reviewId}` : '/coach'}>
+						Debrief queued →
+					</a>
+				{:else}
+					<button
+						type="button"
+						class="schedule-link"
+						disabled={dayReview?.state === 'requesting'}
+						onclick={() => void requestDayDebrief()}
+					>
+						{dayReview?.state === 'requesting' ? 'Requesting…' : 'Coach debrief for this day'}
+					</button>
+				{/if}
+				{#if feedbackGapCount > 0}
+					<span class="debrief-hint">{feedbackGapCount} completed card(s) have no RPE/notes yet — the coach will ask.</span>
+				{/if}
 			</div>
 		{/if}
 	</section>
@@ -474,9 +506,13 @@
 	.progress-fill.completed { background: #5bb5a6; }
 	.progress-fill.partial { background: #d4944c; }
 	.progress-fill.skipped { background: #e85d4a; }
-	.schedule-link { border: 1px solid rgba(91,181,166,.25); border-radius: 8px; padding: 7px 12px; color: #5bb5a6; font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+	.schedule-link { border: 1px solid rgba(91,181,166,.25); border-radius: 8px; padding: 7px 12px; color: #5bb5a6; font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; cursor: pointer; background: transparent; }
 	.schedule-link:hover { background: rgba(91,181,166,.1); }
+	.schedule-link:disabled { opacity: .5; cursor: default; }
+	.schedule-link:disabled:hover { background: transparent; }
 	.error-banner { border: 1px solid rgba(232,93,74,.25); border-radius: 9px; background: rgba(232,93,74,.08); color: #f2a399; padding: 10px 14px; font-size: 13px; }
+	.debrief-bar { display: flex; align-items: center; gap: 14px; margin-top: 6px; padding: 14px 18px; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; background: rgba(255,255,255,.025); }
+	.debrief-hint { color: #d4944c; font-family: 'DM Mono',monospace; font-size: 11px; letter-spacing: .02em; }
 	.filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 	.slot-jump { border: 1px solid color-mix(in srgb,var(--sj-color) 30%,transparent); border-radius: 7px; background: transparent; color: var(--sj-color); padding: 5px 11px; font-family: 'DM Mono',monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
 	.slot-jump:hover,.slot-jump.active { background: color-mix(in srgb,var(--sj-color) 12%,transparent); }
