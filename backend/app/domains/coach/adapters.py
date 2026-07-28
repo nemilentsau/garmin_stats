@@ -497,16 +497,36 @@ class SqliteCoachRepository:
                 raise LookupError(f"Unknown coach review: {review_id}")
             review = _review_from_row(row)
             assessment = output.measurement_assessment
-            if assessment is not None and (
-                review.kind != "run"
-                or assessment.run_id != review.run_id
-                or assessment.occurrence_key != review.occurrence_key
-                or assessment.run_id != job.payload.get("run_id")
-                or assessment.occurrence_key != job.payload.get("occurrence_key")
-            ):
-                raise MeasurementAssessmentValidationError(
-                    "Measurement assessment does not match queued review target"
-                )
+            if assessment is not None:
+                if review.kind == "run":
+                    if (
+                        assessment.run_id != review.run_id
+                        or assessment.occurrence_key != review.occurrence_key
+                        or assessment.run_id != job.payload.get("run_id")
+                        or assessment.occurrence_key != job.payload.get("occurrence_key")
+                    ):
+                        raise MeasurementAssessmentValidationError(
+                            "Measurement assessment does not match queued review target"
+                        )
+                elif review.kind == "day":
+                    raw_targets = job.payload.get("measurement_targets")
+                    allowed: set[tuple[str, str]] = set()
+                    if isinstance(raw_targets, list):
+                        for entry in raw_targets:
+                            if (
+                                isinstance(entry, dict)
+                                and isinstance(entry.get("run_id"), str)
+                                and isinstance(entry.get("occurrence_key"), str)
+                            ):
+                                allowed.add((entry["run_id"], entry["occurrence_key"]))
+                    if (assessment.run_id, assessment.occurrence_key) not in allowed:
+                        raise MeasurementAssessmentValidationError(
+                            "Measurement assessment does not match queued review target"
+                        )
+                else:
+                    raise MeasurementAssessmentValidationError(
+                        "Measurement assessment does not match queued review target"
+                    )
             completed_review = review.model_copy(
                 update={
                     "status": "complete",

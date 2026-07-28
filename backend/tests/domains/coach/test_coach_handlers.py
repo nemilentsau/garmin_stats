@@ -35,6 +35,11 @@ class FakeGateway:
             update={"session": _detail().session.model_copy(update={"id": run_id})}
         )
 
+    def training_today(self, date: str):
+        from app.domains.training.contracts import TrainingTodayResponse
+
+        return TrainingTodayResponse(date=date, cards=[])
+
 
 class FakeRunner:
     def __init__(self, results: list[CodexJobResult]) -> None:
@@ -414,6 +419,77 @@ def test_review_target_mismatch_fails_job_without_persisting_assessment(
     assert saved.measurement_assessment is None
     assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
     assert repo.list_journal() == []
+
+
+def test_day_review_accepts_assessment_matching_payload_target(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_day_review(
+        date="2026-07-27",
+        measurement_targets=[
+            {
+                "run_id": "run-1",
+                "occurrence_key": "training_v3_abc:running.v3:run.lthr_test:d01",
+            }
+        ],
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "measurement_assessment": CoachMeasurementAssessment(
+                run_id="run-1",
+                occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+                status="failed",
+                rationale="No chest strap.",
+            )
+        }
+    )
+    handlers = _handlers(
+        tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "complete" and saved.measurement_assessment is not None
+
+
+def test_day_review_rejects_assessment_for_target_not_in_payload(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_day_review(
+        date="2026-07-27",
+        measurement_targets=[
+            {
+                "run_id": "run-1",
+                "occurrence_key": "training_v3_abc:running.v3:run.lthr_test:d01",
+            }
+        ],
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "measurement_assessment": CoachMeasurementAssessment(
+                run_id="run-2",
+                occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+                status="failed",
+                rationale="Not the scheduled measurement target.",
+            )
+        }
+    )
+    handlers = _handlers(
+        tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "failed"
+    assert saved.measurement_assessment is None
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+    assert "target" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
 
 
 def test_chat_refreshes_each_turn_uses_resume_marker_and_persists_refs(tmp_path, monkeypatch):

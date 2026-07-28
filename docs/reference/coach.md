@@ -268,10 +268,29 @@ than one per run: `CoachReview.kind = "day"` carries no `run_id`/`occurrence_key
 and has a linked tracked activity into the job payload's `measurement_targets` — a list of
 `{run_id, occurrence_key}` (using the card's fully-qualified `occurrence_id`) — so the day
 debrief's permitted measurement-assessment targets are fixed at enqueue and cannot drift if
-the schedule changes before the job runs. As of this task the `review_day` kind has
-contracts, enqueue, and dedupe only; no handler executes it yet, so a claimed `review_day`
-job fails through `CoachHandlers.execute`'s unknown-kind path until the workspace/prompt
-side lands.
+the schedule changes before the job runs.
+
+`CoachHandlers._review` executes both `review_run` and `review_day` jobs; it branches on
+`job.kind` before assembling the workspace and building the prompt. For a day job it
+re-reads that date's Today board at execution time (`CoachReadGateway.training_today`,
+independent of the enqueue-time snapshot) to collect every card's associated run id —
+`assemble_workspace(..., current_run_ids=[...])` then materializes `current/<run_id>/`
+evidence (summary, laps, plots) for every one of that day's runs, not just one, so the
+model sees the whole day's telemetry at once. A run job still passes its single
+`[run_id]`; a chat turn passes its linked review's `[run_id]` or `[]`. The day prompt
+appends a policy block instructing the model to treat the day as one training decision
+across every card (including telemetry-free strength/support cards, coached from
+plan.md and captured logs) and to emit at most one `measurement_assessment`, only for a
+listed target.
+
+Persistence enforces that target-set rule independently of the prompt:
+`complete_review_output` accepts a `kind = "day"` review's `measurement_assessment` only
+when its `(run_id, occurrence_key)` pair is a member of the job payload's
+`measurement_targets` (the set frozen at enqueue); any other pair — including a real run
+from that date that was not a measurement occurrence — raises the same
+`MeasurementAssessmentValidationError` a mismatched run review raises. A `kind = "run"`
+review keeps its original exact-match rule (assessment must equal the single queued
+`run_id`/`occurrence_key`) unchanged.
 
 ## Codex isolation and runtime files
 

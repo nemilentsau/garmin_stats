@@ -69,6 +69,15 @@ Choose brief_update=keep unless the durable coaching model actually changed.
 """
 
 
+_DAY_POLICY = """This is a whole-day debrief, not a single-run review. plan.md
+lists every card for the date with its captured logs, RPE, and notes. Cover the
+day as one training decision: how the sessions interacted, what the check-in and
+recovery context changes, and what tomorrow should look like. Strength and
+support cards have no telemetry - coach them from their logs and the plan, and
+say nothing when there is nothing to add. At most one measurement_assessment,
+and only for a listed target."""
+
+
 BRIEF_BOOTSTRAP_INSTRUCTION = (
     "No durable coach brief exists yet. This review must write the initial brief: "
     "set brief_update.action=\"replace\" with your current working model of this "
@@ -80,22 +89,28 @@ BRIEF_BOOTSTRAP_INSTRUCTION = (
 def review_prompt(
     kind: JobKind,
     *,
-    run_id: str | None = None,
-    occurrence_key: str | None = None,
+    measurement_targets: list[tuple[str, str]] = [],  # noqa: B006 - read-only default
 ) -> str:
     # Persistence rejects any measurement_assessment whose identifiers differ from
-    # the queued target, and plan.md's card `occurrence_key` field is the short,
-    # non-qualified form — so the exact target must be stated here.
+    # a queued target, and plan.md's card `occurrence_key` field is the short,
+    # non-qualified form — so the exact target(s) must be stated here.
     target = ""
-    if run_id is not None and occurrence_key is not None:
-        target = (
-            "If you emit measurement_assessment, copy these identifiers exactly: "
-            f"run_id={run_id}; occurrence_key={occurrence_key}\n"
+    if measurement_targets:
+        lines = "\n".join(
+            f"run_id={run_id}; occurrence_key={occurrence_key}"
+            for run_id, occurrence_key in measurement_targets
         )
-    return (
-        f"{_COMMON}\n{_REVIEW_POLICY}\n{target}Review the current run and return only "
-        "the required structured output."
+        target = (
+            "If you emit measurement_assessment, copy identifiers exactly from one "
+            f"of these targets:\n{lines}\n"
+        )
+    day_policy = f"\n{_DAY_POLICY}" if kind == "review_day" else ""
+    closing = (
+        "Review the day as a whole and return only the required structured output."
+        if kind == "review_day"
+        else "Review the current run and return only the required structured output."
     )
+    return f"{_COMMON}\n{_REVIEW_POLICY}{day_policy}\n{target}{closing}"
 
 
 def chat_prompt(

@@ -39,6 +39,27 @@ from app.domains.coach.time import local_today_iso, utc_now_iso
 Runner = Callable[..., Awaitable[CodexJobResult]]
 
 
+def _measurement_targets_from_payload(payload: dict[str, object]) -> list[tuple[str, str]]:
+    """Read the day job's `measurement_targets` payload defensively.
+
+    Task 9's shape is `list[dict[str, str]]`, but payload is untyped storage —
+    tolerate malformed entries rather than raising, so one bad entry cannot
+    take down an otherwise-valid day review job.
+    """
+    raw = payload.get("measurement_targets")
+    targets: list[tuple[str, str]] = []
+    if not isinstance(raw, list):
+        return targets
+    for entry in raw:
+        if (
+            isinstance(entry, dict)
+            and isinstance(entry.get("run_id"), str)
+            and isinstance(entry.get("occurrence_key"), str)
+        ):
+            targets.append((entry["run_id"], entry["occurrence_key"]))
+    return targets
+
+
 def _plot_evidence_errors(
     *,
     direct_refs: list[ArtifactRef],
@@ -106,6 +127,7 @@ class CoachHandlers:
     async def execute(self, job: CoachJob) -> None:
         handlers = {
             "review_run": self._review,
+            "review_day": self._review,
             "chat_turn": self._chat,
             "distill_thread": self._distill,
         }
@@ -121,11 +143,24 @@ class CoachHandlers:
         run_id = job.payload.get("run_id")
         current_run_id = run_id if isinstance(run_id, str) else None
         occurrence_key = job.payload.get("occurrence_key")
-        prompt = review_prompt(
-            job.kind,
-            run_id=current_run_id,
-            occurrence_key=occurrence_key if isinstance(occurrence_key, str) else None,
-        )
+        if job.kind == "review_day":
+            today = await asyncio.to_thread(self.gateway.training_today, target_date)
+            run_ids = sorted(
+                {
+                    card.associated_activity.run_id
+                    for card in today.cards
+                    if card.associated_activity is not None
+                }
+            )
+            targets = _measurement_targets_from_payload(job.payload)
+        else:
+            run_ids = [current_run_id] if current_run_id else []
+            targets = (
+                [(current_run_id, occurrence_key)]
+                if current_run_id and isinstance(occurrence_key, str)
+                else []
+            )
+        prompt = review_prompt(job.kind, measurement_targets=targets)
         has_brief = (
             await asyncio.to_thread(
                 self.repo.current_brief, policy_version=CURRENT_MEMORY_POLICY_VERSION
@@ -146,7 +181,7 @@ class CoachHandlers:
             evidence_date=self.local_today(),
             target_date=target_date,
             question_md=prompt,
-            current_run_id=current_run_id,
+            current_run_ids=run_ids,
             transcript=None,
         )
         result = await self.runner(
@@ -247,8 +282,10 @@ class CoachHandlers:
                 else linked_review.date
             ),
             question_md=prompt,
-            current_run_id=(
-                None if linked_review is None else linked_review.run_id
+            current_run_ids=(
+                []
+                if linked_review is None
+                else ([linked_review.run_id] if linked_review.run_id else [])
             ),
             transcript=transcript,
             linked_review_id=thread.review_id,
@@ -333,7 +370,7 @@ class CoachHandlers:
             evidence_date=self.local_today(),
             target_date=self.local_today(),
             question_md=distill_prompt(),
-            current_run_id=None,
+            current_run_ids=[],
             transcript=transcript,
         )
         home = ensure_thread_codex_home(self.threads_dir, thread_id)
