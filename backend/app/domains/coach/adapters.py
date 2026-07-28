@@ -392,8 +392,13 @@ class SqliteCoachRepository:
         job_id: str,
         output: ReviewOutput,
         finished_at: str,
+        require_brief: bool = False,
     ) -> None:
         """Persist review, semantic memory, optional brief, and job atomically."""
+        if require_brief and output.brief_update.action != "replace":
+            raise MeasurementAssessmentValidationError(
+                "first successful review must write the initial brief"
+            )
         self._validate_artifact_refs(
             [
                 *output.refs,

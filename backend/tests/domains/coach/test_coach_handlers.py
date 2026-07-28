@@ -305,6 +305,22 @@ def test_review_rejects_plot_observation_without_direct_plot_ref(tmp_path, monke
 
 def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch):
     repo = SqliteCoachRepository()
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=_review_output())]),
+    )
+    bootstrap_review, _, _ = repo.enqueue_run_review(
+        run_id="run-bootstrap", date="2026-07-13", occurrence_key="run-am"
+    )
+    bootstrap_job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert bootstrap_job is not None
+    asyncio.run(handlers.execute(bootstrap_job))
+    assert repo.review(bootstrap_review.id).status == "complete"  # type: ignore[union-attr]
+    initial_brief = repo.current_brief(policy_version=2)
+    assert initial_brief is not None
+
     review, _, _ = repo.enqueue_run_review(
         run_id="run-keep", date="2026-07-14", occurrence_key="run-am"
     )
@@ -313,18 +329,36 @@ def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch)
     output = _review_output().model_copy(
         update={"brief_update": BriefUpdate(action="keep", content_md=None)}
     )
-    handlers = _handlers(
-        tmp_path,
-        monkeypatch,
-        repo,
-        FakeRunner([CodexJobResult(ok=True, output=output)]),
-    )
+    handlers.runner = FakeRunner([CodexJobResult(ok=True, output=output)])
 
     asyncio.run(handlers.execute(job))
 
     assert repo.review(review.id).status == "complete"  # type: ignore[union-attr]
-    assert len(repo.list_journal(policy_version=2)) == 1
+    assert len(repo.list_journal(policy_version=2)) == 2
+    unchanged_brief = repo.current_brief(policy_version=2)
+    assert unchanged_brief is not None
+    assert unchanged_brief.id == initial_brief.id
+
+
+def test_first_review_with_keep_brief_fails_and_persists_nothing(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={"brief_update": BriefUpdate(action="keep", content_md=None)}
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
     assert repo.current_brief(policy_version=2) is None
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+    assert "initial brief" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+    assert "must write the initial brief" in str(runner.calls[0]["prompt"])
 
 
 def test_review_failure_changes_no_memory_and_supports_same_job_retry(tmp_path, monkeypatch):

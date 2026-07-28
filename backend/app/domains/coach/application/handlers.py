@@ -12,7 +12,9 @@ from app.domains.coach.adapters import (
     ReviewRevisionValidationError,
     SqliteCoachRepository,
 )
+from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
 from app.domains.coach.application.prompts import (
+    BRIEF_BOOTSTRAP_INSTRUCTION,
     chat_prompt,
     distill_prompt,
     review_prompt,
@@ -124,6 +126,13 @@ class CoachHandlers:
             run_id=current_run_id,
             occurrence_key=occurrence_key if isinstance(occurrence_key, str) else None,
         )
+        has_brief = (
+            await asyncio.to_thread(
+                self.repo.current_brief, policy_version=CURRENT_MEMORY_POLICY_VERSION
+            )
+        ) is not None
+        if not has_brief:
+            prompt = prompt + BRIEF_BOOTSTRAP_INSTRUCTION
         await asyncio.to_thread(
             self.repo.mark_review_generating, review_id, updated_at=utc_now_iso()
         )
@@ -192,6 +201,7 @@ class CoachHandlers:
                 job_id=job.id,
                 output=result.output,
                 finished_at=utc_now_iso(),
+                require_brief=not has_brief,
             )
         except MeasurementAssessmentValidationError as error:
             await asyncio.to_thread(

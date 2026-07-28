@@ -198,7 +198,10 @@ These are different memory layers:
 - **Brief:** latest complete model of the training approach and open questions, limited to
   6,000 characters. Every review and distillation explicitly chooses `keep` or `replace`;
   routine sessions normally keep the current brief. A replacement is a complete version,
-  not a patch.
+  not a patch. Choice is free only once a current-policy brief exists: when no
+  current-policy brief exists yet, the review prompt demands `replace` and persistence
+  rejects `keep`, so the first successful review deterministically writes the initial
+  brief.
 
 Current semantic memory uses policy version 2. Legacy records default to version 1 and
 remain stored and individually readable for audit, but they do not enter new workspaces or

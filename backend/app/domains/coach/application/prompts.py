@@ -69,6 +69,14 @@ Choose brief_update=keep unless the durable coaching model actually changed.
 """
 
 
+BRIEF_BOOTSTRAP_INSTRUCTION = (
+    "No durable coach brief exists yet. This review must write the initial brief: "
+    "set brief_update.action=\"replace\" with your current working model of this "
+    "athlete (goals, constraints, what to watch). brief_update.action=\"keep\" "
+    "will be rejected; the first successful review must write the initial brief.\n"
+)
+
+
 def review_prompt(
     kind: JobKind,
     *,
