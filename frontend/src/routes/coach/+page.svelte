@@ -104,6 +104,13 @@
 		void reviewMessages;
 		if (reviewMessagePane) reviewMessagePane.scrollTop = reviewMessagePane.scrollHeight;
 	});
+	// Answers are keyed by question index, not review id — without this reset, switching to a
+	// different review after partially answering one leaves stale index-keyed answers that
+	// would pair with the newly active review's (unrelated) questions in `sendAnswers`.
+	$effect(() => {
+		void activeReviewId;
+		questionAnswers = {};
+	});
 	let workerLine = $derived.by(() => {
 		if (!status) return '';
 		if (!status.worker_enabled) return 'Coach worker is paused';
@@ -354,11 +361,14 @@
 					? reviewThread
 					: await api.openCoachReviewThread(review.id);
 			reviewThread = thread;
-			await api.sendCoachMessage(
-				thread.id,
-				`Update the review: here are my answers to your questions.\n${lines.join('\n')}`,
-				true
-			);
+			// Week reviews have no structured revision axis (no outcome/confidence to
+			// re-stamp), and the backend rejects a `review_revision` output for them —
+			// so answering weekly questions stays a plain, non-revision message.
+			const isWeekReview = review.kind === 'week';
+			const content = isWeekReview
+				? `Here are my answers to your questions.\n${lines.join('\n')}`
+				: `Update the review: here are my answers to your questions.\n${lines.join('\n')}`;
+			await api.sendCoachMessage(thread.id, content, !isWeekReview);
 			questionAnswers = {};
 			await refreshAll();
 		} catch (e: unknown) {

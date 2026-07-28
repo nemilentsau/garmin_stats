@@ -131,7 +131,6 @@ def post_run_review(request: CoachRunReviewRequest, response: Response) -> Coach
 @router.post(
     "/reviews/day",
     response_model=CoachEnqueueResponse,
-    status_code=201,
     responses=error_responses(422),
 )
 def post_day_review(request: CoachDayReviewRequest, response: Response) -> CoachEnqueueResponse:
@@ -140,15 +139,13 @@ def post_day_review(request: CoachDayReviewRequest, response: Response) -> Coach
     except ValueError as error:
         raise HTTPException(status_code=422, detail="date must be an ISO calendar date") from error
     result = build_container().coach_jobs.enqueue_day_review(request.date)
-    if not result.created:
-        response.status_code = status.HTTP_200_OK
+    response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
     return result
 
 
 @router.post(
     "/reviews/week",
     response_model=CoachEnqueueResponse,
-    status_code=201,
     responses=error_responses(422),
 )
 def post_week_review(
@@ -163,8 +160,7 @@ def post_week_review(
             status_code=422, detail="week_start must be a canonical Monday date"
         ) from error
     result = build_container().coach_jobs.enqueue_week_review(request.week_start)
-    if not result.created:
-        response.status_code = status.HTTP_200_OK
+    response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
     return result
 
 

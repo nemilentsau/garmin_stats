@@ -23,6 +23,7 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     ReviewRevisionOutput,
     RunJournalSummary,
+    WeekReviewOutput,
     safe_artifact_id,
 )
 from app.domains.coach.schema import init_coach_schema
@@ -93,6 +94,27 @@ def _complete_review(
         review_id=review.id,
         job_id=claimed.id,
         output=_review_output(takeaway, follow_up_questions=follow_up_questions),
+        finished_at=finished_at,
+    )
+    return review, claimed
+
+
+def _complete_day_review(
+    repository: SqliteCoachRepository,
+    *,
+    measurement_targets: list[dict[str, str]],
+    finished_at: str = NOW,
+):
+    review, _, _ = repository.enqueue_day_review(
+        date="2026-07-14", measurement_targets=measurement_targets
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    repository.mark_review_generating(review.id, updated_at=NOW)
+    repository.complete_review_output(
+        review_id=review.id,
+        job_id=claimed.id,
+        output=_review_output(),
         finished_at=finished_at,
     )
     return review, claimed
@@ -497,6 +519,173 @@ def test_review_revision_rejects_measurement_assessment_for_another_occurrence()
         )
 
     assert len(repository.review_revisions(review.id)) == 1
+
+
+def test_day_review_revision_accepts_assessment_matching_a_payload_target():
+    """A day-debrief answer loop must not fail on a measurement day: the revision
+    guard has to accept the same target-set membership `complete_review_output`
+    already enforces at completion time, not the run-only exact-match rule."""
+    repository = SqliteCoachRepository()
+    review, _ = _complete_day_review(
+        repository,
+        measurement_targets=[{"run_id": "run-1", "occurrence_key": "running:lthr:d08"}],
+    )
+    thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
+    repository.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: here is the LTHR assessment.",
+        review_revision_requested=True,
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+
+    repository.complete_chat_output(
+        job_id=claimed.id,
+        thread_id=thread.id,
+        output=ChatOutput(
+            answer_md="I added the measurement assessment.",
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            review_revision=ReviewRevisionOutput(
+                headline="Day debrief, with LTHR assessment.",
+                content_md="Day debrief, with LTHR assessment.",
+                outcome="completed_as_intended",
+                confidence="high",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                follow_up_questions=[],
+                plot_observations=[],
+                history_used=[],
+                measurement_assessment=CoachMeasurementAssessment(
+                    run_id="run-1",
+                    occurrence_key="running:lthr:d08",
+                    status="valid",
+                    rationale="The effort was credible for LTHR estimation.",
+                ),
+            ),
+        ),
+        session_id="session-1",
+        finished_at=LATER,
+    )
+
+    saved = repository.review(review.id)
+    assert saved is not None
+    assert saved.measurement_assessment is not None
+    assert saved.measurement_assessment.status == "valid"
+    assert len(repository.review_revisions(review.id)) == 2
+
+
+def test_day_review_revision_rejects_assessment_not_in_payload_targets_atomically():
+    repository = SqliteCoachRepository()
+    review, _ = _complete_day_review(
+        repository,
+        measurement_targets=[{"run_id": "run-1", "occurrence_key": "running:lthr:d08"}],
+    )
+    thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
+    repository.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: correct the measurement assessment.",
+        review_revision_requested=True,
+    )
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+
+    with pytest.raises(ValueError, match="linked review target"):
+        repository.complete_chat_output(
+            job_id=claimed.id,
+            thread_id=thread.id,
+            output=ChatOutput(
+                answer_md="I updated the review.",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                review_revision=ReviewRevisionOutput(
+                    headline="Day debrief.",
+                    content_md="Day debrief.",
+                    outcome="completed_as_intended",
+                    confidence="high",
+                    refs=[ArtifactRef(kind="run", value="run-1")],
+                    follow_up_questions=[],
+                    plot_observations=[],
+                    history_used=[],
+                    measurement_assessment=CoachMeasurementAssessment(
+                        run_id="run-2",
+                        occurrence_key="running:lthr:d08",
+                        status="valid",
+                        rationale="Not one of the day's listed measurement targets.",
+                    ),
+                ),
+            ),
+            session_id="session-1",
+            finished_at=LATER,
+        )
+
+    assert len(repository.review_revisions(review.id)) == 1
+    saved = repository.review(review.id)
+    assert saved is not None
+    assert saved.measurement_assessment is None
+    assert repository.job(claimed.id).status == "running"  # type: ignore[union-attr]
+
+
+def test_week_review_rejects_a_structured_revision():
+    """Week reviews carry no outcome/confidence axis; a structured revision must
+    be rejected at the revision-application layer rather than stamping those
+    fields onto a `kind == "week"` row."""
+    repository = SqliteCoachRepository()
+    review, _, _ = repository.enqueue_week_review(week_start="2026-07-20")
+    claimed = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    repository.mark_review_generating(review.id, updated_at=NOW)
+    repository.complete_week_review_output(
+        review_id=review.id,
+        job_id=claimed.id,
+        output=WeekReviewOutput(
+            headline="Load rising on schedule; threshold signal still unproven.",
+            synthesis_md="## Week\n...",
+            follow_up_questions=["Was recovery adequate?"],
+            journal=_run_journal_summary(),
+            brief_update=BriefUpdate(action="keep", content_md=None),
+            refs=[ArtifactRef(kind="date", value="2026-07-20")],
+            plot_observations=[],
+            history_used=[],
+        ),
+        finished_at=NOW,
+    )
+
+    thread, _ = repository.get_or_create_review_thread(review.id, created_at=NOW)
+    repository.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: the load read was overstated.",
+        review_revision_requested=True,
+    )
+    chat_job = repository.claim_next_job("9999-01-01T00:00:00Z")
+    assert chat_job is not None
+
+    with pytest.raises(ValueError, match="Weekly synthesis reviews"):
+        repository.complete_chat_output(
+            job_id=chat_job.id,
+            thread_id=thread.id,
+            output=ChatOutput(
+                answer_md="I updated the week synthesis.",
+                refs=[ArtifactRef(kind="date", value="2026-07-20")],
+                review_revision=ReviewRevisionOutput(
+                    headline="Revised week synthesis.",
+                    content_md="Revised week synthesis.",
+                    outcome="completed_as_intended",
+                    confidence="high",
+                    refs=[ArtifactRef(kind="date", value="2026-07-20")],
+                    follow_up_questions=[],
+                    plot_observations=[],
+                    history_used=[],
+                ),
+            ),
+            session_id="session-1",
+            finished_at=LATER,
+        )
+
+    saved = repository.review(review.id)
+    assert saved is not None
+    assert saved.outcome is None
+    assert saved.confidence is None
+    assert saved.updated_at == NOW
+    assert repository.job(chat_job.id).status == "running"  # type: ignore[union-attr]
+    assert len(repository.review_revisions(review.id)) == 0
 
 
 def test_existing_closed_review_thread_is_reopened_for_future_corrections():

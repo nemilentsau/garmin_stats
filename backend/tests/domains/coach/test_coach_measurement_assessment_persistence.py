@@ -89,6 +89,17 @@ def _running_review(repo: SqliteCoachRepository):
     return review, job
 
 
+def _running_day_review(repo: SqliteCoachRepository):
+    review, _, _ = repo.enqueue_day_review(
+        date="2026-07-12",
+        measurement_targets=[{"run_id": "run-1", "occurrence_key": OCCURRENCE_KEY}],
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    repo.mark_review_generating(review.id, updated_at=NOW)
+    return review, job
+
+
 def _running_chat(repo: SqliteCoachRepository):
     repo.insert_thread(_thread())
     repo.enqueue_chat_message(thread_id="thread-1", content_md="Assess this run")
@@ -642,6 +653,58 @@ def test_review_revision_that_changes_assessment_status_does_not_backdate_to_fir
     assert at_revision is not None
     assert at_revision.created_at == REVISED_AT
     assert at_revision.assessment.status == "valid"
+
+
+def test_day_review_revision_keeps_latest_measurement_assessment_resolvable():
+    """Critical #1 regression guard: a day-kind revision that carries the model's
+    (re-affirmed) measurement assessment must not be rejected by the revision guard,
+    and `latest_measurement_assessment` — the port training reads — must still resolve
+    it afterward."""
+    repo = SqliteCoachRepository()
+    review, job = _running_day_review(repo)
+    repo.complete_review_output(
+        review_id=review.id,
+        job_id=job.id,
+        output=_review_output(_assessment(status="valid")),
+        finished_at=COMPLETED_AT,
+    )
+    before_revision = repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY)
+    assert before_revision is not None
+    assert before_revision.assessment.status == "valid"
+
+    thread, _ = repo.get_or_create_review_thread(review.id, created_at=COMPLETED_AT)
+    repo.enqueue_chat_message(
+        thread_id=thread.id,
+        content_md="Update the review: the heat context was understated.",
+        review_revision_requested=True,
+    )
+    claimed = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert claimed is not None
+    repo.complete_chat_output(
+        job_id=claimed.id,
+        thread_id=thread.id,
+        output=ChatOutput(
+            answer_md="I added the heat context to the review.",
+            refs=[ArtifactRef(kind="run", value="run-1")],
+            review_revision=ReviewRevisionOutput(
+                headline="Review, with the heat context stated.",
+                content_md="Review, with the heat context stated.",
+                outcome="completed_as_intended",
+                confidence="high",
+                refs=[ArtifactRef(kind="run", value="run-1")],
+                follow_up_questions=[],
+                plot_observations=[],
+                history_used=[],
+                measurement_assessment=_assessment(status="valid"),
+            ),
+        ),
+        session_id=None,
+        finished_at=REVISED_AT,
+    )
+
+    after_revision = repo.latest_measurement_assessment("run-1", OCCURRENCE_KEY)
+    assert after_revision is not None
+    assert after_revision.assessment.status == "valid"
 
 
 def test_schema_backfill_uses_revision_where_current_assessment_status_took_effect():

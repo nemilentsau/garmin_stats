@@ -122,7 +122,7 @@ def test_manual_day_review_enqueues_and_duplicate_returns_existing(coach_client)
     first = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
     second = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
 
-    assert first.status_code == 201
+    assert first.status_code == 202
     assert second.status_code == 200
     assert first.json()["review"]["id"] == second.json()["review"]["id"]
     assert first.json()["review"]["kind"] == "day"
@@ -152,7 +152,7 @@ def test_day_review_accepts_a_canonical_date(coach_client):
 
     response = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
 
-    assert response.status_code == 201
+    assert response.status_code == 202
 
 
 def test_manual_week_review_enqueues_and_duplicate_returns_existing(coach_client):
@@ -161,7 +161,7 @@ def test_manual_week_review_enqueues_and_duplicate_returns_existing(coach_client
     first = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
     second = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
 
-    assert first.status_code == 201
+    assert first.status_code == 202
     assert second.status_code == 200
     assert first.json()["created"] is True
     assert second.json()["created"] is False
@@ -200,7 +200,7 @@ def test_week_review_accepts_a_canonical_monday(coach_client):
 
     response = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
 
-    assert response.status_code == 201
+    assert response.status_code == 202
 
 
 def test_status_lookup_and_review_filters(coach_client):

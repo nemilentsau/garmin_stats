@@ -271,9 +271,6 @@ export const api = {
 			params: { path: { run_id: runId } }
 		}));
 	},
-	enqueueCoachRunReview: async (runId: string) => {
-		return unwrapResponse(client.POST('/api/coach/reviews/run', { body: { run_id: runId } }));
-	},
 	enqueueCoachDayReview: async (date: string) => {
 		return unwrapResponse(client.POST('/api/coach/reviews/day', { body: { date } }));
 	},

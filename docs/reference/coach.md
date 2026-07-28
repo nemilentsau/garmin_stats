@@ -220,12 +220,13 @@ memory. Manual retry requeues a failed durable job and preserves the original re
 user message.
 
 Reviews are manual-only. The **Coach debrief for this day** action on the Today board is
-the sole review trigger — it enqueues a whole-day debrief (`kind = "day"`) for the
-selected date. The run page shows a review's outcome once it exists but no longer
-initiates one: it links to the coach review when present (`Open coach review →`) and
-otherwise shows a static hint pointing back to Today. Activity sync, upload, startup,
-watcher refresh, elapsed schedule dates, and Today feedback persistence never enqueue
-Coach or infer a missed run.
+the primary day-review trigger — it enqueues a whole-day debrief (`kind = "day"`) for the
+selected date. Weekly synthesis reviews are triggered from the Coach page's own
+"Review my week" control, and the run-review API (`POST /api/coach/reviews/run`) remains
+supported with no UI trigger. The run page shows a link to its coach review when one
+exists (`Open coach review →`) but no longer initiates one, and otherwise shows a static
+hint pointing back to Today. Activity sync, upload, startup, watcher refresh, elapsed
+schedule dates, and Today feedback persistence never enqueue Coach or infer a missed run.
 
 Every completed review can have one reusable linked conversation inline on the review
 surface. Opening or refreshing the review is read-only: the thread is created only when
@@ -364,12 +365,12 @@ paused state.
 
 ## API and UI
 
-The `/api/coach/*` API exposes status, review history/manual run enqueue/retry,
+The `/api/coach/*` API exposes status, review history/manual run/day/week enqueue/retry,
 review-linked thread/revision history, general threads/messages/close/retry-close,
-and current-policy brief. Jobs and the semantic journal
-stay durable SQLite records with no standalone read route; a job's lifecycle rides along on
-its owning review/message/status response instead, and no product surface reads the journal
-directly. Model operations return
+current-policy brief, and the semantic journal (`GET /api/coach/journal`). A job's
+lifecycle has no standalone read route; it rides along on its owning review/message/status
+response instead. The journal read backs two product surfaces on `/coach`: the journal
+timeline and the watch strip. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence
@@ -379,9 +380,9 @@ fields for every version when corrections exist. Viewing it does not create a th
 sending the first message does.
 `/runs/[id]` resolves one review directly and is read-only: it shows **Open coach
 review →** when that run's review exists, otherwise a static "Reviews are requested from
-the Today board" hint. `/today` is the sole trigger surface: a **Coach debrief for this
-day** action at the foot of the board enqueues a whole-day debrief for the selected date
-and deep-links to it on `/coach` once queued; a hint counts that day's completed cards
+the Today board" hint. `/today` is the day-debrief trigger surface: a **Coach debrief for
+this day** action at the foot of the board enqueues a whole-day debrief for the selected
+date and deep-links to it on `/coach` once queued; a hint counts that day's completed cards
 still missing RPE/notes so the athlete can fill them in before debriefing. The Reviews tab
 on `/coach` leads with a Now band built entirely from already-loaded data — watching, open
 questions, latest review, and needs-attention — so the current state is visible without

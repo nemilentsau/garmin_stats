@@ -182,6 +182,26 @@ def _retry_job(job: CoachJob, *, available_at: str) -> CoachJob:
     )
 
 
+def _allowed_day_measurement_targets(payload: dict[str, object]) -> set[tuple[str, str]]:
+    """Extract the `(run_id, occurrence_key)` pairs a day review's job authorized.
+
+    Shared by `complete_review_output` (completion) and `complete_chat_output`
+    (revision) so both paths honor the exact same day-review target set instead
+    of duplicating the defensive dict parsing.
+    """
+    raw_targets = payload.get("measurement_targets")
+    allowed: set[tuple[str, str]] = set()
+    if isinstance(raw_targets, list):
+        for entry in raw_targets:
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("run_id"), str)
+                and isinstance(entry.get("occurrence_key"), str)
+            ):
+                allowed.add((entry["run_id"], entry["occurrence_key"]))
+    return allowed
+
+
 def _create_review_job(
     connection: sqlite3.Connection,
     *,
@@ -576,16 +596,7 @@ class SqliteCoachRepository:
                             "Measurement assessment does not match queued review target"
                         )
                 elif review.kind == "day":
-                    raw_targets = job.payload.get("measurement_targets")
-                    allowed: set[tuple[str, str]] = set()
-                    if isinstance(raw_targets, list):
-                        for entry in raw_targets:
-                            if (
-                                isinstance(entry, dict)
-                                and isinstance(entry.get("run_id"), str)
-                                and isinstance(entry.get("occurrence_key"), str)
-                            ):
-                                allowed.add((entry["run_id"], entry["occurrence_key"]))
+                    allowed = _allowed_day_measurement_targets(job.payload)
                     if (assessment.run_id, assessment.occurrence_key) not in allowed:
                         raise MeasurementAssessmentValidationError(
                             "Measurement assessment does not match queued review target"
@@ -986,15 +997,32 @@ class SqliteCoachRepository:
                 review = _review_from_row(review_row)
                 if review.status != "complete":
                     raise ValueError("Only complete reviews can be revised")
-                revision_assessment = revision_output.measurement_assessment
-                if revision_assessment is not None and (
-                    review.kind != "run"
-                    or revision_assessment.run_id != review.run_id
-                    or revision_assessment.occurrence_key != review.occurrence_key
-                ):
-                    raise MeasurementAssessmentValidationError(
-                        "Review revision assessment does not match the linked review target"
+                if review.kind == "week":
+                    raise ReviewRevisionValidationError(
+                        "Weekly synthesis reviews do not support structured revisions"
                     )
+                revision_assessment = revision_output.measurement_assessment
+                if revision_assessment is not None:
+                    if review.kind == "run":
+                        target_mismatch = (
+                            revision_assessment.run_id != review.run_id
+                            or revision_assessment.occurrence_key != review.occurrence_key
+                        )
+                    else:
+                        # `review.kind == "day"` (week already rejected above): honor the
+                        # same target-set membership rule `complete_review_output` enforces
+                        # at completion time, using the original day job's payload — the
+                        # linked review's own `job_id` never changes across revisions.
+                        review_job = self._job_in_connection(connection, review.job_id)
+                        allowed = _allowed_day_measurement_targets(review_job.payload)
+                        target_mismatch = (
+                            revision_assessment.run_id,
+                            revision_assessment.occurrence_key,
+                        ) not in allowed
+                    if target_mismatch:
+                        raise MeasurementAssessmentValidationError(
+                            "Review revision assessment does not match the linked review target"
+                        )
                 version_row = connection.execute(
                     """
                     SELECT COALESCE(MAX(version), 0) AS version
