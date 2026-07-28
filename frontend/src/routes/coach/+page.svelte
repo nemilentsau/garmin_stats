@@ -66,9 +66,21 @@
 	// endpoints). `reviews` is newest-first (see `list_reviews` ORDER BY date/updated_at
 	// DESC), so `.find()`/`[0]`/`.filter()` here are selection, not statistics.
 	let latestReview = $derived(reviews[0] ?? null);
+	// Excludes a review that already has a linked thread, so answering it doesn't leave it
+	// stuck in the Open-questions slot forever (`follow_up_questions` persists until a
+	// revision replaces it). `threads` only holds general, non-review threads (the backend's
+	// `list_threads` filters `WHERE review_id IS NULL`), so it can never signal this. The
+	// only already-loaded per-review thread signal is `reviewThread`, populated for whichever
+	// review is currently active via `refreshReviewConversation` — this correctly drops the
+	// review once the user has selected it and it has a thread (e.g. after answering), and is
+	// a no-op (falls back to `reviews[0]`'s own check) for reviews the user hasn't visited.
 	let openQuestionsReview = $derived(
-		reviews.find((review) => review.status === 'complete' && review.follow_up_questions.length > 0) ??
-			null
+		reviews.find(
+			(review) =>
+				review.status === 'complete' &&
+				review.follow_up_questions.length > 0 &&
+				reviewThread?.review_id !== review.id
+		) ?? null
 	);
 	let failedReviews = $derived(reviews.filter((review) => review.status === 'failed'));
 	let hasAnyAnswer = $derived(
