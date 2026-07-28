@@ -295,6 +295,28 @@ from that date that was not a measurement occurrence — raises the same
 review keeps its original exact-match rule (assessment must equal the single queued
 `run_id`/`occurrence_key`) unchanged.
 
+`POST /api/coach/reviews/week` enqueues a weekly synthesis, one per Monday week-start
+date rather than per calendar day or run: the request rejects any non-canonical date
+spelling (the same strict `YYYY-MM-DD` check the day route applies) and any date that
+is not a Monday with 422, before `CoachReview.kind = "week"` (no `run_id`/
+`occurrence_key`, no `outcome`/`confidence`/`measurement_assessment` — a week-level
+judgment makes none of those per-occurrence calls) is enqueued and the `review_week`
+job dedupes on `review:week:<week_start>`. `CoachHandlers._week` computes the
+week's end date (`week_start + 6 days`) and reads `CoachReadGateway.recent_runs` bounded
+by that end date, filtering to the runs whose `session_date` actually falls in the
+window — a bounded read, not an analytical query — to build
+`assemble_workspace(..., target_date=week_start, current_run_ids=[...])` so every run
+in the week gets full evidence, the same way a day job pulls every card's run. The week
+prompt swaps the whole-day policy block for one instructing the model to synthesize the
+week against the block's intent (load trajectory, key-session outcomes, recovery
+pattern, the two athlete goals) rather than relitigate individual runs, and to close
+`synthesis_md` with an explicit "Next week" keep/change/watch section.
+`complete_week_review_output` mirrors `complete_review_output`'s atomic persistence
+(review, semantic-memory journal entry, optional brief replacement, job completion) but
+never inserts a review revision: revision rows snapshot a review's `outcome`/
+`confidence`, which a week review never carries, and week reviews have no chat-driven
+revision flow today.
+
 ## Codex isolation and runtime files
 
 Each attempt starts `codex exec` in a new process session with strict

@@ -241,3 +241,17 @@ def test_enqueue_day_review_excludes_cards_missing_measurement_or_activity():
     result = jobs.enqueue_day_review("2026-07-27")
 
     assert result.job.payload["measurement_targets"] == []
+
+
+def test_enqueue_week_review_dedupes_by_week_start():
+    jobs = _jobs(SqliteCoachRepository(), JobsGateway())
+
+    first = jobs.enqueue_week_review("2026-07-20")
+    second = jobs.enqueue_week_review("2026-07-20")
+
+    assert first.created is True and second.created is False
+    assert first.review is not None and first.review.kind == "week"
+    assert first.review.id == second.review.id  # type: ignore[union-attr]
+    assert first.job.dedupe_key == "review:week:2026-07-20"
+    assert first.job.payload == {"review_id": first.review.id, "week_start": "2026-07-20"}
+    assert jobs.repo.queued_count() == 1

@@ -17,6 +17,7 @@ from app.domains.coach.contracts import (
     JobKind,
     ReviewOutput,
     RunJournalSummary,
+    WeekReviewOutput,
 )
 from app.domains.coach.infra.runner import (
     ensure_thread_codex_home,
@@ -58,7 +59,9 @@ async def _run(
     tmp_path: Path,
     *,
     kind: JobKind = "review_run",
-    output_model: type[ReviewOutput] | type[ChatOutput] | type[DistillOutput] = ReviewOutput,
+    output_model: (
+        type[ReviewOutput] | type[ChatOutput] | type[DistillOutput] | type[WeekReviewOutput]
+    ) = ReviewOutput,
     codex_home: Path | None = None,
     resume_session_id: str | None = None,
     images: list[Path] | None = None,

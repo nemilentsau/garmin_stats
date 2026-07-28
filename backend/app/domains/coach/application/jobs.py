@@ -53,6 +53,10 @@ class CoachJobs:
         )
         return CoachEnqueueResponse(created=created, job=job, review=review)
 
+    def enqueue_week_review(self, week_start: str) -> CoachEnqueueResponse:
+        review, job, created = self.repo.enqueue_week_review(week_start=week_start)
+        return CoachEnqueueResponse(created=created, job=job, review=review)
+
     def create_thread(self, title: str) -> CoachThread:
         now = utc_now_iso()
         thread = CoachThread(

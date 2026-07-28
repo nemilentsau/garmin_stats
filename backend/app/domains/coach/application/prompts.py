@@ -78,6 +78,14 @@ say nothing when there is nothing to add. At most one measurement_assessment,
 and only for a listed target."""
 
 
+_WEEK_POLICY = """This is a weekly synthesis. Judge the week against the block's
+intent: load trajectory, key-session outcomes, recovery pattern, and the two
+athlete goals (strength progression, running resilience). Lead with what changed
+this week that the athlete cannot see day-to-day. End synthesis_md with a
+"Next week" section: keep / change / watch. No per-run relitigating; cite runs
+only where they carry the weekly claim."""
+
+
 BRIEF_BOOTSTRAP_INSTRUCTION = (
     "No durable coach brief exists yet. This review must write the initial brief: "
     "set brief_update.action=\"replace\" with your current working model of this "
@@ -111,6 +119,13 @@ def review_prompt(
         else "Review the current run and return only the required structured output."
     )
     return f"{_COMMON}\n{_REVIEW_POLICY}{day_policy}\n{target}{closing}"
+
+
+def week_prompt() -> str:
+    return (
+        f"{_COMMON}\n{_WEEK_POLICY}\n"
+        "Review the week as a whole and return only the required structured output."
+    )
 
 
 def chat_prompt(

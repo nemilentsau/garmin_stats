@@ -21,6 +21,7 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     ReviewRevisionOutput,
     RunJournalSummary,
+    WeekReviewOutput,
 )
 from app.domains.coach.infra.runner import CodexJobResult
 
@@ -39,6 +40,10 @@ class FakeGateway:
         from app.domains.training.contracts import TrainingTodayResponse
 
         return TrainingTodayResponse(date=date, cards=[])
+
+    def recent_runs(self, *, evidence_date: str, limit: int = 20):
+        del evidence_date, limit
+        return []
 
 
 class FakeRunner:
@@ -121,6 +126,33 @@ def _review_output() -> ReviewOutput:
             content_md="Current approach: protect easy days and compare next-day recovery.",
         ),
     )
+
+
+def test_week_review_persists_synthesis_without_outcome(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_week_review(week_start="2026-07-20")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = WeekReviewOutput(
+        headline="Load rising on schedule; threshold signal still unproven.",
+        synthesis_md="## Week\n...",
+        follow_up_questions=[],
+        journal=_review_output().journal,
+        brief_update=BriefUpdate(action="replace", content_md="Model v2."),
+        refs=[ArtifactRef(kind="date", value="2026-07-20")],
+        plot_observations=[],
+        history_used=[],
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.kind == "week" and saved.status == "complete"
+    assert saved.outcome is None and saved.measurement_assessment is None
+    assert saved.content_md is not None and saved.content_md.startswith("## Week")
 
 
 def test_review_success_persists_review_memory_and_full_brief_atomically(

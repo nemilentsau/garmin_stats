@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 from collections.abc import Awaitable, Callable
+from datetime import date, timedelta
 from pathlib import Path
 
 from app.domains.coach.adapters import (
@@ -18,6 +19,7 @@ from app.domains.coach.application.prompts import (
     chat_prompt,
     distill_prompt,
     review_prompt,
+    week_prompt,
 )
 from app.domains.coach.application.workspace import WorkspaceManifest, assemble_workspace
 from app.domains.coach.contracts import (
@@ -27,6 +29,7 @@ from app.domains.coach.contracts import (
     DistillOutput,
     PlotObservation,
     ReviewOutput,
+    WeekReviewOutput,
 )
 from app.domains.coach.infra.runner import (
     CodexJobResult,
@@ -128,6 +131,7 @@ class CoachHandlers:
         handlers = {
             "review_run": self._review,
             "review_day": self._review,
+            "review_week": self._week,
             "chat_turn": self._chat,
             "distill_thread": self._distill,
         }
@@ -232,6 +236,102 @@ class CoachHandlers:
         try:
             await asyncio.to_thread(
                 self.repo.complete_review_output,
+                review_id=review_id,
+                job_id=job.id,
+                output=result.output,
+                finished_at=utc_now_iso(),
+                require_brief=not has_brief,
+            )
+        except MeasurementAssessmentValidationError as error:
+            await asyncio.to_thread(
+                self.repo.fail_job,
+                job.id,
+                error=f"invalid_output: {error}",
+                finished_at=utc_now_iso(),
+            )
+
+    async def _week(self, job: CoachJob) -> None:
+        review_id = self._payload_text(job, "review_id")
+        week_start = self._payload_text(job, "week_start")
+        week_end = (date.fromisoformat(week_start) + timedelta(days=6)).isoformat()
+        recent = await asyncio.to_thread(
+            self.gateway.recent_runs, evidence_date=week_end, limit=20
+        )
+        run_ids = sorted(
+            {item.id for item in recent if week_start <= item.session_date <= week_end}
+        )
+        prompt = week_prompt()
+        has_brief = (
+            await asyncio.to_thread(
+                self.repo.current_brief, policy_version=CURRENT_MEMORY_POLICY_VERSION
+            )
+        ) is not None
+        if not has_brief:
+            prompt = prompt + BRIEF_BOOTSTRAP_INSTRUCTION
+        await asyncio.to_thread(
+            self.repo.mark_review_generating, review_id, updated_at=utc_now_iso()
+        )
+        directory = self.workspace_root / "reviews" / review_id
+        manifest = await asyncio.to_thread(
+            assemble_workspace,
+            self.gateway,
+            self.repo,
+            directory=directory,
+            plot_cache_dir=self.plot_cache_dir,
+            evidence_date=self.local_today(),
+            target_date=week_start,
+            question_md=prompt,
+            current_run_ids=run_ids,
+            transcript=None,
+        )
+        result = await self.runner(
+            kind=job.kind,
+            job_id=job.id,
+            attempt=job.attempt_count,
+            prompt=prompt,
+            workspace=Path(manifest.directory),
+            output_model=WeekReviewOutput,
+            images=[Path(path) for path in manifest.current_images],
+            codex_home=None,
+            resume_session_id=None,
+            logs_dir=self.logs_dir,
+        )
+        if not result.ok or not isinstance(result.output, WeekReviewOutput):
+            await asyncio.to_thread(
+                self.repo.fail_job,
+                job.id,
+                error=self._runner_error(result),
+                finished_at=utc_now_iso(),
+            )
+            return
+        supporting_refs = [
+            *result.output.journal.refs,
+            *[
+                ref
+                for historical_use in result.output.history_used
+                for ref in historical_use.refs
+            ],
+        ]
+        validation_errors = _plot_evidence_errors(
+            direct_refs=result.output.refs,
+            supporting_refs=supporting_refs,
+            observations=result.output.plot_observations,
+            manifest=manifest,
+        )
+        if validation_errors:
+            await asyncio.to_thread(
+                self.repo.fail_job,
+                job.id,
+                error=(
+                    "invalid_output: inconsistent plot evidence: "
+                    + "; ".join(validation_errors)
+                ),
+                finished_at=utc_now_iso(),
+            )
+            return
+        try:
+            await asyncio.to_thread(
+                self.repo.complete_week_review_output,
                 review_id=review_id,
                 job_id=job.id,
                 output=result.output,

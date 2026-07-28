@@ -20,11 +20,12 @@ from app.domains.coach.contracts import (
     DistillOutput,
     JobKind,
     ReviewOutput,
+    WeekReviewOutput,
     safe_artifact_id,
 )
 
-OutputModel = type[ReviewOutput] | type[ChatOutput] | type[DistillOutput]
-OutputValue = ReviewOutput | ChatOutput | DistillOutput
+OutputModel = type[ReviewOutput] | type[ChatOutput] | type[DistillOutput] | type[WeekReviewOutput]
+OutputValue = ReviewOutput | ChatOutput | DistillOutput | WeekReviewOutput
 ErrorKind = Literal[
     "timeout",
     "spawn",

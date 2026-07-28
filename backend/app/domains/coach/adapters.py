@@ -27,6 +27,7 @@ from app.domains.coach.contracts import (
     JournalEntry,
     ReviewOutput,
     RunJournalSummary,
+    WeekReviewOutput,
     safe_artifact_id,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
@@ -294,6 +295,59 @@ def _create_day_review_job(
     return review, job, True
 
 
+def _create_week_review_job(
+    connection: sqlite3.Connection,
+    *,
+    week_start: str,
+) -> tuple[CoachReview, CoachJob, bool]:
+    existing_row = connection.execute(
+        "SELECT data FROM coach_reviews WHERE kind = 'week' AND date = ?",
+        (week_start,),
+    ).fetchone()
+    dedupe_key = f"review:week:{week_start}"
+    job_kind: JobKind = "review_week"
+    if existing_row is not None:
+        review = _review_from_row(existing_row)
+        job_row = connection.execute(
+            "SELECT data FROM coach_jobs WHERE id = ?", (review.job_id,)
+        ).fetchone()
+        if job_row is None:
+            raise RuntimeError(f"Review {review.id} references missing job {review.job_id}")
+        return review, _job_from_row(job_row), False
+
+    now = utc_now_iso()
+    review_id = _new_id("review")
+    job_id = _new_id("job")
+    review = CoachReview(
+        id=review_id,
+        date=week_start,
+        kind="week",
+        run_id=None,
+        occurrence_key=None,
+        status="queued",
+        job_id=job_id,
+        created_at=now,
+        updated_at=now,
+    )
+    job = CoachJob(
+        id=job_id,
+        kind=job_kind,
+        dedupe_key=dedupe_key,
+        priority=_PRIORITIES[job_kind],
+        status="queued",
+        payload={
+            "review_id": review_id,
+            "week_start": week_start,
+        },
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    _save_review(connection, review)
+    _save_job(connection, job)
+    return review, job, True
+
+
 class SqliteCoachRepository:
     """Coach persistence adapter with transaction-owned queue invariants."""
 
@@ -328,6 +382,13 @@ class SqliteCoachRepository:
                 date=date,
                 measurement_targets=measurement_targets,
             )
+            connection.commit()
+        return result
+
+    def enqueue_week_review(self, *, week_start: str) -> tuple[CoachReview, CoachJob, bool]:
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            result = _create_week_review_job(connection, week_start=week_start)
             connection.commit()
         return result
 
@@ -551,6 +612,111 @@ class SqliteCoachRepository:
                 source_message_id=None,
                 created_at=finished_at,
             )
+            prior_rows = connection.execute(
+                """
+                SELECT data FROM coach_journal
+                WHERE json_extract(data, '$.source_id') = ?
+                  AND COALESCE(json_extract(data, '$.policy_version'), 1) = ?
+                ORDER BY ts, id
+                """,
+                (review_id, CURRENT_MEMORY_POLICY_VERSION),
+            ).fetchall()
+            prior_entries = active_journal_entries(
+                [_model_from_row(JournalEntry, row) for row in prior_rows]
+            )
+            self._insert_journal_output(
+                connection,
+                content_md=render_run_journal(output.journal),
+                refs=output.journal.refs,
+                kind="review",
+                source_id=review_id,
+                created_at=finished_at,
+                policy_version=CURRENT_MEMORY_POLICY_VERSION,
+                run_summary=output.journal,
+                supersedes_id=(prior_entries[-1].id if prior_entries else None),
+            )
+            if output.brief_update.action == "replace":
+                self._insert_brief_output(
+                    connection,
+                    content_md=output.brief_update.content_md or "",
+                    source_id=review_id,
+                    created_at=finished_at,
+                    policy_version=CURRENT_MEMORY_POLICY_VERSION,
+                )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "complete",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": None,
+                    }
+                ),
+            )
+            connection.commit()
+
+    def complete_week_review_output(
+        self,
+        *,
+        review_id: str,
+        job_id: str,
+        output: WeekReviewOutput,
+        finished_at: str,
+        require_brief: bool = False,
+    ) -> None:
+        """Persist a weekly synthesis review, memory, and job atomically.
+
+        Mirrors `complete_review_output`'s atomic shape minus the
+        outcome/confidence/measurement-assessment axes a week review never
+        carries. Revision insertion is deliberately skipped:
+        `_insert_review_revision` snapshots a review's `outcome`/`confidence`,
+        and a week review's `outcome` is always `None`, so it can never satisfy
+        that invariant. Week reviews have no chat-driven revision flow today
+        (that flow is scoped to review-linked threads producing
+        `ReviewRevisionOutput`, which always carries `outcome`), so skipping
+        the version-1 snapshot loses nothing.
+        """
+        if require_brief and output.brief_update.action != "replace":
+            raise MeasurementAssessmentValidationError(
+                "first successful review must write the initial brief"
+            )
+        self._validate_artifact_refs(
+            [
+                *output.refs,
+                *output.journal.refs,
+                *[
+                    ref
+                    for historical_use in output.history_used
+                    for ref in historical_use.refs
+                ],
+            ]
+        )
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            if job.status != "running":
+                raise ValueError(f"Coach job {job_id} is not running")
+            row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(row)
+            completed_review = review.model_copy(
+                update={
+                    "status": "complete",
+                    "headline": output.headline,
+                    "content_md": output.synthesis_md,
+                    "refs": output.refs,
+                    "follow_up_questions": list(output.follow_up_questions),
+                    "plot_observations": output.plot_observations,
+                    "history_used": output.history_used,
+                    "error": None,
+                    "updated_at": finished_at,
+                }
+            )
+            _save_review(connection, completed_review)
             prior_rows = connection.execute(
                 """
                 SELECT data FROM coach_journal

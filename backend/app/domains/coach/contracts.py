@@ -273,6 +273,20 @@ class ChatOutput(StrictDefaultsRequired):
     review_revision: ReviewRevisionOutput | None = None
 
 
+class WeekReviewOutput(StrictDefaultsRequired):
+    """A weekly synthesis: no outcome/confidence/measurement axes — those are
+    per-occurrence judgments a week-level review never makes."""
+
+    headline: str = Field(min_length=1, max_length=160)
+    synthesis_md: str = Field(min_length=1, max_length=12000)
+    follow_up_questions: list[str] = Field(max_length=3)
+    journal: RunJournalSummary
+    brief_update: BriefUpdate
+    refs: list[ArtifactRef]
+    plot_observations: list[PlotObservation]
+    history_used: list[HistoricalEvidenceUse]
+
+
 class DistillOutput(StrictDefaultsRequired):
     journal_entry_md: str = Field(min_length=1, max_length=1600)
     refs: list[ArtifactRef]
@@ -329,6 +343,10 @@ class CoachRunReviewRequest(StrictDefaultsRequired):
 
 class CoachDayReviewRequest(StrictDefaultsRequired):
     date: str
+
+
+class CoachWeekReviewRequest(StrictDefaultsRequired):
+    week_start: str
 
 
 class CoachThreadCreateRequest(StrictDefaultsRequired):

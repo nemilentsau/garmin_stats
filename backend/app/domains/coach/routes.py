@@ -29,6 +29,7 @@ from app.domains.coach.contracts import (
     CoachThreadCreateRequest,
     CoachThreadsResponse,
     CoachWatchItem,
+    CoachWeekReviewRequest,
     safe_artifact_id,
 )
 
@@ -138,6 +139,29 @@ def post_day_review(request: CoachDayReviewRequest, response: Response) -> Coach
     except ValueError as error:
         raise HTTPException(status_code=422, detail="date must be an ISO calendar date") from error
     result = build_container().coach_jobs.enqueue_day_review(request.date)
+    if not result.created:
+        response.status_code = status.HTTP_200_OK
+    return result
+
+
+@router.post(
+    "/reviews/week",
+    response_model=CoachEnqueueResponse,
+    status_code=201,
+    responses=error_responses(422),
+)
+def post_week_review(
+    request: CoachWeekReviewRequest, response: Response
+) -> CoachEnqueueResponse:
+    try:
+        parsed = _canonical_date(request.week_start)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422, detail="week_start must be an ISO calendar date"
+        ) from error
+    if parsed.weekday() != 0:
+        raise HTTPException(status_code=422, detail="week_start must be a Monday")
+    result = build_container().coach_jobs.enqueue_week_review(request.week_start)
     if not result.created:
         response.status_code = status.HTTP_200_OK
     return result

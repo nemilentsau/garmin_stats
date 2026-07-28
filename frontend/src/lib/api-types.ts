@@ -749,6 +749,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/reviews/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Week Review */
+        post: operations["post_week_review_api_coach_reviews_week_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/reviews/{review_id}/retry": {
         parameters: {
             query?: never;
@@ -1786,6 +1803,11 @@ export interface components {
             source_id: string;
             /** Ts */
             ts: string;
+        };
+        /** CoachWeekReviewRequest */
+        CoachWeekReviewRequest: {
+            /** Week Start */
+            week_start: string;
         };
         /** ConfounderCheck */
         ConfounderCheck: {
@@ -6978,6 +7000,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CoachDayReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    post_week_review_api_coach_reviews_week_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachWeekReviewRequest"];
             };
         };
         responses: {

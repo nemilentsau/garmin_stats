@@ -155,6 +155,54 @@ def test_day_review_accepts_a_canonical_date(coach_client):
     assert response.status_code == 201
 
 
+def test_manual_week_review_enqueues_and_duplicate_returns_existing(coach_client):
+    client, repo = coach_client
+
+    first = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+    second = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["created"] is True
+    assert second.json()["created"] is False
+    assert first.json()["review"]["id"] == second.json()["review"]["id"]
+    assert first.json()["review"]["kind"] == "week"
+    assert first.json()["job"]["dedupe_key"] == "review:week:2026-07-20"
+    assert repo.queued_count() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "07/20/2026",
+        "20260720",
+        "2026-W30-1",
+    ],
+)
+def test_week_review_rejects_non_canonical_date_spellings(coach_client, value):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": value})
+
+    assert response.status_code == 422
+
+
+def test_week_review_rejects_a_non_monday_week_start(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-21"})
+
+    assert response.status_code == 422
+
+
+def test_week_review_accepts_a_canonical_monday(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+
+    assert response.status_code == 201
+
+
 def test_status_lookup_and_review_filters(coach_client):
     client, _repo = coach_client
     created = client.post("/api/coach/reviews/run", json={"run_id": "run-1"}).json()
