@@ -131,12 +131,28 @@ def test_manual_day_review_enqueues_and_duplicate_returns_existing(coach_client)
     assert repo.queued_count() == 1
 
 
-def test_day_review_rejects_a_non_iso_date(coach_client):
+@pytest.mark.parametrize(
+    "value",
+    [
+        "07/27/2026",
+        "20260727",
+        "2026-W30-1",
+    ],
+)
+def test_day_review_rejects_non_canonical_date_spellings(coach_client, value):
     client, _repo = coach_client
 
-    response = client.post("/api/coach/reviews/day", json={"date": "07/27/2026"})
+    response = client.post("/api/coach/reviews/day", json={"date": value})
 
     assert response.status_code == 422
+
+
+def test_day_review_accepts_a_canonical_date(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+
+    assert response.status_code == 201
 
 
 def test_status_lookup_and_review_filters(coach_client):

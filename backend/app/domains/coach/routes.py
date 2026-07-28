@@ -37,6 +37,22 @@ _ReviewsFromDate = Annotated[date_type | None, Query(alias="from")]
 _ReviewsToDate = Annotated[date_type | None, Query(alias="to")]
 
 
+def _canonical_date(value: str) -> date_type:
+    """Parse a strict `YYYY-MM-DD` date, rejecting other ISO 8601 spellings.
+
+    `date.fromisoformat` also accepts non-canonical forms (basic "20260727",
+    week dates "2026-W30-1") that round-trip to the same calendar day but as
+    a different string. Left unnormalized, that string flows straight into
+    the day-review dedupe key and the stored review date, so two accepted
+    spellings of one day would silently create duplicate day reviews, and
+    `training_today` would match zero cards against the unnormalized form.
+    """
+    parsed = date_type.fromisoformat(value)
+    if parsed.isoformat() != value:
+        raise ValueError(f"Not a canonical ISO date: {value}")
+    return parsed
+
+
 @router.get(
     "/plots/{plot_name}",
     response_class=FileResponse,
@@ -118,7 +134,7 @@ def post_run_review(request: CoachRunReviewRequest, response: Response) -> Coach
 )
 def post_day_review(request: CoachDayReviewRequest, response: Response) -> CoachEnqueueResponse:
     try:
-        date_type.fromisoformat(request.date)
+        _canonical_date(request.date)
     except ValueError as error:
         raise HTTPException(status_code=422, detail="date must be an ISO calendar date") from error
     result = build_container().coach_jobs.enqueue_day_review(request.date)
