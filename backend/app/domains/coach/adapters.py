@@ -492,7 +492,7 @@ class SqliteCoachRepository:
         to_date: str | None,
         limit: int,
     ) -> list[CoachReview]:
-        clauses: list[str] = ["kind = 'run'"]
+        clauses: list[str] = []
         params: list[object] = []
         if from_date is not None:
             clauses.append("date >= ?")
@@ -500,7 +500,9 @@ class SqliteCoachRepository:
         if to_date is not None:
             clauses.append("date <= ?")
             params.append(to_date)
-        query = "SELECT data FROM coach_reviews WHERE " + " AND ".join(clauses)
+        query = "SELECT data FROM coach_reviews"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY date DESC, updated_at DESC, id LIMIT ?"
         params.append(limit)
         with connect() as connection:

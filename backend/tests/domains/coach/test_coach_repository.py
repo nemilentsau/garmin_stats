@@ -836,6 +836,24 @@ def test_status_queries_report_running_job_and_queued_count():
     assert repository.queued_count() == 1
 
 
+def test_list_reviews_includes_every_review_kind_not_only_run():
+    """day and week reviews must surface in the listing alongside run
+    reviews, otherwise the review rail, deep links, and Now band's Latest
+    block never see day/week debriefs."""
+    repository = SqliteCoachRepository()
+    run_review, _, _ = repository.enqueue_run_review(
+        run_id="run-1", date="2026-07-10", occurrence_key=None
+    )
+    day_review, _, _ = repository.enqueue_day_review(
+        date="2026-07-11", measurement_targets=[]
+    )
+
+    reviews = repository.list_reviews(from_date=None, to_date=None, limit=10)
+
+    kinds = {review.id: review.kind for review in reviews}
+    assert kinds == {run_review.id: "run", day_review.id: "day"}
+
+
 @pytest.mark.parametrize(
     "value",
     ["run-1", "review_42.md", "2026-07-12", "A1"],
