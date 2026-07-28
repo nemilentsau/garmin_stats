@@ -11,6 +11,7 @@
 		type CoachStatus,
 		type CoachThread
 	} from '$lib/api';
+	import { measurementLabel, sessionLabel } from '$lib/coach/verdict';
 	import { renderMarkdown } from '$lib/markdown';
 	import { createLatestRequestGate, startRealtimePage } from '$lib/realtime-page';
 	import { createCoachUpdateListener } from '$lib/sse';
@@ -103,7 +104,11 @@
 	}
 
 	function reviewOutcome(review: CoachReview): string {
-		const outcome = (review.outcome ?? review.verdict ?? 'not assessed').replaceAll('_', ' ');
+		// Real outcomes use the shared plain-language vocabulary; legacy rows that only have
+		// the old `verdict` field fall back to the raw enum text.
+		const outcome = review.outcome
+			? sessionLabel(review.outcome)
+			: (review.verdict?.replaceAll('_', ' ') ?? 'not assessed');
 		return review.outcome && (review.status === 'queued' || review.status === 'generating')
 			? `previous: ${outcome}`
 			: outcome;
@@ -398,10 +403,14 @@
 								Run review
 								<span class="tabular pane-date">{activeReview.date}</span>
 							</h2>
+							{#if activeReview.headline}
+								<p class="pane-headline">{activeReview.headline}</p>
+							{/if}
 							<p class="pane-meta">
-								{activeReview.status.replaceAll('_', ' ')} · {reviewOutcome(activeReview)}{activeReview.confidence
-									? ` · ${activeReview.confidence} confidence`
-									: ''}
+								{activeReview.status.replaceAll('_', ' ')} · {reviewOutcome(activeReview)}
+								{#if activeReview.measurement_assessment}
+									· {measurementLabel(activeReview.measurement_assessment.status)}
+								{/if}
 							</p>
 						</div>
 						{#if activeReview.status === 'failed'}
@@ -815,6 +824,12 @@
 	.pane-date {
 		color: #7a8ea0;
 		font-weight: 400;
+	}
+	.pane-headline {
+		margin: 3px 0 0;
+		font-size: 15px;
+		font-weight: 600;
+		color: #eef5f8;
 	}
 	.pane-meta {
 		margin: 3px 0 0;

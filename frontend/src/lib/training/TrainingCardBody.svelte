@@ -35,6 +35,7 @@
 	 */
 	import { untrack } from 'svelte';
 	import type { TrainingCaptureLog, TrainingTodayCard } from '$lib/api';
+	import { measurementLabel } from '$lib/coach/verdict';
 	import { fmtDuration, fmtLoad, fmtMi, fmtPace, fmtStartTime, fmtTE, hrBadgeLabel } from '$lib/format-run';
 	import TrainingCheckinGrid from './TrainingCheckinGrid.svelte';
 	import TrainingStrengthGrid from './TrainingStrengthGrid.svelte';
@@ -64,12 +65,6 @@
 	} = $props();
 
 	const EMPTY_CAPTURE: TrainingCaptureLog = { set_logs: [], checkin: null, rpe: null };
-	const MEASUREMENT_LABELS = {
-		awaiting_review: 'Awaiting review',
-		valid: 'Valid',
-		provisional: 'Provisional',
-		failed: 'Failed'
-	} as const;
 	const GATE_RESULT_LABELS = {
 		pass: 'Pass',
 		fail: 'Fail',
@@ -280,8 +275,7 @@
 		aria-labelledby={measurementHeadingId}
 	>
 		<div id={measurementHeadingId} class="measurement-heading">
-			<span>Measurement</span>
-			<strong>{MEASUREMENT_LABELS[measurement.status]}</strong>
+			<strong>{measurementLabel(measurement.status)}</strong>
 		</div>
 		{#if measurement.rationale}
 			<p class="measurement-rationale">{measurement.rationale}</p>
