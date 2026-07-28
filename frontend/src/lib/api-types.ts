@@ -874,6 +874,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal */
+        get: operations["get_journal_api_coach_journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -1503,6 +1520,13 @@ export interface components {
             /** Updated At */
             updated_at: string;
         };
+        /** CoachJournalResponse */
+        CoachJournalResponse: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntry"][];
+            /** Watch Items */
+            watch_items: components["schemas"]["CoachWatchItem"][];
+        };
         /**
          * CoachMeasurementAssessment
          * @description Coach judgment for one exact scheduled measurement-run occurrence.
@@ -1731,6 +1755,15 @@ export interface components {
              * @default []
              */
             threads: components["schemas"]["CoachThread"][];
+        };
+        /** CoachWatchItem */
+        CoachWatchItem: {
+            /** Text */
+            text: string;
+            /** Source Id */
+            source_id: string;
+            /** Ts */
+            ts: string;
         };
         /** ConfounderCheck */
         ConfounderCheck: {
@@ -3057,6 +3090,35 @@ export interface components {
             /** Min */
             min: number | string;
         };
+        /** JournalEntry */
+        JournalEntry: {
+            /** Id */
+            id: string;
+            /** Ts */
+            ts: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review" | "chat" | "admonish";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Source Id */
+            source_id: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
+            /** Supersedes Id */
+            supersedes_id: string | null;
+            run_summary: components["schemas"]["RunJournalSummary"] | null;
+        };
         /**
          * LapDisplayRow
          * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
@@ -3968,6 +4030,26 @@ export interface components {
             sample_count: number;
             /** Sample Pct */
             sample_pct: number;
+        };
+        /** RunJournalSummary */
+        RunJournalSummary: {
+            /** Purpose */
+            purpose: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
+            /** Takeaway */
+            takeaway: string;
+            /** Decision Relevant Uncertainties */
+            decision_relevant_uncertainties: string[];
+            /** Follow Up Triggers */
+            follow_up_triggers: string[];
+            /** Comparison Tags */
+            comparison_tags: string[];
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
         };
         /**
          * RunListItem
@@ -7302,6 +7384,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachBriefResponse"];
+                };
+            };
+        };
+    };
+    get_journal_api_coach_journal_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJournalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -16,6 +16,7 @@ from app.domains.coach.contracts import (
     CoachBriefResponse,
     CoachEnqueueResponse,
     CoachJob,
+    CoachJournalResponse,
     CoachMessageCreateRequest,
     CoachMessagesResponse,
     CoachReview,
@@ -26,6 +27,7 @@ from app.domains.coach.contracts import (
     CoachThread,
     CoachThreadCreateRequest,
     CoachThreadsResponse,
+    CoachWatchItem,
     safe_artifact_id,
 )
 
@@ -257,3 +259,23 @@ def get_brief() -> CoachBriefResponse:
         policy_version=CURRENT_MEMORY_POLICY_VERSION
     )
     return CoachBriefResponse(brief=brief)
+
+
+@router.get("/journal", response_model=CoachJournalResponse)
+def get_journal(limit: int = Query(default=30, ge=1, le=200)) -> CoachJournalResponse:
+    repo = build_container().coach_repo
+    entries = repo.list_journal(limit=limit, policy_version=CURRENT_MEMORY_POLICY_VERSION)
+    newest_first = list(reversed(entries))
+    seen: set[str] = set()
+    watch_items: list[CoachWatchItem] = []
+    for entry in newest_first:
+        if entry.run_summary is None:
+            continue
+        for trigger in entry.run_summary.follow_up_triggers:
+            if trigger in seen:
+                continue
+            seen.add(trigger)
+            watch_items.append(
+                CoachWatchItem(text=trigger, source_id=entry.source_id, ts=entry.ts)
+            )
+    return CoachJournalResponse(entries=newest_first, watch_items=watch_items[:8])

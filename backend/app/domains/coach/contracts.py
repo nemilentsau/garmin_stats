@@ -312,6 +312,17 @@ class CoachStatusResponse(StrictDefaultsRequired):
     queued_count: int
 
 
+class CoachWatchItem(StrictDefaultsRequired):
+    text: str
+    source_id: str
+    ts: str
+
+
+class CoachJournalResponse(StrictDefaultsRequired):
+    entries: list[JournalEntry]
+    watch_items: list[CoachWatchItem]
+
+
 class CoachRunReviewRequest(StrictDefaultsRequired):
     run_id: str
 

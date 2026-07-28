@@ -3,7 +3,7 @@
 **Status:** generated — do NOT hand-edit. Regenerate after route changes:
 `cd backend && uv run python ../scripts/generate_routes_doc.py`
 
-Backend from the FastAPI OpenAPI schema (70 operations); frontend from `frontend/src/routes`.
+Backend from the FastAPI OpenAPI schema (71 operations); frontend from `frontend/src/routes`.
 
 ## Backend API
 
@@ -42,6 +42,7 @@ Backend from the FastAPI OpenAPI schema (70 operations); frontend from `frontend
 | Method | Path | Summary |
 |---|---|---|
 | GET | `/api/coach/brief` | Get Brief |
+| GET | `/api/coach/journal` | Get Journal |
 | GET | `/api/coach/plots/{plot_name}` | Get Plot |
 | GET | `/api/coach/reviews` | Get Reviews |
 | POST | `/api/coach/reviews/run` | Post Run Review |

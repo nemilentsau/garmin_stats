@@ -35,7 +35,7 @@ class FakeGateway:
         return TrainingTodayResponse(date=target, cards=[])
 
 
-def _complete_review(repo: SqliteCoachRepository):
+def _complete_review(repo: SqliteCoachRepository, *, follow_up_triggers: list[str] | None = None):
     review, _, _ = repo.enqueue_run_review(
         run_id="run-complete", date="2026-07-12", occurrence_key="run-am"
     )
@@ -60,7 +60,7 @@ def _complete_review(repo: SqliteCoachRepository):
                 outcome="completed_as_intended",
                 takeaway="Purpose achieved.",
                 decision_relevant_uncertainties=[],
-                follow_up_triggers=[],
+                follow_up_triggers=follow_up_triggers or [],
                 comparison_tags=["easy"],
                 refs=[run_ref],
             ),
@@ -250,17 +250,30 @@ def test_coach_openapi_documents_not_found_and_conflict_responses():
 
 
 def test_orphan_read_routes_are_removed_not_just_missing_ids(coach_client):
-    """GET journal/jobs/{id}/reviews/{id} must be gone entirely (404 by route absence,
+    """GET jobs/{id}/reviews/{id} must be gone entirely (404 by route absence,
     not by a handler-level LookupError for an unknown id)."""
     client, _repo = coach_client
 
-    journal = client.get("/api/coach/journal")
     job = client.get("/api/coach/jobs/missing")
     review = client.get("/api/coach/reviews/missing")
 
-    assert journal.status_code == 404
-    assert journal.json() == {"detail": "Not Found"}
     assert job.status_code == 404
     assert job.json() == {"detail": "Not Found"}
     assert review.status_code == 404
     assert review.json() == {"detail": "Not Found"}
+
+
+def test_journal_endpoint_returns_entries_and_watch_items(coach_client):
+    client, repo = coach_client
+    review, _job = _complete_review(
+        repo, follow_up_triggers=["Compare next-day recovery."]
+    )
+
+    response = client.get("/api/coach/journal?limit=10")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["entries"][0]["content_md"].startswith("Purpose:")
+    assert body["entries"][0]["source_id"] == review.id
+    assert body["watch_items"][0]["text"] == "Compare next-day recovery."
+    assert body["watch_items"][0]["source_id"] == body["entries"][0]["source_id"]
