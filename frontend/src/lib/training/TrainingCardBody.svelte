@@ -130,6 +130,11 @@
 		}
 	});
 
+	// The coach reads RPE and notes; without either, a review request has nothing to react
+	// to. Soft-gates the per-card trigger with a hint rather than blocking it outright — the
+	// user can still "review anyway".
+	const feedbackMissing = $derived(card.notes === null && (card.capture?.rpe ?? null) === null);
+
 	function handleSetLogs(setLogs: TrainingCaptureLog['set_logs']) {
 		latestCapture = { ...latestCapture, set_logs: setLogs };
 		onCapture?.(latestCapture);
@@ -222,6 +227,16 @@
 						>
 							Review queued →
 						</a>
+					{:else if feedbackMissing && coachReview == null}
+						<span
+							class="link-hint"
+							title="The coach reads your RPE and notes. Add them below first — or review anyway."
+						>
+							Add RPE/notes first ·
+							<button type="button" class="link-action" onclick={() => onCoachReview(activity.run_id)}>
+								review anyway
+							</button>
+						</span>
 					{:else}
 						<button
 							type="button"
@@ -540,6 +555,13 @@
 	.link-action:hover {
 		color: #c3d3dd;
 		text-decoration: underline;
+	}
+
+	.link-hint {
+		color: #8fa3b0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		letter-spacing: 0.02em;
 	}
 
 	.link-affordance {
