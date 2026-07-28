@@ -5,11 +5,13 @@
 	import {
 		api,
 		type CoachBriefResponse,
+		type CoachJournalResponse,
 		type CoachMessage,
 		type CoachReview,
 		type CoachReviewRevision,
 		type CoachStatus,
-		type CoachThread
+		type CoachThread,
+		type JournalEntry
 	} from '$lib/api';
 	import { measurementLabel, sessionLabel } from '$lib/coach/verdict';
 	import { renderMarkdown } from '$lib/markdown';
@@ -26,6 +28,7 @@
 	let reviewMessages: CoachMessage[] = $state([]);
 	let reviewRevisions: CoachReviewRevision[] = $state([]);
 	let brief: CoachBriefResponse | null = $state(null);
+	let journal: CoachJournalResponse | null = $state(null);
 	let activeThreadId: string | null = $state(null);
 	let activeReviewId: string | null = $state(null);
 	let loading = $state(true);
@@ -114,6 +117,11 @@
 			: outcome;
 	}
 
+	function journalEntryTakeaway(entry: JournalEntry): string {
+		const firstLine = entry.content_md.split('\n').find((line) => line.trim().length > 0) ?? '';
+		return entry.run_summary?.takeaway ?? firstLine;
+	}
+
 	function markPlotUnavailable(plotName: string): void {
 		failedPlots = new Set(failedPlots).add(plotName);
 	}
@@ -168,12 +176,14 @@
 		let nextReviews: { reviews: CoachReview[] };
 		let nextThreads: { threads: CoachThread[] };
 		let nextBrief: CoachBriefResponse;
+		let nextJournal: CoachJournalResponse;
 		try {
-			[nextStatus, nextReviews, nextThreads, nextBrief] = await Promise.all([
+			[nextStatus, nextReviews, nextThreads, nextBrief, nextJournal] = await Promise.all([
 				api.getCoachStatus(),
 				api.getCoachReviews({ limit: 100 }),
 				api.getCoachThreads(),
-				api.getCoachBrief()
+				api.getCoachBrief(),
+				api.getCoachJournal()
 			]);
 		} catch (cause: unknown) {
 			if (!refreshAllGate.isCurrent(request)) return;
@@ -184,6 +194,7 @@
 		reviews = nextReviews.reviews;
 		threads = nextThreads.threads;
 		brief = nextBrief;
+		journal = nextJournal;
 		// Fresh review data just arrived — let any previously-404'd evidence plot retry
 		// (the worker may have generated it since). Reassigning (not mutating) the Set is
 		// required for the `{#if failedPlots.has(...)}` reads below to pick up the change.
@@ -362,6 +373,14 @@
 	{#if loading}
 		<p class="loading-line">Loading coach workspace…</p>
 	{:else if tab === 'reviews'}
+		{#if journal && journal.watch_items.length > 0}
+			<div class="watch-strip" aria-label="What the coach is watching">
+				<span class="watch-label">Watching</span>
+				{#each journal.watch_items as item (item.source_id + item.text)}
+					<span class="watch-item">{item.text}</span>
+				{/each}
+			</div>
+		{/if}
 		<div class="workspace">
 			<aside class="rail" aria-label="Review history">
 				<h2>Review history</h2>
@@ -391,6 +410,26 @@
 							The coach writes this durable memory itself after a successful review or a
 							closed conversation. It stays empty until the first review succeeds.
 						</p>
+					{/if}
+				</details>
+				<details class="brief journal">
+					<summary>Journal</summary>
+					{#if journal && journal.entries.length > 0}
+						<ul class="journal-list">
+							{#each journal.entries as entry (entry.id)}
+								<li>
+									<details class="journal-entry">
+										<summary>
+											<span class="tabular">{entry.ts.slice(0, 10)}</span>
+											<span class="journal-takeaway">{journalEntryTakeaway(entry)}</span>
+										</summary>
+										<div class="markdown-body journal-body">{@html renderMarkdown(entry.content_md)}</div>
+									</details>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="empty-line">No journal yet.</p>
 					{/if}
 				</details>
 			</aside>
@@ -688,6 +727,35 @@
 		font-size: 13px;
 	}
 
+	.watch-strip {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin: 0 0 14px;
+		padding: 10px 14px;
+		background: #101a26;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 10px;
+	}
+	.watch-label {
+		flex-shrink: 0;
+		color: #7a8ea0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+	}
+	.watch-item {
+		padding: 4px 10px;
+		background: rgba(210, 161, 95, 0.12);
+		border: 1px solid rgba(210, 161, 95, 0.3);
+		border-radius: 20px;
+		color: #e0b986;
+		font-size: 12px;
+	}
+
 	.workspace {
 		display: grid;
 		grid-template-columns: 280px minmax(0, 1fr);
@@ -799,6 +867,46 @@
 		font-size: 12.5px;
 		max-height: 300px;
 		overflow-y: auto;
+	}
+	.journal {
+		margin-top: 12px;
+	}
+	.journal-list {
+		list-style: none;
+		margin: 10px 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+	.journal-entry summary {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		cursor: pointer;
+		text-transform: none;
+		letter-spacing: normal;
+		font-weight: 400;
+		color: #aebec8;
+	}
+	.journal-entry summary:hover {
+		color: #dbe7ed;
+	}
+	.journal-entry .tabular {
+		flex-shrink: 0;
+		color: #7a8ea0;
+	}
+	.journal-takeaway {
+		font-size: 12px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.journal-body {
+		margin: 8px 0 4px;
+		font-size: 12px;
 	}
 
 	.pane {

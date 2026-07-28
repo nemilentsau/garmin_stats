@@ -78,6 +78,9 @@ export type CoachReviewRevision = Schemas['CoachReviewRevision'];
 export type CoachThread = Schemas['CoachThread'];
 export type CoachMessage = Schemas['CoachMessage'];
 export type CoachBriefResponse = Schemas['CoachBriefResponse'];
+export type CoachJournalResponse = Schemas['CoachJournalResponse'];
+export type JournalEntry = Schemas['JournalEntry'];
+export type CoachWatchItem = Schemas['CoachWatchItem'];
 
 function apiErrorMessage(body: unknown): string {
 	if (
@@ -324,4 +327,7 @@ export const api = {
 		}));
 	},
 	getCoachBrief: async () => unwrapResponse(client.GET('/api/coach/brief')),
+	getCoachJournal: async (limit = 30) => {
+		return unwrapResponse(client.GET('/api/coach/journal', { params: { query: { limit } } }));
+	},
 };
