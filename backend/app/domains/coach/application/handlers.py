@@ -254,6 +254,10 @@ class CoachHandlers:
         review_id = self._payload_text(job, "review_id")
         week_start = self._payload_text(job, "week_start")
         week_end = (date.fromisoformat(week_start) + timedelta(days=6)).isoformat()
+        # A bounded read, not analysis: `limit=20` is `recent_runs`'s existing cap, so a
+        # week with more than 20 runs on/before `week_end` silently loses its oldest
+        # in-window runs from this synthesis's evidence. Accepted for now; revisit if a
+        # >20-run week becomes real (e.g. multi-session training blocks).
         recent = await asyncio.to_thread(
             self.gateway.recent_runs, evidence_date=week_end, limit=20
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date as _date
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -23,6 +24,25 @@ def safe_artifact_id(value: str) -> str:
     if not value or value in {".", ".."} or _SAFE_ARTIFACT_ID.fullmatch(value) is None:
         raise ValueError(f"Unsafe artifact reference: {value}")
     return value
+
+
+def require_monday_week_start(value: str) -> None:
+    """Validate that `value` is a canonical ISO `YYYY-MM-DD` date that is a Monday.
+
+    A week review's identity (dedupe key, stored date) is its Monday week-start,
+    so this is a domain invariant, not just an HTTP request-shape check: it is
+    enforced both at the route (translated to 422) and in the repository layer
+    (`SqliteCoachRepository.enqueue_week_review`), so any other caller — a
+    script, a future job — gets the same rejection. `date.fromisoformat` also
+    accepts non-canonical ISO spellings that round-trip to the same calendar
+    day but a different string (see `routes._canonical_date`), so canonical
+    form is re-checked here too rather than assumed from an upstream check.
+    """
+    parsed = _date.fromisoformat(value)
+    if parsed.isoformat() != value:
+        raise ValueError(f"Not a canonical ISO date: {value}")
+    if parsed.weekday() != 0:
+        raise ValueError(f"week_start must be a Monday: {value}")
 
 
 ArtifactKind = Literal["run", "plot", "review", "date"]

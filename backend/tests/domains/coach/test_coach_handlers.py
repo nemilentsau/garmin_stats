@@ -24,6 +24,7 @@ from app.domains.coach.contracts import (
     WeekReviewOutput,
 )
 from app.domains.coach.infra.runner import CodexJobResult
+from app.domains.garmin_analytics.contracts import RunListItem
 
 NOW = "2026-07-12T12:00:00Z"
 
@@ -64,12 +65,14 @@ def _manifest(directory: Path, *, images: list[str] | None = None) -> WorkspaceM
     )
 
 
-def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
+def _handlers(tmp_path, monkeypatch, repo, runner, *, gateway=None) -> CoachHandlers:
     calls = {"count": 0}
+    kwargs_log: list[dict[str, object]] = []
 
     def assemble(*args, directory: Path, **kwargs):
-        del args, kwargs
+        del args
         calls["count"] += 1
+        kwargs_log.append(kwargs)
         return _manifest(
             directory,
             images=[str(directory / "current" / "images" / "current-1.png")],
@@ -82,7 +85,7 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
     )
     handlers = CoachHandlers(
         repo=repo,
-        gateway=FakeGateway(),  # type: ignore[arg-type]
+        gateway=gateway or FakeGateway(),  # type: ignore[arg-type]
         workspace_root=tmp_path / "workspaces",
         plot_cache_dir=tmp_path / "plots",
         threads_dir=tmp_path / "threads",
@@ -91,6 +94,7 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
         local_today=lambda: "2026-07-12",
     )
     handlers.workspace_call_counter = calls  # type: ignore[attr-defined]
+    handlers.workspace_call_kwargs = kwargs_log  # type: ignore[attr-defined]
     return handlers
 
 
@@ -153,6 +157,52 @@ def test_week_review_persists_synthesis_without_outcome(tmp_path, monkeypatch):
     assert saved.kind == "week" and saved.status == "complete"
     assert saved.outcome is None and saved.measurement_assessment is None
     assert saved.content_md is not None and saved.content_md.startswith("## Week")
+
+
+def _week_run(run_id: str, session_date: str) -> RunListItem:
+    return RunListItem(
+        id=run_id, session_date=session_date, start_time_local=f"{session_date}T07:00:00"
+    )
+
+
+class WeekGateway(FakeGateway):
+    """Recent-run evidence spanning both edges of a `2026-07-20`..`07-26` week."""
+
+    def recent_runs(self, *, evidence_date: str, limit: int = 20):
+        del evidence_date, limit
+        return [
+            _week_run("run-0", "2026-07-19"),  # day before week_start: excluded
+            _week_run("run-1", "2026-07-20"),  # week_start: included (lower bound)
+            _week_run("run-2", "2026-07-23"),  # mid-week: included
+            _week_run("run-3", "2026-07-26"),  # week_start+6: included (upper bound)
+            _week_run("run-4", "2026-07-27"),  # day after week end: excluded
+        ]
+
+
+def test_week_handler_current_run_ids_are_filtered_to_the_inclusive_week_window(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    repo.enqueue_week_review(week_start="2026-07-20")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = WeekReviewOutput(
+        headline="Load rising on schedule; threshold signal still unproven.",
+        synthesis_md="## Week\n...",
+        follow_up_questions=[],
+        journal=_review_output().journal,
+        brief_update=BriefUpdate(action="replace", content_md="Model v2."),
+        refs=[ArtifactRef(kind="date", value="2026-07-20")],
+        plot_observations=[],
+        history_used=[],
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner, gateway=WeekGateway())
+
+    asyncio.run(handlers.execute(job))
+
+    kwargs_log = handlers.workspace_call_kwargs  # type: ignore[attr-defined]
+    assert kwargs_log[0]["current_run_ids"] == ["run-1", "run-2", "run-3"]
 
 
 def test_review_success_persists_review_memory_and_full_brief_atomically(

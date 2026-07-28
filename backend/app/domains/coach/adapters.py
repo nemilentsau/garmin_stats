@@ -28,6 +28,7 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     RunJournalSummary,
     WeekReviewOutput,
+    require_monday_week_start,
     safe_artifact_id,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
@@ -386,6 +387,9 @@ class SqliteCoachRepository:
         return result
 
     def enqueue_week_review(self, *, week_start: str) -> tuple[CoachReview, CoachJob, bool]:
+        # Domain invariant, not just an HTTP-boundary check: enforce it here so
+        # every repo caller is protected, not only the route's own pre-check.
+        require_monday_week_start(week_start)
         with connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             result = _create_week_review_job(connection, week_start=week_start)

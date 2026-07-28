@@ -605,6 +605,17 @@ def test_repository_exposes_only_atomic_output_mutators():
         assert not hasattr(SqliteCoachRepository, method_name)
 
 
+def test_enqueue_week_review_rejects_a_non_monday_week_start():
+    """The Monday invariant is enforced in the repo layer, not just the HTTP
+    route, so any repo caller (script, future job) gets the same rejection."""
+    repository = SqliteCoachRepository()
+
+    with pytest.raises(ValueError):
+        repository.enqueue_week_review(week_start="2026-07-21")  # Tuesday
+
+    assert repository.queued_count() == 0
+
+
 def test_run_review_and_job_are_created_in_one_transaction():
     repository = SqliteCoachRepository()
 

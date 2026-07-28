@@ -30,6 +30,7 @@ from app.domains.coach.contracts import (
     CoachThreadsResponse,
     CoachWatchItem,
     CoachWeekReviewRequest,
+    require_monday_week_start,
     safe_artifact_id,
 )
 
@@ -153,14 +154,14 @@ def post_day_review(request: CoachDayReviewRequest, response: Response) -> Coach
 def post_week_review(
     request: CoachWeekReviewRequest, response: Response
 ) -> CoachEnqueueResponse:
+    # Pre-check for a clean 422 message; `enqueue_week_review` re-validates the
+    # same domain invariant in the repo layer regardless of this pre-check.
     try:
-        parsed = _canonical_date(request.week_start)
+        require_monday_week_start(request.week_start)
     except ValueError as error:
         raise HTTPException(
-            status_code=422, detail="week_start must be an ISO calendar date"
+            status_code=422, detail="week_start must be a canonical Monday date"
         ) from error
-    if parsed.weekday() != 0:
-        raise HTTPException(status_code=422, detail="week_start must be a Monday")
     result = build_container().coach_jobs.enqueue_week_review(request.week_start)
     if not result.created:
         response.status_code = status.HTTP_200_OK
