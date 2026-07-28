@@ -39,6 +39,7 @@
 	let newThreadTitle = $state('');
 	let busy = $state(false);
 	let failedPlots = $state<Set<string>>(new Set());
+	let questionAnswers = $state<Record<number, string>>({});
 	let tab: Tab = $state(
 		page.url.searchParams.get('review')
 			? 'reviews'
@@ -59,6 +60,9 @@
 	let activeThread = $derived(threads.find((thread) => thread.id === activeThreadId) ?? null);
 	let activeReview = $derived(
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
+	);
+	let hasAnyAnswer = $derived(
+		Object.values(questionAnswers).some((answer) => answer.trim().length > 0)
 	);
 	let awaitingCoach = $derived(messages.length > 0 && messages[messages.length - 1]?.role === 'user');
 	let awaitingReviewCoach = $derived(
@@ -291,6 +295,33 @@
 		}
 	}
 
+	async function sendAnswers(review: CoachReview): Promise<void> {
+		const lines = review.follow_up_questions
+			.map((q, i) => ({ q, a: (questionAnswers[i] ?? '').trim() }))
+			.filter(({ a }) => a.length > 0)
+			.map(({ q, a }) => `- Q: ${q}\n  A: ${a}`);
+		if (lines.length === 0 || busy) return;
+		busy = true;
+		try {
+			const thread =
+				reviewThread?.review_id === review.id && reviewThread.status === 'open'
+					? reviewThread
+					: await api.openCoachReviewThread(review.id);
+			reviewThread = thread;
+			await api.sendCoachMessage(
+				thread.id,
+				`Update the review: here are my answers to your questions.\n${lines.join('\n')}`,
+				true
+			);
+			questionAnswers = {};
+			await refreshAll();
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function retryReview(reviewId: string): Promise<void> {
 		busy = true;
 		try {
@@ -496,11 +527,27 @@
 						{#if activeReview.follow_up_questions.length > 0}
 							<section class="coach-questions" aria-labelledby="coach-questions-heading">
 								<h3 id="coach-questions-heading">Coach questions</h3>
-								<ul>
-									{#each activeReview.follow_up_questions as question, index (index)}
-										<li>{question}</li>
-									{/each}
-								</ul>
+								{#each activeReview.follow_up_questions as question, index (index)}
+									<div class="question-row">
+										<p class="question-text">{question}</p>
+										{#if activeReview.status === 'complete'}
+											<input
+												class="question-answer"
+												placeholder="Your answer…"
+												bind:value={questionAnswers[index]}
+											/>
+										{/if}
+									</div>
+								{/each}
+								{#if activeReview.status === 'complete'}
+									<button
+										class="btn"
+										disabled={busy || !hasAnyAnswer}
+										onclick={() => sendAnswers(activeReview)}
+									>
+										Send answers to coach
+									</button>
+								{/if}
 							</section>
 						{/if}
 						{#if activeReview.status === 'complete'}
@@ -1145,17 +1192,21 @@
 	.coach-questions {
 		margin-top: 18px;
 	}
-	.coach-questions ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-	.coach-questions li {
-		padding: 8px 0;
+	.question-row {
+		padding: 10px 0;
 		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.question-text {
+		margin: 0 0 8px;
 		color: #b6c5cf;
 		font-size: 13px;
 		line-height: 1.5;
+	}
+	.question-answer {
+		display: block;
+	}
+	.coach-questions > .btn {
+		margin-top: 12px;
 	}
 	.review-conversation {
 		margin-top: 24px;
