@@ -382,9 +382,12 @@ review →** when that run's review exists, otherwise a static "Reviews are requ
 the Today board" hint. `/today` is the sole trigger surface: a **Coach debrief for this
 day** action at the foot of the board enqueues a whole-day debrief for the selected date
 and deep-links to it on `/coach` once queued; a hint counts that day's completed cards
-still missing RPE/notes so the athlete can fill them in before debriefing. The review
-rail on `/coach` labels each row from `CoachReview.kind` (`day` → "Day debrief", `week` →
-"Weekly synthesis", `run` → "Run review").
+still missing RPE/notes so the athlete can fill them in before debriefing. The Reviews tab
+on `/coach` leads with a Now band built entirely from already-loaded data — watching, open
+questions, latest review, and needs-attention — so the current state is visible without
+scrolling; full review history, the brief, and the journal live in the rail below it. The
+review rail on `/coach` labels each row from `CoachReview.kind` (`day` → "Day debrief",
+`week` → "Weekly synthesis", `run` → "Run review").
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

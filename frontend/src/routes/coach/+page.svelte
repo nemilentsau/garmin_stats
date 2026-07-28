@@ -62,6 +62,15 @@
 	let activeReview = $derived(
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
 	);
+	// Now band: all derived from the already-loaded `reviews`/`journal` arrays (no new
+	// endpoints). `reviews` is newest-first (see `list_reviews` ORDER BY date/updated_at
+	// DESC), so `.find()`/`[0]`/`.filter()` here are selection, not statistics.
+	let latestReview = $derived(reviews[0] ?? null);
+	let openQuestionsReview = $derived(
+		reviews.find((review) => review.status === 'complete' && review.follow_up_questions.length > 0) ??
+			null
+	);
+	let failedReviews = $derived(reviews.filter((review) => review.status === 'failed'));
 	let hasAnyAnswer = $derived(
 		Object.values(questionAnswers).some((answer) => answer.trim().length > 0)
 	);
@@ -126,6 +135,24 @@
 		if (kind === 'day') return 'Day debrief';
 		if (kind === 'week') return 'Weekly synthesis';
 		return 'Run review';
+	}
+
+	// Week rows have no outcome axis (a week isn't compliant/non-compliant against a single
+	// prescription), so the outcome text is dropped entirely for them rather than showing
+	// a meaningless "not assessed".
+	function railSubLine(review: CoachReview): string {
+		return review.kind === 'week'
+			? reviewKindLabel(review.kind)
+			: `${reviewKindLabel(review.kind)} · ${reviewOutcome(review)}`;
+	}
+
+	function reviewStatusLine(review: CoachReview): string {
+		const status = review.status.replaceAll('_', ' ');
+		return review.kind === 'week' ? status : `${status} · ${reviewOutcome(review)}`;
+	}
+
+	function errorFirstLine(error: string | null): string {
+		return (error ?? '').split('\n')[0] ?? '';
 	}
 
 	function journalEntryTakeaway(entry: JournalEntry): string {
@@ -446,13 +473,58 @@
 	{#if loading}
 		<p class="loading-line">Loading coach workspace…</p>
 	{:else if tab === 'reviews'}
-		{#if journal && journal.watch_items.length > 0}
-			<div class="watch-strip" aria-label="What the coach is watching">
-				<span class="watch-label">Watching</span>
-				{#each journal.watch_items as item (item.source_id + item.text)}
-					<span class="watch-item">{item.text}</span>
-				{/each}
-			</div>
+		{#if (journal && journal.watch_items.length > 0) || openQuestionsReview || latestReview || failedReviews.length > 0}
+			<section class="now-band" aria-label="Now">
+				{#if journal && journal.watch_items.length > 0}
+					<div class="now-row now-watching">
+						<span class="now-label">Watching</span>
+						<div class="now-watch-items">
+							{#each journal.watch_items as item (item.source_id + item.text)}
+								<span class="watch-item">{item.text}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if openQuestionsReview}
+					<div class="now-row now-questions">
+						<span class="now-label">Open questions</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{openQuestionsReview.follow_up_questions.length}
+								{openQuestionsReview.follow_up_questions.length === 1 ? 'question' : 'questions'} ·
+								{openQuestionsReview.follow_up_questions[0]}
+							</p>
+						</div>
+						<button class="btn" onclick={() => chooseReview(openQuestionsReview)}>Answer →</button>
+					</div>
+				{/if}
+				{#if latestReview}
+					<button class="now-row now-latest" onclick={() => chooseReview(latestReview)}>
+						<span class="now-label">Latest</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{reviewKindLabel(latestReview.kind)}
+								<span class="tabular now-latest-date">{latestReview.date}</span>
+							</p>
+							<p class="now-row-sub">{latestReview.headline ?? reviewStatusLine(latestReview)}</p>
+						</div>
+					</button>
+				{/if}
+				{#if failedReviews.length > 0}
+					<div class="now-row now-attention">
+						<span class="now-label">Needs attention</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{failedReviews.length} failed review{failedReviews.length === 1 ? '' : 's'}
+							</p>
+							<p class="now-row-sub now-error-line">{errorFirstLine(failedReviews[0].error)}</p>
+						</div>
+						<button class="btn danger" onclick={() => retryReview(failedReviews[0].id)} disabled={busy}>
+							Retry
+						</button>
+					</div>
+				{/if}
+			</section>
 		{/if}
 		<div class="workspace">
 			<aside class="rail" aria-label="Review history">
@@ -468,7 +540,7 @@
 								<span class="tabular">{review.date}</span>
 								<span class="row-status">{review.status.replaceAll('_', ' ')}</span>
 							</span>
-							<span class="row-sub">{reviewKindLabel(review.kind)} · {reviewOutcome(review)}</span>
+							<span class="row-sub">{railSubLine(review)}</span>
 						</button>
 					{:else}
 						<p class="empty-line">No review history.</p>
@@ -840,18 +912,40 @@
 		font-size: 13px;
 	}
 
-	.watch-strip {
+	.now-band {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px;
-		margin: 0 0 14px;
-		padding: 10px 14px;
+		flex-direction: column;
+		margin: 0 0 16px;
+		padding: 0 20px;
 		background: #101a26;
 		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 10px;
 	}
-	.watch-label {
+	.now-row {
+		display: grid;
+		grid-template-columns: 128px minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 16px;
+		min-height: 44px;
+		padding: 12px 0;
+	}
+	.now-row + .now-row {
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	button.now-row {
+		width: 100%;
+		border: 0;
+		background: transparent;
+		text-align: left;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+		border-radius: 6px;
+	}
+	button.now-row:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+	.now-label {
 		flex-shrink: 0;
 		color: #7a8ea0;
 		font-family: 'DM Mono', monospace;
@@ -860,6 +954,13 @@
 		text-transform: uppercase;
 		letter-spacing: 0.07em;
 	}
+	.now-watch-items {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		grid-column: 2 / -1;
+	}
 	.watch-item {
 		padding: 4px 10px;
 		background: rgba(210, 161, 95, 0.12);
@@ -867,6 +968,38 @@
 		border-radius: 20px;
 		color: #e0b986;
 		font-size: 12px;
+	}
+	.now-row-body {
+		min-width: 0;
+	}
+	.now-row-main {
+		margin: 0;
+		color: #c8d6e0;
+		font-size: 13px;
+		line-height: 1.4;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.now-latest-date {
+		margin-left: 8px;
+		color: #7a8ea0;
+	}
+	.now-row-sub {
+		margin: 3px 0 0;
+		color: #8398a5;
+		font-size: 12.5px;
+		line-height: 1.4;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.now-error-line {
+		color: #e3a493;
+		max-width: 620px;
+	}
+	.now-attention .now-label {
+		color: #e3a493;
 	}
 
 	.workspace {
