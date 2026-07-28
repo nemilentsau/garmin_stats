@@ -12,9 +12,77 @@ from app.domains.coach.adapters import SqliteCoachRepository
 from app.domains.coach.application.jobs import CoachJobs
 from app.domains.coach.contracts import CoachThread
 from app.domains.coach.read_gateway import CoachReadGateway
-from app.domains.training.contracts import TrainingTodayResponse
+from app.domains.training.contracts import (
+    TrainingExecutionEvaluation,
+    TrainingMeasurementEvaluation,
+    TrainingMeasurementObservations,
+    TrainingRunActivitySummary,
+    TrainingTodayCard,
+    TrainingTodayResponse,
+    V3Card,
+)
 
 NOW = "2026-07-12T12:00:00Z"
+
+
+def _measurement_card(
+    *,
+    occurrence_key: str = "run.lthr_test:d01",
+    run_id: str | None = "23757099816",
+    with_measurement: bool = True,
+) -> TrainingTodayCard:
+    """One measurement-run card, shaped like the day board projects it."""
+    program_instance_id = "training_v3_abc"
+    card = V3Card.model_validate(
+        {
+            "id": "run.lthr_test",
+            "bundle_id": "running.v3",
+            "name": "LTHR test",
+            "contract": {
+                "kind": "measurement",
+                "estimand": "lactate_threshold_hr",
+                "quality_gate": [],
+                "on_fail": "retry_backup",
+            },
+            "prescription": {"segments": []},
+        }
+    )
+    return TrainingTodayCard(
+        program_instance_id=program_instance_id,
+        occurrence_key=occurrence_key,
+        occurrence_id=f"{program_instance_id}:running.v3:{occurrence_key}",
+        date="2026-07-27",
+        day=1,
+        slot="morning",
+        bundle_id="running.v3",
+        bundle_name="Running",
+        is_running=True,
+        card=card,
+        status="completed",
+        execution=TrainingExecutionEvaluation(
+            status="completed",
+            source="tracked_run",
+            run_id=run_id,
+        ),
+        associated_activity=(
+            None
+            if run_id is None
+            else TrainingRunActivitySummary(
+                run_id=run_id,
+                session_date="2026-07-27",
+                start_time_local="2026-07-27T07:00:00",
+            )
+        ),
+        measurement=(
+            None
+            if not with_measurement
+            else TrainingMeasurementEvaluation(
+                status="awaiting_review",
+                run_id=run_id or "unknown",
+                observations=TrainingMeasurementObservations(),
+            )
+        ),
+    )
 
 
 class JobsGateway:
@@ -32,6 +100,21 @@ class JobsGateway:
 
 def _jobs(repo: SqliteCoachRepository, gateway: JobsGateway) -> CoachJobs:
     return CoachJobs(repo=repo, gateway=cast(CoachReadGateway, gateway))
+
+
+class DayGateway:
+    """Stub gateway whose `training_today` returns a fixed day-board projection."""
+
+    def __init__(self, cards: list[TrainingTodayCard]) -> None:
+        self._cards = cards
+
+    def training_today(self, target: str) -> TrainingTodayResponse:
+        return TrainingTodayResponse(date=target, cards=self._cards)
+
+
+@pytest.fixture
+def gateway_with_day() -> DayGateway:
+    return DayGateway([_measurement_card()])
 
 
 def test_manual_review_returns_existing_review_without_duplicate():
@@ -127,3 +210,34 @@ def test_idle_thread_boundary_queues_distill_and_just_under_stays_open():
     assert [job.payload["thread_id"] for job in queued] == ["idle"]
     assert repo.thread("idle").status == "closing"  # type: ignore[union-attr]
     assert repo.thread("active").status == "open"  # type: ignore[union-attr]
+
+
+def test_enqueue_day_review_dedupes_and_records_measurement_targets(gateway_with_day):
+    jobs = CoachJobs(repo=SqliteCoachRepository(), gateway=cast(CoachReadGateway, gateway_with_day))
+
+    first = jobs.enqueue_day_review("2026-07-27")
+    second = jobs.enqueue_day_review("2026-07-27")
+
+    assert first.created is True and second.created is False
+    assert first.review is not None and first.review.kind == "day"
+    assert first.job.dedupe_key == "review:day:2026-07-27"
+    assert first.job.payload["measurement_targets"] == [
+        {
+            "run_id": "23757099816",
+            "occurrence_key": "training_v3_abc:running.v3:run.lthr_test:d01",
+        }
+    ]
+
+
+def test_enqueue_day_review_excludes_cards_missing_measurement_or_activity():
+    gateway = DayGateway(
+        [
+            _measurement_card(occurrence_key="run.easy:d01", with_measurement=False),
+            _measurement_card(occurrence_key="run.lthr_test:d02", run_id=None),
+        ]
+    )
+    jobs = CoachJobs(repo=SqliteCoachRepository(), gateway=cast(CoachReadGateway, gateway))
+
+    result = jobs.enqueue_day_review("2026-07-27")
+
+    assert result.job.payload["measurement_targets"] == []

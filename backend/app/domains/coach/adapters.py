@@ -35,6 +35,8 @@ from app.infra.sqlite import connect
 _PRIORITIES: dict[JobKind, int] = {
     "chat_turn": 0,
     "review_run": 10,
+    "review_day": 10,
+    "review_week": 10,
     "distill_thread": 30,
 }
 
@@ -235,6 +237,63 @@ def _create_review_job(
     _save_review(connection, review)
     _save_job(connection, job)
     return review, job, True
+
+
+def _create_day_review_job(
+    connection: sqlite3.Connection,
+    *,
+    date: str,
+    measurement_targets: list[dict[str, str]],
+) -> tuple[CoachReview, CoachJob, bool]:
+    existing_row = connection.execute(
+        "SELECT data FROM coach_reviews WHERE kind = 'day' AND date = ?",
+        (date,),
+    ).fetchone()
+    dedupe_key = f"review:day:{date}"
+    job_kind: JobKind = "review_day"
+    if existing_row is not None:
+        review = _review_from_row(existing_row)
+        job_row = connection.execute(
+            "SELECT data FROM coach_jobs WHERE id = ?", (review.job_id,)
+        ).fetchone()
+        if job_row is None:
+            raise RuntimeError(f"Review {review.id} references missing job {review.job_id}")
+        return review, _job_from_row(job_row), False
+
+    now = utc_now_iso()
+    review_id = _new_id("review")
+    job_id = _new_id("job")
+    review = CoachReview(
+        id=review_id,
+        date=date,
+        kind="day",
+        run_id=None,
+        occurrence_key=None,
+        status="queued",
+        job_id=job_id,
+        created_at=now,
+        updated_at=now,
+    )
+    job = CoachJob(
+        id=job_id,
+        kind=job_kind,
+        dedupe_key=dedupe_key,
+        priority=_PRIORITIES[job_kind],
+        status="queued",
+        payload={
+            "review_id": review_id,
+            "date": date,
+            "measurement_targets": measurement_targets,
+        },
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    _save_review(connection, review)
+    _save_job(connection, job)
+    return review, job, True
+
+
 class SqliteCoachRepository:
     """Coach persistence adapter with transaction-owned queue invariants."""
 
@@ -252,6 +311,22 @@ class SqliteCoachRepository:
                 date=date,
                 run_id=run_id,
                 occurrence_key=occurrence_key,
+            )
+            connection.commit()
+        return result
+
+    def enqueue_day_review(
+        self,
+        *,
+        date: str,
+        measurement_targets: list[dict[str, str]],
+    ) -> tuple[CoachReview, CoachJob, bool]:
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            result = _create_day_review_job(
+                connection,
+                date=date,
+                measurement_targets=measurement_targets,
             )
             connection.commit()
         return result

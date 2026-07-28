@@ -26,10 +26,10 @@ def safe_artifact_id(value: str) -> str:
 
 
 ArtifactKind = Literal["run", "plot", "review", "date"]
-ReviewKind = Literal["run"]
+ReviewKind = Literal["run", "day", "week"]
 ReviewStatus = Literal["queued", "generating", "complete", "failed"]
 ThreadStatus = Literal["open", "closing", "closed", "close_failed"]
-JobKind = Literal["review_run", "chat_turn", "distill_thread"]
+JobKind = Literal["review_run", "review_day", "review_week", "chat_turn", "distill_thread"]
 JobStatus = Literal["queued", "running", "complete", "failed"]
 LegacyReviewVerdict = Literal[
     "compliant",
@@ -325,6 +325,10 @@ class CoachJournalResponse(StrictDefaultsRequired):
 
 class CoachRunReviewRequest(StrictDefaultsRequired):
     run_id: str
+
+
+class CoachDayReviewRequest(StrictDefaultsRequired):
+    date: str
 
 
 class CoachThreadCreateRequest(StrictDefaultsRequired):

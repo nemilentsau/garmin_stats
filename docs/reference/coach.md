@@ -260,6 +260,19 @@ attempt, message, review, and thread lifecycle instants are canonical UTC string
 SQLite text ordering stays correct across DST changes. A delayed run review keeps the
 original occurrence as `target_date` but uses execution-day recovery as `evidence_date`.
 
+`POST /api/coach/reviews/day` enqueues a whole-day debrief, one per calendar date rather
+than one per run: `CoachReview.kind = "day"` carries no `run_id`/`occurrence_key`, and the
+`review_day` job dedupes on `review:day:<date>` the same way a run review dedupes on
+`review:run:<run_id>`. At enqueue time the handler reads that date's Today board
+(`CoachReadGateway.training_today`) and freezes every card that is both a measurement run
+and has a linked tracked activity into the job payload's `measurement_targets` — a list of
+`{run_id, occurrence_key}` (using the card's fully-qualified `occurrence_id`) — so the day
+debrief's permitted measurement-assessment targets are fixed at enqueue and cannot drift if
+the schedule changes before the job runs. As of this task the `review_day` kind has
+contracts, enqueue, and dedupe only; no handler executes it yet, so a claimed `review_day`
+job fails through `CoachHandlers.execute`'s unknown-kind path until the workspace/prompt
+side lands.
+
 ## Codex isolation and runtime files
 
 Each attempt starts `codex exec` in a new process session with strict

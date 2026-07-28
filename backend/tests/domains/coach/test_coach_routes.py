@@ -116,6 +116,29 @@ def test_manual_run_review_enqueues_and_duplicate_returns_existing(coach_client)
     assert repo.queued_count() == 1
 
 
+def test_manual_day_review_enqueues_and_duplicate_returns_existing(coach_client):
+    client, repo = coach_client
+
+    first = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+    second = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["review"]["id"] == second.json()["review"]["id"]
+    assert first.json()["review"]["kind"] == "day"
+    assert first.json()["job"]["dedupe_key"] == "review:day:2026-07-27"
+    assert first.json()["job"]["payload"]["measurement_targets"] == []
+    assert repo.queued_count() == 1
+
+
+def test_day_review_rejects_a_non_iso_date(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/day", json={"date": "07/27/2026"})
+
+    assert response.status_code == 422
+
+
 def test_status_lookup_and_review_filters(coach_client):
     client, _repo = coach_client
     created = client.post("/api/coach/reviews/run", json={"run_id": "run-1"}).json()

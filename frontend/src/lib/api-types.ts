@@ -732,6 +732,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/reviews/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Day Review */
+        post: operations["post_day_review_api_coach_reviews_day_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/reviews/{review_id}/retry": {
         parameters: {
             query?: never;
@@ -1472,6 +1489,11 @@ export interface components {
         CoachBriefResponse: {
             brief: components["schemas"]["BriefVersion"] | null;
         };
+        /** CoachDayReviewRequest */
+        CoachDayReviewRequest: {
+            /** Date */
+            date: string;
+        };
         /** CoachEnqueueResponse */
         CoachEnqueueResponse: {
             /** Created */
@@ -1488,7 +1510,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "review_run" | "chat_turn" | "distill_thread";
+            kind: "review_run" | "review_day" | "review_week" | "chat_turn" | "distill_thread";
             /** Dedupe Key */
             dedupe_key: string;
             /** Priority */
@@ -1594,9 +1616,9 @@ export interface components {
             date: string;
             /**
              * Kind
-             * @constant
+             * @enum {string}
              */
-            kind: "run";
+            kind: "run" | "day" | "week";
             /** Run Id */
             run_id: string | null;
             /** Occurrence Key */
@@ -6942,6 +6964,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_day_review_api_coach_reviews_day_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachDayReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };

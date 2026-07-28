@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +14,7 @@ from app.contracts.errors import error_responses
 from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
 from app.domains.coach.contracts import (
     CoachBriefResponse,
+    CoachDayReviewRequest,
     CoachEnqueueResponse,
     CoachJob,
     CoachJournalResponse,
@@ -32,8 +33,8 @@ from app.domains.coach.contracts import (
 )
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
-_ReviewsFromDate = Annotated[date | None, Query(alias="from")]
-_ReviewsToDate = Annotated[date | None, Query(alias="to")]
+_ReviewsFromDate = Annotated[date_type | None, Query(alias="from")]
+_ReviewsToDate = Annotated[date_type | None, Query(alias="to")]
 
 
 @router.get(
@@ -106,6 +107,23 @@ def get_run_review(run_id: str) -> CoachReview:
 def post_run_review(request: CoachRunReviewRequest, response: Response) -> CoachEnqueueResponse:
     result = build_container().coach_jobs.enqueue_run_review(request.run_id)
     response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
+    return result
+
+
+@router.post(
+    "/reviews/day",
+    response_model=CoachEnqueueResponse,
+    status_code=201,
+    responses=error_responses(422),
+)
+def post_day_review(request: CoachDayReviewRequest, response: Response) -> CoachEnqueueResponse:
+    try:
+        date_type.fromisoformat(request.date)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="date must be an ISO calendar date") from error
+    result = build_container().coach_jobs.enqueue_day_review(request.date)
+    if not result.created:
+        response.status_code = status.HTTP_200_OK
     return result
 
 
