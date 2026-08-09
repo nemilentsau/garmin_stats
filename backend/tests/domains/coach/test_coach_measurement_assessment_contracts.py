@@ -75,6 +75,7 @@ def test_plot_observation_enforces_bounded_evidence_statement():
 
 def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility():
     review_output = contracts.ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="Review",
@@ -126,6 +127,7 @@ def test_outputs_and_durable_records_accept_absent_assessment_for_compatibility(
 def test_new_review_output_separates_outcome_confidence_and_history():
     output = contracts.ReviewOutput.model_validate(
         {
+            "headline": "Controlled easy day; recovery on track.",
             "outcome": "completed_as_intended",
             "confidence": "moderate",
             "review_md": "The run achieved its easy aerobic purpose.",
@@ -160,6 +162,80 @@ def test_new_review_output_separates_outcome_confidence_and_history():
     assert output.plot_observations[0].plot == "current-run-p01.png"
     assert not hasattr(output, "concerns")
     assert not hasattr(output, "evidence_limits")
+
+
+def _review_output_payload(follow_up_questions: list[str]) -> dict[str, object]:
+    return {
+        "headline": "Controlled easy day; recovery on track.",
+        "outcome": "completed_as_intended",
+        "confidence": "moderate",
+        "review_md": "The run achieved its easy aerobic purpose.",
+        "follow_up_questions": follow_up_questions,
+        "history_used": [],
+        "plot_observations": [],
+        "refs": [{"kind": "run", "value": "run-1"}],
+        "journal": {
+            "purpose": "Easy aerobic maintenance with strides",
+            "outcome": "completed_as_intended",
+            "takeaway": "The intended maintenance stimulus was achieved.",
+            "decision_relevant_uncertainties": [],
+            "follow_up_triggers": [],
+            "comparison_tags": ["easy"],
+            "refs": [{"kind": "run", "value": "run-1"}],
+        },
+        "brief_update": {"action": "keep", "content_md": None},
+        "measurement_assessment": None,
+    }
+
+
+def _review_revision_output_payload(follow_up_questions: list[str]) -> dict[str, object]:
+    return {
+        "headline": "Controlled easy day; recovery on track.",
+        "content_md": "The run achieved its easy aerobic purpose.",
+        "outcome": "completed_as_intended",
+        "confidence": "moderate",
+        "refs": [{"kind": "run", "value": "run-1"}],
+        "follow_up_questions": follow_up_questions,
+        "plot_observations": [],
+        "history_used": [],
+        "measurement_assessment": None,
+    }
+
+
+def test_review_output_accepts_up_to_three_follow_up_questions():
+    output = contracts.ReviewOutput.model_validate(
+        _review_output_payload(["How did it feel?", "Why the variant?", "Any pain?"])
+    )
+
+    assert len(output.follow_up_questions) == 3
+
+
+def test_review_output_rejects_more_than_three_follow_up_questions():
+    with pytest.raises(ValidationError):
+        contracts.ReviewOutput.model_validate(
+            _review_output_payload(
+                ["How did it feel?", "Why the variant?", "Any pain?", "Sleep ok?"]
+            )
+        )
+
+
+def test_review_revision_output_accepts_up_to_three_follow_up_questions():
+    output = contracts.ReviewRevisionOutput.model_validate(
+        _review_revision_output_payload(
+            ["How did it feel?", "Why the variant?", "Any pain?"]
+        )
+    )
+
+    assert len(output.follow_up_questions) == 3
+
+
+def test_review_revision_output_rejects_more_than_three_follow_up_questions():
+    with pytest.raises(ValidationError):
+        contracts.ReviewRevisionOutput.model_validate(
+            _review_revision_output_payload(
+                ["How did it feel?", "Why the variant?", "Any pain?", "Sleep ok?"]
+            )
+        )
 
 
 def test_brief_keep_rejects_content_and_replace_requires_content():

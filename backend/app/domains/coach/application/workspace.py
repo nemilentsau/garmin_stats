@@ -416,7 +416,7 @@ def assemble_workspace(
     evidence_date: str,
     target_date: str,
     question_md: str,
-    current_run_id: str | None,
+    current_run_ids: list[str],
     transcript: list[CoachMessage] | None,
     linked_review_id: str | None = None,
     historical_run_limit: int = 20,
@@ -469,7 +469,7 @@ def assemble_workspace(
     _write(directory / "runs/digest.md", digest)
 
     current_images: list[str] = []
-    if current_run_id is not None:
+    for current_run_id in current_run_ids:
         safe_current = _safe(current_run_id)
         detail = gateway.run_detail(current_run_id)
         series = gateway.run_series(current_run_id)
@@ -481,7 +481,6 @@ def assemble_workspace(
         cached_current = render_current_run_stack(plot_cache_dir, detail, series)
         image_dir = current_dir / "images"
         image_dir.mkdir(parents=True, exist_ok=True)
-        current_images = []
         for cached_image in cached_current:
             destination = image_dir / cached_image.name
             shutil.copy2(cached_image, destination)

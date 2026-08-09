@@ -5,12 +5,15 @@
 	import {
 		api,
 		type CoachBriefResponse,
+		type CoachJournalResponse,
 		type CoachMessage,
 		type CoachReview,
 		type CoachReviewRevision,
 		type CoachStatus,
-		type CoachThread
+		type CoachThread,
+		type JournalEntry
 	} from '$lib/api';
+	import { measurementLabel, sessionLabel } from '$lib/coach/verdict';
 	import { renderMarkdown } from '$lib/markdown';
 	import { createLatestRequestGate, startRealtimePage } from '$lib/realtime-page';
 	import { createCoachUpdateListener } from '$lib/sse';
@@ -25,16 +28,19 @@
 	let reviewMessages: CoachMessage[] = $state([]);
 	let reviewRevisions: CoachReviewRevision[] = $state([]);
 	let brief: CoachBriefResponse | null = $state(null);
+	let journal: CoachJournalResponse | null = $state(null);
 	let activeThreadId: string | null = $state(null);
 	let activeReviewId: string | null = $state(null);
 	let loading = $state(true);
 	let error: string | null = $state(null);
 	let draft = $state('');
 	let reviewDraft = $state('');
+	let weekReviewDate = $state('');
 	let reviewThread: CoachThread | null = $state(null);
 	let newThreadTitle = $state('');
 	let busy = $state(false);
 	let failedPlots = $state<Set<string>>(new Set());
+	let questionAnswers = $state<Record<number, string>>({});
 	let tab: Tab = $state(
 		page.url.searchParams.get('review')
 			? 'reviews'
@@ -56,6 +62,30 @@
 	let activeReview = $derived(
 		reviews.find((review) => review.id === activeReviewId) ?? reviews[0] ?? null
 	);
+	// Now band: all derived from the already-loaded `reviews`/`journal` arrays (no new
+	// endpoints). `reviews` is newest-first (see `list_reviews` ORDER BY date/updated_at
+	// DESC), so `.find()`/`[0]`/`.filter()` here are selection, not statistics.
+	let latestReview = $derived(reviews[0] ?? null);
+	// Excludes a review that already has a linked thread, so answering it doesn't leave it
+	// stuck in the Open-questions slot forever (`follow_up_questions` persists until a
+	// revision replaces it). `threads` only holds general, non-review threads (the backend's
+	// `list_threads` filters `WHERE review_id IS NULL`), so it can never signal this. The
+	// only already-loaded per-review thread signal is `reviewThread`, populated for whichever
+	// review is currently active via `refreshReviewConversation` — this correctly drops the
+	// review once the user has selected it and it has a thread (e.g. after answering), and is
+	// a no-op (falls back to `reviews[0]`'s own check) for reviews the user hasn't visited.
+	let openQuestionsReview = $derived(
+		reviews.find(
+			(review) =>
+				review.status === 'complete' &&
+				review.follow_up_questions.length > 0 &&
+				reviewThread?.review_id !== review.id
+		) ?? null
+	);
+	let failedReviews = $derived(reviews.filter((review) => review.status === 'failed'));
+	let hasAnyAnswer = $derived(
+		Object.values(questionAnswers).some((answer) => answer.trim().length > 0)
+	);
 	let awaitingCoach = $derived(messages.length > 0 && messages[messages.length - 1]?.role === 'user');
 	let awaitingReviewCoach = $derived(
 		reviewMessages.length > 0 && reviewMessages[reviewMessages.length - 1]?.role === 'user'
@@ -73,6 +103,13 @@
 	$effect(() => {
 		void reviewMessages;
 		if (reviewMessagePane) reviewMessagePane.scrollTop = reviewMessagePane.scrollHeight;
+	});
+	// Answers are keyed by question index, not review id — without this reset, switching to a
+	// different review after partially answering one leaves stale index-keyed answers that
+	// would pair with the newly active review's (unrelated) questions in `sendAnswers`.
+	$effect(() => {
+		void activeReviewId;
+		questionAnswers = {};
 	});
 	let workerLine = $derived.by(() => {
 		if (!status) return '';
@@ -103,10 +140,43 @@
 	}
 
 	function reviewOutcome(review: CoachReview): string {
-		const outcome = (review.outcome ?? review.verdict ?? 'not assessed').replaceAll('_', ' ');
+		// Real outcomes use the shared plain-language vocabulary; legacy rows that only have
+		// the old `verdict` field fall back to the raw enum text.
+		const outcome = review.outcome
+			? sessionLabel(review.outcome)
+			: (review.verdict?.replaceAll('_', ' ') ?? 'not assessed');
 		return review.outcome && (review.status === 'queued' || review.status === 'generating')
 			? `previous: ${outcome}`
 			: outcome;
+	}
+
+	function reviewKindLabel(kind: CoachReview['kind']): string {
+		if (kind === 'day') return 'Day debrief';
+		if (kind === 'week') return 'Weekly synthesis';
+		return 'Run review';
+	}
+
+	// Week rows have no outcome axis (a week isn't compliant/non-compliant against a single
+	// prescription), so the outcome text is dropped entirely for them rather than showing
+	// a meaningless "not assessed".
+	function railSubLine(review: CoachReview): string {
+		return review.kind === 'week'
+			? reviewKindLabel(review.kind)
+			: `${reviewKindLabel(review.kind)} · ${reviewOutcome(review)}`;
+	}
+
+	function reviewStatusLine(review: CoachReview): string {
+		const status = review.status.replaceAll('_', ' ');
+		return review.kind === 'week' ? status : `${status} · ${reviewOutcome(review)}`;
+	}
+
+	function errorFirstLine(error: string | null): string {
+		return (error ?? '').split('\n')[0] ?? '';
+	}
+
+	function journalEntryTakeaway(entry: JournalEntry): string {
+		const firstLine = entry.content_md.split('\n').find((line) => line.trim().length > 0) ?? '';
+		return entry.run_summary?.takeaway ?? firstLine;
 	}
 
 	function markPlotUnavailable(plotName: string): void {
@@ -163,12 +233,14 @@
 		let nextReviews: { reviews: CoachReview[] };
 		let nextThreads: { threads: CoachThread[] };
 		let nextBrief: CoachBriefResponse;
+		let nextJournal: CoachJournalResponse;
 		try {
-			[nextStatus, nextReviews, nextThreads, nextBrief] = await Promise.all([
+			[nextStatus, nextReviews, nextThreads, nextBrief, nextJournal] = await Promise.all([
 				api.getCoachStatus(),
 				api.getCoachReviews({ limit: 100 }),
 				api.getCoachThreads(),
-				api.getCoachBrief()
+				api.getCoachBrief(),
+				api.getCoachJournal()
 			]);
 		} catch (cause: unknown) {
 			if (!refreshAllGate.isCurrent(request)) return;
@@ -179,6 +251,7 @@
 		reviews = nextReviews.reviews;
 		threads = nextThreads.threads;
 		brief = nextBrief;
+		journal = nextJournal;
 		// Fresh review data just arrived — let any previously-404'd evidence plot retry
 		// (the worker may have generated it since). Reassigning (not mutating) the Set is
 		// required for the `{#if failedPlots.has(...)}` reads below to pick up the change.
@@ -275,11 +348,59 @@
 		}
 	}
 
+	async function sendAnswers(review: CoachReview): Promise<void> {
+		const lines = review.follow_up_questions
+			.map((q, i) => ({ q, a: (questionAnswers[i] ?? '').trim() }))
+			.filter(({ a }) => a.length > 0)
+			.map(({ q, a }) => `- Q: ${q}\n  A: ${a}`);
+		if (lines.length === 0 || busy) return;
+		busy = true;
+		try {
+			const thread =
+				reviewThread?.review_id === review.id && reviewThread.status === 'open'
+					? reviewThread
+					: await api.openCoachReviewThread(review.id);
+			reviewThread = thread;
+			// Week reviews have no structured revision axis (no outcome/confidence to
+			// re-stamp), and the backend rejects a `review_revision` output for them —
+			// so answering weekly questions stays a plain, non-revision message.
+			const isWeekReview = review.kind === 'week';
+			const content = isWeekReview
+				? `Here are my answers to your questions.\n${lines.join('\n')}`
+				: `Update the review: here are my answers to your questions.\n${lines.join('\n')}`;
+			await api.sendCoachMessage(thread.id, content, !isWeekReview);
+			questionAnswers = {};
+			await refreshAll();
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function retryReview(reviewId: string): Promise<void> {
 		busy = true;
 		try {
 			await api.retryCoachReview(reviewId);
 			await refreshAll();
+		} catch (e: unknown) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	// The backend owns the Monday invariant (422s on non-Mondays); this control never
+	// computes or defaults a date — the user picks one and the API validates it.
+	async function requestWeekReview(): Promise<void> {
+		const weekStart = weekReviewDate;
+		if (!weekStart || busy) return;
+		busy = true;
+		try {
+			const result = await api.enqueueCoachWeekReview(weekStart);
+			await refreshAll();
+			if (result.review) await chooseReview(result.review);
+			weekReviewDate = '';
 		} catch (e: unknown) {
 			error = errorMessage(e);
 		} finally {
@@ -350,13 +471,83 @@
 				>Conversation</button>
 			</div>
 		</div>
-		{#if workerLine}<span class="worker-line">{workerLine}</span>{/if}
+		<div class="heading-right">
+			{#if tab === 'reviews'}
+				<div class="week-review-control">
+					<input
+						type="date"
+						class="date-input"
+						bind:value={weekReviewDate}
+						aria-label="Week start date for weekly synthesis"
+					/>
+					<button
+						class="btn"
+						onclick={requestWeekReview}
+						disabled={busy || !weekReviewDate}
+					>Review my week</button>
+				</div>
+			{/if}
+			{#if workerLine}<span class="worker-line">{workerLine}</span>{/if}
+		</div>
 	</header>
 
 	{#if error}<p class="error-line" role="alert">{error}</p>{/if}
 	{#if loading}
 		<p class="loading-line">Loading coach workspace…</p>
 	{:else if tab === 'reviews'}
+		{#if (journal && journal.watch_items.length > 0) || openQuestionsReview || latestReview || failedReviews.length > 0}
+			<section class="now-band" aria-label="Now">
+				{#if journal && journal.watch_items.length > 0}
+					<div class="now-row now-watching">
+						<span class="now-label">Watching</span>
+						<div class="now-watch-items">
+							{#each journal.watch_items as item (item.source_id + item.text)}
+								<span class="watch-item">{item.text}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if openQuestionsReview}
+					<div class="now-row now-questions">
+						<span class="now-label">Open questions</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{openQuestionsReview.follow_up_questions.length}
+								{openQuestionsReview.follow_up_questions.length === 1 ? 'question' : 'questions'} ·
+								{openQuestionsReview.follow_up_questions[0]}
+							</p>
+						</div>
+						<button class="btn" onclick={() => chooseReview(openQuestionsReview)}>Answer →</button>
+					</div>
+				{/if}
+				{#if latestReview}
+					<button class="now-row now-latest" onclick={() => chooseReview(latestReview)}>
+						<span class="now-label">Latest</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{reviewKindLabel(latestReview.kind)}
+								<span class="tabular now-latest-date">{latestReview.date}</span>
+							</p>
+							<p class="now-row-sub">{latestReview.headline ?? reviewStatusLine(latestReview)}</p>
+						</div>
+					</button>
+				{/if}
+				{#if failedReviews.length > 0}
+					<div class="now-row now-attention">
+						<span class="now-label">Needs attention</span>
+						<div class="now-row-body">
+							<p class="now-row-main">
+								{failedReviews.length} failed review{failedReviews.length === 1 ? '' : 's'}
+							</p>
+							<p class="now-row-sub now-error-line">{errorFirstLine(failedReviews[0].error)}</p>
+						</div>
+						<button class="btn danger" onclick={() => retryReview(failedReviews[0].id)} disabled={busy}>
+							Retry
+						</button>
+					</div>
+				{/if}
+			</section>
+		{/if}
 		<div class="workspace">
 			<aside class="rail" aria-label="Review history">
 				<h2>Review history</h2>
@@ -371,7 +562,7 @@
 								<span class="tabular">{review.date}</span>
 								<span class="row-status">{review.status.replaceAll('_', ' ')}</span>
 							</span>
-							<span class="row-sub">Run review · {reviewOutcome(review)}</span>
+							<span class="row-sub">{railSubLine(review)}</span>
 						</button>
 					{:else}
 						<p class="empty-line">No review history.</p>
@@ -382,7 +573,30 @@
 					{#if brief?.brief}
 						<div class="markdown-body brief-body">{@html renderMarkdown(brief.brief.content_md)}</div>
 					{:else}
-						<p class="empty-line">No durable brief yet.</p>
+						<p class="empty-line">
+							The coach writes this durable memory itself after a successful review or a
+							closed conversation. It stays empty until the first review succeeds.
+						</p>
+					{/if}
+				</details>
+				<details class="brief journal">
+					<summary>Journal</summary>
+					{#if journal && journal.entries.length > 0}
+						<ul class="journal-list">
+							{#each journal.entries as entry (entry.id)}
+								<li>
+									<details class="journal-entry">
+										<summary>
+											<span class="tabular">{entry.ts.slice(0, 10)}</span>
+											<span class="journal-takeaway">{journalEntryTakeaway(entry)}</span>
+										</summary>
+										<div class="markdown-body journal-body">{@html renderMarkdown(entry.content_md)}</div>
+									</details>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="empty-line">No journal yet.</p>
 					{/if}
 				</details>
 			</aside>
@@ -392,13 +606,20 @@
 					<div class="pane-head">
 						<div>
 							<h2 id="review-pane-heading" class="pane-title">
-								Run review
+								{reviewKindLabel(activeReview.kind)}
 								<span class="tabular pane-date">{activeReview.date}</span>
 							</h2>
+							{#if activeReview.headline}
+								<p class="pane-headline">{activeReview.headline}</p>
+							{/if}
 							<p class="pane-meta">
-								{activeReview.status.replaceAll('_', ' ')} · {reviewOutcome(activeReview)}{activeReview.confidence
-									? ` · ${activeReview.confidence} confidence`
-									: ''}
+								{activeReview.status.replaceAll('_', ' ')}
+								{#if activeReview.kind !== 'week'}
+									· {reviewOutcome(activeReview)}
+									{#if activeReview.measurement_assessment}
+										· {measurementLabel(activeReview.measurement_assessment.status)}
+									{/if}
+								{/if}
 							</p>
 						</div>
 						{#if activeReview.status === 'failed'}
@@ -408,6 +629,10 @@
 					<div class="pane-scroll">
 						{#if activeReview.content_md}
 							<div class="markdown-body">{@html renderMarkdown(activeReview.content_md)}</div>
+						{:else if activeReview.status === 'failed'}
+							<p class="error-line failure-reason" role="alert">
+								{activeReview.error ?? 'This review failed before producing a response.'}
+							</p>
 						{:else}
 							<p class="empty-line">This review is {activeReview.status.replaceAll('_', ' ')}. Its evidence-backed response will appear here.</p>
 						{/if}
@@ -441,11 +666,27 @@
 						{#if activeReview.follow_up_questions.length > 0}
 							<section class="coach-questions" aria-labelledby="coach-questions-heading">
 								<h3 id="coach-questions-heading">Coach questions</h3>
-								<ul>
-									{#each activeReview.follow_up_questions as question, index (index)}
-										<li>{question}</li>
-									{/each}
-								</ul>
+								{#each activeReview.follow_up_questions as question, index (index)}
+									<div class="question-row">
+										<p class="question-text">{question}</p>
+										{#if activeReview.status === 'complete'}
+											<input
+												class="question-answer"
+												placeholder="Your answer…"
+												bind:value={questionAnswers[index]}
+											/>
+										{/if}
+									</div>
+								{/each}
+								{#if activeReview.status === 'complete'}
+									<button
+										class="btn"
+										disabled={busy || !hasAnyAnswer}
+										onclick={() => sendAnswers(activeReview)}
+									>
+										Send answers to coach
+									</button>
+								{/if}
 							</section>
 						{/if}
 						{#if activeReview.status === 'complete'}
@@ -553,7 +794,7 @@
 						{/if}
 					</div>
 				{:else}
-					<p class="empty-line pane-empty">No reviews yet. Open a run and choose “Review with coach.”</p>
+					<p class="empty-line pane-empty">No reviews yet. Request a coach debrief from the Today board.</p>
 				{/if}
 			</section>
 		</div>
@@ -671,6 +912,117 @@
 		color: #708392;
 		font-size: 13px;
 	}
+	.heading-right {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+	.week-review-control {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.date-input {
+		width: auto;
+		color-scheme: dark;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(8, 15, 24, 0.7);
+		color: #c8d6df;
+		border-radius: 9px;
+		padding: 8px 10px;
+		font-family: 'DM Mono', monospace;
+		font-size: 13px;
+	}
+
+	.now-band {
+		display: flex;
+		flex-direction: column;
+		margin: 0 0 16px;
+		padding: 0 20px;
+		background: #101a26;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 10px;
+	}
+	.now-row {
+		display: grid;
+		grid-template-columns: 128px minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 16px;
+		min-height: 44px;
+		padding: 12px 0;
+	}
+	.now-row + .now-row {
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	button.now-row {
+		width: 100%;
+		border: 0;
+		background: transparent;
+		text-align: left;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+		border-radius: 6px;
+	}
+	button.now-row:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+	.now-label {
+		flex-shrink: 0;
+		color: #7a8ea0;
+		font-family: 'DM Mono', monospace;
+		font-size: 11px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.07em;
+	}
+	.now-watch-items {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		grid-column: 2 / -1;
+	}
+	.watch-item {
+		padding: 4px 10px;
+		background: rgba(210, 161, 95, 0.12);
+		border: 1px solid rgba(210, 161, 95, 0.3);
+		border-radius: 20px;
+		color: #e0b986;
+		font-size: 12px;
+	}
+	.now-row-body {
+		min-width: 0;
+	}
+	.now-row-main {
+		margin: 0;
+		color: #c8d6e0;
+		font-size: 13px;
+		line-height: 1.4;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.now-latest-date {
+		margin-left: 8px;
+		color: #7a8ea0;
+	}
+	.now-row-sub {
+		margin: 3px 0 0;
+		color: #8398a5;
+		font-size: 12.5px;
+		line-height: 1.4;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.now-error-line {
+		color: #e3a493;
+		max-width: 620px;
+	}
+	.now-attention .now-label {
+		color: #e3a493;
+	}
 
 	.workspace {
 		display: grid;
@@ -784,6 +1136,46 @@
 		max-height: 300px;
 		overflow-y: auto;
 	}
+	.journal {
+		margin-top: 12px;
+	}
+	.journal-list {
+		list-style: none;
+		margin: 10px 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		max-height: 300px;
+		overflow-y: auto;
+	}
+	.journal-entry summary {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		cursor: pointer;
+		text-transform: none;
+		letter-spacing: normal;
+		font-weight: 400;
+		color: #aebec8;
+	}
+	.journal-entry summary:hover {
+		color: #dbe7ed;
+	}
+	.journal-entry .tabular {
+		flex-shrink: 0;
+		color: #7a8ea0;
+	}
+	.journal-takeaway {
+		font-size: 12px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.journal-body {
+		margin: 8px 0 4px;
+		font-size: 12px;
+	}
 
 	.pane {
 		padding: 0;
@@ -808,6 +1200,12 @@
 	.pane-date {
 		color: #7a8ea0;
 		font-weight: 400;
+	}
+	.pane-headline {
+		margin: 3px 0 0;
+		font-size: 15px;
+		font-weight: 600;
+		color: #eef5f8;
 	}
 	.pane-meta {
 		margin: 3px 0 0;
@@ -1015,17 +1413,21 @@
 	.coach-questions {
 		margin-top: 18px;
 	}
-	.coach-questions ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-	.coach-questions li {
-		padding: 8px 0;
+	.question-row {
+		padding: 10px 0;
 		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.question-text {
+		margin: 0 0 8px;
 		color: #b6c5cf;
 		font-size: 13px;
 		line-height: 1.5;
+	}
+	.question-answer {
+		display: block;
+	}
+	.coach-questions > .btn {
+		margin-top: 12px;
 	}
 	.review-conversation {
 		margin-top: 24px;
@@ -1149,5 +1551,10 @@
 		border-left: 3px solid #e85d4a;
 		padding: 8px 12px;
 		margin: 0 0 12px;
+	}
+
+	.failure-reason {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 </style>

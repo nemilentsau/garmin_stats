@@ -20,11 +20,12 @@ from app.domains.coach.contracts import (
     DistillOutput,
     JobKind,
     ReviewOutput,
+    WeekReviewOutput,
     safe_artifact_id,
 )
 
-OutputModel = type[ReviewOutput] | type[ChatOutput] | type[DistillOutput]
-OutputValue = ReviewOutput | ChatOutput | DistillOutput
+OutputModel = type[ReviewOutput] | type[ChatOutput] | type[DistillOutput] | type[WeekReviewOutput]
+OutputValue = ReviewOutput | ChatOutput | DistillOutput | WeekReviewOutput
 ErrorKind = Literal[
     "timeout",
     "spawn",
@@ -119,6 +120,33 @@ def _failure(kind: ErrorKind, error: str) -> CodexJobResult:
     return CodexJobResult(ok=False, error_kind=kind, error=error)
 
 
+def _is_terminal_shim_path_entry(entry: str) -> bool:
+    return "cmux-cli-shims" in entry or entry.rstrip("/").endswith(
+        "cmux.app/Contents/Resources/bin"
+    )
+
+
+def _hermetic_environment(active_home: Path) -> dict[str, str]:
+    """Server-inherited terminal wrappers (cmux shims) must never intercept codex.
+
+    The server often runs inside an interactive terminal session whose shims
+    wrap `codex` to inject session hooks; a headless coach job blocks forever
+    on those hooks. Drop the wrapper's env markers and its PATH entries so the
+    real binary runs.
+    """
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("CMUX_")
+    }
+    environment["PATH"] = os.pathsep.join(
+        entry
+        for entry in environment.get("PATH", "").split(os.pathsep)
+        if entry and not _is_terminal_shim_path_entry(entry)
+    )
+    environment["HOME"] = str(active_home.parent)
+    environment["CODEX_HOME"] = str(active_home)
+    return environment
+
+
 def _command(
     *,
     kind: JobKind,
@@ -173,12 +201,16 @@ async def run_codex_job(
     codex_home: Path | None,
     resume_session_id: str | None,
     logs_dir: Path,
-    timeout_s: float = 900,
+    timeout_s: float = 1800,
 ) -> CodexJobResult:
     """Run one fresh attempt and accept only validated structured output."""
     workspace.mkdir(parents=True, exist_ok=True)
     attempt_dir = workspace / "_runtime" / job_id / f"attempt-{attempt}"
     try:
+        # Manual retry resets the job's attempt budget, so an attempt number can
+        # repeat; replace the stale directory so old output can never be reread.
+        if attempt_dir.is_dir():
+            shutil.rmtree(attempt_dir)
         attempt_dir.mkdir(parents=True, exist_ok=False)
         active_home = _ensure_codex_home(
             codex_home or attempt_dir / "codex-home/.codex"
@@ -229,9 +261,7 @@ async def run_codex_job(
         images=staged_images,
         resume_session_id=resume_session_id,
     )
-    environment = os.environ.copy()
-    environment["HOME"] = str(active_home.parent)
-    environment["CODEX_HOME"] = str(active_home)
+    environment = _hermetic_environment(active_home)
     process: asyncio.subprocess.Process | None = None
     try:
         with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
@@ -240,6 +270,7 @@ async def run_codex_job(
                     *command,
                     cwd=execution_workspace,
                     env=environment,
+                    stdin=asyncio.subprocess.DEVNULL,
                     stdout=stdout,
                     stderr=stderr,
                     start_new_session=True,

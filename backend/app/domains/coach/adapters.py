@@ -27,6 +27,8 @@ from app.domains.coach.contracts import (
     JournalEntry,
     ReviewOutput,
     RunJournalSummary,
+    WeekReviewOutput,
+    require_monday_week_start,
     safe_artifact_id,
 )
 from app.domains.coach.time import utc_cutoff_iso, utc_now_iso
@@ -35,6 +37,8 @@ from app.infra.sqlite import connect
 _PRIORITIES: dict[JobKind, int] = {
     "chat_turn": 0,
     "review_run": 10,
+    "review_day": 10,
+    "review_week": 10,
     "distill_thread": 30,
 }
 
@@ -178,6 +182,26 @@ def _retry_job(job: CoachJob, *, available_at: str) -> CoachJob:
     )
 
 
+def _allowed_day_measurement_targets(payload: dict[str, object]) -> set[tuple[str, str]]:
+    """Extract the `(run_id, occurrence_key)` pairs a day review's job authorized.
+
+    Shared by `complete_review_output` (completion) and `complete_chat_output`
+    (revision) so both paths honor the exact same day-review target set instead
+    of duplicating the defensive dict parsing.
+    """
+    raw_targets = payload.get("measurement_targets")
+    allowed: set[tuple[str, str]] = set()
+    if isinstance(raw_targets, list):
+        for entry in raw_targets:
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("run_id"), str)
+                and isinstance(entry.get("occurrence_key"), str)
+            ):
+                allowed.add((entry["run_id"], entry["occurrence_key"]))
+    return allowed
+
+
 def _create_review_job(
     connection: sqlite3.Connection,
     *,
@@ -235,6 +259,116 @@ def _create_review_job(
     _save_review(connection, review)
     _save_job(connection, job)
     return review, job, True
+
+
+def _create_day_review_job(
+    connection: sqlite3.Connection,
+    *,
+    date: str,
+    measurement_targets: list[dict[str, str]],
+) -> tuple[CoachReview, CoachJob, bool]:
+    existing_row = connection.execute(
+        "SELECT data FROM coach_reviews WHERE kind = 'day' AND date = ?",
+        (date,),
+    ).fetchone()
+    dedupe_key = f"review:day:{date}"
+    job_kind: JobKind = "review_day"
+    if existing_row is not None:
+        review = _review_from_row(existing_row)
+        job_row = connection.execute(
+            "SELECT data FROM coach_jobs WHERE id = ?", (review.job_id,)
+        ).fetchone()
+        if job_row is None:
+            raise RuntimeError(f"Review {review.id} references missing job {review.job_id}")
+        return review, _job_from_row(job_row), False
+
+    now = utc_now_iso()
+    review_id = _new_id("review")
+    job_id = _new_id("job")
+    review = CoachReview(
+        id=review_id,
+        date=date,
+        kind="day",
+        run_id=None,
+        occurrence_key=None,
+        status="queued",
+        job_id=job_id,
+        created_at=now,
+        updated_at=now,
+    )
+    job = CoachJob(
+        id=job_id,
+        kind=job_kind,
+        dedupe_key=dedupe_key,
+        priority=_PRIORITIES[job_kind],
+        status="queued",
+        payload={
+            "review_id": review_id,
+            "date": date,
+            "measurement_targets": measurement_targets,
+        },
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    _save_review(connection, review)
+    _save_job(connection, job)
+    return review, job, True
+
+
+def _create_week_review_job(
+    connection: sqlite3.Connection,
+    *,
+    week_start: str,
+) -> tuple[CoachReview, CoachJob, bool]:
+    existing_row = connection.execute(
+        "SELECT data FROM coach_reviews WHERE kind = 'week' AND date = ?",
+        (week_start,),
+    ).fetchone()
+    dedupe_key = f"review:week:{week_start}"
+    job_kind: JobKind = "review_week"
+    if existing_row is not None:
+        review = _review_from_row(existing_row)
+        job_row = connection.execute(
+            "SELECT data FROM coach_jobs WHERE id = ?", (review.job_id,)
+        ).fetchone()
+        if job_row is None:
+            raise RuntimeError(f"Review {review.id} references missing job {review.job_id}")
+        return review, _job_from_row(job_row), False
+
+    now = utc_now_iso()
+    review_id = _new_id("review")
+    job_id = _new_id("job")
+    review = CoachReview(
+        id=review_id,
+        date=week_start,
+        kind="week",
+        run_id=None,
+        occurrence_key=None,
+        status="queued",
+        job_id=job_id,
+        created_at=now,
+        updated_at=now,
+    )
+    job = CoachJob(
+        id=job_id,
+        kind=job_kind,
+        dedupe_key=dedupe_key,
+        priority=_PRIORITIES[job_kind],
+        status="queued",
+        payload={
+            "review_id": review_id,
+            "week_start": week_start,
+        },
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    _save_review(connection, review)
+    _save_job(connection, job)
+    return review, job, True
+
+
 class SqliteCoachRepository:
     """Coach persistence adapter with transaction-owned queue invariants."""
 
@@ -253,6 +387,32 @@ class SqliteCoachRepository:
                 run_id=run_id,
                 occurrence_key=occurrence_key,
             )
+            connection.commit()
+        return result
+
+    def enqueue_day_review(
+        self,
+        *,
+        date: str,
+        measurement_targets: list[dict[str, str]],
+    ) -> tuple[CoachReview, CoachJob, bool]:
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            result = _create_day_review_job(
+                connection,
+                date=date,
+                measurement_targets=measurement_targets,
+            )
+            connection.commit()
+        return result
+
+    def enqueue_week_review(self, *, week_start: str) -> tuple[CoachReview, CoachJob, bool]:
+        # Domain invariant, not just an HTTP-boundary check: enforce it here so
+        # every repo caller is protected, not only the route's own pre-check.
+        require_monday_week_start(week_start)
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            result = _create_week_review_job(connection, week_start=week_start)
             connection.commit()
         return result
 
@@ -352,7 +512,7 @@ class SqliteCoachRepository:
         to_date: str | None,
         limit: int,
     ) -> list[CoachReview]:
-        clauses: list[str] = ["kind = 'run'"]
+        clauses: list[str] = []
         params: list[object] = []
         if from_date is not None:
             clauses.append("date >= ?")
@@ -360,7 +520,9 @@ class SqliteCoachRepository:
         if to_date is not None:
             clauses.append("date <= ?")
             params.append(to_date)
-        query = "SELECT data FROM coach_reviews WHERE " + " AND ".join(clauses)
+        query = "SELECT data FROM coach_reviews"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY date DESC, updated_at DESC, id LIMIT ?"
         params.append(limit)
         with connect() as connection:
@@ -392,8 +554,13 @@ class SqliteCoachRepository:
         job_id: str,
         output: ReviewOutput,
         finished_at: str,
+        require_brief: bool = False,
     ) -> None:
         """Persist review, semantic memory, optional brief, and job atomically."""
+        if require_brief and output.brief_update.action != "replace":
+            raise MeasurementAssessmentValidationError(
+                "first successful review must write the initial brief"
+            )
         self._validate_artifact_refs(
             [
                 *output.refs,
@@ -417,21 +584,33 @@ class SqliteCoachRepository:
                 raise LookupError(f"Unknown coach review: {review_id}")
             review = _review_from_row(row)
             assessment = output.measurement_assessment
-            if assessment is not None and (
-                review.kind != "run"
-                or assessment.run_id != review.run_id
-                or assessment.occurrence_key != review.occurrence_key
-                or assessment.run_id != job.payload.get("run_id")
-                or assessment.occurrence_key != job.payload.get("occurrence_key")
-            ):
-                raise MeasurementAssessmentValidationError(
-                    "Measurement assessment does not match queued review target"
-                )
+            if assessment is not None:
+                if review.kind == "run":
+                    if (
+                        assessment.run_id != review.run_id
+                        or assessment.occurrence_key != review.occurrence_key
+                        or assessment.run_id != job.payload.get("run_id")
+                        or assessment.occurrence_key != job.payload.get("occurrence_key")
+                    ):
+                        raise MeasurementAssessmentValidationError(
+                            "Measurement assessment does not match queued review target"
+                        )
+                elif review.kind == "day":
+                    allowed = _allowed_day_measurement_targets(job.payload)
+                    if (assessment.run_id, assessment.occurrence_key) not in allowed:
+                        raise MeasurementAssessmentValidationError(
+                            "Measurement assessment does not match queued review target"
+                        )
+                else:
+                    raise MeasurementAssessmentValidationError(
+                        "Measurement assessment does not match queued review target"
+                    )
             completed_review = review.model_copy(
                 update={
                     "status": "complete",
                     "outcome": output.outcome,
                     "confidence": output.confidence,
+                    "headline": output.headline,
                     "content_md": output.review_md,
                     "refs": output.refs,
                     "follow_up_questions": list(output.follow_up_questions),
@@ -450,6 +629,111 @@ class SqliteCoachRepository:
                 source_message_id=None,
                 created_at=finished_at,
             )
+            prior_rows = connection.execute(
+                """
+                SELECT data FROM coach_journal
+                WHERE json_extract(data, '$.source_id') = ?
+                  AND COALESCE(json_extract(data, '$.policy_version'), 1) = ?
+                ORDER BY ts, id
+                """,
+                (review_id, CURRENT_MEMORY_POLICY_VERSION),
+            ).fetchall()
+            prior_entries = active_journal_entries(
+                [_model_from_row(JournalEntry, row) for row in prior_rows]
+            )
+            self._insert_journal_output(
+                connection,
+                content_md=render_run_journal(output.journal),
+                refs=output.journal.refs,
+                kind="review",
+                source_id=review_id,
+                created_at=finished_at,
+                policy_version=CURRENT_MEMORY_POLICY_VERSION,
+                run_summary=output.journal,
+                supersedes_id=(prior_entries[-1].id if prior_entries else None),
+            )
+            if output.brief_update.action == "replace":
+                self._insert_brief_output(
+                    connection,
+                    content_md=output.brief_update.content_md or "",
+                    source_id=review_id,
+                    created_at=finished_at,
+                    policy_version=CURRENT_MEMORY_POLICY_VERSION,
+                )
+            _save_job(
+                connection,
+                job.model_copy(
+                    update={
+                        "status": "complete",
+                        "finished_at": finished_at,
+                        "updated_at": finished_at,
+                        "error": None,
+                    }
+                ),
+            )
+            connection.commit()
+
+    def complete_week_review_output(
+        self,
+        *,
+        review_id: str,
+        job_id: str,
+        output: WeekReviewOutput,
+        finished_at: str,
+        require_brief: bool = False,
+    ) -> None:
+        """Persist a weekly synthesis review, memory, and job atomically.
+
+        Mirrors `complete_review_output`'s atomic shape minus the
+        outcome/confidence/measurement-assessment axes a week review never
+        carries. Revision insertion is deliberately skipped:
+        `_insert_review_revision` snapshots a review's `outcome`/`confidence`,
+        and a week review's `outcome` is always `None`, so it can never satisfy
+        that invariant. Week reviews have no chat-driven revision flow today
+        (that flow is scoped to review-linked threads producing
+        `ReviewRevisionOutput`, which always carries `outcome`), so skipping
+        the version-1 snapshot loses nothing.
+        """
+        if require_brief and output.brief_update.action != "replace":
+            raise MeasurementAssessmentValidationError(
+                "first successful review must write the initial brief"
+            )
+        self._validate_artifact_refs(
+            [
+                *output.refs,
+                *output.journal.refs,
+                *[
+                    ref
+                    for historical_use in output.history_used
+                    for ref in historical_use.refs
+                ],
+            ]
+        )
+        with connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            job = self._job_in_connection(connection, job_id)
+            if job.status != "running":
+                raise ValueError(f"Coach job {job_id} is not running")
+            row = connection.execute(
+                "SELECT data FROM coach_reviews WHERE id = ?", (review_id,)
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"Unknown coach review: {review_id}")
+            review = _review_from_row(row)
+            completed_review = review.model_copy(
+                update={
+                    "status": "complete",
+                    "headline": output.headline,
+                    "content_md": output.synthesis_md,
+                    "refs": output.refs,
+                    "follow_up_questions": list(output.follow_up_questions),
+                    "plot_observations": output.plot_observations,
+                    "history_used": output.history_used,
+                    "error": None,
+                    "updated_at": finished_at,
+                }
+            )
+            _save_review(connection, completed_review)
             prior_rows = connection.execute(
                 """
                 SELECT data FROM coach_journal
@@ -713,15 +997,32 @@ class SqliteCoachRepository:
                 review = _review_from_row(review_row)
                 if review.status != "complete":
                     raise ValueError("Only complete reviews can be revised")
-                revision_assessment = revision_output.measurement_assessment
-                if revision_assessment is not None and (
-                    review.kind != "run"
-                    or revision_assessment.run_id != review.run_id
-                    or revision_assessment.occurrence_key != review.occurrence_key
-                ):
-                    raise MeasurementAssessmentValidationError(
-                        "Review revision assessment does not match the linked review target"
+                if review.kind == "week":
+                    raise ReviewRevisionValidationError(
+                        "Weekly synthesis reviews do not support structured revisions"
                     )
+                revision_assessment = revision_output.measurement_assessment
+                if revision_assessment is not None:
+                    if review.kind == "run":
+                        target_mismatch = (
+                            revision_assessment.run_id != review.run_id
+                            or revision_assessment.occurrence_key != review.occurrence_key
+                        )
+                    else:
+                        # `review.kind == "day"` (week already rejected above): honor the
+                        # same target-set membership rule `complete_review_output` enforces
+                        # at completion time, using the original day job's payload — the
+                        # linked review's own `job_id` never changes across revisions.
+                        review_job = self._job_in_connection(connection, review.job_id)
+                        allowed = _allowed_day_measurement_targets(review_job.payload)
+                        target_mismatch = (
+                            revision_assessment.run_id,
+                            revision_assessment.occurrence_key,
+                        ) not in allowed
+                    if target_mismatch:
+                        raise MeasurementAssessmentValidationError(
+                            "Review revision assessment does not match the linked review target"
+                        )
                 version_row = connection.execute(
                     """
                     SELECT COALESCE(MAX(version), 0) AS version
@@ -732,6 +1033,7 @@ class SqliteCoachRepository:
                 version = int(version_row["version"]) + 1
                 revised = review.model_copy(
                     update={
+                        "headline": revision_output.headline,
                         "content_md": revision_output.content_md,
                         "outcome": revision_output.outcome,
                         "confidence": revision_output.confidence,

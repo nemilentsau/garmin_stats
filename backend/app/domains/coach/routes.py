@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date as date_type
 from pathlib import Path
 from typing import Annotated
 
@@ -14,8 +14,10 @@ from app.contracts.errors import error_responses
 from app.domains.coach.application.memory import CURRENT_MEMORY_POLICY_VERSION
 from app.domains.coach.contracts import (
     CoachBriefResponse,
+    CoachDayReviewRequest,
     CoachEnqueueResponse,
     CoachJob,
+    CoachJournalResponse,
     CoachMessageCreateRequest,
     CoachMessagesResponse,
     CoachReview,
@@ -26,12 +28,31 @@ from app.domains.coach.contracts import (
     CoachThread,
     CoachThreadCreateRequest,
     CoachThreadsResponse,
+    CoachWatchItem,
+    CoachWeekReviewRequest,
+    require_monday_week_start,
     safe_artifact_id,
 )
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
-_ReviewsFromDate = Annotated[date | None, Query(alias="from")]
-_ReviewsToDate = Annotated[date | None, Query(alias="to")]
+_ReviewsFromDate = Annotated[date_type | None, Query(alias="from")]
+_ReviewsToDate = Annotated[date_type | None, Query(alias="to")]
+
+
+def _canonical_date(value: str) -> date_type:
+    """Parse a strict `YYYY-MM-DD` date, rejecting other ISO 8601 spellings.
+
+    `date.fromisoformat` also accepts non-canonical forms (basic "20260727",
+    week dates "2026-W30-1") that round-trip to the same calendar day but as
+    a different string. Left unnormalized, that string flows straight into
+    the day-review dedupe key and the stored review date, so two accepted
+    spellings of one day would silently create duplicate day reviews, and
+    `training_today` would match zero cards against the unnormalized form.
+    """
+    parsed = date_type.fromisoformat(value)
+    if parsed.isoformat() != value:
+        raise ValueError(f"Not a canonical ISO date: {value}")
+    return parsed
 
 
 @router.get(
@@ -103,6 +124,42 @@ def get_run_review(run_id: str) -> CoachReview:
 )
 def post_run_review(request: CoachRunReviewRequest, response: Response) -> CoachEnqueueResponse:
     result = build_container().coach_jobs.enqueue_run_review(request.run_id)
+    response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
+    return result
+
+
+@router.post(
+    "/reviews/day",
+    response_model=CoachEnqueueResponse,
+    responses=error_responses(422),
+)
+def post_day_review(request: CoachDayReviewRequest, response: Response) -> CoachEnqueueResponse:
+    try:
+        _canonical_date(request.date)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="date must be an ISO calendar date") from error
+    result = build_container().coach_jobs.enqueue_day_review(request.date)
+    response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
+    return result
+
+
+@router.post(
+    "/reviews/week",
+    response_model=CoachEnqueueResponse,
+    responses=error_responses(422),
+)
+def post_week_review(
+    request: CoachWeekReviewRequest, response: Response
+) -> CoachEnqueueResponse:
+    # Pre-check for a clean 422 message; `enqueue_week_review` re-validates the
+    # same domain invariant in the repo layer regardless of this pre-check.
+    try:
+        require_monday_week_start(request.week_start)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422, detail="week_start must be a canonical Monday date"
+        ) from error
+    result = build_container().coach_jobs.enqueue_week_review(request.week_start)
     response.status_code = status.HTTP_202_ACCEPTED if result.created else status.HTTP_200_OK
     return result
 
@@ -257,3 +314,23 @@ def get_brief() -> CoachBriefResponse:
         policy_version=CURRENT_MEMORY_POLICY_VERSION
     )
     return CoachBriefResponse(brief=brief)
+
+
+@router.get("/journal", response_model=CoachJournalResponse)
+def get_journal(limit: int = Query(default=30, ge=1, le=200)) -> CoachJournalResponse:
+    repo = build_container().coach_repo
+    entries = repo.list_journal(limit=limit, policy_version=CURRENT_MEMORY_POLICY_VERSION)
+    newest_first = list(reversed(entries))
+    seen: set[str] = set()
+    watch_items: list[CoachWatchItem] = []
+    for entry in newest_first:
+        if entry.run_summary is None:
+            continue
+        for trigger in entry.run_summary.follow_up_triggers:
+            if trigger in seen:
+                continue
+            seen.add(trigger)
+            watch_items.append(
+                CoachWatchItem(text=trigger, source_id=entry.source_id, ts=entry.ts)
+            )
+    return CoachJournalResponse(entries=newest_first, watch_items=watch_items[:8])

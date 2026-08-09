@@ -21,8 +21,10 @@ from app.domains.coach.contracts import (
     ReviewOutput,
     ReviewRevisionOutput,
     RunJournalSummary,
+    WeekReviewOutput,
 )
 from app.domains.coach.infra.runner import CodexJobResult
+from app.domains.garmin_analytics.contracts import RunListItem
 
 NOW = "2026-07-12T12:00:00Z"
 
@@ -34,6 +36,15 @@ class FakeGateway:
         return _detail().model_copy(
             update={"session": _detail().session.model_copy(update={"id": run_id})}
         )
+
+    def training_today(self, date: str):
+        from app.domains.training.contracts import TrainingTodayResponse
+
+        return TrainingTodayResponse(date=date, cards=[])
+
+    def recent_runs(self, *, evidence_date: str, limit: int = 20):
+        del evidence_date, limit
+        return []
 
 
 class FakeRunner:
@@ -54,12 +65,14 @@ def _manifest(directory: Path, *, images: list[str] | None = None) -> WorkspaceM
     )
 
 
-def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
+def _handlers(tmp_path, monkeypatch, repo, runner, *, gateway=None) -> CoachHandlers:
     calls = {"count": 0}
+    kwargs_log: list[dict[str, object]] = []
 
     def assemble(*args, directory: Path, **kwargs):
-        del args, kwargs
+        del args
         calls["count"] += 1
+        kwargs_log.append(kwargs)
         return _manifest(
             directory,
             images=[str(directory / "current" / "images" / "current-1.png")],
@@ -72,7 +85,7 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
     )
     handlers = CoachHandlers(
         repo=repo,
-        gateway=FakeGateway(),  # type: ignore[arg-type]
+        gateway=gateway or FakeGateway(),  # type: ignore[arg-type]
         workspace_root=tmp_path / "workspaces",
         plot_cache_dir=tmp_path / "plots",
         threads_dir=tmp_path / "threads",
@@ -81,11 +94,13 @@ def _handlers(tmp_path, monkeypatch, repo, runner) -> CoachHandlers:
         local_today=lambda: "2026-07-12",
     )
     handlers.workspace_call_counter = calls  # type: ignore[attr-defined]
+    handlers.workspace_call_kwargs = kwargs_log  # type: ignore[attr-defined]
     return handlers
 
 
 def _review_output() -> ReviewOutput:
     return ReviewOutput(
+        headline="Controlled easy day; recovery on track.",
         outcome="completed_as_intended",
         confidence="high",
         review_md="The session met the intended easy-day purpose.",
@@ -115,6 +130,79 @@ def _review_output() -> ReviewOutput:
             content_md="Current approach: protect easy days and compare next-day recovery.",
         ),
     )
+
+
+def test_week_review_persists_synthesis_without_outcome(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_week_review(week_start="2026-07-20")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = WeekReviewOutput(
+        headline="Load rising on schedule; threshold signal still unproven.",
+        synthesis_md="## Week\n...",
+        follow_up_questions=[],
+        journal=_review_output().journal,
+        brief_update=BriefUpdate(action="replace", content_md="Model v2."),
+        refs=[ArtifactRef(kind="date", value="2026-07-20")],
+        plot_observations=[],
+        history_used=[],
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.kind == "week" and saved.status == "complete"
+    assert saved.outcome is None and saved.measurement_assessment is None
+    assert saved.content_md is not None and saved.content_md.startswith("## Week")
+
+
+def _week_run(run_id: str, session_date: str) -> RunListItem:
+    return RunListItem(
+        id=run_id, session_date=session_date, start_time_local=f"{session_date}T07:00:00"
+    )
+
+
+class WeekGateway(FakeGateway):
+    """Recent-run evidence spanning both edges of a `2026-07-20`..`07-26` week."""
+
+    def recent_runs(self, *, evidence_date: str, limit: int = 20):
+        del evidence_date, limit
+        return [
+            _week_run("run-0", "2026-07-19"),  # day before week_start: excluded
+            _week_run("run-1", "2026-07-20"),  # week_start: included (lower bound)
+            _week_run("run-2", "2026-07-23"),  # mid-week: included
+            _week_run("run-3", "2026-07-26"),  # week_start+6: included (upper bound)
+            _week_run("run-4", "2026-07-27"),  # day after week end: excluded
+        ]
+
+
+def test_week_handler_current_run_ids_are_filtered_to_the_inclusive_week_window(
+    tmp_path, monkeypatch
+):
+    repo = SqliteCoachRepository()
+    repo.enqueue_week_review(week_start="2026-07-20")
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = WeekReviewOutput(
+        headline="Load rising on schedule; threshold signal still unproven.",
+        synthesis_md="## Week\n...",
+        follow_up_questions=[],
+        journal=_review_output().journal,
+        brief_update=BriefUpdate(action="replace", content_md="Model v2."),
+        refs=[ArtifactRef(kind="date", value="2026-07-20")],
+        plot_observations=[],
+        history_used=[],
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner, gateway=WeekGateway())
+
+    asyncio.run(handlers.execute(job))
+
+    kwargs_log = handlers.workspace_call_kwargs  # type: ignore[attr-defined]
+    assert kwargs_log[0]["current_run_ids"] == ["run-1", "run-2", "run-3"]
 
 
 def test_review_success_persists_review_memory_and_full_brief_atomically(
@@ -149,6 +237,46 @@ def test_review_success_persists_review_memory_and_full_brief_atomically(
     assert brief is not None
     assert brief.content_md.startswith("Current approach")
     assert brief.policy_version == 2
+
+
+def test_review_completion_persists_headline(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output()  # after Step 3 this helper includes headline
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.headline == "Controlled easy day; recovery on track."
+
+
+def test_review_prompt_names_exact_measurement_assessment_target(tmp_path, monkeypatch):
+    """The model can only echo the fully-qualified target if the prompt states it;
+    plan.md's card `occurrence_key` field is the short form and must not be the
+    model's only source (it caused real rejected reviews)."""
+    repo = SqliteCoachRepository()
+    repo.enqueue_run_review(
+        run_id="run-1",
+        date="2026-07-11",
+        occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    runner = FakeRunner([CodexJobResult(ok=True, output=_review_output())])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
+    prompt = str(runner.calls[0]["prompt"])
+    assert "run_id=run-1" in prompt
+    assert "occurrence_key=training_v3_abc:running.v3:run.lthr_test:d01" in prompt
 
 
 def test_review_rejects_observation_for_plot_that_was_not_attached(
@@ -264,6 +392,22 @@ def test_review_rejects_plot_observation_without_direct_plot_ref(tmp_path, monke
 
 def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch):
     repo = SqliteCoachRepository()
+    handlers = _handlers(
+        tmp_path,
+        monkeypatch,
+        repo,
+        FakeRunner([CodexJobResult(ok=True, output=_review_output())]),
+    )
+    bootstrap_review, _, _ = repo.enqueue_run_review(
+        run_id="run-bootstrap", date="2026-07-13", occurrence_key="run-am"
+    )
+    bootstrap_job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert bootstrap_job is not None
+    asyncio.run(handlers.execute(bootstrap_job))
+    assert repo.review(bootstrap_review.id).status == "complete"  # type: ignore[union-attr]
+    initial_brief = repo.current_brief(policy_version=2)
+    assert initial_brief is not None
+
     review, _, _ = repo.enqueue_run_review(
         run_id="run-keep", date="2026-07-14", occurrence_key="run-am"
     )
@@ -272,18 +416,36 @@ def test_review_keep_action_does_not_append_brief_version(tmp_path, monkeypatch)
     output = _review_output().model_copy(
         update={"brief_update": BriefUpdate(action="keep", content_md=None)}
     )
-    handlers = _handlers(
-        tmp_path,
-        monkeypatch,
-        repo,
-        FakeRunner([CodexJobResult(ok=True, output=output)]),
-    )
+    handlers.runner = FakeRunner([CodexJobResult(ok=True, output=output)])
 
     asyncio.run(handlers.execute(job))
 
     assert repo.review(review.id).status == "complete"  # type: ignore[union-attr]
-    assert len(repo.list_journal(policy_version=2)) == 1
+    assert len(repo.list_journal(policy_version=2)) == 2
+    unchanged_brief = repo.current_brief(policy_version=2)
+    assert unchanged_brief is not None
+    assert unchanged_brief.id == initial_brief.id
+
+
+def test_first_review_with_keep_brief_fails_and_persists_nothing(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_run_review(
+        run_id="run-1", date="2026-07-11", occurrence_key="run-am"
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={"brief_update": BriefUpdate(action="keep", content_md=None)}
+    )
+    runner = FakeRunner([CodexJobResult(ok=True, output=output)])
+    handlers = _handlers(tmp_path, monkeypatch, repo, runner)
+
+    asyncio.run(handlers.execute(job))
+
     assert repo.current_brief(policy_version=2) is None
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+    assert "initial brief" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
+    assert "must write the initial brief" in str(runner.calls[0]["prompt"])
 
 
 def test_review_failure_changes_no_memory_and_supports_same_job_retry(tmp_path, monkeypatch):
@@ -339,6 +501,77 @@ def test_review_target_mismatch_fails_job_without_persisting_assessment(
     assert saved.measurement_assessment is None
     assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
     assert repo.list_journal() == []
+
+
+def test_day_review_accepts_assessment_matching_payload_target(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_day_review(
+        date="2026-07-27",
+        measurement_targets=[
+            {
+                "run_id": "run-1",
+                "occurrence_key": "training_v3_abc:running.v3:run.lthr_test:d01",
+            }
+        ],
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "measurement_assessment": CoachMeasurementAssessment(
+                run_id="run-1",
+                occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+                status="failed",
+                rationale="No chest strap.",
+            )
+        }
+    )
+    handlers = _handlers(
+        tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "complete" and saved.measurement_assessment is not None
+
+
+def test_day_review_rejects_assessment_for_target_not_in_payload(tmp_path, monkeypatch):
+    repo = SqliteCoachRepository()
+    review, _, _ = repo.enqueue_day_review(
+        date="2026-07-27",
+        measurement_targets=[
+            {
+                "run_id": "run-1",
+                "occurrence_key": "training_v3_abc:running.v3:run.lthr_test:d01",
+            }
+        ],
+    )
+    job = repo.claim_next_job("9999-01-01T00:00:00Z")
+    assert job is not None
+    output = _review_output().model_copy(
+        update={
+            "measurement_assessment": CoachMeasurementAssessment(
+                run_id="run-2",
+                occurrence_key="training_v3_abc:running.v3:run.lthr_test:d01",
+                status="failed",
+                rationale="Not the scheduled measurement target.",
+            )
+        }
+    )
+    handlers = _handlers(
+        tmp_path, monkeypatch, repo, FakeRunner([CodexJobResult(ok=True, output=output)])
+    )
+
+    asyncio.run(handlers.execute(job))
+
+    saved = repo.review(review.id)
+    assert saved is not None
+    assert saved.status == "failed"
+    assert saved.measurement_assessment is None
+    assert repo.job(job.id).status == "failed"  # type: ignore[union-attr]
+    assert "target" in (repo.job(job.id).error or "")  # type: ignore[union-attr]
 
 
 def test_chat_refreshes_each_turn_uses_resume_marker_and_persists_refs(tmp_path, monkeypatch):
@@ -471,6 +704,7 @@ def test_chat_revision_rejects_unavailable_direct_and_historical_plots(
         answer_md="I updated the review.",
         refs=[ArtifactRef(kind="run", value="run-1")],
         review_revision=ReviewRevisionOutput(
+            headline="Revised interpretation cites unavailable plots.",
             content_md="The revised interpretation cites two unavailable plots.",
             outcome="completed_with_material_deviation",
             confidence="moderate",

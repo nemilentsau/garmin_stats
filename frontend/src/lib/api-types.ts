@@ -732,6 +732,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/coach/reviews/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Day Review */
+        post: operations["post_day_review_api_coach_reviews_day_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/reviews/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Week Review */
+        post: operations["post_week_review_api_coach_reviews_week_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/coach/reviews/{review_id}/retry": {
         parameters: {
             query?: never;
@@ -866,6 +900,23 @@ export interface paths {
         };
         /** Get Brief */
         get: operations["get_brief_api_coach_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coach/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Journal */
+        get: operations["get_journal_api_coach_journal_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1455,6 +1506,11 @@ export interface components {
         CoachBriefResponse: {
             brief: components["schemas"]["BriefVersion"] | null;
         };
+        /** CoachDayReviewRequest */
+        CoachDayReviewRequest: {
+            /** Date */
+            date: string;
+        };
         /** CoachEnqueueResponse */
         CoachEnqueueResponse: {
             /** Created */
@@ -1471,7 +1527,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "review_run" | "chat_turn" | "distill_thread";
+            kind: "review_run" | "review_day" | "review_week" | "chat_turn" | "distill_thread";
             /** Dedupe Key */
             dedupe_key: string;
             /** Priority */
@@ -1502,6 +1558,13 @@ export interface components {
             created_at: string;
             /** Updated At */
             updated_at: string;
+        };
+        /** CoachJournalResponse */
+        CoachJournalResponse: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntry"][];
+            /** Watch Items */
+            watch_items: components["schemas"]["CoachWatchItem"][];
         };
         /**
          * CoachMeasurementAssessment
@@ -1570,9 +1633,9 @@ export interface components {
             date: string;
             /**
              * Kind
-             * @constant
+             * @enum {string}
              */
-            kind: "run";
+            kind: "run" | "day" | "week";
             /** Run Id */
             run_id: string | null;
             /** Occurrence Key */
@@ -1588,6 +1651,8 @@ export interface components {
             outcome: ("completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned") | null;
             /** Confidence */
             confidence: ("low" | "moderate" | "high") | null;
+            /** Headline */
+            headline: string | null;
             /** Content Md */
             content_md: string | null;
             /**
@@ -1729,6 +1794,20 @@ export interface components {
              * @default []
              */
             threads: components["schemas"]["CoachThread"][];
+        };
+        /** CoachWatchItem */
+        CoachWatchItem: {
+            /** Text */
+            text: string;
+            /** Source Id */
+            source_id: string;
+            /** Ts */
+            ts: string;
+        };
+        /** CoachWeekReviewRequest */
+        CoachWeekReviewRequest: {
+            /** Week Start */
+            week_start: string;
         };
         /** ConfounderCheck */
         ConfounderCheck: {
@@ -3055,6 +3134,35 @@ export interface components {
             /** Min */
             min: number | string;
         };
+        /** JournalEntry */
+        JournalEntry: {
+            /** Id */
+            id: string;
+            /** Ts */
+            ts: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "review" | "chat" | "admonish";
+            /** Content Md */
+            content_md: string;
+            /**
+             * Refs
+             * @default []
+             */
+            refs: components["schemas"]["ArtifactRef"][];
+            /** Source Id */
+            source_id: string;
+            /**
+             * Policy Version
+             * @default 1
+             */
+            policy_version: number;
+            /** Supersedes Id */
+            supersedes_id: string | null;
+            run_summary: components["schemas"]["RunJournalSummary"] | null;
+        };
         /**
          * LapDisplayRow
          * @description One lap's imperial display fields, joined to the embedded lap by `lap_index`.
@@ -3966,6 +4074,26 @@ export interface components {
             sample_count: number;
             /** Sample Pct */
             sample_pct: number;
+        };
+        /** RunJournalSummary */
+        RunJournalSummary: {
+            /** Purpose */
+            purpose: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed_as_intended" | "completed_with_material_deviation" | "not_completed" | "skipped" | "unplanned";
+            /** Takeaway */
+            takeaway: string;
+            /** Decision Relevant Uncertainties */
+            decision_relevant_uncertainties: string[];
+            /** Follow Up Triggers */
+            follow_up_triggers: string[];
+            /** Comparison Tags */
+            comparison_tags: string[];
+            /** Refs */
+            refs: components["schemas"]["ArtifactRef"][];
         };
         /**
          * RunListItem
@@ -6862,6 +6990,72 @@ export interface operations {
             };
         };
     };
+    post_day_review_api_coach_reviews_day_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachDayReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    post_week_review_api_coach_reviews_week_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachWeekReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachEnqueueResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     post_review_retry_api_coach_reviews__review_id__retry_post: {
         parameters: {
             query?: never;
@@ -7300,6 +7494,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoachBriefResponse"];
+                };
+            };
+        };
+    };
+    get_journal_api_coach_journal_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachJournalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

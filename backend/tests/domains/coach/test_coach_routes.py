@@ -35,7 +35,7 @@ class FakeGateway:
         return TrainingTodayResponse(date=target, cards=[])
 
 
-def _complete_review(repo: SqliteCoachRepository):
+def _complete_review(repo: SqliteCoachRepository, *, follow_up_triggers: list[str] | None = None):
     review, _, _ = repo.enqueue_run_review(
         run_id="run-complete", date="2026-07-12", occurrence_key="run-am"
     )
@@ -47,6 +47,7 @@ def _complete_review(repo: SqliteCoachRepository):
         review_id=review.id,
         job_id=job.id,
         output=ReviewOutput(
+            headline="Controlled easy day; recovery on track.",
             outcome="completed_as_intended",
             confidence="high",
             review_md="Purpose achieved.",
@@ -59,7 +60,7 @@ def _complete_review(repo: SqliteCoachRepository):
                 outcome="completed_as_intended",
                 takeaway="Purpose achieved.",
                 decision_relevant_uncertainties=[],
-                follow_up_triggers=[],
+                follow_up_triggers=follow_up_triggers or [],
                 comparison_tags=["easy"],
                 refs=[run_ref],
             ),
@@ -113,6 +114,93 @@ def test_manual_run_review_enqueues_and_duplicate_returns_existing(coach_client)
     assert second.status_code == 200
     assert first.json()["review"]["id"] == second.json()["review"]["id"]
     assert repo.queued_count() == 1
+
+
+def test_manual_day_review_enqueues_and_duplicate_returns_existing(coach_client):
+    client, repo = coach_client
+
+    first = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+    second = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+
+    assert first.status_code == 202
+    assert second.status_code == 200
+    assert first.json()["review"]["id"] == second.json()["review"]["id"]
+    assert first.json()["review"]["kind"] == "day"
+    assert first.json()["job"]["dedupe_key"] == "review:day:2026-07-27"
+    assert first.json()["job"]["payload"]["measurement_targets"] == []
+    assert repo.queued_count() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "07/27/2026",
+        "20260727",
+        "2026-W30-1",
+    ],
+)
+def test_day_review_rejects_non_canonical_date_spellings(coach_client, value):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/day", json={"date": value})
+
+    assert response.status_code == 422
+
+
+def test_day_review_accepts_a_canonical_date(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/day", json={"date": "2026-07-27"})
+
+    assert response.status_code == 202
+
+
+def test_manual_week_review_enqueues_and_duplicate_returns_existing(coach_client):
+    client, repo = coach_client
+
+    first = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+    second = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+
+    assert first.status_code == 202
+    assert second.status_code == 200
+    assert first.json()["created"] is True
+    assert second.json()["created"] is False
+    assert first.json()["review"]["id"] == second.json()["review"]["id"]
+    assert first.json()["review"]["kind"] == "week"
+    assert first.json()["job"]["dedupe_key"] == "review:week:2026-07-20"
+    assert repo.queued_count() == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "07/20/2026",
+        "20260720",
+        "2026-W30-1",
+    ],
+)
+def test_week_review_rejects_non_canonical_date_spellings(coach_client, value):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": value})
+
+    assert response.status_code == 422
+
+
+def test_week_review_rejects_a_non_monday_week_start(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-21"})
+
+    assert response.status_code == 422
+
+
+def test_week_review_accepts_a_canonical_monday(coach_client):
+    client, _repo = coach_client
+
+    response = client.post("/api/coach/reviews/week", json={"week_start": "2026-07-20"})
+
+    assert response.status_code == 202
 
 
 def test_status_lookup_and_review_filters(coach_client):
@@ -249,17 +337,30 @@ def test_coach_openapi_documents_not_found_and_conflict_responses():
 
 
 def test_orphan_read_routes_are_removed_not_just_missing_ids(coach_client):
-    """GET journal/jobs/{id}/reviews/{id} must be gone entirely (404 by route absence,
+    """GET jobs/{id}/reviews/{id} must be gone entirely (404 by route absence,
     not by a handler-level LookupError for an unknown id)."""
     client, _repo = coach_client
 
-    journal = client.get("/api/coach/journal")
     job = client.get("/api/coach/jobs/missing")
     review = client.get("/api/coach/reviews/missing")
 
-    assert journal.status_code == 404
-    assert journal.json() == {"detail": "Not Found"}
     assert job.status_code == 404
     assert job.json() == {"detail": "Not Found"}
     assert review.status_code == 404
     assert review.json() == {"detail": "Not Found"}
+
+
+def test_journal_endpoint_returns_entries_and_watch_items(coach_client):
+    client, repo = coach_client
+    review, _job = _complete_review(
+        repo, follow_up_triggers=["Compare next-day recovery."]
+    )
+
+    response = client.get("/api/coach/journal?limit=10")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["entries"][0]["content_md"].startswith("Purpose:")
+    assert body["entries"][0]["source_id"] == review.id
+    assert body["watch_items"][0]["text"] == "Compare next-day recovery."
+    assert body["watch_items"][0]["source_id"] == body["entries"][0]["source_id"]

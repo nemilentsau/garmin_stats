@@ -14,6 +14,15 @@ def test_review_prompt_defines_durable_artifact_reference_values() -> None:
     assert "Do not cite plan.md or recovery.md as review refs" in prompt
 
 
+def test_review_policy_forbids_echo_and_prefers_questions() -> None:
+    prompt = review_prompt("review_run")
+
+    assert "Never restate facts the athlete already supplied" in prompt
+    assert "ask instead of judging" in prompt
+    assert "headline" in prompt
+    assert "the athlete cannot feel" in prompt
+
+
 def test_correction_prompt_requires_a_complete_review_snapshot() -> None:
     prompt = chat_prompt(resumed=False, review_linked=True, revision_requested=True)
 

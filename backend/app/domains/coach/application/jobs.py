@@ -41,6 +41,22 @@ class CoachJobs:
         )
         return CoachEnqueueResponse(created=created, job=job, review=review)
 
+    def enqueue_day_review(self, date: str) -> CoachEnqueueResponse:
+        today = self.gateway.training_today(date)
+        measurement_targets = [
+            {"run_id": card.associated_activity.run_id, "occurrence_key": card.occurrence_id}
+            for card in today.cards
+            if card.measurement is not None and card.associated_activity is not None
+        ]
+        review, job, created = self.repo.enqueue_day_review(
+            date=date, measurement_targets=measurement_targets
+        )
+        return CoachEnqueueResponse(created=created, job=job, review=review)
+
+    def enqueue_week_review(self, week_start: str) -> CoachEnqueueResponse:
+        review, job, created = self.repo.enqueue_week_review(week_start=week_start)
+        return CoachEnqueueResponse(created=created, job=job, review=review)
+
     def create_thread(self, title: str) -> CoachThread:
         now = utc_now_iso()
         thread = CoachThread(

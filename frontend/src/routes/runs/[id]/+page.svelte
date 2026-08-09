@@ -43,7 +43,6 @@
 	let error: string | null = $state(null);
 	let coachReview: CoachReview | null = $state(null);
 	let coachReviewError: string | null = $state(null);
-	let reviewBusy = $state(false);
 
 	// Request token: run→run navigation re-fires the `$effect` below on every
 	// `page.params.id` change; the token ensures a slow in-flight response for a
@@ -65,22 +64,6 @@
 			if (!message.toLowerCase().includes('no coach review')) {
 				coachReviewError = message;
 			}
-		}
-	}
-
-	async function requestCoachReview(id: string) {
-		const requestToken = runRequestToken;
-		reviewBusy = true;
-		coachReviewError = null;
-		try {
-			const result = await api.enqueueCoachRunReview(id);
-			if (requestToken !== runRequestToken) return;
-			coachReview = result.review;
-		} catch (e: unknown) {
-			if (requestToken !== runRequestToken) return;
-			coachReviewError = errorMessage(e);
-		} finally {
-			if (requestToken === runRequestToken) reviewBusy = false;
 		}
 	}
 
@@ -120,7 +103,6 @@
 		error = null;
 		coachReview = null;
 		coachReviewError = null;
-		reviewBusy = false;
 		if (id) void loadRun(id, requestToken);
 	});
 
@@ -767,11 +749,9 @@
 					</span>
 				</div>
 				{#if coachReview}
-					<a class="coach-action" href={`/coach?review=${coachReview.id}`}>Open coach review</a>
+					<a class="coach-action" href={`/coach?review=${coachReview.id}`}>Open coach review →</a>
 				{:else}
-					<button class="coach-action" onclick={() => requestCoachReview(session.id)} disabled={reviewBusy}>
-						{reviewBusy ? 'Queueing…' : 'Review with coach'}
-					</button>
+					<span class="coach-action-hint">Reviews are requested from the Today board.</span>
 				{/if}
 			</div>
 			{#if coachReviewError}
@@ -956,7 +936,12 @@
 		text-decoration: none;
 		cursor: pointer;
 	}
-	.coach-action:disabled { opacity: 0.5; cursor: default; }
+	.coach-action-hint {
+		margin-left: auto;
+		flex-shrink: 0;
+		color: #6b7d8e;
+		font: 10px 'DM Mono', monospace;
+	}
 	.coach-error {
 		margin: 6px 0 16px;
 		color: #8a9baa;

@@ -30,7 +30,17 @@ documented in [run-activities.md](run-activities.md#imported-block-measurement-e
 
 ## Review judgment
 
-Coach judges the purpose of the workout rather than auditing every prescription field.
+Coach acts as a coach in dialogue with a self-aware athlete, not a compliance auditor and
+not a narrator. It never restates facts the athlete already supplied (notes, RPE, variant
+choice, an admitted deviation) — the athlete knows what they did, so the review leads with
+net-new information instead: what the telemetry shows that the athlete cannot feel (drift,
+decoupling, zone distribution, strap-vs-wrist discrepancies, pacing structure), how the
+session compares to the athlete's own history when decision-relevant, and what it changes
+about the next sessions. A review with no net-new information says so in one sentence and
+stops. Every completed review carries a `headline`: one plain-language sentence (<=160
+chars) reconciling training value and any measurement/validity outcome, e.g. "Solid aerobic
+work; not a valid LTHR test - zones unchanged, backup attempt needed."
+
 New reviews use these outcomes:
 
 - `completed_as_intended`: the intended training stimulus was materially achieved;
@@ -44,7 +54,9 @@ decision; they do not automatically downgrade a run. Exact values become hard va
 boundaries only when the imported contract declares a measurement quality gate or another
 explicit hard gate. Thus a plausible controlled stride near a 20-second target is judged
 by its neuromuscular purpose, while an LTHR measurement gate retains exact validity
-semantics.
+semantics. Judgments about formal measurement validity are mechanical, not moral: the model
+states the gate result and its consequence once, without repeating the athlete's own
+admission as evidence.
 
 Garmin time-in-zone totals are descriptive evidence, not a continuous measure of distance
 from a boundary. Boundary-sensitive intensity judgments use the attached composite HR
@@ -54,12 +66,13 @@ is directly comparable. Missing RPE leaves an authored RPE ceiling unresolved ra
 establishing that it was exceeded, and visible HR drift is an observation rather than an
 automatic material deviation.
 
-The model may ask at most two athlete questions, and only when an answer could change
-safety, formal measurement validity, or the next training decision. It must not request
-forensic confirmation of every prescribed detail. Review output stores outcome,
-confidence, direct coaching prose, up to two decision-changing `follow_up_questions`,
-historical evidence used, curated refs, structured journal memory, and an explicit brief
-action. The completed `CoachReview` persists those `follow_up_questions` verbatim and the
+When athlete context that could change the judgment is missing (how it felt, why a choice
+was made, symptoms, constraints), the model asks instead of judging: it phrases the review
+around what the answers would decide and sets confidence to `low`. Review output stores
+outcome, confidence, a headline, direct coaching prose, up to three decision-changing
+`follow_up_questions`, historical evidence used, curated refs, structured journal memory,
+and an explicit brief action. The completed `CoachReview` persists those
+`follow_up_questions` verbatim and the
 `/api/coach/reviews*` endpoints surface them so the UI can show what the model still wants
 resolved. Visual evidence is recorded as bounded `plot_observations`: each entry names an
 attached image basename and the concrete visible pattern that affected the judgment.
@@ -88,7 +101,9 @@ clear judgment.
 Assessment validation and persistence share the review/message completion transaction:
 
 - a run review accepts an assessment only when its run and occurrence exactly match the
-  durable run-review target and queued job payload;
+  durable run-review target and queued job payload; the review prompt states both
+  identifiers verbatim so the model never reconstructs them from `plan.md`, whose card
+  `occurrence_key` field is the short non-qualified form;
 - chat accepts an assessment only when the output cites exactly one `run` reference and
   that reference matches `assessment.run_id`. Chat refs do not encode an occurrence, so
   this check cannot independently prove the supplied `occurrence_key`; training's later
@@ -183,7 +198,10 @@ These are different memory layers:
 - **Brief:** latest complete model of the training approach and open questions, limited to
   6,000 characters. Every review and distillation explicitly chooses `keep` or `replace`;
   routine sessions normally keep the current brief. A replacement is a complete version,
-  not a patch.
+  not a patch. Choice is free only once a current-policy brief exists: when no
+  current-policy brief exists yet, the review prompt demands `replace` and persistence
+  rejects `keep`, so the first successful review deterministically writes the initial
+  brief.
 
 Current semantic memory uses policy version 2. Legacy records default to version 1 and
 remain stored and individually readable for audit, but they do not enter new workspaces or
@@ -201,9 +219,14 @@ review/job, creates revision 1, and appends semantic memory; a failed runner cha
 memory. Manual retry requeues a failed durable job and preserves the original review or
 user message.
 
-Reviews are manual-only. The run page's **Review with coach** action is the sole review
-trigger. Activity sync, upload, startup, watcher refresh, elapsed schedule dates, and Today
-feedback persistence never enqueue Coach or infer a missed run.
+Reviews are manual-only. The **Coach debrief for this day** action on the Today board is
+the primary day-review trigger — it enqueues a whole-day debrief (`kind = "day"`) for the
+selected date. Weekly synthesis reviews are triggered from the Coach page's own
+"Review my week" control, and the run-review API (`POST /api/coach/reviews/run`) remains
+supported with no UI trigger. The run page shows a link to its coach review when one
+exists (`Open coach review →`) but no longer initiates one, and otherwise shows a static
+hint pointing back to Today. Activity sync, upload, startup, watcher refresh, elapsed
+schedule dates, and Today feedback persistence never enqueue Coach or infer a missed run.
 
 Every completed review can have one reusable linked conversation inline on the review
 surface. Opening or refreshing the review is read-only: the thread is created only when
@@ -241,6 +264,60 @@ attempt, message, review, and thread lifecycle instants are canonical UTC string
 SQLite text ordering stays correct across DST changes. A delayed run review keeps the
 original occurrence as `target_date` but uses execution-day recovery as `evidence_date`.
 
+`POST /api/coach/reviews/day` enqueues a whole-day debrief, one per calendar date rather
+than one per run: `CoachReview.kind = "day"` carries no `run_id`/`occurrence_key`, and the
+`review_day` job dedupes on `review:day:<date>` the same way a run review dedupes on
+`review:run:<run_id>`. At enqueue time the handler reads that date's Today board
+(`CoachReadGateway.training_today`) and freezes every card that is both a measurement run
+and has a linked tracked activity into the job payload's `measurement_targets` — a list of
+`{run_id, occurrence_key}` (using the card's fully-qualified `occurrence_id`) — so the day
+debrief's permitted measurement-assessment targets are fixed at enqueue and cannot drift if
+the schedule changes before the job runs.
+
+`CoachHandlers._review` executes both `review_run` and `review_day` jobs; it branches on
+`job.kind` before assembling the workspace and building the prompt. For a day job it
+re-reads that date's Today board at execution time (`CoachReadGateway.training_today`,
+independent of the enqueue-time snapshot) to collect every card's associated run id —
+`assemble_workspace(..., current_run_ids=[...])` then materializes `current/<run_id>/`
+evidence (summary, laps, plots) for every one of that day's runs, not just one, so the
+model sees the whole day's telemetry at once. A run job still passes its single
+`[run_id]`; a chat turn passes its linked review's `[run_id]` or `[]`. The day prompt
+appends a policy block instructing the model to treat the day as one training decision
+across every card (including telemetry-free strength/support cards, coached from
+plan.md and captured logs) and to emit at most one `measurement_assessment`, only for a
+listed target.
+
+Persistence enforces that target-set rule independently of the prompt:
+`complete_review_output` accepts a `kind = "day"` review's `measurement_assessment` only
+when its `(run_id, occurrence_key)` pair is a member of the job payload's
+`measurement_targets` (the set frozen at enqueue); any other pair — including a real run
+from that date that was not a measurement occurrence — raises the same
+`MeasurementAssessmentValidationError` a mismatched run review raises. A `kind = "run"`
+review keeps its original exact-match rule (assessment must equal the single queued
+`run_id`/`occurrence_key`) unchanged.
+
+`POST /api/coach/reviews/week` enqueues a weekly synthesis, one per Monday week-start
+date rather than per calendar day or run: the request rejects any non-canonical date
+spelling (the same strict `YYYY-MM-DD` check the day route applies) and any date that
+is not a Monday with 422, before `CoachReview.kind = "week"` (no `run_id`/
+`occurrence_key`, no `outcome`/`confidence`/`measurement_assessment` — a week-level
+judgment makes none of those per-occurrence calls) is enqueued and the `review_week`
+job dedupes on `review:week:<week_start>`. `CoachHandlers._week` computes the
+week's end date (`week_start + 6 days`) and reads `CoachReadGateway.recent_runs` bounded
+by that end date, filtering to the runs whose `session_date` actually falls in the
+window — a bounded read, not an analytical query — to build
+`assemble_workspace(..., target_date=week_start, current_run_ids=[...])` so every run
+in the week gets full evidence, the same way a day job pulls every card's run. The week
+prompt swaps the whole-day policy block for one instructing the model to synthesize the
+week against the block's intent (load trajectory, key-session outcomes, recovery
+pattern, the two athlete goals) rather than relitigate individual runs, and to close
+`synthesis_md` with an explicit "Next week" keep/change/watch section.
+`complete_week_review_output` mirrors `complete_review_output`'s atomic persistence
+(review, semantic-memory journal entry, optional brief replacement, job completion) but
+never inserts a review revision: revision rows snapshot a review's `outcome`/
+`confidence`, which a week review never carries, and week reviews have no chat-driven
+revision flow today.
+
 ## Codex isolation and runtime files
 
 Each attempt starts `codex exec` in a new process session with strict
@@ -251,6 +328,10 @@ reuses the already-sandboxed persistent session instead of re-declaring it:
 
 - clean `HOME` and auth-only `CODEX_HOME`, preserving only the existing local
   `auth.json` link;
+- a hermetic process environment: `stdin` is `/dev/null`, terminal-session wrapper
+  markers (`CMUX_*`) are dropped, and cmux CLI-shim directories are stripped from
+  `PATH` so an interactive terminal's `codex` wrapper can never inject session hooks
+  into a headless coach job;
 - a copied execution workspace under the system temporary root, outside the app
   repository, containing only the assembled coach evidence for that call;
 - user config and exec rules ignored;
@@ -268,9 +349,12 @@ rereading it. On timeout or cancellation the runner sends `SIGTERM` to the whole
 group, waits up to five seconds, then sends `SIGKILL`; process shutdown awaits that
 cleanup.
 
+Each Codex call may run up to 30 minutes before the runner times it out.
+
 Runtime files live beside the configured database under `coach/`: workspaces, shared
 plot cache, thread Codex homes, and attempt logs. Attempts are keyed by job ID and attempt
-number, so stale output from another attempt cannot be accepted. Temporary execution
+number, so stale output from another attempt cannot be accepted; a manual retry that
+reuses an attempt number replaces the stale attempt directory before running. Temporary execution
 workspace copies are removed after each call. Plot filenames include a source-content
 fingerprint and rendering-spec version.
 
@@ -281,12 +365,12 @@ paused state.
 
 ## API and UI
 
-The `/api/coach/*` API exposes status, review history/manual run enqueue/retry,
+The `/api/coach/*` API exposes status, review history/manual run/day/week enqueue/retry,
 review-linked thread/revision history, general threads/messages/close/retry-close,
-and current-policy brief. Jobs and the semantic journal
-stay durable SQLite records with no standalone read route; a job's lifecycle rides along on
-its owning review/message/status response instead, and no product surface reads the journal
-directly. Model operations return
+current-policy brief, and the semantic journal (`GET /api/coach/journal`). A job's
+lifecycle has no standalone read route; it rides along on its owning review/message/status
+response instead. The journal read backs two product surfaces on `/coach`: the journal
+timeline and the watch strip. Model operations return
 immediately as queued resources. `/coach` observes completion through the coach-specific
 SSE event and displays written states (`queued`, `generating`, `failed`, `closing`,
 `close_failed`, `closed`) rather than relying on color. It displays outcome and confidence
@@ -294,9 +378,17 @@ separately and falls back to the legacy verdict when needed. A completed review 
 composer and any existing linked transcript inline, with readable narrative and audit
 fields for every version when corrections exist. Viewing it does not create a thread;
 sending the first message does.
-`/runs/[id]` resolves one review
-directly and shows either **Review with coach** or **Open coach review**.
-On `/today`, feedback capture remains training state only and never triggers Coach.
+`/runs/[id]` resolves one review directly and is read-only: it shows **Open coach
+review →** when that run's review exists, otherwise a static "Reviews are requested from
+the Today board" hint. `/today` is the day-debrief trigger surface: a **Coach debrief for
+this day** action at the foot of the board enqueues a whole-day debrief for the selected
+date and deep-links to it on `/coach` once queued; a hint counts that day's completed cards
+still missing RPE/notes so the athlete can fill them in before debriefing. The Reviews tab
+on `/coach` leads with a Now band built entirely from already-loaded data — watching, open
+questions, latest review, and needs-attention — so the current state is visible without
+scrolling; full review history, the brief, and the journal live in the rail below it. The
+review rail on `/coach` labels each row from `CoachReview.kind` (`day` → "Day debrief",
+`week` → "Weekly synthesis", `run` → "Run review").
 
 There is no assistant chat or artifact domain, route, UI, or data model. Coach owns the
 only model-backed product surface.

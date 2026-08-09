@@ -253,10 +253,29 @@ def _assemble(tmp_path: Path, gateway: FakeCoachGateway, repo: FakeCoachReposito
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="How should I interpret this?",
-        current_run_id=current_run_id,
+        current_run_ids=[current_run_id] if current_run_id else [],
         transcript=transcript,
         **kwargs,
     )
+
+
+@pytest.fixture
+def stub_gateway_two_runs() -> FakeCoachGateway:
+    """A gateway whose only runs are the two associated with a single training day."""
+    gateway = FakeCoachGateway(run_count=0)
+    gateway.runs = [
+        RunListItem(
+            id="run-a",
+            session_date="2026-07-27",
+            start_time_local="2026-07-27T06:00:00",
+        ),
+        RunListItem(
+            id="run-b",
+            session_date="2026-07-27",
+            start_time_local="2026-07-27T17:00:00",
+        ),
+    ]
+    return gateway
 
 
 def _journal(
@@ -459,7 +478,7 @@ def test_current_run_images_are_attached_only_for_review(tmp_path, fake_plots):
         evidence_date="2026-07-12",
         target_date="2026-06-22",
         question_md="Review run",
-        current_run_id="run-21",
+        current_run_ids=["run-21"],
         transcript=None,
     )
     chat = assemble_workspace(
@@ -470,7 +489,7 @@ def test_current_run_images_are_attached_only_for_review(tmp_path, fake_plots):
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="Chat",
-        current_run_id=None,
+        current_run_ids=[],
         transcript=None,
     )
 
@@ -525,7 +544,7 @@ def test_missing_evidence_is_explicit_and_transcript_is_written(tmp_path, fake_p
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="Question",
-        current_run_id=None,
+        current_run_ids=[],
         transcript=[message],
     )
     root = Path(manifest.directory)
@@ -561,7 +580,7 @@ def test_training_plan_uses_runtime_start_instead_of_authored_window_start(
         evidence_date="2026-08-03",
         target_date="2026-08-03",
         question_md="Review Day 1",
-        current_run_id=None,
+        current_run_ids=[],
         transcript=None,
     )
 
@@ -649,7 +668,7 @@ def test_historical_workspace_plot_ref_backfills_missing_shared_cache(tmp_path, 
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="Review run",
-        current_run_id=None,
+        current_run_ids=[],
         transcript=None,
     )
 
@@ -792,7 +811,7 @@ def test_current_run_context_does_not_scan_recent_runs(tmp_path, fake_plots):
         evidence_date="2026-07-12",
         target_date="2026-07-12",
         question_md="Review this run",
-        current_run_id="run-21",
+        current_run_ids=["run-21"],
         transcript=None,
         historical_run_limit=20,
     )
@@ -801,3 +820,24 @@ def test_current_run_context_does_not_scan_recent_runs(tmp_path, fake_plots):
     assert gateway.recent_runs_calls == [20]
     assert (root / "current/run-21/summary.md").is_file()
     assert (root / "current/run-21/laps.md").is_file()
+
+
+def test_day_workspace_includes_every_run_of_the_date(tmp_path, stub_gateway_two_runs):
+    from app.domains.coach.adapters import SqliteCoachRepository
+    from app.domains.coach.application.workspace import assemble_workspace
+
+    manifest = assemble_workspace(
+        stub_gateway_two_runs,  # type: ignore[arg-type]
+        SqliteCoachRepository(),
+        directory=tmp_path / "ws",
+        plot_cache_dir=tmp_path / "plots",
+        evidence_date="2026-07-27",
+        target_date="2026-07-27",
+        question_md="q",
+        current_run_ids=["run-a", "run-b"],
+        transcript=None,
+    )
+
+    assert (tmp_path / "ws/current/run-a").is_dir()
+    assert (tmp_path / "ws/current/run-b").is_dir()
+    assert len(manifest.current_images) >= 2

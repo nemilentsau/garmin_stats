@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date as _date
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -25,11 +26,30 @@ def safe_artifact_id(value: str) -> str:
     return value
 
 
+def require_monday_week_start(value: str) -> None:
+    """Validate that `value` is a canonical ISO `YYYY-MM-DD` date that is a Monday.
+
+    A week review's identity (dedupe key, stored date) is its Monday week-start,
+    so this is a domain invariant, not just an HTTP request-shape check: it is
+    enforced both at the route (translated to 422) and in the repository layer
+    (`SqliteCoachRepository.enqueue_week_review`), so any other caller — a
+    script, a future job — gets the same rejection. `date.fromisoformat` also
+    accepts non-canonical ISO spellings that round-trip to the same calendar
+    day but a different string (see `routes._canonical_date`), so canonical
+    form is re-checked here too rather than assumed from an upstream check.
+    """
+    parsed = _date.fromisoformat(value)
+    if parsed.isoformat() != value:
+        raise ValueError(f"Not a canonical ISO date: {value}")
+    if parsed.weekday() != 0:
+        raise ValueError(f"week_start must be a Monday: {value}")
+
+
 ArtifactKind = Literal["run", "plot", "review", "date"]
-ReviewKind = Literal["run"]
+ReviewKind = Literal["run", "day", "week"]
 ReviewStatus = Literal["queued", "generating", "complete", "failed"]
 ThreadStatus = Literal["open", "closing", "closed", "close_failed"]
-JobKind = Literal["review_run", "chat_turn", "distill_thread"]
+JobKind = Literal["review_run", "review_day", "review_week", "chat_turn", "distill_thread"]
 JobStatus = Literal["queued", "running", "complete", "failed"]
 LegacyReviewVerdict = Literal[
     "compliant",
@@ -151,6 +171,7 @@ class CoachReview(StrictDefaultsRequired):
     verdict: LegacyReviewVerdict | None = None
     outcome: ReviewOutcome | None = None
     confidence: ReviewConfidence | None = None
+    headline: str | None = None
     content_md: str | None = None
     refs: list[ArtifactRef] = []
     follow_up_questions: list[str] = []
@@ -221,10 +242,11 @@ class CoachJob(StrictDefaultsRequired):
 
 
 class ReviewOutput(StrictDefaultsRequired):
+    headline: str = Field(min_length=1, max_length=160)
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     review_md: str = Field(min_length=1, max_length=12000)
-    follow_up_questions: list[str] = Field(max_length=2)
+    follow_up_questions: list[str] = Field(max_length=3)
     history_used: list[HistoricalEvidenceUse]
     plot_observations: list[PlotObservation]
     refs: list[ArtifactRef]
@@ -236,11 +258,12 @@ class ReviewOutput(StrictDefaultsRequired):
 class ReviewRevisionOutput(StrictDefaultsRequired):
     """An explicit correction to the linked review, never an ordinary chat side effect."""
 
+    headline: str = Field(min_length=1, max_length=160)
     content_md: str = Field(min_length=1, max_length=12000)
     outcome: ReviewOutcome
     confidence: ReviewConfidence
     refs: list[ArtifactRef]
-    follow_up_questions: list[str] = Field(max_length=2)
+    follow_up_questions: list[str] = Field(max_length=3)
     plot_observations: list[PlotObservation]
     history_used: list[HistoricalEvidenceUse]
     measurement_assessment: CoachMeasurementAssessment | None = None
@@ -268,6 +291,20 @@ class ChatOutput(StrictDefaultsRequired):
     refs: list[ArtifactRef]
     measurement_assessment: CoachMeasurementAssessment | None = None
     review_revision: ReviewRevisionOutput | None = None
+
+
+class WeekReviewOutput(StrictDefaultsRequired):
+    """A weekly synthesis: no outcome/confidence/measurement axes — those are
+    per-occurrence judgments a week-level review never makes."""
+
+    headline: str = Field(min_length=1, max_length=160)
+    synthesis_md: str = Field(min_length=1, max_length=12000)
+    follow_up_questions: list[str] = Field(max_length=3)
+    journal: RunJournalSummary
+    brief_update: BriefUpdate
+    refs: list[ArtifactRef]
+    plot_observations: list[PlotObservation]
+    history_used: list[HistoricalEvidenceUse]
 
 
 class DistillOutput(StrictDefaultsRequired):
@@ -309,8 +346,27 @@ class CoachStatusResponse(StrictDefaultsRequired):
     queued_count: int
 
 
+class CoachWatchItem(StrictDefaultsRequired):
+    text: str
+    source_id: str
+    ts: str
+
+
+class CoachJournalResponse(StrictDefaultsRequired):
+    entries: list[JournalEntry]
+    watch_items: list[CoachWatchItem]
+
+
 class CoachRunReviewRequest(StrictDefaultsRequired):
     run_id: str
+
+
+class CoachDayReviewRequest(StrictDefaultsRequired):
+    date: str
+
+
+class CoachWeekReviewRequest(StrictDefaultsRequired):
+    week_start: str
 
 
 class CoachThreadCreateRequest(StrictDefaultsRequired):
